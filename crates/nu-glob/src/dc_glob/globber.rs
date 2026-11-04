@@ -1,6 +1,7 @@
+use super::DcPattern;
 use super::compiler::{Instruction, Program};
-use super::matcher::{MatchResult, path_matches};
-use crate::{MatchOptions, Pattern};
+use super::matcher::{MatchResult, is_hidden, path_matches};
+use crate::MatchOptions;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -50,26 +51,11 @@ impl InterruptFlag {
     }
 }
 
-pub fn glob(
-    relative_to: impl Into<PathBuf>,
-    program: Arc<Program>,
-    fast_path: Option<RecursiveFastPath>,
-) -> impl Iterator<Item = anyhow::Result<PathBuf>> + Send {
-    glob_with_options(
-        relative_to,
-        program,
-        TraversalOptions::default(),
-        vec![],
-        InterruptFlag::default(),
-        fast_path,
-    )
-}
-
 pub fn glob_with_options(
     relative_to: impl Into<PathBuf>,
     program: Arc<Program>,
     options: TraversalOptions,
-    exclude_patterns: Vec<Pattern>,
+    exclude_patterns: Vec<DcPattern>,
     interrupt: InterruptFlag,
     fast_path: Option<RecursiveFastPath>,
 ) -> impl Iterator<Item = anyhow::Result<PathBuf>> + Send {
@@ -124,21 +110,18 @@ pub fn glob_with_options(
             fast_path: fast_path.as_ref(),
         };
 
-        // A literal pattern names the start path itself. A trailing `**` also
-        // includes the start directory, but other wildcard patterns must not
-        // gain an empty match for the walk root.
-        if literal_pattern || program.trailing_recursive {
+        // A literal pattern names the start path itself. A wildcard pattern, a trailing `**`
+        // included, never matches the walk root.
+        if literal_pattern {
             maybe_emit_start(&current_dir, &state);
-        }
-
-        if !literal_pattern {
+        } else {
             glob_to(&current_dir, 0, state)
         }
     });
     rx.into_iter()
 }
 
-/// Emit the traversal-start path for literal or trailing-recursive patterns.
+/// Emit the traversal-start path for a literal pattern, which names it.
 ///
 /// Walk depth for this candidate is 0 (the walk root). Uses the same exclude
 /// and `max_depth` gates as [`handle_path_candidate`].
@@ -158,7 +141,8 @@ fn maybe_emit_start(current_dir: &Path, state: &WalkState<'_>) {
         match_path.clone()
     };
 
-    let result = path_matches(&match_path, program);
+    // A literal pattern has no `**`, so the matcher never asks whether the path is a directory.
+    let result = path_matches(&match_path, false, program);
     if !result.valid_as_complete_match {
         return;
     }
@@ -176,32 +160,29 @@ fn maybe_emit_start(current_dir: &Path, state: &WalkState<'_>) {
     // Walk depth for the start directory is 0. `max_depth` is `Option<usize>`,
     // so depth 0 is always within range (same as `candidate_depth <= max` with 0).
 
-    // Literal paths may name files or symlinks; trailing `**` is directory-only.
-    let metadata = if program.trailing_recursive {
+    // Literal paths may name files or symlinks, unless a trailing separator asks for a
+    // directory, which a symlink can lead to.
+    let metadata = if program.dirs_only {
         fs::metadata(current_dir)
     } else {
         fs::symlink_metadata(current_dir)
     };
-    let metadata = match metadata {
-        Ok(metadata) => metadata,
+    match metadata {
+        Ok(metadata) if program.dirs_only && !metadata.is_dir() => return,
+        Ok(_) => {}
         Err(err) => {
             // Missing literal paths are ordinary non-matches. Other failures
-            // must still reach callers; recursive walks report their own errors.
-            if !program.trailing_recursive
-                && !matches!(
-                    err.kind(),
-                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
-                )
-            {
+            // must still reach callers.
+            if !matches!(
+                err.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) {
                 let _ = state
                     .tx
                     .send(Err(anyhow!("{}: {}", current_dir.display(), err)));
             }
             return;
         }
-    };
-    if program.trailing_recursive && !metadata.is_dir() {
-        return;
     }
 
     let _ = state.tx.send(Ok(output_path));
@@ -333,13 +314,18 @@ fn component_is_purely_literal(instructions: &[Instruction], start: usize) -> bo
             Instruction::LiteralString(_) => {
                 j += 1;
             }
-            // End of this component; all instructions so far were literal.
-            Instruction::Separator | Instruction::Complete => {
+            // End of this component; all instructions so far were literal. The separator
+            // before a trailing `**` compiles to `ComponentEnd`, so in `link/**` the literal
+            // `link` is a whole component and the walk starts inside it, even when it is a
+            // symlink to a directory.
+            Instruction::Separator
+            | Instruction::Complete
+            | Instruction::ComponentEnd
+            | Instruction::ComponentBoundary => {
                 return true;
             }
             // Any other instruction (Alternative, Jump, AnyCharacter, AnyString,
-            // Characters, Increment, BranchIfLessThan) is dynamic — this is a
-            // pattern component.
+            // Characters) is dynamic — this is a pattern component.
             _ => return false,
         }
     }
@@ -359,7 +345,8 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
                 handle_path_candidate(&parent_path, None, depth, true, state, scope)?;
             }
 
-            // All of the real results from the directory listing
+            // All of the real results from the directory listing, streamed in the order the
+            // filesystem returns them. Sorting would buffer the whole directory first.
             for result in results {
                 if state.interrupt.is_set() {
                     break;
@@ -420,7 +407,7 @@ struct WalkState<'a> {
     output_relative_to: &'a Path,
     match_relative_to: &'a Path,
     options: TraversalOptions,
-    exclude_patterns: &'a [Pattern],
+    exclude_patterns: &'a [DcPattern],
     has_excludes: bool,
     needs_parent_probe: bool,
     program: &'a Program,
@@ -488,8 +475,19 @@ fn recursive_fast_path_match(
     path: &Path,
     fast_path: &RecursiveFastPath,
     is_parent: bool,
+    is_dir: bool,
+    skip_hidden_in_recursion: bool,
 ) -> MatchResult {
+    // The `**` reaches every candidate below the literal prefix, so when it has to skip hidden
+    // directories, it drops them here as the matcher's `NotHiddenDir` would: no descent, no
+    // match.
+    let hidden_dir = skip_hidden_in_recursion
+        && is_dir
+        && path
+            .file_name()
+            .is_some_and(|name| is_hidden(name.as_encoded_bytes()));
     let valid_as_complete_match = !is_parent
+        && !hidden_dir
         && path.file_name().is_some_and(|name| match fast_path {
             RecursiveFastPath::Suffix(suffix) => name.as_encoded_bytes().ends_with(suffix),
             RecursiveFastPath::BasenamePattern(tokens) => {
@@ -500,7 +498,7 @@ fn recursive_fast_path_match(
     MatchResult {
         // For recursive basename-pattern fast paths, every directory is a valid
         // prefix because deeper descendants can still satisfy the file-name match.
-        valid_as_prefix: true,
+        valid_as_prefix: !hidden_dir,
         valid_as_complete_match,
     }
 }
@@ -535,20 +533,6 @@ fn handle_path_candidate<'a>(
         depth + 1
     };
 
-    let result = if program.case_insensitive {
-        path_matches(match_path_candidate, program)
-    } else if let Some(fast_path) = fast_path {
-        recursive_fast_path_match(match_path_candidate, fast_path, is_parent)
-    } else {
-        path_matches(match_path_candidate, program)
-    };
-    let match_options = MatchOptions::default();
-
-    let excluded = has_excludes
-        && exclude_patterns
-            .iter()
-            .any(|exclude| exclude.matches_path_with(match_path_candidate, match_options));
-
     let file_type = match file_type {
         Some(file_type) => file_type,
         None => match fs::symlink_metadata(path) {
@@ -567,6 +551,26 @@ fn handle_path_candidate<'a>(
     } else {
         file_type.is_dir()
     };
+
+    let result = if program.case_insensitive {
+        path_matches(match_path_candidate, is_dir, program)
+    } else if let Some(fast_path) = fast_path {
+        recursive_fast_path_match(
+            match_path_candidate,
+            fast_path,
+            is_parent,
+            is_dir,
+            program.skip_hidden_in_recursion,
+        )
+    } else {
+        path_matches(match_path_candidate, is_dir, program)
+    };
+    let match_options = MatchOptions::default();
+
+    let excluded = has_excludes
+        && exclude_patterns
+            .iter()
+            .any(|exclude| exclude.matches_path_with(match_path_candidate, match_options));
 
     let should_prune = if is_dir && has_excludes {
         let probe_candidate = match_path_candidate.join("__dc_glob_probe__");
@@ -594,11 +598,11 @@ fn handle_path_candidate<'a>(
     }
 
     // If it is valid as a complete match, send it out.
-    // Trailing bare `**` is directory-only (matches rust-lang/glob and nu-glob).
+    // A trailing bare `**` or separator is directory-only (matches rust-lang/glob and nu-glob).
     if result.valid_as_complete_match
         && !excluded
         && options.max_depth.is_none_or(|max| candidate_depth <= max)
-        && (!program.trailing_recursive || is_dir)
+        && (!program.dirs_only || is_dir)
     {
         state.tx.send(Ok(output_path_candidate.to_owned()))?;
     }

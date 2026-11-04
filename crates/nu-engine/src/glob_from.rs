@@ -45,9 +45,11 @@ pub fn glob_from(
         let components = path.components();
         let mut counter = 0;
 
+        // A component with pattern syntax ends the literal prefix. With dc-glob that includes
+        // `{`, so `{src,tests}` in `{src,tests}/**/*.rs` is matched as alternatives.
         for c in components {
             if let Component::Normal(os) = c
-                && nu_glob::is_glob_with_backend(os.to_string_lossy().as_ref())
+                && nu_glob::is_glob_component_with_backend(os.to_string_lossy().as_ref())
             {
                 break;
             }
@@ -85,18 +87,16 @@ pub fn glob_from(
         };
 
         if is_symlink {
-            (path.parent().map(|parent| parent.to_path_buf()), path)
+            // Escaped for the same reason as an existing path below.
+            let pattern = PathBuf::from(nu_glob::escape_with_backend(&path.to_string_lossy()));
+            (path.parent().map(|parent| parent.to_path_buf()), pattern)
         } else {
             let path = match absolute_with(path.clone(), cwd) {
+                // Our path might contain glob metacharacters too, or braces that dc-glob would
+                // read as alternatives, so escape it to make glob match it literally. Escaping
+                // leaves a path without them unchanged.
                 Ok(p) if p.exists() => {
-                    if nu_glob::is_glob_with_backend(p.to_string_lossy().as_ref()) {
-                        // our path might contain glob metacharacters too.
-                        // in such case, we need to escape our path to make
-                        // glob work successfully
-                        PathBuf::from(nu_glob::escape_with_backend(&p.to_string_lossy()))
-                    } else {
-                        p
-                    }
+                    PathBuf::from(nu_glob::escape_with_backend(&p.to_string_lossy()))
                 }
                 Ok(_) => {
                     return Err(IoError::new(
@@ -122,15 +122,20 @@ pub fn glob_from(
         // contains glob metacharacters keeps going through the walker even
         // when a same-named path exists (e.g. a file named `*` must not make
         // bare `*` / `ls` return only that one entry). See #18631.
-        let iter =
-            nu_glob::dc_glob::glob_from_interruptible(cwd, &pattern, signals.interrupt_flag())
-                .map_err(|e| {
-                    ShellError::Generic(GenericError::new(
-                        "Error extracting glob pattern",
-                        e.to_string(),
-                        span,
-                    ))
-                })?;
+        //
+        // The caller's match options carry over, so hidden names are skipped the same way the
+        // legacy backend skips them (`rm *` must not reach dotfiles).
+        let walk_options = nu_glob::dc_glob::GlobWalkOptions {
+            interrupt: signals.interrupt_flag(),
+            ..nu_glob::dc_glob::GlobWalkOptions::nu_glob(options.unwrap_or_default())
+        };
+        let iter = nu_glob::dc_glob::glob_with(cwd, &pattern, &walk_options).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error extracting glob pattern",
+                e.to_string(),
+                span,
+            ))
+        })?;
 
         // dc-glob returns paths relative to the traversal start directory.
         // Join them with `prefix` to produce absolute paths, matching the
@@ -193,12 +198,12 @@ fn keep_allowed(
 /// `.*` and `src/.cache/*` spell the dot out; so does the literal part of the pattern, the
 /// directory the glob starts from, so `.cache/*` and a glob run inside a hidden directory work.
 ///
-/// The legacy backend already holds `*`, `?` and `[...]` to this through
-/// `require_literal_leading_dot`, but its `**` walks into hidden directories, and dc-glob takes no
-/// match options, so `glob_from` checks every match here instead.
+/// Both backends already hold `*`, `?` and `[...]` to this through
+/// `require_literal_leading_dot`, but their `**` walks into hidden directories, so `glob_from`
+/// checks every match here instead.
 ///
-/// Only a whole `**` part counts as recursive. A dc-glob part like `a**` or `{.a,b}` counts as
-/// one name that doesn't spell a dot, so its hidden matches are dropped rather than kept.
+/// Only a whole `**` part counts as recursive. A dc-glob part like `{.a,b}` counts as one name
+/// that doesn't spell a dot, so its hidden matches are dropped rather than kept.
 struct HiddenNameFilter {
     /// The directory the glob starts from.
     start: PathBuf,
@@ -288,6 +293,7 @@ fn dots_spelled_out(parts: &[GlobPart], names: &[bool]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{HiddenNameFilter, glob_from};
+    use nu_glob::MatchOptions;
     use nu_protocol::{NuGlob, Signals, Span, Spanned};
     use rstest::rstest;
     use std::fs;
@@ -567,6 +573,65 @@ mod tests {
         assert_eq!(
             names,
             vec!["foo*".to_string(), "foo1".to_string(), "foo2".to_string()]
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Collect what `glob_from` yields for `pattern` under `root`, as paths relative to `root`.
+    fn glob_relative(root: &Path, pattern: &str, options: Option<MatchOptions>) -> Vec<PathBuf> {
+        let pattern = Spanned {
+            item: NuGlob::Expand(pattern.to_string()),
+            span: Span::test_data(),
+        };
+        let (_, iter) = glob_from(&pattern, root, Span::test_data(), options, Signals::empty())
+            .expect("glob_from should succeed");
+        let mut paths: Vec<PathBuf> = iter
+            .map(|path| {
+                let path = path.expect("glob entry");
+                path.strip_prefix(root).unwrap_or(&path).to_path_buf()
+            })
+            .collect();
+        paths.sort();
+        paths
+    }
+
+    /// A trailing `**` never yields the directory it starts from, as with nu-glob, so
+    /// `rm -r **` can't reach the current directory.
+    #[test]
+    #[exp(nu_experimental::DC_GLOB)]
+    fn glob_from_dc_glob_double_star_skips_its_start() {
+        let root = unique_test_dir("double_star_start");
+        write_file(&root.join("a/b/file.txt"));
+
+        assert_eq!(
+            glob_relative(&root, "**", None),
+            [PathBuf::from("a"), PathBuf::from("a/b")]
+        );
+        assert_eq!(glob_relative(&root, "a/**", None), [PathBuf::from("a/b")]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The caller's `require_literal_leading_dot` reaches dc-glob, so `rm *` keeps dotfiles.
+    #[test]
+    #[exp(nu_experimental::DC_GLOB)]
+    fn glob_from_dc_glob_honors_literal_leading_dot() {
+        let root = unique_test_dir("literal_leading_dot");
+        write_file(&root.join("visible"));
+        write_file(&root.join(".hidden"));
+        let options = MatchOptions {
+            require_literal_leading_dot: true,
+            ..MatchOptions::default()
+        };
+
+        assert_eq!(
+            glob_relative(&root, "*", Some(options)),
+            [PathBuf::from("visible")]
+        );
+        assert_eq!(
+            glob_relative(&root, ".*", Some(options)),
+            [PathBuf::from(".hidden")]
         );
 
         let _ = fs::remove_dir_all(&root);

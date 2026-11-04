@@ -85,6 +85,57 @@ fn test_du_output_columns() -> Result {
         .expect_value_eq(["path", "apparent", "physical", "directories", "files"])
 }
 
+/// `--exclude` matches each file's full path, and `*` also matches `/`, so `*.txt` leaves out the
+/// `.txt` files at every depth, with dc-glob on and off.
+fn du_exclude_matches_at_any_depth() -> Result {
+    Playground::setup("du_exclude_any_depth", |dirs, sandbox| {
+        sandbox
+            .within("data")
+            .with_files(&[EmptyFile("a.txt"), EmptyFile("b.rs")]);
+        sandbox
+            .within("data/sub")
+            .with_files(&[EmptyFile("c.txt"), EmptyFile("d.toml")]);
+
+        test()
+            .cwd(dirs.test())
+            .run(
+                "let data = (du data -l --exclude '*.txt' | get 0); \
+                 $data.files.path ++ $data.directories.0.files.path | path basename | sort",
+            )
+            .expect_value_eq(["b.rs", "d.toml"])
+    })
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn du_exclude_matches_at_any_depth_legacy_glob() -> Result {
+    du_exclude_matches_at_any_depth()
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn du_exclude_matches_at_any_depth_dc_glob() -> Result {
+    du_exclude_matches_at_any_depth()
+}
+
+/// With dc-glob, `--exclude` takes `{a,b}` alternatives.
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn du_dc_glob_exclude_braces() -> Result {
+    Playground::setup("du_exclude_braces", |dirs, sandbox| {
+        sandbox.within("data").with_files(&[
+            EmptyFile("a.txt"),
+            EmptyFile("b.rs"),
+            EmptyFile("c.toml"),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run("du data -l --exclude '*.{txt,toml}' | get 0.files.path | path basename")
+            .expect_value_eq(["b.rs"])
+    })
+}
+
 #[nu_test_support::test]
 #[exp(nu_experimental::DC_GLOB = false)]
 fn du_wildcards_legacy_glob() -> Result {

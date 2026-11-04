@@ -14,65 +14,102 @@ mod parser;
 const GLOB_CHARS: &[char] = &['*', '?', '['];
 
 /// Options for dc-glob filesystem traversal.
+///
+/// Patterns follow nu-glob's rules, with `{a,b}` alternatives added: a trailing `**` matches the
+/// directories below its prefix but not the prefix itself, and `\` is a literal character.
 #[derive(Debug, Clone, Default)]
 pub struct GlobWalkOptions {
     /// Maximum recursion depth. `None` means unbounded.
     pub max_depth: Option<usize>,
     /// Follow directory symlinks while traversing.
     pub follow_symlinks: bool,
-    /// Exclusion glob patterns used to filter and prune traversal.
+    /// Exclusion glob patterns used to filter and prune traversal. They match the way
+    /// [`DcPattern`] does: nu-glob's rules, `{a,b}` included.
     pub excludes: Vec<String>,
     /// Optional interrupt flag. When set to `true` the traversal stops as soon
     /// as possible and the iterator ends.
     pub interrupt: Option<Arc<AtomicBool>>,
     /// When `true`, match path components case-insensitively (ASCII only).
     pub ignore_case: bool,
+    /// When `true`, `*`, `?` and `[...]` don't match a `.` at the start of a name, so a hidden
+    /// name matches only where the pattern spells its dot out. Mirrors
+    /// [`MatchOptions::require_literal_leading_dot`](crate::MatchOptions).
+    pub require_literal_leading_dot: bool,
+    /// When `true`, `**` drops a directory whose name starts with `.`: it neither descends into
+    /// it nor lets the rest of the pattern match it. Mirrors
+    /// [`MatchOptions::recursive_match_hidden_dir`](crate::MatchOptions) set to `false`.
+    pub skip_hidden_in_recursion: bool,
+}
+
+impl GlobWalkOptions {
+    /// Options that give the results nu-glob gives for `options`: directory symlinks are
+    /// followed, and case and hidden names are handled the way `options` asks.
+    pub fn nu_glob(options: crate::MatchOptions) -> Self {
+        GlobWalkOptions {
+            follow_symlinks: true,
+            ignore_case: !options.case_sensitive,
+            require_literal_leading_dot: options.require_literal_leading_dot,
+            skip_hidden_in_recursion: !options.recursive_match_hidden_dir,
+            ..GlobWalkOptions::default()
+        }
+    }
 }
 
 /// Return true if the given pattern contains glob metacharacters.
+///
+/// Braces don't count: a word like `HEAD@{1}` or `{a,b}` without `*`, `?` or `[` is not
+/// expanded, so it reaches commands and external programs unchanged.
 pub fn is_glob(pattern: &str) -> bool {
     pattern.contains(GLOB_CHARS)
 }
 
-/// Escape glob metacharacters so a pattern is matched literally.
-pub fn escape(pattern: &str) -> String {
-    crate::Pattern::escape(pattern)
+/// Return true if a path component of a glob has pattern syntax, so the walk has to match it
+/// rather than start below it.
+///
+/// Unlike [`is_glob`], `{` counts, so `{src,tests}` in `{src,tests}/**/*.rs` is matched as
+/// alternatives rather than taken as a directory name.
+pub fn is_glob_component(component: &str) -> bool {
+    is_glob(component) || component.contains('{')
 }
 
-/// Expand `pattern` relative to `relative_to` using the experimental dc-glob backend.
+/// Escape glob metacharacters, braces included, so a pattern is matched literally.
+pub fn escape(pattern: &str) -> String {
+    let mut escaped = String::with_capacity(pattern.len());
+    for ch in pattern.chars() {
+        if matches!(ch, '?' | '*' | '[' | ']' | '{' | '}') {
+            escaped.push('[');
+            escaped.push(ch);
+            escaped.push(']');
+        } else {
+            escaped.push(ch);
+        }
+    }
+    escaped
+}
+
+/// Reject the patterns nu-glob rejects, such as `***`, `a**` or an unclosed `[`.
+///
+/// nu-glob parses the pattern both as a whole and one path component at a time, so `a/[b/c]` is
+/// rejected too. Braces are literal to nu-glob, so `**` can't be part of `{...}`.
+fn check_nu_glob_syntax(pattern: &str) -> anyhow::Result<()> {
+    crate::Pattern::new(pattern)?;
+    for component in pattern.split(std::path::is_separator) {
+        crate::Pattern::new(component)?;
+    }
+    Ok(())
+}
+
+/// Expand `pattern` relative to `relative_to` using the experimental dc-glob backend, with the
+/// results nu-glob's `glob` gives: directory symlinks are followed.
 pub fn glob_from(
     relative_to: impl AsRef<Path>,
     pattern: impl AsRef<str>,
 ) -> anyhow::Result<Box<dyn Iterator<Item = anyhow::Result<PathBuf>> + Send>> {
-    let pattern = pattern.as_ref().to_owned();
-    let parsed = parser::parse(&pattern);
-    let fast_path = detect_recursive_suffix_fast_path(&parsed);
-    let compiled = compiler::compile(&parsed)?;
-    Ok(Box::new(globber::glob(
-        relative_to.as_ref().to_path_buf(),
-        Arc::new(compiled),
-        fast_path,
-    )))
-}
-
-/// Like [`glob_from`] but accepts an interrupt flag so the caller can cancel the traversal.
-pub fn glob_from_interruptible(
-    relative_to: impl AsRef<Path>,
-    pattern: impl AsRef<str>,
-    interrupt: Option<Arc<AtomicBool>>,
-) -> anyhow::Result<Box<dyn Iterator<Item = anyhow::Result<PathBuf>> + Send>> {
-    let pattern = pattern.as_ref().to_owned();
-    let parsed = parser::parse(&pattern);
-    let fast_path = detect_recursive_suffix_fast_path(&parsed);
-    let compiled = compiler::compile(&parsed)?;
-    Ok(Box::new(globber::glob_with_options(
-        relative_to.as_ref().to_path_buf(),
-        Arc::new(compiled),
-        globber::TraversalOptions::default(),
-        vec![],
-        globber::InterruptFlag(interrupt),
-        fast_path,
-    )))
+    glob_with(
+        relative_to,
+        pattern,
+        &GlobWalkOptions::nu_glob(crate::MatchOptions::default()),
+    )
 }
 
 /// Expand `pattern` relative to `relative_to` using dc-glob with traversal options.
@@ -82,17 +119,27 @@ pub fn glob_with(
     options: &GlobWalkOptions,
 ) -> anyhow::Result<Box<dyn Iterator<Item = anyhow::Result<PathBuf>> + Send>> {
     let pattern = pattern.as_ref().to_owned();
+    // A mistyped `rm ***` fails rather than expanding.
+    check_nu_glob_syntax(&pattern)?;
     let parsed = parser::parse(&pattern);
-    let fast_path = detect_recursive_suffix_fast_path(&parsed);
-    let include_program = compiler::compile_with_options(&parsed, options.ignore_case)?;
+    // The fast path compares only the file name, which can't tell whether a leading `.` came
+    // from a literal in the pattern, so the matcher handles those patterns.
+    let fast_path = if options.require_literal_leading_dot {
+        None
+    } else {
+        detect_recursive_suffix_fast_path(&parsed)
+    };
+    let mut include_program = compiler::compile_with_options(&parsed, options.ignore_case)?;
+    // As with nu-glob, a pattern that ends with a separator, like `*/`, matches only
+    // directories. Parsing drops that separator, so it is checked here.
+    include_program.dirs_only |= pattern.ends_with(std::path::is_separator);
+    include_program.literal_leading_dot = options.require_literal_leading_dot;
+    include_program.skip_hidden_in_recursion = options.skip_hidden_in_recursion;
 
     let exclude_programs = options
         .excludes
         .iter()
-        .map(|exclude| Pattern::new(exclude).map_err(anyhow::Error::from))
-        .collect::<Vec<_>>();
-    let exclude_programs = exclude_programs
-        .into_iter()
+        .map(|exclude| DcPattern::new(exclude))
         .collect::<anyhow::Result<Vec<_>>>()?;
 
     Ok(Box::new(globber::glob_with_options(
@@ -187,17 +234,20 @@ pub fn debug_compile(pattern: impl AsRef<str>) -> anyhow::Result<String> {
 pub fn debug_matches(pattern: impl AsRef<str>, path: impl AsRef<Path>) -> anyhow::Result<bool> {
     let parsed = parser::parse(pattern.as_ref());
     let compiled = compiler::compile(&parsed)?;
-    Ok(matcher::path_matches(path.as_ref(), &compiled).valid_as_complete_match)
+    Ok(matcher::path_matches(path.as_ref(), false, &compiled).valid_as_complete_match)
 }
 
-/// A compiled dc-glob pattern for repeated path-matching without filesystem traversal.
+/// A glob pattern for matching paths without filesystem traversal, as `du --exclude`,
+/// `watch --glob` and dc-glob's excludes do.
 ///
-/// Unlike the free-function `debug_matches`, this compiles the pattern once and can be
-/// reused efficiently across many paths.
+/// It matches the way nu-glob's [`Pattern`] does, with `{a,b}` alternatives added: each
+/// combination of choices is a nu-glob pattern, and a path matches when one of them does. So as
+/// with nu-glob, `*` also matches `/` here, and `target/` doesn't match `target`.
 #[derive(Clone)]
 pub struct DcPattern {
     pattern: String,
-    compiled: std::sync::Arc<compiler::Program>,
+    choices: Vec<Pattern>,
+    options: crate::MatchOptions,
 }
 
 impl std::fmt::Debug for DcPattern {
@@ -209,29 +259,45 @@ impl std::fmt::Debug for DcPattern {
 }
 
 impl DcPattern {
-    /// Compile a glob pattern. Returns an error if the pattern is invalid.
+    /// Compile a glob pattern. Returns an error if the pattern is invalid, as nu-glob's
+    /// [`Pattern::new`] does.
     pub fn new(pattern: &str) -> anyhow::Result<Self> {
-        let parsed = parser::parse(pattern);
-        let compiled = compiler::compile(&parsed)?;
-        Ok(DcPattern {
-            pattern: pattern.to_owned(),
-            compiled: std::sync::Arc::new(compiled),
-        })
+        Self::compile(pattern, false)
     }
 
     /// Compile a glob pattern with case-insensitive matching (ASCII only).
     pub fn with_ignore_case(pattern: &str) -> anyhow::Result<Self> {
-        let parsed = parser::parse(pattern);
-        let compiled = compiler::compile_with_options(&parsed, true)?;
+        Self::compile(pattern, true)
+    }
+
+    fn compile(pattern: &str, case_insensitive: bool) -> anyhow::Result<Self> {
+        // Braces are literal to nu-glob, so this also rejects `**` inside `{...}`.
+        Pattern::new(pattern)?;
+        let choices = parser::expand_alternatives(pattern)?
+            .iter()
+            .map(|choice| Pattern::new(choice))
+            .collect::<Result<_, _>>()?;
         Ok(DcPattern {
             pattern: pattern.to_owned(),
-            compiled: std::sync::Arc::new(compiled),
+            choices,
+            options: crate::MatchOptions {
+                case_sensitive: !case_insensitive,
+                ..crate::MatchOptions::default()
+            },
         })
     }
 
     /// Return `true` if the given path matches this pattern.
     pub fn matches_path(&self, path: &Path) -> bool {
-        matcher::path_matches(path, &self.compiled).valid_as_complete_match
+        self.matches_path_with(path, self.options)
+    }
+
+    /// Return `true` if the given path matches this pattern with `options`, as
+    /// [`Pattern::matches_path_with`] does.
+    pub fn matches_path_with(&self, path: &Path, options: crate::MatchOptions) -> bool {
+        self.choices
+            .iter()
+            .any(|choice| choice.matches_path_with(path, options))
     }
 }
 
@@ -933,29 +999,54 @@ mod tests {
         }
     }
 
+    /// As in bash, zsh and fish, braces without a comma between them are literal, and they stay
+    /// one literal with the text around them, so the globber can treat it as a path component.
     #[test]
-    fn parser_repeat_exact() {
-        let p = parser::parse("<*:3>");
-        assert_eq!(p.nodes.len(), 1);
-        match &p.nodes[0] {
-            AstNode::Repeat { min, max, .. } => {
-                assert_eq!(*min, 3);
-                assert_eq!(*max, 3);
+    fn parser_brace_group_without_comma_is_literal() {
+        for pattern in ["a{b}", "{}", "HEAD@{1}", "{a", "a}"] {
+            let p = parser::parse(pattern);
+            match p.nodes.as_slice() {
+                [AstNode::LiteralString(bytes)] => assert_eq!(bytes, pattern.as_bytes()),
+                other => panic!("`{pattern}` should be one literal, got {other:?}"),
             }
-            other => panic!("expected Repeat, got {other:?}"),
         }
     }
 
     #[test]
-    fn parser_repeat_range() {
-        let p = parser::parse("<*:1,4>");
-        assert_eq!(p.nodes.len(), 1);
-        match &p.nodes[0] {
-            AstNode::Repeat { min, max, .. } => {
-                assert_eq!(*min, 1);
-                assert_eq!(*max, 4);
+    fn parser_literal_group_inside_alternatives_keeps_the_outer_group_open() {
+        let p = parser::parse("{a,{b}}");
+        match p.nodes.as_slice() {
+            [AstNode::Alternatives { choices }] => {
+                let choices: Vec<_> = choices
+                    .iter()
+                    .map(|choice| match choice.nodes.as_slice() {
+                        [AstNode::LiteralString(bytes)] => {
+                            String::from_utf8_lossy(bytes).into_owned()
+                        }
+                        other => panic!("expected one literal, got {other:?}"),
+                    })
+                    .collect();
+                assert_eq!(choices, ["a", "{b}"]);
             }
-            other => panic!("expected Repeat, got {other:?}"),
+            other => panic!("expected Alternatives, got {other:?}"),
+        }
+    }
+
+    /// wax's `<x:n,m>` repeats aren't pattern syntax, and `\` doesn't escape, as with nu-glob.
+    #[test]
+    fn parser_repeats_and_backslashes_are_literal() {
+        let p = parser::parse("<a:3>");
+        match p.nodes.as_slice() {
+            [AstNode::LiteralString(bytes)] => assert_eq!(bytes, b"<a:3>"),
+            other => panic!("expected one literal, got {other:?}"),
+        }
+        #[cfg(not(windows))]
+        {
+            let p = parser::parse(r"a\*");
+            match p.nodes.as_slice() {
+                [AstNode::LiteralString(bytes), AstNode::Wildcard] => assert_eq!(bytes, br"a\"),
+                other => panic!("expected a literal and a wildcard, got {other:?}"),
+            }
         }
     }
 
@@ -1043,40 +1134,31 @@ mod tests {
                 .any(|i| matches!(i, Instruction::Separator)),
             "recurse must produce Separator instruction"
         );
-        assert!(
-            prog.trailing_recursive,
-            "bare ** must set trailing_recursive"
-        );
+        assert!(prog.dirs_only, "bare ** must set dirs_only");
     }
 
     #[test]
-    fn compiler_star_star_slash_star_is_not_trailing_recursive() {
+    fn compiler_star_star_slash_star_is_not_dirs_only() {
         let prog = compile_pattern("**/*");
         assert!(
-            !prog.trailing_recursive,
+            !prog.dirs_only,
             "**/* must not be treated as directory-only trailing **"
         );
     }
 
     #[test]
-    fn compiler_prefixed_trailing_recursive_sets_flag() {
+    fn compiler_prefixed_dirs_only_sets_flag() {
         let prog = compile_pattern("foo/**");
-        assert!(
-            prog.trailing_recursive,
-            "foo/** must set trailing_recursive"
-        );
+        assert!(prog.dirs_only, "foo/** must set dirs_only");
     }
 
     #[test]
-    fn compiler_multi_component_trailing_recursive_keeps_intermediate_separators() {
+    fn compiler_multi_component_dirs_only_keeps_intermediate_separators() {
         // Regression: separator elision must only drop the `/` immediately before
         // pure terminal `**`, not every `/` in `a/b/**` (broke `ls **` via absolute
         // `{cwd}/**` rewriting in glob_from).
         let prog = compile_pattern("a/b/**");
-        assert!(
-            prog.trailing_recursive,
-            "a/b/** must set trailing_recursive"
-        );
+        assert!(prog.dirs_only, "a/b/** must set dirs_only");
 
         let mut saw_a = false;
         let mut saw_sep_after_a = false;
@@ -1104,28 +1186,6 @@ mod tests {
             }
         }
         assert!(saw_a && saw_b && saw_boundary, "unexpected program: {prog}");
-    }
-
-    #[test]
-    fn compiler_nested_terminal_recurse_in_alternatives() {
-        // `{**}` should compile a terminal recurse gadget and be dir-only.
-        let prog = compile_pattern("{**}");
-        assert!(
-            prog.trailing_recursive,
-            "{{**}} must set trailing_recursive"
-        );
-        // Mixed alternatives: do not force directory-only for non-** branches.
-        let mixed = compile_pattern("{**,README.md}");
-        assert!(
-            !mixed.trailing_recursive,
-            "mixed {{**,file}} must not force directory-only expansion"
-        );
-        // Prefixed alternative of only trailing **.
-        let nested = compile_pattern("foo/{**}");
-        assert!(
-            nested.trailing_recursive,
-            "foo/{{**}} must set trailing_recursive"
-        );
     }
 
     #[test]
@@ -1172,23 +1232,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn compiler_repeat_produces_increment_and_branch_instructions() {
-        let prog = compile_pattern("<*:2,4>");
-        assert!(
-            prog.instructions
-                .iter()
-                .any(|i| matches!(i, Instruction::Increment(_))),
-            "repeat must produce Increment instruction"
-        );
-        assert!(
-            prog.instructions
-                .iter()
-                .any(|i| matches!(i, Instruction::BranchIfLessThan(..))),
-            "repeat must produce BranchIfLessThan instruction"
-        );
-    }
-
     // ── matcher tests ─────────────────────────────────────────────────────────
 
     fn compile_for_match(pattern: &str) -> Program {
@@ -1198,12 +1241,12 @@ mod tests {
 
     fn matches_complete(pattern: &str, path: &str) -> bool {
         let prog = compile_for_match(pattern);
-        path_matches(Path::new(path), &prog).valid_as_complete_match
+        path_matches(Path::new(path), false, &prog).valid_as_complete_match
     }
 
     fn matches_prefix(pattern: &str, path: &str) -> bool {
         let prog = compile_for_match(pattern);
-        path_matches(Path::new(path), &prog).valid_as_prefix
+        path_matches(Path::new(path), false, &prog).valid_as_prefix
     }
 
     #[test]
@@ -1287,8 +1330,8 @@ mod tests {
 
     #[test]
     fn matcher_bare_double_star_matches_any_depth() {
-        // Bare ** matches the empty path (start dir) and nested components.
-        assert!(matches_complete("**", ""));
+        // As with nu-glob, bare ** needs a component, so the empty path (start dir) doesn't match.
+        assert!(!matches_complete("**", ""));
         assert!(matches_complete("**", "1"));
         assert!(matches_complete("**", "1/2"));
         assert!(matches_complete("**", "1/2/3"));
@@ -1303,24 +1346,15 @@ mod tests {
     }
 
     #[test]
-    fn matcher_prefixed_trailing_double_star_matches_directory_itself() {
-        // `foo/**` must complete-match `foo` (zero further components after Separator).
-        assert!(matches_complete("foo/**", "foo"));
+    fn matcher_prefixed_trailing_double_star_needs_a_component() {
+        // As with nu-glob, `foo/**` matches what is below `foo`, not `foo` itself.
+        assert!(!matches_complete("foo/**", "foo"));
         assert!(matches_complete("foo/**", "foo/bar"));
         assert!(matches_complete("foo/**", "foo/bar/baz"));
         assert!(!matches_complete("foo/**", "bar"));
         assert!(!matches_complete("foo/**", "foobar"));
         // #18600 guard still holds after Separator-at-EOF advance.
         assert!(!matches_complete("*/*", "1"));
-    }
-
-    #[test]
-    fn matcher_nested_terminal_double_star_in_alternatives() {
-        assert!(matches_complete("{**}", ""));
-        assert!(matches_complete("{**}", "a/b"));
-        assert!(matches_complete("foo/{**}", "foo"));
-        assert!(matches_complete("foo/{**}", "foo/bar"));
-        assert!(!matches_complete("foo/{**}", "bar"));
     }
 
     #[test]
@@ -1366,11 +1400,16 @@ mod tests {
     }
 
     #[test]
-    fn matcher_repeat_exact_count() {
-        // <a:3> means repeat literal "a" exactly 3 times → matches "aaa" but not "aa"
-        assert!(matches_complete("<a:3>", "aaa"));
-        assert!(!matches_complete("<a:3>", "aa"));
-        assert!(!matches_complete("<a:3>", "aaaa"));
+    fn matcher_braces_alternate_only_with_a_comma() {
+        assert!(matches_complete("*.{rs,toml}", "a.rs"));
+        assert!(matches_complete("*.{rs,toml}", "a.toml"));
+        assert!(!matches_complete("*.{rs,toml}", "a.txt"));
+        assert!(matches_complete("{a,{b}}", "{b}"));
+        assert!(matches_complete("a{b}*", "a{b}.txt"));
+        assert!(!matches_complete("a{b}*", "ab.txt"));
+        // wax's repeats are gone: `<a:3>` names itself.
+        assert!(matches_complete("<a:3>", "<a:3>"));
+        assert!(!matches_complete("<a:3>", "aaa"));
     }
 
     // ── traversal start dir tests ──────────────────────────────────────────────
@@ -1388,14 +1427,14 @@ mod tests {
 
         let options = GlobWalkOptions::default();
 
-        // bare ** → start dir + nested directories only (not files)
+        // bare ** → nested directories only, as with nu-glob: not the start, not files
         let paths = collect_ok_paths(
             glob_with(root.as_path(), "**", &options).expect("glob ** should succeed"),
         )
         .expect("collect **");
         assert!(
-            paths.iter().any(|p| p.is_empty()),
-            "bare ** should include the start directory, got {paths:?}"
+            !paths.iter().any(|p| p.is_empty()),
+            "bare ** must not include the start directory, got {paths:?}"
         );
         assert!(paths.contains(&expected_path(&["1"])));
         assert!(paths.contains(&expected_path(&["1", "2"])));
@@ -1443,8 +1482,9 @@ mod tests {
     }
 
     #[test]
-    fn glob_with_prefixed_trailing_double_star_emits_prefix_dir() {
-        // `foo/**` must include `foo` itself (not only descendants), directories only.
+    fn glob_with_prefixed_trailing_double_star_lists_dirs_below_prefix() {
+        // As with nu-glob, `foo/**` lists the directories below `foo`, not `foo` itself, and no
+        // files.
         let root = unique_test_dir("prefixed_trailing");
         fs::create_dir_all(root.join("foo/bar")).expect("failed to create nested dirs");
         write_file(&root.join("foo/bar/file.txt"));
@@ -1456,24 +1496,14 @@ mod tests {
         )
         .expect("collect foo/**");
 
-        assert!(
-            paths.contains(&expected_path(&["foo"])),
-            "foo/** should include the prefix directory itself, got {paths:?}"
-        );
-        assert!(paths.contains(&expected_path(&["foo", "bar"])));
-        assert!(
-            !paths
-                .iter()
-                .any(|p| p.ends_with("file.txt") || p.ends_with("sibling.txt")),
-            "foo/** must not list files, got {paths:?}"
-        );
+        assert_eq!(paths, vec![expected_path(&["foo", "bar"])]);
 
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn glob_with_multi_component_trailing_double_star() {
-        // `a/b/**` must keep intermediate separators and emit a/b + nested dirs only.
+        // `a/b/**` must keep intermediate separators and emit the dirs below a/b only.
         let root = unique_test_dir("multi_component_trailing");
         fs::create_dir_all(root.join("a/b/c")).expect("failed to create nested dirs");
         write_file(&root.join("a/b/c/file.txt"));
@@ -1486,8 +1516,8 @@ mod tests {
         .expect("collect a/b/**");
 
         assert!(
-            paths.contains(&expected_path(&["a", "b"])),
-            "a/b/** should include the prefix directory itself, got {paths:?}"
+            !paths.contains(&expected_path(&["a", "b"])),
+            "a/b/** must not include the prefix directory itself, got {paths:?}"
         );
         assert!(paths.contains(&expected_path(&["a", "b", "c"])));
         assert!(
@@ -1520,11 +1550,11 @@ mod tests {
 
         let root_str = root.to_string_lossy().to_string();
         assert!(
-            paths.iter().any(|p| {
+            !paths.iter().any(|p| {
                 let p = p.trim_end_matches(['/', '\\']);
                 p == root_str.trim_end_matches(['/', '\\'])
             }),
-            "absolute /** should include the start directory, got {paths:?}"
+            "absolute /** must not include the start directory, got {paths:?}"
         );
         assert!(
             paths
@@ -1572,7 +1602,7 @@ mod tests {
             "excluded foo/** must not emit foo or descendants, got {paths:?}"
         );
 
-        // Bare `**` with nested excludes still emits the start directory.
+        // Bare `**` with nested excludes lists the other directories, and never the start.
         let options = GlobWalkOptions {
             excludes: vec!["1".to_string(), "1/**".to_string()],
             ..Default::default()
@@ -1582,8 +1612,8 @@ mod tests {
         )
         .expect("collect ** with excludes");
         assert!(
-            paths.iter().any(|p| p.is_empty()),
-            "bare ** should still emit start dir when only nested paths are excluded, got {paths:?}"
+            !paths.iter().any(|p| p.is_empty()),
+            "bare ** should not emit the start dir, got {paths:?}"
         );
         assert!(!paths.contains(&expected_path(&["1"])));
         assert!(paths.contains(&expected_path(&["other"])));
@@ -1707,6 +1737,311 @@ mod tests {
             .into_owned();
 
         assert_eq!(paths[0], expected);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// dc-glob with [`GlobWalkOptions::nu_glob`] returns the same paths as nu-glob, for every
+    /// option set a command passes: none (`open`, external arguments), a literal leading dot
+    /// (`rm`, `cp`, `mv`, `du`) and no hidden names in recursion (`ls`). Order is not compared.
+    ///
+    /// The one difference kept on purpose: for a component that starts with `.*`, nu-glob also
+    /// returns `.` and `..`, and dc-glob doesn't, like zsh, fish and bash 5.2. Those two entries
+    /// are dropped from nu-glob's results before comparing.
+    #[cfg(unix)]
+    #[test]
+    fn dc_glob_matches_legacy_nu_glob() {
+        let root = unique_test_dir("nu_glob_parity");
+        for file in [
+            "top.txt",
+            ".hidden",
+            ".dot.txt",
+            "a/one.rs",
+            "a/.hidden_in_a",
+            "a/b/two.rs",
+            "a/b/c/three.rs",
+            "a/.hd/inner.rs",
+            "a/b/.cache/f.rs",
+            ".hdir/x.rs",
+            "a]c",
+            "a[c",
+            "a,b",
+            "a{b}",
+            "sp ace.txt",
+        ] {
+            write_file(&root.join(file));
+        }
+        fs::create_dir_all(root.join("empty")).expect("create empty dir");
+        std::os::unix::fs::symlink("top.txt", root.join("link_file")).expect("file symlink");
+        std::os::unix::fs::symlink("a", root.join("link_dir")).expect("dir symlink");
+        std::os::unix::fs::symlink("nope", root.join("dangling")).expect("dangling symlink");
+
+        let option_sets = [
+            ("default", crate::MatchOptions::default()),
+            (
+                "literal leading dot",
+                crate::MatchOptions {
+                    require_literal_leading_dot: true,
+                    ..crate::MatchOptions::default()
+                },
+            ),
+            (
+                "no hidden recursion",
+                crate::MatchOptions {
+                    recursive_match_hidden_dir: false,
+                    ..crate::MatchOptions::default()
+                },
+            ),
+        ];
+        let patterns = [
+            "*",
+            "**",
+            "**/*",
+            "*/*",
+            "a/*",
+            "a/**",
+            "a/**/*",
+            "**/*.rs",
+            "a/**/*.rs",
+            "?",
+            "??",
+            "[ab]*",
+            "[!a]*",
+            "**/.h*",
+            "**/.*",
+            "**/b",
+            "**/b/*",
+            "**/*/*",
+            "**/b/.cache/*",
+            "**/.cache/*",
+            "**/b/.*",
+            "**/*/.*",
+            "a/**/.cache",
+            "*/b/**",
+            "*/**",
+            "*/",
+            "a/*/",
+            "a/b/",
+            "a/one.rs/",
+            "link_dir/",
+            "**/",
+            "a/**/",
+            "**/*/**",
+            "?/**",
+            "[at]*/**",
+            "link_dir/*",
+            "link_dir/**",
+            "empty/*",
+            "nope*",
+            "*.nope",
+            "**/nope",
+            "a]c",
+            "a{b}",
+            "a,b",
+            "a/b/../*",
+            ".*",
+            "a/.*",
+            "*/.*",
+        ];
+
+        for (name, options) in option_sets {
+            for pattern in patterns {
+                let absolute = format!("{}/{pattern}", root.display());
+                let mut legacy: Vec<PathBuf> =
+                    crate::glob_with(&absolute, options, crate::Uninterruptible)
+                        .expect("legacy pattern should parse")
+                        .map(|path| path.expect("legacy glob entry"))
+                        .filter(|path| {
+                            let path = path.to_string_lossy();
+                            !path.ends_with("/.") && !path.ends_with("/..")
+                        })
+                        .collect();
+                let mut dc: Vec<PathBuf> =
+                    glob_with(&root, &absolute, &GlobWalkOptions::nu_glob(options))
+                        .expect("dc-glob pattern should compile")
+                        .map(|path| path.expect("dc-glob entry"))
+                        .collect();
+                // nu-glob returns some paths twice, such as `a/b/c` for `**/*/**`.
+                legacy.sort();
+                legacy.dedup();
+                dc.sort();
+                assert_eq!(dc, legacy, "`{pattern}` with {name} options");
+            }
+        }
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// dc-glob rejects the patterns nu-glob rejects, so a mistyped `rm ***` fails instead of
+    /// expanding like `**/*`.
+    #[test]
+    fn dc_glob_rejects_what_nu_glob_rejects() {
+        let root = unique_test_dir("nu_glob_rejects");
+        fs::create_dir_all(&root).expect("create root");
+        let options = GlobWalkOptions::nu_glob(crate::MatchOptions::default());
+
+        // `a/[b/c]` is one valid class as a whole, but nu-glob also parses each component. Braces
+        // are literal to nu-glob, so `**` can't be part of `{...}`.
+        for pattern in [
+            "***", "a**", "**a", "a/b**/*", "[a", "a/[b/c]", "{**,a}", "{a,**}/b",
+        ] {
+            assert!(
+                crate::glob_with(
+                    pattern,
+                    crate::MatchOptions::default(),
+                    crate::Uninterruptible
+                )
+                .is_err(),
+                "nu-glob should reject `{pattern}`"
+            );
+            assert!(
+                glob_with(&root, pattern, &options).is_err(),
+                "dc-glob should reject `{pattern}`"
+            );
+        }
+        // A literal prefix escaped the way `glob_from` escapes it still parses.
+        let escaped = format!("{}/*", escape("[x]{a,b}**"));
+        assert!(glob_with(&root, &escaped, &options).is_ok(), "{escaped}");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// `du --exclude` and `watch --glob` match paths with [`DcPattern`] under dc-glob and with
+    /// nu-glob's [`crate::Pattern`] otherwise, so the two agree on everything but braces.
+    #[test]
+    fn dc_pattern_matches_like_legacy_pattern() {
+        let cases: &[(&str, &[&str])] = &[
+            ("*.txt", &["a.txt", "x/a.txt", "/abs/x/a.txt", "a.rs"]),
+            ("target/", &["target", "target/x"]),
+            ("**", &["", "a", "a/b"]),
+            ("a/**", &["a", "a/b", "a/b/c", "a/f.txt", "ab"]),
+            (
+                "**/target/**",
+                &["target", "x/target", "x/target/f", "target/a/b"],
+            ),
+            ("*/**", &["a", "a/b"]),
+            ("**/*.rs", &["a.rs", "x/a.rs", "x/a.txt"]),
+            ("/tmp/x/**", &["/tmp/x", "/tmp/x/y"]),
+            ("a{b}", &["a{b}", "ab"]),
+            ("<a:2>", &["<a:2>", "aa"]),
+            ("[ab]?", &["ax", "cx", "a"]),
+        ];
+        #[cfg(not(windows))]
+        let cases = [cases, &[("a\\*", &["a\\b", "a*", "ab"][..])]].concat();
+        for (pattern, paths) in cases.iter() {
+            let legacy = crate::Pattern::new(pattern).expect("nu-glob pattern");
+            let dc = DcPattern::new(pattern).expect("dc-glob pattern");
+            for path in paths.iter() {
+                let path = Path::new(path);
+                assert_eq!(
+                    dc.matches_path(path),
+                    legacy.matches_path(path),
+                    "`{pattern}` against `{}`",
+                    path.display()
+                );
+            }
+        }
+        // As with nu-glob, a malformed pattern is an error.
+        assert!(DcPattern::new("***").is_err());
+        assert!(DcPattern::new("{**,a}").is_err());
+
+        // Braces alternate, and each choice matches the way nu-glob does.
+        let pattern = DcPattern::new("*.{rs,toml}").expect("dc-glob pattern");
+        assert!(pattern.matches_path(Path::new("/abs/x/a.toml")));
+        assert!(!pattern.matches_path(Path::new("/abs/x/a.txt")));
+        let pattern = DcPattern::new("{src,tests}/*").expect("dc-glob pattern");
+        assert!(pattern.matches_path(Path::new("src/a/b.rs")));
+        assert!(!pattern.matches_path(Path::new("docs/b.rs")));
+        assert!(
+            DcPattern::new("a{b}")
+                .expect("dc-glob pattern")
+                .matches_path(Path::new("a{b}"))
+        );
+    }
+
+    /// The brace expansion behind [`DcPattern`] follows the parser's rules.
+    #[test]
+    fn expand_alternatives_follows_the_brace_rules() {
+        let expand = |pattern| parser::expand_alternatives(pattern).expect("expand");
+        assert_eq!(expand("a{b,c}d"), ["abd", "acd"]);
+        assert_eq!(expand("{a,{b,c}}"), ["a", "b", "c"]);
+        assert_eq!(expand("{x,y}/{1,2}"), ["x/1", "x/2", "y/1", "y/2"]);
+        assert_eq!(expand("{,a}.rs"), [".rs", "a.rs"]);
+        // Without a comma or a closing brace, braces are literal; in a class they are members.
+        assert_eq!(expand("a{b}"), ["a{b}"]);
+        assert_eq!(expand("{a{b,c}}"), ["{ab}", "{ac}"]);
+        assert_eq!(expand("{a,b"), ["{a,b"]);
+        assert_eq!(expand("[{,]{x,y}"), ["[{,]x", "[{,]y"]);
+        assert_eq!(expand("{[,}],z}"), ["[,}]", "z"]);
+        // A pattern that spells out too many alternatives is an error, not a slow match.
+        assert!(parser::expand_alternatives(&"{a,b}".repeat(11)).is_err());
+        let many = format!("{{{}}}", vec!["a"; 2000].join(","));
+        assert!(parser::expand_alternatives(&many).is_err());
+    }
+
+    /// `{a,b}` alternatives work wherever the pattern goes, but only arguments with `*`, `?` or
+    /// `[` are expanded at all, so words like `HEAD@{1}` reach commands unchanged.
+    #[test]
+    fn braces_alternate_when_they_hold_a_comma() {
+        let root = unique_test_dir("braces");
+        for file in [
+            "a.rs",
+            "b.toml",
+            "c.txt",
+            "src/x.rs",
+            "tests/y.rs",
+            "docs/z.rs",
+            "a{b}.txt",
+            "{}",
+            "{a,b}",
+        ] {
+            write_file(&root.join(file));
+        }
+        let options = GlobWalkOptions::nu_glob(crate::MatchOptions::default());
+        let glob = |pattern: &str| {
+            let mut paths = collect_ok_paths(
+                glob_with(&root, pattern, &options).expect("dc-glob pattern should compile"),
+            )
+            .expect("collect paths");
+            paths.sort();
+            paths
+        };
+
+        assert_eq!(glob("*.{rs,toml}"), ["a.rs", "b.toml"]);
+        assert_eq!(
+            glob("{src,tests}/*.rs"),
+            [
+                expected_path(&["src", "x.rs"]),
+                expected_path(&["tests", "y.rs"])
+            ]
+        );
+        assert_eq!(glob("{c,{d,e}}.txt"), ["c.txt"]);
+        assert_eq!(glob("{,a}.rs"), ["a.rs"]);
+        // Without a comma, the braces are literal.
+        assert_eq!(glob("a{b}*"), ["a{b}.txt"]);
+        assert_eq!(glob("{}"), ["{}"]);
+        // An escaped name matches itself.
+        assert_eq!(glob(&escape("{a,b}")), ["{a,b}"]);
+        // Excludes take braces too.
+        let options = GlobWalkOptions {
+            excludes: vec!["{src,tests}/*".to_string()],
+            ..GlobWalkOptions::nu_glob(crate::MatchOptions::default())
+        };
+        let mut paths = collect_ok_paths(
+            glob_with(&root, "**/*.rs", &options).expect("dc-glob pattern should compile"),
+        )
+        .expect("collect paths");
+        paths.sort();
+        assert_eq!(
+            paths,
+            ["a.rs".to_string(), expected_path(&["docs", "z.rs"])]
+        );
+
+        assert!(!is_glob("HEAD@{1}"));
+        assert!(!is_glob("{}"));
+        assert!(!is_glob("{a,b}"));
+        assert!(is_glob_component("{a,b}"));
+        assert!(!is_glob_component("src"));
 
         let _ = fs::remove_dir_all(&root);
     }
