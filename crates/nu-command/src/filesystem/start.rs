@@ -41,15 +41,16 @@ impl Command for Start {
             .req::<Spanned<String>>(engine_state, stack, 0)?
             .map(nu_utils::strip_ansi_string_unlikely);
         let path_no_whitespace = path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-        let local_path = match open_target(path_no_whitespace) {
+        let full_path = match open_target(path_no_whitespace) {
             OpenTarget::Url(url) => {
                 open_path(url, engine_state, stack, path.span)?;
                 return Ok(PipelineData::empty());
             }
-            OpenTarget::Path(path) => path,
+            OpenTarget::Path(path) => {
+                nu_path::expand_path_with(path, engine_state.cwd(Some(stack))?, true)
+            }
+            OpenTarget::DecodedPath(path) => path,
         };
-        let cwd = engine_state.cwd(Some(stack))?;
-        let full_path = nu_path::expand_path_with(local_path, &cwd, true);
 
         // Check if the path exists or if it's a valid file/directory
         if full_path.exists() {
@@ -102,19 +103,29 @@ impl Command for Start {
     }
 }
 
+/// What `start` hands to the opener.
 enum OpenTarget {
+    /// A URL, passed to the opener as is.
     Url(String),
+    /// A local path as typed, which has to exist.
     Path(PathBuf),
+    /// An absolute path decoded from a `file://` URL. It is literal, so it skips the
+    /// expansion typed paths get (`...` stays `...`).
+    DecodedPath(PathBuf),
 }
 
-/// Resolve file URLs to local paths while retaining other URLs for the opener.
+/// Picks the target for `input`. A one-letter scheme is a Windows drive letter (`C:\x`), so that
+/// input is a path. A `file://` URL becomes its decoded local path, unless it carries a query or
+/// fragment. Other URLs stay URLs.
 fn open_target(input: &str) -> OpenTarget {
     match url::Url::parse(input) {
         Ok(url) if url.scheme().len() == 1 => OpenTarget::Path(PathBuf::from(input)),
-        Ok(url) if url.scheme() == "file" => match url.to_file_path() {
-            Ok(path) => OpenTarget::Path(path),
-            Err(()) => OpenTarget::Url(url.to_string()),
-        },
+        Ok(url) if url.scheme() == "file" && url.query().is_none() && url.fragment().is_none() => {
+            match url.to_file_path() {
+                Ok(path) => OpenTarget::DecodedPath(path),
+                Err(()) => OpenTarget::Url(url.to_string()),
+            }
+        }
         Ok(url) => OpenTarget::Url(url.to_string()),
         Err(_) => OpenTarget::Path(PathBuf::from(input)),
     }
@@ -186,16 +197,16 @@ fn format_command(command: &std::process::Command) -> String {
 #[cfg(test)]
 mod tests {
     use super::{OpenTarget, open_target};
-    #[cfg(windows)]
     use std::path::Path;
 
-    #[cfg(windows)]
     #[test]
-    fn windows_drive_path_is_not_a_url() {
-        assert!(matches!(
-            open_target(r"C:\🏠 Commitments\x.txt"),
-            OpenTarget::Path(path) if path.as_path() == Path::new(r"C:\🏠 Commitments\x.txt")
-        ));
+    fn drive_paths_are_not_urls() {
+        for input in [r"C:\🏠 Commitments\x.txt", "c:/umlauts/wörd.odt"] {
+            assert!(matches!(
+                open_target(input),
+                OpenTarget::Path(path) if path.as_path() == Path::new(input)
+            ));
+        }
     }
 
     #[cfg(windows)]
@@ -204,10 +215,44 @@ mod tests {
         for input in [
             "file:///C:/umlauts/w%C3%B6rd.odt",
             "file:///C:/umlauts/wörd.odt",
+            "file://c:/umlauts/wörd.odt",
         ] {
             assert!(matches!(
                 open_target(input),
-                OpenTarget::Path(path) if path.as_path() == Path::new(r"C:\umlauts\wörd.odt")
+                OpenTarget::DecodedPath(path) if path.as_path() == Path::new(r"C:\umlauts\wörd.odt")
+            ));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_urls_decode_on_unix() {
+        for input in ["file:///tmp/w%C3%B6rd.odt", "file:///tmp/wörd.odt"] {
+            assert!(matches!(
+                open_target(input),
+                OpenTarget::DecodedPath(path) if path.as_path() == Path::new("/tmp/wörd.odt")
+            ));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_url_on_another_host_stays_a_url() {
+        assert!(matches!(
+            open_target("file://otherhost/tmp/x.txt"),
+            OpenTarget::Url(url) if url == "file://otherhost/tmp/x.txt"
+        ));
+    }
+
+    #[test]
+    fn file_url_with_fragment_or_query_stays_a_url() {
+        for input in [
+            "file:///tmp/guide.html#install",
+            "file:///tmp/guide.html?page=2",
+        ] {
+            assert!(matches!(
+                open_target(input),
+                OpenTarget::Url(url) if url == input
             ));
         }
     }
