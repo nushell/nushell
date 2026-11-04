@@ -730,8 +730,10 @@ pub fn parse_signature_helper(
                         };
 
                     match parse_mode {
-                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType | ParseMode::AfterDefaultValue => {
-
+                        ParseMode::Arg
+                        | ParseMode::AfterCommaArg
+                        | ParseMode::AfterType
+                        | ParseMode::AfterDefaultValue => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
