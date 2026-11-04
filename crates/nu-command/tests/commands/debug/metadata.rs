@@ -46,3 +46,25 @@ fn no_argument_reads_block_input() -> Result {
 
     test().run(code).expect_value_eq("text/plain")
 }
+
+// A variable captured by a closure keeps the span it was defined with.
+#[rstest]
+#[case::closure("let x = 'abc'; do { let s = (metadata $x).span; view span $s.start $s.end }")]
+#[case::nested_closure(
+    "let x = 'abc'; do { do { let s = (metadata $x).span; view span $s.start $s.end } }"
+)]
+#[case::each(
+    "let x = 'abc'; [1] | each { let s = (metadata $x).span; view span $s.start $s.end } | first"
+)]
+fn captured_variable_keeps_definition_span(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("'abc'")
+}
+
+#[test]
+fn captured_argument_keeps_definition_span() -> Result {
+    let code = "
+        def f [arg] { do { let s = (metadata $arg).span; view span $s.start $s.end } }
+        f foobar
+    ";
+    test().run(code).expect_value_eq("foobar")
+}

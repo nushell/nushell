@@ -1411,10 +1411,17 @@ fn literal_value(
         Literal::Binary(bin) => Value::binary(&ctx.data[*bin], span),
         Literal::Block(block_id) | Literal::RowCondition(block_id) | Literal::Closure(block_id) => {
             let block = ctx.engine_state.get_block(*block_id);
+            // Captured values keep the span they were defined with, so `metadata $x` inside the
+            // closure gives the same span as outside of it.
             let captures = block
                 .captures
                 .iter()
-                .map(|(var_id, span)| get_var(ctx, *var_id, *span).map(|val| (*var_id, val)))
+                .map(|(var_id, span)| {
+                    ctx.stack
+                        .get_var_with_origin(*var_id, *span)
+                        .or_else(|_| get_var(ctx, *var_id, *span))
+                        .map(|val| (*var_id, val))
+                })
                 .collect::<Result<Vec<_>, ShellError>>()?;
             Value::closure(
                 Closure {
