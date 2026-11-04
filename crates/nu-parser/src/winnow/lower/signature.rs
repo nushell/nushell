@@ -350,11 +350,19 @@ impl<'s> Lower<'_, '_, 's> {
             };
 
             // `parse_signature_helper` reads each `= value` in turn with the shape the parameter
-            // has then, which a default before may have given it; the last one wins. A value
-            // that doesn't read, or isn't a constant, is reported.
+            // has then, which a default before may have given it, and none yet when the type is
+            // written after it (`x=a: int`); the last one wins. A value that doesn't read, or
+            // isn't a constant, is reported.
             if !is_external {
                 for default in param.earlier_defaults.iter().chain(&param.default) {
-                    let shape = parameter.default_value_shape();
+                    let before_type = param
+                        .ty
+                        .as_ref()
+                        .is_some_and(|ty| default.span.start < ty.span.start);
+                    let shape = match before_type {
+                        true => SyntaxShape::Any,
+                        false => parameter.default_value_shape(),
+                    };
                     let expression = self.value(default, &shape, None)?;
                     parameter.set_default_value(self.working_set, expression);
                 }

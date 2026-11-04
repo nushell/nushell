@@ -631,7 +631,12 @@ fn parse_statements<'a>(
                 working_set.add_comment(token.span);
                 let comment = Comment { span: token.span };
                 match last {
-                    TokenContents::Semicolon => carried_comments.push(comment),
+                    // Beside a `;`: nu's lite parser drops the comment lines before it for this
+                    // one, which it gives the next command (`# a`, `; # b`, `def f [] {}`).
+                    TokenContents::Semicolon => {
+                        pending.clear();
+                        carried_comments.push(comment);
+                    }
                     TokenContents::Eol => pending.push(comment),
                     _ if *pushed => {
                         if let Some(pipeline) = out.last_mut() {

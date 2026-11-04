@@ -1029,10 +1029,22 @@ impl<'s> Lower<'_, '_, 's> {
         let Some(tree) = parse_items(self.source, span, EngineLookup::new(&cell), value) else {
             return Err(Unlowered::Error);
         };
-        // Read again for the commands known now, an element that is still an external call
-        // would be read again forever.
-        if value == ItemsValue::Expression && matches!(tree.expr, w::Expr::ExternalCall(_)) {
-            return Err(Unlowered::Error);
+        // Read again for the commands known now, an element that is still an external call would
+        // be read again forever, unless it names an alias of an external command, which is read
+        // as that (`alias g = f` of an `f` whose definition failed).
+        if value == ItemsValue::Expression
+            && let w::Expr::ExternalCall(external) = &tree.expr
+        {
+            let working_set = cell.borrow();
+            let names_external_alias = match &external.head.expr {
+                w::Expr::String(name) => working_set
+                    .find_decl(name.value.as_bytes())
+                    .is_some_and(|decl| decl_kind(&working_set, decl) == DeclKind::ExternalAlias),
+                _ => false,
+            };
+            if !names_external_alias {
+                return Err(Unlowered::Error);
+            }
         }
         let mut working_set = cell.borrow_mut();
         let mut lower = Lower {

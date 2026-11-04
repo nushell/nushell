@@ -3926,6 +3926,7 @@ fn words_read_otherwise_than_they_look_are_lowered(
 #[case::alias_of_an_external_range("alias q = 0..<$day", &[])]
 #[case::redirected_where_help("where -h o> /dev/null", &[])]
 #[case::row_condition_word_after_unknown_flag("where -1 >", &[("UnknownFlag", "1")])]
+#[case::alias_of_a_definition_that_failed("def --wrapped f [...e]\nalias g = f\ng", &[("MissingPositional", "")])]
 #[case::spread_for_a_module("use ...$x", &[("MissingPositional", ""), ("LabeledError", "...$x"), ("UnknownState", "...$x")])]
 #[case::spread_for_a_module_with_a_member("use ...$x y", &[("MissingPositional", ""), ("LabeledError", "...$x y"), ("UnknownState", "...$x y")])]
 #[case::closure_lexer_error_before_its_parameters("{|in|;}", &[("ExtraTokens", ";"), ("NameIsBuiltinVar", "in")])]
@@ -4085,5 +4086,100 @@ fn errors_nu_reads_past_are_lowered(
         expected,
         "`{code}`"
     );
+    Ok(())
+}
+
+/// nu predeclares a definition from the parts of a pipeline of one command: without a redirection
+/// and its target, not when a redirection without a target joins the next line's command, and past
+/// an attribute line, whose operators are its arguments.
+#[rstest]
+#[case::redirection_taken_out("def --env o> f []", 1)]
+#[case::redirection_taken_out_of_an_export("export def o> f []", 1)]
+#[case::joined_by_a_redirection_without_a_target("def [] o>\nx", 0)]
+#[case::a_second_operator_is_the_target("def f [x: int] { } o> o>\nf 1", 1)]
+#[case::operator_on_an_attribute_line("@ o>\ndef f [", 1)]
+#[case::attribute_line_ended_by_a_semicolon("l|\n@;\ndef f [] {", 1)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn definition_predeclared_from_its_command_parts(
+    #[case] code: &str,
+    #[case] decls: usize,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.delta.num_decls(), decls, "`{code}`");
+    Ok(())
+}
+
+/// A block read again from its text keeps its line ends: the `|` after a blank line ends no command
+/// (`lex_span` folds the line end into it, as nu's lexer does, which the winnow parser reads from).
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn pipe_after_a_blank_line_in_a_block_read_from_its_text() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, b"{1\n\n|", false);
+    let Expr::Closure(closure) = block.pipelines[0].elements[0].expr.expr else {
+        panic!("{:?}", block.pipelines[0].elements[0].expr.expr);
+    };
+    let body = working_set.get_block(closure);
+    assert_eq!(body.pipelines[0].elements[0].pipe, None);
+    Ok(())
+}
+
+/// nu parses a statement whose first word names an alias twice and keeps the second parse, which
+/// sees the first one's errors and so compiles no block.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn second_parse_of_a_statement_naming_an_alias_compiles_no_block() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, b"alias i = if\ni {1}", false);
+    assert!(!working_set.parse_errors.is_empty());
+    assert!(
+        working_set
+            .delta
+            .blocks
+            .iter()
+            .all(|block| block.ir_block.is_none())
+    );
+    Ok(())
+}
+
+/// A default written before its parameter's type is read with no type yet, as nu reads it, so a
+/// string is no mismatch, and a comment beside a `;` drops the comment lines before it.
+#[rstest]
+#[case::default_before_a_type("def r [i=d: int] {}", &[])]
+#[case::default_before_a_type_no_space("def r [i=d:int] {}", &[])]
+#[case::flag_default_before_a_type("def r [--i=d: int] {}", &[])]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn default_before_a_type_has_no_type_yet(
+    #[case] code: &str,
+    #[case] expected: &[(&str, &str)],
+) -> Result {
+    let expected: Vec<(String, String)> = expected
+        .iter()
+        .map(|(kind, text)| (kind.to_string(), text.to_string()))
+        .collect();
+    assert_eq!(
+        super::winnow_calls::lowered_errors(code),
+        expected,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// The description of a definition after a comment beside a `;`: nu's lite parser drops the comment
+/// lines before that comment and gives the definition the one beside the `;`.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn comment_beside_a_semicolon_drops_the_lines_before_it() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, b"#l\n;#\ndef x [] {}", false);
+    let decl = working_set.find_decl(b"x").expect("`x` is declared");
+    assert_eq!(working_set.get_decl(decl).description(), "");
     Ok(())
 }
