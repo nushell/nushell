@@ -749,8 +749,15 @@ $env.config.hooks.command_not_found = null
 # `event: null`. To tidy up exact repeats, keep the last of each (the fields are
 # compared as written, so `emacs` and `[emacs]` count as different):
 # $env.config.keybindings = $env.config.keybindings | reverse | uniq-by modifier keycode mode | reverse
-# Assign `[]` to clear the whole list. To get the defaults back in a running shell:
-# $env.config.keybindings = (^$nu.current-exe -n -c '$env.config.keybindings | to nuon' | from nuon)
+# Assign `[]` to clear the whole list. To get the defaults back in a running shell
+# (these are the entries nushell adds, not reedline's own base bindings, which
+# `keybindings default` lists):
+# $env.config.keybindings = (config default).keybindings
+# A config that is sourced again, for example by a reload binding, adds its `++=`
+# entries each time. To keep the list from growing, assign the defaults first and
+# append after, so the list is built from the same start every time:
+# $env.config.keybindings = (config default).keybindings
+# $env.config.keybindings ++= [...]
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -850,8 +857,9 @@ $env.config.abbreviations = {}
 # `name`, the last one wins, so `++=` with a default's name overrides that
 # default. To drop the ones a later menu overrides:
 # $env.config.menus = $env.config.menus | uniq-by name --keep-last
-# To get the defaults back in a running shell:
-# $env.config.menus = (^$nu.current-exe -n -c '$env.config.menus | to nuon' | from nuon)
+# To get the defaults back in a running shell, which is also how a config that is
+# sourced again starts from the same list every time:
+# $env.config.menus = (config default).menus
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{

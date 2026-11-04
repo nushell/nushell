@@ -265,3 +265,48 @@ fn mutate_nu_config_history_ignore_space() -> TestResult {
         "false",
     )
 }
+
+/// `config default` has the defaults, so `= []` is undone by assigning them again.
+#[test]
+fn config_default_restores_the_default_lists() -> TestResult {
+    run_test_std(
+        "
+            let keybindings = $env.config.keybindings;
+            let menus = $env.config.menus;
+            $env.config.keybindings = [];
+            $env.config.menus = [];
+            $env.config.keybindings = (config default).keybindings;
+            $env.config.menus = (config default).menus;
+            $env.config.keybindings == $keybindings and $env.config.menus == $menus
+        ",
+        "true",
+    )
+}
+
+/// Assigning the defaults first makes a config that is sourced again not grow the list.
+#[test]
+fn assigning_the_defaults_first_makes_appending_safe_to_repeat() -> TestResult {
+    run_test_std(
+        "
+            let entry = { name: mine, modifier: control, keycode: char_t, mode: emacs, event: null };
+            let defaults = (config default).keybindings | length;
+            for _ in 1..3 {
+                $env.config.keybindings = (config default).keybindings;
+                $env.config.keybindings ++= [$entry]
+            };
+            ($env.config.keybindings | length) == $defaults + 1
+        ",
+        "true",
+    )
+}
+
+#[test]
+fn config_default_can_be_used_in_a_const() -> TestResult {
+    run_test_std(
+        "
+            const menus = (config default | get menus | get name);
+            $menus | first
+        ",
+        "completion_menu",
+    )
+}
