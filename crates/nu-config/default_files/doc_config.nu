@@ -733,13 +733,24 @@ $env.config.hooks.command_not_found = null
 # etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
 # still applied underneath and are listed by `keybindings default`.
 #
-# Assigning this list merges into the current bindings rather than replacing
-# them (an emptied list stays empty; defaults are not reintroduced).
-# An entry replaces the existing binding with the same name (updating its key
-# or event in place); when several bindings share a name, the key
-# (modifier/keycode/mode) decides which one it is, and a name reused for a
-# genuinely new key appends with a one-time warning. Set `event: null` on a
-# matching binding to unbind a key, or assign `[]` to clear the whole list.
+# Assigning this list replaces it, defaults included, so add bindings with
+# `++=` to keep the defaults. Assigning only your own entries turns off Tab and
+# Shift+Tab completion, Ctrl+Space, F1 help, Ctrl+X and Ctrl+Z paging and the
+# Ctrl+R history menu, since the keys that open the menus are in this list.
+# Reedline's own base maps are not, so movement and editing keep working.
+# Like any list it is stored as written, and reedline applies the entries in
+# order on top of its own base maps. When several entries bind the same modifier
+# and keycode in the same mode, the last one wins. The `name` is only a label
+# and plays no part in that.
+#
+# To remove a binding you added, assign the list without it:
+# $env.config.keybindings = $env.config.keybindings | where name != my_binding
+# To unbind a key that reedline itself binds, add an entry for it with
+# `event: null`. To tidy up exact repeats, keep the last of each (the fields are
+# compared as written, so `emacs` and `[emacs]` count as different):
+# $env.config.keybindings = $env.config.keybindings | reverse | uniq-by modifier keycode mode | reverse
+# Assign `[]` to clear the whole list. To get the defaults back in a running shell:
+# $env.config.keybindings = (^$nu.current-exe -n -c '$env.config.keybindings | to nuon' | from nuon)
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -832,8 +843,15 @@ $env.config.abbreviations = {}
 # {completions, options} record name engine behaviour a menu has no say in and are ignored.
 #
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
-# Inspect with `$env.config.menus`. Assigning this list merges into the
-# defaults by `name` rather than replacing them, so `=` never clears them.
+# Inspect with `$env.config.menus`. Assigning this list replaces it, defaults
+# included, so add menus with `++=`. Assigning only your own menus removes the
+# defaults, which also turns off Tab completion. Like any list it is stored as
+# written, and reedline registers the menus in order: when several share a
+# `name`, the last one wins, so `++=` with a default's name overrides that
+# default. To drop the ones a later menu overrides:
+# $env.config.menus = $env.config.menus | uniq-by name --keep-last
+# To get the defaults back in a running shell:
+# $env.config.menus = (^$nu.current-exe -n -c '$env.config.menus | to nuon' | from nuon)
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{

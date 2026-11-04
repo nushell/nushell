@@ -71,6 +71,44 @@ fn mutate_nu_config_nested_menu() -> TestResult {
     )
 }
 
+/// `++=` appends an entry as written, an unnamed one included, and sourcing the
+/// same config twice appends it twice: the list is a plain list.
+#[test]
+fn appending_keybindings_keeps_entries_as_written() -> TestResult {
+    run_test_std(
+        "
+            let entry = { name: null, modifier: control, keycode: char_t, mode: emacs, event: null };
+            let defaults = $env.config.keybindings | length;
+            $env.config.keybindings ++= [$entry];
+            $env.config.keybindings ++= [$entry];
+            let last = $env.config.keybindings | last;
+            let grew = ($env.config.keybindings | length) == $defaults + 2;
+            $grew and $last.name == null and $last.keycode == 'char_t' and $last.event == null
+        ",
+        "true",
+    )
+}
+
+/// Assigning `menus` replaces the list: `++=` keeps the defaults, a filtered
+/// list drops what it dropped and `[]` clears it.
+#[test]
+fn assigning_menus_replaces_appends_and_filters() -> TestResult {
+    run_test_std(
+        r#"
+            let defaults = $env.config.menus | length;
+            $env.config.menus ++= [
+                { name: extra, only_buffer_difference: false, marker: "E ", type: { layout: columnar }, style: {} }
+            ];
+            let appended = ($env.config.menus | length) == $defaults + 1;
+            $env.config.menus = $env.config.menus | where name != extra;
+            let filtered = ($env.config.menus | length) == $defaults;
+            $env.config.menus = [];
+            $appended and $filtered and ($env.config.menus | is-empty)
+        "#,
+        "true",
+    )
+}
+
 #[test]
 fn mutate_nu_config_nested_keybindings() -> TestResult {
     run_test_std(
@@ -88,6 +126,26 @@ fn mutate_nu_config_nested_keybindings() -> TestResult {
             $env.config.keybindings.0.keycode
         ",
         "char_x",
+    )
+}
+
+/// Assigning `keybindings` replaces the list: `++=` keeps the defaults, a
+/// filtered list unbinds what it dropped and `[]` clears it.
+#[test]
+fn assigning_keybindings_replaces_appends_and_filters() -> TestResult {
+    run_test_std(
+        "
+            let defaults = $env.config.keybindings | length;
+            $env.config.keybindings ++= [
+                { name: test, modifier: control, keycode: char_t, mode: [emacs vi_insert], event: null }
+            ];
+            let appended = ($env.config.keybindings | length) == $defaults + 1;
+            $env.config.keybindings = $env.config.keybindings | where name != test;
+            let filtered = ($env.config.keybindings | length) == $defaults;
+            $env.config.keybindings = [];
+            $appended and $filtered and ($env.config.keybindings | is-empty)
+        ",
+        "true",
     )
 }
 
