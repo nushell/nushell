@@ -27,6 +27,39 @@ fn to_timezone_single_date_string() -> Result {
 }
 
 #[rstest]
+#[case::hours_only("+05", "+0500")]
+#[case::compact_minutes("+0530", "+0530")]
+#[case::negative_offset("-05:30", "-0530")]
+#[case::trailing_whitespace("+05:30 \t\n", "+0530")]
+fn to_timezone_accepts_numeric_offsets(#[case] zone: &str, #[case] offset: &str) -> Result {
+    test()
+        .run_with_data(
+            r#"let zone = $in; 2026-01-01T12:00:00Z | date to-timezone $zone | format date "%z""#,
+            zone,
+        )
+        .expect_value_eq(offset)
+}
+
+#[rstest]
+#[case::letters("+05:30XYZ")]
+#[case::extra_digit("+05301")]
+#[case::seconds("+05:30:15")]
+#[case::trailing_colon("+05:30:")]
+#[case::non_ascii("-05:30é")]
+fn to_timezone_rejects_trailing_offset_content(#[case] zone: &str) -> Result {
+    let err = test()
+        .run_with_data(
+            "let zone = $in; 2026-01-01T12:00:00Z | date to-timezone $zone | ignore",
+            zone,
+        )
+        .expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::TypeMismatch { err_message, .. } if err_message == "invalid time zone")
+    );
+    Ok(())
+}
+
+#[rstest]
 #[case::lowercase_utc("utc", "+0000")]
 #[case::lowercase_area_location("america/new_york", "-0500")]
 #[case::lowercase_alias("us/pacific", "-0800")]

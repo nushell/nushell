@@ -89,11 +89,14 @@ fn timezone_offset_internal(
     } else {
         return Err(ParseErrorKind::TooShort);
     };
-    match s.len() {
+    let suffix = match s.len() {
         len if len >= 2 => &s[2..],
         0 => s,
         _ => return Err(ParseErrorKind::TooShort),
     };
+    if !suffix.trim().is_empty() {
+        return Err(ParseErrorKind::Invalid);
+    }
 
     let seconds = hours * 3600 + minutes * 60;
     Ok(if negative { -seconds } else { seconds })
