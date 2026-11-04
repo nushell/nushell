@@ -672,21 +672,30 @@ mod tests {
 
     // --- an entry that cannot be read rejects the whole list ---
 
+    /// Run one `$env.config.<field> = [...]` assignment that may be rejected.
+    fn try_assign_list<T: IntoValue>(
+        config: &mut Config,
+        old: &Config,
+        field: &str,
+        items: Vec<T>,
+    ) -> Result<(), ShellError> {
+        let list = Value::test_list(
+            items
+                .into_iter()
+                .map(|item| item.into_value(Span::test_data()))
+                .collect(),
+        );
+        let value = Value::test_record(record! { field => list });
+        config.update_from_value(old, &value).map(drop)
+    }
+
     /// Run one `$env.config.keybindings = [...]` assignment that may be rejected.
     fn try_assign(
         config: &mut Config,
         old: &Config,
         keybindings: Vec<ParsedKeybinding>,
     ) -> Result<(), ShellError> {
-        let value = Value::test_record(record! {
-            "keybindings" => Value::test_list(
-                keybindings
-                    .into_iter()
-                    .map(|kb| kb.into_value(Span::test_data()))
-                    .collect(),
-            ),
-        });
-        config.update_from_value(old, &value).map(drop)
+        try_assign_list(config, old, "keybindings", keybindings)
     }
 
     /// Run one `$env.config.menus = [...]` assignment that may be rejected.
@@ -695,15 +704,7 @@ mod tests {
         old: &Config,
         menus: Vec<ParsedMenu>,
     ) -> Result<(), ShellError> {
-        let value = Value::test_record(record! {
-            "menus" => Value::test_list(
-                menus
-                    .into_iter()
-                    .map(|menu| menu.into_value(Span::test_data()))
-                    .collect(),
-            ),
-        });
-        config.update_from_value(old, &value).map(drop)
+        try_assign_list(config, old, "menus", menus)
     }
 
     /// One bad entry among good ones: the list is rejected and the old one stays,

@@ -267,20 +267,8 @@ fn mutate_nu_config_history_ignore_space() -> TestResult {
 }
 
 /// A keybinding with a keycode that can't be read is rejected when it is
-/// assigned, and the list stays as it was.
-#[test]
-fn a_keybinding_that_cannot_be_read_is_rejected_on_assignment() -> TestResult {
-    run_test_std(
-        "
-            let n = $env.config.keybindings | length;
-            let rejected = try { $env.config.keybindings ++= [{ name: bad, modifier: control, keycode: nonsense, mode: emacs, event: null }]; false } catch { true };
-            $rejected and ($env.config.keybindings | length) == $n
-        ",
-        "true",
-    )
-}
-
-/// The same for the whole-record form, which is how an older config may set it.
+/// assigned, and the list stays as it was. This is the whole-record form,
+/// which is how an older config may set it.
 #[test]
 fn a_record_with_a_keybinding_that_cannot_be_read_keeps_the_old_list() -> TestResult {
     run_test_std(
