@@ -602,11 +602,9 @@ fn parse_statements<'a>(
         match token.contents {
             TokenContents::Eol => {
                 // nu's lexer turns an end of line before a `|` that starts the next line into
-                // that `|`: it ends no line, so it makes no blank line (`# d\n\n| def f`).
-                let folded = tokens
-                    .all()
-                    .get(tokens.position() + 1)
-                    .is_some_and(|next| next.contents == TokenContents::Pipe);
+                // that `|`, and drops the ones before the comment lines right before it: they end
+                // no line, so they make no blank line (`# d\n\n| def f`).
+                let folded = reaches_a_pipe_past_comment_lines(tokens.all(), tokens.position() + 1);
                 if !folded {
                     if *last == TokenContents::Eol {
                         pending.clear();
@@ -631,9 +629,10 @@ fn parse_statements<'a>(
                 working_set.add_comment(token.span);
                 let comment = Comment { span: token.span };
                 match last {
-                    // Beside a `;`: nu's lite parser drops the comment lines before it for this
-                    // one, which it gives the next command (`# a`, `; # b`, `def f [] {}`).
-                    TokenContents::Semicolon => {
+                    // Beside a `;`, or after a comment with its line end folded (above): nu's lite
+                    // parser drops the comment lines before it for this one, which it gives the
+                    // next command (`# a`, `; # b`, `def f [] {}`).
+                    TokenContents::Semicolon | TokenContents::Comment => {
                         pending.clear();
                         carried_comments.push(comment);
                     }
@@ -691,7 +690,13 @@ fn parse_statements<'a>(
                         out.push(pipeline, before)
                     }
                     Ok(None) => {
-                        pending.clear();
+                        // Only pipes: a blank line after them drops the comment lines before them.
+                        if tokens
+                            .peek_token()
+                            .is_none_or(|next| next.contents != TokenContents::Semicolon)
+                        {
+                            pending.clear();
+                        }
                         *last = TokenContents::Item;
                         if let Some(error) = lite_error {
                             dropped_error.get_or_insert(error);
@@ -778,6 +783,17 @@ pub(super) struct CarriedPipes {
     lite: Option<Span>,
 }
 
+/// Whether `tokens` from `at` is a `|`, past comment lines.
+fn reaches_a_pipe_past_comment_lines(tokens: &[Token], mut at: usize) -> bool {
+    let contents = |index: usize| tokens.get(index).map(|token| token.contents);
+    while contents(at) == Some(TokenContents::Comment)
+        && contents(at + 1) == Some(TokenContents::Eol)
+    {
+        at += 2;
+    }
+    contents(at) == Some(TokenContents::Pipe)
+}
+
 /// One pipeline (nu's `parse_pipeline`): commands separated by `|`. `None`
 /// when there was no command at all (a lone `|` before a blank line), the `|`
 /// then left in `carried_pipe`: nu's lite parser keeps it for the next command,
@@ -799,7 +815,7 @@ fn parse_pipeline<'a>(
 ) -> ParseResult<Option<Pipeline<'a>>> {
     let working_set = tokens.working_set;
     // The comments carried to this pipeline; any after are carried on from it.
-    let carried_to_it = carried_comments.len();
+    let mut carried_to_it = carried_comments.len();
     // The lite parse first: collect the commands, then parse them, because a
     // command is parsed differently when it is one element of a longer pipeline.
     let mut lite_commands: Vec<(Option<Span>, LiteCommand)> = Vec::new();
@@ -841,7 +857,32 @@ fn parse_pipeline<'a>(
             }
             command_open = false;
             tokens.next_token();
-            if let AfterPipe::Dangling = after_pipe(tokens, true, &mut trailing_comments)? {
+            let after = after_pipe(tokens, true, &mut trailing_comments)?;
+            // After a `|` that no command came before, nu's lite parser reads comments as it does
+            // before a statement: one beside it drops the comment lines before it, and comment
+            // lines after it take their place. Those are this statement's when a command follows.
+            if lite_commands.is_empty() {
+                let next = tokens.peek_token().map(|next| next.contents);
+                // Before another `|` their line ends are folded, so each comes beside the last.
+                let folded = next == Some(TokenContents::Pipe);
+                // Only a blank line drops comment lines, and a `;` is none.
+                let keeps_lines =
+                    matches!(after, AfterPipe::Command) || next == Some(TokenContents::Semicolon);
+                for comment in trailing_comments.drain(from..) {
+                    let before = working_set.get_span_contents(Span::new(0, comment.span.start));
+                    let line_start = before.rfind('\n').map_or(0, |newline| newline + 1);
+                    if folded || !before[line_start..].trim().is_empty() {
+                        leading_comments.clear();
+                        carried_comments.push(comment);
+                    } else if keeps_lines {
+                        leading_comments.push(comment);
+                    }
+                }
+                if matches!(after, AfterPipe::Command) {
+                    carried_to_it = carried_comments.len();
+                }
+            }
+            if let AfterPipe::Dangling = after {
                 // nu ends the last command at the first `|` after it; with more, the empty
                 // commands between hand the last on to the next statement (`a | |`).
                 if !lite_commands.is_empty() {
@@ -849,6 +890,13 @@ fn parse_pipeline<'a>(
                     if pipe != first_pipe {
                         carried_pipe.before = pipe;
                     }
+                }
+                // A `;` is no blank line, so the comment lines before it stay (`1 |`, `# a`, `;`).
+                if tokens
+                    .peek_token()
+                    .is_some_and(|next| next.contents == TokenContents::Semicolon)
+                {
+                    carried_comments.extend(trailing_comments.drain(from..));
                 }
                 carry_comments_beside(working_set, &mut trailing_comments, from, carried_comments);
                 break 'commands;

@@ -4171,15 +4171,35 @@ fn default_before_a_type_has_no_type_yet(
     Ok(())
 }
 
-/// The description of a definition after a comment beside a `;`: nu's lite parser drops the comment
-/// lines before that comment and gives the definition the one beside the `;`.
-#[test]
+/// The description of a definition, from nu's lite parser: a comment beside a `;` or a `|` drops the
+/// comment lines before it and is the next command's, comment lines after a `|` replace it, a `;` is
+/// no blank line, and nu's lexer folds the line ends between comment lines right before a `|`, so
+/// that each after the first comes beside the last.
+#[rstest]
+#[case::beside_a_semicolon("#l\n;#\ndef x [] {}", "")]
+#[case::only_a_semicolon_between("#l\n;\ndef x [] {}", "l")]
+#[case::beside_a_leading_pipe("| # a\ndef x [] {}", "a")]
+#[case::lines_before_and_beside_a_pipe("#\n|# \ndef x [] {}", "")]
+#[case::line_after_a_leading_pipe("| \n# a\ndef x [] {}", "a")]
+#[case::line_replaces_the_one_beside("| # b\n# a\ndef x [] {}", "a")]
+#[case::lines_folded_before_a_pipe("# a\n# b\n| def x [] {}", "b")]
+#[case::line_before_a_semicolon_after_a_pipe("| \n# a\n; def x [] {}", "a")]
+#[case::line_before_a_semicolon_after_a_command("1 | \n# a\n; def x [] {}", "a")]
+#[case::pipes_then_a_semicolon("# a\n| ; def x [] {}", "a")]
+#[nu_test_support::test]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn comment_beside_a_semicolon_drops_the_lines_before_it() -> Result {
+fn description_comes_from_the_comments_nu_gives_the_command(
+    #[case] code: &str,
+    #[case] description: &str,
+) -> Result {
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
-    nu_parser::parse(&mut working_set, None, b"#l\n;#\ndef x [] {}", false);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
     let decl = working_set.find_decl(b"x").expect("`x` is declared");
-    assert_eq!(working_set.get_decl(decl).description(), "");
+    assert_eq!(
+        working_set.get_decl(decl).description(),
+        description,
+        "`{code}`"
+    );
     Ok(())
 }
