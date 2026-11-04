@@ -1,6 +1,6 @@
 //! Every command a fresh `nu` resolves at the top level, with its kind: the
 //! built-in and keyword commands of the `nu` binary and the standard
-//! library's prelude, at nushell `7677893d8`. Used to resolve multi-word
+//! library's prelude, at nushell `b1dd32cb9`. Used to resolve multi-word
 //! command names such as `str trim`, to tell a known command from an external
 //! one, to check that `%name` names a built-in command, and to parse the
 //! arguments of a command taking a row condition (`any`, `take while`) as one
