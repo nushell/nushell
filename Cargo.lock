@@ -1027,13 +1027,13 @@ dependencies = [
 
 [[package]]
 name = "brotli"
-version = "9.0.0"
+version = "9.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8b851b75c23ca7873623d612fe49bd1989aeb03d08fb9432187eb253d3d4c6b"
+checksum = "627b7cfb0578f0eafce087a90fcd40add1231900b69e4d4de2d456260a4f5d81"
 dependencies = [
  "alloc-no-stdlib 3.0.0",
  "alloc-stdlib 0.3.0",
- "brotli-decompressor 6.0.0",
+ "brotli-decompressor 6.2.0",
 ]
 
 [[package]]
@@ -1048,9 +1048,9 @@ dependencies = [
 
 [[package]]
 name = "brotli-decompressor"
-version = "6.0.0"
+version = "6.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46087801e40b785410c352bee60e9b6226312709cf52d5fff92776cdf5cf6490"
+checksum = "34c6783f42c21c952ad7112b354f0ba2f10760e9decea5b1b60523d6e270faaf"
 dependencies = [
  "alloc-no-stdlib 3.0.0",
  "alloc-stdlib 0.3.0",
@@ -4890,7 +4890,7 @@ dependencies = [
  "arboard",
  "base64 0.23.1",
  "bracoxide",
- "brotli 9.0.0",
+ "brotli 9.1.1",
  "byteorder",
  "bytesize",
  "calamine",
@@ -5344,7 +5344,7 @@ dependencies = [
 name = "nu-protocol"
 version = "0.116.2"
 dependencies = [
- "brotli 9.0.0",
+ "brotli 9.1.1",
  "bstr",
  "bytes",
  "chrono",
