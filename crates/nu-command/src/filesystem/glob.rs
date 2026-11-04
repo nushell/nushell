@@ -138,13 +138,25 @@ impl Command for Glob {
             },
             Example {
                 description: "Search for files or folders with 3 a's in a row in the name.",
-                example: "glob <a*:3>",
+                example: if nu_experimental::DC_GLOB.get() {
+                    "glob *aaa*"
+                } else {
+                    "glob <a*:3>"
+                },
                 result: None,
             },
-            Example {
-                description: "Search for files or folders with only a, b, c, or d in the file name between 1 and 10 times.",
-                example: "glob <[a-d]:1,10>",
-                result: None,
+            if nu_experimental::DC_GLOB.get() {
+                Example {
+                    description: "Search for .rs files anywhere below the src and tests folders.",
+                    example: r#"glob "{src,tests}/**/*.rs""#,
+                    result: None,
+                }
+            } else {
+                Example {
+                    description: "Search for files or folders with only a, b, c, or d in the file name between 1 and 10 times.",
+                    example: "glob <[a-d]:1,10>",
+                    result: None,
+                }
             },
             Example {
                 description: "Search for folders that begin with an uppercase ASCII letter, ignoring files and symlinks.",
@@ -171,7 +183,9 @@ impl Command for Glob {
 
     fn extra_description(&self) -> &str {
         if nu_experimental::DC_GLOB.get() {
-            ""
+            "Patterns use the same syntax as `ls` and the other file commands: `*`, `?`, `[...]`, \
+            `[!...]`, `**` and `{a,b}`. A trailing `**` lists the directories below its prefix; use \
+            `**/*` to list everything below it."
         } else {
             "For more glob pattern help, please refer to https://docs.rs/crate/wax/latest."
         }
@@ -365,14 +379,19 @@ fn run_dc_glob(
         excludes: not_patterns,
         interrupt: engine_state.signals().interrupt_flag(),
         ignore_case,
+        // `glob` lists hidden names, as it does with the legacy backend.
+        require_literal_leading_dot: false,
+        skip_hidden_in_recursion: false,
     };
-    let cwd_for_matches = cwd.as_std_path().to_path_buf();
+    // Drop `.` components, so a cwd like `dir/.` gives `dir/name` matches rather than
+    // `dir/./name`, as with wax.
+    let cwd_for_matches: std::path::PathBuf = cwd.as_std_path().components().collect();
     let glob_pattern = nu_path::expand_tilde(glob_pattern)
         .to_string_lossy()
         .to_string();
 
     let matches =
-        nu_glob::dc_glob::glob_with(cwd.as_std_path(), &glob_pattern, &options).map_err(|err| {
+        nu_glob::dc_glob::glob_with(&cwd_for_matches, &glob_pattern, &options).map_err(|err| {
             ShellError::Generic(GenericError::new(
                 "error with glob pattern",
                 err.to_string(),
