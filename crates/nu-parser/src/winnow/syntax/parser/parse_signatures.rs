@@ -753,13 +753,6 @@ pub fn parse_type_after_var<'a>(
     after_name: Span,
     recover: bool,
 ) -> ParseResult<Option<TypeAnnotation<'a>>> {
-    // `let a : int`: like Nushell, the colon must be attached to the name.
-    if typed
-        && let Some(first) = items.first()
-        && working_set.get_span_contents(first.span) == ":"
-    {
-        return Err(cut(Diagnostic::new(ErrorKind::ExtraTokens, first.span)));
-    }
     let error = match (typed, items.first(), items.last()) {
         (true, Some(first), Some(last)) => {
             return Ok(Some(parse_var_type(

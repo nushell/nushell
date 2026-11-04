@@ -201,6 +201,10 @@ pub struct PipelineElement<'a> {
     pub span: Span,
     /// The span of the `|` preceding this element, if it is not the first.
     pub pipe: Option<Span>,
+    /// The pipe nu's lite parser keeps with this command (`LiteCommand::pipe`): the `|` or `e>|`
+    /// that ended it, or else the last pipe it read while no command was open, which no command
+    /// took (`ls | |`, a blank line, `lines`).
+    pub lite_pipe: Option<Span>,
     /// The expression.
     pub expr: Expression<'a>,
     /// A redirection following the expression.

@@ -53,6 +53,9 @@ pub struct LiteCommand {
     /// a redirection without a target at the end of the line, nu's lite parser ends the
     /// command there but not its pipeline (`^ls o>`, then `lines` on the next line).
     pub joins_next_line: bool,
+    /// [`PipelineElement::lite_pipe`](crate::winnow::syntax::ast::PipelineElement::lite_pipe), which
+    /// the pipeline's parser sets.
+    pub lite_pipe: Option<Span>,
 }
 
 impl LiteCommand {
@@ -393,6 +396,13 @@ pub fn pipe_on_a_later_line(tokens: &[Token], at: usize) -> Option<(usize, Token
 }
 
 /// `token` as an item: a word of the command.
+/// The parts of a statement nu reads by its first word, what follows an assignment operator among
+/// them items of its call (`def = [] {}` defines the command `=`, and `use = | x` looks for a module
+/// named `=`): nu's lite parser takes them all as the command's parts.
+pub(super) fn absorbed_as_items(tokens: &[Token]) -> Vec<Token> {
+    tokens.iter().copied().map(as_item).collect()
+}
+
 pub(super) fn as_item(token: Token) -> Token {
     Token {
         contents: TokenContents::Item,

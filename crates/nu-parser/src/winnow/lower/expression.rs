@@ -659,9 +659,10 @@ impl<'s> Lower<'_, '_, 's> {
             }
             self.working_set.parse_errors.truncate(errors);
         }
-        // A condition the winnow parser left as garbage is tried as a closure first, its
-        // errors dropped when it reads as none.
-        if let w::Expr::Garbage = condition.expr {
+        // A condition the winnow parser left as garbage, or read as a record as a call's argument
+        // (`where --help {}`), is tried as a closure first, its errors dropped when it reads as
+        // none.
+        if let w::Expr::Garbage | w::Expr::Record(_) = condition.expr {
             let errors = self.working_set.parse_errors.len();
             let closure = self.closure_text(span, &SyntaxShape::Any, None)?;
             if self.working_set.parse_errors.len() == errors

@@ -21,7 +21,6 @@ use super::{Lower, Lowered, Unlowered};
 use crate::parse_source::parse_plugin_use;
 use crate::winnow::syntax::lex::{
     LexError, LexOptions, RedirectionSource as WinnowSource, TokenContents,
-    is_file_redirection_operator,
 };
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
@@ -591,7 +590,7 @@ impl<'s> Lower<'_, '_, 's> {
                 // `parse_pipeline` reports each `while` or `loop` command before it parses the
                 // elements, at its first item after any environment shorthand.
                 for element in &pipeline.elements {
-                    let items = self.items(element.expr.span);
+                    let items = self.parts(element.parts);
                     let head = items.iter().find(|item| {
                         let text = self.working_set.get_span_contents(**item);
                         !text
@@ -608,15 +607,14 @@ impl<'s> Lower<'_, '_, 's> {
                             .error(ParseError::BuiltinCommandInPipeline(keyword, head));
                     }
                 }
-                let pipes = self.classic_pipes(pipeline);
                 let mut current = input_type.cloned().unwrap_or(Type::Any);
                 let mut elements = Vec::with_capacity(pipeline.elements.len());
-                let element = self.pipeline_element(first, &current, pipes[0])?;
+                let element = self.pipeline_element(first, &current)?;
                 current = element.expr.ty.clone();
                 elements.push(element);
-                for (index, element) in rest.iter().enumerate() {
+                for element in rest {
                     let input = current.clone();
-                    let element = self.pipeline_element(element, &current, pipes[index + 1])?;
+                    let element = self.pipeline_element(element, &current)?;
                     current = element.expr.ty.clone();
                     let element = if element.has_in_variable(self.working_set) {
                         wrap_element_with_collect(self.working_set, element, Some(&input))
@@ -748,9 +746,7 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     // `parse_where` keeps the element's redirection, a call for help's too.
                     "where" if element.redirection.is_some() => {
-                        return Ok(without_pipe(
-                            self.single_element(pipeline, element, input_type)?,
-                        ));
+                        return Ok(without_pipe(self.single_element(element, input_type)?));
                     }
                     name if HELP_STATEMENT_KEYWORDS.contains(&name) => {
                         let e = &element.expr;
@@ -758,20 +754,32 @@ impl<'s> Lower<'_, '_, 's> {
                             self.help_statement(pipeline, e, call, &[], None, input_type)?;
                         return Ok(Pipeline::from_vec(vec![statement]));
                     }
+                    // `overlay =` is `parse_call`'s incomplete statement, as for any command.
+                    "overlay"
+                        if call
+                            .arguments
+                            .first()
+                            .is_some_and(|first| self.text(first.span()) == "=") =>
+                    {
+                        let span = self.span(element.expr.span);
+                        self.working_set.error(ParseError::UnknownState(
+                            "Incomplete statement".into(),
+                            span,
+                        ));
+                        return Ok(garbage_pipeline(self.working_set, span));
+                    }
                     name if name.split(' ').next() == Some("overlay") => {
                         let effect = overlay_effect(name);
                         return self.keyword_statement(&element.expr, call, effect);
                     }
                     _ => {}
                 }
-                return self.single_element(pipeline, element, input_type);
+                return self.single_element(element, input_type);
             }
             w::Expr::Where(_) => {
-                return Ok(without_pipe(
-                    self.single_element(pipeline, element, input_type)?,
-                ));
+                return Ok(without_pipe(self.single_element(element, input_type)?));
             }
-            _ => return self.single_element(pipeline, element, input_type),
+            _ => return self.single_element(element, input_type),
         };
         Ok(Pipeline::from_vec(vec![expr]))
     }
@@ -782,18 +790,16 @@ impl<'s> Lower<'_, '_, 's> {
     /// is what that gives, without the element's redirection.
     fn single_element(
         &mut self,
-        pipeline: &w::Pipeline<'s>,
         element: &w::PipelineElement<'s>,
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
-        let pipe = self.classic_pipes(pipeline)[0];
         let errors = self.working_set.parse_errors.len();
         let first_word = self.text(element.expr.span);
         let first_word = first_word
             .split(|c: char| c.is_ascii_whitespace())
             .next()
             .unwrap_or_default();
-        let lowered = self.pipeline_element(element, input_type.unwrap_or(&Type::Any), pipe)?;
+        let lowered = self.pipeline_element(element, input_type.unwrap_or(&Type::Any))?;
         if let Expr::Call(call) = &lowered.expr.expr
             && let Some(effect) = self.overlay_call_effect(call)
         {
@@ -858,109 +864,12 @@ impl<'s> Lower<'_, '_, 's> {
         overlay_effect(self.working_set.get_decl(call.decl_id).name())
     }
 
-    /// The `pipe` of each element as the classic lite parser sets it. The winnow parser keeps,
-    /// with each element, the last `|` before it; the classic lite parser keeps the `|` that
-    /// ends an element, the first one after it:
-    ///
-    /// ```text
-    /// ls | sort | first
-    ///    a      b
-    /// winnow:  ls -, sort a, first b      (- for none)
-    /// classic: ls a, sort b, first -
-    /// ```
-    ///
-    /// An element ending with `e>|` or `o+e>|` keeps it: the classic lite parser's
-    /// `ErrGreaterPipe`/`OutErrGreaterPipe` arms end the command there as a `|` does.
-    ///
-    /// The last element, which no `|` ends, keeps a `|` after it that no command follows
-    /// (`ls |` at the end of a block, [`w::Pipeline::dangling_pipe`]), or else the last of two
-    /// or more `|` before it (and the
-    /// first element a leading `|`), which empty commands between them hand on; an `e>|` that
-    /// ends the element before counts as one of them (`^ls e>|\n| lines`).
-    fn classic_pipes(&self, pipeline: &w::Pipeline<'s>) -> Vec<Option<WSpan>> {
-        let elements = &pipeline.elements;
-        let last = elements.len() - 1;
-        (0..elements.len())
-            .map(|index| {
-                if let Some(op) = redirection_pipe(&elements[index]) {
-                    Some(op)
-                } else if index < last {
-                    let next = &elements[index + 1];
-                    let gap_end = next.pipe.map_or(next.span.start, |pipe| pipe.start);
-                    let end = elements[index].span.end;
-                    self.first_pipe(end, gap_end).or_else(|| {
-                        // After a redirection without a target and across a blank line the `|`
-                        // ends no command of nu's: the pipeline went on from that redirection
-                        // (`^ls o>`, a blank line, `| lines`), and the `|` stays with the command
-                        // after it.
-                        next.pipe
-                            .filter(|_| !self.joins_across_blank_line(&elements[index], gap_end))
-                    })
-                } else if let Some(dangling) = pipeline.dangling_pipe {
-                    Some(dangling)
-                } else {
-                    let pipe = elements[index].pipe?;
-                    let previous = match index {
-                        0 => return Some(pipe),
-                        _ => &elements[index - 1],
-                    };
-                    // `pipe` is the `e>|` itself when no `|` follows it.
-                    let after_redirection_pipe =
-                        redirection_pipe(previous).is_some_and(|op| op != pipe);
-                    (after_redirection_pipe
-                        || self.first_pipe(previous.span.end, pipe.start).is_some()
-                        || self.joins_across_blank_line(previous, pipe.start))
-                    .then_some(pipe)
-                }
-            })
-            .collect()
-    }
-
-    /// Whether `element` ends with a redirection without a target and a blank line lies between
-    /// it and `end` of the source: the pipeline went on across the end of its line, and a `|`
-    /// after the blank line ends none of nu's commands (`LiteCommand::joins_next_line`).
-    fn joins_across_blank_line(&self, element: &w::PipelineElement<'s>, end: usize) -> bool {
-        let ends_with_redirection = self
-            .text(element.parts)
-            .split_ascii_whitespace()
-            .last()
-            .is_some_and(is_file_redirection_operator);
-        let Some(gap) = self.source.get(element.span.end..end) else {
-            return false;
-        };
-        let lines: Vec<&str> = gap.split('\n').collect();
-        ends_with_redirection
-            && lines.len() > 2
-            && lines[1..lines.len() - 1]
-                .iter()
-                .any(|line| line.trim().is_empty())
-    }
-
-    /// The first `|` between `start` and `end` of the source, outside comments.
-    fn first_pipe(&self, start: usize, end: usize) -> Option<WSpan> {
-        let text = self.source.get(start..end)?;
-        let mut in_comment = false;
-        for (offset, byte) in text.bytes().enumerate() {
-            match byte {
-                b'\n' => in_comment = false,
-                b'#' => in_comment = true,
-                b'|' if !in_comment => {
-                    return Some(WSpan::new(start + offset, start + offset + 1));
-                }
-                _ => {}
-            }
-        }
-        None
-    }
-
-    /// One command of a pipeline with its redirection (`parse_pipeline_element`); `pipe` is
-    /// the `|` the classic parser keeps with it. An `unlet` of a constant hides it from here on,
-    /// as there.
+    /// One command of a pipeline with its redirection (`parse_pipeline_element`). An `unlet` of a
+    /// constant hides it from here on, as there.
     fn pipeline_element(
         &mut self,
         element: &w::PipelineElement<'s>,
         input_type: &Type,
-        pipe: Option<WSpan>,
     ) -> Lowered<PipelineElement> {
         let redirection_spans = match &element.redirection {
             Some(redirection) => self.redirection_spans_of(redirection),
@@ -976,7 +885,7 @@ impl<'s> Lower<'_, '_, 's> {
         };
         hide_unlet_constants(self.working_set, &expr);
         Ok(PipelineElement {
-            pipe: pipe.map(|pipe| self.span(pipe)),
+            pipe: element.lite_pipe.map(|pipe| self.span(pipe)),
             expr,
             redirection,
         })
@@ -1527,23 +1436,6 @@ fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
         .iter()
         .any(|element| matches!(element.expr.expr, w::Expr::Module(_) | w::Expr::Export(_)))
         || statement_changes_names(pipeline)
-}
-
-/// The `e>|` or `o+e>|` that ends `element`, if one does (alone, or after an `o> file`).
-fn redirection_pipe(element: &w::PipelineElement<'_>) -> Option<WSpan> {
-    match &element.redirection {
-        Some(
-            w::PipelineRedirection::Single {
-                target: w::RedirectionTarget::Pipe { op },
-                ..
-            }
-            | w::PipelineRedirection::Separate {
-                err: w::RedirectionTarget::Pipe { op },
-                ..
-            },
-        ) => Some(op.span),
-        _ => None,
-    }
 }
 
 /// Where the errors of a block go that nu reports before any statement's: nu lexes and

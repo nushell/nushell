@@ -225,7 +225,8 @@ fn parse_percent_call<'a>(first: Token, mut tokens: Tokens<'_, 'a>) -> ParseResu
         };
         let diagnostic =
             Diagnostic::message("percent sigil requires a built-in command", head).with_help(help);
-        let head = parse_external_string(working_set, head)?;
+        // A head nu's external reader goes on past (`%a(`), which the consumer reads with it.
+        let head = recover_literal(working_set, head, parse_external_string(working_set, head))?;
         let call = parse_external_arguments(Some(sigil), head, arguments)?;
         working_set.error(diagnostic.as_recovered());
         Ok(call)
@@ -1100,7 +1101,13 @@ pub fn check_call(working_set: &WorkingSet<'_>, call: &Call<'_>, lenient: bool) 
                     contents: TokenContents::Item,
                     span: members.span,
                 };
-                parse_import_pattern_member(working_set, &token, false)?;
+                // A member that does not parse (a `[` left open): as for `use`, nu's import
+                // pattern parser reports it and goes on, and the consumer reads it with it.
+                if let Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) =
+                    parse_import_pattern_member(working_set, &token, false)
+                {
+                    working_set.error(diagnostic.as_recovered());
+                }
             }
             continue;
         }

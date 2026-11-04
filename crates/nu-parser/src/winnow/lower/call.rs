@@ -1601,9 +1601,11 @@ impl<'s> Lower<'_, '_, 's> {
                 span,
             });
         }
+        // A word with quotes in it names no command (`ls""`), whatever they leave of it.
         if call.caret.is_none()
             && let w::Expr::String(name) = &call.head.expr
             && name.quote == w::Quote::Bare
+            && self.text(call.head.span) == name.value
             && let Some(decl_id) = self.working_set.find_decl(name.value.as_bytes())
         {
             // A known name here is an alias of an external command; any other command is one
@@ -1709,13 +1711,7 @@ impl<'s> Lower<'_, '_, 's> {
             let decl_id = self.working_set.find_decl(name.as_bytes())?;
             Some((len, name, decl_id))
         });
-        if let Some((len, name, decl_id)) = shorter_head {
-            if !matches!(
-                decl_kind(self.working_set, decl_id),
-                DeclKind::Declared | DeclKind::Builtin
-            ) {
-                return Err(Unlowered::Unsupported("unresolved command"));
-            }
+        if let Some((len, name, _)) = shorter_head {
             let mut arguments: Vec<w::Argument<'s>> = words[len..]
                 .iter()
                 .map(|word| {

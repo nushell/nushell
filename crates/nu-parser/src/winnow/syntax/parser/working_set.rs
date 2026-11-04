@@ -398,6 +398,25 @@ impl<'a> WorkingSet<'a> {
         )
     }
 
+    /// [`Self::lex_n_tokens`], going on past the errors nu's lexer goes on past, which are dropped
+    /// ([`lex::lex_recovering`]).
+    pub fn lex_probe(
+        &self,
+        span: Span,
+        options: LexOptions,
+        max_tokens: usize,
+    ) -> Result<Vec<Token>, Diagnostic> {
+        let mut groups = self.groups.borrow_mut();
+        lex::lex_recovering(
+            self.get_span_contents(span),
+            span.start,
+            options,
+            max_tokens,
+            &mut groups,
+        )
+        .map(|lexed| lexed.tokens)
+    }
+
     /// The offset in the text of `span` of the bracket closing the group it starts with
     /// ([`lex::group_end`]).
     pub fn group_end(&self, span: Span) -> Option<usize> {

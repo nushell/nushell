@@ -21,7 +21,7 @@ use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents, assignment_op
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
-use super::lite_parser::lite_parse_parts;
+use super::lite_parser::{absorbed_as_items, lite_parse_parts};
 use super::parse_alias::parse_alias;
 use super::parse_bindings::{parse_const, parse_let, parse_mut};
 use super::parse_calls::{
@@ -32,6 +32,7 @@ use super::parse_control_flow::{
     parse_while,
 };
 use super::parse_def::{parse_def, parse_extern, parse_for};
+use super::parse_helpers::is_identifier;
 use super::parse_helpers::{delimited_interior, invalid_literal, is_spread};
 use super::parse_keywords::is_statement_keyword;
 use super::parse_literals::{
@@ -196,24 +197,48 @@ pub fn parse_builtin_commands<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Express
         "for" => ("for", parse_for(tokens)),
         "alias" => ("alias", parse_alias(tokens)),
         "type" => ("type", parse_type_alias(tokens, false)),
-        "module" => ("module", parse_module(tokens)),
-        "use" => ("use", parse_use(tokens)),
+        "module" => (
+            "module",
+            parse_module(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
+        "use" => (
+            "use",
+            parse_use(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
         "export" => ("export", parse_export_in_block(tokens)),
-        "export-env" => ("export-env", parse_export_env(tokens)),
+        "export-env" => (
+            "export-env",
+            parse_export_env(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
         "if" | "match" | "while" | "loop" | "try" | "return" | "break" | "continue"
             if longer_name() =>
         {
             ("command call", parse_call(tokens))
         }
-        "if" => ("if", parse_if(tokens)),
-        "match" => ("match", parse_match(tokens)),
-        "while" => ("while", parse_while(tokens)),
+        "if" => (
+            "if",
+            parse_if(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
+        "match" => (
+            "match",
+            parse_match(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
+        "while" => (
+            "while",
+            parse_while(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
         "loop" => ("loop", parse_loop(tokens)),
-        "try" => ("try", parse_try(tokens)),
+        "try" => (
+            "try",
+            parse_try(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
         "return" => ("return", parse_return(tokens)),
         "break" => ("break", parse_break_or_continue(tokens, Expr::Break)),
         "continue" => ("continue", parse_break_or_continue(tokens, Expr::Continue)),
-        "where" => ("where", parse_where(tokens)),
+        "where" => (
+            "where",
+            parse_where(tokens.over(&absorbed_as_items(tokens.all()))),
+        ),
         _ => ("command call", parse_call(tokens)),
     };
     result.map_err(|error| error.map(|failure| failure.with_context(context)))
@@ -350,7 +375,21 @@ fn env_assignment<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<EnvAssignment<
             Expr::String(StringLiteral::bare("")),
             value_span,
         )),
-        value if value.starts_with('$') => parse_value(working_set, value_span, ExpectedShape::Any),
+        // An interpolation goes on past what the lexer reported (`a=$"`). Any other value with an
+        // error ends the shorthand too, what the parser recorded dropped (`a=$`, `a=$]`).
+        value if value.starts_with("$\"") || value.starts_with("$'") => {
+            parse_value(working_set, value_span, ExpectedShape::Any)
+        }
+        value if value.starts_with('$') => {
+            let errors = working_set.error_count();
+            let parsed = parse_value(working_set, value_span, ExpectedShape::Any);
+            let is_name = value.contains(['.', '(', '?', '!']) || is_identifier(&value[1..]);
+            if working_set.error_count() > errors || !is_name {
+                drop(working_set.take_errors_from(errors));
+                return Err(backtrack(token.span.start));
+            }
+            parsed
+        }
         value if value.contains(' ') && !is_quoted_strictly(value) => {
             return Err(backtrack(token.span.start));
         }
@@ -1389,6 +1428,9 @@ pub enum BraceShape {
     Record,
     /// `...spread`: a record in value position, a block or closure elsewhere.
     Spread,
+    /// Starts with `}`: the `{}` of a value with text after it (`{}.a`, `{}x`), which nu reads as a
+    /// cell path where it takes no block or closure.
+    Closes,
     /// Anything else: code.
     Other,
 }
@@ -1414,6 +1456,7 @@ impl BraceShape {
             {
                 BraceShape::Spread
             }
+            [first, ..] if first.text(source) == "}" => BraceShape::Closes,
             [first, ..] if first.contents != TokenContents::Eof => BraceShape::Other,
             _ => BraceShape::Empty,
         }
@@ -1425,12 +1468,12 @@ impl BraceShape {
 /// whitespace, skips comments and splits off `:`, so these are the first two
 /// tokens of substance and `a:` reads as a key.
 ///
-/// The probe only picks a parser and, like nu, reports no lex error: one reads
-/// as `Empty` (`unwrap_or_default`), and the parser chosen for an `Empty` body
-/// lexes it again, where a real error is reported.
+/// The probe only picks a parser and, like nu, goes on past a lex error, which the parser chosen
+/// lexes again and reports (`{ | { 1 }`, which never closes, still starts with a pipe). What nu's
+/// lexer cannot end either reads as `Empty`.
 fn probe_brace_shape(working_set: &WorkingSet<'_>, inner: Span) -> BraceShape {
     let probe = working_set
-        .lex_n_tokens(inner, LexOptions::BRACE_PROBE, 2)
+        .lex_probe(inner, LexOptions::BRACE_PROBE, 2)
         .unwrap_or_default();
     BraceShape::of_probe(&probe, working_set.source)
 }
@@ -1496,17 +1539,9 @@ fn parse_brace_expr<'a>(
         // `{a: 1}.a`. Like nu, the kind is decided from the text between the
         // first and the last character, tail included: a record (`key :`) or a
         // first token `}` (`{}.a`) is a cell path, anything else a closure,
-        // block or record that never closes (`{#a: 1}.a`, `{...$r}.a`). The
-        // lexer refuses a `}` that was never opened, so the probe cannot see a
-        // first `}`: the lines are scanned for it, past blanks and comments.
+        // block or record that never closes (`{#a: 1}.a`, `{...$r}.a`).
         let inner = brace_probe_interior(working_set, span);
-        let rest = working_set.get_span_contents(inner);
-        let first_is_close = rest
-            .lines()
-            .map(str::trim_start)
-            .find(|line| !line.is_empty() && !line.starts_with('#'))
-            .is_some_and(|line| line.starts_with('}'));
-        if first_is_close || probe_brace_shape(working_set, inner) == BraceShape::Record {
+        if let BraceShape::Closes | BraceShape::Record = probe_brace_shape(working_set, inner) {
             return parse_full_cell_path(working_set, span, false);
         }
         let open = Span::new(span.start, span.start + 1);
@@ -1532,9 +1567,11 @@ fn parse_brace_expr<'a>(
             parse_block_expression(working_set, span)
         }
         (BraceShape::Spread, _) => parse_record(working_set, span),
-        (BraceShape::Other, ExpectedShape::MatchArmBody) => {
+        (BraceShape::Other | BraceShape::Closes, ExpectedShape::MatchArmBody) => {
             parse_block_expression(working_set, span)
         }
+        (BraceShape::Closes, ExpectedShape::Closure) => parse_closure_expression(working_set, span),
+        (BraceShape::Closes, _) => parse_full_cell_path(working_set, span, false),
         (BraceShape::Other, ExpectedShape::Closure | ExpectedShape::Any) => {
             parse_closure_expression(working_set, span)
         }
@@ -1561,7 +1598,7 @@ pub fn parse_block_body<'a>(working_set: &WorkingSet<'a>, span: Span) -> ParseRe
                 Diagnostic::expected("block", span).with_help("found a record")
             ));
         }
-        BraceShape::Empty | BraceShape::Spread | BraceShape::Other => {}
+        BraceShape::Empty | BraceShape::Spread | BraceShape::Closes | BraceShape::Other => {}
     }
     parse_block_body_unchecked(working_set, span)
 }

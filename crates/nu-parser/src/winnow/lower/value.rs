@@ -78,6 +78,14 @@ impl<'s> Lower<'_, '_, 's> {
         if let SyntaxShape::OneOf(shapes) = shape {
             return self.one_of(e, shapes, input_type);
         }
+        // A brace item with text after it where a block goes, which the winnow parser read as a
+        // value (`try {}.`): nu reads it with the shape (`parse_brace_expr`), and it never closes.
+        if let SyntaxShape::Block | SyntaxShape::MatchBlock | SyntaxShape::Closure(_) = shape {
+            let text = self.text(e.span);
+            if text.starts_with('{') && !text.ends_with('}') {
+                return self.brace_text(e.span, shape, input_type);
+            }
+        }
         // `parse_value` negates `-$x` and `-(expr)` for the shapes that hold numbers; for any
         // other, the classic leaf parser reads the word (`-$x` is a string for `string`).
         if let w::Expr::UnaryMinus(minus) = &e.expr

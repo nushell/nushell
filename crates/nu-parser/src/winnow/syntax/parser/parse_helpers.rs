@@ -118,6 +118,7 @@ pub fn garbage_pipeline<'a>(span: Span) -> Pipeline<'a> {
         elements: vec![PipelineElement {
             span,
             pipe: None,
+            lite_pipe: None,
             expr: garbage(span),
             redirection: None,
             parts: span,

@@ -168,7 +168,9 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         .remaining()
         .iter()
         .take_while(|token| token.contents == TokenContents::Item)
-        .any(|token| short_flags_ask_for_help(working_set.get_span_contents(token.span)));
+        .map(|token| working_set.get_span_contents(token.span))
+        .take_while(|text| *text != "--")
+        .any(|text| short_flags_ask_for_help(text) || text == "--help");
     if asks_for_help {
         return parse_alias_as_call(statement);
     }
@@ -215,10 +217,19 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
             Err(error) => return call_after_error(statement, error, parse_alias_as_call),
         },
     };
-    // `alias alias --help` is a help call before the name is checked.
+    // `alias alias --help` is a help call before the name is checked; past a flag nu's call does
+    // not know, nu refuses the name it read (`alias 1 -f`) and keeps the call.
     match keyword_boundary_with(&mut tokens, "alias", &[], false) {
         Ok(KeywordBoundary::Help) => return parse_alias_as_call(statement),
-        Err(_) if incomplete => return parse_alias_as_call(statement),
+        Err(_) if incomplete => {
+            if !not_a_string
+                && let Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) =
+                    check_definition_name(&name, "alias")
+            {
+                working_set.error(diagnostic.as_recovered());
+            }
+            return parse_alias_as_call(statement);
+        }
         boundary => boundary?,
     };
     let declares = !not_a_string

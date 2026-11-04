@@ -53,6 +53,26 @@ impl Lower<'_, '_, '_> {
         Some((tokens, inner, closed))
     }
 
+    /// `tokens`, lexed by [`Self::lex_span`] with an end of line for each line break between them:
+    /// that follows nu's lexer, which folds the end of a line before a `|` into it, and the winnow
+    /// parser reads a line-leading `|` from the end of line before it.
+    fn with_line_ends(&self, tokens: &[Token]) -> Vec<Token> {
+        let mut lines = Vec::with_capacity(tokens.len());
+        let mut previous_end = None;
+        for token in tokens {
+            if let Some(end) = previous_end {
+                let gap = &self.source[end..token.span.start];
+                lines.extend(gap.match_indices('\n').map(|(at, _)| Token {
+                    contents: TokenContents::Eol,
+                    span: WSpan::new(end + at, end + at + 1),
+                }));
+            }
+            lines.push(*token);
+            previous_end = Some(token.span.end);
+        }
+        lines
+    }
+
     /// The block of the statements `tokens`, inside the item at `span`, read as nu's
     /// `parse_block` reads tokens it is handed, not scoped of its own: of a closure's or a
     /// block's braces (`BlockOf::Code`), or of an assignment's right side (a subexpression).
@@ -65,6 +85,14 @@ impl Lower<'_, '_, '_> {
     ) -> Block {
         // The item's text, as nu's `parse_block` hands it to the winnow parser.
         let item = self.local(span);
+        let unfolded;
+        let tokens = match of {
+            BlockOf::Code => {
+                unfolded = self.with_line_ends(tokens);
+                unfolded.as_slice()
+            }
+            _ => tokens,
+        };
         let tokens = tokens
             .iter()
             .map(|token| Token {

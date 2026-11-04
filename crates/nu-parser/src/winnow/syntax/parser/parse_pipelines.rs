@@ -419,7 +419,7 @@ fn first_lite_error(source: &str, tokens: &[Token]) -> Option<LiteError> {
     let working_set = WorkingSet::new(source, &ParseConfig::empty());
     let mut stream = Tokens::from_lexed(&working_set, tokens);
     let mut carried_comments = Vec::new();
-    let mut carried_pipe = None;
+    let mut carried_pipe = CarriedPipes::default();
     while let Some(token) = stream.peek_token() {
         if matches!(
             token.contents,
@@ -550,8 +550,8 @@ struct StatementsState {
     /// statement's leading comments, past blank lines too, unless comment lines come right
     /// before it (`pending`, which nu puts in their place).
     carried_comments: Vec<Comment>,
-    /// A `|` that no command followed before a blank line, which nu hands to the next command.
-    carried_pipe: Option<Span>,
+    /// The pipes that no command took before the statement ended.
+    carried_pipe: CarriedPipes,
     /// What the last token was (`Item` for a whole statement): an `Eol` after an `Eol` is a
     /// blank line, and a `;` or a comment right after a statement belongs to it.
     last: TokenContents,
@@ -569,7 +569,7 @@ impl Default for StatementsState {
         Self {
             pending: Vec::new(),
             carried_comments: Vec::new(),
-            carried_pipe: None,
+            carried_pipe: CarriedPipes::default(),
             last: TokenContents::Eol,
             pushed: false,
             dropped_error: None,
@@ -763,6 +763,16 @@ fn carry_comments_beside(
     }
 }
 
+/// The pipes a statement leaves to the next one, which nu's lite parser keeps on the command it
+/// has not started yet.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct CarriedPipes {
+    /// The last `|` before the next command ([`PipelineElement::pipe`]).
+    before: Option<Span>,
+    /// What nu's `command.pipe` holds ([`PipelineElement::lite_pipe`]).
+    lite: Option<Span>,
+}
+
 /// One pipeline (nu's `parse_pipeline`): commands separated by `|`. `None`
 /// when there was no command at all (a lone `|` before a blank line), the `|`
 /// then left in `carried_pipe`: nu's lite parser keeps it for the next command,
@@ -777,7 +787,7 @@ fn parse_pipeline<'a>(
     tokens: &mut Tokens<'_, 'a>,
     leading_comments: &mut Vec<Comment>,
     carried_comments: &mut Vec<Comment>,
-    carried_pipe: &mut Option<Span>,
+    carried_pipe: &mut CarriedPipes,
     lite_end: &mut Option<usize>,
     found_lite_error: &mut Option<LiteError>,
     lite_only: bool,
@@ -789,7 +799,12 @@ fn parse_pipeline<'a>(
     // command is parsed differently when it is one element of a longer pipeline.
     let mut lite_commands: Vec<(Option<Span>, LiteCommand)> = Vec::new();
     let mut trailing_comments = Vec::new();
-    let mut pipe: Option<Span> = carried_pipe.take();
+    let mut pipe: Option<Span> = carried_pipe.before.take();
+    // nu's `command.pipe` while its command is empty. A pipe that ends no command stays there, and
+    // the next command keeps it unless a pipe ends that command too.
+    let mut lite_pipe = carried_pipe.lite.take();
+    // Whether nu has not ended the last command yet, so that a `|` now ends it.
+    let mut command_open = false;
     // A `|` after the last command that no command follows.
     let mut dangling_pipe = None;
     // The last command nu dropped, when no command came after it: the `|` before it and its own
@@ -815,6 +830,11 @@ fn parse_pipeline<'a>(
         {
             pipe = Some(token.span);
             first_pipe.get_or_insert(token.span);
+            match lite_commands.last_mut().filter(|_| command_open) {
+                Some((_, lite_command)) => lite_command.lite_pipe = Some(token.span),
+                None => lite_pipe = Some(token.span),
+            }
+            command_open = false;
             tokens.next_token();
             if let AfterPipe::Dangling = after_pipe(tokens, true, &mut trailing_comments)? {
                 // nu ends the last command at the first `|` after it; with more, the empty
@@ -822,7 +842,7 @@ fn parse_pipeline<'a>(
                 if !lite_commands.is_empty() {
                     dangling_pipe = first_pipe;
                     if pipe != first_pipe {
-                        *carried_pipe = pipe;
+                        carried_pipe.before = pipe;
                     }
                 }
                 carry_comments_beside(working_set, &mut trailing_comments, from, carried_comments);
@@ -853,8 +873,13 @@ fn parse_pipeline<'a>(
             .position()
             .checked_sub(1)
             .and_then(|previous| tokens.all().get(previous))
-            .is_some_and(|previous| previous.contents == TokenContents::Eol);
-        let lite_command = parse_lite_command(tokens, pipe.is_none() || starts_line)?;
+            .is_some_and(|previous| {
+                matches!(
+                    previous.contents,
+                    TokenContents::Eol | TokenContents::Semicolon
+                )
+            });
+        let mut lite_command = parse_lite_command(tokens, pipe.is_none() || starts_line)?;
         trailing_comments.extend(lite_command.comments.iter().copied());
         let pipe_after = lite_command.pipe_after;
         lite_error = lite_error.or(lite_command.lite_error.as_deref().copied());
@@ -867,8 +892,12 @@ fn parse_pipeline<'a>(
         if dropped {
             dropped_error = dropped_error.or(lite_command.lite_error.as_deref().copied());
             trailing_dropped = Some((pipe, pipe_after));
+            lite_pipe = pipe_after.or(lite_pipe);
         } else {
             trailing_dropped = None;
+            lite_command.lite_pipe = pipe_after.or(lite_pipe.take());
+            // An `e>|` ended it, or the end of line after a redirection without a target.
+            command_open = pipe_after.is_none() && !lite_command.joins_next_line;
             lite_commands.push((pipe.take(), lite_command));
         }
         if pipe_after.is_some() {
@@ -891,11 +920,17 @@ fn parse_pipeline<'a>(
         if let Some(error) = dropped_error {
             working_set.error(lite_diagnostic(error).as_recovered());
             *found_lite_error = Some(error);
-            *carried_pipe = pipe;
+            *carried_pipe = CarriedPipes {
+                before: pipe,
+                lite: lite_pipe,
+            };
             return Ok(None);
         }
         // Only pipes (`|` and a blank line): nu drops the empty command.
-        *carried_pipe = pipe;
+        *carried_pipe = CarriedPipes {
+            before: pipe,
+            lite: lite_pipe,
+        };
         return Ok(None);
     }
     if let Some(error) = dropped_error {
@@ -907,11 +942,12 @@ fn parse_pipeline<'a>(
         if dangling_pipe.is_none() {
             dangling_pipe = before;
         }
-        *carried_pipe = own;
+        carried_pipe.before = own;
     }
+    carried_pipe.lite = lite_pipe;
     // The lite parse is done: the statement ends here, unless a `|` without a command after
     // it hands on to the next one (`a | |`) or ends it before a blank line.
-    if dangling_pipe.is_none() && carried_pipe.is_none() {
+    if dangling_pipe.is_none() && carried_pipe.before.is_none() {
         *lite_end = Some(tokens.position());
     }
     *found_lite_error = lite_error;
@@ -958,6 +994,7 @@ fn parse_pipeline<'a>(
         elements.push(PipelineElement {
             span: Span::new(start, end),
             pipe: *pipe,
+            lite_pipe: lite_command.lite_pipe,
             expr,
             redirection,
             parts,
@@ -1360,6 +1397,34 @@ mod tests {
         assert_eq!(pipelines("[1 2 3] | # c\n\n| length"), [2]);
         assert_eq!(pipelines("[1 2 3] |\n\n\n| length"), [1, 1]);
         assert_eq!(pipelines("[1 2 3]\n\n| length"), [1, 1]);
+    }
+
+    /// Where the pipe nu's lite parser keeps with each command of `source` starts.
+    fn lite_pipes(source: &str) -> Vec<Option<usize>> {
+        // Some of these have lite-parse errors, which nu goes on past.
+        let (ast, _) = crate::winnow::syntax::parser::parse(source, &ParseConfig::new());
+        ast.block
+            .pipelines
+            .iter()
+            .flat_map(|pipeline| &pipeline.elements)
+            .map(|element| element.lite_pipe.map(|pipe| pipe.start))
+            .collect()
+    }
+
+    #[test]
+    fn a_command_keeps_the_pipe_that_ended_it_or_the_last_no_command_took() {
+        assert_eq!(lite_pipes("ls | lines"), [Some(3), None]);
+        assert_eq!(lite_pipes("| ls"), [Some(0)]);
+        assert_eq!(lite_pipes("ls | | lines"), [Some(3), Some(5)]);
+        assert_eq!(lite_pipes("ls | e>| |"), [Some(3)]);
+        assert_eq!(lite_pipes("ls | | e>|"), [Some(3)]);
+        assert_eq!(lite_pipes("ls e>| lines"), [Some(3), None]);
+        assert_eq!(lite_pipes("ls e> f e>|"), [Some(8)]);
+        assert_eq!(lite_pipes("^ls e>||\n\nlines"), [Some(4), Some(7)]);
+        assert_eq!(lite_pipes("ls | |\n\nlines"), [Some(3), Some(5)]);
+        assert_eq!(lite_pipes("^ls o>\n\n| lines"), [None, Some(8)]);
+        assert_eq!(lite_pipes("[1 2 3] |\n\n| length"), [Some(8), Some(11)]);
+        assert_eq!(lite_pipes("[1 2 3]\n\n| length"), [None, Some(9)]);
     }
 
     #[test]

@@ -191,26 +191,29 @@ impl<'s> Lower<'_, '_, 's> {
                 w::Expr::Block(block) => {
                     let errors = self.working_set.parse_errors.len();
                     let scopes = self.working_set.delta.scope.len();
-                    let body = self.block_expression(branch.body.span, block, branch_input)?;
+                    let mut body = self.block_expression(branch.body.span, block, branch_input)?;
                     // nu reads the `else` item with its keyword's shape, a block before an
                     // expression (`parse_oneof`): a block with an error is read again as a
-                    // closure, whose errors start no later, so the block stays the best guess.
-                    // Only what that reading declares stays (a `def` predeclared again); its
-                    // errors and the scopes it leaves open go.
+                    // closure, without the input (`else {$in / 1}` on a list). One with no error
+                    // is the item. Otherwise its errors start no later, so the block stays the
+                    // best guess; only what that reading declares stays (a `def` predeclared
+                    // again), and its errors and the scopes it leaves open go.
                     if self.working_set.parse_errors.len() > errors {
                         let block_errors = self.working_set.parse_errors.split_off(errors);
                         let block_scopes = self.working_set.delta.scope.split_off(scopes);
-                        let _ = self.closure(
-                            branch.body.span,
-                            None,
-                            block,
-                            &SyntaxShape::Any,
-                            branch_input,
-                        );
-                        self.working_set.parse_errors.truncate(errors);
-                        self.working_set.delta.scope.truncate(scopes);
-                        self.working_set.parse_errors.extend(block_errors);
-                        self.working_set.delta.scope.extend(block_scopes);
+                        let closure =
+                            self.closure(branch.body.span, None, block, &SyntaxShape::Any, None);
+                        match closure {
+                            Ok(closure) if self.working_set.parse_errors.len() == errors => {
+                                body = closure;
+                            }
+                            _ => {
+                                self.working_set.parse_errors.truncate(errors);
+                                self.working_set.delta.scope.truncate(scopes);
+                                self.working_set.parse_errors.extend(block_errors);
+                                self.working_set.delta.scope.extend(block_scopes);
+                            }
+                        }
                     }
                     body
                 }
@@ -631,8 +634,10 @@ impl<'s> Lower<'_, '_, 's> {
             None => None,
         };
         // One that is no variable name, which the winnow parser keeps for a binding (`let $x-y =
-        // 1`): nu reports it after the type and goes on with garbage over that same span.
-        if !is_variable(&String::from_utf8_lossy(&var_name)) {
+        // 1`): nu reports it after the type and goes on with garbage over that same span. A name
+        // the winnow parser keeps as written has its `:`, which is not part of it (`let : x`).
+        let bare_name = var_name.strip_suffix(b":").unwrap_or(&var_name);
+        if !is_variable(&String::from_utf8_lossy(bare_name)) {
             let span = written
                 .as_ref()
                 .map_or(name_span, |(_, var_span)| *var_span);

@@ -147,12 +147,22 @@ fn parse_pipeline<'a>(tokens: &mut Tokens<'_, 'a>, leading_comments: Vec<Comment
     let single = lite_commands.len() == 1;
     for (pipe, lite_command) in &lite_commands {
         let (expr, redirection) = parse_pipeline_element(working_set, lite_command, !single)?;
-        elements.push(PipelineElement { span, pipe: *pipe, expr, redirection });
+        elements.push(PipelineElement { span, pipe: *pipe, lite_pipe, expr, redirection });
     }
     let terminator = /* a following `;` */;
     Ok(Some(Pipeline { span, elements, leading_comments, trailing_comments, terminator, dangling_pipe }))
 }
 ```
+
+An element keeps two pipes. `pipe` is the last `|` before it, which the
+formatter and the element's span use. `lite_pipe` is the pipe nu's lite parser
+keeps with the command (`LiteCommand::pipe`), which the lowering hands on: nu
+sets `command.pipe` on the command it is reading and pushes the command only
+if it has parts, so a command keeps the pipe that ended it, or else the last
+pipe read while no command was open, even one from the statement before
+(`ls | |`, a blank line, `lines`). The loop above follows that as it goes:
+`lite_pipe` holds a pipe no command took, and `CarriedPipes` hands both on to
+the next statement.
 
 The rules for newlines around a `|` are nu's exactly, and they are
 asymmetric. Both are written as winnow combinators over the token parsers

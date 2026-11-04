@@ -5,9 +5,10 @@ use winnow::error::ErrMode;
 use crate::winnow::syntax::ast::{Binding, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
-use crate::winnow::syntax::lex::{AssignmentOperator, TokenContents};
+use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents};
 use crate::winnow::syntax::span::Spanned;
 
+use super::parse_helpers::is_spread;
 use super::parse_keywords::{KeywordBoundary, call_after_error, keyword_flag, parse_help_call};
 use super::parse_pipelines::parse_value_block;
 use super::parse_signatures::{parse_type_after_var, parse_var_with_opt_type};
@@ -77,6 +78,7 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         true => KeywordBoundary::Argument,
     };
     if let KeywordBoundary::Help | KeywordBoundary::UnknownFlag = boundary {
+        check_call_items(&statement);
         return parse_help_call(statement);
     }
     if has_equals && !binds {
@@ -99,6 +101,15 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
     {
         working_set.add_ignored(marker.span);
         tokens.next_token();
+    }
+    // A spread where the name goes (`let ...$x`): nu's call to the keyword, which refuses it
+    // (UnexpectedSpreadArg), as the consumer does.
+    if !binds
+        && tokens
+            .peek_token()
+            .is_some_and(|name| is_spread(tokens.text(name), b"[$({"))
+    {
+        return parse_help_call(statement);
     }
     // No name (`let`, `let | each {..}`): nu's call to the keyword, missing its name
     // (MissingPositional), which the consumer reports.
@@ -221,4 +232,39 @@ fn parse_binding<'a>(mut tokens: Tokens<'_, 'a>, kind: BindingKind) -> ParseResu
         make_expr(Box::new(binding)),
         keyword.span.merge(end),
     ))
+}
+
+/// What nu's call to `let`, `mut` or `const` reports whatever else it asks for (`let --help x x`):
+/// the variable item it refuses, another word in the place of its `=`, and an `=` without a value.
+/// The consumer reports them with the call: here they are recorded as recovered.
+fn check_call_items(statement: &Tokens<'_, '_>) {
+    let working_set = statement.working_set;
+    let is_flag = |token: &&Token| {
+        let text = statement.text(token);
+        text.starts_with('-') && text.len() > 1
+    };
+    let mut positionals = statement.remaining()[1..]
+        .iter()
+        .filter(|token| !is_flag(token));
+    let Some(name) = positionals.next() else {
+        return;
+    };
+    if let Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) =
+        parse_var_with_opt_type(working_set, name)
+    {
+        working_set.error(diagnostic.as_recovered());
+    }
+    if statement.text(name).ends_with(':') {
+        return;
+    }
+    if let Some(word) = positionals.next() {
+        let diagnostic = match statement.text(word) {
+            "=" if positionals.next().is_none() => {
+                Diagnostic::expected("value after `=`", word.span.past())
+            }
+            "=" => return,
+            _ => Diagnostic::expected("`=`", word.span),
+        };
+        working_set.error(diagnostic.as_recovered());
+    }
 }

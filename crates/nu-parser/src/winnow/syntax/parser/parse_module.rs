@@ -267,6 +267,11 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             return parse_help_call(statement);
         }
         let text = working_set.get_span_contents(token.span);
+        // A spread goes to the rest parameter of nu's call, the members, not to its module
+        // (MissingPositional), as the consumer reports (`use ...$x`).
+        if is_spread(text, b"[$({") {
+            return parse_help_call(statement);
+        }
         if token.contents == TokenContents::Item
             && text.starts_with('-')
             && text.len() > 1
@@ -342,8 +347,13 @@ pub fn parse_use<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             module
         }
     };
-    // After `use null` nu parses the members and then never looks at them.
-    let noop = matches!(module.expr, Expr::Nothing);
+    // After `use null` nu parses the members and then never looks at them, and `()` is null too.
+    let noop = matches!(module.expr, Expr::Nothing)
+        || working_set
+            .get_span_contents(module.span)
+            .strip_prefix('(')
+            .and_then(|inner| inner.strip_suffix(')'))
+            .is_some_and(|inner| inner.trim().is_empty());
     let mut members = Vec::new();
     let mut end = module_token.span;
     while let Some(token) = tokens.next_token() {

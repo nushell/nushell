@@ -325,7 +325,8 @@ there is an external command, as for nu.
 1. If the item does not end with `}`, it is `{...}.member` →
    `parse_full_cell_path`.
 2. `probe_brace_shape` lexes the first two interior tokens with
-   `lex_n_tokens(.., LexOptions::BRACE_PROBE, 2)` and classifies them as a
+   `lex_probe(.., LexOptions::BRACE_PROBE, 2)`, going on past a lex error as
+   nu's lexer does, and classifies them as a
    `BraceShape` with `BraceShape::of_probe`, which looks only at the tokens
    and the text they were lexed from, so `is_range_bound` (above) classifies
    a range bound's text with it too. The enum is `pub`, and
@@ -338,6 +339,7 @@ there is an external command, as for nu.
 | `ClosureParams` | first token is `\|` or `\|\|` | closure, whatever the shape |
 | `Record` | second token is `:` | record (`{a: 1}`), whatever the shape |
 | `Spread` | first token starts with `...` followed by `{`, `$` or `(` | a closure for `Closure`, a block for `MatchArmBody`, otherwise a record |
+| `Closes` | first token is `}` (`{}.a`, `{}x`, a tail after an empty body) | a block for `MatchArmBody`, a closure for `Closure`, otherwise a cell path on a record |
 | `Other` | anything else | a block for `MatchArmBody`, a closure for `Closure` and `Any`; an error for `Number`, `String` and `Declared` |
 
 So `{ print hi }` in argument position is a closure, `{}` is a record, and

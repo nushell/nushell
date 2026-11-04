@@ -24,7 +24,8 @@ use crate::winnow::syntax::input::{
     Input, ParseFailure, ParseResult, cut, input, into_diagnostic, pos, rest_span,
 };
 use crate::winnow::syntax::lex::{
-    LexOptions, Token, TokenContents, group_end, interp_subexpr_step, lex, lex_n_tokens,
+    GroupEnds, LexOptions, Token, TokenContents, group_end, interp_subexpr_step, lex,
+    lex_recovering,
 };
 use crate::winnow::syntax::span::Span;
 
@@ -1368,11 +1369,13 @@ fn is_range_bound(text: &str) -> bool {
         // `-$x` and `-(expr)`, which the `number` shape negates.
         [b'-', b'$' | b'(', ..] => is_negation(text),
         [b'(', ..] => group_end(text).is_some(),
-        // nu probes the text between the first and the last character, a tail included.
+        // nu probes the text between the first and the last character, a tail included, and goes
+        // on past a lex error: `{|| 1}x` is a closure that never closes.
         [b'{', _, ..] => {
             let inner = &text[1..text.len() - text.chars().next_back().map_or(0, char::len_utf8)];
-            lex_n_tokens(inner, 0, LexOptions::BRACE_PROBE, 2)
-                .is_ok_and(|probe| BraceShape::of_probe(&probe, inner) != BraceShape::Other)
+            let mut groups = GroupEnds::default();
+            lex_recovering(inner, 0, LexOptions::BRACE_PROBE, 2, &mut groups)
+                .is_ok_and(|probe| BraceShape::of_probe(&probe.tokens, inner) != BraceShape::Other)
         }
         _ => {
             matches!(
@@ -1420,6 +1423,10 @@ pub fn is_range_head(text: &str) -> bool {
     // variable has a `:` in its name: `let` reads `name: type`).
     let bound_parses = |bound: &str| match bound.strip_prefix('$') {
         Some(rest) if rest.starts_with('.') => is_cell_path_tail(rest),
+        // An interpolation, whose subexpressions must close (`..$"()"`, not `..$"("`).
+        Some(rest) if rest.starts_with(['"', '\'']) => {
+            rest.matches('(').count() == rest.matches(')').count()
+        }
         Some(rest) => {
             let name_end = rest.find(['.', '?', '!']).unwrap_or(rest.len());
             let name = &rest[..name_end];

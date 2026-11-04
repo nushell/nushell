@@ -17,7 +17,7 @@ use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
 use super::lite_parser::{
-    AfterPipe, after_pipe_lines, as_item, parse_lite_command, pipe_on_later_line,
+    AfterPipe, absorbed_as_items, after_pipe_lines, parse_lite_command, pipe_on_later_line,
 };
 use super::parse_calls::{parse_definition_call, parse_flag_value, split_long_flag};
 use super::parse_expressions::{
@@ -91,7 +91,7 @@ pub(super) fn scan_predecls(working_set: &WorkingSet<'_>, tokens: &[Token]) -> D
         tokens,
         |definition| {
             // Copied, so that `Definitions` borrows nothing.
-            let items = assignments_as_items(definition.items);
+            let items = absorbed_as_items(definition.items);
             definitions.defs.push(definition.with_items(items));
         },
         |type_alias| definitions.type_aliases.push(type_alias),
@@ -300,11 +300,18 @@ fn scan_definitions<'a>(
         let starts_attribute = matches!(previous, TokenContents::Eol | TokenContents::Semicolon)
             && working_set.get_span_contents(token.span).starts_with('@');
         let blank_line = token.contents == TokenContents::Eol && previous == TokenContents::Eol;
+        // An operator on an attribute line is one of its arguments (`@ o>\ndef f [] {}`).
         let continues_pipeline = std::mem::replace(
             &mut after_open_redirection,
-            token.contents == TokenContents::Eol
+            !in_attribute
+                && token.contents == TokenContents::Eol
                 && matches!(previous, TokenContents::Redirection(operator) if !operator.is_pipe()),
         );
+        // The end of a line after a `;` ends a command that had only attribute lines, with its
+        // pipeline (`ls |\n@a;\ndef f [] {}`).
+        if token.contents == TokenContents::Eol && previous == TokenContents::Semicolon {
+            after_pipe = false;
+        }
         previous = token.contents;
         match token.contents {
             TokenContents::Eol | TokenContents::Semicolon => {
@@ -332,9 +339,8 @@ fn scan_definitions<'a>(
                         .take_while(|token| is_definition_item(token))
                         .map(|token| (working_set.get_span_contents(token.span), token.span))
                 };
-                let mut words = statement();
                 let (head, items_start) = match working_set.get_span_contents(token.span) {
-                    "export" => (words.next().map_or("", |(word, _)| word), index + 1),
+                    "export" => (statement().next().map_or("", |(word, _)| word), index + 1),
                     head => (head, index),
                 };
                 if !matches!(head, "def" | "extern" | "type") {
@@ -351,17 +357,24 @@ fn scan_definitions<'a>(
                 // every item after a redirection, as the command's parts, which its
                 // predeclaration reads (`def f [] { } o> o> x`). Its errors are the statement's.
                 let lite_parts: Vec<Token>;
+                // A redirection without a target at the end of its line, which ends nu's command
+                // there but not its pipeline (`LiteCommand::joins_next_line`).
+                let mut open_redirection = false;
+                let redirected = tokens
+                    .get(items_end)
+                    .is_some_and(|next| matches!(next.contents, TokenContents::Redirection(_)));
                 let items = match tokens.get(items_end) {
-                    Some(next) if matches!(next.contents, TokenContents::Redirection(_)) => {
+                    Some(_) if redirected => {
                         let errors = working_set.error_count();
                         let command = &tokens[index - 1..];
                         let end = command.last().map_or(0, |last| last.span.end);
                         let parts =
                             parse_lite_command(&mut Tokens::new(working_set, command, end), false)
-                                .map(|lite| lite.parts);
+                                .map(|lite| (lite.parts, lite.joins_next_line));
                         drop(working_set.take_errors_from(errors));
                         match parts {
-                            Ok(parts) => {
+                            Ok((parts, joins_next_line)) => {
+                                open_redirection = joins_next_line;
                                 lite_parts =
                                     parts.into_iter().skip(items_start + 1 - index).collect();
                                 &lite_parts
@@ -407,7 +420,18 @@ fn scan_definitions<'a>(
                         )
                     }
                 };
-                if pipes_to_another_command {
+                // An item on the next line makes that a pipeline of two commands (`def [] o>\nx`).
+                let joins_next_line = open_redirection
+                    && tokens.get(rest_end + 1).is_some_and(|next| {
+                        !matches!(
+                            next.contents,
+                            TokenContents::Eol
+                                | TokenContents::Comment
+                                | TokenContents::Semicolon
+                                | TokenContents::Eof
+                        )
+                    });
+                if pipes_to_another_command || joins_next_line {
                     continue;
                 }
                 if head == "type" {
@@ -428,19 +452,34 @@ fn scan_definitions<'a>(
                     }
                     continue;
                 }
-                // nu looks at a definition only when its statement has at least three parts.
-                let parts = command
-                    .iter()
-                    .filter(|token| token.contents != TokenContents::Comment)
-                    .count();
+                // nu looks at a definition only when its statement has at least three parts,
+                // which a redirection with its target is not.
+                let parts = match redirected {
+                    true => items.len(),
+                    false => command
+                        .iter()
+                        .filter(|token| token.contents != TokenContents::Comment)
+                        .count(),
+                };
                 let statement_items = parts + if items_start > index { 2 } else { 1 };
-                let Some((_, name_span)) = words.find(|(word, _)| !word.starts_with('-')) else {
+                // Its flags, its name and its signature, from the name on: the name may be the
+                // signature too (`def [] x`, nu's `signature_pos` starts at the name).
+                let from_name = items
+                    .iter()
+                    .position(|item| !tokens_text(working_set, item).starts_with('-'))
+                    .map(|name| &items[name..]);
+                let Some(from_name) = from_name else {
                     continue;
                 };
+                let name_span = from_name[0].span;
                 if statement_items < 3 {
                     continue;
                 }
-                let has_signature = words.any(|(word, _)| word.starts_with(['[', '(']));
+                let signature_item = from_name
+                    .iter()
+                    .find(|item| tokens_text(working_set, item).starts_with(['[', '(']))
+                    .map(|item| item.span);
+                let has_signature = signature_item.is_some();
                 let last_part = command
                     .iter()
                     .rev()
@@ -476,18 +515,13 @@ fn scan_definitions<'a>(
                 // nu gives the untyped rest parameter of a `def --wrapped` the
                 // `external_arg` shape.
                 let has_wrapped_flag = head == "def"
-                    && tokens[index..]
-                        .iter()
-                        .take_while(|token| is_definition_item(token))
-                        .any(|token| {
-                            token.span.len() == 9
-                                && working_set.get_span_contents(token.span) == "--wrapped"
-                        });
+                    && items.iter().any(|item| {
+                        item.span.len() == 9
+                            && working_set.get_span_contents(item.span) == "--wrapped"
+                    });
                 let wrapped = has_wrapped_flag
-                    && statement()
-                        .skip_while(|(_, span)| *span != name_span)
-                        .find(|(word, _)| word.starts_with(['[', '(']))
-                        .is_some_and(|(_, signature)| has_untyped_rest(working_set, signature));
+                    && signature_item
+                        .is_some_and(|signature| has_untyped_rest(working_set, signature));
                 let kind = if wrapped {
                     DeclKind::Wrapped
                 } else {
@@ -495,10 +529,7 @@ fn scan_definitions<'a>(
                 };
                 working_set.add_predecl(&name, kind);
                 // The signature item a call reads its arguments by, without a lookup.
-                if let Some((_, signature)) = statement()
-                    .skip_while(|(_, span)| *span != name_span)
-                    .find(|(word, _)| word.starts_with(['[', '(']))
-                {
+                if let Some(signature) = signature_item {
                     working_set.declare_signature(&name, signature, found.external);
                 }
                 // nu reports the name and goes on, the later definition predeclared (its
@@ -683,24 +714,16 @@ fn parse_def_name<'a>(
 /// `def [--env] [--wrapped] name signature [: input/output types] { body }`;
 /// nu also accepts the flags after the name.
 pub fn parse_def<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
-    let items = assignments_as_items(tokens.all());
+    let items = absorbed_as_items(tokens.all());
     parse_def_items(tokens.over(&items))
 }
 
-/// The tokens of a definition statement, an assignment operator among them an item: nu reads
-/// `def` and `extern` by their first word, and an `=` is then an item of their call (`def = []
-/// {}` defines the command `=`).
-fn assignments_as_items(tokens: &[Token]) -> Vec<Token> {
-    tokens
-        .iter()
-        .map(|token| match token.contents {
-            TokenContents::AssignmentOperator(_) => as_item(*token),
-            _ => *token,
-        })
-        .collect()
+/// The text of `token`.
+fn tokens_text<'a>(working_set: &WorkingSet<'a>, token: &Token) -> &'a str {
+    working_set.get_span_contents(token.span)
 }
 
-/// Whether `token` is an item of a definition statement ([`assignments_as_items`]).
+/// Whether `token` is an item of a definition statement ([`absorbed_as_items`]).
 fn is_definition_item(token: &Token) -> bool {
     matches!(
         token.contents,
@@ -1012,11 +1035,11 @@ fn definition_flag<'a, Flag: Copy>(
 /// `extern [--strict] name signature [: input/output types]`; nu also
 /// accepts the flag after the name.
 pub fn parse_extern<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
-    let items = assignments_as_items(tokens.all());
+    let items = absorbed_as_items(tokens.all());
     parse_extern_items(tokens.over(&items))
 }
 
-/// [`parse_extern`] over its statement's items ([`assignments_as_items`]).
+/// [`parse_extern`] over its statement's items ([`absorbed_as_items`]).
 fn parse_extern_items<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     if reads_as_call(&tokens, EXTERN_FLAGS, false) {

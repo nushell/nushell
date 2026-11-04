@@ -45,10 +45,12 @@ fn parse_block_or_value<'a>(
         BraceShape::ClosureParams | BraceShape::Record => {
             parse_value(working_set, token.span, ExpectedShape::Any)
         }
-        BraceShape::Empty | BraceShape::Spread | BraceShape::Other => Ok(Expression::new(
-            Expr::Block(parse_block_body(working_set, token.span)?),
-            token.span,
-        )),
+        BraceShape::Empty | BraceShape::Spread | BraceShape::Closes | BraceShape::Other => {
+            Ok(Expression::new(
+                Expr::Block(parse_block_body(working_set, token.span)?),
+                token.span,
+            ))
+        }
     }
 }
 
