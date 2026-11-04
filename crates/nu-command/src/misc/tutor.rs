@@ -103,6 +103,10 @@ fn tutor(
             conditional_tutorial(),
         ),
         (
+            vec!["for", "loop", "loops", "while", "break", "continue"],
+            for_loop_tutor(),
+        ),
+        (
             vec![
                 "custom-command",
                 "custom-commands",
@@ -509,6 +513,102 @@ You can also see more details about the `if` and `match` commands with:
 ```
 help if
 help match
+```
+"#
+}
+
+fn for_loop_tutor() -> &'static str {
+    r#"
+The `for` command runs a block once for each value in a list, range, or table.
+
+The loop variable comes after `for`, and the values to loop over come after
+`in`:
+```
+for x in 1..3 {
+    print $x
+}
+```
+This prints `1`, `2`, and `3`.
+
+You can loop over a list of any kind of value:
+```
+for name in ["alice" "bob"] {
+    print $"Hello, ($name)!"
+}
+```
+
+When the input is a table, `for` gives you one row at a time, which makes it
+easy to work with commands like `ls`:
+```
+for file in (ls) {
+    print $file.name
+}
+```
+
+If you also need the position of each item, use `enumerate`:
+```
+for entry in (["bob" "fred"] | enumerate) {
+    print $"($entry.index): ($entry.item)"
+}
+```
+
+Unlike `each`, `for` runs code for its side effects and returns nothing. When
+you want to transform values into a new list, `each` is usually the better
+choice:
+```
+[1 2 3] | each { |x| $x * 2 }
+```
+
+You can learn more about `each` by running:
+```
+tutor each
+```
+
+The `loop` command repeats a block until you tell it to stop with `break`:
+```
+mut count = 0
+
+loop {
+    $count += 1
+    if $count >= 3 {
+        break
+    }
+}
+```
+Be careful with `loop`: if it never reaches `break`, it runs forever.
+
+Use `while` when you already have a condition to check:
+```
+mut x = 0
+
+while $x < 3 {
+    print $x
+    $x += 1
+}
+```
+
+Inside any of these loops, `continue` skips the rest of the current
+iteration:
+```
+for x in 1..5 {
+    if $x mod 2 == 0 {
+        continue
+    }
+    print $x
+}
+```
+This prints only the odd numbers.
+
+You can use `break` and `continue` in `for`, `loop`, and `while`, but not
+inside `each` or other commands that take a closure.
+
+You can learn more about the commands in this tutorial with:
+```
+help for
+help loop
+help while
+help break
+help continue
 ```
 "#
 }
