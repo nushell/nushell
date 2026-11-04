@@ -456,6 +456,12 @@ impl UserCompletion {
 
 impl Completer for UserCompletion {
     fn fetch(&mut self, ctx: &Context) -> Fetched {
+        // LSP has no terminal for interactive sources. Skipping an unavailable source
+        // declines to later completers; it is not an interactive cancellation.
+        if self.interactive && ctx.working_set.permanent_state.is_lsp {
+            return Fetched::declining();
+        }
+
         match self.eval(ctx) {
             Err(err) => {
                 report(format!("failed to eval completer block: {err}"));

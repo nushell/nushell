@@ -4975,3 +4975,120 @@ fn external_completer_place_command_is_the_command_being_completed(#[case] input
     let suggestions = run_external_completion("{|place| $place.command}", input);
     match_suggestions(&vec!["cargo", "bld"], &suggestions);
 }
+
+/// LSP must decline unavailable interactive sources before evaluating them, while
+/// keeping ordinary user completers and directory-only fallback available.
+#[rstest]
+#[case::global("$env.config.completions.external.completer = {|| pick }", "cd test")]
+#[case::parameter("def target [arg: directory@pick] {}", "target test")]
+#[case::command_wide("@complete pick\ndef target [arg: directory] {}", "target test")]
+fn lsp_interactive_sources_decline_without_running(
+    #[case] registration: &str,
+    #[case] line: &str,
+    #[values(false, true)] interactive: bool,
+    #[values(false, true)] is_lsp: bool,
+    #[values(false, true)] within_file: bool,
+) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(dir.path().join("test_dir")).expect("create directory");
+    std::fs::write(dir.path().join("test_file"), "").expect("write file");
+    let marker = dir.path().join("called");
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    engine.add_env_var(
+        "COMPLETION_MARKER".into(),
+        Value::test_string(marker.to_string_lossy().into_owned()),
+    );
+    let attribute = if interactive { "@interactive\n" } else { "" };
+    let setup = format!(
+        "{attribute}def pick [] {{
+            'invoked' | save --force $env.COMPLETION_MARKER
+            [test-picked]
+        }}
+        {registration}"
+    );
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+    engine.is_lsp = is_lsp;
+    // Match the LSP entry point rather than Reedline's scheduling/cache wrapper.
+    let completer = nu_cli::CompletionEngine::new(&engine, &nu_protocol::engine::Stack::new());
+    let suggestions = if within_file {
+        let filename = dir.path().join("probe.nu");
+        completer.fetch_completions_within_file(
+            filename.to_str().expect("UTF-8 filename"),
+            line.len(),
+            line,
+        )
+    } else {
+        completer.fetch_completions_at(line, line.len())
+    };
+    let values: Vec<_> = suggestions
+        .iter()
+        .map(|suggestion| suggestion.suggestion.value.as_str())
+        .collect();
+
+    if interactive && is_lsp {
+        assert!(!marker.exists(), "LSP evaluated an interactive source");
+        assert_eq!(values, vec![folder("test_dir")]);
+    } else {
+        assert_eq!(
+            std::fs::read_to_string(marker).expect("source ran"),
+            "invoked"
+        );
+        assert_eq!(values, vec!["test-picked"]);
+    }
+}
+
+/// Definitions in an editor buffer live in the working-set delta and have not
+/// been evaluated/compiled as configuration; they must obey the same LSP policy.
+#[rstest]
+#[case::parameter("def target [arg: directory@pick] {}")]
+#[case::command_wide("@complete pick\ndef target [arg: directory] {}")]
+fn lsp_interactive_sources_in_document_decline_without_running(
+    #[case] registration: &str,
+    #[values(false, true)] interactive: bool,
+) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(dir.path().join("test_dir")).expect("create directory");
+    std::fs::write(dir.path().join("test_file"), "").expect("write file");
+    let marker = dir.path().join("called");
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, _) = new_engine_helper(pwd);
+    engine.add_env_var(
+        "COMPLETION_MARKER".into(),
+        Value::test_string(marker.to_string_lossy().into_owned()),
+    );
+    engine.is_lsp = true;
+    let attribute = if interactive { "@interactive\n" } else { "" };
+    let contents = format!(
+        "{attribute}def pick [] {{
+            'invoked' | save --force $env.COMPLETION_MARKER
+            [test-picked]
+        }}
+        {registration}
+        target test"
+    );
+    let completer = nu_cli::CompletionEngine::new(&engine, &nu_protocol::engine::Stack::new());
+    let filename = dir.path().join("probe.nu");
+    let suggestions = completer.fetch_completions_within_file(
+        filename.to_str().expect("UTF-8 filename"),
+        contents.len(),
+        &contents,
+    );
+    let values: Vec<_> = suggestions
+        .iter()
+        .map(|suggestion| suggestion.suggestion.value.as_str())
+        .collect();
+    if interactive {
+        assert!(
+            !marker.exists(),
+            "LSP evaluated an interactive document source"
+        );
+        assert_eq!(values, vec![folder("test_dir")]);
+    } else {
+        assert_eq!(
+            std::fs::read_to_string(marker).expect("source ran"),
+            "invoked"
+        );
+        assert_eq!(values, vec!["test-picked"]);
+    }
+}
