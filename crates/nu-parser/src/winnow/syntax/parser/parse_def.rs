@@ -712,6 +712,7 @@ fn is_definition_item(token: &Token) -> bool {
 fn parse_def_items<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     if reads_as_call(&tokens, DEF_FLAGS, true) {
+        check_call_name(&tokens)?;
         return parse_help_call(tokens);
     }
     let statement = tokens;
@@ -864,12 +865,13 @@ fn reads_as_call<Flag>(tokens: &Tokens<'_, '_>, known: &[(&str, Flag)], body: bo
     // The items of a signature that takes everything from its start to the body (a `def`'s
     // last item), or to the end.
     let signature_end = items.len().saturating_sub(usize::from(body));
-    let signature_reads = |start: Option<usize>| match start {
+    let signature_error = |start: Option<usize>| match start {
         Some(start) if start < signature_end => {
-            parse_full_signature(working_set, &items[start..signature_end], !body).is_ok()
+            parse_full_signature(working_set, &items[start..signature_end], !body).err()
         }
-        _ => true,
+        _ => None,
     };
+    let signature_reads = |start: Option<usize>| signature_error(start).is_none();
     let mut positionals = 0;
     let mut signature_start = None;
     for (index, token) in items.iter().enumerate() {
@@ -880,12 +882,20 @@ fn reads_as_call<Flag>(tokens: &Tokens<'_, '_>, known: &[(&str, Flag)], body: bo
                 return signature_reads(signature_start);
             }
             // Every item after it is a positional, the signature from the second on
-            // (`def -- f --foo {}`): one that does not read is the call's to report.
+            // (`def -- f --foo {}`): one that does not read is the call's error, recorded as
+            // recovered.
             let signature_start = signature_start.or_else(|| {
                 let missing = 2usize.saturating_sub(positionals);
                 (missing > 0).then(|| index + missing)
             });
-            return !signature_reads(signature_start);
+            return match signature_error(signature_start) {
+                Some(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
+                    working_set.error(diagnostic.as_recovered());
+                    true
+                }
+                Some(_) => true,
+                None => false,
+            };
         }
         if is_help_text(text) {
             continue;
@@ -906,6 +916,24 @@ fn reads_as_call<Flag>(tokens: &Tokens<'_, '_>, known: &[(&str, Flag)], body: bo
         }
     }
     false
+}
+
+/// The name of a statement that [`reads_as_call`]: nu's predeclaration takes the first item not
+/// starting with `-` (`decl_name_span`) and reports a name it refuses (`def --foo "a^b" [] {}`),
+/// recorded as recovered ([`recover_name_error`]). An item that is no name is the call's.
+fn check_call_name(tokens: &Tokens<'_, '_>) -> ParseResult<()> {
+    let name = tokens
+        .remaining()
+        .iter()
+        .skip(1)
+        .filter(|token| token.contents == TokenContents::Item)
+        .find(|token| !tokens.text(token).starts_with('-'));
+    match name.map(|name| parse_def_name(tokens.working_set, name)) {
+        Some(Ok(name)) => {
+            recover_name_error(tokens.working_set, check_definition_name(&name, "command"))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// The flags of a `def`.
@@ -992,6 +1020,7 @@ pub fn parse_extern<'a>(tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
 fn parse_extern_items<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> {
     let working_set = tokens.working_set;
     if reads_as_call(&tokens, EXTERN_FLAGS, false) {
+        check_call_name(&tokens)?;
         return parse_help_call(tokens);
     }
     let statement = tokens;
@@ -1075,11 +1104,9 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
     }
     let (var, typed) = match parse_var_with_opt_type(working_set, &variable) {
         Ok(parsed) => parsed,
-        // nu's call reports an untyped name it refuses (`for x.y in [1] {}`) and goes on with
-        // garbage for the variable.
-        Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
-            if !tokens.text(&variable).ends_with(':') =>
-        {
+        // nu's call reports a name it refuses (`for x.y in [1] {}`, `for x.y: in [1] {}`) and
+        // goes on with garbage for the variable.
+        Err(ErrMode::Cut(ParseFailure::Error(diagnostic))) => {
             return call.call_after(*diagnostic);
         }
         Err(error) => return Err(error),
@@ -1100,8 +1127,9 @@ pub fn parse_for<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>> 
             {
                 return call.call_after(Diagnostic::expected("type", variable.span.past()));
             }
+            // `for x: in [] {}` has no type (MissingType), which nu goes on past too.
             let Some(type_span) = tokens_until("in").parse_next(&mut tokens)?.span() else {
-                return Err(cut(Diagnostic::expected("type", variable.span.past())));
+                return call.call_after(Diagnostic::expected("type", variable.span.past()));
             };
             Some(parse_var_type(working_set, type_span)?)
         }

@@ -1392,6 +1392,25 @@ fn item_contents(text: &[u8], span: Span) -> (TokenContents, Option<Box<LexError
     (kind, None)
 }
 
+/// The first `|` or redirection among `tokens`, with what nu's error calls it (`"pipeline"` or
+/// `"redirection"`): an alias's target may hold neither (nu's `find_pipe_or_redirection`).
+pub(crate) fn pipe_or_redirection(tokens: &[Token]) -> Option<(&'static str, Span)> {
+    tokens.iter().find_map(|token| match token.contents {
+        TokenContents::Pipe
+        | TokenContents::PipePipe
+        | TokenContents::Redirection(
+            RedirectionOperator::ErrPipe | RedirectionOperator::OutErrPipe,
+        ) => Some(("pipeline", token.span)),
+        TokenContents::Redirection(_) => Some(("redirection", token.span)),
+        TokenContents::Item
+        | TokenContents::Comment
+        | TokenContents::AssignmentOperator(_)
+        | TokenContents::Semicolon
+        | TokenContents::Eol
+        | TokenContents::Eof => None,
+    })
+}
+
 /// A tiny helper for tests and debugging: lex and return `(kind, text)` pairs.
 #[cfg(test)]
 pub(crate) fn lex_debug(text: &str, options: LexOptions) -> Vec<(TokenContents, &str)> {

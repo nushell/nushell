@@ -293,6 +293,180 @@ fn alias_with_an_error_in_its_body_is_garbage() -> Result {
     Ok(())
 }
 
+/// An alias is one call: a `|` or a redirection at the top level of its target is an error at
+/// that token, and no alias, as `parse_alias` has it. Keywords are looked at only after it.
+#[rstest]
+#[case::pipe("alias s = ls | length", "pipeline", "|")]
+#[case::two_pipes("alias s = ls || length", "pipeline", "||")]
+#[case::stderr_pipe("alias s = ls e>| length", "pipeline", "e>|")]
+#[case::redirection("alias s = ls o> x.txt", "redirection", "o>")]
+#[case::keyword_target("alias s = def | length", "pipeline", "|")]
+#[case::after_a_keyword_target("alias s = if true { 1 } o> x.txt", "redirection", "o>")]
+#[case::exported("export alias s = ls | length", "pipeline", "|")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_target_refuses_a_pipeline_or_redirection(
+    #[case] code: &str,
+    #[case] what: &str,
+    #[case] token: &str,
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let [ParseError::CantAliasExpression(found, span)] = working_set.parse_errors.as_slice() else {
+        panic!("`{code}`: {:?}", working_set.parse_errors);
+    };
+    assert_eq!(found, what, "`{code}`");
+    assert_eq!(
+        working_set.get_span_contents(*span),
+        token.as_bytes(),
+        "`{code}`"
+    );
+    assert!(working_set.find_decl(b"s").is_none(), "`{code}`");
+    Ok(())
+}
+
+/// A `|` inside a word of an alias's target is part of that word, and the alias is declared.
+#[rstest]
+#[case::quoted("alias s = echo 'a|b'")]
+#[case::subexpression("alias s = echo (1 | 2)")]
+#[case::closure("alias s = echo {|x| $x | length }")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_target_keeps_a_pipe_inside_a_word(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, [], "`{code}`");
+    assert!(working_set.find_decl(b"s").is_some(), "`{code}`");
+    Ok(())
+}
+
+/// A refused alias keeps its call. For a target going on over lines in parentheses, the lite
+/// parser hands that call the statement's words: no line end and no comment is one of them.
+#[rstest]
+#[case::line_leading_pipe("(alias ty = type\n| length\nalias q = ls\nq)")]
+#[case::line_ending_pipe("(alias ty = type |\nlength\nalias q = ls\nq)")]
+#[case::comment("(alias ty = type\n| length # c\nalias q = ls\nq)")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn alias_target_over_lines_has_only_words(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [ParseError::CantAliasExpression(..)]
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    let shapes = nu_parser::flatten_block(&working_set, &block);
+    let words: Vec<&[u8]> = shapes
+        .iter()
+        .map(|(span, _)| working_set.get_span_contents(*span))
+        .collect();
+    assert!(words.contains(&b"|".as_slice()), "`{code}`: {words:?}");
+    assert!(
+        !words
+            .iter()
+            .any(|word| word.trim_ascii().is_empty() || word.starts_with(b"#")),
+        "`{code}`: {words:?}"
+    );
+    Ok(())
+}
+
+/// An unbalanced closer ends an item, so the `:` after it is an item of its own, which an
+/// untyped variable leaves (ExtraTokens): the variable's item has no colon to go without a type.
+#[rstest]
+#[case::let_binding("let b): int = 1", "b)")]
+#[case::mut_binding("mut b): int = 1", "b)")]
+#[case::no_type("let b): = 1", "b)")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn colon_after_an_unbalanced_closer_is_an_item(#[case] code: &str, #[case] name: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let extra = working_set
+        .parse_errors
+        .iter()
+        .find_map(|error| match error {
+            ParseError::ExtraTokens(span) => Some(*span),
+            _ => None,
+        });
+    assert_eq!(
+        extra.map(|span| working_set.get_span_contents(span)),
+        Some(b":".as_slice()),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    assert!(
+        !working_set
+            .parse_errors
+            .iter()
+            .any(|error| matches!(error, ParseError::MissingType(_))),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    let shapes = nu_parser::flatten_block(&working_set, &block);
+    assert!(
+        shapes
+            .iter()
+            .any(|(span, _)| working_set.get_span_contents(*span) == name.as_bytes()),
+        "`{code}`: {shapes:?}"
+    );
+    Ok(())
+}
+
+/// `for x: in ...` has no type: nu reports MissingType over the variable's item and goes on with
+/// its call, no syntax error.
+#[rstest]
+#[case::range("for x: in 1..10 { }", 1)]
+#[case::a_word_before_the_value("for x: in int 1..10 { }", 3)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn for_variable_with_a_colon_and_no_type(#[case] code: &str, #[case] errors: usize) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let Some(ParseError::MissingType(span)) = working_set.parse_errors.first() else {
+        panic!("`{code}`: {:?}", working_set.parse_errors);
+    };
+    assert_eq!(working_set.get_span_contents(*span), b"x:", "`{code}`");
+    assert_eq!(working_set.parse_errors.len(), errors, "`{code}`");
+    Ok(())
+}
+
+/// nu reads a variable's written type before it looks at the name: the type's errors come first,
+/// and a name it refuses is reported over the next-to-last item of `name: type...`.
+#[rstest]
+#[case::reserved("let in: nosuch = 1", &["UnknownType nosuch", "NameIsBuiltinVar in"])]
+#[case::reserved_in_for("for in: nosuch in [1] {}", &["UnknownType nosuch", "NameIsBuiltinVar in"])]
+#[case::refused("let (b): nosuch = 1", &["UnknownType nosuch", "Expected (b):"])]
+#[case::refused_over_items("let (b): list< string > = []", &["Expected string"])]
+#[case::refused_in_for("for x.y: in [1] {}", &["Expected x.y:"])]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn written_type_is_read_before_the_name(#[case] code: &str, #[case] expected: &[&str]) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let errors: Vec<String> = working_set
+        .parse_errors
+        .iter()
+        .map(|error| {
+            let debug = format!("{error:?}");
+            let kind = debug.split(['(', ' ', '{']).next().unwrap_or_default();
+            let text = working_set.get_span_contents(error.span());
+            format!("{kind} {}", String::from_utf8_lossy(text))
+        })
+        .collect();
+    assert_eq!(errors, expected, "`{code}`");
+    Ok(())
+}
+
 /// `alias` and `export alias` in a module's body and `export alias` in a script are lowered.
 #[rstest]
 #[case::module_export("module m {\n  export alias s = ls -a\n}\nuse m s")]
@@ -1894,12 +2068,12 @@ fn math_with_a_bad_operator_is_lowered(
     Ok(())
 }
 
-/// An alias's words take `|` for an item, which the text of the condition read again would
-/// not: the bad operator is the `|`, as nu reports it.
+/// A `|` in an alias's target is refused before the target is read as a call, so nu reports no
+/// bad operator in the `if`'s condition.
 #[test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
-fn bad_operator_in_an_alias_target() -> Result {
+fn pipe_in_an_alias_target_is_refused_before_it_is_read() -> Result {
     let code = "alias zz = if [1 2] | is-empty { }\nzz";
     let engine_state = test().engine_state;
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1916,10 +2090,7 @@ fn bad_operator_in_an_alias_target() -> Result {
         .collect();
     assert_eq!(
         errors,
-        [
-            ("Expected".to_string(), "|".to_string()),
-            ("IncompleteMathExpression".to_string(), "|".to_string())
-        ],
+        [("CantAliasExpression".to_string(), "|".to_string())],
         "`{code}`"
     );
     Ok(())
@@ -2809,11 +2980,11 @@ fn shorthand_value_with_a_space_makes_a_command(
 }
 
 /// An alias's target starting with an environment shorthand is, as `alias`'s argument, a call
-/// to `with-env` (`parse_expression`, where a `|` is a word too), and the alias's body the
-/// external command `FOO=1` (`parse_call`).
+/// to `with-env` (`parse_expression`), and the alias's body the external command `FOO=1`
+/// (`parse_call`).
 #[rstest]
 #[case::command("alias x = FOO=1 ls")]
-#[case::pipe_is_a_word("alias x = FOO=1 ls | length")]
+#[case::quoted_pipe("alias x = FOO=1 ls '|' length")]
 #[nu_test_support::test]
 #[serial]
 #[exp(nu_experimental::WINNOW_PARSER)]
@@ -3788,17 +3959,12 @@ fn statements_nu_reads_its_own_way_are_lowered(
 )]
 #[case::alias_of_an_alias_with_a_pipe(
     "alias zz = alias x = ls | length",
-    &[("CantAliasKeyword", "alias")]
+    &[("CantAliasExpression", "|")]
 )]
 #[case::alias_of_a_call_missing_its_name("alias zz = ls = 1", &[("UnknownState", "ls = 1")])]
 #[case::alias_of_a_binding_with_a_pipe(
     "alias zz = let x = 300 |",
-    &[
-        ("UnexpectedEof", "|"),
-        ("Expected", "|"),
-        ("IncompleteMathExpression", "|"),
-        ("IncompleteMathExpression", "|"),
-    ]
+    &[("UnexpectedEof", "|"), ("CantAliasExpression", "|")]
 )]
 #[case::alias_of_a_binding_with_extra_items(
     "alias zz = let a int = 1",

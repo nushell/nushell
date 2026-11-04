@@ -88,12 +88,13 @@ pub(crate) fn parse_file_block(
         Ok(source) => source,
         Err(error) => return non_utf8_block(working_set, span, span.start, error),
     };
+    let code = code_span(working_set, source, span);
     driver::parse_block(
         working_set,
         source,
         span.start,
         span,
-        span,
+        code,
         driver::BlockKind::Block {
             scoped,
             of: lower::BlockOf::Code,
@@ -131,19 +132,36 @@ pub(crate) fn parse_module_block(
             return (block, empty_module(), Vec::new());
         }
     };
+    let code = code_span(working_set, &source, span);
     let (block, module) = driver::parse_block(
         working_set,
         &source,
         span.start,
         span,
-        span,
+        code,
         driver::BlockKind::Module {
             name: module_name.to_vec(),
         },
     );
     let module = module.unwrap_or_else(empty_module);
-    let comments = first_comments(&source, span.start);
+    let comments = first_comments(&source[code.start - span.start..], code.start);
     (block, module, comments)
+}
+
+/// The part of `span`, whose text is `source`, that holds code: all of it, but for the UTF-8
+/// byte-order mark a whole file may start with (nu-parser's `lex_file`). The file's contents keep
+/// the mark, so spans into the file don't move.
+fn code_span(working_set: &StateWorkingSet, source: &str, span: Span) -> Span {
+    const UTF8_BOM: &str = "\u{feff}";
+    if source.starts_with(UTF8_BOM)
+        && working_set
+            .find_file_by_span(span)
+            .is_some_and(|file| file.covered_span == span)
+    {
+        Span::new(span.start + UTF8_BOM.len(), span.end)
+    } else {
+        span
+    }
 }
 
 /// The block covering `span` whose text, from `text_start` on, is not UTF-8 (`error`): the

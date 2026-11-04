@@ -364,7 +364,14 @@ pub(crate) fn parse<'a>(source: &'a str, config: &ParseConfig) -> (Ast<'a>, Vec<
         let end = source.find('\n').unwrap_or(source.len());
         Span::new(0, end)
     });
-    let block = match working_set.lex_block(whole_source, LexOptions::BLOCK) {
+    // A UTF-8 byte-order mark at the start is skipped, as nu-parser's `lex_file` does.
+    let code = Span::new(
+        source
+            .strip_prefix('\u{feff}')
+            .map_or(0, |code| source.len() - code.len()),
+        source.len(),
+    );
+    let block = match working_set.lex_block(code, LexOptions::BLOCK) {
         Ok(tokens) => parse_pipelines::parse_block(
             tokens::Tokens::from_lexed(&working_set, &tokens),
             whole_source,
@@ -447,6 +454,19 @@ pub(crate) fn parse_items<'a>(
     // The block these items are in reported its lexer's errors; nu's parser reads the tokens
     // its lexer gives past them (`alias z = A=r#x ls`, whose `r#` ends the shorthand).
     let mut tokens = working_set.lex_lenient(span, LexOptions::BLOCK).ok()?;
+    // A target that goes on over lines in parentheses: nu's lite parser hands `parse_alias` the
+    // statement's words, without a line end or a comment. Those after an assignment operator
+    // stay, the right side's.
+    if value == ItemsValue::AliasTarget {
+        let words = tokens
+            .iter()
+            .position(|token| matches!(token.contents, TokenContents::AssignmentOperator(_)))
+            .unwrap_or(tokens.len());
+        let right_side = tokens.split_off(words);
+        tokens
+            .retain(|token| !matches!(token.contents, TokenContents::Eol | TokenContents::Comment));
+        tokens.extend(right_side);
+    }
     let mut after_assignment = false;
     for token in &mut tokens {
         let is_item = match value {

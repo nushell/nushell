@@ -956,6 +956,8 @@ fn event_from_record(
         Ok(RED::ToStart) => ReedlineEvent::ToStart,
         Ok(RED::ToEnd) => ReedlineEvent::ToEnd,
         Ok(RED::NextHistory) => ReedlineEvent::NextHistory,
+        Ok(RED::FirstHistory) => ReedlineEvent::FirstHistory,
+        Ok(RED::LeaveHistory) => ReedlineEvent::LeaveHistory,
         Ok(RED::SearchHistory) => ReedlineEvent::SearchHistory,
         Ok(RED::Menu) => {
             let menu = extract_value("name", record, span)?;
@@ -1092,6 +1094,8 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Right => "Right",
         RED::Left => "Left",
         RED::NextHistory => "NextHistory",
+        RED::FirstHistory => "FirstHistory",
+        RED::LeaveHistory => "LeaveHistory",
         RED::SearchHistory => "SearchHistory",
         RED::Multiple => "event: { send: list<event> }",
         RED::UntilFound => "event: { until: list<event> }",
@@ -1195,7 +1199,8 @@ fn edit_from_record(
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
         },
-        Ok(ECD::MoveWordRightEnd) => EditCommand::MoveWordRightEnd {
+        // Deprecated in reedline as the same move as `MoveWordRight`.
+        Ok(ECD::MoveWordRightEnd) => EditCommand::MoveWordRight {
             select: extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
@@ -1282,6 +1287,7 @@ fn edit_from_record(
         Ok(ECD::UppercaseWord) => EditCommand::UppercaseWord,
         Ok(ECD::LowercaseWord) => EditCommand::LowercaseWord,
         Ok(ECD::CapitalizeChar) => EditCommand::CapitalizeChar,
+        Ok(ECD::CapitalizeWord) => EditCommand::CapitalizeWord,
         Ok(ECD::SwitchcaseChar) => EditCommand::SwitchcaseChar,
         Ok(ECD::SwapWords) => EditCommand::SwapWords,
         Ok(ECD::SwapGraphemes) => EditCommand::SwapGraphemes,
@@ -1516,6 +1522,7 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::LowercaseWord => "LowercaseWord",
         ECD::SwitchcaseChar => "SwitchcaseChar",
         ECD::CapitalizeChar => "CapitalizeChar",
+        ECD::CapitalizeWord => "CapitalizeWord",
         ECD::SwapWords => "SwapWords",
         ECD::SwapGraphemes => "SwapGraphemes",
         ECD::Undo => "Undo",

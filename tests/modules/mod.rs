@@ -570,6 +570,23 @@ fn module_dir_missing_mod_nu() -> Result {
 }
 
 #[test]
+fn module_dir_name_keeps_dots() -> Result {
+    Playground::setup("module_dir_name_keeps_dots", |dirs, sandbox| -> Result {
+        sandbox.mkdir("spam.eggs").with_files(&[FileWithContent(
+            "spam.eggs/mod.nu",
+            r#"export def foo [] { "foo" }"#,
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.eggs")?;
+        tester.run("spam.eggs foo").expect_value_eq("foo")?;
+        tester
+            .run("scope modules | where name == 'spam.eggs' | length")
+            .expect_value_eq(1)
+    })
+}
+
+#[test]
 fn allowed_local_module() -> Result {
     test()
         .run("module spam { module spam {} }")

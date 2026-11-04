@@ -1,6 +1,6 @@
 //! Every command a fresh `nu` resolves at the top level, with its kind: the
 //! built-in and keyword commands of the `nu` binary and the standard
-//! library's prelude, at nushell `a156c7c1c`. Used to resolve multi-word
+//! library's prelude, at nushell `7677893d8`. Used to resolve multi-word
 //! command names such as `str trim`, to tell a known command from an external
 //! one, to check that `%name` names a built-in command, and to parse the
 //! arguments of a command taking a row condition (`any`, `take while`) as one
@@ -770,7 +770,7 @@ pub static BUILTIN_SIGNATURES: &[(&str, &str)] = &[
     ("into binary", "[...rest: cell-path, --help(-h), --compact(-c), --endian(-e): string]"),
     ("into bool", "[...rest: cell-path, --help(-h), --relaxed]"),
     ("into cell-path", "[--help(-h)]"),
-    ("into datetime", "[...rest: cell-path, --help(-h), --timezone(-z): string, --offset(-o): int, --format(-f): string, --list(-l)]"),
+    ("into datetime", "[...rest: cell-path, --help(-h), --timezone(-z): string, --offset(-o): int, --format(-f): string, --list(-l), --formats]"),
     ("into duration", "[...rest: cell-path, --help(-h), --unit(-u): string]"),
     ("into filesize", "[...rest: cell-path, --help(-h)]"),
     ("into float", "[...rest: cell-path, --help(-h)]"),

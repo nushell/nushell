@@ -1,0 +1,6 @@
+error: cannot create an alias to a redirection
+  --> reject/alias/redirection-target.nu:1:14
+  |
+1 | alias x = ls o> y
+  |              ^^
+  = help: an alias names one command call; use `def` for a pipeline

@@ -52,6 +52,66 @@ fn fallback_inside_a_long_block_stops_at_its_brace() -> Result {
     })
 }
 
+/// A UTF-8 byte-order mark at the start of a file is skipped, and a second one is not.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn byte_order_mark_starts_a_file_not_its_code() -> Result {
+    // Long enough to be parsed ahead too: the mark must not reach the worker's lexer either.
+    for code in [
+        "\u{feff}def f [] { 1 }\nf".to_string(),
+        format!("\u{feff}{}", filler(100)),
+    ] {
+        let engine_state = test().engine_state;
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        nu_parser::parse(&mut working_set, Some("bom.nu"), code.as_bytes(), false);
+        assert_eq!(working_set.parse_errors, [], "{code}");
+    }
+    // The second mark starts the first word: a command of that name is external, no error.
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(
+        &mut working_set,
+        Some("bom.nu"),
+        "\u{feff}\u{feff}1".as_bytes(),
+        false,
+    );
+    assert!(matches!(
+        block.pipelines[0].elements[0].expr.expr,
+        Expr::ExternalCall(..)
+    ));
+    // At the start of a block that is no whole file it is no mark, but the first word's start.
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = "module m {\u{feff}export def f [] {}}";
+    nu_parser::parse(&mut working_set, Some("bom.nu"), code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.first(),
+            Some(ParseError::ExpectedKeyword(..))
+        ),
+        "{:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
+/// A module file's mark is skipped too, and the comments right after it still document the module.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn byte_order_mark_starts_a_module_file() -> Result {
+    Playground::setup("winnow_byte_order_mark_module", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::FileWithContent(
+            "bomdoc.nu",
+            "\u{feff}# The docs.\n\nexport def main [] { 'hi' }\n",
+        )]);
+        let code = "use bomdoc.nu\n[(bomdoc) (scope modules | where name == bomdoc | get description.0)] | to nuon";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(r#"[hi, "The docs."]"#)
+    })
+}
+
 /// A block whose own `def` has a longer name than any command declared before is still parsed
 /// ahead: the thread parsing ahead knows the block's definitions.
 #[test]

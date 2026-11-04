@@ -3,6 +3,7 @@ use nu_path::AbsolutePath;
 use nu_test_support::fs::{Stub::EmptyFile, files_exist_at};
 use nu_test_support::prelude::*;
 use rstest::rstest;
+use rstest_reuse::{apply, template};
 #[cfg(not(windows))]
 use std::fs;
 #[cfg(windows)]
@@ -661,6 +662,181 @@ fn removes_literal_directory_with_recursive_flag() -> Result {
             .run("rm rm_literal_dir_dc/subdir --recursive")?;
 
         assert!(!dirs.test().join("subdir").exists());
+        Ok(())
+    })
+}
+
+/// What a pattern given to `rm` may delete, checked under both glob backends.
+///
+/// Each case lists the files it creates (parent directories are made as needed), the command,
+/// the paths that must be gone afterwards, and the paths that must still be there. A `*`, `?` or
+/// `**` never matches a name that starts with `.` unless the pattern spells the dot
+/// out or `--all` is given.
+#[template]
+#[rstest]
+#[case::star_keeps_dotfiles(&["foo", ".bar"], "rm *", &["foo"], &[".bar"])]
+#[case::extension_keeps_dotfiles(&["a.txt", ".b.txt"], "rm *.txt", &["a.txt"], &[".b.txt"])]
+#[case::question_mark_keeps_dotfiles(&["ab", ".b"], "rm ??", &["ab"], &[".b"])]
+#[case::subdir_star_keeps_dotfiles(&["d/x", "d/.y"], "rm d/*", &["d/x"], &["d/.y"])]
+#[case::hidden_prefix_star_keeps_dotfiles(
+    &[".cache/x", ".cache/.y"],
+    "rm .cache/*",
+    &[".cache/x"],
+    &[".cache/.y"]
+)]
+#[case::double_star_skips_hidden_dirs(
+    &["d/x.txt", ".d/x.txt", "d/.e/x.txt", "d/.x.txt"],
+    "rm **/*.txt",
+    &["d/x.txt"],
+    &[".d/x.txt", "d/.e/x.txt", "d/.x.txt"]
+)]
+#[case::all_flag_deletes_dotfiles(&["foo", ".bar"], "rm --all *", &["foo", ".bar"], &[])]
+#[case::literal_dotfile(&["foo", ".bar"], "rm .bar", &[".bar"], &["foo"])]
+#[case::dot_star_deletes_dotfiles(&["foo", ".bar", ".baz"], "rm .*", &[".bar", ".baz"], &["foo"])]
+#[case::quoted_brackets_are_literal(&["a[1].txt", "a1.txt"], "rm 'a[1].txt'", &["a[1].txt"], &["a1.txt"])]
+#[case::variable_is_literal(
+    &["a[1].txt", "a1.txt"],
+    "let f = 'a[1].txt'; rm $f",
+    &["a[1].txt"],
+    &["a1.txt"]
+)]
+#[case::bare_brackets_are_a_pattern(&["a[1].txt", "a1.txt"], "rm a[1].txt", &["a1.txt"], &["a[1].txt"])]
+#[case::recursive_star_keeps_dotfiles(&["d/x", ".e/x"], "rm -r *", &["d"], &[".e/x"])]
+// A lone `**` matches directories. dc-glob's also matches the directory it starts from, which
+// `rm` leaves alone.
+#[case::subdir_double_star_keeps_start_dir(
+    &["d/x", "d/f/z", "d/.e/y"],
+    "rm -r d/**",
+    &["d/f"],
+    &["d", "d/x", "d/.e/y"]
+)]
+#[case::double_star_keeps_current_dir(
+    &["sub/x", "sub/f/z", "sub/.e/y"],
+    "cd sub; rm -r **",
+    &["sub/f"],
+    &["sub", "sub/x", "sub/.e/y"]
+)]
+// A dot spelled out in one part doesn't let a `*` in another part match a hidden name.
+#[case::star_before_dot_name_skips_hidden_dirs(
+    &["d/.cache/x", ".v/.cache/x"],
+    "rm -r */.cache",
+    &["d/.cache"],
+    &[".v/.cache/x"]
+)]
+#[case::double_star_to_dot_name_skips_hidden_dirs(
+    &[".hid", "d/.hid", ".g/.hid"],
+    "rm **/.hid",
+    &[".hid", "d/.hid"],
+    &[".g/.hid"]
+)]
+#[case::inside_hidden_dir_keeps_dotfiles(
+    &[".cache/x", ".cache/.y"],
+    "cd .cache; rm *",
+    &[".cache/x"],
+    &[".cache/.y"]
+)]
+// Without `-r`, a directory is reported and left alone while the files go, as coreutils does.
+#[case::star_beside_directory_removes_only_files(
+    &["foo", ".bar", "sub/x"],
+    "try { rm * }",
+    &["foo"],
+    &[".bar", "sub/x"]
+)]
+fn rm_deletes_only_matches(
+    #[case] files: &[&str],
+    #[case] command: &str,
+    #[case] gone: &[&str],
+    #[case] kept: &[&str],
+) {
+}
+
+#[apply(rm_deletes_only_matches)]
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn rm_deletes_only_matches_legacy_glob(
+    files: &[&str],
+    command: &str,
+    gone: &[&str],
+    kept: &[&str],
+) -> Result {
+    check_rm_deletes_only(files, command, gone, kept)
+}
+
+#[apply(rm_deletes_only_matches)]
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB)]
+fn rm_deletes_only_matches_dc_glob(
+    files: &[&str],
+    command: &str,
+    gone: &[&str],
+    kept: &[&str],
+) -> Result {
+    check_rm_deletes_only(files, command, gone, kept)
+}
+
+/// The body of [`rm_deletes_only_matches`], shared by both glob backends.
+fn check_rm_deletes_only(files: &[&str], command: &str, gone: &[&str], kept: &[&str]) -> Result {
+    Playground::setup("rm_deletes_only_matches", |dirs, _| {
+        for file in files {
+            let path = dirs.test().join(file);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&path, "")?;
+        }
+
+        let () = test().cwd(dirs.test()).run(command)?;
+
+        // `symlink_metadata` so a dangling symlink still counts as present.
+        let exists = |path: &str| dirs.test().join(path).symlink_metadata().is_ok();
+        for path in gone {
+            assert!(!exists(path), "`{command}` should have removed {path}");
+        }
+        for path in kept {
+            assert!(exists(path), "`{command}` should have kept {path}");
+        }
+        Ok(())
+    })
+}
+
+/// `rm` on a symlink to a directory removes the link, never what it points to.
+#[cfg(unix)]
+#[template]
+#[rstest]
+#[case::literal("rm link")]
+#[case::pattern("rm lin*")]
+#[case::recursive_pattern("rm -r lin*")]
+fn rm_symlink_to_directory(#[case] command: &str) {}
+
+#[cfg(unix)]
+#[apply(rm_symlink_to_directory)]
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn rm_symlink_to_directory_keeps_target_legacy_glob(command: &str) -> Result {
+    check_rm_symlink_keeps_target(command)
+}
+
+#[cfg(unix)]
+#[apply(rm_symlink_to_directory)]
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB)]
+fn rm_symlink_to_directory_keeps_target_dc_glob(command: &str) -> Result {
+    check_rm_symlink_keeps_target(command)
+}
+
+/// The body of [`rm_symlink_to_directory`], shared by both glob backends.
+#[cfg(unix)]
+fn check_rm_symlink_keeps_target(command: &str) -> Result {
+    Playground::setup("rm_symlink_to_directory", |dirs, sandbox| {
+        sandbox
+            .within("target")
+            .with_files(&[EmptyFile("x")])
+            .symlink("target", "link");
+
+        let () = test().cwd(dirs.test()).run(command)?;
+
+        assert!(dirs.test().join("link").symlink_metadata().is_err());
+        assert!(files_exist_at(&["x"], dirs.test().join("target")));
         Ok(())
     })
 }

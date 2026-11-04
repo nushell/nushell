@@ -180,8 +180,8 @@ uses: the set of known command names, needed to join multi-word heads such as
   declarations is either configurable (`ParseConfig`) or deferred to the
   consumer.
 * **Same acceptance as nu-parser.** Where nu-parser is lenient (a `|` inside
-  a list, `alias x = a | b`), so is this parser; where nu-parser rejects
-  (`"abc"def`, `&&`, keyword names for `def`), so does this parser. Chapter 09
+  a list), so is this parser; where nu-parser rejects (`"abc"def`, `&&`,
+  `alias x = a | b`, keyword names for `def`), so does this parser. Chapter 09
   describes the comparison tooling that keeps this true.
 * **Lossless enough for a formatter.** Every node has a span; every comment is
   kept; strings keep their quote style; operators and keywords keep their

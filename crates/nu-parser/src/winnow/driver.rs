@@ -560,7 +560,8 @@ fn parse_ahead(
 /// Whether a statement whose first words are `words` changes which command names exist:
 /// `use`, `export use`, `overlay ...`, `hide`, `source`, `source-env`, `run`, `plugin use`, the
 /// statements the classic `parse_builtin_commands` tells by their first word. A `def` or an
-/// `alias` does not count: the winnow parser declares those names itself.
+/// `alias` does not count: the winnow parser declares those names itself. `run` parses its script
+/// in a scope of its own, so it changes none now, which costs only time, as below.
 ///
 /// A wrong answer costs only time: here a run ends early, or goes on past a statement this
 /// misses (an alias of `overlay use`) and [`changed_answer`] catches any later answer it

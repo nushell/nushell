@@ -1174,6 +1174,45 @@ fn types_in_signatures() {
 }
 
 #[test]
+fn byte_order_mark_starts_a_file_not_its_code() {
+    // Spans keep pointing into the file, the mark included.
+    let ast = ok("\u{feff}1 + 1");
+    assert_eq!(ast.block.span, Span::new(0, 8));
+    assert_eq!(expr(&ast).span, Span::new(3, 8));
+    // A comment may follow it, but no shebang: nu lexes `#!` there as a comment too.
+    let ast = ok("\u{feff}#!/usr/bin/env nu\n1");
+    assert!(ast.shebang.is_none());
+    assert_eq!(ast.comments.len(), 1);
+    // Only the first mark, and only at the very start.
+    let ast = ok("\u{feff}\u{feff}1");
+    let external = kind!(expr(&ast), Expr::ExternalCall(c) => c);
+    assert_eq!(external.head.span, Span::new(3, 7));
+    let ast = ok(" \u{feff}1");
+    let external = kind!(expr(&ast), Expr::ExternalCall(c) => c);
+    assert_eq!(external.head.span, Span::new(1, 5));
+}
+
+/// A `def` or `extern` that reads as nu's call (an unknown flag, a `--`) still has the errors nu
+/// reports of its name and its signature, recorded as recovered; one with neither has none.
+#[test]
+fn definition_read_as_a_call_keeps_its_name_and_signature_errors() {
+    for src in [
+        "def -env \"set u^p\" [] {}",
+        "extern --foo \"a^b\" []",
+        "def --foo def [] {}",
+        "extern --strict -- foo [--bar] [--bar]",
+        "def -- f [--bar] [--bar] {}",
+    ] {
+        let (_, diagnostics) = parse_lenient(src, &ParseConfig::new());
+        assert!(!diagnostics.is_empty(), "`{src}`");
+    }
+    for src in ["def --foo f [] {}", "extern --foo f []", "def -- f [] {}"] {
+        let (_, diagnostics) = parse_lenient(src, &ParseConfig::new());
+        assert!(diagnostics.is_empty(), "`{src}`: {diagnostics:?}");
+    }
+}
+
+#[test]
 fn extern_alias_module_use_export() {
     let ast = ok("extern gh [--repo: string, ...args]: nothing -> string");
     let x = kind!(expr(&ast), Expr::Extern(x) => x);
@@ -1203,10 +1242,24 @@ fn extern_alias_module_use_export() {
     let a = kind!(expr(&ast), Expr::Alias(a) => a);
     assert_eq!(a.name.item, "ll");
     assert_eq!(call(&a.value).head.name, "ls");
-    // Nushell accepts a pipe here and treats it as a word.
-    let ast = ok("alias ll = ls | length");
+    // nu refuses a pipe here; the target still reads as words, as in its first reading.
+    let (ast, diagnostics) = parse_lenient("alias ll = ls | length", &ParseConfig::new());
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
     let a = kind!(expr(&ast), Expr::Alias(a) => a);
     assert_eq!(call(&a.value).arguments.len(), 2);
+    // Refused, it declares no alias: a later `ll` is an external command.
+    let (ast, _) = parse_lenient("alias ll = ls | length\nll", &ParseConfig::new());
+    assert!(matches!(
+        ast.block.pipelines[1].elements[0].expr.expr,
+        Expr::ExternalCall(_)
+    ));
+    // The pipe is refused before the keyword is looked at: one error, and it is the pipe's.
+    let (_, diagnostics) = parse_lenient("alias d = def | length", &ParseConfig::new());
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert!(
+        diagnostics[0].to_string().contains("to a pipeline"),
+        "{diagnostics:?}"
+    );
     let ast = ok(
         "module m {\n  export def f [] { 2 }\n  export const c = 1\n  export-env { $env.A = 1 }\n  export alias g = f\n  export use other *\n  export module inner { }\n  export extern e []\n}",
     );

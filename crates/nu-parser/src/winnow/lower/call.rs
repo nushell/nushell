@@ -1607,8 +1607,8 @@ impl<'s> Lower<'_, '_, 's> {
             && let Some(decl_id) = self.working_set.find_decl(name.value.as_bytes())
         {
             // A known name here is an alias of an external command; any other command is one
-            // the statement declared after the winnow parser read it (`run s.nu | cmd`): the
-            // element is read again with the commands known now.
+            // declared after the winnow parser read the statement: the element is read again
+            // with the commands known now.
             let Some(alias) = self.working_set.get_decl(decl_id).as_alias() else {
                 return self.reread(e.span, ItemsValue::Expression, input_type);
             };

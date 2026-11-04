@@ -69,6 +69,8 @@ Two facts about nu-parser shape everything below and are easy to forget:
 ; groups the token stream into <block-tokens>
 ; nu: lex.rs:1075 (comment at token start)
 ; here: src/winnow/syntax/parser/mod.rs::parse (records `shebang`)
+; A UTF-8 byte-order mark at the start of a whole file is skipped before the shebang is
+; looked for (nu's lex_file); the file's contents keep it, so spans into the file don't move.
 
 <whitespace>      ::= " " | "\t" | <carriage-return> | <additional-whitespace>
 ; <additional-whitespace> depends on the construct being lexed (1.4)
@@ -1305,9 +1307,11 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; `let x += 1` the "=" (ExpectedKeyword), both syntax errors nu goes on past. In a
 ; binding a flag is no name (`let --help x = 1` is an error). In a binding nu
 ; reports what an untyped name leaves before "=" (ExtraTokens: `let a int = 1`,
-; `let a : int = 1`), a name with a space or quote (VariableNotValid) or no variable
-; name (Expected, a garbage variable), a typed name without its type (MissingType:
-; `let a: = 1`), and goes on with the binding.
+; `let a : int = 1`, and `let a): int = 1`, whose unbalanced closer ends the name's item
+; before the ":"), a name with a space or quote (VariableNotValid) or no variable name
+; (Expected, a garbage variable, over the next-to-last item of `name: type...`, after
+; the type's errors), a typed name without its type (MissingType: `let a: = 1`), and
+; goes on with the binding.
 ; without "=" nu parses the statement as a call, where "--" before the name ends the
 ; options: `let x` is allowed (initial_value is optional in let's signature), the
 ; missing value of `mut x` and `const x` is MissingPositional (semantic: signature).
@@ -1445,6 +1449,11 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; (semantic); `alias = x` is a misplaced item (AssignmentMismatch)
 <alias-target>    ::= <call> over ALL remaining items, pipes and redirections included,
                       as bare words (assignment mode)
+; refused: a `|` or a redirection at the top level of the target (`alias x = ls | length`,
+; `alias x = ls o> y`; a quoted one or one inside `( )` is part of a word) =>
+; CantAliasExpression, after the check for an expression below and before the one for a
+; keyword (nu keeps the call to `alias`, the target read as words, and declares none: the
+; parser records it as recovered)
 ; refused: a target whose first item is math-expression-like (`1 + 1`, `$x`, `(ls)`,
 ; `[1]`, `{ }`, `not ...`, `"ls"`, `-1`) => CantAliasExpression, except `if` and
 ; `match` (nu keeps the call to `alias` and declares none: the parser records it as
@@ -1592,7 +1601,9 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; KeywordMissingArgument("in") (a help flag forgives nothing there), and a word in
 ; the place of "in" is ExpectedKeyword: errors nu goes on past with its call (after a
 ; keyword without its argument nu's call skips the next item); the type of
-; a `x:` variable is every item before "in" (7.4).
+; a `x:` variable is every item before "in" (7.4). No item there (`for x: in [] {}`) is
+; MissingType and a name nu refuses (`for x.y: in [] {}`) is Expected: nu goes on past
+; those too, with its call.
 ; nu: parse_def.rs:166 parse_for; nu-cmd-lang for_.rs; parse_calls.rs:680, 876
 ; here: src/winnow/syntax/parser/parse_def.rs::parse_for
 

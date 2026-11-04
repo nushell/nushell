@@ -53,7 +53,7 @@ do {{
 
 /// A statement the classic parser parses alone keeps the line end after it, past the spaces,
 /// tabs and `\r` the lexer skips, as in the whole block, where a `|` that ends an alias's value
-/// before a line end is no pipeline missing its end.
+/// before a line end is no pipeline missing its end: the alias's refusal is the only error.
 #[rstest]
 #[case::crlf("alias l = ls |\r\n\r\n'ok'")]
 #[case::trailing_space("alias l = ls | \n\n'ok'")]
@@ -62,7 +62,18 @@ do {{
 #[nu_test_support::test]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn dangling_pipe_before_a_line_end(#[case] code: &str) -> Result {
-    test().run(code).expect_value_eq("ok")
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.as_slice(),
+            [ParseError::CantAliasExpression(..)]
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
 }
 
 /// The classic lite parser keeps an `e>|` with the element it ends, as it keeps a `|`; a `|`
@@ -184,9 +195,8 @@ fn block_declares_a_longer_name_while_parsed_ahead() -> Result {
     Ok(())
 }
 
-/// `run` declares the script's commands where it is parsed, as the classic parser does it: a
-/// nested block with a `run` is parsed again statement by statement, so the statements after
-/// it see them.
+/// `run` parses the script in a scope of its own, as the classic parser does it: the statements
+/// after it in a nested block don't see the script's commands.
 #[test]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn run_in_a_nested_block() -> Result {
@@ -203,7 +213,7 @@ do {
         test()
             .cwd(dirs.test())
             .run(code)
-            .expect_value_eq("from run")
+            .expect_value_eq("local foo with bar")
     })
 }
 

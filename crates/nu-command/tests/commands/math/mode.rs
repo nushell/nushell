@@ -9,6 +9,14 @@ fn const_avg() -> Result {
 }
 
 #[test]
+fn mode_table_cell_path_gives_column_modes() -> Result {
+    // The mode of a column is a list, so the record holds a list per column.
+    test()
+        .run("[[a b]; [1 x] [2 y] [2 z]] | math mode a | to nuon")
+        .expect_value_eq("{a: [2]}")
+}
+
+#[test]
 fn cannot_mode_range() -> Result {
     let outcome = test().run("0..5 | math mode").expect_parse_error()?;
 

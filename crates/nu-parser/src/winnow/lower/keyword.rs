@@ -19,7 +19,7 @@ use nu_protocol::{
 
 use super::leaf::{is_assignment, is_env_name};
 use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument, statement_decl};
-use crate::winnow::syntax::lex::{LexOptions, TokenContents};
+use crate::winnow::syntax::lex::{LexOptions, TokenContents, pipe_or_redirection};
 use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
 use crate::{
@@ -595,21 +595,14 @@ impl<'s> Lower<'_, '_, 's> {
         } else {
             (name_span, name.item.as_bytes().to_vec())
         };
-        // A name with a space or a quote, or one that is no variable name, which the winnow
-        // parser keeps for a binding (`let 'a b' = 1`, `let $x-y = 1`): nu reports it and goes on
-        // with garbage for the variable.
+        // A name with a space or a quote, which the winnow parser keeps for a binding (`let 'a b'
+        // = 1`): nu reports it and goes on with garbage for the variable, before any type.
         if var_name.iter().any(|byte| b" \"'`".contains(byte)) {
             self.working_set
                 .error(ParseError::VariableNotValid(name_span));
             return Ok((garbage(self.working_set, name_span), None, var_name));
         }
-        if !is_variable(&String::from_utf8_lossy(&var_name)) {
-            self.working_set
-                .error(ParseError::Expected("valid variable name", name_span));
-            return Ok((garbage(self.working_set, name_span), None, var_name));
-        }
-        ensure_not_reserved_variable_name(self.working_set, &var_name, name_span);
-        match ty {
+        let written = match ty {
             Some(annotation) => {
                 let span = self.span(annotation.span);
                 // nu reports what lexing the type as a signature finds (`record<a: int, b]>`)
@@ -633,6 +626,23 @@ impl<'s> Lower<'_, '_, 's> {
                     [.., second_to_last, _] => self.span(second_to_last.span),
                     _ => Span::new(name_span.start, name_span.end + 1),
                 };
+                Some((ty, var_span))
+            }
+            None => None,
+        };
+        // One that is no variable name, which the winnow parser keeps for a binding (`let $x-y =
+        // 1`): nu reports it after the type and goes on with garbage over that same span.
+        if !is_variable(&String::from_utf8_lossy(&var_name)) {
+            let span = written
+                .as_ref()
+                .map_or(name_span, |(_, var_span)| *var_span);
+            self.working_set
+                .error(ParseError::Expected("valid variable name", span));
+            return Ok((garbage(self.working_set, span), None, var_name));
+        }
+        ensure_not_reserved_variable_name(self.working_set, &var_name, name_span);
+        match written {
+            Some((ty, var_span)) => {
                 let var_id =
                     self.working_set
                         .add_variable_without_scope(var_span, ty.clone(), mutable);
@@ -641,7 +651,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // `let a: = 1`: a typed name without its type, which nu declares `any` over the
             // name's item, its colon included, and reports (MissingType).
-            None if self.source[name.span.end..].starts_with(':') => {
+            None if self.colon_in_name_item(name.span) => {
                 let span = Span::new(name_span.start, name_span.end + 1);
                 let var_id = self
                     .working_set
@@ -662,6 +672,13 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
+    /// Whether the item of the variable `name` goes on with a `:` (`let a: = 1`). An unbalanced
+    /// closer ends an item, so the `:` of `let a): = 1` is an item of its own.
+    fn colon_in_name_item(&self, name: WSpan) -> bool {
+        self.source[name.end..].starts_with(':')
+            && self.parts(WSpan::new(name.start, name.end + 1)).len() == 1
+    }
+
     /// The variable of a binding nu reads (`let x = value`): [`Self::variable_declaration`],
     /// then the first item an untyped variable leaves before the `=`, which nu reports
     /// (ExtraTokens) and goes on past (`let a int = 1`, `let a : int = 1`); a redirection's
@@ -676,7 +693,7 @@ impl<'s> Lower<'_, '_, 's> {
             self.variable_declaration(&binding.name, binding.ty.as_ref(), mutable, input_type)?;
         if binding.ty.is_none()
             && let Some(eq) = binding.eq
-            && !self.source[binding.name.span.end..].starts_with(':')
+            && !self.colon_in_name_item(binding.name.span)
             && let Some(first) = self
                 .parts(WSpan::new(binding.name.span.end, eq.start))
                 .first()
@@ -1674,6 +1691,15 @@ impl<'s> Lower<'_, '_, 's> {
                 expression.expr.description().to_string(),
                 first,
             ));
+            return Ok(statement);
+        }
+        // An alias is one call: a `|` or a redirection in the target is `CantAliasExpression`, and
+        // no alias.
+        let (tokens, _) = self.lex_span(self.span(target.span), LexOptions::BLOCK);
+        if let Some((what, span)) = pipe_or_redirection(&tokens) {
+            let span = self.span(span);
+            self.working_set
+                .error(ParseError::CantAliasExpression(what.into(), span));
             return Ok(statement);
         }
         let outer_search_predecls = std::mem::replace(&mut self.working_set.search_predecls, false);

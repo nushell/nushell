@@ -7,7 +7,7 @@ use winnow::error::ErrMode;
 use crate::winnow::syntax::ast::{Alias, Call, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
-use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents};
+use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents, pipe_or_redirection};
 use crate::winnow::syntax::span::Spanned;
 
 use super::WorkingSet;
@@ -240,8 +240,9 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         _ => return Err(cut(Diagnostic::expected("`=`", tokens.here()))),
     };
     // Nushell hands everything after `=` to the call parser as plain words,
-    // so `alias ll = ls | length` is `ls` with the arguments `|` and `length`,
-    // and `alias x = FOO=1 ls` calls the external command `FOO=1`.
+    // so the target of `alias ll = ls | length` reads as `ls` with the arguments `|` and
+    // `length` (refused below), and `alias x = FOO=1 ls` calls the external command `FOO=1`.
+    let pipeline = pipe_or_redirection(tokens.remaining());
     let words: Vec<Token> = tokens
         .remaining()
         .iter()
@@ -296,7 +297,14 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         .join(" ");
     let names_keyword = (words.len() > 1 && UNALIASABLE_PARSER_KEYWORDS.contains(&target.as_str()))
         || UNALIASABLE_PARSER_KEYWORDS.contains(&first_text);
-    if names_keyword {
+    // An alias is one call: nu refuses a `|` or a redirection in the target before it looks at
+    // the keyword, and keeps the call to `alias`, its target the first reading's, without
+    // declaring one: so does the consumer, the error recorded as recovered.
+    if let Some((what, span)) = pipeline {
+        let diagnostic = Diagnostic::message(format!("cannot create an alias to a {what}"), span)
+            .with_help("an alias names one command call; use `def` for a pipeline");
+        working_set.error(diagnostic.as_recovered());
+    } else if names_keyword {
         let diagnostic =
             Diagnostic::message("cannot create an alias to a parser keyword", first.span)
                 .with_help(format!(
@@ -321,7 +329,7 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         Expr::Call(call) => call_alias_kind(working_set, call),
         _ => DeclKind::Declared,
     };
-    if declares && !names_keyword {
+    if declares && !names_keyword && pipeline.is_none() {
         working_set.add_alias(&name.item, kind);
     }
     let span = keyword.span.merge(value.span);
