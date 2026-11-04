@@ -74,6 +74,23 @@ impl AliasedKeyword {
     }
 }
 
+/// Where a call to an alias finds its parameters: those of its target's command, past the
+/// positional arguments the target gives (`alias ll = ls a`).
+#[derive(Clone, Debug)]
+pub struct AliasShapes {
+    command: ShapesOf,
+    given: usize,
+}
+
+/// A command whose parameters a call reads its arguments by.
+#[derive(Clone, Debug)]
+enum ShapesOf {
+    /// A configured command, by name.
+    Configured(Box<str>),
+    /// A `def` or `extern` of the text: its signature, and whether it is an `extern`.
+    Defined(Span, bool),
+}
+
 /// The commands declared in one block, closure or module body.
 #[derive(Debug, Default)]
 struct Scope {
@@ -87,6 +104,8 @@ struct Scope {
     /// whether it is an `extern`: what a call to it reads its arguments with
     /// ([`WorkingSet::call_shapes`]).
     signatures: Vec<(Box<str>, Span, bool)>,
+    /// Where the aliases declared here find the parameters they read their arguments by.
+    alias_shapes: Vec<(Box<str>, AliasShapes)>,
     /// Whether a statement here brings in commands from elsewhere (`use`, `overlay use`,
     /// `source`), which may extend or shadow the configured ones.
     imports: bool,
@@ -635,12 +654,29 @@ impl<'a> WorkingSet<'a> {
     /// [`CommandLookup`] (with one, the consumer reads each argument by the real signature):
     /// those of the `def` or `extern` of the innermost scope that declares `name`, parsed the
     /// first time a call asks, or of a configured command unless an import may have brought in
-    /// another ([`WorkingSet::note_import`]). `None` for an alias, a definition whose signature
-    /// does not parse, and a command without a signature.
+    /// another ([`WorkingSet::note_import`]), or those an alias's target leaves. `None` for a
+    /// definition whose signature does not parse and a command without a signature.
     pub fn call_shapes(&self, name: &str) -> Option<CommandShapes<'a>> {
         if self.lookup.is_some() {
             return None;
         }
+        let AliasShapes { command, given } = self.shapes_of(name)?;
+        let shapes = match command {
+            ShapesOf::Configured(name) => {
+                CommandShapes::Configured(self.config.call_shapes(&name)?)
+            }
+            ShapesOf::Defined(span, external) => {
+                CommandShapes::Defined(self.defined_shapes(span, external)?)
+            }
+        };
+        Some(match given {
+            0 => shapes,
+            given => CommandShapes::Defined(Rc::new(shapes.past_positionals(given))),
+        })
+    }
+
+    /// Where a call to `name` finds its parameters ([`Self::call_shapes`]).
+    fn shapes_of(&self, name: &str) -> Option<AliasShapes> {
         let declared = {
             let scopes = self.scopes.borrow();
             scopes
@@ -648,27 +684,44 @@ impl<'a> WorkingSet<'a> {
                 .rev()
                 .find(|scope| scope.commands.names.contains(name))
                 .map(|scope| {
-                    scope
-                        .signatures
+                    let alias = scope
+                        .alias_shapes
                         .iter()
-                        .find(|(declared, ..)| **declared == *name)
-                        .map(|&(_, span, external)| (span, external))
+                        .rev()
+                        .find(|(alias, _)| **alias == *name)
+                        .map(|(_, shapes)| shapes.clone());
+                    alias.or_else(|| {
+                        scope
+                            .signatures
+                            .iter()
+                            .find(|(declared, ..)| **declared == *name)
+                            .map(|&(_, span, external)| AliasShapes {
+                                command: ShapesOf::Defined(span, external),
+                                given: 0,
+                            })
+                    })
                 })
         };
-        let Some(declared) = declared else {
-            if self.scopes.borrow().iter().any(|scope| scope.imports) {
-                return None;
-            }
-            return self.config.call_shapes(name).map(CommandShapes::Configured);
-        };
-        let (span, external) = declared?;
+        match declared {
+            Some(declared) => declared,
+            None if self.scopes.borrow().iter().any(|scope| scope.imports) => None,
+            None => self.config.call_shapes(name).map(|_| AliasShapes {
+                command: ShapesOf::Configured(Box::from(name)),
+                given: 0,
+            }),
+        }
+    }
+
+    /// The parameters of the `def` or `extern` whose signature is at `span`, parsed the first
+    /// time a call asks.
+    fn defined_shapes(&self, span: Span, external: bool) -> Option<Rc<CallShapes<'a>>> {
         if let Some((_, shapes)) = self
             .defined_shapes
             .borrow()
             .iter()
             .find(|(parsed, _)| *parsed == span)
         {
-            return shapes.clone().map(CommandShapes::Defined);
+            return shapes.clone();
         }
         // Parsed on the side: what it reports is the definition's, reported where it is parsed.
         let errors = self.error_count();
@@ -679,7 +732,7 @@ impl<'a> WorkingSet<'a> {
         self.defined_shapes
             .borrow_mut()
             .push((span, shapes.clone()));
-        shapes.map(CommandShapes::Defined)
+        shapes
     }
 
     /// Declare an alias in the innermost scope once its statement is parsed
@@ -691,6 +744,28 @@ impl<'a> WorkingSet<'a> {
     /// or `try`, else [`DeclKind::Declared`].
     pub fn add_alias(&self, name: &str, kind: DeclKind) {
         self.add_predecl(name, kind)
+    }
+
+    /// Where a call to an alias of `target` that gives the first `given` positional arguments
+    /// finds its parameters, asked for before the alias is declared: `alias ls = ls` reads by the
+    /// `ls` there was.
+    pub fn alias_shapes(&self, target: &str, given: usize) -> Option<AliasShapes> {
+        if self.lookup.is_some() {
+            return None;
+        }
+        let shapes = self.shapes_of(target)?;
+        Some(AliasShapes {
+            given: shapes.given + given,
+            ..shapes
+        })
+    }
+
+    /// Give the alias `name`, just declared in the innermost scope, the place a call to it finds
+    /// its parameters ([`Self::alias_shapes`]).
+    pub fn set_alias_shapes(&self, name: &str, shapes: AliasShapes) {
+        if let Some(scope) = self.scopes.borrow_mut().last_mut() {
+            scope.alias_shapes.push((Box::from(name), shapes));
+        }
     }
 
     /// Enter a declaration scope (a block, closure or module body).

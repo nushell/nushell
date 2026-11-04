@@ -2799,3 +2799,16 @@ fn equals_arguments_and_items_around_a_redirection() {
     let (_, diagnostics) = parse_lenient("\"a\" o> f b o> g", &config);
     assert!(diagnostics.iter().any(|d| !d.recovered), "{diagnostics:?}");
 }
+
+/// A call through an alias reads its arguments by what the target leaves of its signature, as nu's
+/// call does: `0b2` is no int for `ls`'s glob, and past the positional `alias` gives, none is left.
+#[test]
+fn alias_call_reads_by_its_target() {
+    let errors = |source: &str| parse_lenient(source, &ParseConfig::new()).1.len();
+    assert_eq!(errors("alias ll = ls; ll 0b2"), 0);
+    assert_eq!(errors("alias ls = ls; ls 0b2"), 0);
+    assert_eq!(
+        errors("def f [a: string, b: string] {}; alias g = f x; g 0b2"),
+        0
+    );
+}

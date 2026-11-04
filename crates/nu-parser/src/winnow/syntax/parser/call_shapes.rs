@@ -93,6 +93,16 @@ impl<'a> CallShapes<'a> {
         }
     }
 
+    /// The parameters left for a call through an alias whose target gives the first `given`
+    /// positional arguments (`alias ll = ls a`).
+    pub fn past_positionals(&self, given: usize) -> Self {
+        let mut shapes = self.clone();
+        shapes
+            .positional
+            .drain(..given.min(shapes.positional.len()));
+        shapes
+    }
+
     /// The shape of the positional argument at `index` (nu's `get_positional`): a positional
     /// parameter's, the rest parameter's past them, `None` past both.
     pub fn positional(&self, index: usize) -> Option<&SyntaxShape<'a>> {

@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use winnow::error::ErrMode;
 
-use crate::winnow::syntax::ast::{Alias, Call, Expr, Expression};
+use crate::winnow::syntax::ast::{Alias, Argument, Call, Expr, Expression};
 use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
 use crate::winnow::syntax::lex::{AssignmentOperator, Token, TokenContents, pipe_or_redirection};
@@ -341,7 +341,21 @@ pub fn parse_alias<'a>(mut tokens: Tokens<'_, 'a>) -> ParseResult<Expression<'a>
         _ => DeclKind::Declared,
     };
     if declares && !names_keyword && pipeline.is_none() {
+        let shapes = match &value.expr {
+            Expr::Call(call) => {
+                let given = call
+                    .arguments
+                    .iter()
+                    .filter(|argument| matches!(argument, Argument::Positional(_)))
+                    .count();
+                working_set.alias_shapes(&call.head.name, given)
+            }
+            _ => None,
+        };
         working_set.add_alias(&name.item, kind);
+        if let Some(shapes) = shapes {
+            working_set.set_alias_shapes(&name.item, shapes);
+        }
     }
     let span = keyword.span.merge(value.span);
     Ok(Expression::new(
