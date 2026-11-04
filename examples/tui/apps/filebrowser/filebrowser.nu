@@ -14,7 +14,8 @@
 # Previewers
 #   Every row goes to the first previewer in `$env.file-browser.preview.plugins`
 #   whose `handles` closure accepts it; the rest fall back to the built-in
-#   pane: images draw, text shows, binaries get a note. The bundled ones live
+#   pane: images draw, text shows highlighted by `bat` (plain without it),
+#   binaries get a note. The bundled ones live
 #   in previewers/: PDF pages via poppler, SVG via resvg, Markdown via glow.
 #   To add one, append a record to that list before `tui run` (sourcing a
 #   file that does so is enough); previewers/pdf.nu documents the fields.
@@ -139,8 +140,11 @@ def preview [row: record, ctx: record]: nothing -> any {
     let head = open --raw $row.name | bytes at ..$env.file-browser.preview.max_text_bytes
     if ($head | bytes index-of 0x[00]) >= 0 {
         $"($row.name)\n\(binary file, ($row.size)\)"
-    } else {
+    } else if (which bat | is-empty) {
         $head | decode utf-8
+    } else {
+        # Fed through stdin to keep to `max_text_bytes`; `--file-name` picks the syntax.
+        $head | bat --color=always --paging=never --style=plain --wrap=never --file-name $row.name | decode utf-8
     }
 }
 
