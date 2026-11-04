@@ -40,8 +40,8 @@
 #   file_document
 #
 # A color is what `$env.config.color_config` takes: a color name, `#rrggbb`,
-# or `{fg, bg, attr}` where `attr` is letters from `b`old, `d`im,
-# `i`talic, `u`nderline, `r`everse.
+# or `{fg, bg, attr}` where `attr` is letters: `b` bold, `d` dim,
+# `i` italic, `u` underline, `r` reverse.
 #
 # Glyph slots, strings rather than colors. The caps are `{open, close}`,
 # one cell each, drawn in the text's fill color, so with powerline's

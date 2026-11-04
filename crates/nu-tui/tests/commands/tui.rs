@@ -34,9 +34,9 @@ fn theme_slots_ride_in_the_tui_value_and_unknown_ones_are_errors() -> Result {
     )?;
     assert_eq!(bg, "red");
     let err = test()
-        .run("tui table | tui theme {selectd: red}")
+        .run("tui table | tui theme {not_a_slot: red}")
         .expect_error()?;
-    assert_contains("selectd", &format!("{err:?}"));
+    assert_contains("not_a_slot", &format!("{err:?}"));
     assert_contains("file_dir", &format!("{err:?}"));
     let err = test()
         .run("tui table | tui theme {border_type: wavy}")

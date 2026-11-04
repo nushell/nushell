@@ -1446,9 +1446,9 @@ $env.config.explore.try.reactive = false
 # TUI Command Settings
 # --------------------
 # `$env.config.tui` styles the `tui` command family (`tui table`, `tui split`, `tui run`, ...).
-# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key except
-# `border_type` is a color value in the same forms as `color_config`: a color name, `#RRGGBB`,
-# or `{ fg?, bg?, attr? }`. In any slot, `default` is the terminal's own color.
+# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Keys marked (color) take
+# the same forms as `color_config`: a color name, `#RRGGBB`, or `{ fg?, bg?, attr? }`. In any
+# such slot, `default` is the terminal's own color. `tui theme` lays one TUI's slots over these.
 # When `use_ansi_coloring` is off the TUI draws without colors.
 
 # tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
@@ -1514,6 +1514,42 @@ $env.config.tui.button = { fg: white, bg: blue }
 # Defaults: { bg: default } / { bg: default }
 $env.config.tui.surface = { bg: default }
 $env.config.tui.backdrop = { bg: default }
+
+# tui.image_protocol (string): How `tui preview` and `tui image` draw images.
+# "auto" asks the terminal, "kitty", "sixel", "iterm2", and "halfblocks" force a protocol, and
+# "none" draws no images.
+# Default: "auto"
+$env.config.tui.image_protocol = "auto"
+
+# tui.file_* (color): Path cells by kind of file. `file_orphan` is a symlink whose target is gone,
+# `file_media` is audio or video, and `file_document` is a PDF or Word document. Any other file
+# is plain text.
+$env.config.tui.file_dir = { fg: blue }
+$env.config.tui.file_orphan = { bg: red }
+$env.config.tui.file_exec = { fg: green }
+$env.config.tui.file_image = { fg: yellow }
+$env.config.tui.file_media = { fg: magenta }
+$env.config.tui.file_archive = { fg: red }
+$env.config.tui.file_document = { fg: cyan }
+
+# tui.title_caps / tui.status_caps / tui.tab_caps / tui.selected_caps (record): `{ open, close }`
+# glyphs of one cell each, or empty, drawn in the text's fill color at the ends of the title bar's
+# text, each status segment, each tab's title, and the highlighted row. With caps, the title and
+# status bars no longer fill their line.
+# Default: only `tab_caps` is set, and it is empty.
+$env.config.tui.tab_caps = { open: "", close: "" }
+
+# tui.check / tui.radio (record): `{ on, off }` marks of one width, for `--multi` rows and
+# `tui select` rows.
+$env.config.tui.check = { on: "[x]", off: "[ ]" }
+$env.config.tui.radio = { on: "(•)", off: "( )" }
+
+# tui.tree_open / tui.tree_closed (string): The arrows before a tree node with children.
+$env.config.tui.tree_open = "▾"
+$env.config.tui.tree_closed = "▸"
+
+# tui.progress_fill (string): The one-cell glyph `tui progress`'s bar is made of.
+$env.config.tui.progress_fill = "█"
 
 # ---------------------------------------------------------------------------------------
 # Environment Variables
