@@ -16,8 +16,8 @@ use crate::{TableTheme, is_color_empty, string_width, string_wrap};
 
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///
-/// It doesn't support alignment and a proper width control (although it's possible to achieve).
-/// The one exception is a list of records, whose cells line up in rows and columns.
+/// Text is always left-aligned. [`UnstructuredTable::truncate`] fits the table to a width by
+/// wrapping text and dropping columns from the right, not by sizing columns.
 pub struct UnstructuredTable {
     value: Node,
     indent: TableIndent,
