@@ -3,6 +3,7 @@ use nu_engine::{command_prelude::*, env_to_strings};
 use nu_protocol::{ShellError, shell_error::generic::GenericError};
 use std::{
     ffi::{OsStr, OsString},
+    path::PathBuf,
     process::Stdio,
 };
 
@@ -40,14 +41,15 @@ impl Command for Start {
             .req::<Spanned<String>>(engine_state, stack, 0)?
             .map(nu_utils::strip_ansi_string_unlikely);
         let path_no_whitespace = path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-        // Attempt to parse the input as a URL
-        if let Ok(url) = url::Url::parse(path_no_whitespace) {
-            open_path(url.as_str(), engine_state, stack, path.span)?;
-            return Ok(PipelineData::empty());
-        }
-        // If it's not a URL, treat it as a file path
+        let local_path = match open_target(path_no_whitespace) {
+            OpenTarget::Url(url) => {
+                open_path(url, engine_state, stack, path.span)?;
+                return Ok(PipelineData::empty());
+            }
+            OpenTarget::Path(path) => path,
+        };
         let cwd = engine_state.cwd(Some(stack))?;
-        let full_path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
+        let full_path = nu_path::expand_path_with(local_path, &cwd, true);
 
         // Check if the path exists or if it's a valid file/directory
         if full_path.exists() {
@@ -97,6 +99,24 @@ impl Command for Start {
                 result: None,
             },
         ]
+    }
+}
+
+enum OpenTarget {
+    Url(String),
+    Path(PathBuf),
+}
+
+/// Resolve file URLs to local paths while retaining other URLs for the opener.
+fn open_target(input: &str) -> OpenTarget {
+    match url::Url::parse(input) {
+        Ok(url) if url.scheme().len() == 1 => OpenTarget::Path(PathBuf::from(input)),
+        Ok(url) if url.scheme() == "file" => match url.to_file_path() {
+            Ok(path) => OpenTarget::Path(path),
+            Err(()) => OpenTarget::Url(url.to_string()),
+        },
+        Ok(url) => OpenTarget::Url(url.to_string()),
+        Err(_) => OpenTarget::Path(PathBuf::from(input)),
     }
 }
 
@@ -161,4 +181,42 @@ fn format_command(command: &std::process::Command) -> String {
         .collect::<OsString>()
         .to_string_lossy()
         .into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{OpenTarget, open_target};
+    #[cfg(windows)]
+    use std::path::Path;
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_drive_path_is_not_a_url() {
+        assert!(matches!(
+            open_target(r"C:\🏠 Commitments\x.txt"),
+            OpenTarget::Path(path) if path.as_path() == Path::new(r"C:\🏠 Commitments\x.txt")
+        ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn file_urls_open_decoded_local_paths() {
+        for input in [
+            "file:///C:/umlauts/w%C3%B6rd.odt",
+            "file:///C:/umlauts/wörd.odt",
+        ] {
+            assert!(matches!(
+                open_target(input),
+                OpenTarget::Path(path) if path.as_path() == Path::new(r"C:\umlauts\wörd.odt")
+            ));
+        }
+    }
+
+    #[test]
+    fn web_url_remains_a_url() {
+        assert!(matches!(
+            open_target("https://example.com/ö"),
+            OpenTarget::Url(url) if url == "https://example.com/%C3%B6"
+        ));
+    }
 }
