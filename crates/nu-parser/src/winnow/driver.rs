@@ -59,6 +59,7 @@ use super::{
     stats,
 };
 use crate::parse_pipelines::finish_block;
+use crate::winnow::syntax::lex::LexOptions;
 use crate::winnow::syntax::{
     BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl,
     ast as w, lex::LexError,
@@ -863,7 +864,14 @@ impl<'a> BlockSink<'a> for Driver<'_, '_, '_, '_> {
         }
         // nu's predeclaration, read from the statement's text. What it cannot read is counted
         // and logged; the statement reports it.
-        if let Err(unlowered) = lower.predecl_statement_text(span) {
+        let options = match &self.target {
+            Target::Block {
+                of: BlockOf::Parentheses,
+                ..
+            } => LexOptions::SUBEXPRESSION,
+            _ => LexOptions::BLOCK,
+        };
+        if let Err(unlowered) = lower.predecl_statement_text(span, options) {
             stats::record_unlowered(span, &unlowered, working_set);
         }
     }

@@ -1476,6 +1476,31 @@ impl<'s> Lower<'_, '_, 's> {
                 .error(ParseError::UnexpectedKeyword("export".into(), keyword_span));
             return Ok((garbage(self.working_set, call_span), None));
         }
+        // A spread goes to `use`'s rest parameter, its module missing, and `parse_use` goes on to
+        // read the item as its import pattern, which it refuses as no constant.
+        if keyword == "use"
+            && kind == CallKind::Valid
+            && let Some(first) = arguments.first()
+            && self
+                .text(first.span())
+                .strip_prefix("...")
+                .is_some_and(|rest| rest.starts_with(['[', '$', '(', '{']))
+        {
+            let items: Vec<Span> = arguments
+                .iter()
+                .map(|argument| self.span(argument.span()))
+                .collect();
+            let span = Span::concat(&items);
+            let value = Expression::garbage(self.working_set, self.span(first.span()));
+            if let Err(error) = eval_constant(self.working_set, &value) {
+                self.working_set.error(error.wrap(self.working_set, span));
+            }
+            self.working_set.error(ParseError::UnknownState(
+                "internal error: Import pattern positional is not import pattern".into(),
+                span,
+            ));
+            return Ok((garbage(self.working_set, call_span), None));
+        }
         if kind != CallKind::Help
             && !matches!(
                 keyword,
@@ -1945,7 +1970,7 @@ impl<'s> Lower<'_, '_, 's> {
         attributes: &[w::Attribute<'s>],
     ) -> Lowered<Expression> {
         let start = attributes.first().map_or(command.span, |first| first.span);
-        let items = self.items(start.merge(command.span));
+        let items = self.parts(start.merge(command.span));
         let words: Vec<&[u8]> = self
             .items(command.span)
             .iter()

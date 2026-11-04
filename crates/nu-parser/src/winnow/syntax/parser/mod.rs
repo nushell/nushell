@@ -487,6 +487,7 @@ pub(crate) fn parse_items<'a>(
                 token.contents,
                 TokenContents::Redirection(_)
                     | TokenContents::Pipe
+                    | TokenContents::PipePipe
                     | TokenContents::AssignmentOperator(_)
             ),
         };

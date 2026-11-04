@@ -3,6 +3,7 @@
 //! the lowering gives back: a garbage pipeline with an error.
 
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use nu_protocol::{
     DeclId, Module, ParseError, Span, SyntaxShape, Type,
@@ -700,7 +701,8 @@ impl<'s> Lower<'_, '_, 's> {
                     }
                     w::Expr::Garbage => {
                         let expression = self.attributes_without_definition(command, attributes)?;
-                        match self.text(command.span).starts_with("export") {
+                        let first_word = self.text(command.span).split_ascii_whitespace().next();
+                        match first_word == Some("export") {
                             true => {
                                 self.exported_attribute_block(expression, command, attributes)?
                             }
@@ -794,6 +796,7 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Pipeline> {
         let errors = self.working_set.parse_errors.len();
+        let first_block = self.working_set.delta.blocks.len();
         let first_word = self.text(element.expr.span);
         let first_word = first_word
             .split(|c: char| c.is_ascii_whitespace())
@@ -820,6 +823,10 @@ impl<'s> Lower<'_, '_, 's> {
             } else if self.working_set.parse_errors.len() > errors {
                 let again = self.working_set.parse_errors[errors..].to_vec();
                 self.working_set.parse_errors.extend(again);
+                // The parse nu keeps comes second, with those errors there: it compiles no block.
+                for block in &mut self.working_set.delta.blocks[first_block..] {
+                    Arc::make_mut(block).ir_block = None;
+                }
             }
         }
         Ok(Pipeline {

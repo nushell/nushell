@@ -41,8 +41,12 @@ impl Lower<'_, '_, '_> {
     /// The predeclarations of the statement at `span`, which the winnow parser read no
     /// definition in: each pipeline of one command lite-parsed from its text, as nu's
     /// `parse_block` predeclares them ([`Self::def_predecl_text`]).
-    pub(in crate::winnow) fn predecl_statement_text(&mut self, span: Span) -> Lowered<()> {
-        let (tokens, _) = self.lex_span(span, LexOptions::BLOCK);
+    pub(in crate::winnow) fn predecl_statement_text(
+        &mut self,
+        span: Span,
+        options: LexOptions,
+    ) -> Lowered<()> {
+        let (tokens, _) = self.lex_span(span, options);
         let (block, _) = self.lite_parse(&tokens);
         for pipeline in &block.pipelines {
             if let [command] = pipeline.as_slice() {

@@ -9,7 +9,7 @@ annotated with where the winnow parser implements it. Section 9 is the
 scoreboard of differences between the two parsers, each one verified by
 running both; it was re-verified on 2026-09-26 against commit `7de074cfe`
 (the differential harness's), whose line numbers the rules added then cite.
-It stands at **6 open** (three in 9.1, three in 9.2); the rows closed so far are counted there and
+It stands at **5 open** (one in 9.1, four in 9.2); the rows closed so far are counted there and
 pinned as fixtures under `tests/winnow/fixtures/`, and 9.4 lists the checks that are
 a consumer's by design.
 
@@ -1989,7 +1989,7 @@ get nu-parser's full behaviour; none of it is decidable from the text alone.
 | module, file, overlay and plugin resolution; variable existence | files, module table, scope | `Call` heads, `Var` |
 | the commands a `use`d module brings into scope (`use std/log; log info`) | module resolution | `ParseConfig::add_commands`; without them such a head is an `ExternalCall` |
 
-## 9. Verified differences between nu-parser and this parser: 6 open
+## 9. Verified differences between nu-parser and this parser: 5 open
 
 Last verified on 2026-09-26 against nushell `7de074cfe` and `nu` 0.115.2; the
 rows found on 2026-10-26 were verified against nushell `706259d6f` with the
@@ -1997,13 +1997,13 @@ harness.
 
 | section | kind of difference | closed | open |
 | --- | --- | --- | --- |
-| 9.1 | nu-parser rejects, this parser accepts | 33 | **2** |
+| 9.1 | nu-parser rejects, this parser accepts | 34 | **1** |
 | 9.2 | nu-parser accepts, this parser rejects | 39 | **4** |
 | 9.3 | both accept, but the parse differs | 11 | **0** |
 | 9.4 | needs a signature, a declaration, const-eval, a type or a file | | not a grammar difference: the consumer's checks, listed below |
 
-Of the 83 closed rows, 40 were closed on 2026-09-24, 31 on 2026-09-25 and
-2026-09-26, and 12 on 2026-10-26. Each is pinned by a fixture under
+Of the 84 closed rows, 40 were closed on 2026-09-24, 31 on 2026-09-25 and
+2026-09-26, 12 on 2026-10-26, and 1 on 2026-11-03. Each is pinned by a fixture under
 `tests/winnow/fixtures/accept` or `tests/winnow/fixtures/reject`; the git log has the details.
 
 Method: every input was run through `nu-check` on the PATH `nu` 0.115.2
@@ -2033,7 +2033,7 @@ only through type checking, constant
 evaluation, signatures or module resolution are in 9.4, not counted as grammar
 gaps.
 
-### 9.1 nu-parser rejects, this parser accepts: 2 open
+### 9.1 nu-parser rejects, this parser accepts: 1 open
 
 An `if`, `match` or `try` alias target that nu rejects through the keyword's
 signature (DIFF 1): `alias zz = if --help if` and `alias zz = if if --help`
@@ -2047,11 +2047,6 @@ a complete target with the statement parser and a target with a flag as an
 ordinary call, so it misses the errors. Closing it needs the signatures' positional
 allocation for these three keywords, the same work as the alias row of 9.2. Found
 with the alias-target set; no real script is known to hit it.
-
-An argument that is a range whose bound is a closure with text after it (`echo
-5..{|| 1}x`, `echo ..{|| 1}x`): nu's value parser reports an unclosed delimiter,
-and this parser reads a range of a closure, which is the consumer's type error.
-Found with the range-bound set; no real script is known to hit it.
 
 ### 9.2 nu-parser accepts, this parser rejects: 4 open
 

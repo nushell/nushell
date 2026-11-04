@@ -473,6 +473,20 @@ fn without_span_ids(text: &str) -> String {
     out
 }
 
+/// `text` without the numbers of its block ids, which count the blocks of parses that were dropped
+/// (nu reads a `%(...)` head twice).
+fn without_block_ids(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find("BlockId(") {
+        out.push_str(&rest[..at + "BlockId(".len()]);
+        rest = &rest[at + "BlockId(".len()..];
+        rest = rest.trim_start_matches(|c: char| c.is_ascii_digit());
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The start of the first `start..end` span in a rendered line.
 fn first_span_start(line: &str) -> Option<usize> {
     line.split(|c: char| !c.is_ascii_digit() && c != '.')
@@ -764,7 +778,10 @@ impl Renderer<'_, '_> {
                                 .map(|c| self.var(*c))
                                 .collect::<Vec<_>>()
                         ),
-                        other => format!("{k}={}", without_span_ids(&format!("{other:?}"))),
+                        other => format!(
+                            "{k}={}",
+                            without_block_ids(&without_span_ids(&format!("{other:?}")))
+                        ),
                     })
                     .collect();
                 info.sort();

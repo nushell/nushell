@@ -897,6 +897,7 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let span = self.span(span);
         let block = self.in_scope(|this| {
+            let before_params = this.working_set.parse_errors.len();
             let signature = match params {
                 Some(params) => Some(this.closure_signature(params)?),
                 None => None,
@@ -905,7 +906,17 @@ impl<'s> Lower<'_, '_, 's> {
                 let params_span = this.span(params.span);
                 this.check_closure_params(shape, signature, params_span);
             }
+            let before_block = this.working_set.parse_errors.len();
             let mut block = this.block(body, span, false, BlockOf::Code, input_type)?;
+            // nu lexes the closure before it reads its parameters: the body's lexer error, which
+            // the block reports first, comes before theirs (`{|in|;}`).
+            if body.lex_error().is_some()
+                && before_block > before_params
+                && this.working_set.parse_errors.len() > before_block
+            {
+                let error = this.working_set.parse_errors.remove(before_block);
+                this.working_set.parse_errors.insert(before_params, error);
+            }
             // A `def` body is compiled by `finish_def`, once its scope is closed.
             if this.working_set.parse_errors.is_empty()
                 && this.working_set.def_body_span != Some(span)

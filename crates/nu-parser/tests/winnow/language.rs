@@ -1568,11 +1568,21 @@ fn deeply_nested_lists_do_not_blow_up() {
     assert!(matches!(last_expr(&ast).expr, Expr::List(_)));
 }
 
+/// On a stack of its own: this is about the time such a file takes, and a test thread's 2 MiB is
+/// not much more than these frames need in a debug build, less on some targets. `nu` runs its
+/// parser on larger stacks.
 #[test]
 fn deeply_nested_modules_do_not_blow_up() {
-    let src = "module foo { ".repeat(28) + "use bar.nu " + &"}".repeat(28);
-    let ast = ok(&src);
-    assert!(matches!(last_expr(&ast).expr, Expr::Module(_)));
+    std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            let src = "module foo { ".repeat(28) + "use bar.nu " + &"}".repeat(28);
+            let ast = ok(&src);
+            assert!(matches!(last_expr(&ast).expr, Expr::Module(_)));
+        })
+        .unwrap()
+        .join()
+        .unwrap();
 }
 
 // --- the crate's own corpus of Nushell repository samples -------------------------------------
