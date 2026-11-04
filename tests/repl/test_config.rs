@@ -60,7 +60,7 @@ fn mutate_nu_config_nested_menu() -> TestResult {
                   name: menu
                   only_buffer_difference: true
                   marker: "M "
-                  type: {}
+                  type: { layout: columnar }
                   style: {}
                 }
             ];
@@ -263,6 +263,61 @@ fn mutate_nu_config_history_ignore_space() -> TestResult {
     run_test_std(
         "$env.config.history.ignore_space_prefixed = false; $env.config.history.ignore_space_prefixed",
         "false",
+    )
+}
+
+/// A keybinding with a keycode that can't be read is rejected when it is
+/// assigned, and the list stays as it was.
+#[test]
+fn a_keybinding_that_cannot_be_read_is_rejected_on_assignment() -> TestResult {
+    run_test_std(
+        "
+            let n = $env.config.keybindings | length;
+            let rejected = try { $env.config.keybindings ++= [{ name: bad, modifier: control, keycode: nonsense, mode: emacs, event: null }]; false } catch { true };
+            $rejected and ($env.config.keybindings | length) == $n
+        ",
+        "true",
+    )
+}
+
+/// The same for the whole-record form, which is how an older config may set it.
+#[test]
+fn a_record_with_a_keybinding_that_cannot_be_read_keeps_the_old_list() -> TestResult {
+    run_test_std(
+        "
+            let before = $env.config.keybindings;
+            let bad = { name: bad, modifier: control, keycode: nonsense, mode: emacs, event: null };
+            let rejected = try { $env.config = ($env.config | upsert keybindings [$bad]); false } catch { true };
+            $rejected and $env.config.keybindings == $before
+        ",
+        "true",
+    )
+}
+
+/// The reload scenario: a broken entry is rejected, then the fixed one is added.
+#[test]
+fn a_fixed_keybinding_is_accepted_after_a_rejected_one() -> TestResult {
+    run_test_std(
+        "
+            let n = $env.config.keybindings | length;
+            let rejected = try { $env.config.keybindings ++= [{ name: mine, modifier: control, keycode: nonsense, mode: emacs, event: null }]; false } catch { true };
+            $env.config.keybindings ++= [{ name: mine, modifier: control, keycode: char_t, mode: emacs, event: null }];
+            $rejected and ($env.config.keybindings | length) == $n + 1
+        ",
+        "true",
+    )
+}
+
+/// A menu with a layout that doesn't exist is rejected the same way.
+#[test]
+fn a_menu_with_an_unknown_layout_is_rejected_on_assignment() -> TestResult {
+    run_test_std(
+        r#"
+            let n = $env.config.menus | length;
+            let rejected = try { $env.config.menus ++= [{ name: grid_menu, only_buffer_difference: false, marker: "G ", type: { layout: grid }, style: {} }]; false } catch { true };
+            $rejected and ($env.config.menus | length) == $n
+        "#,
+        "true",
     )
 }
 

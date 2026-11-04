@@ -743,6 +743,11 @@ $env.config.hooks.command_not_found = null
 # and keycode in the same mode, the last one wins. The `name` is only a label
 # and plays no part in that.
 #
+# The modifier, keycode and mode of every entry are checked when the list is
+# assigned. If one can't be read, the whole list is rejected and stays as it was,
+# like any other setting that can't be read, and the rest of the config is still
+# applied. The `event` is checked when the prompt is built.
+#
 # To remove a binding you added, assign the list without it:
 # $env.config.keybindings = $env.config.keybindings | where name != my_binding
 # To unbind a key that reedline itself binds, add an entry for it with
@@ -855,7 +860,9 @@ $env.config.abbreviations = {}
 # defaults, which also turns off Tab completion. Like any list it is stored as
 # written, and reedline registers the menus in order: when several share a
 # `name`, the last one wins, so `++=` with a default's name overrides that
-# default. To drop the ones a later menu overrides:
+# default. The `type.layout` of every menu is checked when the list is assigned.
+# If one can't be read, the whole list is rejected and stays as it was. To drop
+# the ones a later menu overrides:
 # $env.config.menus = $env.config.menus | uniq-by name --keep-last
 # To get the defaults back in a running shell, which is also how a config that is
 # sourced again starts from the same list every time:
