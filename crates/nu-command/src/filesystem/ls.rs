@@ -456,14 +456,28 @@ fn ls_for_one_pattern(
     let no_matches = paths_peek.peek().is_none();
     signals.check(&call_span)?;
     if no_matches {
-        return Err(ShellError::Generic(
+        let pattern = path.item.as_ref();
+        // A string (as opposed to a glob) is taken literally, so `ls '*.rs'` looks for a file
+        // named `*.rs`. Say so instead of making it look like the pattern matched nothing.
+        let error = if !path.item.is_expand() && nu_glob::is_glob_with_backend(pattern) {
             GenericError::new(
-                format!("No matches found for {:?}", path.item),
+                format!("No matches found for {pattern}"),
+                "File or folder not found",
+                p_tag,
+            )
+            .with_help(format!(
+                "Strings are not expanded as glob patterns. Use `ls {pattern}` without quotes, \
+                or `into glob`, to list the files matching it"
+            ))
+        } else {
+            GenericError::new(
+                format!("No matches found for {pattern}"),
                 "Pattern, file or folder not found",
                 p_tag,
             )
-            .with_help("no matches found"),
-        ));
+            .with_help("no matches found")
+        };
+        return Err(ShellError::Generic(error));
     }
 
     let hidden_dirs = Arc::new(Mutex::new(Vec::new()));
