@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn lists_regular_files() -> Result {
@@ -217,26 +218,10 @@ fn fails_when_glob_doesnt_match() -> Result {
             .cwd(dirs.test())
             .run("ls root3*")
             .expect_shell_error()?;
-        let err_msg = err.generic_msg()?;
-        assert_contains("file or folder not found", err_msg);
-
-        Ok(())
-    })
-}
-
-#[test]
-fn glob_without_matches_names_the_pattern() -> Result {
-    Playground::setup("ls_test_no_match_message", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("root1.txt")]);
-
-        let err = test()
-            .cwd(dirs.test())
-            .run("ls root3*")
-            .expect_shell_error()?;
         let ShellError::Generic(err) = err else {
             panic!("expected a generic error, got {err:?}");
         };
-        assert_eq!(err.error, "No matches found for root3*");
+        assert_eq!(err.error, "No matches found for 'root3*'");
         assert_eq!(err.msg, "Pattern, file or folder not found");
         assert_eq!(err.help.as_deref(), Some("no matches found"));
 
@@ -244,28 +229,53 @@ fn glob_without_matches_names_the_pattern() -> Result {
     })
 }
 
-#[test]
-fn quoted_glob_pattern_explains_that_it_is_not_expanded() -> Result {
+#[rstest]
+#[case::plain("'*.rs'", "*.rs")]
+#[case::space("'my dir/*.rs'", "my dir/*.rs")]
+fn quoted_glob_pattern_explains_that_it_is_not_expanded(
+    #[case] arg: &str,
+    #[case] pattern: &str,
+) -> Result {
     // https://github.com/nushell/nushell/issues/16115
     Playground::setup("ls_test_quoted_glob", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("foo.rs")]);
+        sandbox.mkdir("my dir");
+        sandbox.with_files(&[EmptyFile("foo.rs"), EmptyFile("my dir/x.rs")]);
 
         let err = test()
             .cwd(dirs.test())
-            .run("ls '*.rs'")
+            .run(format!("ls {arg}"))
             .expect_shell_error()?;
         let ShellError::Generic(err) = err else {
             panic!("expected a generic error, got {err:?}");
         };
-        assert_eq!(err.error, "No matches found for *.rs");
+        assert_eq!(err.error, format!("No matches found for '{pattern}'"));
         assert_eq!(err.msg, "File or folder not found");
         assert_eq!(
             err.help.as_deref(),
-            Some(
-                "Strings are not expanded as glob patterns. Use `ls *.rs` without quotes, \
-                or `into glob`, to list the files matching it"
-            )
+            Some(&*format!(
+                "Strings are not expanded as glob patterns. If you meant a glob, use \
+                `into glob` or backticks, as in ls `{pattern}`"
+            ))
         );
+
+        Ok(())
+    })
+}
+
+#[test]
+fn quoted_invalid_glob_pattern_gets_the_plain_error() -> Result {
+    Playground::setup("ls_test_quoted_bad_glob", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("report1.txt")]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("ls 'report[1.txt'")
+            .expect_shell_error()?;
+        let ShellError::Generic(err) = err else {
+            panic!("expected a generic error, got {err:?}");
+        };
+        assert_eq!(err.msg, "Pattern, file or folder not found");
+        assert_eq!(err.help.as_deref(), Some("no matches found"));
 
         Ok(())
     })
