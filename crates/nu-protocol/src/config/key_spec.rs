@@ -192,7 +192,7 @@ impl ParsedKeybinding {
                 .filter(|num| (1..=35).contains(num))
                 .map(KeyCodeSpec::F)
                 .ok_or(ShellError::InvalidValue {
-                    valid: "'f1', 'f2', ..., or 'f35'".into(),
+                    valid: VALID_KEYCODES.into(),
                     actual: format!("'{keycode}'"),
                     span,
                 })?,
