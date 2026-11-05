@@ -1,36 +1,31 @@
 # 11 Traceability: nu-parser's grammar, item by item
 
-Nushell has no formal grammar; the language is what `nu-parser` accepts.
-This chapter maps every syntactic unit nu-parser defines onto the code,
-fixtures and tests of this parser, so that "the parser is complete" is an
-auditable claim rather than an impression. `tests/winnow/traceability.rs` reads
-these tables: every fixture pattern must match at least one file under
-`tests/winnow/fixtures/`, every backticked test name must exist, and, when a
-Nushell checkout is available (`../nushell` or `NU_WINNOW_NUSHELL`), every
-variant of `SyntaxShape`, `FlatShape`, `TokenContents` and `ParseError`,
-every keyword command and every `pub fn parse_*` in `nu-parser` must appear
-in the matching table. A new construct upstream therefore fails the test
-until it is mapped here.
+Nushell has no formal grammar. The language is what `nu-parser` accepts. This chapter maps every
+syntactic unit nu-parser defines onto the code, fixtures and tests here, so anyone can check whether
+the parser is complete.
 
-Fixture patterns are relative to `tests/winnow/fixtures/` and may use `*`. A cell
-reading `n/a` means nu-parser needs declarations, signatures, types or
-files for that item, which this parser leaves to the consumer (chapter 08).
+`tests/winnow/traceability.rs` reads these tables. Every fixture pattern must match a file under
+`tests/winnow/fixtures/`, and every backticked test name must exist. Its ignored upstream check,
+which `verify.nu` runs, also needs every variant of `SyntaxShape`, `FlatShape`, `TokenContents` and
+`ParseError`, every keyword command and every `pub fn parse_*` in nu-parser to appear in the
+matching table, so a new construct fails until it has a row. It reads nu-parser from the enclosing
+workspace, or from `NU_WINNOW_NUSHELL`.
 
-In the *here* column, `file::function` is a function of
-`src/winnow/syntax/parser/<file>.rs` (`lex::` is `src/winnow/syntax/lex.rs`), and plain names after it
-in the same cell are in the same file. The parser files are named after
-nu-parser's files and most functions after their nu-parser counterparts,
-so a cell often repeats its row's name: nu's `parse_def` is
-`parse_def::parse_def` here.
+Fixture patterns are relative to `tests/winnow/fixtures/` and may use `*`. A cell reading `n/a`
+means nu-parser needs declarations, signatures, types or files for that item, which this parser
+leaves to the consumer: in the shell, the lowering. "Recovered" has the meaning chapter 03 gives it.
+
+In the *here* column, `file::function` is a function of `src/winnow/syntax/parser/<file>.rs`,
+`lex::` is `src/winnow/syntax/lex.rs`, and plain names after it in the same cell are in the same
+file. Files and most functions are named after their nu-parser counterparts, so a cell often repeats
+its row's name: nu's `parse_def` is `parse_def::parse_def` here.
 
 ## SyntaxShape
 
-Each variant is a parse rule nu-parser applies to an argument position. nu
-hands the shape to `parse_value`; here `parse_expressions::parse_value`
-takes an `ExpectedShape` for the positions where the shape changes how an
-item reads, and a parameter's declared type is an `ast::SyntaxShape` (nu's
-enum name), with which its default value is parsed
-(`ExpectedShape::Declared`).
+Each variant is a parse rule nu-parser applies to an argument position. nu hands the shape to
+`parse_value`. Here `parse_expressions::parse_value` takes an `ExpectedShape` for the positions
+where the shape changes how an item reads. A parameter's declared type is an `ast::SyntaxShape`, and
+its default value is parsed with it (`ExpectedShape::Declared`).
 
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
@@ -65,7 +60,7 @@ enum name), with which its default value is parsed
 | `Range` | `parse_literals::parse_range`, `is_range_syntax` | `accept/ranges/*.nu` `reject/ranges/*.nu` | `ranges` `bad_ranges` |
 | `Record` | `parse_expressions::parse_record` (the interior is read token by token with `lex::next_token`; a key is a name, `parse_field_name`, and one written twice is refused, `check_duplicate_name`) | `accept/records/*.nu` `reject/records/*.nu` | `records` `bare_colons_in_records_are_refused` `record_keys_and_column_names_are_names` |
 | `RowCondition` | `parse_source::parse_where`, `parse_source::parse_condition` (also for `DeclKind::RowCondition` calls), `parse_expressions::parse_row_condition` (`expand_row_condition` makes a bare left operand, and a bare right operand of `and`, `xor` or `or`, a `$it` cell path) | `accept/where/*.nu` `reject/where/*.nu` `accept/calls/row-condition-*.nu` | `where_row_conditions` `empty_braces_as_row_condition` `row_condition_columns_after_boolean_operators` |
-| `Signature` | `parse_signatures::parse_signature`, `check_parameter_order` | `accept/signatures/*.nu` `reject/signatures/*.nu` `accept/def/*.nu` `reject/def/*.nu` | `def_forms` `signature_forms_from_nushell_tests` |
+| `Signature` | `parse_signatures::parse_signature`, `check_parameters` | `accept/signatures/*.nu` `reject/signatures/*.nu` `accept/def/*.nu` `reject/def/*.nu` | `def_forms` `signature_forms_from_nushell_tests` |
 | `ExternalSignature` | `parse_def::parse_extern` (same signature parser) | `accept/extern/*.nu` `reject/def/extern-*.nu` | `extern_alias_module_use_export` |
 | `String` | `parse_literals::parse_string`, `parse_string_literal` | `accept/strings/*.nu` `reject/strings/*.nu` | `strings_all_quote_styles` `string_values` `string_escape_errors` |
 | `Table` | `parse_expressions::parse_table_expression` (row shape, column count and column-name kind checked as nu does; the header's names are read like record keys, and one written twice is refused) | `accept/tables/*.nu` `reject/tables/*.nu` | `tables` `record_keys_and_column_names_are_names` |
@@ -73,13 +68,12 @@ enum name), with which its default value is parsed
 
 ## Keyword commands
 
-Commands whose `command_type` is `Keyword` in `nu-cmd-lang`, plus the
-statements nu-parser's `parse_builtin_commands` hands to a parser of their
-own. Here `parse_expressions::parse_builtin_commands` dispatches them too.
-The ones that are ordinary commands in nu (`if`, `match`, `while`, `loop`,
-`try`, `return`, `break`, `continue`) are in `parse_control_flow.rs`, a file
-nu-parser does not have. `parse_keywords::KeywordCall` and
-`keyword_boundary` give the statements nu's handling of flags and `--help`.
+Commands whose `command_type` is `Keyword` in `nu-cmd-lang`, plus the statements nu-parser's
+`parse_builtin_commands` hands to a parser of their own. `parse_expressions::parse_builtin_commands`
+dispatches them here too. The ones that are ordinary commands in nu (`if`, `match`, `while`, `loop`,
+`try`, `return`, `break`, `continue`) are in `parse_control_flow.rs`, a file nu-parser doesn't have.
+`parse_keywords::KeywordCall` and `keyword_boundary` give the statements nu's handling of flags and
+`--help`.
 
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
@@ -125,12 +119,11 @@ nu-parser does not have. `parse_keywords::KeywordCall` and
 
 ## TokenContents
 
-nu's lexer token kinds and the [`TokenContents`](crate::winnow::syntax::lex::TokenContents)
-variants they map to. The enum and its plain variants have nu's names; nu's
-eight redirection kinds are one `Redirection` variant here, carrying a
-`RedirectionOperator`, the assignment operator carries its
-`AssignmentOperator`, and the lexer ends every token list with an `Eof`
-token, which nu does not have.
+nu's lexer token kinds and the [`TokenContents`](crate::winnow::syntax::lex::TokenContents) variants
+they map to. The enum and its plain variants have nu's names. nu's eight redirection kinds are one
+`Redirection` variant here carrying a `RedirectionOperator`, the assignment operator carries its
+`AssignmentOperator`, and the lexer ends every token list with an `Eof` token, which nu doesn't
+have.
 
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
@@ -152,12 +145,8 @@ token, which nu does not have.
 
 ## Lexer rules
 
-The special characters nu's `lex.rs` reacts to, and where the same rule
-lives in `src/winnow/syntax/lex.rs` (every name in this table is in that file). The lexer
-reads the source as a character stream: `next_token` skips whitespace and
-`lex_token` dispatches on the next character; `lex_item` measures an item
-with `item_length`, a byte loop like the one in nu's `lex_item`, and
-`item_contents` classifies it.
+The special characters nu's `lex.rs` reacts to, and where the same rule lives in
+`src/winnow/syntax/lex.rs`. Every name in this table is in that file.
 
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
@@ -179,8 +168,8 @@ with `item_length`, a byte loop like the one in nu's `lex_item`, and
 ## FlatShape
 
 nu's syntax-highlighting shapes and the [`FlatShape`](crate::winnow::syntax::flatten::FlatShape)
-`flatten()` produces for the same text. `winnow/tools/scripts/flatcmp.nu` compares
-the two over real files.
+`flatten()` produces for the same text. `winnow/tools/scripts/flatcmp.nu` compares the two over real
+files.
 
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
@@ -220,17 +209,16 @@ the two over real files.
 | `Variable` | `FlatShape::Variable` | `accept/variables/simple.nu` | `shapes_cover_source_in_order_without_overlap` |
 | `VarDecl` | `FlatShape::VarDecl` | `accept/bindings/let-dollar-name.nu` | `shapes_cover_source_in_order_without_overlap` |
 
-Shapes this parser has that nu does not: `Attribute`, `CellPath`,
-`Comment`, `Definition`, `Ignored`, `Type`; `flatcmp.nu` maps them onto
-nu's classes. Every other shape keeps nu's name, including `ExternalArg`
-and `Redirection` (the AST nodes they mark are `ExternalArgument` and
-`PipelineRedirection`).
+Shapes this parser has that nu doesn't are `Attribute`, `CellPath`, `Comment`, `Definition`,
+`Ignored` and `Type`, which `flatcmp.nu` maps onto nu's classes. Every other shape keeps nu's name,
+including `ExternalArg` and `Redirection`, though the AST nodes they mark are `ExternalArgument` and
+`PipelineRedirection`.
 
 ## ParseError
 
-Every variant of `nu_protocol::ParseError`. A *syntax* error must be
-reproduced (with a `reject` fixture); a *semantic* one needs declarations,
-signatures, types or files and is left to the consumer.
+Every variant of `nu_protocol::ParseError`. A *syntax* error must be reproduced, with a `reject`
+fixture. A *semantic* one needs declarations, signatures, types or files and is left to the
+consumer.
 
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |
@@ -336,23 +324,13 @@ signatures, types or files and is left to the consumer.
 | `PluginNotFound` | n/a (semantic: plugin registry) | `accept/modules/plugin.nu` | `use_forms` |
 | `LabeledErrorWithHelp` | `ErrorKind::Message` with help (`%` sigil, attributes) | `reject/calls/percent-sigil-*.nu` | `percent_sigil_requires_a_builtin` |
 
-The `%` sigil's "percent sigil requires a built-in command" is a
-`LabeledErrorWithHelp` in nu; here it is `ErrorKind::Message` with the same
-text (`reject/calls/percent-sigil-*.nu`, `percent_sigil_requires_a_builtin`).
-
 ## Parser entry points
 
-Every `pub fn parse_*` in `nu-parser`, and the function that plays its role
-here. Rows marked n/a are stages this parser does not have (declaration
-resolution, module files, type checking). Where the *here* cell starts with
-the row's own name, the function has nu's name and sits in the file of the
-same name as nu-parser's, except `parse_brace_expr` and
-`parse_row_condition`: both are in `parse_expressions.rs` here, while nu
-keeps them in `parse_literals.rs` and `parse_signatures.rs`. A function
-that reads one item takes the item's span, like nu's
-`parse_value(working_set, span, shape)`; one that reads a sequence of items
-takes a `Tokens` stream (`src/winnow/syntax/parser/tokens.rs`) that winnow's combinators
-drive.
+Every `pub fn parse_*` in nu-parser, and the function that plays its role here. Rows marked n/a are
+stages this parser doesn't have: declaration resolution, module files, type checking. Where the
+*here* cell starts with the row's own name, the function has nu's name and sits in the file of the
+same name as nu-parser's. `parse_brace_expr` and `parse_row_condition` are the exceptions, in
+`parse_expressions.rs` here and in `parse_literals.rs` and `parse_signatures.rs` in nu.
 
 | nu-parser | here | fixtures | tests |
 | --- | --- | --- | --- |

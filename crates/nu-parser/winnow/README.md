@@ -265,7 +265,7 @@ library, the default config files, Nushell's tests and `nu_scripts`. With this
 front end the shell parses 1.09× to 1.24× as fast as with `nu-parser` in wall
 time, because a long block's statements are parsed on a second thread while
 they are lowered, and uses 12 to 16% more CPU time: see
-[`src/winnow/docs/nushell-integration-plan.md`](../src/winnow/docs/nushell-integration-plan.md).
+[`src/winnow/docs/nushell-integration.md`](../src/winnow/docs/nushell-integration.md).
 
 `winnow/tools/nushell-harness/src/bin/bridge.rs` is the earlier prototype of that
 lowering, kept for its `--demo` comparison.

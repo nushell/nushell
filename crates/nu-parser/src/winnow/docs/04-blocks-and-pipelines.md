@@ -1,91 +1,66 @@
-# 04 Blocks and pipelines (`src/winnow/syntax/parser/lite_parser.rs`, `src/winnow/syntax/parser/parse_pipelines.rs`)
+# 04 Blocks and pipelines
 
-This layer corresponds to nu-parser's `lite_parser.rs` and
-`parse_pipelines.rs`, plus the top of its `parse_block`. It receives a
-`Tokens` stream over lexed tokens (chapter 03) and produces
-`Block { pipelines }`, deciding where statements start and end and which
-tokens belong to which command. It never looks inside an item.
+Files: `src/winnow/syntax/parser/lite_parser.rs`, `src/winnow/syntax/parser/parse_pipelines.rs`.
 
-The work is split the way nu-parser splits it. `lite_parser.rs` groups
-tokens into commands (`LiteCommand`, `parse_lite_command`) and holds the
-newline rules around `|` (`after_pipe_lines`, `after_pipe`,
-`take_pipe_on_later_line`).
-`parse_pipelines.rs` drives it: `parse_block` walks the statements,
-`parse_pipeline` collects and parses the commands of one pipeline, and
-`parse_pipeline_element` turns one command into an expression and its
-redirection.
+This layer corresponds to nu-parser's `lite_parser.rs`, `parse_pipelines.rs` and the top of its
+`parse_block`. It takes a `Tokens` stream and produces `Block { pipelines }`, deciding where
+statements start and end and which tokens belong to which command. It never looks inside an item,
+and it knows nothing about keywords, values or operators. Grouping rules here are the ones nu-parser
+applies before any signature is known.
 
-## Entry point
+The work splits as in nu-parser. `lite_parser.rs` groups tokens into commands and holds the newline
+rules around `|`. `parse_pipelines.rs` drives it: `parse_block` walks the statements,
+`parse_pipeline` collects and parses the commands of one pipeline, and `parse_pipeline_element`
+turns one command into an expression and its redirection.
+
+## `parse_block`
 
 ```rust,ignore
-pub fn parse_block<'a>(mut tokens: Tokens<'_, 'a>, span: Span) -> Block<'a>
+pub fn parse_block<'a>(tokens: Tokens<'_, 'a>, span: Span) -> Block<'a>
 ```
 
-Every block in the language goes through this function: the file, closure and
-block bodies, subexpressions, `let`/assignment values, `match` bodies written
-as blocks. It:
+Every block goes through this function: the file, closure and block bodies, subexpressions, `let`
+and assignment values, `match` bodies written as blocks. The block's `span` covers its contents, so
+for a `{ ... }` body it is the text between the braces, which a formatter needs to re-indent. In
+order, it:
 
-1. takes the block's lexer error (`Block::lex_error`, carried by the block's
-   first pipeline so that a block stays small): the first error nu's lexer goes
-   on past in a token within the block's text
-   (`WorkingSet::first_lex_error_in`), recorded as recovered. nu lexes a
-   `let`'s value again from its start, so a value block taken from the
-   statement's tokens finds the error too; a closure's body takes the first in
-   the whole interior, its parameters included (`parse_block_lexed_from`). The
-   consumer reports it before the block's lite-parse error and its statements'
-   errors, with nu's help naming the construct before the opener in that text,
-2. runs `parse_def_predecl` over all the tokens (below); a definition declared
-   twice nu reports and goes on past, so the diagnostic is recovered and the
-   consumer reports nu's error as it declares the definitions,
-3. runs nu's `last_non_comment_token` check once over the whole block
-   (`missing_end`): if the last token that is not part of a trailing run of
-   comment lines is a `|`, the block has a pipeline with no end. This is what
-   makes `ls |`, `ls | # c` and `ls |\n# c` (no final newline) errors while
-   `ls |\n` and `ls |\n# c\n` are not, and it fires whichever command
-   absorbed the pipe (`alias x = ls |` too). nu goes on past it, so the block's
-   last pipeline carries it as its `LiteError::PipelineMissingEnd`, at the
-   block's last token, and the diagnostic is recorded as recovered
-   (`BlockStatements::missing_end` for a streamed block),
-4. loops over tokens (`parse_statements`, the loop `BlockStatements::parse`
-   runs too), handling `Eol`, `;` and comments itself and calling
-   `parse_pipeline` for anything else,
-5. recovers from errors per pipeline (chapter 03): the error goes to
-   `working_set.error`, the stream is moved to where the lite parse ended the
-   statement (or back to its start, to skip to the next `Eol` or `;` with
-   `skip_to_statement_end`), and a `garbage_pipeline` stands in for the
-   statement.
+1. **Takes the block's lexer error.** `WorkingSet::first_lex_error_in` finds the first error nu's
+   lexer went past within the block's text, recorded as recovered and carried by the first pipeline
+   as `Block::lex_error`. A closure takes the first in its whole inside, parameters included
+   (`parse_block_lexed_from`).
+2. **Predeclares definitions** with `parse_def_predecl` (below).
+3. **Checks for a missing end**, once over the whole block (`missing_end`, nu's
+   `last_non_comment_token`). If the last token outside a trailing run of comment lines is a `|`,
+   the pipeline has no end. So `ls |`, `ls | # c` and `ls |\n# c` without a final newline are
+   errors, while `ls |\n` and `ls |\n# c\n` are not. It fires whichever command absorbed the pipe.
+   The block's last pipeline carries it as `LiteError::PipelineMissingEnd`, recovered.
+4. **Loops over statements** in `parse_statements`, handling `Eol`, `;` and comments itself and
+   calling `parse_pipeline` for anything else.
+5. **Recovers per statement** (chapter 03).
 
-The statement loop is a plain `while let` over `peek_token`, not a
-combinator: each token's meaning depends on the one before it (a blank line
-drops pending comments), and the loop says that more directly than a chain of
-parsers would. A `;` after a `|` with only newlines and comments between is
-refused earlier, by the lexer (nu's `is_complete`, chapter 02), so
-`ls |\n\n; x` never reaches it.
+The statement loop is a plain `while let` over `peek_token`, because each token's meaning depends on
+the one before it: a blank line drops pending comments. `BlockStatements::parse` runs the same loop
+a few statements at a time for the front end.
 
-The block's `span` is the span of its *contents*: for a `{ ... }` body that is
-the text between the braces, which is what a formatter needs to re-indent.
+With a lookup that answers `defers_command_changing_blocks`, a nested block holding a statement that
+changes which commands exist is left empty, for the lowering to parse again statement by statement.
 
 ## Comments
 
-Comments are attached while grouping, following nu-parser's rules:
+Comments attach while grouping:
 
 * A comment on its own line is a **leading comment** of the next pipeline
-  (`Pipeline::leading_comments`), unless a blank line separates them, in
-  which case it is dropped from the attachment (it stays in `Ast::comments`).
-  A blank line right above a line-leading `|` does not count: nu's lexer turns
-  the end of line before that `|` into it (`# doc\n\n| def f [] {}`).
-  For a `def`, leading comments are its documentation.
-* A comment after the last token of a line is a **trailing comment** of that
-  pipeline (`Pipeline::trailing_comments`), as are comments between the
-  elements of a multi-line pipeline.
-* A comment after a `;`, or after a `|` that ends its pipeline, on that line,
-  is carried to the next statement: nu's lite parser puts it in the command it
-  starts there. It is that statement's leading comment, past blank lines too,
-  unless comment lines come right before the statement, which nu puts in its
-  place (`def foo [] {}; # doc\ndef bar [] {}` documents `bar`).
-* Every comment, attached or not, is recorded in `Ast::comments` (sorted, in
-  source order). Nested constructs record theirs through
-  `working_set.add_comment`.
+  (`Pipeline::leading_comments`), unless a blank line separates them. A blank line right above a
+  line-leading `|` doesn't count (`# doc\n\n| def f [] {}`), because nu's lexer turns the end of
+  line before that `|` into it. For a `def`, leading comments are its documentation.
+* A comment after the last token of a line is a **trailing comment** of that pipeline, as are
+  comments between the elements of a multi-line pipeline.
+* A comment after a `;`, or after a `|` that ends its pipeline, on that line, goes to the next
+  statement. It is that statement's leading comment, past blank lines too, unless comment lines come
+  right before the statement, which nu puts in its place (`def foo [] {}; # doc\ndef bar [] {}`
+  documents `bar`).
+* Every comment, attached or not, is in `Ast::comments`, in source order. Nested constructs record
+  theirs through `working_set.add_comment`.
 
 ```rust
 use nu_parser::winnow::syntax::parse;
@@ -103,135 +78,58 @@ assert_eq!(ast.comments.len(), 4);
 
 ## Pipelines
 
-`parse_pipeline` parses `command (| command)*` in two passes, because a
-command is parsed differently when it is one element of a longer pipeline
-(chapter 05, `Position`): first the lite pass collects every command's
-tokens, then each one is parsed.
+`parse_pipeline` parses `command (| command)*` in two passes, because a command parses differently
+when it is one element of a longer pipeline (`Position`, chapter 05). The lite pass collects every
+command's tokens, and then each one is parsed:
 
-```rust,ignore
-fn parse_pipeline<'a>(tokens: &mut Tokens<'_, 'a>, leading_comments: Vec<Comment>)
-    -> ParseResult<Option<Pipeline<'a>>>
-{
-    let mut lite_commands: Vec<(Option<Span>, LiteCommand)> = Vec::new();   // (the `|` before it, the command)
-    let mut trailing_comments = Vec::new();
-    let mut pipe: Option<Span> = None;
-    'commands: loop {
-        // A pipeline may start with `|` (`( | str join)`) and `a | | b` is `a | b`.
-        while let Some(token) = tokens.peek_token().filter(|token| token.contents == TokenContents::Pipe) {
-            pipe = Some(token.span);
-            tokens.next_token();
-            if let AfterPipe::Dangling = after_pipe(tokens, true, &mut trailing_comments)? {   // after a `|`
-                // the first `|` of the run is `dangling_pipe`; with more, the last goes on to the
-                // next statement (`carried_pipe`), and so do the comments beside them
-                break 'commands;
-            }
-        }
-        if pipe.is_none() && !lite_commands.is_empty() {
-            // After a command the pipeline goes on only through a `|` on a later line.
-            if !take_pipe_on_later_line(tokens, &mut trailing_comments)? { break; }
-            continue;
-        }
-        let starts_line = /* the token before the command is an `Eol` */;
-        let lite_command = parse_lite_command(tokens, pipe.is_none() || starts_line)?;   // where attribute lines may come
-        trailing_comments.extend(lite_command.comments.iter().copied());  // comments between its tokens
-        let pipe_after = lite_command.pipe_after;                          // an `e>|` ended the command
-        lite_commands.push((pipe.take(), lite_command));
-        if pipe_after.is_some() {
-            pipe = pipe_after;
-            if let AfterPipe::Dangling = after_pipe(tokens, false, &mut trailing_comments)? {   // after an `e>|`
-                break;
-            }
-        }
-    }
-    if lite_commands.is_empty() { return Ok(None); }                     // only pipes: nu drops the empty command
-    let single = lite_commands.len() == 1;
-    for (pipe, lite_command) in &lite_commands {
-        let (expr, redirection) = parse_pipeline_element(working_set, lite_command, !single)?;
-        elements.push(PipelineElement { span, pipe: *pipe, lite_pipe, expr, redirection });
-    }
-    let terminator = /* a following `;` */;
-    Ok(Some(Pipeline { span, elements, leading_comments, trailing_comments, terminator, dangling_pipe }))
-}
+```text
+loop:
+  take any `|`s (a pipeline may start with one; `a | | b` is `a | b`)
+    after each, after_pipe decides whether a command follows
+  no `|` and a command already collected?
+    the pipeline goes on only through take_pipe_on_later_line
+  parse_lite_command; if an `e>|` ended it, after_pipe decides again
+parse_pipeline_element for each command, with in_pipeline = more than one command
 ```
 
-An element keeps two pipes. `pipe` is the last `|` before it, which the
-formatter and the element's span use. `lite_pipe` is the pipe nu's lite parser
-keeps with the command (`LiteCommand::pipe`), which the lowering hands on: nu
-sets `command.pipe` on the command it is reading and pushes the command only
-if it has parts, so a command keeps the pipe that ended it, or else the last
-pipe read while no command was open, even one from the statement before
-(`ls | |`, a blank line, `lines`). The loop above follows that as it goes:
-`lite_pipe` holds a pipe no command took, and `CarriedPipes` hands both on to
-the next statement.
+It returns `None` when there was no command at all, such as a lone `|` before a blank line.
 
-The rules for newlines around a `|` are nu's exactly, and they are
-asymmetric. Both are written as winnow combinators over the token parsers
-`eol`, `comment` and `pipe` from `tokens.rs`, each of which matches one token
-of its kind or backtracks:
+An element keeps two pipes. `pipe` is the last `|` before it, which the formatter and the element's
+span use. `lite_pipe` is the pipe nu's lite parser keeps with the command, which the lowering hands
+on. nu sets `command.pipe` on the command it is reading and pushes the command only if it has parts,
+so a command keeps the pipe that ended it, or else the last pipe read while no command was open,
+even one from the statement before. `CarriedPipes` hands those on to the next statement.
 
-* `after_pipe_lines` runs after a pipe has been consumed: a `|` (`plain`),
-  or an `e>|` or `o+e>|`. It takes the comments on the pipe's line and,
-  after a `|` only, *one* end of line and any number of comment lines
-  (`Comment* [Eol (Comment Eol)*]`, nu's `last_non_comment_token` rule):
+### Newlines around a `|`
 
-  ```rust,ignore
-  let mut comments: Vec<Token> = repeat(0.., comment).parse_next(tokens)?;
-  if plain {
-      let later_lines: Option<Vec<Token>> =
-          opt(preceded(eol, repeat(0.., terminated(comment, eol)))).parse_next(tokens)?;
-      comments.extend(later_lines.into_iter().flatten());
-  }
-  ```
+The rules are nu's and they are asymmetric. Both are combinators over `eol`, `comment` and `pipe`.
 
-  At an end of line it then tries `pipe_on_later_line` (below). nu's lexer
-  turns the end of line before a `|` that starts a later line into that
-  `|`, so such a `|` continues the pipeline across comment lines, and after
-  a `|` across one blank line too. `a |\n\n| b` is one pipeline,
-  `a |\n\n\n| b` is two, and `a e>|\n# c\n| b` is one. It reports what
-  comes next: `AfterPipe::Command` when a command follows,
-  `AfterPipe::Dangling` when a blank line (after an `e>|`, any end of line),
-  a `;` or the end of the block does. A dangling pipe closes the pipeline and
-  is dropped silently, as nu drops it: `a |\n\n b` and `a e>|\nb` are two
-  pipelines each. The `;` case is reached only after a redirection pipe
-  (`ls e>|; ls` is two pipelines, as in nu): after a plain `|` the lexer has
-  already refused the `;`.
+**After a pipe**, `after_pipe_lines` runs. It takes the comments on the pipe's line and, after a
+plain `|` only, one end of line and any number of comment lines (`Comment* [Eol (Comment Eol)*]`).
+It then reports what comes next: `AfterPipe::Command` when a command follows, and
+`AfterPipe::Dangling` when a blank line, a `;` or the end of the block does. After an `e>|`, any end
+of line makes it dangling. A dangling pipe closes the pipeline and is dropped. `after_pipe` records
+the comments for `parse_pipeline`. The predeclaration scan calls `after_pipe_lines` itself, so both
+decide by the same rule whether a pipe joins a command to its pipeline.
 
-  `after_pipe_lines` records nothing; it returns the comment tokens it took.
-  `after_pipe` records them for `parse_pipeline`, and the predeclaration
-  scan (below) calls `after_pipe_lines` itself, so the two decide by the
-  same rule whether a pipe joins a command to its pipeline.
-* `take_pipe_on_later_line` looks *forward* from the end of a command: the
-  pipeline continues only through exactly `Eol (Comment Eol)* Pipe`, that is
-  one end of line, comment lines each on their own line, and the pipe, which
-  is left for `parse_pipeline` to consume. The sequence is
-  `pipe_on_later_line`:
+**After a command**, `take_pipe_on_later_line` looks forward. The pipeline continues only through
+exactly `Eol (Comment Eol)* Pipe`, which is `pipe_on_later_line` under `opt`. When no `|` follows,
+`opt` resets the stream, so the end of line and comment lines stay for `parse_block`. The comments
+taken this way become trailing comments.
 
-  ```rust,ignore
-  fn pipe_on_later_line(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Token>> {
-      preceded(eol, terminated(repeat(0.., terminated(comment, eol)), peek(pipe))).parse_next(tokens)
-  }
-  ```
+A backtrack is only a position, so trying this after every command costs a few token comparisons and
+no allocation.
 
-  `take_pipe_on_later_line` runs it under `opt`. When no `|` follows, `opt`
-  resets the stream to where it started, so the end of line and the comment
-  lines are left for `parse_block`. A blank line in between closes the
-  pipeline instead (`a\n\n| b` is two pipelines, the second starting with a
-  dangling pipe that yields nothing). The comments taken this way become
-  trailing comments. This is the leading-pipe style:
-
-  ```text
-  ls
-  # a comment
-  | length
-  ```
-
-A backtrack is only a position (`ParseFailure::NoMatch`, chapter 03), so
-trying `pipe_on_later_line` after every command costs a few token
-comparisons and no allocation.
-
-`parse_pipeline` returns `None` for the pipeline when there was no command at
-all (a lone `|` before a blank line). A `|` that only comments follow at the very end of a block is reported
-once, by `parse_block` (above), not by `after_pipe_lines`.
+| Text | Pipelines | Why |
+| --- | --- | --- |
+| `a\n# c\n\| b` | one | a comment line doesn't close the pipeline |
+| `a\n\n\| b` | two | a blank line does; the second starts with a dangling pipe that yields nothing |
+| `a \|\n\n\| b` | one | nu's lexer folds the end of line before a line-leading `\|` into it, so after a `\|` one blank line is allowed |
+| `a \|\n\n\n\| b` | two | two blank lines are not |
+| `a \|\n\n b` | two | the pipe dangles |
+| `a e>\|\n# c\n\| b` | one | a line-leading `\|` still continues |
+| `a e>\|\nb` | two | after a redirection pipe, any end of line dangles |
+| `ls e>\|; ls` | two | reached only after a redirection pipe: after a plain `\|` the lexer already refused the `;` |
 
 ```rust
 use nu_parser::winnow::syntax::parse;
@@ -248,126 +146,98 @@ assert!(parse("ls |\n# c\n").is_ok());                    // the final newline m
 
 ## Commands: `LiteCommand`
 
-`parse_lite_command(tokens, at_line_start)` collects one command's tokens
-without interpreting them; `at_line_start` is set where attribute lines may
-precede the command. nu's lite parser takes an `@` item for an attribute
-line right after an end of line or a `;`, so that is the first command of a
-pipeline and any command that starts a line, inside a pipeline too:
+`parse_lite_command(tokens, at_line_start)` collects one command's tokens without interpreting them:
 
 ```rust,ignore
 pub struct LiteCommand {
-    pub parts: Vec<Token>,                                                 // the items (after `=`, the rest of the line)
-    pub end: usize,                                                        // byte offset just past the last part
-    pub attributes: Vec<Vec<Token>>,                                       // preceding @attribute lines
+    pub parts: Vec<Token>,              // the items (after `=`, the rest of the line)
+    pub end: usize,                     // byte offset just past the last part
+    pub attributes: Vec<Vec<Token>>,    // preceding @attribute lines
     pub redirections: Vec<(Spanned<RedirectionOperator>, Option<Token>)>,  // `o> file`, `e>|`
-    pub pipe_after: Option<Span>,                                          // the `e>|` that ended the command
+    pub pipe_after: Option<Span>,       // the `e>|` that ended the command
     pub comments: Vec<Comment>,
-    pub lite_error: Option<LiteError>,                                     // the first error nu goes on past
-    pub joins_next_line: bool,                                             // `^ls o>`: the next line's command joins
+    pub lite_error: Option<Box<LiteError>>,   // the first error nu goes on past
+    pub joins_next_line: bool,          // `^ls o>`: the next line's command joins
+    pub lite_pipe: Option<Span>,
 }
 ```
 
-`lite_command.tokens(working_set)` gives the statement parsers a `Tokens`
-stream over `parts` that ends at `end`, so "expected block" after `if $x` has
-a position.
+`lite_command.tokens(working_set)` gives the statement parsers a `Tokens` stream over `parts` that
+ends at `end`.
 
-`parse_lite_command` is a loop over `peek_token`, as nu's lite parser is a
-state machine: once an assignment operator has been seen, the same tokens
-mean something else. The rules encoded in its loop:
+The function is a loop over `peek_token`, like nu's lite parser, because once an assignment operator
+has been seen the same tokens mean something else:
 
-* **Items** are pushed to `parts`.
-* **`AssignmentOperator` token** (`=`, `+=`, ...): switch to *absorbing*
-  mode. Everything up to the end of the line, including pipes, redirections
-  and comments, is pushed into `parts`. This is why `let x = ls | length` and
-  `$x = ls | length` are single commands whose right-hand side is a whole
-  pipeline. A `|` at the end of the line, or a `|` at the start of the next
-  line after any comment lines (`take_pipe_on_later_line` again), continues
-  absorption.
-* **`Redirection` token** (`lite_redirection`): a file redirection takes the
-  next item as its target; a pipe redirection (`e>|`, `o+e>|`) ends the
-  command and acts as the pipe to the next element.
-* **`Pipe`** ends the command and is left for `parse_pipeline` to consume.
-* **Lite-parse errors.** nu's lite parser reports these and goes on, building
-  the command the way the error leaves it, and so does this one: the error is
-  the command's `lite_error` (the pipeline's first becomes
-  `Pipeline::lite_error`), its diagnostic recorded as recovered. A `||` is
-  `ShellOrOr` and an item (`ls || pwd` passes it to `ls`). A redirection with
-  nothing before it is `NothingToRedirect`, and it and its target are items
-  (`o> f` is the external `o>`); after attribute lines it has a command, as
-  nu's command holds the attributes' items; an `e>|` with nothing before it ends a
-  command nu drops. A second redirection of a stream is
-  `MultipleRedirections`, and it and its target are items; nu took the
-  command's redirection out before refusing it, so the command has none. A
-  file redirection without a target is `MissingRedirectionTarget`, at the
-  token after the operator (the operator at the end of the block or before a
-  comment), and the operator is an item; an `=`, another redirection or a `||`
-  after it is an item too, and an end of line after it ends the command but
-  not the pipeline: a command on the next line joins it with no `|`
-  (`joins_next_line`). The consumer reports each block's first lite-parse
-  error before any of its statements' errors, as nu lite-parses a whole block
-  first (`lower::BlockErrors`).
-* **`Eol`**, **`;`**, **`Eof`** end the command (they are not consumed here).
-* **Attribute lines** (`lite_attribute_lines`, when `at_line_start` is
-  set): while the next item starts with `@`, every token up to the end of
-  the line or a `;` becomes an item word of one attribute, pipes and
-  redirections included (`@search-terms a | b` hands `|` and `b` to the
-  attribute, as nu does; an `@foo` after a `|` on the same line is an
-  ordinary command head). A `|` that starts the next line continues the
-  attribute line, because nu's lexer turns the end of line before it into
-  that `|`: `@search-terms a\n| b` gives the attribute `a`, `|` and `b`. The
-  next attribute or the definition must start on the very next line; a blank
-  or comment-only line in between ends the command there with no definition,
-  an error, as in nu (a trailing comment on the attribute line is fine; a
-  comment line goes to the next statement, as nu's lite parser gives it to the
-  command after it). The one exception is a `|` line after one
-  blank line and any comment lines: the lexer's end of line before the `|` is
-  then past the blank line, so the attribute line ends at its own end of line
-  and the `|` continues the pipeline the attribute lines start, with no command
-  of their own (`take_pipe_on_later_line` after the line; `@a x`, a blank line,
-  `| y` pipes the external `@a x` into `y`, chapter 05), and so is a `|` line
-  right after an attribute line that a `;` ends (`@a x;`, `| y`).
+* **Items** go to `parts`.
+* **An assignment operator** (`=`, `+=`, ...) switches to absorbing. Everything to the end of the
+  line goes into `parts`, including pipes, redirections and comments, which is why `let x = ls |
+  length` is a single command. A `|` at the end of the line, or at the start of the next line after
+  any comment lines, continues absorption.
+* **A redirection** (`lite_redirection`): a file redirection takes the next item as its target. A
+  pipe redirection ends the command and acts as the pipe to the next element.
+* **`Pipe`** ends the command, left for `parse_pipeline`.
+* **`Eol`, `;`, `Eof`** end the command, not consumed.
 
-The same file holds `lite_parse_parts`, nu's lite parse of the tokens inside
-`[...]`. The list and table-row parsers run it over a bracket interior as nu
-does: the items of every `|`-separated group become list items, and a
-redirection and its target are dropped (chapter 06). What it refuses is the
-list's own error, which nu's list parser goes on past: the list is a garbage
-leaf (chapter 06).
+### Lite-parse errors
+
+nu's lite parser reports these and goes on, building the command the way the error leaves it, so
+each is recovered: the command's `lite_error`, and the pipeline's first becomes
+`Pipeline::lite_error`. The lowering reports a block's first before any of its statements' errors,
+because nu lite-parses a whole block first (`lower::BlockErrors`).
+
+| `LiteError` | Input | The command becomes |
+| --- | --- | --- |
+| `ShellOrOr` | `ls \|\| pwd` | `\|\|` is an item, passed to `ls` |
+| `NothingToRedirect` | `o> f` | it and its target are items, so this is the external `o>`. After attribute lines it has a command. An `e>\|` with nothing before it ends a command nu drops |
+| `MultipleRedirections` | a second redirection of a stream | it and its target are items, and the command has no redirection, because nu took the command's out before refusing |
+| `MissingRedirectionTarget` | `^ls o>` | the operator is an item. An `=`, another redirection or a `\|\|` after it is an item too. An end of line ends the command but not the pipeline, so a command on the next line joins with no `\|` (`joins_next_line`) |
+| `PipelineMissingEnd` | `ls \|` at the end of a block | see `parse_block` above |
+
+### Attribute lines
+
+`lite_attribute_lines` runs when `at_line_start` is set: the first command of a pipeline, and any
+command that starts a line, even inside a pipeline. While the next item starts with `@`, every token
+up to the end of the line or a `;` becomes an item word of one attribute, pipes and redirections
+included. So `@search-terms a | b` hands `|` and `b` to the attribute. An `@foo` after a `|` on the
+same line is an ordinary command head.
+
+A `|` starting the next line continues the attribute line, because nu's lexer turns the end of line
+before it into that `|`: `@search-terms a\n| b` gives the attribute `a`, `|` and `b`.
+
+The next attribute or the definition must start on the very next line. A blank or comment-only line
+in between ends the command with no definition, an error. A trailing comment on the attribute line
+is fine, and a comment line goes to the statement after it. The exceptions are a `|` line after one
+blank line and any comment lines, and a `|` line right after an attribute line that a `;` ends: the
+attribute line ends at its own end of line and the `|` continues the pipeline the attribute lines
+start, with no command of their own (`@a x`, a blank line, `| y` pipes the external `@a x` into
+`y`).
+
+`lite_parse_parts` is nu's lite parse of the tokens inside `[...]`, which chapter 06 describes.
 
 ## Elements: `parse_pipeline_element`
 
-`parse_pipeline_element(working_set, lite_command, in_pipeline)` turns one
-`LiteCommand` into the element's expression and redirection:
+`parse_pipeline_element(working_set, lite_command, in_pipeline)` turns one `LiteCommand` into the
+element's expression and redirection:
 
-* The command's items go to `parse_expression` (chapter 05) with
-  `Position::Element` when `in_pipeline` is set and `Position::Statement`
-  when the command is the whole pipeline.
-* Attribute lines are parsed with `parse_attribute` (chapter 05), and the
-  command after them must be a `def` or `extern` (plain or exported), parsed
-  with `parse_builtin_commands`; the result is an `Expr::AttributeBlock`.
-  In an element of a longer pipeline they are not attributes. Like nu, the
-  parser reads such an element from all its items, the attribute lines'
-  first, so its head is the first attribute word
-  (`ls |\n@search-terms foo\ndef bar [] {}` has a second element headed by
-  `@search-terms`).
-* `parse_redirection` builds the `PipelineRedirection` from
-  `lite_command.redirections`: one stream (`Single`), or stdout and stderr
-  separately (`Separate`); a second redirection of the same stream is an
-  error. The target of a file redirection is parsed with `parse_value`.
-* `rejects_redirection` (nu's `redirecting_builtin_error`) refuses a
-  redirection on the statements listed in chapter 05, in a pipeline of one
-  command. A redirection on
-  `export-env` is dropped and recorded in `Ast::ignored`.
+* The items go to `parse_expression` with `Position::Element` when `in_pipeline` is set, else
+  `Position::Statement`.
+* Attribute lines go to `parse_attribute`, and the command after them must be a `def` or `extern`,
+  plain or exported, read with `parse_builtin_commands`, giving an `Expr::AttributeBlock`. In an
+  element of a longer pipeline they aren't attributes: the parser reads such an element from all its
+  items, the attribute lines' first, so its head is the first attribute word (`ls |\n@search-terms
+  foo\ndef bar [] {}` has a second element headed by `@search-terms`).
+* `parse_redirection` builds the `PipelineRedirection`: one stream (`Single`), or stdout and stderr
+  separately (`Separate`). The target of a file redirection goes through `parse_value`.
+* `rejects_redirection` refuses a redirection on the statements listed in chapter 05, in a pipeline
+  of one command. `drops_redirection` covers the ones nu ignores, recorded in `Ast::ignored`.
 
 ## Predeclaration
 
-Nushell resolves command names by longest match against known declarations,
-including commands defined *later* in the same block. `parse_def_predecl`
-(in `parse_def.rs`, as in nu-parser) scans the tokens for `def`,
-`export def`, `extern` and `export extern` at line starts and, when the name
-item reads as a string and a signature item (`[` or `(`) follows it,
-registers the name in the current scope with `working_set.add_predecl`
-before any statement is parsed:
+Nushell resolves command names by longest match against known declarations, including commands
+defined later in the same block. `parse_def_predecl`, in `parse_def.rs`, scans the tokens for `def`,
+`export def`, `extern` and `export extern` at line starts and, when the name item reads as a string
+and a signature item follows it, registers the name in the current scope with
+`working_set.add_predecl` before any statement is parsed:
 
 ```rust
 use nu_parser::winnow::syntax::{parse, ast::Expr};
@@ -383,39 +253,22 @@ match &ast.block.pipelines[0].elements[0].expr.expr {
 }
 ```
 
-`parse_definition_name` unquotes the name as nu's `parse_string` does:
-`def "'x'" [] {}` declares `'x'`, and `def "a"b [] {}` declares nothing.
-As in nu, only a pipeline of one command
-counts: a `def` that a `|` joins to another command (on its line, on a later
-line, or after a `|` that ends the line before) is not predeclared, and
-neither is one after an attribute line inside a pipeline
-(`ls |\n@search-terms foo\ndef bar [] {}`), while a `|` ending an attribute
-line carries the attribute on to the `def` below, which still is.
-`after_pipe_lines`, the statement parser's rule, decides whether a pipe
-joins the next command. So a `def` with a dangling pipe (`def f [] {} |`
-before a blank line or at the end of the block, or an `e>|` at the end of
-its line) is a pipeline of its own and is predeclared.
+The rules:
 
-`parse_def_predecl` also carries nu's duplicate check: the same name
-predeclared twice in one block is "duplicate command definition within a
-block", while the same name in a nested block is fine. An `alias` is never
-predeclared, as in nu: `parse_alias` declares it once its statement is parsed
-(`working_set.add_alias`), so `g 1` before `alias g = echo` calls an unknown,
-external `g`, and `def foo` plus `alias foo` is fine. A call to an alias of an
-external command is an external call (chapter 05).
+* `parse_definition_name` unquotes the name as nu's `parse_string` does: `def "'x'" [] {}` declares
+  `'x'`, and `def "a"b [] {}` declares nothing.
+* Only a pipeline of one command counts. A `def` that a `|` joins to another command isn't
+  predeclared, on its line, on a later line, or after a `|` that ends the line before. Neither is
+  one after an attribute line inside a pipeline. A `|` ending an attribute line carries the
+  attribute on to the `def` below, which still is. `after_pipe_lines` decides, so a `def` with a
+  dangling pipe is a pipeline of its own and is predeclared.
+* The same name predeclared twice in one block is "duplicate command definition within a block",
+  recovered. The same name in a nested block is fine.
+* An `alias` is never predeclared. `parse_alias` declares it once its statement is parsed, so `g 1`
+  before `alias g = echo` calls an unknown, external `g`, and `def foo` plus `alias foo` is fine.
+* The scan also records where each `type` statement is (`TypeAliasPredecl`), so an engine can tell a
+  use above the definition from an unknown type.
 
-Scopes are entered and left with `working_set.enter_scope()` and
-`working_set.exit_scope()` by the constructs that create them: subexpressions,
-block bodies and closures in `src/winnow/syntax/parser/parse_expressions.rs`
-(`parse_subexpression`, `parse_block_body_unchecked`, `parse_closure_parts`).
-A module body is a block body: `parse_module` (`src/winnow/syntax/parser/parse_module.rs`)
-parses it with `parse_block_body_unchecked`.
-
-## What this layer does not do
-
-It does not know keywords, values or operators. All of that starts in
-`parse_expression` (chapter 05), which receives the `Tokens` stream of one
-`LiteCommand` and its `Position`, and returns the element's expression.
-Keep this separation: grouping rules here are the ones nu-parser applies
-before any signature is known, and they must stay independent of what the
-items mean.
+Scopes are entered and left by the constructs that create them: `parse_subexpression`,
+`parse_block_body_unchecked` and `parse_closure_parts`. A module body is a block body, parsed with
+`parse_block_body_unchecked`.

@@ -84,7 +84,7 @@ nu winnow/tools/scripts/verify.nu --save winnow/tools/scripts/verify-history.nuo
 | differential, originals | `cd winnow/tools/nushell-harness; CARGO_TARGET_DIR=../../../../../target cargo run --release --bin differential -- ../../tests/fixtures ../../tests/corpus ../../../nu-std ../../../../tests ~/src/nu_scripts --snippets ../../tests/corpus/snippets/nu-command-examples.json --snippets ../../tests/corpus/snippets/book.json` | 0 `ours_rejects`, 0 `nu_syntax_rejects`, 0 `panics` |
 | differential, mutants | the same with `--mutants 3 --seed 1` | 0 `ours_rejects`, 0 `nu_syntax_rejects`, 0 `panics` (other seeds find rows of the classes in `winnow/grammar/grammar.md` 9.4; see below) |
 | nucheck-compare | `nu winnow/tools/scripts/nucheck-compare.nu ~/src/nu_scripts ../nu-std` | 0 files nu accepts that we reject |
-| flatcmp | `nu -c 'nu winnow/tools/scripts/flatcmp.nu --commands winnow/tools/scripts/std_commands.txt ...(glob ../nu-std/**/*.nu)'` | only the documented differences (`src/winnow/docs/how-to.md`, `flatcmp.nu`) |
+| flatcmp | `nu -c 'nu winnow/tools/scripts/flatcmp.nu --commands winnow/tools/scripts/std_commands.txt ...(glob ../nu-std/**/*.nu)'` | only the documented differences (`src/winnow/docs/09-testing-and-tools.md`, `flatcmp.nu`) |
 | nufmt-fixtures | `nu winnow/tools/scripts/nufmt-fixtures.nu` | 114 of 130 reference fixtures |
 
 The scoreboard's `ok` column is the gate. `--save` appends the table with
@@ -142,7 +142,7 @@ traced to a parser change or to a Nushell change.
 ## Comparing the two front ends inside Nushell
 
 With the `winnow-parser` experimental option, `nu-parser` uses this parser as
-its front end (`src/winnow/docs/nushell-integration-plan.md`). From the workspace
+its front end (`src/winnow/docs/nushell-integration.md`). From the workspace
 root:
 
 ```nushell

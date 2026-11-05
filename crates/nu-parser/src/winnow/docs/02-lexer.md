@@ -1,13 +1,11 @@
 # 02 The lexer (`src/winnow/syntax/lex.rs`)
 
-The lexer turns a piece of text into a flat `Vec<Token>`. It is called many
-times during a parse: once for the whole file, and again for the interior of
-every list, record, block, closure, subexpression, signature, cell path and
-match block, each time with options that suit that construct.
+The lexer turns text into a flat `Vec<Token>`. A parse calls it many times: once for the whole file,
+then again for the inside of every list, record, block, closure, subexpression, signature, cell path
+and match block, each time with options that suit that construct.
 
-The module is [`lex`](crate::winnow::syntax::lex), after nu-parser's `lex.rs`, and it uses
-that file's names: `Token`, `TokenContents`, `lex`, `lex_n_tokens`,
-`lex_item`, `lex_raw_string`, `is_redirection`.
+The module [`lex`](crate::winnow::syntax::lex) uses the names of nu-parser's `lex.rs`: `Token`,
+`TokenContents`, `lex`, `lex_n_tokens`, `lex_item`, `lex_raw_string`, `is_redirection`.
 
 ## Tokens
 
@@ -16,7 +14,7 @@ pub enum TokenContents {
     Item,                                     // a word, literal, [list], {block}, (subexpr), "string", ...
     Comment,                                  // `# ...` to end of line
     Pipe,                                     // `|`
-    PipePipe,                                 // `||` (an error in a pipeline, closure params elsewhere)
+    PipePipe,                                 // `||`: an error in a pipeline, closure params elsewhere
     Semicolon,                                // `;`
     Eol,                                      // `\n`
     AssignmentOperator(AssignmentOperator),   // `=` `+=` `-=` `*=` `/=` `++=` standing alone
@@ -27,72 +25,63 @@ pub enum TokenContents {
 pub struct Token { pub contents: TokenContents, pub span: Span }
 ```
 
-Two things are unusual compared with a classical lexer:
+Two things differ from a classical lexer:
 
-1. An `Item` can be very large. `[1 2 {a: (3 | 4)}]` is one item. So is
-   `$"hello (1 + 1)"` or `foo"bar"`. The parser decides what to do with the
-   item's text, and often lexes it again.
-2. There is no separate keyword or operator token. `def`, `+`, `==` and
-   `not-in` are all items; the parser classifies them by text and position.
+1. An `Item` can be very large. `[1 2 {a: (3 | 4)}]` is one item, and so are `$"hello (1 + 1)"` and
+   `foo"bar"`. The parser decides what to do with the text, and often lexes it again.
+2. There are no keyword or operator tokens. `def`, `+`, `==` and `not-in` are all items, and the
+   parser classifies them by text and position.
 
-The `Eof` token records where the text ended; `Tokens::from_lexed` turns it
-into the end position of the token stream, so "expected X" errors have a
-position even when the input ran out (see chapter 03).
+`Tokens::from_lexed` turns the `Eof` token into the end position of the token stream, so "expected
+X" errors have a position even when the input ran out.
 
 ## `LexOptions`
 
 ```rust,ignore
-// StopBytes::new(additional whitespace, special tokens, in signature), skip comments
-pub const RECORD_KEY: LexOptions = LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", false), false);
+// StopBytes::new(additional whitespace, special tokens, mode), skip comments
+pub const RECORD_KEY: LexOptions =
+    LexOptions::with_stops(&StopBytes::new(b"\n\r,", b":", LexMode::Code), false);
 ```
 
-A preset is built from the parameters of nu's `lex` and `lex_item`:
+A preset comes from the parameters of nu's `lex` and `lex_item`:
 
-* additional whitespace: extra bytes treated as whitespace; including `\n`
-  suppresses `Eol` tokens.
-* special tokens: bytes that become single-character items when they start a
-  token and terminate the item otherwise (`:` in records, `.` in cell paths).
-* skip comments: drop comments instead of emitting them (nu's `skip_comment`).
-* in signature: treat `<`/`>` as nesting brackets (type annotations such as
-  `list<int>`); nu's `lex_signature` is `lex` with it set.
+* **Additional whitespace.** Extra bytes treated as whitespace. Including `\n` suppresses `Eol`
+  tokens.
+* **Special tokens.** A special byte is its own one-byte item when it starts an item, and ends the
+  item anywhere else. That is why `a:1` lexes as `a`, `:`, `1` with `RECORD_KEY` and `$x.a` as `$x`,
+  `.`, `a` with `CELL_PATH`.
+* **Mode.** `LexMode::Signature` makes `<` and `>` nest like brackets, for type annotations such as
+  `list<int>`. `LexMode::ListItems` makes a `]` that closes no `[` an error. `LexMode::Code` is
+  everything else.
+* **Skip comments.** Drop comments instead of emitting them.
 
-`StopBytes::new` is a `const fn` that computes, at compile time, the sets of
-bytes the scanner stops at (see below), and keeps `in_signature` with them.
-`LexOptions::with_stops`, which pairs those sets with `skip_comments`, is
-private to `lex.rs`, so the presets are the only `LexOptions`. The named
-presets map one-to-one onto the constructs that use them:
+`StopBytes::new` is a `const fn` that computes the byte sets the scanner stops at, at compile time.
+`LexOptions::with_stops` is private to `lex.rs`, so the presets are the only `LexOptions`:
 
 | Preset | Whitespace | Special | Used by |
 | --- | --- | --- | --- |
-| `BLOCK` | — | — | files, block bodies, closure bodies |
-| `SUBEXPRESSION` | `\n\r` | — | `( ... )`: newlines are whitespace, so a parenthesised pipeline may span lines |
-| `LIST` | `\n\r,` | — | `[ ... ]` |
-| `RECORD_KEY` / `RECORD_VALUE` | `\n\r,` | `:` / — | record keys (`a:1` splits) and values (`http://x` does not) |
-| `CELL_PATH` | `\n\r` | `.?!` | `$x.a?.0!` |
-| `SIGNATURE` | `\n\r` | `:=,` | `[a: int = 1, --flag(-f)]`, with `<>` nesting |
-| `TYPE_PARAMS` | `\n\r` | `:,` | the inside of `list<int>`, `oneof<a, b>`, `record<a: int>`, with `<>` nesting |
-| `VAR_TYPE` | — | `,` | the type of `let x: record<a: int>`, with `<>` nesting |
-| `IO_TYPES` | `\n\r,` | — | `[int -> string, nothing -> nothing]`, with `<>` nesting |
-| `MATCH` | ` \r\n,` | — | match arms; a pipe still becomes `Pipe` for or-patterns |
-| `BRACE_PROBE` | `\r\n\t` | `:` | the first two tokens of `{ ... }` to decide record/closure/block |
-| `BINARY` | `,\r\n` | — | `0x[ff 00]` |
-| `PATTERN_LIST` / `PATTERN_RECORD` | `\n\r,` | — / `:` | `match` list and record patterns |
-
-A "special" byte has two effects, both copied from nu-parser: at the start of
-an item it becomes its own one-byte item; anywhere else it ends the item. That
-is why `a:1` lexes as `a`, `:`, `1` with `RECORD_KEY` and `$x.a` as `$x`,
-`.`, `a` with `CELL_PATH`.
+| `BLOCK` | none | none | files, block bodies, closure bodies |
+| `SUBEXPRESSION` | `\n\r` | none | `( ... )`, so a parenthesised pipeline may span lines |
+| `LIST` | `\n\r,` | none | `[ ... ]`, in `ListItems` mode |
+| `RECORD_KEY`, `RECORD_VALUE` | `\n\r,` | `:`, none | record keys (`a:1` splits) and values (`http://x` doesn't) |
+| `CELL_PATH` | `\n\r` | `.?!` | `$x.a?.0!`, comments skipped |
+| `SIGNATURE` | `\n\r` | `:=,` | `[a: int = 1, --flag(-f)]`, in `Signature` mode |
+| `TYPE_PARAMS` | `\n\r` | `:,` | the inside of `list<int>`, `oneof<a, b>`, `record<a: int>`, in `Signature` mode |
+| `VAR_TYPE` | none | `,` | the type of `let x: record<a: int>`, in `Signature` mode, comments skipped |
+| `IO_TYPES` | `\n\r,` | none | `[int -> string, nothing -> nothing]`, in `Signature` mode |
+| `MATCH` | ` \r\n,` | none | match arms; a pipe still becomes `Pipe` for or-patterns |
+| `BRACE_PROBE` | `\r\n\t` | `:` | the first two tokens of `{ ... }`, comments skipped |
+| `BINARY` | `,\r\n` | none | `0x[ff 00]` |
+| `PATTERN_LIST`, `PATTERN_RECORD` | `\n\r,` | none, `:` | `match` list and record patterns |
 
 ## The entry points
 
 [`lex`](crate::winnow::syntax::lex::lex) lexes a whole text,
-[`lex_n_tokens`](crate::winnow::syntax::lex::lex_n_tokens) stops after a number of tokens,
-and [`next_token`](crate::winnow::syntax::lex::next_token) reads one token from a character
-stream. The parser lexes through its working set (`WorkingSet::lex`,
-`WorkingSet::lex_n_tokens`, `WorkingSet::next_token`), which passes the
-parse's [`GroupEnds`](crate::winnow::syntax::lex::GroupEnds) table (see
-[below](#measuring-a-group-once)); the free functions take a table of their
-own or none:
+[`lex_n_tokens`](crate::winnow::syntax::lex::lex_n_tokens) stops after a number of tokens, and
+[`next_token`](crate::winnow::syntax::lex::next_token) reads one token from a character stream. The
+parser lexes through its working set (`WorkingSet::lex`, `WorkingSet::lex_n_tokens`,
+`WorkingSet::next_token`), which passes the parse's
+[`GroupEnds`](crate::winnow::syntax::lex::GroupEnds) table.
 
 ```rust
 use nu_parser::winnow::syntax::input::input;
@@ -128,144 +117,105 @@ assert_eq!([key.text(text), colon.text(text), value.text(text)], ["a", ":", "htt
 assert!(next_token(&mut stream, LexOptions::RECORD_VALUE, &mut groups).unwrap().is_none());
 ```
 
-`next_token` is how a caller changes options in the middle of a text. The
-record parser (`parse_record`) reads a record's interior as an `Input` stream
-and lexes `key`, `:`, `value` with `RECORD_KEY`, `RECORD_KEY`, `RECORD_VALUE`
-in turn, so `a:1` splits at the colon but the value `http://x` stays whole.
-
-Do not confuse it with `Tokens::next_token` (the token stream's
-`Stream::next_token`), which hands out a token that was already lexed.
+`next_token` is how a caller changes options in the middle of a text. `parse_record` lexes `key`,
+`:`, `value` with `RECORD_KEY`, `RECORD_KEY`, `RECORD_VALUE` in turn. Don't confuse it with
+`Tokens::next_token`, which hands out a token that was already lexed.
 
 ## The top-level loop
 
-`lex_n_tokens` calls `next_token` until the text or the token budget runs
-out, then appends `Eof`. On the way it keeps the one piece of state nu's lexer
-keeps between tokens (`is_complete`): a `;` after a `|` with only newlines and
-comments between them is "extra tokens" (`ls |; ls`, `ls |\n\n; ls`, and
-`{|x|; 1}`, whose parameter list ends with a plain `|`); an item, including a
-redirection pipe such as `e>|`, ends that state, and `||` never starts it.
-`next_token` skips whitespace and calls `lex_token`, which dispatches on the
-next byte: `\n` is an `Eol`, `#` a comment (`lex_comment`), `||` and `|`
-pipes, `;` a semicolon, and anything else an item (`lex_item`).
+`lex_n_tokens` calls `next_token` until the text or the token budget runs out, then appends `Eof`.
+`next_token` skips whitespace and calls `lex_token`, which dispatches on the next byte: `\n` is an
+`Eol`, `#` a comment, `||` and `|` pipes, `;` a semicolon, and anything else an item. It returns
+`None` for a comment with `skip_comments`, and goes round again.
 
-`None` means the input produced no token (a comment with `skip_comments`),
-and `next_token` goes round again.
+The loop keeps the one piece of state nu's lexer keeps between tokens (`is_complete`): a `;` after a
+`|` with only newlines and comments between them is an error (`ls |; ls`, `ls |\n\n; ls`, and `{|x|;
+1}`, whose parameter list ends with a plain `|`). An item ends that state, including a redirection
+pipe such as `e>|`. `||` never starts it.
 
-A `#` starts a comment only here, at token start. Inside an item, `#` is a
-comment only when preceded by whitespace (so `foo#bar` is one word, while
-`[1 # one\n 2]` has a comment inside the list item).
+A `#` starts a comment at token start, or inside an item only when whitespace precedes it. So
+`foo#bar` is one word, while `[1 # one\n 2]` has a comment inside the list item.
 
 ## The item scanner
 
-`lex_item` is nu-parser's `lex_item`, in two parts. `item_length` measures
-the item: it walks the bytes of the remaining input with a small state
-machine and stops at the first *terminator at depth zero*:
+`lex_item` has two parts, like nu's. `item_length` measures the item: it walks the bytes with a
+small state machine and stops at the first terminator at depth zero, which is a space, tab, `\n`,
+`\r`, `|`, `;` or one of the preset's additional whitespace and special bytes. `item_contents` then
+classifies the text.
 
-```rust,ignore
-// `terminators`: space, tab, `\n`, `\r`, `|`, `;` and the preset's additional
-// whitespace and special tokens.
-let is_terminator =
-    |brackets: &[(Bracket, usize)], byte: u8| brackets.is_empty() && stops.terminators.contains(byte);
-```
+The scanner tracks:
 
-Then `item_contents` classifies the item's text, and `lex_item` advances the
-stream past it with `input.next_slice(offset)`.
+* **`brackets`**: a stack of open `(`, `[`, `{`, and `<` in `Signature` mode, with their positions.
+  Inside brackets nothing terminates the item.
+* **`quote`**: the current string delimiter. Backslash escapes count only inside `"`. A quote can
+  start mid-item, so `foo"bar"` is one item.
+* **`quote_is_interp`, `interp_level`**: inside `$"..."` or `$'...'`, an unescaped `(` opens a
+  subexpression in which quotes and parentheses nest independently of the string.
+  `interp_subexpr_step` holds these rules, and the interpolation parser calls it too, so both agree
+  on where a string ends.
+* **`in_comment`**: inside brackets, `#` after whitespace starts a comment that runs to the end of
+  the line.
+* **Raw strings**: `lex_raw_string` counts the hashes of `r#'...'#` and finds the matching `'#...#`.
+  The scanner notices one at its first `#`, right after an `r`.
+* **Redirection pipes**: a `|` directly after a redirection (`e>`, `o+e>`) joins the item, giving
+  `e>|`.
+* **Fast runs**: bytes nothing cares about are skipped in one step. `StopBytes::item` lists what
+  matters outside brackets. Inside brackets `StopBytes::group` lists fewer (brackets, quotes, `#`
+  and the newline that ends a comment), so a run there also takes in whitespace, pipes and
+  semicolons.
 
-State tracked while scanning:
+The scanner stays a byte loop because where an item ends depends on the quotes and brackets open at
+each byte, which is state, not grammar. A combinator version would thread the same stack through
+every step. The loop also has the structure of nu's `lex_item`, so the two can be compared directly.
 
-* `brackets`: a stack of open `(`, `[`, `{` (and `<` with `in_signature`)
-  with their positions. Inside brackets nothing terminates the item, and
-  newlines, pipes and semicolons are just bytes.
-* `quote`: the current string delimiter (`'`, `"` or `` ` ``) once one is
-  seen. Backslash escapes only count inside `"`. A quote can start in the
-  middle of an item (`foo"bar"` is one item; nu accepts it).
-* `quote_is_interp` and `interp_level`: inside `$"..."` or `$'...'`, an
-  unescaped `(` opens a subexpression in which quotes and parentheses nest
-  independently of the outer string. `interp_subexpr_step` implements the same
-  rules nu-parser uses, so the lexer and the interpolation parser agree on
-  where the string ends.
-* `in_comment`: inside brackets, `#` after whitespace starts a comment that
-  runs to the end of the line.
-* Raw strings `r#'...'#` are scanned by `lex_raw_string`, which counts the
-  hashes and finds the matching `'#...#`. The scanner notices one at its
-  first `#`, right after an `r`.
-* Closing brackets go through `close_bracket`, which pops the matching
-  opener or reports the mismatch.
-* A `|` directly after a redirection (`e>`, `o+e>`; `is_redirection`) is
-  consumed into the item, giving the `e>|` tokens.
-* An opening bracket whose group an earlier scan measured is jumped over
-  (see below).
-* Outside quotes, a run of bytes none of the above cares about (letters,
-  digits, `$`, `-`, ...; `StopBytes::item` lists the others) is skipped in one
-  step. Inside brackets fewer bytes matter (`StopBytes::group`: brackets,
-  quotes, `#` and the newline that ends a comment), so the run there also
-  takes in whitespace, pipes and semicolons.
+`item_contents` turns exact spellings into `TokenContents::AssignmentOperator` and
+`TokenContents::Redirection`. The bash-isms are the tokens nu makes of them, each with a `LexError`
+whose help has the Nushell spelling: `&&`, `2>&1` and `o>|` are a `|`, and `2>` is `e>`.
 
-The scanner is a byte loop, not a combinator grammar, on purpose. Where an
-item ends depends on the quotes and brackets open at each byte, which is state
-rather than grammar: a combinator version would have to thread the same stack
-through every step and would be harder to follow. The loop also keeps the
-structure of nu's `lex_item`, which is a byte loop with the same state, so
-the two are easy to compare.
+`group_end(text)` reuses `item_length` to find the bracket that closes the group a text starts with.
+`parse_full_cell_path` uses it to tell a subexpression `(a)` from the bare interpolation
+`(a)/b/(c)`, and `use` to find the end of its `[...]` list.
 
-The scanner's errors are an unclosed quote, bracket or interpolation, a stray
-`)` or `}`, and a raw string without its quote or its end. Note that a stray
-`]` at depth zero is *not* an error (`a]`, the glob `[]]*`); nu treats it as
-an ordinary character, and so does this parser. The exception is the inside
-of a list, lexed with `LexOptions::LIST` (nu's `LexMode::ListItems`), where
-such a `]` would close the list before its end (`[1 2]]`), so `close_bracket`
-reports it.
+## Lexer errors
 
-nu's lexer reports each of these and goes on, and so does this one
-(`lex_recovering`): `item_length` returns a `Fault` with the length nu gives
-the item and a `LexError` with what nu's error needs. An item ends just after
-a closer that closes nothing (`{a: {b: 5}}}` is one item), at the end of the
-text when something is still open, before a backslash that ends a string (the
-backslash is the next item), and after the `#`s of a raw string without its
-`'`. For an unclosed bracket nu labels where the closer probably belongs: the
-first `{` opened right inside a `[`, or a `|` starting a line inside a `{`
-when the line before does not end with a byte that continues it, if that
-bracket is the innermost one left open; `closer_label_hint` scans the item
-again for it, on that error path only. `lex_recovering` returns every error
-with the span of its token; the strict `lex` and `next_token` fail on the
-first, as before. `WorkingSet::lex_block` lexes a block's statements this way
-and keeps the errors, so that each block finds its own
-(`first_lex_error_in`, chapter 04).
+The scanner's errors are an unclosed quote, bracket or interpolation, a stray `)` or `}`, and a raw
+string without its quote or end. A stray `]` at depth zero is an ordinary character (`a]`, the glob
+`[]]*`), except inside a list lexed in `ListItems` mode, where `close_bracket` reports it (`[1
+2]]`).
 
-`item_contents` turns the exact spellings of assignment and redirection
-operators into `TokenContents::AssignmentOperator` and
-`TokenContents::Redirection`, like the end of nu's `lex_item`. The bash-isms
-are the tokens nu makes of them, each with its error (a `LexError` whose
-diagnostic has the Nushell spelling in the help text): `&&`, `2>&1` and `o>|`
-are a `|`, `2>` is `e>`. A `;` right after a `|` is `SemicolonAfterPipe`
-(nu's `ExtraTokens`).
+nu's lexer reports each of these and goes on, so `lex_recovering` does too. `item_length` returns a
+`Fault` with the length nu gives the item and a `LexError` with what nu's error needs. The item
+ends:
 
-`group_end(text)` reuses `item_length` to find the bracket that closes the
-group a text starts with. `parse_full_cell_path` uses it to tell a
-subexpression `(a)` from the bare interpolation `(a)/b/(c)`, and `use` to find
-the end of its `[...]` list, without a second state machine.
+* just after a closer that closes nothing, so `{a: {b: 5}}}` is one item;
+* at the end of the text when something is still open;
+* before a backslash that ends a string, the backslash being the next item;
+* after the `#`s of a raw string without its `'`.
+
+For an unclosed bracket nu labels where the closer probably belongs: the first `{` opened right
+inside a `[`, or a `|` starting a line inside a `{`, when the line before doesn't end with a byte
+that continues it and that bracket is the innermost one left open. `closer_label_hint` scans the
+item again for it, on that error path only.
+
+`lex_recovering` returns every error with the span of its token. The strict `lex` and `next_token`
+fail on the first. `WorkingSet::lex_block` lexes a block's statements with `lex_recovering` and
+keeps the errors, so each block finds its own with `first_lex_error_in` (chapter 04).
 
 ## Measuring a group once
 
-The parser lexes the inside of a `[...]`, `{...}` or `(...)` again when it
-parses it (a list's items, a closure's statements), and nu-parser does the
-same. Measured naively, every byte is scanned once for each bracket around
-it, since measuring an item means scanning to its closing bracket. So
-`item_length` records, in the parse's [`GroupEnds`](crate::winnow::syntax::lex::GroupEnds),
-where each group it scans closes, and when it meets an opening bracket whose
-group is recorded it jumps straight to the closing bracket. Each byte is then
-scanned about once, however deep it is.
+The parser lexes the inside of a `[...]`, `{...}` or `(...)` again when it parses it. Measured
+naively, every byte is scanned once for each bracket around it. So `item_length` records in the
+parse's [`GroupEnds`](crate::winnow::syntax::lex::GroupEnds) where each group it scans closes, and
+when it meets an opening bracket whose group is recorded it jumps straight to the closing bracket.
+Each byte is then scanned about once, however deep it is.
 
-The jump is exact because a group's extent does not depend on what surrounds
-it: the scanner enters a group only outside quotes and comments, with the
-group's own bracket innermost until it closes, and nothing inside looks
-further out. Only signature scans (`in_signature`, which also pair `<` and
-`>`) see a group differently, so they neither record nor jump. A jump that
-would leave the text being scanned (the text ends inside the group) is not
-taken. The table covers the block a working set parses and is allocated on
-its first record.
+The jump is exact because a group's extent doesn't depend on what surrounds it. The scanner enters a
+group only outside quotes and comments, with the group's own bracket innermost until it closes, and
+nothing inside looks further out. Only `Signature` scans, which also pair `<` and `>`, see a group
+differently, so they neither record nor jump. A jump that would leave the text being scanned isn't
+taken. The table covers the block a working set parses and is allocated on its first record.
 
-## Pipe continuation is not the lexer's job
+## Pipe continuation is the lite parser's job
 
 A `|` at the start of a line continues the previous pipeline:
 
@@ -275,23 +225,19 @@ ls
 | length
 ```
 
-The lexer emits exactly what is there, `Item(ls) Eol Comment Eol Pipe
-Item(length)`, and the lite parser (chapter 04, `take_pipe_on_later_line` in
-`src/winnow/syntax/parser/lite_parser.rs`) looks ahead over the newline and comment lines
-for the `|`. nu-parser does this in its lexer by rewriting the token list;
-keeping the lexer context-free makes its output easier to reason about and
+The lexer emits exactly what is there, `Item(ls) Eol Comment Eol Pipe Item(length)`, and the lite
+parser looks ahead over the newline and comment lines for the `|` (chapter 04). nu-parser does this
+in its lexer by rewriting the token list. Keeping the lexer context-free makes its output easier to
 test, and the rule lives next to the other pipeline-layout rules.
 
 ## Where to look when changing the lexer
 
-* New delimiter behaviour for a construct: add a `LexOptions` preset and use
-  it from the parser that lexes that interior; do not special-case the
-  scanner.
-* New operator spelling that must stand alone (`o>`-like): `item_contents`.
-* New quoting form: the quote handling in `item_length` and, if the parser
-  must decode it, `parse_string_literal` / `parse_raw_string` in
-  `src/winnow/syntax/parser/parse_literals.rs`.
-* Anything else: add a case to `lex_token`'s dispatch on the first byte.
+* New delimiter behaviour for a construct: add a `LexOptions` preset and use it from the parser that
+  lexes that inside. Don't special-case the scanner.
+* New operator spelling that must stand alone: `item_contents`.
+* New quoting form: the quote handling in `item_length` and, if the parser must decode it,
+  `parse_string_literal` or `parse_raw_string`.
+* Anything else: a case in `lex_token`'s dispatch on the first byte.
 
-Tests for the lexer live at the bottom of `src/winnow/syntax/lex.rs` and use the
-`lex_debug` helper that returns `(TokenContents, text)` pairs.
+Tests live at the bottom of `lex.rs` and use the `lex_debug` helper, which returns `(TokenContents,
+text)` pairs.

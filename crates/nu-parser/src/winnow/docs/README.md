@@ -1,45 +1,54 @@
 # How the parser works
 
-These documents describe the winnow parser from the inside, for people who
-want to change it. They follow the data flow: source text goes into the lexer,
-the lite parser groups the tokens into pipelines and commands, each command's
-items are recognised as a statement or an expression, and each item becomes a
-value. Every chapter names the files involved and shows the code shapes you
-will meet there.
+These chapters describe the winnow parser and the front end built on it, for people who want to
+change them. They follow the data: the lexer turns text into items, the lite parser groups items
+into commands, each command becomes a statement or an expression, each item becomes a value, and the
+lowering turns the resulting tree into nu-protocol's AST.
 
-The parser is laid out like nu-parser: `src/winnow/syntax/lex.rs` and the files of
-`src/winnow/syntax/parser/` carry the names of their nu-parser counterparts
-(`lite_parser.rs`, `parse_pipelines.rs`, `parse_expressions.rs`,
-`parse_calls.rs`, ...), the functions in them carry nu-parser's function names,
-the shared state is a `WorkingSet` with `StateWorkingSet`'s method names, and
-the public AST uses nu-protocol's type names. Someone who knows nu-parser can
-look for a function here under the name it has there.
+The code is laid out like nu-parser. `src/winnow/syntax/lex.rs` and the files of
+`src/winnow/syntax/parser/` carry the names of their nu-parser counterparts, the functions in them
+carry nu-parser's function names, the shared state is a `WorkingSet` with `StateWorkingSet`'s method
+names, and the AST uses nu-protocol's type names. If you know where something lives in nu-parser,
+look under the same name here.
 
-| Chapter | What it covers | Files |
-| --- | --- | --- |
-| [01 Architecture](01-architecture.md) | The pipeline of phases, the module map, the public API, the design constraints inherited from Nushell | `src/winnow/syntax/mod.rs`, `src/winnow/syntax/parser/mod.rs` |
-| [02 The lexer](02-lexer.md) | Items, `LexOptions`, `TokenContents`, the item scanner, pipe continuation | `src/winnow/syntax/lex.rs` |
-| [03 Streams, errors and the working set](03-streams-and-errors.md) | The winnow character stream, the `Tokens` stream and its token parsers, `ParseFailure` and cut vs backtrack, the `WorkingSet`, recovery | `src/winnow/syntax/input.rs`, `src/winnow/syntax/parser/tokens.rs`, `src/winnow/syntax/parser/working_set.rs`, `src/winnow/syntax/error.rs` |
-| [04 Blocks and pipelines](04-blocks-and-pipelines.md) | Grouping tokens into pipelines and commands, comments, assignments, redirections, attributes, predeclaration | `src/winnow/syntax/parser/lite_parser.rs`, `src/winnow/syntax/parser/parse_pipelines.rs` |
-| [05 Statements and expressions](05-statements-and-expressions.md) | Keyword dispatch, every keyword form and `KeywordCall`, math expressions and precedence, calls, arguments, external calls | `src/winnow/syntax/parser/parse_expressions.rs`, `src/winnow/syntax/parser/parse_keywords.rs`, `src/winnow/syntax/parser/parse_calls.rs`, `src/winnow/syntax/parser/parse_def.rs`, `src/winnow/syntax/parser/parse_bindings.rs`, `src/winnow/syntax/parser/parse_alias.rs`, `src/winnow/syntax/parser/parse_module.rs`, `src/winnow/syntax/parser/parse_source.rs`, `src/winnow/syntax/parser/parse_control_flow.rs` |
-| [06 Values and literals](06-values-and-literals.md) | Turning one item into an expression: `$`, `(`, `{`, `[`, literals, strings, interpolation, cell paths, ranges, collections, closures | `src/winnow/syntax/parser/parse_expressions.rs`, `src/winnow/syntax/parser/parse_literals.rs`, `src/winnow/syntax/parser/parse_helpers.rs` |
-| [07 Signatures, types and patterns](07-signatures-types-and-patterns.md) | Parameter lists, type annotations, input/output types, `match` blocks and patterns | `src/winnow/syntax/parser/parse_signatures.rs`, `src/winnow/syntax/parser/parse_shape_specs.rs`, `src/winnow/syntax/parser/parse_patterns.rs` |
-| [08 The AST and its consumers](08-ast-and-consumers.md) | Node catalogue, spans, comments, the visitor, `flatten`, `pretty` | `src/winnow/syntax/ast/`, `src/winnow/syntax/flatten.rs`, `src/winnow/syntax/pretty.rs` |
-| [09 Testing and tools](09-testing-and-tools.md) | Unit and integration tests, the fixtures, the corpora, differential testing, comparison scripts, benchmarks, the engine harness | `tests/`, `tools/`, `benches/` |
-| [10 Contributing](10-contributing.md) | Which file to edit for what, the code conventions, step-by-step recipes for the common changes, debugging, performance, pitfalls | everywhere |
-| [11 Traceability](11-traceability.md) | Every construct of nu-parser mapped to the code, fixtures and tests here; checked by `tests/winnow/traceability.rs` | `tests/`, `src/` |
-| [TESTING.md](../../../winnow/TESTING.md) | The runbook: how to run every test and the verification ladder, how to read a disagreement, how to add coverage | `tests/`, `winnow/tools/scripts/` |
-| [How to use the tools](how-to.md) | Every command-line tool in the repository with its flags and examples: the `winnow_parse` and `winnow_nufmt` examples, the engine `bridge`, the benchmarks, the comparison scripts and tests | `examples/`, `winnow/tools/`, `tests/winnow/`, `benches/` |
-| [nufmt README](../../../examples/winnow_nufmt/README.md) | Why the tree plus the source is lossless, with runnable examples of reconstructing, rewriting and formatting source | `examples/winnow_nufmt/` |
-| [Nushell integration](nushell-integration-plan.md) | How `nu-parser` uses this parser as its front end, how that is checked, and what it measures | — |
+## Vocabulary
 
-Conventions used in the chapters:
+| Term | Meaning |
+| --- | --- |
+| nu-parser | The parser in `crates/nu-parser/src`, outside `src/winnow`. It defines the language, and every behaviour here is checked against it. Code comments also call it the classic parser. |
+| winnow parser | `src/winnow/syntax`: a lexer and parser that turn text into a syntax tree. It needs no engine. |
+| lowering | `src/winnow/lower`: turns the syntax tree into the `nu-protocol` AST, with signatures, types and compiled closures. |
+| front end | The winnow parser, the lowering and the code that joins them (`driver.rs`, `lookup.rs`). The `winnow-parser` experimental option switches it on. |
+| consumer | Whatever reads the syntax tree. In the shell that is the lowering. A fixture named `*-is-consumer.nu` holds an input the winnow parser accepts because the error needs a signature, a type or a file. |
+| item | A maximal run of non-whitespace text in which brackets and quotes balance. Chapter 01 explains why this is the unit of the grammar. |
+| recovered | An error the parser records and goes past, leaving a tree the lowering reads again. Chapter 03 defines it. |
 
-* Code blocks marked `rust` are compiled and run as doctests against the
-  public API (`cargo test --doc`). Blocks marked `rust,ignore` are excerpts of
-  internal code shown for explanation; they are kept close to the source but
-  may omit details.
-* "nu-parser" means the parser inside the Nushell repository
-  (`crates/nu-parser`), which is the reference for every behaviour here.
-* Positions are byte offsets into the original source, always absolute, even
-  inside nested constructs.
+## Chapters
+
+| Chapter | What it covers |
+| --- | --- |
+| [01 Architecture](01-architecture.md) | The two passes, the phases of the syntax pass, the module maps, the public API, the design constraints |
+| [02 The lexer](02-lexer.md) | Tokens, `LexOptions`, the item scanner, lexer errors, group measuring |
+| [03 Streams, errors and the working set](03-streams-and-errors.md) | The character and token streams, token parsers, cut and backtrack, recovered errors, the `WorkingSet` |
+| [04 Blocks and pipelines](04-blocks-and-pipelines.md) | Statement boundaries, comments, the newline rules around `\|`, `LiteCommand`, lite-parse errors, attributes, predeclaration |
+| [05 Statements and expressions](05-statements-and-expressions.md) | Dispatch, `KeywordCall`, every keyword form, math, assignments, calls, external calls, environment shorthand |
+| [06 Values and literals](06-values-and-literals.md) | One item to one expression: literals, strings, cell paths, ranges, `{ ... }`, lists, tables, records |
+| [07 Signatures, types and patterns](07-signatures-types-and-patterns.md) | Parameter lists, type annotations, input/output types, `match` blocks and patterns |
+| [08 The AST and its consumers](08-ast-and-consumers.md) | Node catalogue, spans, comments, what the tree leaves undecided, the visitor, `flatten`, `pretty` |
+| [09 Testing and tools](09-testing-and-tools.md) | What each test layer proves and which one to extend |
+| [10 Contributing](10-contributing.md) | Conventions, recipes for common changes, debugging, performance, pitfalls |
+| [11 Traceability](11-traceability.md) | Every construct of nu-parser mapped to code, fixtures and tests; `tests/winnow/traceability.rs` checks the tables |
+| [Nushell integration](nushell-integration.md) | The front end: the driver, parsing ahead on a second thread, the lowering's rules, statistics, speed |
+| [How to use the tools](how-to.md) | Every command-line tool with its flags and examples |
+| [TESTING.md](../../../winnow/TESTING.md) | The runbook: how to run each test and read a disagreement |
+| [nufmt README](../../../examples/winnow_nufmt/README.md) | Why the tree plus the source is lossless, with runnable examples |
+
+## Conventions
+
+* Paths are relative to `crates/nu-parser`.
+* `rust` code blocks are doctests against the public API (`cargo test --doc`). `rust,ignore` blocks
+  are excerpts, shortened for reading.
+* Positions are byte offsets into the original source, absolute even inside nested constructs.
+* A rule stated here matches nu-parser unless the text says otherwise, so the chapters don't repeat
+  "as nu does" for each one. They do name the nu-parser error (`MissingPositional`) where that helps
+  you find the code.

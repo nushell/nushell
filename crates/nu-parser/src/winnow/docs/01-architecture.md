@@ -1,154 +1,196 @@
 # 01 Architecture
 
-## What kind of language Nushell is
+## Two passes
 
-Nushell's grammar is *whitespace-sensitive at the token level*. The unit the
-reference parser works with is not a character or a classical token but an
-**item**: a maximal run of non-whitespace text in which brackets and quotes are
-balanced. These three inputs show why that matters:
+With the `winnow-parser` experimental option on, nu-parser's entry points hand every block to the
+front end in `src/winnow`. It handles one statement at a time, in two passes:
 
 ```text
-1 + 1        three items: 1, +, 1        -> math expression evaluating to 2
-1+1          one item                    -> a bare word, the string "1+1"
-[1 + 1]      one item; its interior has  -> a list of the three strings
-             three items                    1, +, 1 (no math inside lists)
+source text
+   │
+   ▼  winnow parser (src/winnow/syntax)       knows the text and which command names exist
+syntax tree                                   what was written, with spans and comments
+   │
+   ▼  lowering (src/winnow/lower)             resolves names, applies signatures, checks types,
+nu_protocol::ast::Block                       compiles closures; the same AST nu-parser builds
+   │
+   ▼
+IR compilation, capture discovery, evaluation, completions, highlighting (unchanged)
 ```
 
-Consequences that shape the whole design:
+The winnow parser also runs alone. `parse` takes a text and a table of known commands and returns a
+tree, which is what `winnow_nufmt`, `winnow_parse` and the benchmarks use. This chapter and chapters
+02 to 08 describe the first pass. [Nushell integration](nushell-integration.md) describes the second
+and how the two meet.
 
-* Whether `{ ... }` is a record, a closure or a block depends on where it
-  appears and on its first two interior tokens.
-* A nested construct (`[...]`, `{...}`, `(...)`) is one item to its parent and
-  is lexed again, with different delimiter rules, when it is parsed.
-* Many things need a command's signature to be resolved (does `--flag` take
-  the next word as its value? is `name.0` a cell path or a string?). Those
-  decisions are *not* made here; the AST records what was written and the
-  consumer applies signatures (see the integration plan).
+## Why items
 
-`nu-parser` handles all of this with a lexer that produces items and a
-recursive parser that re-lexes item interiors. This parser keeps that
-architecture on purpose: it is what defines the language, and matching it is
-how the parser stays 100% compatible. It also keeps nu-parser's names: the
-parser files are split and named like nu-parser's files, the functions in
-them carry the names of their nu-parser counterparts (`parse_block`,
-`parse_pipeline_element`, `parse_expression`, `parse_value`, `parse_call`,
-`parse_def`, ...), the shared state is a `working_set` with the method names
-of nu's `StateWorkingSet`, and the public AST uses nu-protocol's names
-(`Expression`, `Expr`, `Argument`, `SyntaxShape`, ...). Someone who knows
-nu-parser can find `parse_def` in `parse_def.rs`.
+Nushell's grammar is whitespace-sensitive at the token level. nu-parser works with **items**, not
+characters or classical tokens: maximal runs of non-whitespace text in which brackets and quotes
+balance.
 
-The differences are that everything is written with `winnow` streams and
-combinators, the output is a plain AST with borrowed text and spans, and no
-engine state is needed.
+```text
+1 + 1        three items: 1, +, 1        a math expression, 2
+1+1          one item                    a bare word, the string "1+1"
+[1 + 1]      one item; its inside has    a list of the strings 1, +, 1
+             three items                 (there is no math inside lists)
+```
 
-## The phases
+Three things follow, and they shape the rest of the design:
+
+* A `{ ... }` is a record, a closure or a block depending on where it appears and on its first two
+  inner tokens.
+* A nested `[...]`, `{...}` or `(...)` is one item to its parent. It is lexed again, with different
+  delimiter rules, when it is parsed.
+* Many meanings depend on a command's signature: whether `--flag` takes the next word, whether
+  `name.0` is a cell path or a string. With an engine attached the tree records what was written and
+  the lowering applies the signature. Alone, the parser reads the signatures of the commands it
+  knows from its table and of the `def`s in the text (`call_shapes.rs`).
+
+The winnow parser keeps this recursive item architecture on purpose, because it is what defines the
+language. What differs from nu-parser: the code is written with `winnow` streams and combinators,
+the output is a plain tree with borrowed text and spans, and no engine state is needed.
+
+## The syntax pass
 
 ```text
 source: &str
    │
-   ▼  parser::parse(source, config)                              src/winnow/syntax/parser/mod.rs
-creates the WorkingSet: source, known command names, and what the parse
-collects on the side (comments, ignored text, diagnostics)
+   ▼  parser::parse(source, config)                         src/winnow/syntax/parser/mod.rs
+creates the WorkingSet: source, known command names, and what the parse collects
+on the side (comments, ignored text, diagnostics)
    │
-   ▼  lex::lex(text, base, LexOptions)                           src/winnow/syntax/lex.rs
-Vec<Token>  (Item | Pipe | PipePipe | Redirection | AssignmentOperator |
-             Semicolon | Eol | Comment | Eof)
+   ▼  WorkingSet::lex_block, lex::lex                       src/winnow/syntax/lex.rs
+Vec<Token>: Item | Pipe | PipePipe | Redirection | AssignmentOperator | Semicolon |
+            Eol | Comment | Eof
    │
-   ▼  parse_block(Tokens, span)                                  src/winnow/syntax/parser/parse_pipelines.rs
-the statement loop: comments attached, pipelines collected, error recovery
-per statement
+   ▼  parse_block(Tokens, span)                             src/winnow/syntax/parser/parse_pipelines.rs
+the statement loop: predeclares definitions, attaches comments, collects pipelines,
+recovers from errors per statement
    │
-   ▼  parse_lite_command(&mut Tokens, at_line_start)             src/winnow/syntax/parser/lite_parser.rs
-the lite parse: one command's tokens grouped into a LiteCommand, `=` absorbs
-the rest of the line, redirections and @attribute lines collected, a `|` on
-a later line continues the pipeline
+   ▼  parse_lite_command(&mut Tokens, at_line_start)        src/winnow/syntax/parser/lite_parser.rs
+one command's tokens as a LiteCommand: `=` absorbs the rest of the line, redirections
+and @attribute lines are collected, a `|` on a later line continues the pipeline
    │
-   ▼  parse_pipeline_element(working_set, &LiteCommand, ..)      src/winnow/syntax/parser/parse_pipelines.rs
-   ▼  parse_expression(Tokens, Position)                         src/winnow/syntax/parser/parse_expressions.rs
-statement keywords through parse_builtin_commands to parse_def, parse_let,
-parse_if, parse_use, ... (parse_def.rs, parse_bindings.rs, parse_control_flow.rs,
-parse_module.rs, ...); otherwise env shorthand, assignments,
-parse_math_expression, or parse_call (parse_calls.rs)
+   ▼  parse_pipeline_element(working_set, &LiteCommand, ..) src/winnow/syntax/parser/parse_pipelines.rs
+   ▼  parse_expression(Tokens, Position)                    src/winnow/syntax/parser/parse_expressions.rs
+statement keywords go through parse_builtin_commands to parse_def, parse_let, parse_if,
+parse_use, ...; anything else is env shorthand, an assignment, parse_math_expression
+or parse_call
    │
-   ▼  parse_value(working_set, span, ExpectedShape)              src/winnow/syntax/parser/parse_expressions.rs
-one item -> Expression: literals, strings, $vars, cell paths and ranges
-(parse_literals.rs), lists, tables, records, blocks, closures and
-subexpressions (parse_expressions.rs), signatures (parse_signatures.rs),
-types (parse_shape_specs.rs), patterns (parse_patterns.rs); nested constructs
-re-lex their interior and recurse into parse_block
+   ▼  parse_value(working_set, span, ExpectedShape)         src/winnow/syntax/parser/parse_expressions.rs
+one item to an Expression: literals, strings, $vars, cell paths, ranges, lists, tables,
+records, blocks, closures, subexpressions; nested constructs lex their inside again
+and recurse into parse_block
    │
    ▼
-ast::Ast { source, block, comments, shebang, ignored }           src/winnow/syntax/ast/mod.rs
+ast::Ast { source, block, comments, shebang, ignored }      src/winnow/syntax/ast/mod.rs
 ```
 
-## The layers
+## Three levels of reading
 
-The parser reads the source at three levels, each with its own kind of
-function:
+The parser reads source at three levels, each with its own kind of function:
 
-* **Characters.** [`Input`](crate::winnow::syntax::input::Input) (`src/winnow/syntax/input.rs`) is a winnow
-  stream over a slice of the source that knows its absolute offset. The lexer
-  reads it, and so do the parsers that must lex a text piece by piece (record
-  interiors, with `next_token`) or decode it (`unescape_string`). Recognisers
-  that only answer yes or no, such as `parse_int` and `is_datetime`, run
-  winnow over a plain `&str`.
-* **Tokens.** `Tokens` (`src/winnow/syntax/parser/tokens.rs`) is a winnow stream over the
-  lexed tokens of one command or one bracketed interior. It carries the
-  working set, so a parser of a *sequence* of items is a plain
-  `fn(&mut Tokens<'_, 'a>) -> ParseResult<T>` (or takes a `Tokens` by value)
-  and composes with winnow's combinators: `repeat`, `opt`, `alt`, `preceded`,
-  `terminated`, `repeat_till`, `expression`, ...
-* **Items.** A parser of *one* item takes the working set and the item's span,
-  like nu's `parse_value(working_set, span, shape)`. When the item is a
-  bracketed construct it lexes the interior again and goes back to the token
-  level.
+* **Characters.** [`Input`](crate::winnow::syntax::input::Input) is a winnow stream over a slice of
+  the source that knows its absolute offset. The lexer reads it, and so do the parsers that lex
+  piece by piece (`parse_record` with `next_token`) or decode text (`unescape_string`). Recognisers
+  that answer yes or no, such as `parse_int` and `is_datetime`, run winnow over a plain `&str`.
+* **Tokens.** `Tokens` is a winnow stream over the lexed tokens of one command or one bracketed
+  inside. It carries the working set, so a parser of a sequence of items is a plain `fn(&mut
+  Tokens<'_, 'a>) -> ParseResult<T>` that composes with `repeat`, `opt`, `alt`, `preceded`,
+  `repeat_till` and the Pratt parser `expression`.
+* **Items.** A parser of one item takes the working set and the item's span, like nu's
+  `parse_value(working_set, span, shape)`. A bracketed item lexes its inside again and goes back to
+  the token level.
 
-Every function reaches the same `WorkingSet` (nu's `StateWorkingSet`),
-either as its first argument or through `tokens.working_set`. Chapter 03
-describes the streams, the working set and the error type.
+Every function reaches the same `WorkingSet`, as its first argument or through `tokens.working_set`.
+Chapter 03 covers the streams, the working set and the error type.
 
-## Module map
+## Where command names come from
 
-The parser files mirror nu-parser's. Each holds the functions of its
-nu-parser namesake, except `parse_control_flow.rs`, which has no counterpart
-(in nu, `if`, `match`, `while` and the rest are ordinary commands), and
-`tokens.rs` (nu-parser walks spans by index and has no token stream) and
-`working_set.rs` (nu's `StateWorkingSet` lives in nu-protocol).
+The winnow parser asks one question of its surroundings: which commands exist, and how do calls to
+them parse. `WorkingSet::find_decl` answers it from three places, in order:
 
-| File | Responsibility | Read it when you want to... |
+1. The `def`, `extern` and `alias` names of the enclosing blocks, in the working set's own scopes.
+2. A `CommandLookup`, when there is one. In the shell, `EngineLookup` answers from the live
+   `StateWorkingSet`.
+3. A `ParseConfig` otherwise. `ParseConfig::new` has every built-in command with its signature,
+   generated into `builtin_commands.rs`.
+
+The answer is a `DeclKind`, which decides how the call's arguments parse (chapter 03). Commands
+defined in the file being parsed are always recognised.
+
+## Module maps
+
+### The winnow parser
+
+The parser files mirror nu-parser's and hold the functions of their namesakes. Three have no
+counterpart there: `parse_control_flow.rs` (`if`, `match`, `while` and the rest are ordinary
+commands in nu), `tokens.rs` (nu-parser walks spans by index) and `working_set.rs`
+(`StateWorkingSet` lives in nu-protocol). Paths are under `src/winnow/syntax/`.
+
+| File | Holds | Edit it to change |
 | --- | --- | --- |
-| `src/winnow/syntax/mod.rs` | Public entry points `parse`, `parse_with`, `parse_lenient`; re-exports | change the API surface |
-| `src/winnow/syntax/span.rs` | `Span`, `Spanned<T>`, `LineIndex`, `LineCol` | change position handling |
-| `src/winnow/syntax/error.rs` | `ErrorKind`, `Diagnostic`, `ParseError`, rendering with source excerpts | add an error kind or improve messages |
-| `src/winnow/syntax/input.rs` | The character stream `Input`; the error type `ParseFailure` and `ParseResult`, `cut`, `backtrack`, `into_diagnostic`; winnow's error traits for `Input` | change how positions or errors flow through winnow |
-| `src/winnow/syntax/lex.rs` | `Token`, `TokenContents`, `LexOptions`, `lex`, `lex_n_tokens`, `next_token`, the item scanner (`lex_item`, `item_length`) | change what counts as an item or a delimiter |
-| `src/winnow/syntax/parser/mod.rs` | `ParseConfig`, the command-name sets, `parse` (the entry point) | change configuration or the top-level driver |
-| `src/winnow/syntax/parser/working_set.rs` | `WorkingSet`: source text, declared and built-in command names, scopes, collected comments, ignored text and diagnostics | change scopes or what a parse collects |
-| `src/winnow/syntax/parser/tokens.rs` | The `Tokens` stream and the token parsers `item`, `keyword`, `pipe`, `eol`, `comment`, `expected`, `cut_with`, `repeat_to_end`, `tokens_until` | change how parsers walk tokens |
-| `src/winnow/syntax/parser/lite_parser.rs` | The lite parse: `LiteCommand`, `parse_lite_command`, pipe continuation (`take_pipe_on_later_line`, `after_pipe_lines`, `after_pipe`), `lite_parse_parts` | change command boundaries, comments, redirections, attributes |
-| `src/winnow/syntax/parser/parse_pipelines.rs` | `parse_block` and its statement loop `parse_statements` (recovery), `parse_pipeline`, `parse_pipeline_element`, `parse_redirection` | change pipelines, redirections or error recovery |
-| `src/winnow/syntax/parser/parse_expressions.rs` | `parse_expression`, `parse_builtin_commands`, env shorthand, assignments, `parse_math_expression`, `parse_row_condition`, `parse_value` and `ExpectedShape`, `is_math_expression_like`, `{ ... }` (record, closure or block), lists, tables, records, match blocks | change operators, precedence, value dispatch or disambiguation |
-| `src/winnow/syntax/parser/parse_calls.rs` | `parse_call`, `find_longest_decl`, `parse_call_arguments`, `parse_call_arguments_by_shape`, external and `%` calls, `parse_attribute`, `KeywordSignature`, `check_call` | change argument parsing or command-name resolution |
-| `src/winnow/syntax/parser/call_shapes.rs` | `CallShapes`: a command's parameters as a call reads its arguments, from a signature (a built-in's in `builtin_commands.rs`, a `def`'s of the text) | change how a parameter's shape is found |
-| `src/winnow/syntax/parser/parse_keywords.rs` | `is_statement_keyword`, the parser-keyword lists, `KeywordCall` (flags and `--help` of keyword statements), `parse_block_argument` | change how keyword statements take flags |
-| `src/winnow/syntax/parser/parse_def.rs` | `def`, `extern`, `for`, `parse_def_predecl` | change definitions |
-| `src/winnow/syntax/parser/parse_bindings.rs` | `let`, `mut`, `const` | change bindings |
-| `src/winnow/syntax/parser/parse_alias.rs` | `alias` | change aliases |
-| `src/winnow/syntax/parser/parse_module.rs` | `module`, `use`, `export`, `export-env` | change modules and imports |
-| `src/winnow/syntax/parser/parse_source.rs` | `where` (`parse_where`, where nu keeps it) | change `where` |
-| `src/winnow/syntax/parser/parse_control_flow.rs` | `if`, `match`, `while`, `loop`, `try`, `return`, `break`, `continue` | change a control-flow statement |
-| `src/winnow/syntax/parser/parse_signatures.rs` | `[params]`, `(params)`, closure parameters, `: in -> out`, variable declarations | change signatures |
-| `src/winnow/syntax/parser/parse_shape_specs.rs` | Type annotations, generic shapes such as `list<int>`, completers | change types |
-| `src/winnow/syntax/parser/parse_patterns.rs` | `match` patterns | change match syntax |
-| `src/winnow/syntax/parser/parse_literals.rs` | Numbers, units, datetimes, binary, escapes, raw strings, strings and interpolation, `$` expressions, cell paths, ranges | change a literal's syntax |
-| `src/winnow/syntax/parser/parse_helpers.rs` | Small shared helpers (`delimited_interior`, `garbage`, `is_spread`, ...) | look for a helper before writing one |
-| `src/winnow/syntax/ast/mod.rs` | All node types | add a node or field |
-| `src/winnow/syntax/ast/visit.rs` | `Visitor` trait and `walk_*` | keep in sync when adding nodes |
-| `src/winnow/syntax/flatten.rs` | Source-ordered `(Span, FlatShape)` list | keep in sync when adding nodes |
-| `src/winnow/syntax/pretty.rs` | Tree dump used by the example and tests | keep in sync when adding nodes |
-| `src/winnow/syntax/builtin_commands.rs` | Generated list of built-in command names | regenerate for a new Nushell release |
-| `examples/winnow_parse.rs` | CLI: tree dump, `--check`, `--summary`, `--flat` | debug a file |
-| `examples/winnow_nufmt/` | A formatter over the AST | see how a consumer uses spans and comments |
+| `mod.rs` | `parse`, `parse_with`, `parse_lenient`, `parse_block_streaming`, re-exports | the public API |
+| `span.rs` | `Span`, `Spanned<T>`, `LineIndex`, `LineCol` | position handling |
+| `error.rs` | `ErrorKind`, `Diagnostic`, `ParseError`, rendering with source excerpts | error kinds and messages |
+| `input.rs` | The `Input` stream, `ParseFailure`, `ParseResult`, `cut`, `backtrack`, `into_diagnostic` | how positions and errors flow through winnow |
+| `lex.rs` | `Token`, `TokenContents`, `LexOptions`, `lex`, `lex_n_tokens`, `next_token`, `lex_recovering`, `lex_item`, `item_length` | what counts as an item or a delimiter |
+| `parser/mod.rs` | `ParseConfig`, the command-name sets, `parse`, `parse_block_streaming` and the entry points only the front end calls | configuration, the top-level driver |
+| `parser/working_set.rs` | `WorkingSet`, `CommandLookup`, `DeclKind`, scopes, collected comments, ignored text and diagnostics | scopes or what a parse collects |
+| `parser/tokens.rs` | The `Tokens` stream and the token parsers `item`, `call_item`, `keyword`, `pipe`, `eol`, `comment`, `expected`, `cut_with`, `repeat_to_end`, `tokens_until` | how parsers walk tokens |
+| `parser/lite_parser.rs` | `LiteCommand`, `parse_lite_command`, pipe continuation (`after_pipe_lines`, `after_pipe`, `take_pipe_on_later_line`), `lite_parse_parts` | command boundaries, comments, redirections, attributes |
+| `parser/parse_pipelines.rs` | `parse_block`, its loop `parse_statements`, `parse_pipeline`, `parse_pipeline_element`, `parse_redirection`, `BlockStatements`, `BlockSink` | pipelines, redirections, recovery |
+| `parser/parse_expressions.rs` | `parse_expression`, `parse_builtin_commands`, env shorthand, assignments, `parse_math_expression`, `parse_row_condition`, `parse_value`, `ExpectedShape`, `is_math_expression_like`, braces, lists, tables, records, match blocks | operators, precedence, value dispatch, disambiguation |
+| `parser/parse_calls.rs` | `parse_call`, `find_longest_decl`, `parse_call_arguments`, `parse_call_arguments_by_shape`, external and `%` calls, `parse_attribute`, `KeywordSignature`, `check_call` | argument parsing, command-name resolution |
+| `parser/call_shapes.rs` | `CallShapes`: a command's parameters as a call reads them, from a signature | how a parameter's shape is found |
+| `parser/parse_keywords.rs` | `is_statement_keyword`, the parser-keyword lists, `KeywordCall`, `parse_help_call`, `parse_block_argument` | how keyword statements take flags |
+| `parser/parse_def.rs` | `def`, `extern`, `for`, `parse_def_predecl`, `Definitions` | definitions and predeclaration |
+| `parser/parse_bindings.rs` | `let`, `mut`, `const` | bindings |
+| `parser/parse_alias.rs` | `alias` | aliases |
+| `parser/parse_type_alias.rs` | `type` | type aliases |
+| `parser/parse_module.rs` | `module`, `use`, `export`, `export-env` | modules and imports |
+| `parser/parse_source.rs` | `where`, where nu keeps it | `where` |
+| `parser/parse_control_flow.rs` | `if`, `match`, `while`, `loop`, `try`, `return`, `break`, `continue` | a control-flow statement |
+| `parser/parse_signatures.rs` | `[params]`, `(params)`, closure parameters, `: in -> out`, variable declarations | signatures |
+| `parser/parse_shape_specs.rs` | Type annotations, generic shapes, completers | types |
+| `parser/parse_patterns.rs` | `match` patterns | match syntax |
+| `parser/parse_literals.rs` | Numbers, units, datetimes, binary, escapes, strings, interpolation, `$` expressions, cell paths, ranges | a literal's syntax |
+| `parser/parse_helpers.rs` | Small shared helpers (`delimited_interior`, `garbage`, `is_spread`) | nothing; look here before writing a helper |
+| `ast/mod.rs` | All node types | nodes and fields |
+| `ast/visit.rs` | `Visitor` and `walk_*` | keep in step with the nodes |
+| `flatten.rs` | Source-ordered `(Span, FlatShape)` list | keep in step with the nodes |
+| `pretty.rs` | Tree dump used by the example and tests | keep in step with the nodes |
+| `builtin_commands.rs` | Generated built-in commands with their signatures | regenerate when commands change (chapter 09) |
+
+`examples/winnow_parse.rs` dumps trees and checks files. `examples/winnow_nufmt/` is a formatter
+over the tree, the reference for how a consumer uses spans and comments.
+
+### The front end
+
+Paths are under `src/winnow/`. Each lowering function is the counterpart of a nu-parser function and
+names it in its documentation.
+
+| File | Holds |
+| --- | --- |
+| `mod.rs` | The entry points nu-parser calls: `parse_file_block`, `parse_module_block`, `nested_block`, `parse_shorter_head_reading` |
+| `driver.rs` | The block loop: `parse_block`, `parse_rest`, `parse_ahead`, `Driver` |
+| `lookup.rs` | `EngineLookup`, `NamesSnapshot`, `AskedLookup`, `changed_answer` |
+| `stats.rs` | `WinnowStats` and the debug log of what the front end could not read |
+| `lower/mod.rs` | `Lower`, `Unlowered`, `nested_block`, `lexed_block` |
+| `lower/statement.rs` | Blocks, statements and pipelines; `statement_or_garbage`, `BlockErrors`, `BlockOf` |
+| `lower/keyword.rs` | Keyword statements, attributes and the `export` around a definition |
+| `lower/module.rs` | `module`, `use`, `export`, `hide`, the overlay commands |
+| `lower/source.rs` | `source`, `source-env`, `run`, `plugin use` |
+| `lower/call.rs` | Calls: arguments by signature, aliases, external commands |
+| `lower/expression.rs` | Expressions, math, assignments, row conditions |
+| `lower/value.rs` | Values: literals, variables, cell paths, lists, tables, records, closures, blocks |
+| `lower/leaf.rs` | Leaf values by shape: ports of nu's readers in `parse_literals.rs` |
+| `lower/signature.rs` | Signatures, parameter types, predeclaration of commands |
+| `lower/lite.rs` | nu's lite parse over winnow tokens, for text the lowering reads again |
+| `lower/math_items.rs` | Math read from items, through nu's operator stack |
+| `lower/block_text.rs`, `call_text.rs`, `layout_text.rs`, `list_text.rs`, `pattern_text.rs`, `record_text.rs`, `shape_text.rs`, `signature_text.rs` | Ports of nu's readers, used where the winnow parser read an item otherwise or went past an error in it |
+| `lower/delimiter_hint.rs` | The construct an unclosed delimiter's help names |
 
 ## The public API in one example
 
@@ -169,45 +211,38 @@ assert_eq!(diagnostics.len(), 1);
 println!("{}", diagnostics[0].render(ast.source, Some("script.nu")));
 ```
 
-`ParseConfig` carries the only piece of environment knowledge the parser
-uses: the set of known command names, needed to join multi-word heads such as
-`str trim`. Commands defined in the file being parsed are always recognised.
+`parse_block_streaming` is the engine-facing entry point: it takes a `CommandLookup` and a
+`BlockSink` and hands over definitions, then each statement.
 
 ## Design constraints, and why
 
-* **No engine state.** The parser must be usable by `nufmt`, editors and
-  linters without constructing a Nushell engine. Everything that needs
-  declarations is either configurable (`ParseConfig`) or deferred to the
-  consumer.
-* **Same acceptance as nu-parser.** Where nu-parser is lenient (a `|` inside
-  a list), so is this parser; where nu-parser rejects (`"abc"def`, `&&`,
-  `alias x = a | b`, keyword names for `def`), so does this parser. Chapter 09
-  describes the comparison tooling that keeps this true.
-* **Lossless enough for a formatter.** Every node has a span; every comment is
-  kept; strings keep their quote style; operators and keywords keep their
-  spans; layout can be recovered from the source through the spans.
-* **Zero-copy where cheap.** Bare words, identifiers, comments and un-escaped
-  string bodies borrow from the source (`&'a str` / `Cow::Borrowed`).
-* **Named like nu-parser.** Files, functions and working-set methods take
-  nu-parser's and nu-protocol's names, so the two parsers can be read side by
-  side and a difference in behaviour can be traced to a function of the same
-  name.
-* **Combinators at both levels.** Both `Input` and `Tokens` implement winnow's
-  `Stream` and `Location`, and the error type implements `ParserError` for
-  both. The lexer works on bytes (`next_token` skips whitespace and
-  dispatches on the next byte); sequence
-  parsers are winnow parsers over `Tokens` and compose with `repeat`, `opt`,
-  `alt`, `preceded`, `repeat_till` and the Pratt parser `expression`. Code
-  that mirrors a state machine of nu-parser stays a loop: `parse_block`'s
-  statement loop, `parse_lite_command`, the `ParseMode` machine of
-  `parse_parameters`, the token dispatch `lex_token` and the item scanner
+* **No engine state in the winnow parser.** `nufmt`, editors and linters can use it without
+  constructing a Nushell engine. Everything that needs declarations comes through `CommandLookup` or
+  `ParseConfig`, or is left to the consumer.
+* **Same acceptance as nu-parser.** Where nu-parser is lenient (a `|` inside a list), so is this
+  parser. Where it rejects (`"abc"def`, `&&`, `alias x = a | b`, keyword names for `def`), so does
+  this parser. Chapter 09 describes the tooling that keeps this true.
+* **Lossless enough for a formatter.** Every node has a span, every comment is kept, strings keep
+  their quote style, and operators and keywords keep their spans.
+* **Zero-copy where cheap.** Bare words, identifiers, comments and un-escaped string bodies borrow
+  from the source.
+* **Named like nu-parser.** The two parsers can be read side by side, and a difference in behaviour
+  can be traced to a function of the same name.
+* **Combinators at both levels, loops where nu has a state machine.** `Input` and `Tokens` both
+  implement winnow's `Stream` and `Location`, and the error type implements `ParserError` for both.
+  Code that mirrors a state machine of nu-parser stays a loop: `parse_block`'s statement loop,
+  `parse_lite_command`, the `ParseMode` machine of `parse_parameters`, `lex_token` and
   `item_length`.
-* **Cheap failures.** Combinators try alternatives all the time, so a failed
-  alternative must cost nothing. A backtrack carries only a byte offset; only
-  a real error (a cut) builds and boxes a `Diagnostic` (chapter 03).
-* **No speculation.** Every choice (range or string? record, closure or
-  block? math or call?) is made by inspecting text before parsing it.
-  Combinators backtrack only at the first token of an alternative, before
-  anything is recorded, so nothing is parsed twice (one exception, `--help`
-  on a keyword statement, is described in chapter 03) and no recorded state
-  has to be undone.
+* **Cheap failures.** Combinators try alternatives all the time. A backtrack carries only a byte
+  offset, and only a cut builds and boxes a `Diagnostic` (chapter 03).
+* **No speculation.** Every choice (range or string? record, closure or block? math or call?) comes
+  from inspecting text before parsing it. Combinators backtrack only at the first token of an
+  alternative, before anything is recorded, so recorded state never needs undoing. There are three
+  exceptions, all copied from nu: a keyword statement with `--help` is parsed again as a call
+  (chapter 03), a `oneof<...>` default tries its shapes in turn (chapter 06), and a range with a `{`
+  in its text is parsed to see whether it is a range at all (chapter 06).
+* **No fallback to nu-parser.** nu-parser's statement parser never runs with the option on. What the
+  front end can't read is a garbage pipeline with an error, and `WinnowStats` counts it.
+* **Shared code reads no text.** The lowering calls nu-parser only for what follows parsing:
+  `finish_def`, `finish_use`, `compile_block`, type checks. `tests/winnow/nu_parser_uses.rs` lists
+  that code and fails on any other use.

@@ -107,4 +107,4 @@ conditions.
 The in-tree lowering covers what the bridge does not (the module system,
 `const`, `extern`, attributes, redirections, environment shorthand) and
 produces the same AST as `nu-parser`; see
-`src/winnow/docs/nushell-integration-plan.md` in nu-parser.
+`src/winnow/docs/nushell-integration.md` in nu-parser.

@@ -1,46 +1,33 @@
 # 03 Streams, errors and the working set
 
-Files: `src/winnow/syntax/input.rs`, `src/winnow/syntax/parser/tokens.rs`, `src/winnow/syntax/parser/working_set.rs`,
-`src/winnow/syntax/error.rs`, `src/winnow/syntax/parser/mod.rs`.
+Files: `src/winnow/syntax/input.rs`, `src/winnow/syntax/parser/tokens.rs`,
+`src/winnow/syntax/parser/working_set.rs`, `src/winnow/syntax/error.rs`.
 
 ## Two winnow streams
 
-winnow parsers are functions `fn(&mut Stream) -> Result<Output, ErrMode<E>>`.
-The parser has two stream types: one over characters and one over the tokens
-the lexer produced. Both fail with the same error type, so the same
-combinators and the same `?` work at both levels.
+winnow parsers are functions `fn(&mut Stream) -> Result<Output, ErrMode<E>>`. This parser has one
+stream over characters and one over the tokens the lexer produced. Both fail with the same error
+type, so the same combinators and the same `?` work at both levels.
 
 ### Characters: `Input`
-
-The lexer, the record parser (which lexes one token at a time with
-`next_token`) and `unescape_string` read [`Input`](crate::winnow::syntax::input::Input):
 
 ```rust,ignore
 /// Character-level stream with absolute positions.
 pub type Input<'a> = Stateful<LocatingSlice<&'a str>, Base>;
-```
 
-`Input` wraps a `&str` slice in winnow's `LocatingSlice` (which tracks the
-offset within the slice) and `Stateful` (which carries `Base(usize)`, the
-absolute offset of the slice's first byte). `input(text, base)` creates one,
-and `pos(input)` adds the two offsets, so a parser working on the interior of
-a list nested three levels deep still produces absolute spans:
-
-```rust,ignore
 pub fn pos(input: &Input<'_>) -> usize { input.state.0 + input.current_token_start() }
-pub fn span_from(input: &Input<'_>, start: usize) -> Span { Span::new(start, pos(input)) }
 ```
 
-Small recognisers that only answer yes or no (`parse_int`, `is_datetime`)
-run winnow over a plain `&str` with winnow's `EmptyError`, since they have no
-diagnostic to report.
+[`Input`](crate::winnow::syntax::input::Input) wraps a `&str` in winnow's `LocatingSlice`, which
+tracks the offset within the slice, and `Stateful`, which carries `Base(usize)`, the absolute offset
+of the slice's first byte. A parser inside a list nested three levels deep still produces absolute
+spans. `input(text, base)` creates one. The lexer, `parse_record` and `unescape_string` read this
+stream.
 
 ### Tokens: `Tokens`
 
-nu-parser walks the spans of a command by index. Here the items of one
-command, or of a bracketed interior, are a `Tokens` stream
-(`src/winnow/syntax/parser/tokens.rs`): a slice of tokens, a position, the byte offset
-where the slice ends, and the working set of the parse:
+nu-parser walks the spans of a command by index. Here the items of one command, or of a bracketed
+inside, are a `Tokens` stream:
 
 ```rust,ignore
 #[derive(Clone, Copy)]
@@ -52,55 +39,46 @@ pub struct Tokens<'t, 'a> {
 }
 ```
 
-`Tokens` implements winnow's `Stream` (a token is a `&Token`, a checkpoint is
-a `TokenPosition`, an index into the tokens), `StreamIsPartial` (the input is
-always complete), `Offset`, and `Location` in source byte offsets, so winnow's
-`.with_span()` and `.span()` give source ranges. A parser over tokens is
-therefore a plain `fn(&mut Tokens<'_, 'a>) -> ParseResult<T>` that winnow's
-combinators can drive. It reaches the working set through
-`tokens.working_set`, so the stream is the only argument it needs, which is
-what lets it have the shape of a winnow parser.
+`Tokens` implements winnow's `Stream` (a token is a `&Token`), `StreamIsPartial` (the input is
+always complete), `Offset`, and `Location` in source byte offsets, so `.with_span()` and `.span()`
+give source ranges. The stream reaches the working set through `tokens.working_set`, so it can be a
+parser's only argument, which is what gives token parsers winnow's shape. A copy of a stream is an
+independent position, which is how a parser keeps the start of a statement while it reads on.
 
-A copy of a stream is an independent position, which is how a parser keeps
-the start of a statement while it reads on. Its methods:
+Because the stream knows where its slice ends, "expected block" after `if $x` points just past `$x`
+even with no token there. The lexer's `Eof` token only seeds that end position. Parsers never see
+it.
 
 | Method | Purpose |
 | --- | --- |
-| `Tokens::new(working_set, &tokens, end)`, `Tokens::from_lexed(working_set, &tokens)` | A stream over tokens that end at `end`, or over lexer output, whose last token is `Eof` |
-| `peek_token()`, `next_token()`, `at_end()` | Walk the tokens (also winnow's `Stream::peek_token` and `Stream::next_token`) |
+| `Tokens::new(working_set, &tokens, end)`, `Tokens::from_lexed(working_set, &tokens)` | A stream over tokens that end at `end`, or over lexer output ending in `Eof` |
+| `peek_token()`, `next_token()`, `at_end()` | Walk the tokens |
 | `text(&token)` | The source text of a token |
-| `expect_item("what")` | The next `Item`, or `expected what` at the next token (or at `end` when the input ran out) |
+| `expect_item("what")` | The next `Item`, or `expected what` at the next token |
 | `expect_end()` | `ExtraTokens` unless everything was consumed |
 | `here()`, `end_span()`, `span()` | The span of the next token, the empty span at the end, the span of all the tokens |
 | `remaining()`, `all()` | The tokens not yet consumed, and all of them |
-| `slice(a..b)`, `rest_stream()` | An independent stream over part of the tokens, ending where the next token starts |
-| `position()`, `reset_to(position)` | Save and restore a position (the statement loop uses it to skip a failed statement) |
+| `slice(a..b)`, `rest_stream()`, `over(&tokens)` | An independent stream over part of the tokens, or over other tokens |
+| `position()`, `reset_to(position)` | Save and restore a position |
 | `consume_rest()` | Consume what is left and return its span |
-| `token_after(offset)` | The token right after a byte offset (the operator after its left operand) |
-
-Because a stream knows where its slice ends, "expected block" after `if $x`
-points just past `$x` even though there is no token there. The `Eof` token
-the lexer produces is only used to seed that end position; parsers never see
-it.
+| `token_after(offset)` | The token right after a byte offset |
 
 ## Token parsers
 
-The bottom of `src/winnow/syntax/parser/tokens.rs` holds the parsers the others are
-written in:
+`tokens.rs` ends with the parsers the others are written in:
 
 | Parser | Matches |
 | --- | --- |
 | `item` | Any item |
-| `keyword(word)` | An item spelled exactly `word`, such as `else`, `in` or `=>` |
+| `call_item` | An item, or an assignment operator, pipe or redirection read as a word, as a call reads what follows an `=` |
+| `keyword(word)` | An item spelled exactly `word`, such as `else` or `=>` |
 | `pipe`, `eol`, `comment` | A pipe, an end of line, a comment |
-| `expected(what, parser)` | `parser`, committed: where it does not match, the error `expected <what>` at the next token, and no alternative is tried |
-| `cut_with(parser, error)` | Like `expected`, with a diagnostic that `error` builds from the stream |
-| `repeat_to_end(parser)` | `parser` repeated until the tokens run out (`repeat_till(0.., parser, eof)`); wrap `parser` in `expected` so a token it does not match is an error |
-| `tokens_until(word)` | The tokens up to the item `word` (or the end), as a stream of their own; the stream is left at `word` |
+| `expected(what, parser)` | `parser`, committed: where it doesn't match, the error `expected <what>`, and no alternative is tried |
+| `cut_with(parser, error)` | Like `expected`, with a diagnostic built from the stream |
+| `repeat_to_end(parser)` | `parser` repeated until the tokens run out |
+| `tokens_until(word)` | The tokens up to the item `word` or the end, as a stream of their own |
 
-The first five each match one token or backtrack. With them, a rule of the
-grammar reads like the rule. The lite parser's pipe continuation,
-`Eol (Comment Eol)* Pipe`:
+With these, a grammar rule reads like the rule. The pipe continuation, `Eol (Comment Eol)* Pipe`:
 
 ```rust,ignore
 fn pipe_on_later_line(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Token>> {
@@ -120,25 +98,15 @@ fn parse_match_arm<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<MatchArm<'a>>
 }
 ```
 
-Math expressions use winnow's Pratt parser:
-`expression(parse_math_operand).infix(infix_operator)`.
-
-One rule keeps backtracking safe: a token parser backtracks only at its first
-token, before it has consumed anything or recorded anything in the working
-set. After that every failure is a cut. `opt(parse_match_guard)` backtracks
-when the next token is not `if`; once it has seen the `if`, a missing
-condition is an error.
-
-Parsers that read *one* item do not use the stream: they take the working set
-and the item's span, like nu's `parse_value(working_set, span, shape)`.
-Parsers that mirror one of nu-parser's own state machines stay plain loops:
-`parse_block`'s statement loop, `parse_lite_command`, and the `ParseMode`
-machine in `parse_parameters`.
+One rule keeps backtracking safe: a token parser backtracks only at its first token, before it has
+consumed or recorded anything. After that every failure is a cut. `opt(parse_match_guard)`
+backtracks when the next token isn't `if`, and once it has seen the `if`, a missing condition is an
+error.
 
 ## `ParseResult` and `ParseFailure`
 
 Every parser returns [`ParseResult<T>`](crate::winnow::syntax::input::ParseResult), a
-`ModalResult<T, ParseFailure>` (`src/winnow/syntax/input.rs`):
+`ModalResult<T, ParseFailure>`:
 
 ```rust,ignore
 pub enum ParseFailure {
@@ -151,43 +119,25 @@ pub enum ParseFailure {
 
 winnow's `ErrMode` keeps its normal meaning:
 
-* `backtrack(offset)`: `ErrMode::Backtrack(ParseFailure::NoMatch(offset))`.
-  This branch does not apply; `alt`, `opt` and `repeat` may try another.
-* `cut(diagnostic)`: `ErrMode::Cut(ParseFailure::Error(..))`. A real syntax
-  error; no alternative will be tried. `expected` and `cut_with` turn a
-  backtrack into a cut.
+* `backtrack(offset)` means this branch doesn't apply, and `alt`, `opt` and `repeat` may try
+  another.
+* `cut(diagnostic)` is a real syntax error, and no alternative is tried. `expected` and `cut_with`
+  turn a backtrack into a cut.
 
-A backtrack carries only a position because combinators backtrack all the
-time: every `opt` that finds nothing, every `repeat` when it stops, every
-`alt` branch that does not apply. If a backtrack built a `Diagnostic` (an
-error kind, a context vector, help text), each of those would allocate. As a
-byte offset it costs nothing, and the boxed diagnostic keeps `ParseFailure`
-two words wide, so every `ParseResult` is cheap to return. This is a large
-part of why the combinator parser is as fast as the hand-written loops it
-replaced. A diagnostic is built only for a cut, which ends the statement, or
-for an error the parser records and goes on past (`WorkingSet::error`). One
-marked `Diagnostic::as_recovered` leaves the statement's tree complete: a
-malformed literal read with any shape becomes a garbage leaf over the item
-(`recover_literal`, which turns a cut inside the item into that: nu reports
-any error of an item and reads on), and a bare word with a `:` in a record
-keeps its word. The statement still
-fails `parse`; nu-parser's driver lowers it all the same, reading each such
-item again with nu's leaf parser, which reports nu's error.
+A backtrack carries only a position because combinators backtrack constantly: every `opt` that finds
+nothing, every `repeat` when it stops, every `alt` branch that doesn't apply. As a byte offset it
+allocates nothing. The boxed diagnostic keeps `ParseFailure` two words wide, so every `ParseResult`
+is cheap to return.
 
-`ParseFailure` implements winnow's error traits for both `Input` and
-`Tokens`: `ParserError` (`from_input` backtracks at the current position;
-`or` keeps the failure that got furthest), `AddContext` (winnow's
-`.context(..)` pushes a grammar label) and `FromExternalError` (for
-`try_map`). The helpers:
+`ParseFailure` implements winnow's `ParserError` (`or` keeps the failure that got furthest),
+`AddContext` and `FromExternalError` for both streams. The helpers:
 
-* `into_diagnostic(error)` turns a failed parse into the reported
-  `Diagnostic`; a stray backtrack becomes "expected valid syntax" at its
-  offset.
-* `ParseFailure::with_context(context)` records the construct being parsed
-  (innermost first); `parse_builtin_commands` adds the statement's name this
-  way.
-* `ParseFailure::map_diagnostic(change)` changes the diagnostic of a cut and
-  leaves a backtrack alone.
+* `into_diagnostic(error)` turns a failed parse into the reported `Diagnostic`. A stray backtrack
+  becomes "expected valid syntax" at its offset.
+* `ParseFailure::with_context(context)` records the construct being parsed, innermost first.
+  `parse_builtin_commands` adds the statement's name this way.
+* `ParseFailure::map_diagnostic(change)` changes the diagnostic of a cut and leaves a backtrack
+  alone.
 
 ```rust
 use nu_parser::winnow::syntax::input::{backtrack, cut, into_diagnostic, ParseFailure};
@@ -206,9 +156,8 @@ assert!(matches!(d.kind, ErrorKind::Expected("type")));
 assert_eq!(d.context, vec!["signature"]);
 ```
 
-A diagnostic created deep inside a nested item already carries its absolute
-span, the grammar context (`while parsing signature`) and help text, and it
-propagates through `?` and combinators like any winnow error:
+A diagnostic created deep inside a nested item already carries its absolute span, the grammar
+context and help text:
 
 ```rust
 use nu_parser::winnow::syntax::{parse, ErrorKind};
@@ -222,98 +171,20 @@ assert!(text.contains("--> t.nu:1:12"));
 assert!(text.contains("while parsing signature"));
 ```
 
-`ParseError` (the type returned by `parse`) is a non-empty `Vec<Diagnostic>`
-sorted by position; `render` prints each with a source excerpt and caret.
+`ParseError`, the type `parse` returns, is a non-empty `Vec<Diagnostic>` sorted by position.
+`render` prints each with a source excerpt and caret.
 
-## The working set
+## Statement recovery
 
-```rust,ignore
-pub struct WorkingSet<'a> {
-    pub source: &'a str,                   // the whole source text
-    config: ParseConfig,                   // the built-in command names
-    comments: RefCell<Vec<Comment>>,
-    ignored: RefCell<Vec<Span>>,           // text nu accepts and discards (`Ast::ignored`)
-    parse_errors: RefCell<Vec<Diagnostic>>,
-    scopes: RefCell<Vec<CommandSet>>,      // declared command names, innermost scope last
-}
-```
+`parse_statements` in `parse_pipelines.rs`, the loop that `parse_block` and `BlockStatements::parse`
+run, is where a cut stops. It records the diagnostic, emits a pipeline whose single element is
+`Expr::Garbage` over the statement, and goes on after it. The statement ends:
 
-`WorkingSet` (`src/winnow/syntax/parser/working_set.rs`) plays the part of nu-parser's
-`StateWorkingSet`. `parse` in `src/winnow/syntax/parser/mod.rs` creates one per parse, and
-every parser function takes it as its first argument,
-`working_set: &WorkingSet<'a>`, as nu-parser's functions do, or reaches it
-through `tokens.working_set`. Where the two overlap the methods have nu's
-names.
+* where the lite parse ended it, when the error came after that, past a `|` that goes on to the next
+  line and the comments on its lines;
+* otherwise at the next `Eol` or `;`, by `skip_to_statement_end`.
 
-nu passes `&mut StateWorkingSet`. Here the mutable parts sit behind
-`RefCell`s instead, so a shared `&WorkingSet` is enough: the closures handed
-to winnow's combinators can all capture it, and `Tokens` can carry it while
-being `Copy`. Methods you will use:
-
-| Method | Purpose |
-| --- | --- |
-| `get_span_contents(span)` | Borrow source text (on a stream, `tokens.text(&token)`) |
-| `lex(working_set.get_span_contents(span), span.start, options)` | Lex a region of the source: the standard way to re-lex an item's interior |
-| `error(diagnostic)` | Record a recovered error: parsing goes on (block-level recovery, and checks that do not stop the parse); one marked `as_recovered` leaves a complete tree the consumer reads again |
-| `add_comment(span)`, `add_comments(&tokens)` | Record comments found while parsing nested constructs |
-| `add_ignored(span)`, `remove_ignored_from(offset)` | Record text nu accepts and never looks at, or drop what was recorded from an offset on |
-| `find_decl(name)` | Whether `name` is a command: `Some(DeclKind::Declared)` for a `def`/`extern`/`alias` in an enclosing block (it shadows a built-in; the innermost wins), `Some(DeclKind::ExternalAlias)` for an alias of an external command, `Some(DeclKind::Wrapped)` for a `def --wrapped` with an untyped rest parameter or an alias of one (its arguments parse as external arguments), `Some(DeclKind::RowCondition)` for a command whose first positional is a row condition (`any`, `take while`) or an alias of one without arguments (its arguments parse as one condition), `Some(DeclKind::KeywordAlias(_))` for an alias of `if`, `match` or `try` without arguments (a call to it parses as the keyword's statement), `Some(DeclKind::OverlayAlias)` for an alias of `overlay use`, `overlay hide` or `overlay new` (a call to it is an ordinary call that changes which commands exist, so the block it is in is left unparsed for the consumer to parse again), `Some(DeclKind::Builtin)` for another configured command, or `None` (an external command when a table is configured) |
-| `is_declared(name)`, `is_decl_name_prefix(word)` | A declaration in scope; the first word of a known multi-word command |
-| `has_builtin_decls()`, `find_builtin_decl(name)` | Whether the parse knows which commands exist (an engine answers, or a command table is configured), and whether some declaration named `name` is a built-in command, visible or not (shadowed or hidden), and how calls to it parse: what `%name` may call, as nu-parser's `find_decl_with_command_type(.., CommandType::Builtin)` finds it |
-| `add_predecl(name, kind)` | Declare a `def`/`extern` before its block is parsed, so calls to it resolve (nu's `add_predecl`); `kind` is `Wrapped` or `Declared` |
-| `add_alias(name, kind)` | Declare an alias once its statement is parsed (nu never predeclares one), with the kind of its target: `ExternalAlias` for an external call, `Wrapped` for a call to a wrapped command, `OverlayAlias` for a call to an overlay command, `RowCondition` or `KeywordAlias` for a call without arguments to a row-condition command or to `if`, `match` or `try`, else `Declared` |
-| `enter_scope()` / `exit_scope()` | Declaration scopes for closures, blocks and subexpressions |
-
-At the end of the parse `into_collected` hands back the comments and the
-ignored text, sorted by position and without duplicates, and the diagnostics,
-sorted by position.
-
-### No speculation
-
-Nothing in the parser tries one parse and falls back to another. Every
-decision that nu-parser makes by "try it and see" is made here by looking at
-the text first: `is_range_syntax` decides whether an item is a range before
-any bound is parsed, `is_math_expression_like` decides whether a command head
-starts a math expression, and the `{ ... }` probe (chapter 06) decides
-record, closure or block from two tokens. The combinators backtrack, but only
-at a first token (see the rule above), so they never undo work either. The
-consequence is that comments and diagnostics can be recorded as soon as they
-are seen, with no snapshot to undo, and an error is always reported for the
-construct the user wrote (a bad range bound says "expected number", not
-"unknown command").
-
-There is one exception, copied from nu: a keyword statement with `--help`
-(`def --help`) is an ordinary call to the command's help. The statement's
-parser notices the flag (`KeywordCall::wants_help`), and `parse_help_call`
-then parses the statement again as a call, after `remove_ignored_from` has
-dropped the ignored text recorded for it.
-
-Comments are de-duplicated at the end of the parse (sorted and `dedup`ed),
-so a region that is parsed twice, such as the arguments of a statement parsed
-again as a help call, does not record its comments twice.
-
-## Error recovery
-
-Recovery happens in exactly one place: `parse_statements` in
-`src/winnow/syntax/parser/parse_pipelines.rs`, the statement loop that `parse_block` and
-`BlockStatements::parse` run. When a pipeline fails to parse it records
-the diagnostic and emits a pipeline whose single element is `Expr::Garbage`
-covering the statement, then goes on after it. The diagnostic is recorded
-as not recovered, even one marked recovered where it was made: such an error
-is gone past only by its construct's own parser (a record, a math
-expression, a value read with any shape), and one that reached the statement
-loop was gone past by nothing, so the statement stays garbage: the front end
-reports it as a syntax error. Where the statement ends:
-
-* where `parse_pipeline`'s lite parse ended it, when the error came after
-  that (in a command), as nu's lite parser ends it: past a `|` that goes on
-  to the next line, the comments on its lines included;
-* otherwise (the lite parse itself failed, or a `|` that no command follows
-  hands on to the next statement), at the next `Eol` or `;`
-  (`skip_to_statement_end`).
-
-Because every block (closure body, `if` body, subexpression, `let` value)
-goes through the same function, an error inside a nested block does not fail the enclosing
+Every block goes through this loop, so an error in a nested block doesn't fail the enclosing
 statement:
 
 ```rust
@@ -332,10 +203,119 @@ match &def.expr {
 }
 ```
 
-A corollary for contributors: `parse_block` cannot fail. It returns a
-`Block`, with its errors recorded in the working set. So decide *before*
-parsing a block whether the item is a block; never parse one to find out, and
-never let a combinator backtrack over a block that was parsed.
+`parse_block` can't fail. It returns a `Block` with its errors recorded in the working set. So
+decide before parsing a block whether the item is a block. Never parse one to find out, and never
+let a combinator backtrack over a block that was parsed.
 
-`parse` returns `Err` if any diagnostic was recorded; `parse_lenient` returns
-the partial tree together with the diagnostics.
+`parse` returns `Err` if any diagnostic was recorded. `parse_lenient` returns the partial tree with
+the diagnostics.
+
+## Recovered errors
+
+nu-parser reports many errors and keeps going, building garbage or an ordinary call in place of what
+it wanted. Later statements then see its declarations, and its error list has the same order and
+content. To match that, an error here can be **recovered**: the parser records a diagnostic marked
+with `Diagnostic::as_recovered` and leaves a complete tree. Chapters 04 to 07 use this one word for
+the whole mechanism.
+
+A recovered statement leaves one of three things in the tree:
+
+| Form | When | Made by | The lowering then |
+| --- | --- | --- | --- |
+| **Garbage leaf** over the item | A value nu's reader goes past an error in: a malformed literal, a list with a `;`, a bad cell path | `recover_literal`, `recover_as_garbage`, `garbage_match_block` | Reads the leaf's text with its port of nu's reader, which reports nu's error and builds nu's expression |
+| **Call form**: the statement becomes an ordinary `Call` to the keyword | A keyword statement nu reads as its call and reports an error for: `for x in []`, `let x =`, `def $x [] {}` | `KeywordCall::call_after`, `call_after_error`, `signature_error_call` | Checks the call against the keyword's signature and finishes it with `finish_def`, `finish_extern`, `finish_for`, ... |
+| **The node as written** | The construct stands and nu only complains | `working_set.error(.. .as_recovered())` | Reports nu's error as it lowers the node (`let a int = 1`, `1 = 2`) |
+
+Alone, a recovered diagnostic is an ordinary error: `parse` fails on it and `parse_lenient` returns
+it. In the shell the driver lowers a statement whose every diagnostic is recovered and drops those
+diagnostics, because the lowering reports nu's own error. A statement with any other diagnostic is a
+garbage pipeline with that error (`Driver::take_statement`).
+
+**Call form with nothing recorded.** Some errors only a signature reveals: `MissingPositional`,
+`ExtraPositional` and `UnknownFlag`, as in `loop`, `break x` and `return -1`.
+`KeywordCall::missing`, `call_flags` and `end` make those statements the call form and record no
+diagnostic, and an incomplete alias (`alias x ls`) works the same way. They pass `parse` when the
+parser runs alone, which is why their fixtures are `accept/**/*-is-consumer.nu`. In the shell the
+lowering reports them.
+
+Marked recovered is not enough on its own. `parse_statements` records every cut it catches as not
+recovered, even one marked recovered where it was made. Only a construct's own parser can go past an
+error, and one that reached the statement loop was gone past by nothing.
+
+## The working set
+
+```rust,ignore
+pub struct WorkingSet<'a> {
+    pub source: &'a str,                   // the whole source text
+    config: ParseConfig,                   // the commands, when there is no lookup
+    lookup: Option<Box<dyn CommandLookup + 'a>>,  // the engine, in the shell
+    comments: RefCell<Vec<Comment>>,
+    ignored: RefCell<Vec<Span>>,           // text nu accepts and discards (`Ast::ignored`)
+    parse_errors: RefCell<Vec<Diagnostic>>,
+    lex_errors: RefCell<Vec<(Span, LexError)>>,  // errors nu's lexer goes on past
+    scopes: RefCell<Vec<Scope>>,           // declared command names, innermost scope last
+    groups: RefCell<GroupEnds>,            // where bracket groups close (chapter 02)
+    // ...
+}
+```
+
+`WorkingSet` plays the part of `StateWorkingSet`, and where the two overlap the methods have nu's
+names. nu passes `&mut StateWorkingSet`. Here the mutable parts sit behind `RefCell`s, so a shared
+`&WorkingSet` is enough: the closures handed to combinators can all capture it, and `Tokens` can
+carry it while staying `Copy`.
+
+| Method | Purpose |
+| --- | --- |
+| `get_span_contents(span)` | Borrow source text |
+| `lex(span, options)`, `lex_n_tokens`, `next_token`, `group_end` | Lex a region of the source, with the parse's `GroupEnds` |
+| `lex_block(span, options)`, `lex_lenient`, `lex_probe`, `first_lex_error_in(span)` | Lex through errors nu's lexer goes past, keep them, and find a block's first |
+| `error(diagnostic)` | Record an error and go on |
+| `add_comment(span)`, `add_comments(&tokens)` | Record comments found in nested constructs |
+| `add_ignored(span)`, `remove_ignored_from(offset)` | Record text nu accepts and never looks at, or drop what was recorded from an offset on |
+| `find_decl(name)` | Whether `name` is a command, and its `DeclKind` |
+| `is_declared(name)`, `is_decl_name_prefix(word)` | A declaration in scope; the first word of a known multi-word command |
+| `has_builtin_decls()`, `find_builtin_decl(name)` | Whether the parse knows which commands exist; whether a built-in of that name exists, visible or not, which is what `%name` may call |
+| `add_predecl(name, kind)`, `declare_signature(name, signature, external)` | Declare a `def` or `extern` before its block is parsed |
+| `add_alias(name, kind)` | Declare an alias once its statement is parsed, with the kind of its target. nu never predeclares one |
+| `call_shapes(name)`, `note_import()` | The parameters a call reads its arguments by when there is no lookup (chapter 05); `note_import` turns the configured ones off after a `use` |
+| `enter_scope()`, `exit_scope()` | Declaration scopes for closures, blocks and subexpressions |
+
+At the end of the parse `into_collected` hands back the comments and ignored text, sorted and
+without duplicates, and the diagnostics sorted by position.
+
+### `DeclKind`
+
+`find_decl` returns how calls to a command parse:
+
+| `DeclKind` | Command | A call to it |
+| --- | --- | --- |
+| `Builtin` | A configured command | Reads its arguments by signature when alone, one by one with a lookup |
+| `Declared` | A `def`, `extern` or `alias` in an enclosing block, which shadows a built-in; the innermost wins | Same |
+| `ExternalAlias` | An alias of an external command | Is an external call |
+| `Wrapped` | A `def --wrapped` with an untyped rest parameter, or an alias of one | Reads every argument as an external argument |
+| `RowCondition` | A command whose first positional is a row condition (`any`, `take while`), or an alias of one without arguments | Reads its arguments as one condition |
+| `KeywordAlias(_)` | An alias of `if`, `match` or `try` without arguments | Parses as the keyword's statement |
+| `OverlayAlias` | An alias of `overlay use`, `overlay hide` or `overlay new` | Is an ordinary call that changes which commands exist, so its block is left for the lowering to parse again |
+
+### Looking before parsing
+
+The parser decides by looking at text, not by trying. `is_range_syntax` decides whether an item is a
+range before any bound is parsed, `is_math_expression_like` decides whether a head starts a math
+expression, and the `{ ... }` probe decides record, closure or block from two tokens. Comments and
+diagnostics can therefore be recorded as soon as they are seen, with no snapshot to undo, and an
+error is reported for the construct the user wrote: a bad range bound says "expected number", not
+"unknown command".
+
+Three exceptions are copied from nu:
+
+* A keyword statement with `--help` (`def --help`) is an ordinary call to the command's help. The
+  statement's parser notices the flag through `KeywordCall`, and `parse_help_call` parses the
+  statement again as a call, after `remove_ignored_from` has dropped the ignored text recorded for
+  it. Comments are deduplicated at the end of the parse, so a region parsed twice doesn't record its
+  comments twice.
+* A `oneof<...>` default tries its shapes in turn (`parse_oneof`).
+* A range with a `{` in its text is parsed to see whether it is a range at all, and what that
+  reports is dropped (`is_math_expression_like_at`).
+
+The lowering tries alternatives where nu does, such as a `oneof` argument, and a closure row
+condition that it reads again with `$it` declared.

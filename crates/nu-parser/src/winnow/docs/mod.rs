@@ -46,5 +46,5 @@ pub mod how_to {}
 #[doc = include_str!("../../../examples/winnow_nufmt/README.md")]
 pub mod nufmt_readme {}
 
-#[doc = include_str!("nushell-integration-plan.md")]
-pub mod nushell_integration_plan {}
+#[doc = include_str!("nushell-integration.md")]
+pub mod nushell_integration {}
