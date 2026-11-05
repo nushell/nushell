@@ -69,12 +69,7 @@ jobs:
           cache-all-crates: true
           cache-workspace-crates: true
 
-      - &step_fmt
-        name: Fmt
-        working-directory: ${{ env.working-directory }}
-        run: |
-          rustup component add rustfmt
-          cargo fmt --all --check
+      # Fmt and Clippy run in the parallel lint job so they stay off the build/test critical path.
 
       - &step_check
         name: Check
@@ -83,17 +78,6 @@ jobs:
           cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
           check ${{ env.cargo-options }} 
           --profile ${{ env.profile }}
-
-      - &step_clippy
-        name: Clippy
-        working-directory: ${{ env.working-directory }}
-        run: >-
-          rustup component add clippy
-
-          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          clippy ${{ env.cargo-options }} 
-          --profile ${{ env.profile }} 
-          -- -D warnings
 
       - &step_build
         name: Build
@@ -169,6 +153,45 @@ jobs:
         name: Assert Clean Repo
         shell: bash
         run: test -z "$(git status --porcelain)"
+
+  # Fmt + Clippy on their own runners so root can build/test without waiting on them.
+  # Same platforms, same cargo-options/profile, same warning-deny Clippy flags as before.
+  lint:
+    name: ${{ matrix.platform.name }} / lint
+    runs-on: ${{ matrix.platform.runner }}
+    if: *job_if
+    env:
+      build-target: ${{ matrix.platform.target }}
+      working-directory: ${{ github.workspace }}
+      cargo-options: --workspace --all-targets
+      profile: ci
+    strategy:
+      matrix:
+        platform: *platforms
+    steps:
+      - *step_checkout_repo
+      - *step_setup_rust_toolchain
+      - *step_cache_rust
+
+      - &step_fmt
+        name: Fmt
+        working-directory: ${{ env.working-directory }}
+        run: |
+          rustup component add rustfmt
+          cargo fmt --all --check
+
+      - &step_clippy
+        name: Clippy
+        working-directory: ${{ env.working-directory }}
+        run: >-
+          rustup component add clippy
+
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
+          clippy ${{ env.cargo-options }} 
+          --profile ${{ env.profile }} 
+          -- -D warnings
+
+      - *step_assert_clean_repo
 
   root_wasm:
     name: WASM / root
