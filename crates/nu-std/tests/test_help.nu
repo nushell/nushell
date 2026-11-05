@@ -30,6 +30,15 @@ def show_help_on_error_make [] {
 }
 
 @test
+def collapsed_example_result_matches_table_collapse [] {
+    let help_lines = (help table | ansi strip | lines)
+    let example_line = ($help_lines | enumerate | where item == "  > [[a b]; [1 2] [3 [4 4]]] | table --collapse" | first | get index)
+    let expected = ([[a b]; [1 2] [3 [4 4]]] | table --collapse | to text | ansi strip | str trim --right | lines | each { $"  ($in)" })
+
+    assert equal ($help_lines | skip ($example_line + 1) | take ($expected | length)) $expected
+}
+
+@test
 def external_help_preserves_sigil_characters_inside_command_name [] {
     let dir = (mktemp -d)
     let name = "test-%.nu"
