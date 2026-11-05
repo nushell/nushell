@@ -67,7 +67,10 @@ jobs:
         with:
           workspaces: ${{ env.working-directory }} -> target
           cache-all-crates: true
-          cache-workspace-crates: true
+          # Workspace crates are recompiled after an exact cache hit anyway (fingerprint
+          # mismatch), while restoring them dominates Cache Rust on Windows (~2.8 GB, ~54s).
+          # Cache dependencies only so restores stay small and useful.
+          cache-workspace-crates: false
 
       - &step_fmt
         name: Fmt
