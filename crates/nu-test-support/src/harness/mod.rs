@@ -183,7 +183,7 @@ fn print_report_times<GroupKey, GroupCtx>(
                 .map(|(name, outcome)| (*name, outcome.duration))
         })
         .collect();
-    timed.sort_by(|a, b| b.1.cmp(&a.1));
+    timed.sort_by_key(|(_, duration)| std::cmp::Reverse(*duration));
     eprintln!();
     eprintln!("slowest tests (--report-time):");
     for (name, duration) in timed.iter().take(50) {
