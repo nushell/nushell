@@ -6,7 +6,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_protocol::{
-    Config, EditBindings, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type, Value,
+    Config, EditBindings, EditModeName, KeyCodeSpec, KeyModifier, MenuInputMode, MenuLayout,
+    MenuOutputMode, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type,
+    VALID_KEYBINDING_MODES, Value,
     engine::{Closure, EngineState, Stack},
     extract_value,
 };
@@ -54,27 +56,14 @@ fn add_menu(
     stack: &Stack,
     config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
-    let span = menu.r#type.span();
-    if let Value::Record { val, .. } = &menu.r#type {
-        let layout = extract_value("layout", val, span)?.to_expanded_string("", &config);
-
-        match layout.as_str() {
-            "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, &config),
-            "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
-            "ide" => add_ide_menu(line_editor, menu, engine_state, stack, config),
-            "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
-            str => Err(ShellError::InvalidValue {
-                valid: "'columnar', 'list', 'ide', or 'description'".into(),
-                actual: format!("'{str}'"),
-                span,
-            }),
+    // `nu-protocol` reads the layout, and checks it when the list is assigned.
+    match menu.layout(&config)? {
+        MenuLayout::Columnar => add_columnar_menu(line_editor, menu, engine_state, stack, &config),
+        MenuLayout::List => add_list_menu(line_editor, menu, engine_state, stack, config),
+        MenuLayout::Ide => add_ide_menu(line_editor, menu, engine_state, stack, config),
+        MenuLayout::Description => {
+            add_description_menu(line_editor, menu, engine_state, stack, config)
         }
-    } else {
-        Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::record(),
-            actual: menu.r#type.get_type(),
-            span,
-        })
     }
 }
 
@@ -109,40 +98,6 @@ fn set_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
         menu = menu.with_selected_match_text_style(style);
     }
     menu
-}
-
-fn parse_input_mode(value: &Value, config: &Config) -> Result<InputMode, ShellError> {
-    match value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "diff" => Ok(InputMode::Diff),
-        "cursor_prefix" => Ok(InputMode::CursorPrefix),
-        "full_buffer" => Ok(InputMode::FullBuffer),
-        other => Err(ShellError::InvalidValue {
-            valid: "'diff', 'cursor_prefix', or 'full_buffer'".into(),
-            actual: format!("'{other}'"),
-            span: value.span(),
-        }),
-    }
-}
-
-fn parse_output_mode(value: &Value, config: &Config) -> Result<OutputMode, ShellError> {
-    match value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "suggested_span" => Ok(OutputMode::SuggestedSpan),
-        "full_buffer" => Ok(OutputMode::FullBuffer),
-        "extend_to_end" => Ok(OutputMode::ExtendToEnd),
-        other => Err(ShellError::InvalidValue {
-            valid: "'suggested_span', 'full_buffer', or 'extend_to_end'".into(),
-            actual: format!("'{other}'"),
-            span: value.span(),
-        }),
-    }
 }
 
 fn parse_description_position(
@@ -193,35 +148,29 @@ fn menu_with_source<M: Menu + 'static>(
 /// Resolve the menu's effective reedline `InputMode` from the optional
 /// `input_mode` and legacy `only_buffer_difference` fields. The result drives
 /// both the reedline menu and `NuMenuCompleter`'s span math, so it must be
-/// resolved exactly once, here.
+/// resolved exactly once, here. `nu-protocol` reads the fields, and checks them
+/// when the list is assigned.
 fn resolve_input_mode(menu: &ParsedMenu, config: &Config) -> Result<InputMode, ShellError> {
-    match (&menu.input_mode, &menu.only_buffer_difference) {
-        (Some(input_mode), _) => parse_input_mode(input_mode, config),
-        (None, Some(only_buffer_difference)) => {
-            if only_buffer_difference.as_bool()? {
-                Ok(InputMode::Diff)
-            } else {
-                Ok(InputMode::CursorPrefix)
-            }
-        }
-        (None, None) => Err(ShellError::MissingRequiredColumn {
-            column: "input_mode (or only_buffer_difference)",
-            span: menu.name.span(),
-        }),
-    }
+    Ok(match menu.input_mode(config)? {
+        MenuInputMode::Diff => InputMode::Diff,
+        MenuInputMode::CursorPrefix => InputMode::CursorPrefix,
+        MenuInputMode::FullBuffer => InputMode::FullBuffer,
+    })
 }
 
 /// Apply the optional reedline #1071 `output_mode`. Unset preserves
 /// reedline's default (`suggested_span`).
 fn apply_output_mode<M: MenuBuilder>(
-    mut menu: M,
+    menu: M,
     parsed: &ParsedMenu,
     config: &Config,
 ) -> Result<M, ShellError> {
-    if let Some(value) = &parsed.output_mode {
-        menu = menu.with_output_mode(parse_output_mode(value, config)?);
-    }
-    Ok(menu)
+    Ok(match parsed.output_mode(config)? {
+        Some(MenuOutputMode::SuggestedSpan) => menu.with_output_mode(OutputMode::SuggestedSpan),
+        Some(MenuOutputMode::FullBuffer) => menu.with_output_mode(OutputMode::FullBuffer),
+        Some(MenuOutputMode::ExtendToEnd) => menu.with_output_mode(OutputMode::ExtendToEnd),
+        None => menu,
+    })
 }
 
 // Adds a columnar menu to the editor engine
@@ -625,6 +574,95 @@ struct KeybindingTables {
     helix_select: Keybindings,
 }
 
+impl KeybindingTables {
+    /// The table reedline keeps for `mode`.
+    fn table_mut(&mut self, mode: EditModeName) -> &mut Keybindings {
+        match mode {
+            EditModeName::Emacs => &mut self.emacs,
+            EditModeName::ViInsert => &mut self.vi_insert,
+            EditModeName::ViNormal => &mut self.vi_normal,
+            EditModeName::ViVisual => &mut self.vi_visual,
+            EditModeName::HelixInsert => &mut self.helix_insert,
+            EditModeName::HelixNormal => &mut self.helix_normal,
+            EditModeName::HelixSelect => &mut self.helix_select,
+        }
+    }
+}
+
+/// The modifiers of a keybinding as crossterm's, which reedline uses.
+fn crossterm_modifiers(modifiers: &[KeyModifier]) -> KeyModifiers {
+    modifiers
+        .iter()
+        .fold(KeyModifiers::NONE, |modifiers, modifier| {
+            modifiers
+                | match modifier {
+                    KeyModifier::Control => KeyModifiers::CONTROL,
+                    KeyModifier::Shift => KeyModifiers::SHIFT,
+                    KeyModifier::Alt => KeyModifiers::ALT,
+                    KeyModifier::Super => KeyModifiers::SUPER,
+                    KeyModifier::Hyper => KeyModifiers::HYPER,
+                    KeyModifier::Meta => KeyModifiers::META,
+                }
+        })
+}
+
+/// The key of a keybinding as crossterm's, which reedline uses.
+fn crossterm_key_code(code: KeyCodeSpec) -> KeyCode {
+    match code {
+        KeyCodeSpec::Backspace => KeyCode::Backspace,
+        KeyCodeSpec::Enter => KeyCode::Enter,
+        KeyCodeSpec::Down => KeyCode::Down,
+        KeyCodeSpec::Up => KeyCode::Up,
+        KeyCodeSpec::Left => KeyCode::Left,
+        KeyCodeSpec::Right => KeyCode::Right,
+        KeyCodeSpec::Home => KeyCode::Home,
+        KeyCodeSpec::End => KeyCode::End,
+        KeyCodeSpec::PageUp => KeyCode::PageUp,
+        KeyCodeSpec::PageDown => KeyCode::PageDown,
+        KeyCodeSpec::Tab => KeyCode::Tab,
+        KeyCodeSpec::BackTab => KeyCode::BackTab,
+        KeyCodeSpec::Delete => KeyCode::Delete,
+        KeyCodeSpec::Insert => KeyCode::Insert,
+        KeyCodeSpec::F(number) => KeyCode::F(number),
+        KeyCodeSpec::Char(char) => KeyCode::Char(char),
+        KeyCodeSpec::Null => KeyCode::Null,
+        KeyCodeSpec::Esc => KeyCode::Esc,
+    }
+}
+
+/// Writes a `$env.config.keybindings` entry into the table of each mode it names.
+///
+/// The key and the modes are read by `nu-protocol`, which also checks them when
+/// the list is assigned. The `event` can only be read here, with reedline's types.
+fn add_keybinding(
+    keybinding: &ParsedKeybinding,
+    config: &Config,
+    tables: &mut KeybindingTables,
+) -> Result<(), ShellError> {
+    let modes = keybinding.modes()?;
+    // An entry without a mode binds nothing, so its event is not read. Its key
+    // was still checked when the list was assigned.
+    if modes.is_empty() {
+        return Ok(());
+    }
+
+    let modifier = crossterm_modifiers(&keybinding.modifiers()?);
+    let keycode = crossterm_key_code(keybinding.key_code()?);
+    let event = parse_event(&keybinding.event, config)?;
+
+    for mode in modes {
+        let table = tables.table_mut(mode);
+        match &event {
+            Some(event) => table.add_binding(modifier, keycode, event.clone()),
+            None => {
+                table.remove_binding(modifier, keycode);
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, ShellError> {
     let parsed_keybindings = &config.keybindings;
 
@@ -641,7 +679,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     };
 
     for keybinding in parsed_keybindings {
-        add_keybinding(&keybinding.mode, keybinding, config, &mut tables)?
+        add_keybinding(keybinding, config, &mut tables)?
     }
 
     match config.edit_mode {
@@ -659,53 +697,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     }
 }
 
-const VALID_KEYBINDING_MODES: &str = "'emacs', 'vi_insert', 'vi_normal', 'vi_visual', 'helix_insert', 'helix_normal', or 'helix_select'";
-
-fn add_keybinding(
-    mode: &Value,
-    keybinding: &ParsedKeybinding,
-    config: &Config,
-    tables: &mut KeybindingTables,
-) -> Result<(), ShellError> {
-    use PromptEditModeDiscriminants as PEMD;
-    let span = mode.span();
-    match &mode {
-        // When updating this implementation, also update `display_edit_mode` function
-        Value::String { val, .. } => match PEMD::from_str(val) {
-            Ok(PEMD::Emacs) => add_parsed_keybinding(&mut tables.emacs, keybinding, config),
-            Ok(PEMD::ViInsert) => add_parsed_keybinding(&mut tables.vi_insert, keybinding, config),
-            Ok(PEMD::ViNormal) => add_parsed_keybinding(&mut tables.vi_normal, keybinding, config),
-            Ok(PEMD::ViVisual) => add_parsed_keybinding(&mut tables.vi_visual, keybinding, config),
-            Ok(PEMD::HelixInsert) => {
-                add_parsed_keybinding(&mut tables.helix_insert, keybinding, config)
-            }
-            Ok(PEMD::HelixNormal) => {
-                add_parsed_keybinding(&mut tables.helix_normal, keybinding, config)
-            }
-            Ok(PEMD::HelixSelect) => {
-                add_parsed_keybinding(&mut tables.helix_select, keybinding, config)
-            }
-            Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
-                valid: VALID_KEYBINDING_MODES.into(),
-                actual: format!("'{val}'"),
-                span,
-            }),
-        },
-        Value::List { vals, .. } => {
-            for inner_mode in vals {
-                add_keybinding(inner_mode, keybinding, config, tables)?
-            }
-
-            Ok(())
-        }
-        v => Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::custom("string or list<string>"),
-            actual: v.get_type(),
-            span: v.span(),
-        }),
-    }
-}
-
 // This is displayed in `keybindings list` command
 pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<String> {
     match mode {
@@ -718,121 +709,6 @@ pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<Str
         PromptEditModeDiscriminants::HelixSelect => Some("helix_select".into()),
         PromptEditModeDiscriminants::Default | PromptEditModeDiscriminants::Custom => None,
     }
-}
-
-fn add_parsed_keybinding(
-    keybindings: &mut Keybindings,
-    keybinding: &ParsedKeybinding,
-    config: &Config,
-) -> Result<(), ShellError> {
-    let Ok(modifier_str) = keybinding.modifier.as_str() else {
-        return Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::String,
-            actual: keybinding.modifier.get_type(),
-            span: keybinding.modifier.span(),
-        });
-    };
-
-    let mut modifier = KeyModifiers::NONE;
-    if !str::eq_ignore_ascii_case(modifier_str, "none") {
-        for part in modifier_str.split('_') {
-            match part.to_ascii_lowercase().as_str() {
-                "control" => modifier |= KeyModifiers::CONTROL,
-                "shift" => modifier |= KeyModifiers::SHIFT,
-                "alt" => modifier |= KeyModifiers::ALT,
-                "super" => modifier |= KeyModifiers::SUPER,
-                "hyper" => modifier |= KeyModifiers::HYPER,
-                "meta" => modifier |= KeyModifiers::META,
-                _ => {
-                    return Err(ShellError::InvalidValue {
-                        valid: "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'"
-                            .into(),
-                        actual: format!("'{part}'"),
-                        span: keybinding.modifier.span(),
-                    });
-                }
-            }
-        }
-    }
-
-    let Ok(keycode) = keybinding.keycode.as_str() else {
-        return Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::String,
-            actual: keybinding.keycode.get_type(),
-            span: keybinding.keycode.span(),
-        });
-    };
-
-    let keycode_lower = keycode.to_ascii_lowercase();
-
-    let keycode = if let Some(rest) = keycode_lower.strip_prefix("char_") {
-        let error = |valid: &str, actual: &str| ShellError::InvalidValue {
-            valid: valid.into(),
-            actual: actual.into(),
-            span: keybinding.keycode.span(),
-        };
-
-        let mut char_iter = rest.chars();
-        let char = match (char_iter.next(), char_iter.next()) {
-            (Some(char), None) => char,
-            (Some('u'), Some(_)) => {
-                // This will never panic as we know there are at least two symbols
-                let Ok(code_point) = u32::from_str_radix(&rest[1..], 16) else {
-                    return Err(error("a valid hex code", keycode));
-                };
-
-                char::from_u32(code_point).ok_or(error("a valid Unicode code point", keycode))?
-            }
-            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", keycode)),
-        };
-
-        KeyCode::Char(char)
-    } else {
-        match keycode_lower.as_str() {
-            "backspace" => KeyCode::Backspace,
-            "enter" => KeyCode::Enter,
-            "space" => KeyCode::Char(' '),
-            "down" => KeyCode::Down,
-            "up" => KeyCode::Up,
-            "left" => KeyCode::Left,
-            "right" => KeyCode::Right,
-            "home" => KeyCode::Home,
-            "end" => KeyCode::End,
-            "pageup" => KeyCode::PageUp,
-            "pagedown" => KeyCode::PageDown,
-            "tab" => KeyCode::Tab,
-            "backtab" => KeyCode::BackTab,
-            "delete" => KeyCode::Delete,
-            "insert" => KeyCode::Insert,
-            c if c.starts_with('f') => c[1..]
-                .parse()
-                .ok()
-                .filter(|num| (1..=35).contains(num))
-                .map(KeyCode::F)
-                .ok_or(ShellError::InvalidValue {
-                    valid: "'f1', 'f2', ..., or 'f35'".into(),
-                    actual: format!("'{keycode}'"),
-                    span: keybinding.keycode.span(),
-                })?,
-            "null" => KeyCode::Null,
-            "esc" | "escape" => KeyCode::Esc,
-            _ => {
-                return Err(ShellError::InvalidValue {
-                    valid: "a crossterm KeyCode".into(),
-                    actual: format!("'{keycode}'"),
-                    span: keybinding.keycode.span(),
-                });
-            }
-        }
-    };
-
-    if let Some(event) = parse_event(&keybinding.event, config)? {
-        keybindings.add_binding(modifier, keycode, event);
-    } else {
-        keybindings.remove_binding(modifier, keycode);
-    }
-
-    Ok(())
 }
 
 enum EventType<'config> {
@@ -2147,20 +2023,6 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_parse_input_mode() {
-        let config = Config::default();
-        assert!(matches!(
-            parse_input_mode(&Value::test_string("full_buffer"), &config),
-            Ok(InputMode::FullBuffer)
-        ));
-        assert!(matches!(
-            parse_input_mode(&Value::test_string("diff"), &config),
-            Ok(InputMode::Diff)
-        ));
-        assert!(parse_input_mode(&Value::test_string("nope"), &config).is_err());
-    }
-
     fn test_menu(input_mode: Option<Value>, only_buffer_difference: Option<Value>) -> ParsedMenu {
         ParsedMenu {
             name: Value::test_string("test_menu"),
@@ -2214,20 +2076,6 @@ mod test {
             resolve_input_mode(&test_menu(None, None), &config),
             Err(ShellError::MissingRequiredColumn { .. })
         ));
-    }
-
-    #[test]
-    fn test_parse_output_mode() {
-        let config = Config::default();
-        assert!(matches!(
-            parse_output_mode(&Value::test_string("extend_to_end"), &config),
-            Ok(OutputMode::ExtendToEnd)
-        ));
-        assert!(matches!(
-            parse_output_mode(&Value::test_string("suggested_span"), &config),
-            Ok(OutputMode::SuggestedSpan)
-        ));
-        assert!(parse_output_mode(&Value::test_string("nope"), &config).is_err());
     }
 
     #[test]
@@ -2743,9 +2591,11 @@ mod test {
     }
 
     /// The entries are applied in one pass, so one that cannot be read fails
-    /// the whole list. The way out is to filter it from the list.
+    /// the whole list. Assigning a list with such a key is rejected before it
+    /// gets here, so this is the backstop for a config that did not go through
+    /// an assignment.
     #[test]
-    fn an_unreadable_entry_fails_the_whole_list() {
+    fn an_unreadable_key_fails_the_whole_list() {
         let emacs = Value::test_string("emacs");
         let config = config_with(
             EditBindings::Emacs,
@@ -2756,5 +2606,47 @@ mod test {
         );
 
         assert!(create_keybindings(&config).is_err());
+    }
+
+    /// An event needs reedline's types, so it is read here and not when the list
+    /// is assigned. One that cannot be read fails the whole list, and the way out
+    /// is to filter it from the list.
+    #[test]
+    fn an_unreadable_event_fails_the_whole_list() {
+        let emacs = Value::test_string("emacs");
+        let config = config_with(
+            EditBindings::Emacs,
+            vec![
+                unnamed("f20", emacs.clone(), send("enter")),
+                unnamed("f21", emacs, send("bogus")),
+            ],
+        );
+
+        assert!(create_keybindings(&config).is_err());
+    }
+
+    /// A keybinding's `mode` and the `SwitchMode` event name the edit modes of
+    /// reedline's `PromptEditModeDiscriminants`, and read them alike. This fails
+    /// if reedline adds a mode that one of them doesn't know.
+    #[test]
+    fn every_edit_mode_is_read_alike_for_a_keybinding_and_for_switch_mode() {
+        use strum::IntoEnumIterator;
+
+        for mode in PromptEditModeDiscriminants::iter() {
+            let shown = display_edit_mode(mode);
+            for name in shown.iter().cloned().chain([format!("{mode:?}")]) {
+                let for_keybinding =
+                    unnamed("enter", Value::test_string(&name), Value::test_nothing()).modes();
+                let for_switch_mode = switch_mode_target(&Value::test_string(&name));
+
+                assert_eq!(
+                    for_keybinding.is_ok(),
+                    for_switch_mode.is_ok(),
+                    "{name} is read differently"
+                );
+                // Only a mode with a name of its own can be bound in or switched to.
+                assert_eq!(for_keybinding.is_ok(), shown.is_some(), "{name}");
+            }
+        }
     }
 }
