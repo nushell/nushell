@@ -798,10 +798,15 @@ where
 {
     wr.write_all(b"\"")?;
 
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+
     let mut start = 0;
 
     for (i, byte) in bytes.iter().enumerate() {
-        let escaped = match *byte {
+        // Why: JSON doesn't allow raw control characters inside a string (RFC 8259, section 7),
+        // so the ones without a short escape are written as `\u00XX`, like serde_json does.
+        let unicode_escape;
+        let escaped: &[u8] = match *byte {
             b'"' => b"\\\"",
             b'\\' => b"\\\\",
             b'\x08' => b"\\b",
@@ -809,6 +814,17 @@ where
             b'\n' => b"\\n",
             b'\r' => b"\\r",
             b'\t' => b"\\t",
+            byte @ 0x00..=0x1f => {
+                unicode_escape = [
+                    b'\\',
+                    b'u',
+                    b'0',
+                    b'0',
+                    HEX[(byte >> 4) as usize],
+                    HEX[(byte & 0xf) as usize],
+                ];
+                &unicode_escape
+            }
             _ => {
                 continue;
             }
