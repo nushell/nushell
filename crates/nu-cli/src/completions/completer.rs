@@ -745,11 +745,16 @@ fn site_completers(
         _ => (None, false),
     };
 
+    let argument_completer = match argument_completer {
+        Some(Completion::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
+        // These always answer, even with no matches, so dispatch cannot reach
+        // any later command-wide or external source.
+        Some(Completion::Builtin(_) | Completion::List(_)) => return [None, None, None],
+        None => None,
+    };
+
     [
-        match argument_completer {
-            Some(Completion::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
-            _ => None,
-        },
+        argument_completer,
         match signature.complete {
             Some(CommandWideCompleter::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
             Some(CommandWideCompleter::External) => Some(SiteCompleter::External),

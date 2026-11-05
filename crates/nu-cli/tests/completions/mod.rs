@@ -1275,6 +1275,133 @@ fn internal_flag_name_does_not_route_an_implicit_global_picker_inline() {
     );
 }
 
+/// Builtin argument sources always answer, including an empty answer. A global
+/// picker behind them cannot be reached and must not move the query inline.
+#[rstest]
+#[case::env_var("hide-env TE", vec!["TEST"])]
+#[case::env_var_empty("hide-env no-such-variable", vec![])]
+#[case::nu_file("use ./custom_completion", vec!["./custom_completion.nu"])]
+#[case::command("which hide-en", vec!["hide-env"])]
+#[case::module_export("use completion_exports c", vec!["cat"])]
+#[case::module_export_empty("use completion_exports no-match", vec![])]
+fn interactive_routing_ignores_unreachable_native_fallback(
+    #[case] line: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let marker = dir.path().join("calls");
+    engine.add_env_var(
+        "COMPLETION_MARKER".into(),
+        Value::test_string(marker.to_string_lossy().into_owned()),
+    );
+    let setup = "
+        module completion_exports { export def cat [] {} }
+        @interactive
+        def pick [] {
+            'x' | save --append $env.COMPLETION_MARKER
+            [picked]
+        }
+        $env.config.completions.external.completer = {|| pick }
+    ";
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // A new completer has no cached answer. Its first worker request returns
+    // pending without reading the result channel again, so no timing is assumed.
+    let first = completer.complete(line, line.len());
+    assert!(
+        !matches!(first, CompletionResult::Fresh { .. }),
+        "got {first:?}"
+    );
+    match_suggestions(&expected, &completer.complete_blocking(line, line.len()));
+    assert!(!marker.exists(), "an unreachable picker was evaluated");
+}
+
+/// Static argument answers also stop command-wide sources, not just the implicit
+/// global source. Wrapped flag tokens use the same argument-value dispatch.
+#[rstest]
+#[case::positional("def target [animal?: string@[cat dog]] {}", "target c", vec!["cat"])]
+#[case::positional_empty("def target [animal?: string@[cat dog]] {}", "target z", vec![])]
+#[case::empty_list("def target [animal?: string@[]] {}", "target ", vec![])]
+#[case::long_flag("def target [--animal(-a): string@[cat dog]] {}", "target --animal c", vec!["cat"])]
+#[case::short_flag("def target [--animal(-a): string@[cat dog]] {}", "target -a c", vec!["cat"])]
+#[case::equals_flag("def target [--animal(-a): string@[cat dog]] {}", "target --animal=c", vec!["cat"])]
+#[case::wrapped_flag("def --wrapped target [--verbose, ...args: string@[--cat --dog]] {}", "target --c", vec!["--cat"])]
+#[case::wrapped_flag_empty("def --wrapped target [--verbose, ...args: string@[--cat --dog]] {}", "target --z", vec![])]
+fn interactive_routing_ignores_unreachable_static_fallbacks(
+    #[case] definition: &str,
+    #[case] line: &str,
+    #[case] expected: Vec<&str>,
+    #[values(0, 1, 2)] registration: usize,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let marker = dir.path().join("calls");
+    engine.add_env_var(
+        "COMPLETION_MARKER".into(),
+        Value::test_string(marker.to_string_lossy().into_owned()),
+    );
+    let registration = ["", "@complete pick\n", "@complete external\n"][registration];
+    let setup = format!(
+        "@interactive
+        def pick [] {{
+            'x' | save --append $env.COMPLETION_MARKER
+            [--picked]
+        }}
+        $env.config.completions.external.completer = {{|| pick }}
+        {registration}{definition}"
+    );
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let first = completer.complete(line, line.len());
+    assert!(
+        !matches!(first, CompletionResult::Fresh { .. }),
+        "got {first:?}"
+    );
+    match_suggestions(&expected, &completer.complete_blocking(line, line.len()));
+    assert!(!marker.exists(), "an unreachable picker was evaluated");
+}
+
+/// A plain flag name does not use the positional's static completer. Its
+/// command-wide source remains reachable and must still run with the terminal.
+#[rstest]
+#[case::named("@complete pick")]
+#[case::external("@complete external")]
+fn interactive_routing_keeps_reachable_flag_source(#[case] registration: &str) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let marker = dir.path().join("calls");
+    engine.add_env_var(
+        "COMPLETION_MARKER".into(),
+        Value::test_string(marker.to_string_lossy().into_owned()),
+    );
+    let setup = format!(
+        "@interactive
+        def pick [] {{
+            'x' | save --append $env.COMPLETION_MARKER
+            [--picked]
+        }}
+        $env.config.completions.external.completer = {{|| pick }}
+        {registration}
+        def target [animal?: string@[cat dog], --verbose] {{}}"
+    );
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "target --";
+    let result = completer.complete(line, line.len());
+    assert!(
+        matches!(result, CompletionResult::Fresh { .. }),
+        "got {result:?}"
+    );
+    assert!(
+        result
+            .suggestions()
+            .iter()
+            .any(|suggestion| suggestion.value == "--picked")
+    );
+    assert_eq!(std::fs::read_to_string(marker).expect("picker ran"), "x");
+}
+
 /// Cancelling a global picker on an internal argument answers empty without file fallback,
 /// then a new Tab on that unchanged line asks again. A successful answer is still cached.
 #[rstest]
@@ -2027,22 +2154,27 @@ fn internal_explicit_external_runs_once(#[case] output: &str, #[case] contribute
 }
 
 #[rstest]
-#[case::declines("null", false)]
-#[case::contributes("{completions: [external], fallback: true}", true)]
-#[case::error("error make {msg: 'failed'}", false)]
+#[case::declines("null", false, false)]
+#[case::contributes("{completions: [external], fallback: true}", true, false)]
+#[case::error("error make {msg: 'failed'}", false, false)]
+#[case::interactive_declines("{completions: [], fallback: true}", false, true)]
+#[case::interactive_contributes("{completions: [external], fallback: true}", true, true)]
 fn internal_global_external_preserves_directory_fallback(
     #[case] output: &str,
     #[case] contributes: bool,
+    #[case] interactive: bool,
 ) {
     let dir = tempfile::tempdir().expect("tempdir");
     std::fs::create_dir(dir.path().join("alpha_dir")).expect("create directory");
     std::fs::write(dir.path().join("alpha.txt"), "").expect("write file");
     let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
     let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    let attribute = if interactive { "@interactive\n" } else { "" };
     let setup = format!(
         "
+        {attribute}def external-source [] {{ {output} }}
         def dirs [arg?: directory, --dir: directory] {{}}
-        $env.config.completions.external.completer = {{|| {output} }}
+        $env.config.completions.external.completer = {{|| external-source }}
     "
     );
     assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());

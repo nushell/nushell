@@ -19,14 +19,19 @@ impl Command for AttrInteractive {
     }
 
     fn extra_description(&self) -> &str {
-        "An interactive completer runs on the line-editor thread, with the terminal to \
-itself, instead of on the background completion worker. This lets it drive a terminal \
-picker such as `fzf` or `input list`, which need stdin and the TTY. Completion chains with \
-no interactive source stay on the worker and their results can be cached. If a fallback \
-may be interactive, the entire chain runs on the line-editor thread; unannotated sources \
-still cannot read stdin. Only completers that must own the terminal should opt in.
+        "Use this attribute for a completer that needs stdin and the terminal, such as \
+`fzf` or `input list`. During Tab completion, it runs on the line-editor thread. \
+Unannotated completion sources cannot read stdin, even when they run before an \
+interactive fallback.
 
-The attribute only chooses where a completer runs; it does not make the command one. Attach \
+Returning `null` or `[]` stops fallback without adding candidates; candidates already \
+contributed by earlier sources are kept. Evaluation errors also stop fallback. To decline \
+and let later completers run, return `{completions: [], fallback: true}`. A nonempty \
+`completions` list with `fallback: true` contributes candidates and also continues to later sources.
+
+The language server skips detected interactive completers and tries later sources instead.
+
+The attribute does not register a completion source. Attach \
 it as usual, `arg: type@name` or `@complete 'name'`; and the completion engine calls it \
 with the `token` record when you press Tab. Called directly it is an ordinary command, so \
 declare `token: record`: that way `pick-file foo` is rejected at the call site instead of \
