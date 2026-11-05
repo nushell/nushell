@@ -429,10 +429,10 @@ mod tests {
     #[case::command_prefix_ignores_untyped_argument("command.nu", (0, 6), None, serde_json::json!([
         { "label": "config", "detail": "Edit nushell configuration files.", "kind": 3 },
         {
-            "label": "config env",
-            "detail": "Edit nu environment configurations.",
+            "label": "config default",
+            "detail": "Show the default configuration.",
             "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 6 } },
-                "newText": "config env "
+                "newText": "config default "
             }
         }
     ]))]

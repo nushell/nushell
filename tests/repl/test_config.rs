@@ -60,7 +60,7 @@ fn mutate_nu_config_nested_menu() -> TestResult {
                   name: menu
                   only_buffer_difference: true
                   marker: "M "
-                  type: {}
+                  type: { layout: columnar }
                   style: {}
                 }
             ];
@@ -263,5 +263,80 @@ fn mutate_nu_config_history_ignore_space() -> TestResult {
     run_test_std(
         "$env.config.history.ignore_space_prefixed = false; $env.config.history.ignore_space_prefixed",
         "false",
+    )
+}
+
+/// A keybinding with a keycode that can't be read is rejected when it is
+/// assigned, and the list stays as it was. This is the whole-record form,
+/// which is how an older config may set it.
+#[test]
+fn a_record_with_a_keybinding_that_cannot_be_read_keeps_the_old_list() -> TestResult {
+    run_test_std(
+        "
+            let before = $env.config.keybindings;
+            let bad = { name: bad, modifier: control, keycode: nonsense, mode: emacs, event: null };
+            let rejected = try { $env.config = ($env.config | upsert keybindings [$bad]); false } catch { true };
+            $rejected and $env.config.keybindings == $before
+        ",
+        "true",
+    )
+}
+
+/// The reload scenario: a broken entry is rejected, then the fixed one is added.
+#[test]
+fn a_fixed_keybinding_is_accepted_after_a_rejected_one() -> TestResult {
+    run_test_std(
+        "
+            let n = $env.config.keybindings | length;
+            let rejected = try { $env.config.keybindings ++= [{ name: mine, modifier: control, keycode: nonsense, mode: emacs, event: null }]; false } catch { true };
+            $env.config.keybindings ++= [{ name: mine, modifier: control, keycode: char_t, mode: emacs, event: null }];
+            $rejected and ($env.config.keybindings | length) == $n + 1
+        ",
+        "true",
+    )
+}
+
+/// `config default` has the defaults, so `= []` is undone by assigning them again.
+#[test]
+fn config_default_restores_the_default_lists() -> TestResult {
+    run_test_std(
+        "
+            let keybindings = $env.config.keybindings;
+            let menus = $env.config.menus;
+            $env.config.keybindings = [];
+            $env.config.menus = [];
+            $env.config.keybindings = (config default).keybindings;
+            $env.config.menus = (config default).menus;
+            $env.config.keybindings == $keybindings and $env.config.menus == $menus
+        ",
+        "true",
+    )
+}
+
+/// Assigning the defaults first makes a config that is sourced again not grow the list.
+#[test]
+fn assigning_the_defaults_first_makes_appending_safe_to_repeat() -> TestResult {
+    run_test_std(
+        "
+            let entry = { name: mine, modifier: control, keycode: char_t, mode: emacs, event: null };
+            let defaults = (config default).keybindings | length;
+            for _ in 1..3 {
+                $env.config.keybindings = (config default).keybindings;
+                $env.config.keybindings ++= [$entry]
+            };
+            ($env.config.keybindings | length) == $defaults + 1
+        ",
+        "true",
+    )
+}
+
+#[test]
+fn config_default_can_be_used_in_a_const() -> TestResult {
+    run_test_std(
+        "
+            const menus = (config default | get menus | get name);
+            $menus | first
+        ",
+        "completion_menu",
     )
 }
