@@ -984,9 +984,7 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::Type => {
                             if let Some(last) = args.last_mut() {
-                                let (syntax_shape, completer) = contents
-                                    .iter()
-                                    .position(|b| *b == b'@')
+                                let (syntax_shape, completer) = completer_position(&contents)
                                     .and_then(|idx| {
                                         let (shape, completer) = contents.split_at_checked(idx)?;
                                         let (shape_span, completer_span) = span.split_at(idx)?;
@@ -1340,4 +1338,21 @@ pub fn parse_signature_helper(
     }
 
     Box::new(sig)
+}
+
+/// Returns where the custom completer starts in a parameter's type, as in `string@completer`.
+///
+/// An `@` inside the type parameters of a generic type (`oneof<string@completer>`) doesn't
+/// count, so that the whole type is parsed and the misplaced completer is reported there.
+fn completer_position(contents: &[u8]) -> Option<usize> {
+    let mut depth = 0usize;
+    for (idx, byte) in contents.iter().enumerate() {
+        match byte {
+            b'<' => depth += 1,
+            b'>' => depth = depth.saturating_sub(1),
+            b'@' if depth == 0 => return Some(idx),
+            _ => {}
+        }
+    }
+    None
 }

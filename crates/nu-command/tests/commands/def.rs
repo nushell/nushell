@@ -432,3 +432,31 @@ fn recursive_func_should_compile(#[case] first_code: &str, #[case] recursive_cod
 
     Ok(())
 }
+
+#[rstest]
+#[case::oneof("oneof<string@baz>")]
+#[case::oneof_with_more_types("oneof<string@baz, int>")]
+#[case::list("list<string@baz>")]
+fn completer_inside_generic_type_is_reported(#[case] ty: &str) -> Result {
+    // https://github.com/nushell/nushell/issues/16773
+    let code = format!("def baz [] {{ [] }}; def foo [bar: {ty}] {{ $bar }}");
+    let err = test().run(code).expect_parse_error()?;
+    let ParseError::LabeledError(error, label, _) = err else {
+        panic!("expected a LabeledError, got {err:?}");
+    };
+    assert_eq!(error, "Unexpected custom completer in type spec");
+    assert_eq!(
+        label,
+        "Type specifications do not support custom completers"
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::oneof("oneof<string, int>@baz", "1")]
+#[case::list("list<string>@baz", "[x]")]
+#[case::record("record<a: string>@baz", "{a: x}")]
+fn completer_after_generic_type_is_accepted(#[case] ty: &str, #[case] arg: &str) -> Result {
+    let code = format!("def baz [] {{ [] }}; def foo [bar: {ty}] {{ $bar | to nuon }}; foo {arg}");
+    test().run(code).expect_value_eq(arg)
+}
