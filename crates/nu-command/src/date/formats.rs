@@ -107,6 +107,13 @@ const WHOLE: &[&str] = &[
 /// with a `/`, since it would also read `am`.
 const ZONES: &[&str] = &["%:z", "%z", "%Q"];
 
+/// A month name, full or three letters, for the rewrites that match the separators around one.
+macro_rules! month_name {
+    () => {
+        "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+    };
+}
+
 /// Rewrites from spelling variants to the layouts above, applied in order.
 static REWRITES: LazyLock<Vec<(Regex, &str)>> = LazyLock::new(|| {
     [
@@ -122,18 +129,46 @@ static REWRITES: LazyLock<Vec<(Regex, &str)>> = LazyLock::new(|| {
         // 18 of April
         (r"(?i)\bof ", ""),
         // a month name with `/` or `.` between the parts: Dec/30/2026, 30.Dec.26, 2026/Dec/30,
-        // and with `-` too when there are only two parts: Dec-30, 2026-Dec. The parts are
-        // separated by spaces instead, so the layouts with spaces read them.
+        // and with `-` too when there are only two parts: Dec-30, 2026-Dec, Dec-2026. The parts
+        // are separated by spaces instead, so the layouts with spaces read them. Both
+        // separators have to be the same, and only a time or the end of the text may follow,
+        // so that a zone after the date isn't read as a time made of the year digits.
         (
-            r"(?i)(^| )((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)[/.](\d{1,2})[/.](\d{2,4})( |$)",
-            "$1$2 $3 $4$5",
+            concat!(
+                r"(?i)(^| )",
+                month_name!(),
+                r"(?:/(\d{1,2})/|\.(\d{1,2})\.)(\d{2,4})( \d|$)"
+            ),
+            "$1$2 $3$4 $5$6",
         ),
         (
-            r"(?i)(^| )(\d{1,4})[/.]((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)[/.](\d{1,4})( |$)",
-            "$1$2 $3 $4$5",
+            concat!(
+                r"(?i)(^| )(\d{1,2})(?:/",
+                month_name!(),
+                r"/|\.",
+                month_name!(),
+                r"\.)(\d{2,4})( \d|$)"
+            ),
+            "$1$2 $3$4 $5$6",
         ),
-        (r"(?i)(^| )((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)[/.-](\d{1,2})( |$)", "$1$2 $3$4"),
-        (r"(?i)(^| )(\d{1,4})[/.-]((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)( |$)", "$1$2 $3$4"),
+        (
+            concat!(
+                r"(?i)(^| )(\d{4})(?:/",
+                month_name!(),
+                r"/|\.",
+                month_name!(),
+                r"\.)(\d{1,2})( \d|$)"
+            ),
+            "$1$2 $3$4 $5$6",
+        ),
+        (
+            concat!(r"(?i)(^| )", month_name!(), r"[/.-](\d{1,2}|\d{4}$)( \d|$)"),
+            "$1$2 $3$4",
+        ),
+        (
+            concat!(r"(?i)(^| )(\d{1,4})[/.-]", month_name!(), r"( \d|$)"),
+            "$1$2 $3$4",
+        ),
         // month names to three letters, with or without a dot: `Apr.`, `Sept.`
         (
             r"(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(uary|ruary|ch|il|e|y|ust|t|tember|ober|ember)?(?:\.|\b)",
@@ -688,6 +723,13 @@ const VARIANT_FORMS: &[Form] = &[
     ),
     (
         "variant",
+        "month name separators",
+        "18/Apr/2025",
+        "/ or . between a month name and numbers: Apr.18.25, 2025/Apr/18. With two parts, also -: \
+         Apr-18, 2025-Apr.",
+    ),
+    (
+        "variant",
         "spaced numbers",
         "2025 04 18",
         "Spaces between numbers read as slashes: 04 18 2025.",
@@ -1063,6 +1105,25 @@ mod tests {
             "10:00 -03:",
             "0:0:.",
             "263660314029650025864127edc124c2",
+            // a month name with `/`, `.` or `-` between the parts
+            "12.30",
+            "2026/12",
+            "2026-MAYOR",
+            "4721-DECK",
+            "2024/DECAF",
+            "Jane-12",
+            "12-Jane",
+            "Mary-5",
+            "Dec/30/2026 UTC",
+            "30/Dec/2026 UTC",
+            "Dec/30/2026 +0530",
+            "Apr-18 +0530",
+            "Dec/30.2026",
+            "30.Dec/2026",
+            "2026.Dec/30",
+            "2026/Dec/1230",
+            "2026/Dec/2026",
+            "Dec/2026 10:00",
         ] {
             assert_eq!(parse_date_text(input), None, "{input:?}");
         }
