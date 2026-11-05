@@ -434,29 +434,59 @@ fn recursive_func_should_compile(#[case] first_code: &str, #[case] recursive_cod
 }
 
 #[rstest]
-#[case::oneof("oneof<string@baz>")]
-#[case::oneof_with_more_types("oneof<string@baz, int>")]
-#[case::list("list<string@baz>")]
-fn completer_inside_generic_type_is_reported(#[case] ty: &str) -> Result {
+#[case::oneof("oneof<string@baz>", "string@baz")]
+#[case::oneof_with_more_types("oneof<string@baz, int>", "string@baz")]
+#[case::list("list<string@baz>", "string@baz")]
+#[case::nested_oneof("oneof<list<string>@baz>", "list<string>@baz")]
+#[case::nested_list("list<list<string>@baz>", "list<string>@baz")]
+#[case::nested_record("record<a: list<string>@baz>", "list<string>@baz")]
+#[case::quoted_key_with_gt("record<\"x>y\": string@baz>", "string@baz")]
+fn completer_inside_generic_type_is_reported(#[case] ty: &str, #[case] at: &str) -> Result {
     // https://github.com/nushell/nushell/issues/16773
     let code = format!("def baz [] {{ [] }}; def foo [bar: {ty}] {{ $bar }}");
     let err = test().run(code).expect_parse_error()?;
-    let ParseError::LabeledError(error, label, _) = err else {
-        panic!("expected a LabeledError, got {err:?}");
+    let ParseError::LabeledErrorWithHelp {
+        error, label, span, ..
+    } = err
+    else {
+        panic!("expected a LabeledErrorWithHelp, got {err:?}");
     };
     assert_eq!(error, "Unexpected custom completer in type spec");
     assert_eq!(
         label,
         "Type specifications do not support custom completers"
     );
+    assert_eq!(span.len(), at.len());
     Ok(())
 }
 
 #[rstest]
-#[case::oneof("oneof<string, int>@baz", "1")]
-#[case::list("list<string>@baz", "[x]")]
-#[case::record("record<a: string>@baz", "{a: x}")]
-fn completer_after_generic_type_is_accepted(#[case] ty: &str, #[case] arg: &str) -> Result {
+#[case::oneof("oneof<string, int>@baz", "1", "1")]
+#[case::list("list<string>@baz", "[x]", "[x]")]
+#[case::record("record<a: string>@baz", "{a: x}", "{a: x}")]
+#[case::quoted_key("record<\"a<b\": string>@baz", "{\"a<b\": x}", "{a<b: x}")]
+#[case::comment(
+    "record<\n  retries: int # must be <= 10\n>@baz",
+    "{retries: 1}",
+    "{retries: 1}"
+)]
+#[case::at_in_quoted_key("record<\"a@b\": string>", "{\"a@b\": x}", "{a@b: x}")]
+fn completer_after_generic_type_is_accepted(
+    #[case] ty: &str,
+    #[case] arg: &str,
+    #[case] expected: &str,
+) -> Result {
     let code = format!("def baz [] {{ [] }}; def foo [bar: {ty}] {{ $bar | to nuon }}; foo {arg}");
-    test().run(code).expect_value_eq(arg)
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn completer_after_generic_type_is_attached() -> Result {
+    let code = "
+        def baz [] { [] }
+        def foo [bar: oneof<string, int>@baz] {}
+        scope commands | where name == foo | get 0.signatures | values | flatten
+        | where parameter_name == bar | get 0.completion
+    ";
+    test().run(code).expect_value_eq("baz")
 }
