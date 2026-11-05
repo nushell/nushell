@@ -224,3 +224,33 @@ fn follows_a_constant_imported_by_name() -> Result {
         .run(code)
         .expect_value_eq("const E = 5\n\ndef c [] { $E }")
 }
+
+#[test]
+fn alias_defined_inside_a_block() -> Result {
+    let code = "do { alias a = print; view source a }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn def_defined_inside_a_closure() -> Result {
+    let code = "do {|| def foo [] { 1 }; view source foo }";
+    test().run(code).expect_value_eq("def foo [] { 1 }")
+}
+
+#[test]
+fn local_alias_shadows_global_alias() -> Result {
+    let code = "alias a = ls; do { alias a = print; view source a }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn local_alias_is_gone_after_the_block() -> Result {
+    let code = "do { alias a = print }; view source a";
+    let err = match test().run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        err => panic!("expected a GenericError, got {err:?}"),
+    };
+    assert_eq!(err.error, "Cannot view string value");
+    assert_eq!(err.msg, "this name does not correspond to a viewable value");
+    Ok(())
+}

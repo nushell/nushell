@@ -72,6 +72,26 @@ impl<'e, 's> ScopeData<'e, 's> {
         self.modules_map = bindings.modules;
     }
 
+    /// Find a command by name as seen from the current point of evaluation, so that commands and
+    /// aliases defined inside the running block (e.g. in a closure) are found too.
+    pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
+        let bindings = self.collect_local_and_global_bindings();
+        bindings
+            .decls
+            .get(name)
+            .copied()
+            .filter(|decl_id| bindings.visibility.is_decl_id_visible(decl_id))
+    }
+
+    /// Find a module by name as seen from the current point of evaluation, including modules
+    /// imported inside the running block.
+    pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
+        self.collect_local_and_global_bindings()
+            .modules
+            .get(name)
+            .copied()
+    }
+
     /// Permanent overlays, then whole-block active bindings, then IR regions covering the PC.
     fn collect_local_and_global_bindings(&self) -> ScopeBindings {
         let mut bindings = ScopeBindings::default();

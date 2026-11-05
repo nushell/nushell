@@ -1,4 +1,4 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, scope::ScopeData};
 use nu_protocol::{
     Config, DeclId, PipelineMetadata, Span, VarId,
     ast::{Expr, Expression, Traverse},
@@ -146,7 +146,19 @@ and an explicit type annotation is lost. `$nu` and the record bound by
             }
 
             Value::String { val, .. } => {
-                if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
+                // Why: the engine state only knows the global scope. Looking through the stack's
+                // scope first also finds commands, aliases and modules defined in the running
+                // block, like inside a closure.
+                let scope = ScopeData::new(engine_state, stack);
+                let found_decl = scope
+                    .find_decl(val.as_bytes())
+                    .or_else(|| engine_state.find_decl(val.as_bytes(), &[]));
+                let found_module = || {
+                    scope
+                        .find_module(val.as_bytes())
+                        .or_else(|| engine_state.find_module(val.as_bytes(), &[]))
+                };
+                if let Some(decl_id) = found_decl {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
 
@@ -235,7 +247,7 @@ and an explicit type annotation is lost. `$nu` and the record bound by
                             arg_span,
                         )))
                     }
-                } else if let Some(module_id) = engine_state.find_module(val.as_bytes(), &[]) {
+                } else if let Some(module_id) = found_module() {
                     // arg is a module
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {
