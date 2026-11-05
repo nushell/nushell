@@ -28,7 +28,12 @@ fn to_timezone_single_date_string() -> Result {
 
 #[rstest]
 #[case::hours_only("+05", "+05:00:00")]
+#[case::hours_whitespace("+05 \t\n", "+05:00:00")]
 #[case::compact_minutes("+0530", "+05:30:00")]
+#[case::spaced_minutes("+05 30", "+05:30:00")]
+#[case::spaced_colon("+05 : 30", "+05:30:00")]
+#[case::unicode_whitespace("+05\u{2003}:\u{2003}30", "+05:30:00")]
+#[case::spaced_colon_with_seconds("-00 : 44:30", "-00:44:30")]
 #[case::negative_offset("-05:30", "-05:30:00")]
 #[case::trailing_whitespace("+05:30 \t\n", "+05:30:00")]
 #[case::zero_seconds("+05:30:00", "+05:30:00")]
@@ -55,7 +60,13 @@ fn to_timezone_accepts_numeric_offsets(#[case] zone: &str, #[case] offset: &str)
 #[case::non_ascii_seconds_suffix("+05:30:15é")]
 #[case::trailing_colon("+05:30:")]
 #[case::non_ascii("-05:30é")]
-fn to_timezone_rejects_trailing_offset_content(#[case] zone: &str) -> Result {
+#[case::missing_minutes("+05:")]
+#[case::repeated_colon_without_minutes("+05::")]
+#[case::missing_minutes_with_whitespace("+05: \t\n")]
+#[case::repeated_colons("+05:::30")]
+#[case::separated_colons("+05 : : 30")]
+#[case::missing_minutes_with_unicode_whitespace("+05\u{2003}:\u{2003}")]
+fn to_timezone_rejects_invalid_numeric_offsets(#[case] zone: &str) -> Result {
     let err = test()
         .run_with_data(
             "let zone = $in; 2026-01-01T12:00:00Z | date to-timezone $zone | ignore",

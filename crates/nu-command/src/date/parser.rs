@@ -71,9 +71,15 @@ fn timezone_offset_internal(
     };
     s = &s[2..];
 
-    // colons (and possibly other separators)
+    // Optional colon, with whitespace permitted around it.
     if consume_colon {
-        s = s.trim_start_matches(|c: char| c == ':' || c.is_whitespace());
+        s = s.trim_start();
+        if let Some(rest) = s.strip_prefix(':') {
+            s = rest.trim_start();
+            if s.is_empty() {
+                return Err(ParseErrorKind::Invalid);
+            }
+        }
     }
 
     // minutes (00--59)
