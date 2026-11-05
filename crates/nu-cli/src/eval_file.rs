@@ -168,8 +168,12 @@ pub fn evaluate_file(
 
     // Check if the file contains a main command.  We use the script name instead
     // of the literal `main` because the delta (above) may have rewritten the
-    // declaration and added an alias.
-    let exit_code = if file_has_main && engine_state.find_decl(&script_name_bytes, &[]).is_some() {
+    // declaration and added an alias. A file with only subcommands, like `def "main foo"`,
+    // still runs the subcommand its arguments name.
+    let exit_code = if file_has_main
+        && (engine_state.find_decl(&script_name_bytes, &[]).is_some()
+            || names_main_subcommand(engine_state, &script_name_bytes, args))
+    {
         // Evaluate the file, but don't run main yet.
         let pipeline =
             match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
@@ -212,6 +216,17 @@ pub fn evaluate_file(
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
     Ok(())
+}
+
+/// Whether the first words of `args` name one of the script's `main` subcommands, such as
+/// `foo bar` for `def "main foo bar"`.
+fn names_main_subcommand(engine_state: &EngineState, script_name: &[u8], args: &[String]) -> bool {
+    let mut name = script_name.to_vec();
+    args.iter().any(|arg| {
+        name.push(b' ');
+        name.extend_from_slice(arg.as_bytes());
+        engine_state.find_decl(&name, &[]).is_some()
+    })
 }
 
 /// Returns the command line that calls the script's `main` with `args`.
@@ -275,6 +290,48 @@ mod tests {
                 .cwd(dirs.test())
                 .run(format!("nu test.nu {args} | from json"))
                 .expect_value_eq(expected)
+        })
+    }
+
+    #[test]
+    #[deps(NU)]
+    fn subcommand_runs_without_main() -> Result {
+        Playground::setup("evaluate_file_subcommand_without_main", |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "test.nu",
+                r#"
+                def "main foo" [x: int] { $"foo ($x)" }
+                def "main foo bar" [] { "foo bar" }
+                "#,
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("nu test.nu foo 5 | str trim")
+                .expect_value_eq("foo 5")?;
+            test()
+                .cwd(dirs.test())
+                .run("nu test.nu foo bar | str trim")
+                .expect_value_eq("foo bar")
+        })
+    }
+
+    #[test]
+    #[deps(NU)]
+    fn file_with_subcommands_but_no_main_still_runs_without_arguments() -> Result {
+        Playground::setup("evaluate_file_subcommand_no_args", |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "test.nu",
+                r#"
+                def "main foo" [] { "foo" }
+                print "top level"
+                "#,
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("nu test.nu | str trim")
+                .expect_value_eq("top level")
         })
     }
 }
