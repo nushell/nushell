@@ -2,7 +2,9 @@ use nu_engine::{ClosureEvalOnce, command_prelude::*};
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
+    ByteStream, ByteStreamSource, OutDest,
+    engine::Closure,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 
 use std::{
@@ -106,10 +108,14 @@ impl Command for Do {
                                     .spawn(move || {
                                         let mut buf = Vec::new();
                                         stdout.read_to_end(&mut buf).map_err(|err| {
-                                            IoError::new_internal(
-                                                err,
-                                                "Could not read stdout to end",
-                                            )
+                                            match ShellErrorBridge::try_from(err) {
+                                                Ok(ShellErrorBridge(err)) => err,
+                                                Err(err) => IoError::new_internal(
+                                                    err,
+                                                    "Could not read stdout to end",
+                                                )
+                                                .into(),
+                                            }
                                         })?;
                                         Ok::<_, ShellError>(buf)
                                     })
