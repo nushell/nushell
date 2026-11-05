@@ -170,6 +170,36 @@ fn url_parse_then_join_keeps_encoded_query() -> Result {
 }
 
 #[test]
+fn url_join_with_params_before_encoded_query() -> Result {
+    let code = r#"{scheme: http, host: h, params: {a: "b c"}, query: "a=b%20c"} | url join"#;
+
+    test().run(code).expect_value_eq("http://h?a=b%20c")
+}
+
+#[rstest::rstest]
+#[case::query_first(r#"{scheme: http, host: h, query: "?a=1", params: {"?a": "1"}}"#)]
+#[case::params_first(r#"{scheme: http, host: h, params: {"?a": "1"}, query: "?a=1"}"#)]
+fn url_join_with_question_mark_in_query_ignores_field_order(#[case] record: &str) -> Result {
+    test()
+        .run(format!("{record} | url join"))
+        .expect_value_eq("http://h??a=1")
+}
+
+#[rstest::rstest]
+#[case::plus_is_not_a_space(r#"{scheme: http, host: h, params: {a: " "}, query: "a=%2B"}"#)]
+#[case::raw_hash_query_first(r#"{scheme: http, host: h, query: "a=1#x", params: {a: "1#x"}}"#)]
+#[case::raw_hash_params_first(r#"{scheme: http, host: h, params: {a: "1#x"}, query: "a=1#x"}"#)]
+#[case::raw_newline(r#"{scheme: http, host: h, query: "a=1\nb", params: {a: "1\nb"}}"#)]
+#[case::question_mark_key(r#"{scheme: http, host: h, params: {a: "1"}, query: "?a=1"}"#)]
+fn url_join_with_query_that_reads_differently_from_params(#[case] record: &str) -> Result {
+    let err = test().run(format!("{record} | url join")).expect_error()?;
+    match err {
+        ShellError::IncompatibleParameters { .. } => Ok(()),
+        err => Err(err.into()),
+    }
+}
+
+#[test]
 fn url_join_with_different_query_and_params() -> Result {
     let code = r#"
             {
