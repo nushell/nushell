@@ -150,14 +150,8 @@ and an explicit type annotation is lost. `$nu` and the record bound by
                 // scope first also finds commands, aliases and modules defined in the running
                 // block, like inside a closure.
                 let scope = ScopeData::new(engine_state, stack);
-                let found_decl = scope
-                    .find_decl(val.as_bytes())
-                    .or_else(|| engine_state.find_decl(val.as_bytes(), &[]));
-                let found_module = || {
-                    scope
-                        .find_module(val.as_bytes())
-                        .or_else(|| engine_state.find_module(val.as_bytes(), &[]))
-                };
+                let found_decl = scope.find_decl(val.as_bytes(), call.head);
+                let found_module = || scope.find_module(val.as_bytes(), call.head);
                 if let Some(decl_id) = found_decl {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);

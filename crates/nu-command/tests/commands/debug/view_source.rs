@@ -254,3 +254,58 @@ fn local_alias_is_gone_after_the_block() -> Result {
     assert_eq!(err.msg, "this name does not correspond to a viewable value");
     Ok(())
 }
+
+#[test]
+fn module_defined_inside_a_block() -> Result {
+    let code = "do { module m { export def x [] { 1 } }; view source m }";
+    test().run(code).expect_value_eq(" export def x [] { 1 } ")
+}
+
+#[test]
+fn alias_defined_inside_a_keyword_body() -> Result {
+    let code = "if true { alias a = print; view source a }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn command_defined_inside_a_block_sees_its_names() -> Result {
+    let code = "do { alias a = print; def inner [] { view source a }; inner }";
+    test().run(code).expect_value_eq("print")
+}
+
+// A custom command doesn't see the local names of the block that calls it, so it shows the
+// definition it would run.
+#[test]
+fn custom_command_ignores_callers_local_command() -> Result {
+    let code = "
+        def helper [] { 'global' }
+        def show [] { view source helper }
+        do { def helper [] { 'local' }; show }
+    ";
+    test()
+        .run(code)
+        .expect_value_eq("def helper [] { 'global' }")
+}
+
+#[test]
+fn custom_command_ignores_callers_local_alias() -> Result {
+    let code = "alias a = ls; def show [] { view source a }; do { alias a = print; show }";
+    test().run(code).expect_value_eq("ls")
+}
+
+#[test]
+fn hidden_command_is_not_shown() -> Result {
+    let code = "def foo [] { 1 }; do { hide foo; view source foo }";
+    let err = match test().run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        err => panic!("expected a GenericError, got {err:?}"),
+    };
+    assert_eq!(err.error, "Cannot view string value");
+    Ok(())
+}
+
+#[test]
+fn hiding_a_local_alias_shows_the_outer_one() -> Result {
+    let code = "do { alias a = ls; do { alias a = print; hide a; view source a } }";
+    test().run(code).expect_value_eq("ls")
+}

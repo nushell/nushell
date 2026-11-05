@@ -23,12 +23,18 @@
 //!    [`ScopeData::populate_decls`] / [`ScopeData::populate_modules`] merge permanent overlays,
 //!    then active whole-block bindings, then matching IR regions.
 //!
+//!    [`ScopeData::find_decl`] / [`ScopeData::find_module`] (used by `view source`) read the
+//!    same bindings without merging them: they walk the frames innermost first, skip frames from
+//!    blocks that don't contain the lookup, and need no `populate_*` call.
+//!
 //! [`scope engine-stats`](crate) intentionally reports only engine-wide counts and ignores locals.
 
 use nu_protocol::{
     CommandWideCompleter, DeclId, ModuleId, Signature, Span, Type, Value, VarId,
     ast::Expr,
-    engine::{Command, CommandType, EngineState, ScopeBindings, Stack, Visibility},
+    engine::{
+        Command, CommandType, EngineState, ScopeBindings, Stack, Visibility, VisibilityStack,
+    },
     record,
 };
 use std::{cmp::Ordering, collections::HashMap};
@@ -72,24 +78,59 @@ impl<'e, 's> ScopeData<'e, 's> {
         self.modules_map = bindings.modules;
     }
 
-    /// Find a command by name as seen from the current point of evaluation, so that commands and
-    /// aliases defined inside the running block (e.g. in a closure) are found too.
-    pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
-        let bindings = self.collect_local_and_global_bindings();
-        bindings
-            .decls
-            .get(name)
-            .copied()
-            .filter(|decl_id| bindings.visibility.is_decl_id_visible(decl_id))
+    /// Find a command by name as seen from the running block, so that commands and aliases
+    /// defined inside it (e.g. in a closure) are found too. `at` is where the lookup happens:
+    /// names from a block that doesn't contain it are skipped, since code there can't call them.
+    pub fn find_decl(&self, name: &[u8], at: Span) -> Option<DeclId> {
+        let mut visibility = VisibilityStack::default();
+        for frame in self.local_frames(at) {
+            visibility.push(&frame.visibility);
+            if let Some(decl_id) = frame.decls.get(name)
+                && visibility.is_decl_id_visible(decl_id)
+            {
+                return Some(*decl_id);
+            }
+        }
+        for overlay_frame in self.engine_state.active_overlays(&[]).rev() {
+            visibility.push(&overlay_frame.visibility);
+            if let Some(decl_id) = overlay_frame.get_decl(name)
+                && visibility.is_decl_id_visible(&decl_id)
+            {
+                return Some(decl_id);
+            }
+        }
+        None
     }
 
-    /// Find a module by name as seen from the current point of evaluation, including modules
-    /// imported inside the running block.
-    pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
-        self.collect_local_and_global_bindings()
-            .modules
-            .get(name)
-            .copied()
+    /// Find a module by name as seen from the running block, including modules defined or
+    /// imported inside it. `at` works as in [`Self::find_decl`].
+    pub fn find_module(&self, name: &[u8], at: Span) -> Option<ModuleId> {
+        self.local_frames(at)
+            .find_map(|frame| frame.modules.get(name).copied())
+            .or_else(|| self.engine_state.find_module(name, &[]))
+    }
+
+    /// The local bindings a lookup at `at` walks, innermost first: the IR regions covering the
+    /// current instruction, then the whole-block bindings. Frames from a block that doesn't
+    /// contain `at` are skipped.
+    fn local_frames(&self, at: Span) -> impl Iterator<Item = &'s ScopeBindings> {
+        let stack = self.stack;
+        let regions = stack.ir_instruction_index.into_iter().flat_map(move |pc| {
+            stack
+                .ir_scope_regions
+                .iter()
+                .rev()
+                .filter(move |region| region.contains(pc))
+                .map(|region| &*region.bindings)
+        });
+        let blocks = stack
+            .active_scope_bindings
+            .iter()
+            .rev()
+            .map(|bindings| &**bindings);
+        regions
+            .chain(blocks)
+            .filter(move |frame| frame.span.is_some_and(|span| span.contains_span(at)))
     }
 
     /// Permanent overlays, then whole-block active bindings, then IR regions covering the PC.
