@@ -1419,6 +1419,7 @@ fn literal_value(
                 .map(|(var_id, span)| {
                     ctx.stack
                         .get_var_with_origin(*var_id, *span)
+                        .or_else(|err| ctx.engine_state.get_constant(*var_id).cloned().ok_or(err))
                         .or_else(|_| get_var(ctx, *var_id, *span))
                         .map(|val| (*var_id, val))
                 })

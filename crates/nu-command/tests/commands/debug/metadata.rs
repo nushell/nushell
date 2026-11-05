@@ -56,6 +56,10 @@ fn no_argument_reads_block_input() -> Result {
 #[case::each(
     "let x = 'abc'; [1] | each { let s = (metadata $x).span; view span $s.start $s.end } | first"
 )]
+#[case::closure_in_def(
+    "let x = 'abc'; def f [] { do { let s = (metadata $x).span; view span $s.start $s.end } }; f"
+)]
+#[case::constant("const x = 'abc'; do { let s = (metadata $x).span; view span $s.start $s.end }")]
 fn captured_variable_keeps_definition_span(#[case] code: &str) -> Result {
     test().run(code).expect_value_eq("'abc'")
 }
@@ -67,4 +71,18 @@ fn captured_argument_keeps_definition_span() -> Result {
         f foobar
     ";
     test().run(code).expect_value_eq("foobar")
+}
+
+// A plain read inside the closure still gets the use site span.
+#[test]
+fn captured_variable_read_gets_use_site_span() -> Result {
+    let code =
+        "let x = 'abc'; do { let y = $x; let s = (metadata $y).span; view span $s.start $s.end }";
+    test().run(code).expect_value_eq("$x")
+}
+
+#[test]
+fn row_condition_capture_keeps_definition_span() -> Result {
+    let code = r#"let x = 'abc'; [1] | where { let s = (metadata $x).span; (view span $s.start $s.end) == "'abc'" } | length"#;
+    test().run(code).expect_value_eq(1)
 }

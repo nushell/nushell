@@ -751,7 +751,12 @@ impl Stack {
         for (capture, _) in captures {
             // Note: this assumes we have calculated captures correctly and that commands
             // that take in a var decl will manually set this into scope when running the blocks
-            if let Ok(value) = self.get_var(*capture, fake_span) {
+            // Keep the span the value was defined with, so `metadata $x` in a closure inside the
+            // block still points at the definition.
+            if let Ok(value) = self
+                .get_var_with_origin(*capture, fake_span)
+                .or_else(|_| self.get_var(*capture, fake_span))
+            {
                 vars.push((*capture, value));
             } else if let Some(const_val) = &engine_state.get_var(*capture).const_val {
                 vars.push((*capture, const_val.clone()));
