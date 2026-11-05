@@ -1949,23 +1949,45 @@ fn internal_argument_completion_chain(
 }
 
 /// Native/dynamic answers, including `Some([])` and answers filtered to empty, stop the
-/// chain before the global external source. Only a dynamic decline reaches it.
+/// chain before the global external source. A dynamic decline or error reaches it.
+/// Check invocation counts independently of inline/worker scheduling.
 #[rstest]
-#[case::dynamic_answer("fake-cmd ", vec!["arg0:0"])]
-#[case::dynamic_filtered_empty("fake-cmd unmatched", vec![])]
-#[case::dynamic_empty("fake-cmd --empty ", vec![])]
-#[case::dynamic_decline("fake-cmd --plugin-config ", vec!["external"])]
-#[case::native_answer("hide-env TE", vec!["TEST"])]
-#[case::native_empty("hide-env no-such-variable", vec![])]
+#[case::dynamic_answer("fake-cmd ", vec!["arg0:0"], false)]
+#[case::dynamic_filtered_empty("fake-cmd unmatched", vec![], false)]
+#[case::dynamic_empty("fake-cmd --empty ", vec![], false)]
+#[case::dynamic_decline("fake-cmd --plugin-config ", vec!["external"], true)]
+#[case::dynamic_error("fake-cmd --stdin-probe ", vec!["external"], true)]
+#[case::native_answer("hide-env TE", vec!["TEST"], false)]
+#[case::native_empty("hide-env no-such-variable", vec![], false)]
 fn internal_global_external_follows_native_answers(
     #[case] line: &str,
     #[case] expected: Vec<&str>,
+    #[case] calls_external: bool,
+    #[values(false, true)] interactive: bool,
 ) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let setup = "$env.config.completions.external.completer = {|| [external] }";
+    let dir = tempfile::tempdir().expect("tempdir");
+    let marker = dir.path().join("calls");
+    engine.add_env_var(
+        "COMPLETION_MARKER".into(),
+        Value::test_string(marker.to_string_lossy().into_owned()),
+    );
+    let attribute = if interactive { "@interactive\n" } else { "" };
+    let setup = format!(
+        "{attribute}def external-source [] {{
+            'x' | save --append $env.COMPLETION_MARKER
+            [external]
+        }}
+        $env.config.completions.external.completer = {{|| external-source }}"
+    );
     assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     match_suggestions(&expected, &completer.complete_blocking(line, line.len()));
+    if calls_external {
+        assert_eq!(std::fs::read_to_string(marker).expect("source ran"), "x");
+    } else {
+        assert!(!marker.exists(), "an answered source did not stop dispatch");
+    }
 }
 
 /// Explicit `@complete external` already occupies the command-wide stage. A decline or
@@ -5091,4 +5113,68 @@ fn lsp_interactive_sources_in_document_decline_without_running(
         );
         assert_eq!(values, vec!["test-picked"]);
     }
+}
+
+/// Skipping an unavailable source in LSP is a decline: later ordinary sources
+/// still run, and earlier contributions survive. No global external source is
+/// installed here, and completion is called directly without Reedline routing.
+#[rstest]
+#[case::parameter(true)]
+#[case::command_wide(false)]
+fn lsp_skipped_interactive_source_preserves_dispatch(
+    #[case] interactive_parameter: bool,
+    #[values(false, true)] within_file: bool,
+) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(dir.path().join("test_dir")).expect("create directory");
+    std::fs::write(dir.path().join("test_file"), "").expect("write file");
+    let marker = dir.path().join("calls");
+    let pwd = AbsolutePathBuf::try_from(dir.path().to_path_buf()).expect("absolute tempdir");
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd);
+    engine.add_env_var(
+        "COMPLETION_MARKER".into(),
+        Value::test_string(marker.to_string_lossy().into_owned()),
+    );
+    let (parameter_attribute, wide_attribute) = if interactive_parameter {
+        ("@interactive\n", "")
+    } else {
+        ("", "@interactive\n")
+    };
+    let setup = format!(
+        "{parameter_attribute}def parameter [] {{
+            'p' | save --append $env.COMPLETION_MARKER
+            {{completions: [test-parameter], fallback: true}}
+        }}
+        {wide_attribute}def wide [] {{
+            'w' | save --append $env.COMPLETION_MARKER
+            [test-wide]
+        }}
+        @complete wide
+        def target [arg: directory@parameter] {{}}"
+    );
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+    engine.is_lsp = true;
+    let completer = nu_cli::CompletionEngine::new(&engine, &nu_protocol::engine::Stack::new());
+    let line = "target test";
+    let suggestions = if within_file {
+        let filename = dir.path().join("probe.nu");
+        completer.fetch_completions_within_file(
+            filename.to_str().expect("UTF-8 filename"),
+            line.len(),
+            line,
+        )
+    } else {
+        completer.fetch_completions_at(line, line.len())
+    };
+    let values: Vec<_> = suggestions
+        .iter()
+        .map(|suggestion| suggestion.suggestion.value.as_str())
+        .collect();
+    let (expected, calls) = if interactive_parameter {
+        (vec!["test-wide".to_string()], "w")
+    } else {
+        (vec!["test-parameter".to_string(), folder("test_dir")], "p")
+    };
+    assert_eq!(values, expected);
+    assert_eq!(std::fs::read_to_string(marker).expect("source ran"), calls);
 }
