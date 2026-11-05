@@ -636,6 +636,44 @@ mod tests {
     }
 
     #[test]
+    fn control_characters_in_a_key_and_in_a_list_element_round_trip() {
+        let engine_state = EngineState::new();
+        let val = Value::test_record(record!(
+            "a\x08b" => Value::test_list(vec![
+                Value::test_string("\x1b[31mred"),
+                Value::test_string("plain"),
+            ]),
+        ));
+
+        let result = to_nuon(&engine_state, &val, ToNuonConfig::default()).unwrap();
+        assert_eq!(result, r#"{"a\bb": ["\e[31mred", plain]}"#);
+        assert_eq!(from_nuon(&result, None).unwrap(), val);
+    }
+
+    #[test]
+    fn a_top_level_string_with_control_characters_round_trips() {
+        let engine_state = EngineState::new();
+        let val = Value::test_string("x\x07\x0c\x01\x7fy\nz");
+        let result = to_nuon(&engine_state, &val, ToNuonConfig::default()).unwrap();
+        assert_eq!(result, "\"x\\a\\f\\u{1}\\u{7f}y\nz\"");
+        assert_eq!(from_nuon(&result, None).unwrap(), val);
+    }
+
+    #[test]
+    fn raw_strings_fall_through_to_escaping_when_the_value_has_a_control_character() {
+        let engine_state = EngineState::new();
+        let val = Value::test_string("a\x08\"b");
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        assert_eq!(result, r#""a\b\"b""#);
+        assert_eq!(from_nuon(&result, None).unwrap(), val);
+    }
+
+    #[test]
     fn raw_strings_option_in_list() {
         let engine_state = EngineState::new();
         let val = Value::test_list(vec![Value::test_string(r#"a "b" c"#)]);

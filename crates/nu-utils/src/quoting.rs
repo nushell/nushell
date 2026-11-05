@@ -1,15 +1,18 @@
 use fancy_regex::Regex;
+use std::fmt::Write;
 use std::sync::LazyLock;
 
 // This hits, in order:
 // • Any character of []:`{}#'";()|$,.!?=
 // • Any digit (\d)
 // • Any whitespace (\s)
-// • A NUL, which must be escaped rather than written raw
+// • A NUL or other control character, which must be escaped rather than written raw
 // • Case-insensitive sign-insensitive float "keywords" inf, infinity and nan.
 static NEEDS_QUOTING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s\x00!?=]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
-        .expect("internal error: NEEDS_QUOTING_REGEX didn't compile")
+    Regex::new(
+        r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s\x00-\x1f\x7f-\x9f!?=]|(?i)^[+\-]?(inf(inity)?|nan)$"#,
+    )
+    .expect("internal error: NEEDS_QUOTING_REGEX didn't compile")
 });
 
 pub fn needs_quoting(string: &str) -> bool {
@@ -28,6 +31,11 @@ pub fn needs_quoting(string: &str) -> bool {
     NEEDS_QUOTING_REGEX.is_match(string).unwrap_or(false)
 }
 
+/// Whether `c` is a control character that [`escape_quote_string`] writes as an escape.
+fn needs_escape(c: char) -> bool {
+    c.is_control() && !matches!(c, '\n' | '\r' | '\t')
+}
+
 pub fn escape_quote_string(string: &str) -> String {
     let mut output = String::with_capacity(string.len() + 2);
     output.push('"');
@@ -41,6 +49,16 @@ pub fn escape_quote_string(string: &str) -> String {
             // A raw NUL is rejected by the reader, so the writer must escape it rather
             // than emit a byte its own reader refuses.
             '\0' => output.push_str("\\0"),
+            // Other control characters are escaped too, so the output stays readable and
+            // doesn't move the cursor or change colors when printed. Newlines, carriage
+            // returns and tabs are kept as they are.
+            '\x07' => output.push_str("\\a"),
+            '\x08' => output.push_str("\\b"),
+            '\x0c' => output.push_str("\\f"),
+            '\x1b' => output.push_str("\\e"),
+            c if needs_escape(c) => {
+                let _ = write!(output, "\\u{{{:x}}}", c as u32);
+            }
             _ => output.push(c),
         }
     }
@@ -64,7 +82,7 @@ pub fn as_raw_string(s: &str) -> Option<String> {
     // Only use raw strings if they would avoid escaping. The NUL check comes first so the
     // scan stays single-pass: a raw string cannot represent `\0` at all, so a NUL-bearing
     // value has to fall through to `escape_quote_string`, which writes the escape.
-    if s.contains('\0') || !s.contains(['"', '\\']) {
+    if s.chars().any(needs_escape) || !s.contains(['"', '\\']) {
         return None;
     }
 
@@ -119,6 +137,33 @@ mod tests {
         // ...and nothing else changed: ordinary strings still take the fast path.
         assert!(!needs_quoting("hello"));
         assert!(!needs_quoting("plain_name"));
+    }
+
+    #[test]
+    fn escape_quote_string_escapes_control_characters() {
+        assert_eq!(escape_quote_string("x\x08y"), r#""x\by""#);
+        assert_eq!(escape_quote_string("\x07\x0c\x1b[31m"), r#""\a\f\e[31m""#);
+        assert_eq!(
+            escape_quote_string("a\x01b\x7fc\u{85}"),
+            r#""a\u{1}b\u{7f}c\u{85}""#
+        );
+        // Newlines, carriage returns and tabs are kept as they are.
+        assert_eq!(escape_quote_string("a\nb\r\tc"), "\"a\nb\r\tc\"");
+    }
+
+    #[test]
+    fn needs_quoting_forces_control_characters_to_be_quoted() {
+        for value in ["x\x08y", "\x1b", "a\x01", "\x7f", "\u{85}"] {
+            assert!(needs_quoting(value), "{value:?} must be quoted");
+        }
+    }
+
+    #[test]
+    fn raw_string_is_refused_when_the_value_has_a_control_character() {
+        assert_eq!(as_raw_string("a\x08\"b"), None);
+        assert_eq!(as_raw_string("\x1b\\"), None);
+        // Newlines are fine in a raw string.
+        assert_eq!(as_raw_string("a\n\"b"), Some("r#'a\n\"b'#".to_string()));
     }
 
     #[test]
