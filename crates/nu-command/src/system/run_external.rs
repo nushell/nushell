@@ -557,9 +557,13 @@ fn write_pipeline_data(
             None => data,
         };
 
-        // Write the output.
+        // Write the output. `table` passes plain values like ints, floats and bools through
+        // unchanged, so convert those the same way as arguments to an external command.
         for value in output {
-            let bytes = value.coerce_into_binary()?;
+            let bytes = match value {
+                Value::Binary { val, .. } => val.into_owned(),
+                value => value.coerce_into_string()?.into_bytes(),
+            };
             writer
                 .write_all(&bytes)
                 .map_err(|err| IoError::new_internal(err, "Could not write pipeline data"))?;

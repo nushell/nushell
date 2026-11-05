@@ -383,6 +383,24 @@ fn external_command_expand_tilde_with_back_quotes(prefix: &str) -> Result {
 
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
+#[deps(TESTBIN_RELAY)]
+fn external_command_receives_plain_values_as_text(prefix: &str) -> Result {
+    for (input, expected) in [
+        ("5", "5"),
+        ("-3", "-3"),
+        ("5.12", "5.12"),
+        ("true", "true"),
+        ("2024-01-02T03:04:05Z", "2024-01-02T03:04:05.000Z"),
+    ] {
+        test()
+            .run(format!("{input} | {prefix}relay"))
+            .expect_value_eq(expected)?;
+    }
+    Ok(())
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
 #[deps(TESTBIN_INPUT_BYTES_LENGTH)]
 fn external_command_receives_raw_binary_data(prefix: &str) -> Result {
     Playground::setup("external command receives raw binary data", |dirs, _| {
