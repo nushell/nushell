@@ -133,6 +133,18 @@ impl Command for UrlJoin {
     }
 }
 
+/// Returns whether two query strings hold the same parameters once they are decoded, so that
+/// `a%20b` and `a+b` count as the same value. A leading `?` is ignored.
+fn same_query(left: &str, right: &str) -> bool {
+    let left = left.strip_prefix('?').unwrap_or(left);
+    let right = right.strip_prefix('?').unwrap_or(right);
+    let decode = |query| serde_urlencoded::from_str::<Vec<(String, String)>>(query).ok();
+    match (decode(left), decode(right)) {
+        (Some(left), Some(right)) => left == right,
+        _ => left == right,
+    }
+}
+
 #[derive(Default)]
 struct UrlComponents {
     scheme: Option<String>,
@@ -214,8 +226,8 @@ impl UrlComponents {
                 qs
             };
 
-            if let Some(q) = self.query
-                && q != qs
+            if let Some(q) = &self.query
+                && !same_query(q, &qs)
             {
                 // if query is present it means that also query_span is set.
                 return Err(ShellError::IncompatibleParameters {
@@ -226,8 +238,9 @@ impl UrlComponents {
                 });
             }
 
+            // Keep the query as it was given, so `url parse | url join` keeps its encoding.
             return Ok(Self {
-                query: Some(qs),
+                query: Some(self.query.unwrap_or(qs)),
                 params_span: Some(value_span),
                 ..self
             });
@@ -265,7 +278,7 @@ impl UrlComponents {
             }),
             "query" => {
                 if let Some(q) = self.query
-                    && q != s
+                    && !same_query(&q, &s)
                 {
                     // if query is present it means that also params_span is set.
                     return Err(ShellError::IncompatibleParameters {

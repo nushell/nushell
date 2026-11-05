@@ -122,6 +122,54 @@ fn url_join_with_same_query_and_params() -> Result {
 }
 
 #[test]
+fn url_join_with_params_before_same_query() -> Result {
+    let code = r#"
+            {
+                "scheme": "http",
+                "host": "localhost",
+                "params": {
+                    "par_1": "aaa",
+                    "par_2": "bbb"
+                },
+                "query": "par_1=aaa&par_2=bbb",
+            } | url join
+        "#;
+
+    test()
+        .run(code)
+        .expect_value_eq("http://localhost?par_1=aaa&par_2=bbb")
+}
+
+#[test]
+fn url_join_with_encoded_query_and_params() -> Result {
+    let code = r#"
+            {
+                "scheme": "http",
+                "host": "localhost",
+                "query": "name=a%20b&x=%28y%29",
+                "params": {
+                    "name": "a b",
+                    "x": "(y)"
+                },
+            } | url join
+        "#;
+
+    test()
+        .run(code)
+        .expect_value_eq("http://localhost?name=a%20b&x=%28y%29")
+}
+
+#[test]
+fn url_parse_then_join_keeps_encoded_query() -> Result {
+    // https://github.com/nushell/nushell/issues/12352
+    let code = r#""https://example.com/search?q=a%20b&lang=en" | url parse | url join"#;
+
+    test()
+        .run(code)
+        .expect_value_eq("https://example.com/search?q=a%20b&lang=en")
+}
+
+#[test]
 fn url_join_with_different_query_and_params() -> Result {
     let code = r#"
             {
