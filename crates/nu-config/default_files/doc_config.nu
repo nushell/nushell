@@ -744,9 +744,10 @@ $env.config.hooks.command_not_found = null
 # and plays no part in that.
 #
 # The modifier, keycode and mode of every entry are checked when the list is
-# assigned. If one can't be read, the whole list is rejected and stays as it was,
-# like any other setting that can't be read, and the rest of the config is still
-# applied. The `event` is checked when the prompt is built.
+# assigned. If one can't be read, the assignment is an error and the list stays
+# as it was, like any other setting that can't be read. Other fields in the same
+# record still apply, but in config.nu the lines after it don't run. The `event`
+# is checked when the prompt is built.
 #
 # To remove a binding you added, assign the list without it:
 # $env.config.keybindings = $env.config.keybindings | where name != my_binding
@@ -860,9 +861,11 @@ $env.config.abbreviations = {}
 # defaults, which also turns off Tab completion. Like any list it is stored as
 # written, and reedline registers the menus in order: when several share a
 # `name`, the last one wins, so `++=` with a default's name overrides that
-# default. The `type.layout` of every menu is checked when the list is assigned.
-# If one can't be read, the whole list is rejected and stays as it was. To drop
-# the ones a later menu overrides:
+# default. The `type.layout`, `input_mode` (or `only_buffer_difference`) and
+# `output_mode` of every menu are checked when the list is assigned. If one can't
+# be read, the assignment is an error and the list stays as it was. The fields
+# that belong to one layout, such as `columns` or `page_size`, are checked when
+# the prompt is built. To drop the ones a later menu overrides:
 # $env.config.menus = $env.config.menus | uniq-by name --keep-last
 # To get the defaults back in a running shell, which is also how a config that is
 # sourced again starts from the same list every time:

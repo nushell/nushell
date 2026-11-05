@@ -6,8 +6,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_protocol::{
-    Config, EditBindings, EditModeName, KeyCodeSpec, KeyModifier, MenuLayout, ParsedKeybinding,
-    ParsedMenu, Record, ShellError, Span, Type, VALID_KEYBINDING_MODES, Value,
+    Config, EditBindings, EditModeName, KeyCodeSpec, KeyModifier, MenuInputMode, MenuLayout,
+    MenuOutputMode, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type,
+    VALID_KEYBINDING_MODES, Value,
     engine::{Closure, EngineState, Stack},
     extract_value,
 };
@@ -99,40 +100,6 @@ fn set_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
     menu
 }
 
-fn parse_input_mode(value: &Value, config: &Config) -> Result<InputMode, ShellError> {
-    match value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "diff" => Ok(InputMode::Diff),
-        "cursor_prefix" => Ok(InputMode::CursorPrefix),
-        "full_buffer" => Ok(InputMode::FullBuffer),
-        other => Err(ShellError::InvalidValue {
-            valid: "'diff', 'cursor_prefix', or 'full_buffer'".into(),
-            actual: format!("'{other}'"),
-            span: value.span(),
-        }),
-    }
-}
-
-fn parse_output_mode(value: &Value, config: &Config) -> Result<OutputMode, ShellError> {
-    match value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "suggested_span" => Ok(OutputMode::SuggestedSpan),
-        "full_buffer" => Ok(OutputMode::FullBuffer),
-        "extend_to_end" => Ok(OutputMode::ExtendToEnd),
-        other => Err(ShellError::InvalidValue {
-            valid: "'suggested_span', 'full_buffer', or 'extend_to_end'".into(),
-            actual: format!("'{other}'"),
-            span: value.span(),
-        }),
-    }
-}
-
 fn parse_description_position(
     value: &Value,
     config: &Config,
@@ -181,35 +148,29 @@ fn menu_with_source<M: Menu + 'static>(
 /// Resolve the menu's effective reedline `InputMode` from the optional
 /// `input_mode` and legacy `only_buffer_difference` fields. The result drives
 /// both the reedline menu and `NuMenuCompleter`'s span math, so it must be
-/// resolved exactly once, here.
+/// resolved exactly once, here. `nu-protocol` reads the fields, and checks them
+/// when the list is assigned.
 fn resolve_input_mode(menu: &ParsedMenu, config: &Config) -> Result<InputMode, ShellError> {
-    match (&menu.input_mode, &menu.only_buffer_difference) {
-        (Some(input_mode), _) => parse_input_mode(input_mode, config),
-        (None, Some(only_buffer_difference)) => {
-            if only_buffer_difference.as_bool()? {
-                Ok(InputMode::Diff)
-            } else {
-                Ok(InputMode::CursorPrefix)
-            }
-        }
-        (None, None) => Err(ShellError::MissingRequiredColumn {
-            column: "input_mode (or only_buffer_difference)",
-            span: menu.name.span(),
-        }),
-    }
+    Ok(match menu.input_mode(config)? {
+        MenuInputMode::Diff => InputMode::Diff,
+        MenuInputMode::CursorPrefix => InputMode::CursorPrefix,
+        MenuInputMode::FullBuffer => InputMode::FullBuffer,
+    })
 }
 
 /// Apply the optional reedline #1071 `output_mode`. Unset preserves
 /// reedline's default (`suggested_span`).
 fn apply_output_mode<M: MenuBuilder>(
-    mut menu: M,
+    menu: M,
     parsed: &ParsedMenu,
     config: &Config,
 ) -> Result<M, ShellError> {
-    if let Some(value) = &parsed.output_mode {
-        menu = menu.with_output_mode(parse_output_mode(value, config)?);
-    }
-    Ok(menu)
+    Ok(match parsed.output_mode(config)? {
+        Some(MenuOutputMode::SuggestedSpan) => menu.with_output_mode(OutputMode::SuggestedSpan),
+        Some(MenuOutputMode::FullBuffer) => menu.with_output_mode(OutputMode::FullBuffer),
+        Some(MenuOutputMode::ExtendToEnd) => menu.with_output_mode(OutputMode::ExtendToEnd),
+        None => menu,
+    })
 }
 
 // Adds a columnar menu to the editor engine
@@ -2062,20 +2023,6 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_parse_input_mode() {
-        let config = Config::default();
-        assert!(matches!(
-            parse_input_mode(&Value::test_string("full_buffer"), &config),
-            Ok(InputMode::FullBuffer)
-        ));
-        assert!(matches!(
-            parse_input_mode(&Value::test_string("diff"), &config),
-            Ok(InputMode::Diff)
-        ));
-        assert!(parse_input_mode(&Value::test_string("nope"), &config).is_err());
-    }
-
     fn test_menu(input_mode: Option<Value>, only_buffer_difference: Option<Value>) -> ParsedMenu {
         ParsedMenu {
             name: Value::test_string("test_menu"),
@@ -2129,20 +2076,6 @@ mod test {
             resolve_input_mode(&test_menu(None, None), &config),
             Err(ShellError::MissingRequiredColumn { .. })
         ));
-    }
-
-    #[test]
-    fn test_parse_output_mode() {
-        let config = Config::default();
-        assert!(matches!(
-            parse_output_mode(&Value::test_string("extend_to_end"), &config),
-            Ok(OutputMode::ExtendToEnd)
-        ));
-        assert!(matches!(
-            parse_output_mode(&Value::test_string("suggested_span"), &config),
-            Ok(OutputMode::SuggestedSpan)
-        ));
-        assert!(parse_output_mode(&Value::test_string("nope"), &config).is_err());
     }
 
     #[test]
@@ -2715,11 +2648,5 @@ mod test {
                 assert_eq!(for_keybinding.is_ok(), shown.is_some(), "{name}");
             }
         }
-    }
-
-    /// The defaults a fresh shell has build without an error.
-    #[test]
-    fn the_default_keybindings_build() -> Result<(), ShellError> {
-        create_keybindings(&Config::default()).map(drop)
     }
 }

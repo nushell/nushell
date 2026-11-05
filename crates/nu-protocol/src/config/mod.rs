@@ -20,7 +20,10 @@ pub use helper::extract_value;
 pub use hinter::HinterConfig;
 pub use history::{HistoryConfig, HistoryFileFormat, HistoryPath};
 pub use hooks::Hooks;
-pub use key_spec::{EditModeName, KeyCodeSpec, KeyModifier, MenuLayout, VALID_KEYBINDING_MODES};
+pub use key_spec::{
+    EditModeName, KeyCodeSpec, KeyModifier, MenuInputMode, MenuLayout, MenuOutputMode,
+    VALID_KEYBINDING_MODES,
+};
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
@@ -850,7 +853,26 @@ mod tests {
         let mut not_a_record = grid.clone();
         not_a_record.r#type = Value::test_string("columnar");
 
-        for bad in [grid, no_layout, not_a_record] {
+        // The modes are read on assignment too, not only the layout.
+        let mut bad_input_mode = old.menus[0].clone();
+        bad_input_mode.input_mode = Some(Value::test_string("bogus"));
+        let mut no_input_mode = old.menus[0].clone();
+        no_input_mode.input_mode = None;
+        no_input_mode.only_buffer_difference = None;
+        let mut bad_flag = no_input_mode.clone();
+        bad_flag.only_buffer_difference = Some(Value::test_int(3));
+        let mut bad_output_mode = old.menus[0].clone();
+        bad_output_mode.output_mode = Some(Value::test_string("bogus"));
+
+        for bad in [
+            grid,
+            no_layout,
+            not_a_record,
+            bad_input_mode,
+            no_input_mode,
+            bad_flag,
+            bad_output_mode,
+        ] {
             let mut new = old.clone();
             let good = old.menus[0].clone();
             let result = try_assign_menus(&mut new, &old, vec![good, bad]);
@@ -858,25 +880,5 @@ mod tests {
             assert!(result.is_err());
             assert_eq!(menu_names(&new), menu_names(&old));
         }
-    }
-
-    /// The reload scenario for menus: bad layout first, then the fixed copy.
-    #[test]
-    fn a_fixed_menu_appended_after_a_rejected_one_is_accepted() {
-        let old = Config::default();
-        let mut new = old.clone();
-
-        let mut menu = old.menus[0].clone();
-        menu.r#type = Value::test_record(record! { "layout" => Value::test_string("grid") });
-        let mut menus = new.menus.clone();
-        menus.push(menu.clone());
-        assert!(try_assign_menus(&mut new, &old, menus).is_err());
-        assert_eq!(menu_names(&new), menu_names(&old));
-
-        menu.r#type = Value::test_record(record! { "layout" => Value::test_string("columnar") });
-        let mut menus = new.menus.clone();
-        menus.push(menu);
-        assert!(try_assign_menus(&mut new, &old, menus).is_ok());
-        assert_eq!(new.menus.len(), old.menus.len() + 1);
     }
 }

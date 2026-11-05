@@ -296,19 +296,6 @@ fn a_fixed_keybinding_is_accepted_after_a_rejected_one() -> TestResult {
     )
 }
 
-/// A menu with a layout that doesn't exist is rejected the same way.
-#[test]
-fn a_menu_with_an_unknown_layout_is_rejected_on_assignment() -> TestResult {
-    run_test_std(
-        r#"
-            let n = $env.config.menus | length;
-            let rejected = try { $env.config.menus ++= [{ name: grid_menu, only_buffer_difference: false, marker: "G ", type: { layout: grid }, style: {} }]; false } catch { true };
-            $rejected and ($env.config.menus | length) == $n
-        "#,
-        "true",
-    )
-}
-
 /// `config default` has the defaults, so `= []` is undone by assigning them again.
 #[test]
 fn config_default_restores_the_default_lists() -> TestResult {

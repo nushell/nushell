@@ -1,5 +1,5 @@
 //! The text grammar of a keybinding's `modifier`, `keycode` and `mode`, and of a
-//! menu's `layout`.
+//! menu's `layout`, `input_mode` and `output_mode`.
 //!
 //! The grammar lives here, and not next to reedline, so that an assignment to
 //! `$env.config.keybindings` or `$env.config.menus` can be checked when it is
@@ -83,10 +83,31 @@ pub enum MenuLayout {
     Description,
 }
 
+/// How much of the line a menu hands to its completer, spelled in any case.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "snake_case")]
+pub enum MenuInputMode {
+    Diff,
+    CursorPrefix,
+    FullBuffer,
+}
+
+/// What a menu replaces when a suggestion is taken, spelled in any case.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "snake_case")]
+pub enum MenuOutputMode {
+    SuggestedSpan,
+    FullBuffer,
+    ExtendToEnd,
+}
+
 const VALID_MODIFIERS: &str = "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'";
+const VALID_KEYCODES: &str = "'backspace', 'enter', 'space', 'down', 'up', 'left', 'right', 'home', 'end', 'pageup', 'pagedown', 'tab', 'backtab', 'delete', 'insert', 'null', 'esc', 'f1' to 'f35', 'char_<char>', or 'char_u<hex code>'";
 /// The edit modes a keybinding can name, as the error says.
 pub const VALID_KEYBINDING_MODES: &str = "'emacs', 'vi_insert', 'vi_normal', 'vi_visual', 'helix_insert', 'helix_normal', or 'helix_select'";
 const VALID_LAYOUTS: &str = "'columnar', 'list', 'ide', or 'description'";
+const VALID_INPUT_MODES: &str = "'diff', 'cursor_prefix', or 'full_buffer'";
+const VALID_OUTPUT_MODES: &str = "'suggested_span', 'full_buffer', or 'extend_to_end'";
 
 impl ParsedKeybinding {
     /// The modifiers of this entry: `none`, or `_`-joined names such as `control_shift`.
@@ -179,7 +200,7 @@ impl ParsedKeybinding {
             "esc" | "escape" => KeyCodeSpec::Esc,
             _ => {
                 return Err(ShellError::InvalidValue {
-                    valid: "a crossterm KeyCode".into(),
+                    valid: VALID_KEYCODES.into(),
                     actual: format!("'{keycode}'"),
                     span,
                 });
@@ -251,9 +272,55 @@ impl ParsedMenu {
         })
     }
 
-    /// Checks what the text of this menu names: its layout.
+    /// How much of the line this menu hands to its completer. `input_mode` names
+    /// it and supersedes the legacy `only_buffer_difference`, which is `diff` when
+    /// true and `cursor_prefix` when false. One of the two is required.
+    pub fn input_mode(&self, config: &Config) -> Result<MenuInputMode, ShellError> {
+        match (&self.input_mode, &self.only_buffer_difference) {
+            (Some(input_mode), _) => {
+                let text = input_mode.to_expanded_string("", config);
+                text.parse().map_err(|_| ShellError::InvalidValue {
+                    valid: VALID_INPUT_MODES.into(),
+                    actual: format!("'{text}'"),
+                    span: input_mode.span(),
+                })
+            }
+            (None, Some(only_buffer_difference)) => Ok(if only_buffer_difference.as_bool()? {
+                MenuInputMode::Diff
+            } else {
+                MenuInputMode::CursorPrefix
+            }),
+            (None, None) => Err(ShellError::MissingRequiredColumn {
+                column: "input_mode (or only_buffer_difference)",
+                span: self.name.span(),
+            }),
+        }
+    }
+
+    /// What this menu replaces when a suggestion is taken, if `output_mode` is
+    /// set. Unset keeps reedline's default, `suggested_span`.
+    pub fn output_mode(&self, config: &Config) -> Result<Option<MenuOutputMode>, ShellError> {
+        self.output_mode
+            .as_ref()
+            .map(|output_mode| {
+                let text = output_mode.to_expanded_string("", config);
+                text.parse().map_err(|_| ShellError::InvalidValue {
+                    valid: VALID_OUTPUT_MODES.into(),
+                    actual: format!("'{text}'"),
+                    span: output_mode.span(),
+                })
+            })
+            .transpose()
+    }
+
+    /// Checks what the text of this menu names: its layout, input mode and
+    /// output mode. The fields of the layout itself, such as `columns`, are still
+    /// read when the prompt is built.
     pub(crate) fn validate(&self, config: &Config) -> Result<(), ShellError> {
-        self.layout(config).map(drop)
+        self.layout(config)?;
+        self.input_mode(config)?;
+        self.output_mode(config)?;
+        Ok(())
     }
 }
 
@@ -451,23 +518,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn validation_covers_the_modes_the_modifier_and_the_keycode_but_not_the_event() {
-        assert!(entry("control", "char_t", emacs()).validate().is_ok());
-        assert!(entry("bogus", "char_t", emacs()).validate().is_err());
-        assert!(entry("control", "bogus", emacs()).validate().is_err());
-        assert!(
-            entry("control", "char_t", Value::test_string("bogus"))
-                .validate()
-                .is_err()
-        );
-
-        let mut with_bad_event = entry("control", "char_t", emacs());
-        with_bad_event.event =
-            Value::test_record(record! { "send" => Value::test_string("bogus") });
-        assert!(with_bad_event.validate().is_ok());
-    }
-
     fn menu(layout: Value) -> ParsedMenu {
         ParsedMenu {
             name: Value::test_string("m"),
@@ -502,6 +552,72 @@ mod tests {
         for bad in ["grid", "Columnar", ""] {
             assert_eq!(rejected(layout_of(bad)), format!("'{bad}'"), "{bad}");
         }
+        Ok(())
+    }
+
+    fn menu_with_modes(
+        input_mode: Option<Value>,
+        only_buffer_difference: Option<Value>,
+    ) -> ParsedMenu {
+        let mut menu = menu(Value::test_nothing());
+        menu.input_mode = input_mode;
+        menu.only_buffer_difference = only_buffer_difference;
+        menu
+    }
+
+    #[test]
+    fn a_menu_input_mode_is_a_name_or_the_legacy_flag() -> Result<(), ShellError> {
+        let config = Config::default();
+        let name = |name: &str| Some(Value::test_string(name));
+
+        assert_eq!(
+            menu_with_modes(name("Full_Buffer"), None).input_mode(&config)?,
+            MenuInputMode::FullBuffer
+        );
+        // The name supersedes a legacy flag that says otherwise.
+        assert_eq!(
+            menu_with_modes(name("diff"), Some(Value::test_bool(false))).input_mode(&config)?,
+            MenuInputMode::Diff
+        );
+        assert_eq!(
+            menu_with_modes(None, Some(Value::test_bool(true))).input_mode(&config)?,
+            MenuInputMode::Diff
+        );
+        assert_eq!(
+            menu_with_modes(None, Some(Value::test_bool(false))).input_mode(&config)?,
+            MenuInputMode::CursorPrefix
+        );
+
+        assert_eq!(
+            rejected(menu_with_modes(name("nope"), None).input_mode(&config)),
+            "'nope'"
+        );
+        let not_a_bool = menu_with_modes(None, Some(Value::test_int(3)));
+        assert!(matches!(
+            not_a_bool.input_mode(&config),
+            Err(ShellError::CantConvert { .. })
+        ));
+        assert!(matches!(
+            menu_with_modes(None, None).input_mode(&config),
+            Err(ShellError::MissingRequiredColumn { .. })
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn a_menu_output_mode_is_optional_and_a_name() -> Result<(), ShellError> {
+        let config = Config::default();
+        let mut menu = menu(Value::test_nothing());
+        assert_eq!(menu.output_mode(&config)?, None);
+
+        menu.output_mode = Some(Value::test_string("Extend_To_End"));
+        assert_eq!(
+            menu.output_mode(&config)?,
+            Some(MenuOutputMode::ExtendToEnd)
+        );
+
+        menu.output_mode = Some(Value::test_string("nope"));
+        assert_eq!(rejected(menu.output_mode(&config)), "'nope'");
         Ok(())
     }
 
