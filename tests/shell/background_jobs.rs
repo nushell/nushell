@@ -29,10 +29,12 @@ const NU_TIMEOUT: Duration = Duration::from_secs(180);
 /// Starts a background job running an external process, and waits until the job has registered
 /// the process, so that killing the job kills it.
 ///
-/// The process ends by itself after two minutes: long enough to still run when a test checks for
-/// it, and short enough not to linger long after a test that leaks it.
+/// The process ends by itself after 45 seconds: longer than [`TIMEOUT`] so a leak still fails the
+/// pipe wait before the process exits on its own, and short enough that a macOS shutdown race
+/// which waits for this sleep (instead of killing it) does not stall CI for minutes. See
+/// `chained_background_processes_end_with_nu`.
 const SPAWN_BACKGROUND_PROCESS: &str = "
-    job spawn { ^$nu.current-exe --no-config-file --no-std-lib -c 'sleep 2min' } | ignore
+    job spawn { ^$nu.current-exe --no-config-file --no-std-lib -c 'sleep 45sec' } | ignore
     let deadline = (date now) + 30sec
     while (job list | get pids | flatten | is-empty) {
         if (job list | is-empty) { error make {msg: 'background process failed to start'} }
@@ -371,6 +373,9 @@ fn background_processes_end_with_commands_and_scripts(
 
 /// Exercise shutdown while jobs transition between short-lived and long-lived externals.
 /// The inherited pipe detects children leaked before their PID was registered.
+///
+/// Uses `^sleep 45` (same lifetime as [`SPAWN_BACKGROUND_PROCESS`]) so a raced shutdown that
+/// waits for the sleep cannot stall CI for the old two-minute duration.
 #[cfg(unix)]
 #[test]
 #[deps(NU)]
@@ -379,7 +384,7 @@ fn chained_background_processes_end_with_nu() -> Result {
         Playground::setup("chained_background_processes_end_with_nu", |dirs, _| {
             let code = format!(
                 "{SPAWN_BACKGROUND_PROCESS}
-                 for _ in 1..8 {{ job spawn {{ ^true; ^sleep 120 }} | ignore }}
+                 for _ in 1..8 {{ job spawn {{ ^true; ^sleep 45 }} | ignore }}
                  sleep 1ms"
             );
             assert_nothing_outlives_nu(dirs.test().as_std_path(), &["-n", "-c", &code], 0)
