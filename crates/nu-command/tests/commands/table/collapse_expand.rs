@@ -691,6 +691,30 @@ fn table_expand_flatten_1() -> Result {
 }
 
 #[test]
+fn table_expand_flatten_2() -> Result {
+    test()
+        .run_with_data(
+            "table -w 80 -efs ,",
+            test_value!([
+                { a: 1, b: 2, c: 3 },
+                { a: 4, b: 5, c: [1, 2, [1, 1, 1]] },
+            ]),
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───┬───────────────╮
+            │ # │ a │ b │       c       │
+            ├───┼───┼───┼───────────────┤
+            │ 0 │ 1 │ 2 │             3 │
+            │ 1 │ 4 │ 5 │ ╭───┬───────╮ │
+            │   │   │   │ │ 0 │     1 │ │
+            │   │   │   │ │ 1 │     2 │ │
+            │   │   │   │ │ 2 │ 1,1,1 │ │
+            │   │   │   │ ╰───┴───────╯ │
+            ╰───┴───┴───┴───────────────╯
+        "})
+}
+
+#[test]
 fn table_expand_flatten_and_deep_1() -> Result {
     test()
         .run_with_data(
