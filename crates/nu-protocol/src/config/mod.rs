@@ -263,9 +263,10 @@ impl UpdateFromValue for Config {
                 }
 
                 // Stored as written, like any list. Reedline registers the
-                // menus in order, so a later one wins on a name. A menu whose
-                // layout can't be read rejects the whole list and the previous
-                // one stays, like for any other config value.
+                // menus in order, so a later one wins on a name. A menu with a
+                // layout, input mode or output mode that can't be read rejects
+                // the whole list and the previous one stays, like for any other
+                // config value.
                 "menus" => match Vec::<ParsedMenu>::from_value(val.clone()).and_then(|menus| {
                     menus.iter().try_for_each(|menu| menu.validate(self))?;
                     Ok(menus)
