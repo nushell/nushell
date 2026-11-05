@@ -94,10 +94,17 @@ fn timezone_offset_internal(
         0 => s,
         _ => return Err(ParseErrorKind::TooShort),
     };
+    // Preserve seconds (00--59) emitted by `into record` and `format date "%::z"`.
+    let (offset_seconds, suffix) = match suffix.strip_prefix(':').map(digits) {
+        Some(Ok((s1 @ b'0'..=b'5', s2 @ b'0'..=b'9'))) => {
+            (i32::from((s1 - b'0') * 10 + (s2 - b'0')), &suffix[3..])
+        }
+        _ => (0, suffix),
+    };
     if !suffix.trim().is_empty() {
         return Err(ParseErrorKind::Invalid);
     }
 
-    let seconds = hours * 3600 + minutes * 60;
+    let seconds = hours * 3600 + minutes * 60 + offset_seconds;
     Ok(if negative { -seconds } else { seconds })
 }
