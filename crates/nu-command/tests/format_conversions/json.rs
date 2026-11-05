@@ -384,9 +384,8 @@ fn to_json_escapes_control_characters_in_keys_and_nested_values() -> Result {
 
 #[test]
 fn to_json_matches_raw_for_control_characters() -> Result {
-    let code = r#"
-        let s = "x\u{1b}[1my\u{2}"
-        ($s | to json) == ($s | to json --raw) and ($s | to json | from json) == $s
-    "#;
+    let code = "
+        0..0xa0 | each {|n| char --integer $n } | all {|s| ($s | to json) == ($s | to json --raw) and ($s | to json | from json) == $s }
+    ";
     test().run(code).expect_value_eq(true)
 }
