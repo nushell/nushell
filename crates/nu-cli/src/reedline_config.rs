@@ -1007,6 +1007,8 @@ fn event_from_record(
                 span,
             });
         }
+        Ok(RED::FirstHistory) => ReedlineEvent::FirstHistory,
+        Ok(RED::LeaveHistory) => ReedlineEvent::LeaveHistory,
     };
 
     Ok(event)
@@ -1110,6 +1112,8 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::SwitchMode => "SwitchMode mode: <string>",
         // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
+        RED::FirstHistory => "FirstHistory",
+        RED::LeaveHistory => "LeaveHistory",
     })
 }
 
@@ -1195,7 +1199,7 @@ fn edit_from_record(
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
         },
-        Ok(ECD::MoveWordRightEnd) => EditCommand::MoveWordRightEnd {
+        Ok(ECD::MoveWordRightEnd) => EditCommand::MoveWordRight {
             select: extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
@@ -1282,6 +1286,7 @@ fn edit_from_record(
         Ok(ECD::UppercaseWord) => EditCommand::UppercaseWord,
         Ok(ECD::LowercaseWord) => EditCommand::LowercaseWord,
         Ok(ECD::CapitalizeChar) => EditCommand::CapitalizeChar,
+        Ok(ECD::CapitalizeWord) => EditCommand::CapitalizeWord,
         Ok(ECD::SwitchcaseChar) => EditCommand::SwitchcaseChar,
         Ok(ECD::SwapWords) => EditCommand::SwapWords,
         Ok(ECD::SwapGraphemes) => EditCommand::SwapGraphemes,
@@ -1516,6 +1521,7 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::LowercaseWord => "LowercaseWord",
         ECD::SwitchcaseChar => "SwitchcaseChar",
         ECD::CapitalizeChar => "CapitalizeChar",
+        ECD::CapitalizeWord => "CapitalizeWord",
         ECD::SwapWords => "SwapWords",
         ECD::SwapGraphemes => "SwapGraphemes",
         ECD::Undo => "Undo",

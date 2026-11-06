@@ -904,7 +904,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 entry_num,
             });
         }
-        Ok(Signal::CtrlC) => {
+        Ok(Signal::CtrlC(_)) => {
             // `Reedline` clears the line content. New prompt is shown
             run_finaliziation_ansi_sequence(
                 &stack,
