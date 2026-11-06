@@ -341,6 +341,11 @@ pub struct ScopeFrame {
     /// the parser's frames use it: merging a delta removes the variables its top frame hid
     /// from the overlays instead.
     pub hidden_vars: Vec<VarId>,
+
+    /// Modules that a reload dropped while this frame was parsed (see
+    /// [`StateWorkingSet::hide_module`](crate::engine::StateWorkingSet::hide_module)). Used the
+    /// same way as `hidden_vars`.
+    pub hidden_modules: Vec<ModuleId>,
 }
 
 impl ScopeFrame {
@@ -352,6 +357,7 @@ impl ScopeFrame {
             predecls: DeclNameMap::new(),
             type_predecls: HashMap::new(),
             hidden_vars: vec![],
+            hidden_modules: vec![],
         }
     }
 
@@ -363,6 +369,7 @@ impl ScopeFrame {
             predecls: DeclNameMap::new(),
             type_predecls: HashMap::new(),
             hidden_vars: vec![],
+            hidden_modules: vec![],
         }
     }
 
