@@ -54,9 +54,9 @@ fn table_to_tsv_text_skipping_headers_after_conversion() -> Result {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "tsv_text_sample.txt",
             "
-                importer    shipper tariff_item name    origin
-                Plasticos Rival Reverte 2509000000  Calcium carbonate   Spain
-                Tigre Ecuador   OMYA Andina 3824909999  Calcium carbonate   Colombia
+                importer	shipper	tariff_item	name	origin
+                Plasticos Rival	Reverte	2509000000	Calcium carbonate	Spain
+                Tigre Ecuador	OMYA Andina	3824909999	Calcium carbonate	Colombia
             ",
         )]);
 

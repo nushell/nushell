@@ -3,6 +3,7 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn split_column() -> Result {
@@ -144,6 +145,26 @@ fn split_column_duplicate_column_error() -> Result {
         } if col_name == "x" && first_use.start < second_use.start
     );
     Ok(())
+}
+
+#[rstest]
+#[case("1")]
+#[case("1 2 3")]
+fn split_column_incorrect_column_name_amount(#[case] column_names: &str) -> Result {
+    let code = format!("'a-b' | split column '-' {}", column_names);
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incompatible_parameters")
+}
+
+#[rstest]
+#[case("1")]
+#[case("1 2 3")]
+fn split_column_incorrect_column_name_amount_number(#[case] column_names: &str) -> Result {
+    let code = format!("'a-b-c' | split column --number 2 '-' {}", column_names);
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incompatible_parameters")
 }
 
 #[test]

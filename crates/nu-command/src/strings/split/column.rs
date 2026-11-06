@@ -266,6 +266,19 @@ fn split_column_helper(
                 .filter(|x| !(collapse_empty && x.is_empty()))
                 .collect(),
         };
+        if !rest.is_empty() && split_result.len() != rest.len() {
+            let span = v.span();
+            let msg = format!(
+                "The record has {} columns, but {} column names have been given",
+                split_result.len(),
+                rest.len()
+            );
+            return vec![Value::error(
+                ShellError::IncompatibleParametersSingle { msg, span },
+                span,
+            )];
+        }
+
         let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
 
         // If they didn't provide column names, make up our own
