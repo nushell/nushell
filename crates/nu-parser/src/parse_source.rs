@@ -284,9 +284,8 @@ fn parse_run_expr_internal(
                 has_flag_const(working_set, &call, "full-reparse")
             };
 
-            // The script arguments are parsed in the caller's scope before this parse of the
-            // script, so its definitions can't change what they mean. (A script that `run` parsed
-            // earlier in the same scope has already declared its definitions there.)
+            // The script arguments are parsed in the caller's scope. The script itself is parsed in
+            // its own scope below, so its definitions can't change what they mean.
             add_script_arguments(working_set, &mut call, script_args);
 
             let Ok(do_full_reparse) = do_full_reparse else {
@@ -381,11 +380,15 @@ fn parse_run_expr_internal(
                         return garbage(working_set, Span::concat(spans));
                     }
 
+                    // Unlike `source`, the script is parsed in a scope of its own, so its commands,
+                    // `main` included, and its variable names don't join the caller's scope. The
+                    // block's `scope_bindings` keep the names of the commands and modules it
+                    // declares, for `run` to make them findable by name while the script runs.
                     let mut block = parse(
                         working_set,
                         Some(&path.path().to_string_lossy()),
                         &contents,
-                        false,
+                        true,
                     );
                     if block.ir_block.is_none() {
                         let block_mut = Arc::make_mut(&mut block);

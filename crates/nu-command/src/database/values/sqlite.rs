@@ -8,7 +8,8 @@ use nu_protocol::{
     shell_error::io::IoError,
 };
 use rusqlite::{
-    Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, types::ValueRef,
+    Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, backup::NO_PROGRESS,
+    types::ValueRef,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -256,7 +257,7 @@ impl SQLiteDatabase {
         conn: &Connection,
         filename: String,
     ) -> Result<(), SqliteError> {
-        conn.backup(DATABASE_NAME, Path::new(&filename), None)?;
+        conn.backup(DATABASE_NAME, Path::new(&filename), NO_PROGRESS)?;
         Ok(())
     }
 
@@ -505,7 +506,7 @@ pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<OpenedConnection, 
     }
 
     let path = path.to_string_lossy().to_string();
-    let conn = Connection::open(path).map_err(|err| {
+    let mut conn = Connection::open(path).map_err(|err| {
         ShellError::Generic(GenericError::new(
             "Failed to open SQLite database",
             err.to_string(),
@@ -685,7 +686,7 @@ pub struct TypedColumn {
 }
 
 impl TypedColumn {
-    pub fn from_rusqlite_column(c: &rusqlite::Column) -> Self {
+    pub fn from_rusqlite_column(c: rusqlite::Column) -> Self {
         Self {
             name: c.name().to_owned(),
             decl_type: c.decl_type().and_then(DeclType::from_str),
@@ -702,7 +703,6 @@ fn prepared_statement_to_nu_list(
 ) -> Result<Value, SqliteOrShellError> {
     let columns: Vec<TypedColumn> = stmt
         .columns()
-        .iter()
         .map(TypedColumn::from_rusqlite_column)
         .collect();
 
@@ -874,7 +874,7 @@ pub fn convert_sqlite_value_to_nu_value(
 
 pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     let flags = OpenFlags::default();
-    let conn = Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| {
+    let mut conn = Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| {
         ShellError::Generic(GenericError::new(
             "Failed to open SQLite custom connection in memory",
             e.to_string(),

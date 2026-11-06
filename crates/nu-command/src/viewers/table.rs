@@ -95,7 +95,7 @@ impl Command for Table {
             )
             .switch(
                 "collapse",
-                "Expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control.",
+                "Expand the table structure in collapse mode.",
                 Some('c'),
             )
             .named(

@@ -76,11 +76,23 @@ impl Command for MathSum {
                 result: None,
             },
             Example {
+                description: "Get the disk usage as a record with a `size` column.",
+                example: "ls | math sum size",
+                result: None,
+            },
+            Example {
                 description: "Compute the sum of each column in a table.",
                 example: "[[a b]; [1 2] [3 4]] | math sum",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(4),
                     "b" => Value::test_int(6),
+                })),
+            },
+            Example {
+                description: "Sum only the named columns of a table.",
+                example: "[[name a b]; [x 1 2] [y 3 4]] | math sum a",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(4),
                 })),
             },
             Example {

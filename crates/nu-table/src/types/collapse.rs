@@ -27,7 +27,7 @@ fn collapsed_table(mut value: Value, opts: TableOpts<'_>) -> StringResult {
         return Ok(None);
     }
 
-    let table = table.draw(&theme, opts.config.table.padding, &opts.style_computer);
+    let table = table.draw(&theme, &opts.style_computer);
 
     Ok(Some(table))
 }

@@ -897,6 +897,144 @@ fn source_same_file_does_not_multiply_decls() -> Result {
     })
 }
 
+/// A cached `source` declares the file's names again where they're missing: after the scope of
+/// the first `source` has ended, in the enclosing block or in a sibling block.
+#[rstest]
+#[case::def("source_cached_def", "def zz [] { 'def' }", "zz", "def")]
+#[case::alias("source_cached_alias", "alias zz = echo alias", "zz", "alias")]
+#[case::const_("source_cached_const", "const zz = 'const'", "$zz", "const")]
+#[case::let_("source_cached_let", "let zz = 'let'", "$zz", "let")]
+#[case::type_alias(
+    "source_cached_type_alias",
+    "type Zz = string",
+    "let x: Zz = 'type'; $x",
+    "type"
+)]
+#[case::use_std("source_cached_use", "use std/assert", "assert true; 'use'", "use")]
+#[case::captured_const(
+    "source_cached_captured_const",
+    "const zz = 'captured'\ndef zzget [] { $zz }",
+    "zzget",
+    "captured"
+)]
+fn source_cached_file_declares_its_names_in_another_scope(
+    #[case] topic: &str,
+    #[case] lib: &str,
+    #[case] usage: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", lib)]);
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("do {{ source lib.nu }}; source lib.nu; {usage}"))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "if true {{ source lib.nu }}; if true {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "do {{ source lib.nu }}; do {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)
+    })
+}
+
+/// A variable a sourced file declares belongs to the block around `source`, also when that block
+/// is a closure, so the closure doesn't try to capture it from outside.
+#[rstest]
+#[case::let_in_do("source_let_in_do", "do { source lib.nu; $zz }", "let")]
+#[case::let_in_closure(
+    "source_let_in_closure",
+    "let c = { source lib.nu; $zz }; do $c",
+    "let"
+)]
+#[case::mut_in_do("source_mut_in_do", "do { source lib.nu; $zzmut }", "mut")]
+#[case::nested_source("source_let_nested_in_do", "do { source outer.nu; $zz }", "let")]
+#[case::read_by_file_command("source_let_read_by_def_in_do", "do { source lib.nu; zzget }", "let")]
+fn source_variable_is_local_to_a_closure(
+    #[case] topic: &str,
+    #[case] code: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent(
+                "lib.nu",
+                "let zz = 'let'\nmut zzmut = 'mut'\ndef zzget [] { $zz }",
+            ),
+            FileWithContent("outer.nu", "source lib.nu"),
+        ]);
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(expected)
+    })
+}
+
+#[test]
+fn source_cached_file_declares_its_names_after_hide() -> Result {
+    Playground::setup("source_cached_after_hide", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", "def zz [] { 'def' }")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("source lib.nu; hide zz; source lib.nu; zz")
+            .expect_value_eq("def")
+    })
+}
+
+/// A second `source` in the same parse and scope reuses the block, as a later one does.
+#[test]
+fn source_same_file_twice_in_one_parse_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_same_file_twice_one_parse",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let once: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; scope engine-stats | get num_decls")?;
+            let twice: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; source lib.nu; scope engine-stats | get num_decls")?;
+            assert_eq!(once, twice);
+            Ok(())
+        },
+    )
+}
+
+/// Declaring a cached file's names again reuses its declarations instead of parsing it again.
+#[test]
+fn source_cached_file_in_another_scope_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_cached_other_scope_no_multiply",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            let () = tester.run("source lib.nu")?;
+            let () = tester.run("hide shared_a; hide shared_b")?;
+            let after_first: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            let () = tester.run("source lib.nu")?;
+            let after_more: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            assert_eq!(after_first, after_more);
+            tester.run("shared_a").expect_value_eq(0)
+        },
+    )
+}
+
 #[test]
 fn source_redeclared_let_visible_through_nested_source() -> Result {
     // Wrapper files that only `source` a child with free vars must not reuse a

@@ -23,7 +23,7 @@ pub(crate) use base::to_reedline_span;
 pub use base::{Completer, Fetched, SemanticSuggestion};
 pub use cell_path_completions::CellPathCompletion;
 pub use command_completions::{CommandCompletion, CommandScope};
-pub(crate) use completer::{Buffer, Context, NarrowingCache};
+pub(crate) use completer::{Buffer, Context, NarrowingCache, pending_flag_value};
 pub use completer::{CompletionEngine, NuCompleter};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
 pub use custom_completions::DeclaredInputs;

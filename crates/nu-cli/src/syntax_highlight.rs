@@ -4,9 +4,9 @@ use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{FlatShape, flatten_block, parse};
 use nu_protocol::{
-    BlockId, Span,
+    BlockId, ParseError, Span,
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateDelta, StateWorkingSet},
 };
 use reedline::{AbbrExpandContext, Highlighter, StyledText};
 use std::{
@@ -48,12 +48,27 @@ impl HighlightEngineKey {
 
 /// Parse/flatten result reused across paints of the same line.
 #[derive(Clone)]
-struct ParsedHighlight {
-    block: Arc<Block>,
-    /// Blocks added by this parse (`StateWorkingSet::delta.blocks`), in id order.
-    delta_blocks: Vec<Arc<Block>>,
+pub(crate) struct ParsedHighlight {
+    pub(crate) block: Arc<Block>,
+    /// What this parse added to the engine state, such as the blocks of
+    /// closures and the commands the line defines.
+    pub(crate) delta: Arc<StateDelta>,
+    /// Errors from parsing and type checking the line, in the order found.
+    pub(crate) errors: Arc<[ParseError]>,
+    /// A `use` in the line was parsed without loading its module, so the
+    /// names it imports are unknown to this parse.
+    pub(crate) skipped_module_load: bool,
     shapes: Arc<Vec<(Span, FlatShape)>>,
-    global_span_offset: usize,
+    pub(crate) global_span_offset: usize,
+}
+
+impl ParsedHighlight {
+    /// A working set that sees what the parse added, for walking `block`.
+    pub(crate) fn working_set<'a>(&self, engine_state: &'a EngineState) -> StateWorkingSet<'a> {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        working_set.delta = StateDelta::clone(&self.delta);
+        working_set
+    }
 }
 
 struct HighlightCache {
@@ -62,10 +77,40 @@ struct HighlightCache {
     parsed: ParsedHighlight,
 }
 
+/// The last parse of the line being edited, shared by the highlighter and the
+/// status line so a keystroke parses the line once.
+#[derive(Clone, Default)]
+pub(crate) struct LineParseCache(Arc<Mutex<Option<HighlightCache>>>);
+
+impl LineParseCache {
+    /// The parse of `line`, from the cache when the last one was of the same
+    /// line against the same engine state.
+    pub(crate) fn parsed(&self, engine_state: &EngineState, line: &str) -> ParsedHighlight {
+        let engine = HighlightEngineKey::of(engine_state);
+        {
+            let guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(cache) = guard.as_ref()
+                && cache.line == line
+                && cache.engine == engine
+            {
+                return cache.parsed.clone();
+            }
+        }
+
+        let parsed = parse_highlight_line(engine_state, line);
+        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(HighlightCache {
+            line: line.to_string(),
+            engine,
+            parsed: parsed.clone(),
+        });
+        parsed
+    }
+}
+
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
     pub stack: Arc<Stack>,
-    cache: Mutex<Option<HighlightCache>>,
+    cache: LineParseCache,
 }
 
 impl NuHighlighter {
@@ -73,8 +118,13 @@ impl NuHighlighter {
         Self {
             engine_state,
             stack,
-            cache: Mutex::new(None),
+            cache: LineParseCache::default(),
         }
+    }
+
+    /// The parse cache this highlighter fills, to share with the status line.
+    pub(crate) fn parse_cache(&self) -> LineParseCache {
+        self.cache.clone()
     }
 }
 
@@ -105,24 +155,7 @@ impl Highlighter for NuHighlighter {
 
 impl NuHighlighter {
     fn parsed_line(&self, line: &str) -> ParsedHighlight {
-        let engine = HighlightEngineKey::of(&self.engine_state);
-        {
-            let guard = self.cache.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(cache) = guard.as_ref()
-                && cache.line == line
-                && cache.engine == engine
-            {
-                return cache.parsed.clone();
-            }
-        }
-
-        let parsed = parse_highlight_line(&self.engine_state, line);
-        *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(HighlightCache {
-            line: line.to_string(),
-            engine,
-            parsed: parsed.clone(),
-        });
-        parsed
+        self.cache.parsed(&self.engine_state, line)
     }
 }
 
@@ -154,7 +187,9 @@ fn parse_highlight_line(engine_state: &EngineState, line: &str) -> ParsedHighlig
     let shapes = flatten_block(&working_set, &block);
     ParsedHighlight {
         block,
-        delta_blocks: working_set.delta.blocks,
+        errors: working_set.parse_errors.into(),
+        skipped_module_load: working_set.skipped_module_load,
+        delta: Arc::new(working_set.delta),
         shapes: Arc::new(shapes),
         global_span_offset: engine_state.next_span_start(),
     }
@@ -175,7 +210,7 @@ fn style_parsed(
     result.text.buffer.reserve(shapes.len().saturating_mul(2));
     let mut last_seen_span_end = global_span_offset;
 
-    let get_block = |id: BlockId| get_highlight_block(engine_state, &parsed.delta_blocks, id);
+    let get_block = |id: BlockId| get_highlight_block(engine_state, &parsed.delta.blocks, id);
     let global_cursor_offset = cursor + global_span_offset;
     let matching_brackets_pos = find_matching_brackets(
         line,

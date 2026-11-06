@@ -101,12 +101,16 @@ impl Command for Run {
             path
         };
 
-        let mut full_reparse_engine_state = None;
-        let (block, main_block_id) = if full_reparse {
+        // `script_engine_state` is the engine state the script runs in when it isn't the caller's:
+        // the script's commands and modules can be found by name there, but not in the caller's.
+        let (script_engine_state, block, main_block_id) = if full_reparse {
             let (reparsed_engine_state, reparsed_block, reparsed_main_block_id) =
                 parse_run_script_fresh(engine_state, &file_path, call.head)?;
-            full_reparse_engine_state = Some(reparsed_engine_state);
-            (reparsed_block, reparsed_main_block_id)
+            (
+                Some(reparsed_engine_state),
+                reparsed_block,
+                reparsed_main_block_id,
+            )
         } else {
             // - `block_id`: block compiled from the resolved script file
             // - `main_block_id`: the block of the script's `def main`, when it has one
@@ -121,9 +125,13 @@ impl Command for Run {
             } else {
                 None
             };
-            (block, main_block_id)
+            (
+                engine_state_with_script_names(engine_state, &block)?,
+                block,
+                main_block_id,
+            )
         };
-        let eval_engine_state = full_reparse_engine_state.as_ref().unwrap_or(engine_state);
+        let eval_engine_state = script_engine_state.as_ref().unwrap_or(engine_state);
 
         // Stash caller values so we can restore them after execution. `run` should expose file
         // context to the script, but must not leak modified values back to the caller.
@@ -239,6 +247,47 @@ impl Command for Run {
             },
         ]
     }
+}
+
+/// A clone of `engine_state` where the commands and modules the script declared at its top level
+/// can be found by name, as they can when `nu` runs the script itself, or `None` if it declared
+/// none.
+///
+/// The parser parses the script in a scope of its own, so its names aren't in the caller's scope;
+/// the script block's `scope_bindings` keep them. Commands that look a name up while the script
+/// runs (`help`, `which`) use the engine state, so it has to have them.
+fn engine_state_with_script_names(
+    engine_state: &EngineState,
+    block: &Block,
+) -> Result<Option<EngineState>, ShellError> {
+    let Some(bindings) = &block.scope_bindings else {
+        return Ok(None);
+    };
+
+    let mut script_engine_state = engine_state.clone();
+    let mut working_set = StateWorkingSet::new(&script_engine_state);
+    working_set.use_decls(
+        bindings
+            .decls
+            .iter()
+            .map(|(name, id)| (name.clone(), *id))
+            .collect(),
+    );
+    working_set.use_modules(
+        bindings
+            .modules
+            .iter()
+            .map(|(name, id)| (name.clone(), *id))
+            .collect(),
+    );
+    // What the script hid stays hidden.
+    working_set
+        .last_overlay_mut()
+        .visibility
+        .merge_with(bindings.visibility.clone());
+    let delta = working_set.render();
+    script_engine_state.merge_delta(delta)?;
+    Ok(Some(script_engine_state))
 }
 
 /// Reload, reparse, and compile a script file against a cloned engine state.

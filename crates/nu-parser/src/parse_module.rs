@@ -809,6 +809,7 @@ pub fn parse_module_file_or_dir(
     }
 
     if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
         return None;
     }
 
@@ -838,8 +839,10 @@ pub fn parse_module_file_or_dir(
             return None;
         };
 
-        let module_name = if let Some(stem) = module_path.file_stem() {
-            stem.to_string_lossy().to_string()
+        // A directory has no extension, so use its whole name. Otherwise
+        // `a.b` would become a module called `a`.
+        let module_name = if let Some(name) = module_path.path().file_name() {
+            name.to_string_lossy().to_string()
         } else {
             working_set.error(ParseError::ModuleNotFound(
                 path_span,
@@ -999,6 +1002,7 @@ pub fn parse_module(
         )]);
 
         if working_set.skip_module_load {
+            working_set.skipped_module_load = true;
             return (pipeline, None);
         }
 
@@ -1240,6 +1244,7 @@ pub fn parse_use(
             module_id,
         )
     } else if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
         return (
             Pipeline::from_vec(vec![Expression::new(
                 working_set,
@@ -1771,6 +1776,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     true,
                 )
             } else if working_set.skip_module_load {
+                working_set.skipped_module_load = true;
                 return pipeline;
             } else if let Some(module_id) = parse_module_file_or_dir(
                 working_set,

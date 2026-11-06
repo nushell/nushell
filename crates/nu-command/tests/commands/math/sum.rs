@@ -117,16 +117,132 @@ fn sum_record_cell_path_only_touches_named_column() -> Result {
 }
 
 #[test]
-fn sum_table_cell_path_updates_per_row() -> Result {
-    // Per-row path update: sum of a single scalar cell is the cell itself.
-    // Must NOT collect the whole column and write the column sum into every row.
+fn sum_record_scalar_cell_path_keeps_value() -> Result {
+    test()
+        .run("{a: 5, b: [1 2]} | math sum a")
+        .expect_value_eq(test_value!({
+            a: 5,
+            b: [1, 2],
+        }))
+}
+
+#[test]
+fn sum_table_cell_path_sums_the_column() -> Result {
+    // A table column is summed over all rows, not row by row (where each
+    // scalar cell would just "sum" to itself and the table come back as is).
     test()
         .run("[[a]; [1] [2]] | math sum a")
-        .expect_value_eq(test_table![
-            ["a"];
-            [1],
-            [2],
-        ])
+        .expect_value_eq(test_record! { "a" => 3 })
+}
+
+#[test]
+fn sum_table_filesize_column() -> Result {
+    let expected: Value = test().run("{size: 3kb}")?;
+    test()
+        .run("[[name size]; [a.md 1kb] [b.md 2kb]] | math sum size")
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn sum_table_cell_paths_keep_only_named_columns_in_order() -> Result {
+    test()
+        .run("[[name a b c]; [x 1 2 3] [y 4 5 6]] | math sum c a | to nuon")
+        .expect_value_eq("{c: 9, a: 5}")
+}
+
+#[test]
+fn sum_table_repeated_column_is_summed_once() -> Result {
+    // `select a a` keeps one `a` column, so the sum must not double.
+    test()
+        .run("[[a]; [1] [2]] | math sum a a")
+        .expect_value_eq(test_record! { "a" => 3 })
+}
+
+#[test]
+fn sum_table_cell_paths_match_select_then_sum() -> Result {
+    let code = "
+        let t = [[name a b]; [x 1 2.5] [y 3 4.5]]
+        ($t | math sum a b) == ($t | select a b | math sum)
+    ";
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn sum_table_nested_cell_path_uses_select_column_name() -> Result {
+    test()
+        .run("[[x]; [{y: 1}] [{y: 2}]] | math sum x.y")
+        .expect_value_eq(test_record! { "x.y" => 3 })
+}
+
+#[test]
+fn sum_table_stream_cell_path() -> Result {
+    test()
+        .run("1..3 | each {|x| {a: $x} } | math sum a")
+        .expect_value_eq(test_record! { "a" => 6 })
+}
+
+#[test]
+fn sum_table_cell_path_in_const() -> Result {
+    test()
+        .run("const S = [[a]; [1] [2]] | math sum a; $S")
+        .expect_value_eq(test_record! { "a" => 3 })
+}
+
+#[test]
+fn sum_table_missing_column_is_error() -> Result {
+    let err = test().run("[[a]; [1]] | math sum b").expect_shell_error()?;
+    assert!(matches!(err, ShellError::CantFindColumn { .. }));
+    Ok(())
+}
+
+#[test]
+fn sum_table_list_cells_are_an_error_like_select_then_sum() -> Result {
+    let err = test()
+        .run("[[a]; [[1 2]] [[3 4]]] | math sum a")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::OnlySupportsThisInputType { .. }));
+    Ok(())
+}
+
+#[test]
+fn sum_table_error_row_is_reported() -> Result {
+    let code = r#"
+        [1 2] | each {|x| if $x == 2 { error make {msg: "boom"} } else { {a: $x} } }
+        | math sum a
+    "#;
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("boom", format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn sum_stream_first_item_error_is_reported() -> Result {
+    // `describe` would run, and name a stream of errors, if the error were
+    // passed along as a row instead of returned.
+    let code = r#"
+        [1 2] | each {|x| if $x == 1 { error make {msg: "boom"} } else { {a: $x} } }
+        | math sum a
+        | describe
+    "#;
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("boom", format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn sum_endless_stream_of_lists_keeps_streaming() -> Result {
+    // Only a table is collected; a stream of lists is still reduced per item.
+    // `do` hides `math sum`'s declared output type, which `first` would reject.
+    test()
+        .run("do {|| 1.. | each {|x| [$x $x]} | math sum 0 } | first 2 | to nuon")
+        .expect_value_eq("[[1, 1], [2, 2]]")
+}
+
+#[test]
+fn sum_empty_list_cell_path_returns_input() -> Result {
+    test()
+        .run("[] | math sum a | to nuon")
+        .expect_value_eq("[]")
 }
 
 #[test]
