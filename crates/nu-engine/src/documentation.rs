@@ -113,19 +113,15 @@ fn try_nu_highlight(
     if reject_garbage {
         call.add_flag(stack, "reject-garbage", "", head);
     }
-    let call = call.finish();
-    let highlighted = eval_ir_call(
+    eval_ir_call(
         engine_state,
         stack,
-        &call,
+        call,
         Value::string(code_string, head).into_pipeline_data(),
-    );
-    call.leave(stack);
-
-    highlighted
-        .and_then(|pipe| pipe.into_value(head))
-        .and_then(|val| val.coerce_into_string())
-        .ok()
+    )
+    .and_then(|pipe| pipe.into_value(head))
+    .and_then(|val| val.coerce_into_string())
+    .ok()
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available, falling back to the given string
@@ -524,7 +520,7 @@ fn get_command_documentation(
         if let Ok(result) = eval_ir_call(
             engine_state,
             caller_stack,
-            &table_call.finish(),
+            table_call,
             PipelineData::value(Value::list(vals, head), None),
         ) && let Ok((str, ..)) = result.collect_string_strict(head)
         {
@@ -573,15 +569,13 @@ fn get_command_documentation(
                 table_call.add_flag(stack, layout, "", head);
                 let width = Value::int(get_term_width() as i64 - 2, head);
                 table_call.add_named(stack, "width", "", head, width);
-                let table_call = table_call.finish();
-                let table = eval_ir_call(
+                eval_ir_call(
                     engine_state,
                     stack,
-                    &table_call,
+                    table_call,
                     PipelineData::value(result.clone(), None),
-                );
-                table_call.leave(stack);
-                table.ok()
+                )
+                .ok()
             });
 
             for item in table.into_iter().flatten() {
@@ -623,12 +617,8 @@ fn update_ansi_from_config(
     let caller_stack = &mut Stack::new().collect_value();
     let mut ansi_call = ir::Call::build(decl_id, head);
     ansi_call.add_positional(caller_stack, head, color);
-    if let Ok(result) = eval_ir_call(
-        engine_state,
-        caller_stack,
-        &ansi_call.finish(),
-        PipelineData::empty(),
-    ) && let Ok((str, ..)) = result.collect_string_strict(head)
+    if let Ok(result) = eval_ir_call(engine_state, caller_stack, ansi_call, PipelineData::empty())
+        && let Ok((str, ..)) = result.collect_string_strict(head)
     {
         *ansi_code = str;
     }

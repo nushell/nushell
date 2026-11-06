@@ -222,9 +222,8 @@ pub(crate) fn render_value_as_plain_table_text(
 ) -> ShellResult<String> {
     let output = match engine_state.table_decl_id {
         Some(decl_id) => {
-            let call = ir::Call::build(decl_id, span).finish();
-            eval_ir_call(engine_state, stack, &call, value.into_pipeline_data())?
-                .into_value(span)?
+            let call = ir::Call::build(decl_id, span);
+            eval_ir_call(engine_state, stack, call, value.into_pipeline_data())?.into_value(span)?
         }
         None => value,
     };
