@@ -225,6 +225,112 @@ fn from_csv_text_with_custom_quotes_to_table() -> Result {
 }
 
 #[test]
+fn to_csv_quote_round_trips() -> Result {
+    let code = "[[foo]; ['a,b']] | to csv --quote '|' | from csv --quote '|' | get 0.foo";
+    test().run(code).expect_value_eq("a,b")
+}
+
+#[test]
+fn to_csv_escape_round_trips_data_containing_the_escape_char() -> Result {
+    // Regression test: the writer used to only rewrite the quote byte inside a quoted
+    // field, leaving any escape byte that was already in the data untouched. That made
+    // `to csv --escape` | `from csv --escape` lossy for exactly the data it's meant to
+    // round-trip through.
+    let code = r#"[[foo]; ['a\b']] | to csv --escape '\' | from csv --escape '\' | get 0.foo"#;
+    test().run(code).expect_value_eq(r"a\b")
+}
+
+#[test]
+fn to_csv_escape_round_trips_separator_and_trailing_escape() -> Result {
+    let code =
+        r#"[[foo]; ['C:\dir\,x']] | to csv --escape '\' | from csv --escape '\' | get 0.foo"#;
+    test().run(code).expect_value_eq(r"C:\dir\,x")
+}
+
+#[test]
+fn to_csv_escape_round_trips_trailing_escape_with_second_column() -> Result {
+    let code =
+        r#"[[foo bar]; ['end\' x]] | to csv --escape '\' | from csv --escape '\' | get 0.foo"#;
+    test().run(code).expect_value_eq(r"end\")
+}
+
+#[test]
+fn to_csv_escape_round_trips_header_containing_escape_char() -> Result {
+    // Column names go through the same header write_record call, which needs the same
+    // escaping as data fields.
+    let code = r#"{"a\\b": 1} | to csv --escape '\' | from csv --escape '\' | columns | get 0"#;
+    test().run(code).expect_value_eq(r"a\b")
+}
+
+#[test]
+fn to_csv_quote_rejects_non_ascii() -> Result {
+    let code = "[[foo]; ['a,b']] | to csv --quote 'é'";
+    let outcome = test().run(code).expect_shell_error()?;
+    match outcome {
+        ShellError::IncorrectValue { msg, .. } => assert_contains("ASCII", msg),
+        err => panic!("expected IncorrectValue, got {err:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn to_csv_escape_rejects_non_ascii() -> Result {
+    let code = "[[foo]; ['a,b']] | to csv --escape 'é'";
+    let outcome = test().run(code).expect_shell_error()?;
+    match outcome {
+        ShellError::IncorrectValue { msg, .. } => assert_contains("ASCII", msg),
+        err => panic!("expected IncorrectValue, got {err:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn to_csv_quote_equal_to_separator_is_rejected() -> Result {
+    let code = "[[foo bar]; ['a,b' c]] | to csv --quote ','";
+    let outcome = test().run(code).expect_shell_error()?;
+    assert!(matches!(outcome, ShellError::IncompatibleParameters { .. }));
+    Ok(())
+}
+
+#[test]
+fn to_csv_escape_equal_to_separator_is_rejected() -> Result {
+    let code = "[[foo bar]; ['a,b' c]] | to csv --escape ','";
+    let outcome = test().run(code).expect_shell_error()?;
+    assert!(matches!(outcome, ShellError::IncompatibleParameters { .. }));
+    Ok(())
+}
+
+#[test]
+fn to_csv_quote_error_names_the_flag() -> Result {
+    let code = "[[foo]; [1]] | to csv --quote 'ab'";
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("single character quote", err.to_string());
+    Ok(())
+}
+
+#[test]
+fn to_csv_escape_error_names_the_flag() -> Result {
+    let code = "[[foo]; [1]] | to csv --escape 'ab'";
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("single character escape", err.to_string());
+    Ok(())
+}
+
+#[test]
+fn streaming_to_csv_escape_round_trips() -> Result {
+    // Exercises the ListStream branch of to_delimited_data (as opposed to a materialized
+    // Value::List/Record), which has its own copy of the writer setup.
+    let code = r#"
+        1..2 | each {|i| {foo: $"a\\($i)b"} }
+        | to csv --escape '\'
+        | from csv --escape '\'
+        | get foo
+        | to nuon
+    "#;
+    test().run(code).expect_value_eq(r#"["a\\1b", "a\\2b"]"#)
+}
+
+#[test]
 fn from_csv_text_with_custom_escapes_to_table() -> Result {
     Playground::setup("filter_from_csv_test_7", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
