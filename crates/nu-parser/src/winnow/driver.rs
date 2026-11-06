@@ -252,7 +252,7 @@ pub(super) fn parse_rest(
         block_errors: *block_errors,
         caller_lexed: false,
     };
-    if let Some(error) = take_statements(
+    take_statements(
         source,
         local,
         statements,
@@ -260,9 +260,7 @@ pub(super) fn parse_rest(
         &lookup,
         &mut driver,
         subexpression,
-    ) {
-        driver.lite_error(error);
-    }
+    );
     *pipelines = driver.pipelines;
     *block_errors = driver.block_errors;
     true
@@ -316,7 +314,7 @@ fn parse_statements(
     if let Some(error) = statements.lite_error() {
         driver.lite_error(error);
     }
-    let dropped_error = take_statements(
+    take_statements(
         source,
         span,
         statements,
@@ -325,11 +323,6 @@ fn parse_statements(
         driver,
         subexpression,
     );
-    // An `e>|` with nothing before it leaves no statement: its error is the block's, unless a
-    // statement's came first.
-    if let Some(error) = dropped_error {
-        driver.lite_error(error);
-    }
     Ok(())
 }
 
@@ -345,11 +338,8 @@ fn take_statements(
     lookup: &EngineLookup,
     driver: &mut Driver,
     subexpression: bool,
-) -> Option<w::LiteError> {
+) {
     let threads = ahead_threads();
-    // The first lite-parse error of a command nu drops, of the statements parsed so far
-    // ([`BlockStatements::dropped_error`]), kept over a restart.
-    let mut dropped_error = None;
     // Where the last run parsed ahead was parsed again from, and whether the next statement is
     // parsed on this thread: a run whose answer changes again at the statement it restarted
     // from (a name the thread's copy of the names keeps answering otherwise) would restart
@@ -395,7 +385,6 @@ fn take_statements(
                     let rest = crate::winnow::syntax::Span::new(start, span.end);
                     match BlockStatements::new(source, rest, lookup, subexpression) {
                         Ok((rest, _)) => {
-                            dropped_error = dropped_error.or(statements.dropped_error());
                             statements = rest;
                             true
                         }
@@ -428,10 +417,6 @@ fn take_statements(
     if let Some(definitions) = definitions.take() {
         declare(definitions, source, span, lookup, driver);
     }
-    // A rest of the block that could not be lexed again is garbage, its errors unreported.
-    go_on
-        .then(|| dropped_error.or(statements.dropped_error()))
-        .flatten()
 }
 
 /// Declare the block's `definitions` in the working set (what the classic parser's

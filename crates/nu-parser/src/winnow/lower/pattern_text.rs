@@ -144,12 +144,13 @@ impl Lower<'_, '_, '_> {
         let mut items = Vec::new();
         let mut has_rest = false;
         let parts = block
-            .pipelines
-            .first()
+            .pipelines()
+            .next()
             .into_iter()
             .flatten()
-            .flat_map(|command| command.parts.iter().copied());
+            .flat_map(|command| block.parts(command));
         for part in parts {
+            let part = self.span(part.span);
             let text = self.text_at(part);
             let item = if text == ".." {
                 pattern_at(Pattern::IgnoreRest, part)

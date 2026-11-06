@@ -104,9 +104,10 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let mut out = Vec::new();
         let mut contained: Option<Type> = None;
-        if let Some(pipeline) = block.pipelines.into_iter().next() {
+        if let Some(pipeline) = block.pipelines().next() {
             for command in pipeline {
-                for part in command.parts {
+                for part in block.parts(command) {
+                    let part = self.span(part.span);
                     let bytes = self.working_set.get_span_contents(part);
                     let spread =
                         extract_spread_list(bytes.into_spanned(part)).map(|spread| spread.span);

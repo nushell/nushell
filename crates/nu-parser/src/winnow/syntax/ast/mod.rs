@@ -142,13 +142,13 @@ pub struct Pipeline<'a> {
     pub span: Span,
     /// The elements. Never empty.
     pub elements: Vec<PipelineElement<'a>>,
-    /// Comment lines immediately preceding the pipeline (no blank line in between),
-    /// or, when there are none, the comments nu's lite parser gives the next
-    /// command: those after a `;`, or after a `|` that ends its pipeline, on that
-    /// line (`a; # c`), even across blank lines. For a `def`, these are its
-    /// documentation.
+    /// The comments nu's lite parser keeps with the pipeline's first command, before its first
+    /// item: the comment lines right before it (no blank line between), or else those after a
+    /// `;`, or after a `|` that ends its pipeline, on that line (`a; # c`), even across blank
+    /// lines. For a `def`, these and [`Self::trailing_comments`] are its documentation.
     pub leading_comments: Vec<Comment>,
-    /// Comments on the same line(s) as the pipeline, after or between elements.
+    /// The other comments nu's lite parser keeps with the pipeline's commands. It drops some, and
+    /// a comment it drops is in `Ast::comments` only (`ls | # c`, then a comment line, then `lines`).
     pub trailing_comments: Vec<Comment>,
     /// The span of a `;` terminating this pipeline, if any.
     pub terminator: Option<Span>,

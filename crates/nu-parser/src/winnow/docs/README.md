@@ -30,7 +30,7 @@ look under the same name here.
 | [01 Architecture](01-architecture.md) | The two passes, the phases of the syntax pass, the module maps, the public API, the design constraints |
 | [02 The lexer](02-lexer.md) | Tokens, `LexOptions`, the item scanner, lexer errors, group measuring |
 | [03 Streams, errors and the working set](03-streams-and-errors.md) | The character and token streams, token parsers, cut and backtrack, recovered errors, the `WorkingSet` |
-| [04 Blocks and pipelines](04-blocks-and-pipelines.md) | Statement boundaries, comments, the newline rules around `\|`, `LiteCommand`, lite-parse errors, attributes, predeclaration |
+| [04 Blocks and pipelines](04-blocks-and-pipelines.md) | Statement boundaries, comments, the newline rules around `\|`, `LiteBlock`, lite-parse errors, attributes, predeclaration |
 | [05 Statements and expressions](05-statements-and-expressions.md) | Dispatch, `KeywordCall`, every keyword form, math, assignments, calls, external calls, environment shorthand |
 | [06 Values and literals](06-values-and-literals.md) | One item to one expression: literals, strings, cell paths, ranges, `{ ... }`, lists, tables, records |
 | [07 Signatures, types and patterns](07-signatures-types-and-patterns.md) | Parameter lists, type annotations, input/output types, `match` blocks and patterns |

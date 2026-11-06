@@ -65,12 +65,11 @@ Vec<Token>: Item | Pipe | PipePipe | Redirection | AssignmentOperator | Semicolo
             Eol | Comment | Eof
    │
    ▼  parse_block(Tokens, span)                             src/winnow/syntax/parser/parse_pipelines.rs
-the statement loop: predeclares definitions, attaches comments, collects pipelines,
-recovers from errors per statement
-   │
-   ▼  parse_lite_command(&mut Tokens, at_line_start)        src/winnow/syntax/parser/lite_parser.rs
-one command's tokens as a LiteCommand: `=` absorbs the rest of the line, redirections
-and @attribute lines are collected, a `|` on a later line continues the pipeline
+   ▼  LiteBlock::parse(source, tokens)                      src/winnow/syntax/parser/lite_parser.rs
+nu's lite parse, once for the block: pipelines of commands, where `=` absorbs the rest of
+the line and comments, redirections and @attribute lines are collected. The block
+predeclares its definitions from it, then parses each pipeline, recovering from errors
+per statement
    │
    ▼  parse_pipeline_element(working_set, &LiteCommand, ..) src/winnow/syntax/parser/parse_pipelines.rs
    ▼  parse_expression(Tokens, Position)                    src/winnow/syntax/parser/parse_expressions.rs
@@ -138,8 +137,8 @@ commands in nu), `tokens.rs` (nu-parser walks spans by index) and `working_set.r
 | `lex.rs` | `Token`, `TokenContents`, `LexOptions`, `lex`, `lex_n_tokens`, `next_token`, `lex_recovering`, `lex_item`, `item_length` | what counts as an item or a delimiter |
 | `parser/mod.rs` | `ParseConfig`, the command-name sets, `parse`, `parse_block_streaming` and the entry points only the front end calls | configuration, the top-level driver |
 | `parser/working_set.rs` | `WorkingSet`, `CommandLookup`, `DeclKind`, scopes, collected comments, ignored text and diagnostics | scopes or what a parse collects |
-| `parser/tokens.rs` | The `Tokens` stream and the token parsers `item`, `call_item`, `keyword`, `pipe`, `eol`, `comment`, `expected`, `cut_with`, `repeat_to_end`, `tokens_until` | how parsers walk tokens |
-| `parser/lite_parser.rs` | `LiteCommand`, `parse_lite_command`, pipe continuation (`after_pipe_lines`, `after_pipe`, `take_pipe_on_later_line`), `lite_parse_parts` | command boundaries, comments, redirections, attributes |
+| `parser/tokens.rs` | The `Tokens` stream and the token parsers `item`, `call_item`, `keyword`, `pipe`, `expected`, `cut_with`, `repeat_to_end`, `tokens_until` | how parsers walk tokens |
+| `parser/lite_parser.rs` | `LiteBlock`, nu's `lite_parse` over a block's tokens, `lite_parse_parts` | pipeline and command boundaries, comments, redirections, attributes |
 | `parser/parse_pipelines.rs` | `parse_block`, its loop `parse_statements`, `parse_pipeline`, `parse_pipeline_element`, `parse_redirection`, `BlockStatements`, `BlockSink` | pipelines, redirections, recovery |
 | `parser/parse_expressions.rs` | `parse_expression`, `parse_builtin_commands`, env shorthand, assignments, `parse_math_expression`, `parse_row_condition`, `parse_value`, `ExpectedShape`, `is_math_expression_like`, braces, lists, tables, records, match blocks | operators, precedence, value dispatch, disambiguation |
 | `parser/parse_calls.rs` | `parse_call`, `find_longest_decl`, `parse_call_arguments`, `parse_call_arguments_by_shape`, external and `%` calls, `parse_attribute`, `KeywordSignature`, `check_call` | argument parsing, command-name resolution |
@@ -188,7 +187,7 @@ names it in its documentation.
 | `lower/leaf.rs` | Leaf values by shape: ports of nu's readers in `parse_literals.rs` |
 | `lower/signature.rs` | Signatures, parameter types, predeclaration of commands |
 | `lower/trial.rs` | Trial reads: `Trial` marks and restores what a read reported, and `read_oneof` is the one port of `parse_oneof` |
-| `lower/lite.rs` | nu's lite parse over winnow tokens, for text the lowering reads again |
+| `lower/lite.rs` | `LiteBlock` over text the lowering reads again, with nu's error |
 | `lower/math_items.rs` | Math read from items, through nu's operator stack |
 | `lower/block_text.rs`, `call_text.rs`, `layout_text.rs`, `list_text.rs`, `pattern_text.rs`, `record_text.rs`, `shape_text.rs`, `signature_text.rs` | Ports of nu's readers, used where the winnow parser read an item otherwise or went past an error in it |
 | `lower/delimiter_hint.rs` | The construct an unclosed delimiter's help names |
@@ -231,9 +230,8 @@ println!("{}", diagnostics[0].render(ast.source, Some("script.nu")));
   can be traced to a function of the same name.
 * **Combinators at both levels, loops where nu has a state machine.** `Input` and `Tokens` both
   implement winnow's `Stream` and `Location`, and the error type implements `ParserError` for both.
-  Code that mirrors a state machine of nu-parser stays a loop: `parse_block`'s statement loop,
-  `parse_lite_command`, the `ParseMode` machine of `parse_parameters`, `lex_token` and
-  `item_length`.
+  Code that mirrors a state machine of nu-parser stays a loop: `LiteBlock`'s read of a block, the
+  `ParseMode` machine of `parse_parameters`, `lex_token` and `item_length`.
 * **Cheap failures.** Combinators try alternatives all the time. A backtrack carries only a byte
   offset, and only a cut builds and boxes a `Diagnostic` (chapter 03).
 * **No speculation.** Every choice (range or string? record, closure or block? math or call?) comes

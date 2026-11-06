@@ -1,119 +1,21 @@
-//! The lite parse: grouping a block's tokens into commands (nu-parser's
-//! `lite_parser.rs`).
+//! The lite parse: grouping a block's tokens into pipelines of commands, once for each block
+//! (nu-parser's `lite_parser.rs`). [`LiteBlock`] is what the block's predeclaration, its statements
+//! and its first lite-parse error all read.
 //!
-//! This decides where commands start and end, attaches comments, absorbs the
-//! rest of a line after an assignment operator, collects redirections and
-//! attribute lines. It never looks inside an item.
-//!
-//! The rules for newlines around `|` are nu's exactly: a `|` continues the
-//! previous line when only an end of line, or comment lines each on their own
-//! line, stand between them (`a\n# c\n| b`); after a `|` the pipeline goes on
-//! across one end of line and comment lines (`a |\n# c\n b`). A blank line on
-//! either side closes the pipeline: `a\n\n| b` and `a |\n\n b` are two
-//! pipelines each (the trailing `|` of the first is dropped silently, as nu
-//! does), and a `|` that nothing but comments follow at the end of a block is
-//! an error. Between a `|` ending a line and one starting a later line there
-//! may be one blank line, as nu's lexer turns the end of line before a
-//! line-leading `|` into that `|` (`a |\n\n| b` is one pipeline). After an
-//! `e>|` or `o+e>|` the pipeline goes on to a later line only through such a
-//! `|` (`a e>|\nb` is two pipelines).
+//! It decides where commands and pipelines end, which comments a command keeps, what an assignment
+//! takes with it, and which items are attribute lines and redirections. It never looks inside an
+//! item. Its loop is nu's `lite_parse`, so nu's rules hold without being stated here again, with one
+//! step before them: nu's lexer drops an end of line that only comment lines stand between and a
+//! `|` starting a later line, and the winnow lexer keeps them.
 
-use winnow::Parser;
-use winnow::combinator::{opt, peek, preceded, repeat, terminated};
-
-use crate::winnow::syntax::ast::{Comment, LiteError};
+use crate::winnow::syntax::ast::LiteError;
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseResult, cut};
 use crate::winnow::syntax::lex::{RedirectionOperator, RedirectionSource, Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
-use super::tokens::{Tokens, comment, eol, pipe};
-
-/// One command as grouped by the lite parse, before its items are interpreted.
-#[derive(Debug, Default)]
-pub struct LiteCommand {
-    /// The items and, after an assignment operator, everything to the end of the line.
-    pub parts: Vec<Token>,
-    /// Byte offset just past the last part, or, for a command with no parts (only
-    /// attributes or redirections), where the command stopped.
-    pub end: usize,
-    /// Preceding `@attribute` lines.
-    pub attributes: Vec<Vec<Token>>,
-    /// Redirections and their file targets (`None` for `e>|`).
-    pub redirections: Vec<(Spanned<RedirectionOperator>, Option<Token>)>,
-    /// The span of an `e>|` (or `o+e>|`) that ended the command, if any.
-    pub pipe_after: Option<Span>,
-    /// Comments found between the command's tokens.
-    pub comments: Vec<Comment>,
-    /// The first lite-parse error in the command, which nu goes on past ([`LiteError`]);
-    /// boxed, as it is rare and a command is moved once it is collected.
-    pub lite_error: Option<Box<LiteError>>,
-    /// Whether the pipeline goes on to a command on the next line with no `|` between: after
-    /// a redirection without a target at the end of the line, nu's lite parser ends the
-    /// command there but not its pipeline (`^ls o>`, then `lines` on the next line).
-    pub joins_next_line: bool,
-    /// [`PipelineElement::lite_pipe`](crate::winnow::syntax::ast::PipelineElement::lite_pipe), which
-    /// the pipeline's parser sets.
-    pub lite_pipe: Option<Span>,
-}
-
-impl LiteCommand {
-    /// A stream over the parts.
-    pub fn tokens<'t, 'a>(&'t self, working_set: &'t WorkingSet<'a>) -> Tokens<'t, 'a> {
-        Tokens::new(working_set, &self.parts, self.end)
-    }
-
-    /// Record `error`, which nu reports and goes on past: the command's first, its diagnostic
-    /// recorded as recovered.
-    fn report(&mut self, working_set: &WorkingSet<'_>, error: LiteError) {
-        working_set.error(lite_diagnostic(error).as_recovered());
-        self.lite_error.get_or_insert_with(|| Box::new(error));
-    }
-
-    /// Refuse a redirection, whose operator and target, `items`, are then the command's items,
-    /// with `error`. nu takes the command's redirection out before it refuses one
-    /// (`try_add_redirection`), so the command is left with none.
-    fn refuse_redirection(
-        &mut self,
-        working_set: &WorkingSet<'_>,
-        error: LiteError,
-        items: &[Token],
-    ) {
-        self.report(working_set, error);
-        self.redirections.clear();
-        self.parts.extend_from_slice(items);
-    }
-
-    /// The error of redirecting `source` again at `second` (nu's `try_add_redirection`):
-    /// stdout and stderr may each go to one target, and `o+e>` takes both.
-    fn redirected_twice(&self, source: RedirectionSource, second: Span) -> Option<LiteError> {
-        let first = match self.redirections.as_slice() {
-            [] => None,
-            [(first, _)] => match (first.item.source(), source) {
-                (RedirectionSource::Stdout, RedirectionSource::Stderr)
-                | (RedirectionSource::Stderr, RedirectionSource::Stdout) => None,
-                _ => Some(first),
-            },
-            // Stdout and stderr, each redirected on its own: `o+e>` meets the stdout one.
-            separate => separate
-                .iter()
-                .map(|(operator, _)| operator)
-                .find(|operator| {
-                    let redirected = operator.item.source();
-                    match source {
-                        RedirectionSource::Stderr => redirected == RedirectionSource::Stderr,
-                        _ => redirected == RedirectionSource::Stdout,
-                    }
-                }),
-        };
-        first.map(|first| LiteError::MultipleRedirections {
-            source: first.item.source(),
-            first: first.span,
-            second,
-        })
-    }
-}
+use super::tokens::Tokens;
 
 /// The diagnostic of a lite-parse error, for the parse's verdict (the consumer reports nu's).
 pub fn lite_diagnostic(error: LiteError) -> Diagnostic {
@@ -144,23 +46,6 @@ pub fn lite_diagnostic(error: LiteError) -> Diagnostic {
     }
 }
 
-/// Skip tokens up to (not including) the next `Eol`/`;`, returning the span
-/// of the last token skipped. A comment among them (`a || b # c`) is recorded:
-/// the statement failed to parse, but its comment stays in `Ast::comments`.
-pub fn skip_to_statement_end(tokens: &mut Tokens<'_, '_>) -> Span {
-    let mut end = None;
-    while let Some(token) = tokens.peek_token() {
-        match token.contents {
-            TokenContents::Eol | TokenContents::Semicolon => break,
-            TokenContents::Comment => tokens.working_set.add_comment(token.span),
-            _ => {}
-        }
-        end = Some(token.span);
-        tokens.next_token();
-    }
-    end.unwrap_or_else(|| Span::point(tokens.here().start))
-}
-
 /// The last token that is not part of a trailing `([Comment]+ [Eol])*`
 /// sequence: nu's `last_non_comment_token`, used to tell `ls |\n` (fine)
 /// from `ls |` and `ls |\n# c` (a pipeline with no end).
@@ -178,224 +63,6 @@ pub fn last_non_comment_token(tokens: &[Token]) -> Option<TokenContents> {
     None
 }
 
-/// The comment lines before a `|` on a later line that continues the
-/// pipeline: exactly one end of line, then any number of comment lines, then
-/// the pipe (`Eol (Comment Eol)* Pipe`), which is left for the caller. A blank
-/// line in between closes the pipeline instead.
-pub fn pipe_on_later_line(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Token>> {
-    preceded(
-        eol,
-        terminated(repeat(0.., terminated(comment, eol)), peek(pipe)),
-    )
-    .parse_next(tokens)
-}
-
-/// Consume the lines up to a `|` that continues the pipeline on a later
-/// line, recording their comments. `false` when no such `|` follows.
-pub fn take_pipe_on_later_line(
-    tokens: &mut Tokens<'_, '_>,
-    comments: &mut Vec<Comment>,
-) -> ParseResult<bool> {
-    let Some(comment_lines) = opt(pipe_on_later_line).parse_next(tokens)? else {
-        return Ok(false);
-    };
-    record_comments(tokens.working_set, &comment_lines, comments);
-    Ok(true)
-}
-
-/// Record comment tokens both in the working set and in `comments`.
-fn record_comments(
-    working_set: &WorkingSet<'_>,
-    comment_tokens: &[Token],
-    comments: &mut Vec<Comment>,
-) {
-    for token in comment_tokens {
-        working_set.add_comment(token.span);
-        comments.push(Comment { span: token.span });
-    }
-}
-
-/// What follows a pipe (just consumed) after its continuation lines.
-pub enum AfterPipe {
-    /// A command follows.
-    Command,
-    /// The pipeline ends here, the pipe dropped from it: a blank line (after an
-    /// `e>|`, any end of line) with no `|` starting a later line, a `;` (after
-    /// an `e>|`; the lexer refuses one after a plain `|`) or the end of the block.
-    Dangling,
-}
-
-/// What follows a pipe just consumed, a `|` when `plain`, else an `e>|` or
-/// `o+e>|`, and the comment tokens before it, recording nothing: the one rule
-/// the statement parser ([`after_pipe`]) and the predeclaration scan share.
-///
-/// nu's lite parser keeps the pipeline open across the comments on the pipe's
-/// line and, after a `|` only, one end of line and any comment lines
-/// (`Comment* [Eol (Comment Eol)*]`, its `last_non_comment_token`). Its lexer
-/// turns the end of line before a `|` that starts a later line into that `|`,
-/// so such a `|` continues the pipeline too, with comment lines and, after a
-/// `|`, one blank line before it (`a |\n\n| b`, `a e>|\n# c\n| b`). The stream
-/// is left at what follows: the command, or the blank line, `;` or end of the
-/// block that drops the pipe. A `|` that only comments follow at the end of
-/// the block is reported once, by `parse_block`, whichever command absorbed it.
-pub fn after_pipe_lines(
-    tokens: &mut Tokens<'_, '_>,
-    plain: bool,
-) -> ParseResult<(Vec<Token>, AfterPipe)> {
-    let mut comments: Vec<Token> = repeat(0.., comment).parse_next(tokens)?;
-    if plain {
-        let later_lines: Option<Vec<Token>> =
-            opt(preceded(eol, repeat(0.., terminated(comment, eol)))).parse_next(tokens)?;
-        comments.extend(later_lines.into_iter().flatten());
-    }
-    let next = tokens.peek_token().map(|token| token.contents);
-    if next == Some(TokenContents::Eol)
-        && let Some(comment_lines) = opt(pipe_on_later_line).parse_next(tokens)?
-    {
-        comments.extend(comment_lines);
-        return Ok((comments, AfterPipe::Command));
-    }
-    // A comment that is the block's last line (`ls |`, then `# c`) leaves nothing after the pipe.
-    let comment_ends_block = next == Some(TokenContents::Comment)
-        && tokens
-            .all()
-            .get(tokens.position() + 1)
-            .is_none_or(|after| after.contents == TokenContents::Eof);
-    match next {
-        None | Some(TokenContents::Eol | TokenContents::Semicolon | TokenContents::Eof) => {
-            Ok((comments, AfterPipe::Dangling))
-        }
-        Some(TokenContents::Comment) if comment_ends_block => Ok((comments, AfterPipe::Dangling)),
-        Some(_) => Ok((comments, AfterPipe::Command)),
-    }
-}
-
-/// What follows a pipe ([`after_pipe_lines`]), with the comments before it
-/// recorded.
-pub fn after_pipe(
-    tokens: &mut Tokens<'_, '_>,
-    plain: bool,
-    comments: &mut Vec<Comment>,
-) -> ParseResult<AfterPipe> {
-    let (comment_tokens, after) = after_pipe_lines(tokens, plain)?;
-    record_comments(tokens.working_set, &comment_tokens, comments);
-    Ok(after)
-}
-
-/// Collect the tokens of one command (nu's `lite_parse`, for one command).
-/// `at_line_start` is set where attribute lines may precede it: nu's lite
-/// parser takes an `@` item for one at the start of a statement or of a line,
-/// in a pipeline too (`ls |\n@example ...\ndef f [] {}`).
-///
-/// Items become `parts`, comments are recorded, and a redirection takes the item
-/// after it as its target. The command ends before a `|`, an end of line, a `;`
-/// or the end of the tokens, or just after an `e>|`; a `||` is an error. After
-/// an assignment operator the command absorbs the rest of the line instead,
-/// pipes, `||` and redirections included, and carries on past an end of line
-/// that the pipeline continues across (a `|` ending the line or starting a
-/// later one).
-pub fn parse_lite_command(
-    tokens: &mut Tokens<'_, '_>,
-    at_line_start: bool,
-) -> ParseResult<LiteCommand> {
-    let working_set = tokens.working_set;
-    let mut lite_command = LiteCommand::default();
-    if at_line_start {
-        lite_attribute_lines(tokens, &mut lite_command)?;
-    }
-    // After `=` everything to the end of the line belongs to the command.
-    let mut absorbing = false;
-    while let Some(&token) = tokens.peek_token() {
-        match token.contents {
-            TokenContents::Item => lite_command.parts.push(token),
-            TokenContents::AssignmentOperator(_) => {
-                lite_command.parts.push(token);
-                absorbing = true;
-            }
-            TokenContents::Pipe | TokenContents::PipePipe | TokenContents::Redirection(_)
-                if absorbing =>
-            {
-                lite_command.parts.push(token)
-            }
-            TokenContents::Eol if absorbing => {
-                // `$x = a |\n b` and `$x = a\n | b` continue the assignment's pipeline.
-                // Like nu (`last_non_comment_token`), comment lines may come after the
-                // `|`, but a blank line ends the command: `let x = 1 |\n\nls` leaves
-                // `1 |` without an end.
-                let ends_with_pipe = last_non_comment_token(&tokens.all()[..tokens.position()])
-                    == Some(TokenContents::Pipe);
-                if ends_with_pipe {
-                    tokens.next_token();
-                    continue;
-                }
-                if take_pipe_on_later_line(tokens, &mut lite_command.comments)? {
-                    continue;
-                }
-                break;
-            }
-            TokenContents::Comment => {
-                working_set.add_comment(token.span);
-                lite_command.comments.push(Comment { span: token.span });
-            }
-            TokenContents::Redirection(operator) => {
-                tokens.next_token();
-                if lite_redirection(tokens, &mut lite_command, operator, token.span) {
-                    break;
-                }
-                continue;
-            }
-            TokenContents::Pipe => break,
-            // nu reports a `||` and keeps it as an item (`ls || pwd` passes `||` to `ls`).
-            TokenContents::PipePipe => {
-                lite_command.report(working_set, LiteError::ShellOrOr(token.span));
-                lite_command.parts.push(as_item(token));
-            }
-            TokenContents::Eol | TokenContents::Semicolon | TokenContents::Eof => break,
-        }
-        tokens.next_token();
-    }
-    // An `e>|` with nothing before it ends a command that nu drops (`e>| ls` pipes nothing).
-    if lite_command.parts.is_empty()
-        && lite_command.attributes.is_empty()
-        && lite_command.redirections.is_empty()
-        && lite_command.pipe_after.is_none()
-    {
-        return Err(cut(Diagnostic::expected("command", tokens.here())));
-    }
-    lite_command.end = lite_command
-        .parts
-        .last()
-        .map_or(tokens.here().start, |token| token.span.end);
-    Ok(lite_command)
-}
-
-/// The `|` starting a later line that the end of line at `at` in `tokens` goes on to, the
-/// pipeline's continuation (`Eol (Comment Eol)* Pipe`), with the number of comment lines before
-/// it: nu's lexer turns the end of line before such a `|` into it and drops those lines' ends of
-/// line.
-pub fn pipe_on_a_later_line(tokens: &[Token], at: usize) -> Option<(usize, Token)> {
-    if tokens.get(at)?.contents != TokenContents::Eol {
-        return None;
-    }
-    let mut index = at + 1;
-    let mut comment_lines = 0;
-    loop {
-        let token = *tokens.get(index)?;
-        match (
-            token.contents,
-            tokens.get(index + 1).map(|next| next.contents),
-        ) {
-            (TokenContents::Pipe, _) => return Some((comment_lines, token)),
-            (TokenContents::Comment, Some(TokenContents::Eol)) => {
-                comment_lines += 1;
-                index += 2;
-            }
-            _ => return None,
-        }
-    }
-}
-
-/// `token` as an item: a word of the command.
 /// The parts of a statement nu reads by its first word, what follows an assignment operator among
 /// them items of its call (`def = [] {}` defines the command `=`, and `use = | x` looks for a module
 /// named `=`): nu's lite parser takes them all as the command's parts.
@@ -403,217 +70,12 @@ pub(super) fn absorbed_as_items(tokens: &[Token]) -> Vec<Token> {
     tokens.iter().copied().map(as_item).collect()
 }
 
+/// `token` as an item: a word of the command.
 pub(super) fn as_item(token: Token) -> Token {
     Token {
         contents: TokenContents::Item,
         span: token.span,
     }
-}
-
-/// The redirection `operator` at `span` (just taken) of `lite_command` and its target, as nu's
-/// lite parser reads them; returns whether the command ends with it. nu reports a redirection
-/// with nothing before it (`o> f`) or of a stream redirected already (`^ls o> a o> b`) and keeps
-/// it and its target as items, the first redirection kept. A file redirection takes the token
-/// after it as its target: what else comes there nu reports (Expected, "redirection target"),
-/// keeping the operator as an item and reading the token on (an `=`, another redirection or a
-/// `||` is an item too), and an end of line there ends the command but not the pipeline
-/// ([`LiteCommand::joins_next_line`]).
-fn lite_redirection(
-    tokens: &mut Tokens<'_, '_>,
-    lite_command: &mut LiteCommand,
-    operator: RedirectionOperator,
-    span: Span,
-) -> bool {
-    let working_set = tokens.working_set;
-    let operator_token = Token {
-        contents: TokenContents::Item,
-        span,
-    };
-    // nu's command holds its attribute lines' items too: after them a redirection has a
-    // command (`@example x y` + `o> f`), which `parse_attribute_block` then drops.
-    let nothing_before = lite_command.parts.is_empty() && lite_command.attributes.is_empty();
-    if operator.is_pipe() {
-        // With nothing before it the command is dropped, its error recorded by
-        // `parse_pipeline`, which knows whether a pipeline is left to report it in.
-        if nothing_before {
-            lite_command
-                .lite_error
-                .get_or_insert_with(|| Box::new(LiteError::NothingToRedirect(span)));
-        } else if let Some(error) = lite_command.redirected_twice(operator.source(), span) {
-            lite_command.refuse_redirection(working_set, error, &[]);
-        } else {
-            lite_command
-                .redirections
-                .push((Spanned::new(operator, span), None));
-        }
-        lite_command.pipe_after = Some(span);
-        return true;
-    }
-    if nothing_before {
-        lite_command.report(working_set, LiteError::NothingToRedirect(span));
-    }
-    let Some(&next) = tokens
-        .peek_token()
-        .filter(|next| next.contents != TokenContents::Eof)
-    else {
-        // The end of the block.
-        lite_command.report(working_set, LiteError::MissingRedirectionTarget(span));
-        lite_command.parts.push(operator_token);
-        return false;
-    };
-    // nu's lexer turns an end of line before a `|` starting a later line into that `|`, and
-    // drops the ends of line of comment lines before it: nu then sees the `|`, or a comment.
-    let folded_pipe =
-        pipe_on_a_later_line(tokens.all(), tokens.position()).map(|(comment_lines, pipe)| {
-            match comment_lines {
-                0 => pipe.span,
-                _ => span,
-            }
-        });
-    let missing = |lite_command: &mut LiteCommand, at: Span| {
-        lite_command.report(working_set, LiteError::MissingRedirectionTarget(at));
-        lite_command.parts.push(operator_token);
-    };
-    match next.contents {
-        TokenContents::Item => {
-            tokens.next_token();
-            if nothing_before {
-                // Reported above, as nu reports it first.
-                lite_command.parts.extend([operator_token, next]);
-            } else if let Some(error) = lite_command.redirected_twice(operator.source(), span) {
-                lite_command.refuse_redirection(working_set, error, &[operator_token, next]);
-            } else {
-                lite_command
-                    .redirections
-                    .push((Spanned::new(operator, span), Some(next)));
-            }
-        }
-        _ if let Some(at) = folded_pipe => missing(lite_command, at),
-        TokenContents::Eol => {
-            missing(lite_command, next.span);
-            lite_command.joins_next_line = true;
-            return true;
-        }
-        TokenContents::Comment => missing(lite_command, span),
-        TokenContents::Semicolon | TokenContents::Pipe | TokenContents::Eof => {
-            missing(lite_command, next.span)
-        }
-        TokenContents::Redirection(next_operator) if next_operator.is_pipe() => {
-            missing(lite_command, next.span);
-            tokens.next_token();
-            lite_command.pipe_after = Some(next.span);
-            return true;
-        }
-        TokenContents::Redirection(_) => {
-            missing(lite_command, next.span);
-            tokens.next_token();
-            lite_command.parts.push(as_item(next));
-        }
-        // An `=` stays one: nu finds an assignment by the items' text (`^ls o> = 1`).
-        TokenContents::AssignmentOperator(_) => {
-            missing(lite_command, next.span);
-            tokens.next_token();
-            lite_command.parts.push(next);
-        }
-        TokenContents::PipePipe => {
-            lite_command.report(working_set, LiteError::ShellOrOr(next.span));
-            tokens.next_token();
-            lite_command.parts.extend([operator_token, as_item(next)]);
-        }
-    }
-    false
-}
-
-/// Leading `@name arguments` lines, each up to the end of its line or a `;`. Like
-/// nu, everything on the line is an argument of the attribute, pipes and
-/// redirections included, and the definition must follow on the very next
-/// line: a blank or comment line in between ends the command with no definition,
-/// which [`parse_pipelines`](super::parse_pipelines) reports. A `|` that starts a
-/// later line continues the attribute line, as in nu, whose lexer turns the end
-/// of line before it into that `|`. After one blank line (and any comment lines),
-/// or after a `;` ending the line, that `|` no longer reaches the attribute line
-/// but continues the pipeline the attribute lines start with no command of their
-/// own (`@a x`, a blank line, `| y`; `@a x;`, `| y`); they then become that
-/// command's words.
-fn lite_attribute_lines(
-    tokens: &mut Tokens<'_, '_>,
-    lite_command: &mut LiteCommand,
-) -> ParseResult<()> {
-    let working_set = tokens.working_set;
-    while tokens.peek_token().is_some_and(|token| {
-        token.contents == TokenContents::Item
-            && working_set.get_span_contents(token.span).starts_with('@')
-    }) {
-        let mut attribute_line = Vec::new();
-        let mut ends_with_pipe = false;
-        while let Some(&token) = tokens.peek_token() {
-            match token.contents {
-                TokenContents::Comment => {
-                    working_set.add_comment(token.span);
-                    lite_command.comments.push(Comment { span: token.span });
-                }
-                TokenContents::Eol | TokenContents::Semicolon => {
-                    // `@a x\n| y`: the `|` and `y` are arguments too.
-                    if token.contents == TokenContents::Eol
-                        && take_pipe_on_later_line(tokens, &mut lite_command.comments)?
-                    {
-                        continue;
-                    }
-                    // A line ending with `|` keeps the command open only at a newline; a `;` closes it.
-                    ends_with_pipe &= token.contents == TokenContents::Eol;
-                    tokens.next_token();
-                    break;
-                }
-                TokenContents::Eof => break,
-                _ => {
-                    ends_with_pipe = token.contents == TokenContents::Pipe;
-                    attribute_line.push(Token {
-                        contents: TokenContents::Item,
-                        span: token.span,
-                    });
-                }
-            }
-            tokens.next_token();
-        }
-        lite_command.attributes.push(attribute_line);
-        // A line ending with `|` keeps nu's command open across comment lines
-        // (`last_non_comment_token`), so the definition may follow them.
-        while ends_with_pipe
-            && let [comment, eol, ..] = tokens.remaining()
-            && comment.contents == TokenContents::Comment
-            && eol.contents == TokenContents::Eol
-        {
-            working_set.add_comment(comment.span);
-            lite_command.comments.push(Comment { span: comment.span });
-            tokens.next_token();
-            tokens.next_token();
-        }
-        // `@a x`, a blank line, `| y`: the pipeline goes on without a command here.
-        if take_pipe_on_later_line(tokens, &mut lite_command.comments)? {
-            return Ok(());
-        }
-        // A blank or comment line after the attributes ends the command there, with no
-        // definition, which nu's `parse_attribute_block` reports. nu's lite parser gives a
-        // comment line to the command after it (its `curr_comment`), so the comment is left for
-        // the next statement, whose comments it becomes, and a blank line drops the comments
-        // before it. The end of the attribute line goes back too, for the statement loop to see
-        // the lines as they are: else it would read a comment as one beside the attributes and
-        // a blank line as the end of theirs.
-        if tokens.peek_token().is_some_and(|token| {
-            matches!(token.contents, TokenContents::Eol | TokenContents::Comment)
-        }) {
-            if let Some(eol) = tokens.position().checked_sub(1)
-                && tokens
-                    .all()
-                    .get(eol)
-                    .is_some_and(|token| token.contents == TokenContents::Eol)
-            {
-                tokens.reset_to(eol);
-            }
-            return Ok(());
-        }
-    }
-    Ok(())
 }
 
 /// nu's lite parse of the tokens inside `[...]`: the items of each
@@ -720,4 +182,599 @@ pub fn lite_parse_parts(
     }
     groups.push(parts);
     Ok(groups)
+}
+
+/// One command of a [`LiteBlock`] (nu's `LiteCommand`). Its lists are ranges of the block's, read
+/// through [`LiteBlock::parts`] and the others.
+#[derive(Clone, Copy, Debug)]
+pub struct LiteBlockCommand {
+    parts_start: u32,
+    parts_end: u32,
+    /// Where its parts after its attribute lines start ([`LiteBlock::command_parts`]).
+    command_start: u32,
+    attributes_start: u32,
+    attributes_end: u32,
+    comments_start: u32,
+    comments_end: u32,
+    redirections_start: u32,
+    redirections_end: u32,
+    /// What nu's `command.pipe` holds: the `|` after it, or one that no command took before it.
+    pub pipe: Option<Span>,
+    /// The `|` no command took before it, which nu's `command.pipe` held until a `|` after it
+    /// took its place.
+    pub pipe_before: Option<Span>,
+    /// The index in the block's tokens of what ended it: a `|`, an `e>|`, an end of line, a `;`,
+    /// or one past the last token.
+    pub ended_at: u32,
+    /// Whether it is the last command of its pipeline.
+    ends_pipeline: bool,
+}
+
+/// One command as [`LiteBlock::command`] gives it to the statement reader.
+#[derive(Debug)]
+pub struct LiteCommand<'b> {
+    /// Its parts after its attribute lines.
+    pub parts: &'b [Token],
+    /// Its attribute lines' parts, a slice for each line.
+    pub attributes: Vec<&'b [Token]>,
+    /// Its redirections, in the order they are written.
+    pub redirections: &'b [LiteRedirection],
+    /// Byte offset just past its last part, or, with none, where it was ended.
+    pub end: usize,
+}
+
+impl<'b> LiteCommand<'b> {
+    /// A stream over its parts.
+    pub fn tokens<'t, 'a>(&self, working_set: &'t WorkingSet<'a>) -> Tokens<'t, 'a>
+    where
+        'b: 't,
+    {
+        Tokens::new(working_set, self.parts, self.end)
+    }
+}
+
+/// A redirection of a command: its operator, and its file (none for `e>|` and `o+e>|`).
+pub type LiteRedirection = (Spanned<RedirectionOperator>, Option<Token>);
+
+/// A block's tokens grouped as nu's `lite_parse` groups them, each kind of list held once for the
+/// whole block: reading a block costs a few allocations, not a few per command.
+#[derive(Debug, Default)]
+pub struct LiteBlock {
+    parts: Vec<Token>,
+    commands: Vec<LiteBlockCommand>,
+    comments: Vec<Span>,
+    /// One past the end of each attribute line's parts, in `parts`.
+    attribute_ends: Vec<u32>,
+    redirections: Vec<LiteRedirection>,
+    /// Every lite-parse error in the order nu's loop meets them, each with the index of the command
+    /// being read then (nu keeps the first; a standalone parse reports them all).
+    errors: Vec<(u32, LiteError)>,
+    /// A `|` ending the block, which nu reports in place of the block's first error.
+    missing_end: Option<LiteError>,
+}
+
+/// Where the lists of the command being read start. It stays as it is until the command has parts
+/// or a redirection, as nu keeps a command it does not take: its comments and its pipe go on to the
+/// next one.
+#[derive(Default)]
+struct CommandStart {
+    parts: usize,
+    attributes: usize,
+    comments: usize,
+    redirections: usize,
+    pipe: Option<Span>,
+}
+
+/// What the next tokens of a block are read as (nu's `Mode`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LiteMode {
+    /// An assignment takes pipes and redirections up to the end of the line or a `;`.
+    Assignment,
+    /// An attribute line ends at the end of the line or a `;`.
+    Attribute,
+    Normal,
+}
+
+impl LiteBlock {
+    /// `tokens`, a block's from the winnow lexer without its `Eof`, lite-parsed. nu's lexer drops
+    /// an end of line that only comment lines stand between and a `|` starting a later line, which
+    /// the winnow lexer keeps, so this skips those.
+    pub fn parse(source: &str, tokens: &[Token]) -> Self {
+        Self::read(source, tokens, true)
+    }
+
+    /// [`Self::parse`] for `tokens` with those ends of line dropped already, as nu's lexer gives
+    /// them.
+    pub fn parse_folded(source: &str, tokens: &[Token]) -> Self {
+        Self::read(source, tokens, false)
+    }
+
+    /// The first error nu's lite parser reports: a `|` ending the block, else the block's first.
+    pub fn error(&self) -> Option<LiteError> {
+        self.missing_end
+            .or_else(|| self.errors.first().map(|(_, error)| *error))
+    }
+
+    /// A `|` ending the block, which has no pipeline of its own to report it.
+    pub fn missing_end(&self) -> Option<LiteError> {
+        self.missing_end
+    }
+
+    /// The first error after the block's last command: of a command nu drops, with no later one
+    /// to carry it (an `e>|` with nothing before it).
+    pub fn dropped_error(&self) -> Option<LiteError> {
+        self.errors_from(self.commands.len()).next()
+    }
+
+    /// The errors met while reading the commands from `start` up to `end`.
+    pub fn errors_in(&self, start: usize, end: usize) -> impl Iterator<Item = LiteError> + '_ {
+        // In the order of their commands: a block with many stays linear.
+        let from = self
+            .errors
+            .partition_point(|(at, _)| (*at as usize) < start);
+        let to = self.errors.partition_point(|(at, _)| (*at as usize) < end);
+        self.errors[from..to].iter().map(|(_, error)| *error)
+    }
+
+    /// The errors met from the command `start` on.
+    pub fn errors_from(&self, start: usize) -> impl Iterator<Item = LiteError> + '_ {
+        self.errors_in(start, usize::MAX)
+    }
+
+    /// The pipelines, each of its commands.
+    pub fn pipelines(&self) -> impl Iterator<Item = &[LiteBlockCommand]> {
+        self.commands
+            .split_inclusive(|command| command.ends_pipeline)
+    }
+
+    /// The commands from `start` on, as [`Self::pipelines`] groups them.
+    pub fn pipelines_from(&self, start: usize) -> impl Iterator<Item = &[LiteBlockCommand]> {
+        self.commands
+            .get(start..)
+            .unwrap_or_default()
+            .split_inclusive(|command| command.ends_pipeline)
+    }
+
+    /// How many commands the block has.
+    pub fn command_count(&self) -> usize {
+        self.commands.len()
+    }
+
+    /// The command at `index`.
+    pub fn command_at(&self, index: usize) -> Option<&LiteBlockCommand> {
+        self.commands.get(index)
+    }
+
+    /// `command`, with `tokens` the block's, read for the statement reader.
+    pub fn command<'b>(&'b self, command: &LiteBlockCommand, tokens: &[Token]) -> LiteCommand<'b> {
+        let parts = self.command_parts(command);
+        let end = parts.last().map_or_else(
+            || {
+                tokens
+                    .get(command.ended_at as usize)
+                    .or(tokens.last())
+                    .map_or(0, |token| token.span.start)
+            },
+            |last| last.span.end,
+        );
+        let mut line_start = command.parts_start as usize;
+        let attributes = self.attribute_ends
+            [command.attributes_start as usize..command.attributes_end as usize]
+            .iter()
+            .map(|end| {
+                let line = &self.parts[line_start..*end as usize];
+                line_start = *end as usize;
+                line
+            })
+            .collect();
+        LiteCommand {
+            parts,
+            attributes,
+            redirections: self.redirections(command),
+            end,
+        }
+    }
+
+    /// A command's parts, those of its attribute lines included (nu's `parts`).
+    pub fn parts(&self, command: &LiteBlockCommand) -> &[Token] {
+        &self.parts[command.parts_start as usize..command.parts_end as usize]
+    }
+
+    /// A command's parts after its attribute lines (nu's `command_parts`).
+    pub fn command_parts(&self, command: &LiteBlockCommand) -> &[Token] {
+        &self.parts[command.command_start as usize..command.parts_end as usize]
+    }
+
+    /// A command's comments (nu's `comments`).
+    pub fn comments(&self, command: &LiteBlockCommand) -> &[Span] {
+        &self.comments[command.comments_start as usize..command.comments_end as usize]
+    }
+
+    /// One past the end of each of a command's attribute lines, counted in [`Self::parts`] (nu's
+    /// `attribute_idx`).
+    pub fn attribute_ends<'b>(
+        &'b self,
+        command: &'b LiteBlockCommand,
+    ) -> impl Iterator<Item = usize> + 'b {
+        self.attribute_ends[command.attributes_start as usize..command.attributes_end as usize]
+            .iter()
+            .map(|end| (end - command.parts_start) as usize)
+    }
+
+    /// A command's redirections, in the order they are written.
+    pub fn redirections(&self, command: &LiteBlockCommand) -> &[LiteRedirection] {
+        &self.redirections[command.redirections_start as usize..command.redirections_end as usize]
+    }
+
+    /// nu's `lite_parse`.
+    fn read(source: &str, tokens: &[Token], fold: bool) -> Self {
+        let mut block = Self::default();
+        if tokens.is_empty() {
+            return block;
+        }
+        // No more parts than tokens: an operator pushed as a part was no part when it was read.
+        block.parts.reserve_exact(tokens.len());
+        let source = source.as_bytes();
+        let mut command = CommandStart::default();
+        let mut last = TokenContents::Eol;
+        let mut file_redirection: Option<Spanned<RedirectionOperator>> = None;
+        // The comment lines before the next command (nu's `curr_comment`).
+        let mut pending: Vec<Span> = Vec::new();
+        let mut mode = LiteMode::Normal;
+        // The ends of line before `fold_until` share one answer: whether a `|` follows their run
+        // of comment lines. A long run of comment lines is walked once.
+        let mut fold_until = 0;
+        let mut folding = false;
+        for (index, &token) in tokens.iter().enumerate() {
+            let span = token.span;
+            if fold && token.contents == TokenContents::Eol {
+                if index >= fold_until {
+                    fold_until = after_comment_lines(tokens, index + 1);
+                    // A `&&` is a `Pipe` too, which nu's lexer reads apart and folds nothing for.
+                    folding = tokens.get(fold_until).is_some_and(|next| {
+                        next.contents == TokenContents::Pipe && next.span.len() == 1
+                    });
+                }
+                if folding {
+                    continue;
+                }
+            }
+            match mode {
+                LiteMode::Attribute => match token.contents {
+                    TokenContents::Eol | TokenContents::Semicolon => {
+                        block.attribute_ends.push(block.parts.len() as u32);
+                        mode = LiteMode::Normal;
+                        if matches!(last, TokenContents::Eol | TokenContents::Semicolon) {
+                            pending.clear();
+                            block.end_command(&mut command, index);
+                            block.end_pipeline();
+                        }
+                    }
+                    TokenContents::Comment => {
+                        block.comments.push(span);
+                        pending.clear();
+                    }
+                    // Everything on the line is a word of the attribute, pipes included.
+                    _ => block.parts.push(as_item(token)),
+                },
+                LiteMode::Assignment => match token.contents {
+                    TokenContents::Eol => {
+                        if !ends_after_pipe(tokens, index, last) {
+                            mode = LiteMode::Normal;
+                            block.end_command(&mut command, index);
+                            block.end_pipeline();
+                        }
+                    }
+                    TokenContents::Semicolon => {
+                        mode = LiteMode::Normal;
+                        block.end_command(&mut command, index);
+                        block.end_pipeline();
+                    }
+                    // No comment lines wait here: the operator took them when it was read.
+                    TokenContents::Comment => block.comments.push(span),
+                    _ => block.parts.push(token),
+                },
+                LiteMode::Normal => match file_redirection.take() {
+                    Some(operator) => block.after_file_redirection(
+                        &mut command,
+                        &mut pending,
+                        operator,
+                        token,
+                        index,
+                    ),
+                    None => match token.contents {
+                        TokenContents::PipePipe => {
+                            block.report(LiteError::ShellOrOr(span));
+                            block.parts.push(as_item(token));
+                        }
+                        TokenContents::Item => {
+                            if source.get(span.start) == Some(&b'@') {
+                                if matches!(last, TokenContents::Eol | TokenContents::Semicolon) {
+                                    mode = LiteMode::Attribute;
+                                }
+                            } else {
+                                block.attach_comments(&command, &mut pending);
+                            }
+                            block.parts.push(token);
+                        }
+                        TokenContents::AssignmentOperator(_) => {
+                            mode = LiteMode::Assignment;
+                            block.attach_comments(&command, &mut pending);
+                            block.parts.push(token);
+                        }
+                        TokenContents::Redirection(operator) if operator.is_pipe() => {
+                            block.add_redirection(&command, Spanned::new(operator, span), None);
+                            block.end_command_at_pipe(&mut command, span, index);
+                        }
+                        TokenContents::Redirection(operator) => {
+                            if block.parts.len() == command.parts {
+                                block.report(LiteError::NothingToRedirect(span));
+                            }
+                            file_redirection = Some(Spanned::new(operator, span));
+                        }
+                        TokenContents::Pipe => {
+                            block.end_command_at_pipe(&mut command, span, index);
+                        }
+                        TokenContents::Eol => {
+                            if !ends_after_pipe(tokens, index, last) {
+                                block.end_command(&mut command, index);
+                                block.end_pipeline();
+                            }
+                            if last == TokenContents::Eol {
+                                pending.clear();
+                            }
+                        }
+                        TokenContents::Semicolon => {
+                            block.end_command(&mut command, index);
+                            block.end_pipeline();
+                        }
+                        // A comment beside something, or one before it.
+                        TokenContents::Comment => {
+                            if last == TokenContents::Eol {
+                                pending.push(span);
+                            } else {
+                                block.comments.push(span);
+                                pending.clear();
+                            }
+                        }
+                        TokenContents::Eof => {}
+                    },
+                },
+            }
+            last = token.contents;
+        }
+        if let Some(operator) = file_redirection {
+            block.parts.push(operator_item(operator.span));
+            block.report(LiteError::MissingRedirectionTarget(operator.span));
+        }
+        if mode == LiteMode::Attribute {
+            block.attribute_ends.push(block.parts.len() as u32);
+        }
+        block.end_command(&mut command, tokens.len());
+        block.end_pipeline();
+        if last_non_comment_token(tokens) == Some(TokenContents::Pipe)
+            && let Some(last) = tokens.last()
+        {
+            block.missing_end = Some(LiteError::PipelineMissingEnd(last.span));
+        }
+        block
+    }
+
+    /// Note `error`, met while reading the current command. nu's redirection reports the same
+    /// nothing-to-redirect twice, when it meets the operator and when it meets the file.
+    fn report(&mut self, error: LiteError) {
+        let entry = (self.commands.len() as u32, error);
+        if self.errors.last() != Some(&entry) {
+            self.errors.push(entry);
+        }
+    }
+
+    /// `token` after the file redirection `operator`: its file, or what nu reads there instead.
+    fn after_file_redirection(
+        &mut self,
+        command: &mut CommandStart,
+        pending: &mut Vec<Span>,
+        operator: Spanned<RedirectionOperator>,
+        token: Token,
+        index: usize,
+    ) {
+        let span = token.span;
+        let operator_part = operator_item(operator.span);
+        match token.contents {
+            TokenContents::PipePipe => {
+                self.report(LiteError::ShellOrOr(span));
+                self.parts.extend([operator_part, as_item(token)]);
+            }
+            TokenContents::Item => {
+                if !self.add_redirection(command, operator, Some(token)) {
+                    self.parts.extend([operator_part, token]);
+                }
+            }
+            TokenContents::AssignmentOperator(_) => {
+                self.report(LiteError::MissingRedirectionTarget(span));
+                self.parts.extend([operator_part, token]);
+            }
+            TokenContents::Redirection(next) if !next.is_pipe() => {
+                self.report(LiteError::MissingRedirectionTarget(span));
+                self.parts.extend([operator_part, as_item(token)]);
+            }
+            TokenContents::Pipe | TokenContents::Redirection(_) => {
+                self.report(LiteError::MissingRedirectionTarget(span));
+                self.parts.push(operator_part);
+                self.end_command_at_pipe(command, span, index);
+            }
+            TokenContents::Eol => {
+                self.report(LiteError::MissingRedirectionTarget(span));
+                self.parts.push(operator_part);
+                self.end_command(command, index);
+            }
+            TokenContents::Semicolon => {
+                self.report(LiteError::MissingRedirectionTarget(span));
+                self.parts.push(operator_part);
+                self.end_command(command, index);
+                self.end_pipeline();
+            }
+            TokenContents::Comment => {
+                self.report(LiteError::MissingRedirectionTarget(operator.span));
+                self.parts.push(operator_part);
+                self.comments.push(span);
+                pending.clear();
+            }
+            TokenContents::Eof => {}
+        }
+    }
+
+    /// The comment lines before the command replace its comments (nu's `command.comments =
+    /// curr_comment`), once it has a part that is no attribute.
+    fn attach_comments(&mut self, command: &CommandStart, pending: &mut Vec<Span>) {
+        if !pending.is_empty() {
+            self.comments.truncate(command.comments);
+            self.comments.append(pending);
+        }
+    }
+
+    /// Add a redirection to the command being read (nu's `try_add_redirection`), reporting one it
+    /// refuses: with nothing to redirect, or of a stream redirected already, which leaves the
+    /// command with none. Returns whether it was added.
+    fn add_redirection(
+        &mut self,
+        command: &CommandStart,
+        operator: Spanned<RedirectionOperator>,
+        file: Option<Token>,
+    ) -> bool {
+        let source = operator.item.source();
+        let refused = match &self.redirections[command.redirections..] {
+            [] if self.parts.len() == command.parts => {
+                Some(LiteError::NothingToRedirect(operator.span))
+            }
+            [] => None,
+            [(first, _)] => match (first.item.source(), source) {
+                (RedirectionSource::Stdout, RedirectionSource::Stderr)
+                | (RedirectionSource::Stderr, RedirectionSource::Stdout) => None,
+                (first_source, _) => Some(LiteError::MultipleRedirections {
+                    source: first_source,
+                    first: first.span,
+                    second: operator.span,
+                }),
+            },
+            // Stdout and stderr, each to its own: `o+e>` meets the stdout one.
+            separate => {
+                let met = match source {
+                    RedirectionSource::Stderr => RedirectionSource::Stderr,
+                    _ => RedirectionSource::Stdout,
+                };
+                separate
+                    .iter()
+                    .find(|(first, _)| first.item.source() == met)
+                    .map(|(first, _)| LiteError::MultipleRedirections {
+                        source: met,
+                        first: first.span,
+                        second: operator.span,
+                    })
+            }
+        };
+        match refused {
+            Some(error) => {
+                self.report(error);
+                self.redirections.truncate(command.redirections);
+                false
+            }
+            None => {
+                self.redirections.push((operator, file));
+                true
+            }
+        }
+    }
+
+    /// nu's `command.pipe = pipe; pipeline.push(&mut command)`: the `|` at `at` ends the command
+    /// read so far, if there is one, or stays with the one to come.
+    fn end_command_at_pipe(&mut self, command: &mut CommandStart, pipe: Span, at: usize) {
+        let pipe_before = command.pipe.replace(pipe);
+        if self.has_command(command) {
+            self.push_command(command, pipe_before, at);
+        }
+    }
+
+    /// nu's `pipeline.push(&mut command)`, at the token at `at`: the command read so far is one if
+    /// it has parts or a redirection, and stays open otherwise.
+    fn end_command(&mut self, command: &mut CommandStart, at: usize) {
+        if self.has_command(command) {
+            self.push_command(command, command.pipe, at);
+        }
+    }
+
+    fn has_command(&self, command: &CommandStart) -> bool {
+        self.parts.len() != command.parts || self.redirections.len() != command.redirections
+    }
+
+    fn push_command(
+        &mut self,
+        command: &mut CommandStart,
+        pipe_before: Option<Span>,
+        ended_at: usize,
+    ) {
+        let has_attributes = self.attribute_ends.len() > command.attributes;
+        let command_start = match self.attribute_ends.last() {
+            Some(&end) if has_attributes => end,
+            _ => command.parts as u32,
+        };
+        self.commands.push(LiteBlockCommand {
+            parts_start: command.parts as u32,
+            parts_end: self.parts.len() as u32,
+            command_start,
+            attributes_start: command.attributes as u32,
+            attributes_end: self.attribute_ends.len() as u32,
+            comments_start: command.comments as u32,
+            comments_end: self.comments.len() as u32,
+            redirections_start: command.redirections as u32,
+            redirections_end: self.redirections.len() as u32,
+            pipe: command.pipe.take(),
+            pipe_before,
+            ended_at: ended_at as u32,
+            ends_pipeline: false,
+        });
+        command.parts = self.parts.len();
+        command.attributes = self.attribute_ends.len();
+        command.comments = self.comments.len();
+        command.redirections = self.redirections.len();
+    }
+
+    /// nu's `block.push(&mut pipeline)`: the commands since the last one are a pipeline, if any.
+    fn end_pipeline(&mut self) {
+        if let Some(last) = self.commands.last_mut() {
+            last.ends_pipeline = true;
+        }
+    }
+}
+
+/// The index in `tokens` after the comment lines from `at` on (`(Comment Eol)*`).
+fn after_comment_lines(tokens: &[Token], mut at: usize) -> usize {
+    while let [comment, eol, ..] = tokens.get(at..).unwrap_or_default()
+        && comment.contents == TokenContents::Comment
+        && eol.contents == TokenContents::Eol
+    {
+        at += 2;
+    }
+    at
+}
+
+/// Whether the end of line at `index`, with `last` the token before it, leaves a `|` as the last
+/// token, comment lines skipped: the pipeline goes on (nu's `last_non_comment_token`). No end of
+/// line it walks past was dropped: one that was has a `|` after it before this one.
+fn ends_after_pipe(tokens: &[Token], index: usize, last: TokenContents) -> bool {
+    match last {
+        TokenContents::Pipe => true,
+        TokenContents::Comment | TokenContents::Eol => {
+            last_non_comment_token(&tokens[..index]) == Some(TokenContents::Pipe)
+        }
+        _ => false,
+    }
+}
+
+/// A redirection's operator as a word of the command, which nu makes it when it refuses it.
+fn operator_item(span: Span) -> Token {
+    Token {
+        contents: TokenContents::Item,
+        span,
+    }
 }

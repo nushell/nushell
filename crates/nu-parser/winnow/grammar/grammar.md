@@ -114,14 +114,13 @@ Two facts about nu-parser shape everything below and are easy to forget:
 ; one pipeline. Exactly ONE Eol is absorbed: `a\n\n| b` keeps an Eol (see
 ; <pipe-continuation>, 2).
 ; nu: lex.rs:1005-1031
-; here: src/winnow/syntax/parser/lite_parser.rs::pipe_on_later_line, take_pipe_on_later_line,
-;       after_pipe_lines (the same rule, applied in the block parser: exactly
-;       `Eol (Comment Eol)* Pipe` continues the line)
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock (the same rule, applied in the lite
+;       parse: exactly `Eol (Comment Eol)* Pipe` continues the line)
 
 <pipe-pipe>       ::= "||"
 ; an error (ShellOrOr) everywhere except as empty closure parameters
 ; nu: lex.rs:991-1001, lite_parser.rs:295,361
-; here: src/winnow/syntax/lex.rs::lex_token, src/winnow/syntax/parser/lite_parser.rs::parse_lite_command
+; here: src/winnow/syntax/lex.rs::lex_token, src/winnow/syntax/parser/lite_parser.rs::LiteBlock
 
 <semicolon>       ::= ";"
 ; ";" directly after "|" is an error
@@ -277,8 +276,7 @@ this parser's `LexOptions` constants carry the same sets.
 ; `a |\n\n| b` is ONE pipeline (comment lines may stand on either side of the blank
 ; line), while `a |\n\n\n| b` is two.
 ; nu: lite_parser.rs:198, 460; lex.rs:1005-1031
-; here: src/winnow/syntax/parser/lite_parser.rs::after_pipe_lines (`Comment* [Eol (Comment Eol)*]`, then
-;       pipe_on_later_line)
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock, last_non_comment_token
 
 ; The trailing-pipe rule: a BLOCK whose last non-comment token is "|" (skipping ([Comment]+ Eol) pairs
 ; from the end) is UnexpectedEof("pipeline missing end"), whatever absorbed the
@@ -294,7 +292,7 @@ this parser's `LexOptions` constants carry the same sets.
 ; Items after a file redirection are still part of the command (`^echo x o> f extra`
 ; parses). A command with no items but a redirection is UnexpectedRedirection.
 ; nu: lite_parser.rs:365-450, 77, 89
-; here: src/winnow/syntax/parser/lite_parser.rs::parse_lite_command
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock
 
 <redirection>     ::= ( <out-redirect> | <err-redirect> | <out-err-redirect> ) <item>
 ; The target must be the very next token and must be an <item>; anything else
@@ -302,12 +300,12 @@ this parser's `LexOptions` constants carry the same sets.
 ; Expected("redirection target"). The target item is parsed as a value (shape Any).
 ; An Eol there ends nu's command but not its pipeline: an item first on the next line
 ; is the pipeline's next command (`ls o>\ndef f [] {}`: a `def` in a pipeline, no
-; definition), which the predeclaration scan follows.
+; definition), which the predeclaration follows.
 ; Combinations: the first redirection of any kind is Single; Stdout then Stderr or
 ; Stderr then Stdout is Separate; any other second, or any third, is
 ; MultipleRedirections.
 ; nu: lite_parser.rs:293-358, 497, 83 try_add_redirection; parse_pipelines.rs:26
-; here: src/winnow/syntax/parser/lite_parser.rs::parse_lite_command,
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock,
 ;       src/winnow/syntax/parser/parse_pipelines.rs::parse_redirection
 
 <pipe-redirection> ::= <err-pipe> | <out-err-pipe>
@@ -318,7 +316,7 @@ this parser's `LexOptions` constants carry the same sets.
 ; only through a "|" that starts a later line, after comment lines but no blank
 ; line (`a e>|\nb` is two pipelines, `a e>|\n# c\n| b` one)
 ; nu: lite_parser.rs:427-450; lex.rs:1005-1031
-; here: src/winnow/syntax/parser/lite_parser.rs::parse_lite_command (`pipe_after`), after_pipe_lines,
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock,
 ;       src/winnow/syntax/parser/parse_pipelines.rs::parse_redirection
 
 <assignment-tail> ::= <assignment-op> { <item> | <pipe> | <pipe-pipe> | <redirection-op> | <comment> }
@@ -327,8 +325,7 @@ this parser's `LexOptions` constants carry the same sets.
 ; trailing "|" or before a leading "|" exactly as in <pipe-continuation> (one Eol).
 ; ";" ends the assignment. The tail is re-lexed and parsed as a block (3.3).
 ; nu: lite_parser.rs:259-291, 392-400
-; here: src/winnow/syntax/parser/lite_parser.rs::parse_lite_command (`absorbing`, the same continuation
-;       rule)
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock (the same continuation rule)
 
 <attribute-lines> ::= 1*<attribute-line>
 <attribute-line>  ::= "@" <item-rest> { <item> | <pipe> | <pipe-pipe> | <redirection-op> | <assignment-op> } ( <eol> | <semicolon> )
@@ -352,9 +349,8 @@ this parser's `LexOptions` constants carry the same sets.
 ; blank line, a second blank line, or a blank line after the ";" ends the statement.
 ; nu: lex.rs lex_internal (an Eol before "|" becomes it); lite_parser.rs:239-257,
 ;     379-383, 455-469; parse_pipelines.rs parse_pipeline_element
-; here: src/winnow/syntax/parser/lite_parser.rs::lite_attribute_lines (for the first command of a
-;       pipeline and a command that starts a line; every token of the line becomes a
-;       word; `take_pipe_on_later_line` after the line's Eol),
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock (every token of the line becomes a
+;       word),
 ;       src/winnow/syntax/parser/parse_pipelines.rs::parse_pipeline_element
 ```
 
@@ -1289,8 +1285,8 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; nu: parse_def.rs parse_def_predecl (add_type_predecl)
 ; here: src/winnow/syntax/parser/parse_def.rs::parse_def_predecl, scan_predecls (TypeAliasPredecl,
 ;       for the engine's BlockSink::predecl_type_alias; whether a pipe joins the next
-;       command: src/winnow/syntax/parser/lite_parser.rs::after_pipe_lines, the statement parser's
-;       rule; the name: src/winnow/syntax/parser/parse_signatures.rs::parse_definition_name)
+;       command: src/winnow/syntax/parser/lite_parser.rs::LiteBlock; the name:
+;       src/winnow/syntax/parser/parse_signatures.rs::parse_definition_name)
 ```
 
 ### 6.2 let, mut, const
@@ -1698,7 +1694,7 @@ Vocabulary: `<expression>` is a `<pipeline-element>` (3.1); `<block>` is a
 ; stays
 ; nu: parse_calls.rs:2022 parse_attribute; parse_def.rs:278 parse_attribute_block;
 ;     parse_module.rs:110, 203
-; here: src/winnow/syntax/parser/lite_parser.rs::lite_attribute_lines,
+; here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock,
 ;       src/winnow/syntax/parser/parse_pipelines.rs::parse_pipeline_element,
 ;       src/winnow/syntax/parser/parse_calls.rs::parse_attribute (the empty name is the consumer's; whether
 ;       `attr <name>` exists is the consumer's, it may come from a `use`d module; the

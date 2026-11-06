@@ -12,8 +12,8 @@
 //! last token when the input ran out.
 //!
 //! The parsers at the bottom of this file are the vocabulary the others are
-//! written in: [`item`], [`keyword`], [`pipe`], [`eol`] and [`comment`] each
-//! match one token and backtrack otherwise, and [`expected`] commits to a
+//! written in: [`item`], [`keyword`] and [`pipe`] each match one token and
+//! backtrack otherwise, and [`expected`] commits to a
 //! parser, turning "did not match" into an `expected ...` error.
 
 use std::fmt;
@@ -455,18 +455,6 @@ pub fn keyword<'t, 'a: 't>(
 #[inline]
 pub fn pipe(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
     token_where(tokens, |token| token.contents == TokenContents::Pipe)
-}
-
-/// An end of line.
-#[inline]
-pub fn eol(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
-    token_where(tokens, |token| token.contents == TokenContents::Eol)
-}
-
-/// A `# comment`.
-#[inline]
-pub fn comment(tokens: &mut Tokens<'_, '_>) -> ParseResult<Token> {
-    token_where(tokens, |token| token.contents == TokenContents::Comment)
 }
 
 /// Commit to `parser`: where it does not match, fail with `expected <what>`

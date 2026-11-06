@@ -64,6 +64,7 @@ use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
 use call_shapes::CallShapes;
+pub use lite_parser::{LiteBlock, LiteBlockCommand, LiteRedirection};
 pub use parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl};
 pub use parse_pipelines::{BlockSink, BlockStatements};
 use working_set::Collected;

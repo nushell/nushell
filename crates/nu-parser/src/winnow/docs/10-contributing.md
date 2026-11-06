@@ -28,8 +28,7 @@
   parsers, `fn(&mut Tokens<'_, 'a>) -> ParseResult<T>`, written with winnow's combinators and the
   token parsers of chapter 03.
 * **A few parsers stay loops,** because they mirror a state machine of nu-parser or read more
-  clearly that way: `parse_block`'s statement loop, `parse_lite_command`, `lite_parse_parts`,
-  `parse_parameters`, `parse_interpolation_parts`, `parse_external_string`, `find_range_operators`
+  clearly that way: `LiteBlock`'s read of a block, `lite_parse_parts`, `parse_parameters`, `parse_interpolation_parts`, `parse_external_string`, `find_range_operators`
   and `item_length`.
 * **Errors are cuts, and backtracks carry no diagnostic.** Report a real error with
   `Err(cut(Diagnostic::expected(...)))` or another `Diagnostic` constructor. `backtrack(offset)`

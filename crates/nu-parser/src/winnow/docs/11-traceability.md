@@ -303,7 +303,7 @@ consumer.
 | `PositionalAfterRest` | `parse_signatures::check_parameters` (not in an `extern`) | `reject/signatures/parameter-after-rest.nu` `accept/extern/positional-after-rest.nu` | `signature_names_must_be_unique` |
 | `DuplicateParameter` | `parse_signatures::check_unique_name` (not in an `extern`; a positional `_` may repeat) | `reject/signatures/duplicate-*.nu` `reject/signatures/flag-and-parameter-share-a-variable.nu` `reject/closures/duplicate-parameter.nu` `accept/signatures/repeated-underscore-parameters.nu` `accept/extern/repeated-names.nu` | `signature_names_must_be_unique` |
 | `ColumnDefinedTwice` | `parse_expressions::check_duplicate_name` (names written as literals; one known only when the literal runs is the consumer's) | `reject/records/duplicate-key*.nu` `reject/tables/duplicate-column.nu` `accept/records/runtime-duplicate-is-consumer.nu` | `record_keys_and_column_names_are_names` |
-| `TypeAliasUsedBeforeDefinition` | n/a (semantic: what a type name means); the predeclaration scan reports where the block's `type` statements are (`parse_def::TypeAliasPredecl`, `BlockSink::predecl_type_alias`) | `accept/def/type-alias.nu` | `type_alias_statements` |
+| `TypeAliasUsedBeforeDefinition` | n/a (semantic: what a type name means); the predeclaration reports where the block's `type` statements are (`parse_def::TypeAliasPredecl`, `BlockSink::predecl_type_alias`) | `accept/def/type-alias.nu` | `type_alias_statements` |
 | `TypeAliasSelfReference` | n/a (semantic: what a type name means) | `accept/def/type-alias-in-generic.nu` | `type_alias_statements` |
 | `TypeAliasShadowsBuiltin` | `ErrorKind::Message` (`parse_type_alias::parse_type_alias`, `parse_shape_specs::BUILTIN_TYPE_NAMES`) | `reject/def/type-alias-builtin-name.nu` | `type_alias_statements` |
 | `TypeAliasNameNotValid` | `ErrorKind::Message` (`parse_type_alias::parse_type_alias`, `parse_shape_specs::is_valid_type_alias_name`) | `reject/def/type-alias-invalid-name.nu` | `type_alias_statements` |
@@ -338,7 +338,7 @@ same name as nu-parser's. `parse_brace_expr` and `parse_row_condition` are the e
 | `parse_assignment_expression` | `parse_expressions::parse_assignment_expression` | `accept/assignments/*.nu` | `assignments` |
 | `parse_assignment_operator` | `lex::item_contents` (`TokenContents::AssignmentOperator`) | `accept/assignments/compound.nu` | `assignments` |
 | `parse_attribute` | `parse_calls::parse_attribute` (its arguments are semantic) | `accept/attributes/with-args.nu` `accept/attributes/*-is-consumer.nu` | `attributes` |
-| `parse_attribute_block` | `lite_parser::lite_attribute_lines` (a `|` line after one blank line continues the pipeline: `take_pipe_on_later_line`), `parse_pipelines::parse_pipeline_element` | `accept/attributes/*.nu` `reject/attributes/*-then-pipe.nu` | `attributes` |
+| `parse_attribute_block` | `lite_parser::LiteBlock` (a `|` line after one blank line continues the pipeline), `parse_pipelines::parse_pipeline_element` | `accept/attributes/*.nu` `reject/attributes/*-then-pipe.nu` | `attributes` |
 | `parse_binary` | `parse_literals::parse_binary`, `parse_binary_with_base` | `accept/literals/binary-hex.nu` | `binary_literals` |
 | `parse_block` | `parse_pipelines::parse_block` (`lite_parser::last_non_comment_token` applies the trailing-pipe rule to the whole block) | `accept/pipelines/*.nu` `reject/pipelines/trailing-pipe-*.nu` | `statements_separated_by_semicolons_and_newlines` |
 | `parse_block_expression` | `parse_expressions::parse_block_expression`, `parse_block_body` | `accept/match/body-forms.nu` | `match_forms` |
@@ -391,7 +391,7 @@ same name as nu-parser's. `parse_brace_expr` and `parse_row_condition` are the e
 | `parse_overlay_use` | an ordinary `Call` whose `as NAME` keyword `parse_calls::check_call` checks | `accept/modules/overlay.nu` `reject/calls/overlay-use-*.nu` | `use_forms` |
 | `parse_paren_expr` | `parse_literals::parse_paren_expr`, `parse_expressions::parse_subexpression` | `accept/subexpressions/*.nu` | `subexpressions_span_lines` |
 | `parse_pattern` | `parse_patterns::parse_pattern` | `accept/match/value-patterns.nu` | `match_forms` |
-| `parse_pipeline` | `parse_pipelines::parse_pipeline`, `lite_parser::after_pipe_lines`, `pipe_on_later_line` (`Eol (Comment Eol)* Pipe` continues a line; a blank line closes the pipeline, except one between a `\|` ending a line and a `\|` starting a later one; after an `e>\|` only a line-leading `\|` goes on) | `accept/pipelines/*.nu` `reject/pipelines/*.nu` | `multiline_pipelines_with_leading_pipes_and_comments` |
+| `parse_pipeline` | `parse_pipelines::parse_pipeline`, `lite_parser::LiteBlock` (`Eol (Comment Eol)* Pipe` continues a line; a blank line closes the pipeline, except one between a `\|` ending a line and a `\|` starting a later one; after an `e>\|` only a line-leading `\|` goes on) | `accept/pipelines/*.nu` `reject/pipelines/*.nu` | `multiline_pipelines_with_leading_pipes_and_comments` |
 | `parse_plugin_use` | an ordinary `Call` | `accept/modules/plugin.nu` `accept/calls/plugin-use-*-is-consumer.nu` | `use_forms` |
 | `parse_range` | `parse_literals::parse_range` | `accept/ranges/*.nu` | `ranges` |
 | `parse_raw_string` | `parse_literals::parse_raw_string` | `accept/strings/raw-string.nu` | `strings_all_quote_styles` |

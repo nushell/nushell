@@ -11,13 +11,11 @@ use crate::winnow::syntax::lex::{
 };
 use crate::winnow::syntax::span::Span;
 
-use super::lite_parser::{
-    AfterPipe, LiteCommand, after_pipe, last_non_comment_token, lite_diagnostic,
-    parse_lite_command, pipe_on_a_later_line, skip_to_statement_end, take_pipe_on_later_line,
-};
+use super::WorkingSet;
+use super::lite_parser::{LiteBlock, LiteBlockCommand, LiteCommand, lite_diagnostic};
 use super::parse_calls::{keyword_signature_of_call, parse_attribute};
 use super::parse_def::{
-    Definitions, PredeclaredDef, TypeAliasPredecl, parse_def_predecl, scan_predecls,
+    Definitions, PredeclaredDef, TypeAliasPredecl, parse_def_predecl, read_predecls,
 };
 use super::parse_expressions::{
     ExpectedShape, Position, is_env_variable_name, parse_builtin_commands, parse_expression,
@@ -26,7 +24,6 @@ use super::parse_expressions::{
 use super::parse_helpers::garbage_pipeline;
 use super::tokens::Tokens;
 use super::working_set::{CommandLookup, ParseState};
-use super::{ParseConfig, WorkingSet};
 
 /// The items after a binding's or an assignment's `=`, at `span`, as the block nu parses them
 /// as (`let x = ls | length`): lexed again from their text as a block is when a newline is
@@ -64,11 +61,7 @@ pub fn parse_block<'a>(tokens: Tokens<'_, 'a>, span: Span) -> Block<'a> {
 
 /// [`parse_block`] for a block whose text nu lexes as `lexed` (a closure's body, with its
 /// parameters): the block's lexer error is the first in it.
-pub fn parse_block_lexed_from<'a>(
-    mut tokens: Tokens<'_, 'a>,
-    span: Span,
-    lexed: Span,
-) -> Block<'a> {
+pub fn parse_block_lexed_from<'a>(tokens: Tokens<'_, 'a>, span: Span, lexed: Span) -> Block<'a> {
     let working_set = tokens.working_set;
     let defers = working_set.defers_command_changing_blocks();
     let unparsed = Block {
@@ -84,17 +77,30 @@ pub fn parse_block_lexed_from<'a>(
     // definitions' and statements' errors, and goes on past both, as the consumer does, to
     // which the block's first and last pipelines carry them: they are recorded as recovered.
     let lex_error = working_set.first_lex_error_in(lexed);
-    let missing_end = missing_end(tokens.all());
+    let lite_block = LiteBlock::parse(working_set.source, tokens.all());
+    let missing_end = lite_block.missing_end();
     if let Some(error) = &lex_error {
         working_set.error(error.diagnostic().as_recovered());
     }
     if let Some(error) = missing_end {
         working_set.error(lite_diagnostic(error).as_recovered());
     }
-    parse_def_predecl(working_set, tokens.all());
+    parse_def_predecl(working_set, &lite_block);
+    // Every comment is the parse's, whichever command nu's lite parser keeps it with, if any.
+    for token in tokens.all() {
+        if token.contents == TokenContents::Comment {
+            working_set.add_comment(token.span);
+        }
+    }
     let mut pipelines: Vec<Pipeline<'a>> = Vec::new();
-    let mut state = StatementsState::default();
-    parse_statements(&mut tokens, &mut state, &mut pipelines);
+    let mut next_command = 0;
+    parse_statements(
+        working_set,
+        &lite_block,
+        tokens.all(),
+        &mut next_command,
+        &mut pipelines,
+    );
     // A call through an alias of an overlay command, which only the commands known as it is
     // parsed tell (`DeclKind::OverlayAlias`), changes the commands too: the block is left
     // unparsed after all, its errors dropped.
@@ -122,7 +128,7 @@ pub fn parse_block_lexed_from<'a>(
     }
     // A dropped command's error (`e>|` alone), which no pipeline carries.
     if missing_end.is_none() {
-        without_pipelines.lite_error = without_pipelines.lite_error.or(state.dropped_error);
+        without_pipelines.lite_error = without_pipelines.lite_error.or(lite_block.dropped_error());
     }
     let without_pipelines =
         (without_pipelines != BlockErrors::default()).then(|| Box::new(without_pipelines));
@@ -209,14 +215,10 @@ pub trait BlockSink<'a> {
 pub struct BlockStatements {
     /// The block's tokens, as the lexer returned them (`Eof` last).
     tokens: Vec<Token>,
-    /// The next token to parse.
-    position: usize,
-    /// Where the statement loop stood when the last call returned: the comments waiting for
-    /// the next statement, a `|` carried over to it.
-    statements: StatementsState,
-    /// The block's lite-parse error, which nu reports before its statements' errors
-    /// ([`BlockStatements::lite_error`]).
-    lite_error: Option<LiteError>,
+    /// The tokens lite-parsed: the block's pipelines, its comments and its lite-parse errors.
+    lite_block: LiteBlock,
+    /// The next command to parse, the first of its pipeline.
+    next_command: usize,
     /// The block's first lexer error, which nu goes on past.
     lex_error: Option<LexError>,
     /// What the working set knew when the last call returned: the block's scope, with the
@@ -261,8 +263,8 @@ impl BlockStatements {
             tokens.retain(|token| token.contents != TokenContents::Comment);
         }
         let stream = Tokens::from_lexed(&working_set, &tokens);
-        let definitions = scan_predecls(&working_set, stream.all());
-        let lite_error = missing_end(stream.all()).or_else(|| first_lite_error(source, &tokens));
+        let lite_block = LiteBlock::parse(source, stream.all());
+        let definitions = read_predecls(&working_set, &lite_block);
         // What nu goes on past (a definition declared twice) the consumer reports.
         let block_errors = working_set.take_errors_from(0);
         if block_errors.iter().any(|diagnostic| !diagnostic.recovered) {
@@ -272,9 +274,8 @@ impl BlockStatements {
         Ok((
             Self {
                 tokens,
-                position: 0,
-                statements: StatementsState::default(),
-                lite_error,
+                lite_block,
+                next_command: 0,
                 lex_error,
                 parse_state,
             },
@@ -291,9 +292,6 @@ impl BlockStatements {
     /// block ends.
     ///
     /// `source` is the text given to [`BlockStatements::new`]: the tokens are spans into it.
-    /// A statement that fails to parse is handed over without the `;` after it and a comment
-    /// after that `;`: `parse_block` adds them to its garbage pipeline once it meets them, and
-    /// a streamed pipeline is the sink's by then.
     pub fn parse<'a>(
         &mut self,
         source: &'a str,
@@ -302,17 +300,16 @@ impl BlockStatements {
     ) {
         let parse_state = std::mem::take(&mut self.parse_state);
         let working_set = WorkingSet::with_state(source, lookup, parse_state);
-        let mut tokens = Tokens::from_lexed(&working_set, &self.tokens);
-        tokens.reset_to(self.position);
         parse_statements(
-            &mut tokens,
-            &mut self.statements,
+            &working_set,
+            &self.lite_block,
+            &self.tokens,
+            &mut self.next_command,
             &mut StreamingSink {
                 sink,
                 working_set: &working_set,
             },
         );
-        self.position = tokens.position();
         self.parse_state = working_set.into_state();
     }
 
@@ -327,15 +324,9 @@ impl BlockStatements {
 
     /// The block's lite-parse error, which nu reports before any statement's error, having
     /// lite-parsed the whole block first: a `|` that ends the block
-    /// ([`LiteError::PipelineMissingEnd`]), else its first command's ([`first_lite_error`]).
+    /// ([`LiteError::PipelineMissingEnd`]), else its first command's.
     pub fn lite_error(&self) -> Option<LiteError> {
-        self.lite_error
-    }
-
-    /// The lite-parse error of a command nu dropped so far, which no statement carries (an
-    /// `e>|` with nothing before it): the block's, unless a statement has one.
-    pub fn dropped_error(&self) -> Option<LiteError> {
-        self.statements.dropped_error
+        self.lite_block.error()
     }
 
     /// The block's first lexer error, which nu reports before its statements' errors and goes
@@ -346,104 +337,32 @@ impl BlockStatements {
 
     /// Whether every statement was parsed.
     pub fn is_done(&self) -> bool {
-        self.position >= self.stream_len()
+        self.next_command >= self.lite_block.command_count()
     }
 
-    /// The text of the statements still to parse: from the next token to the end of the block.
+    /// The text of the statements still to parse: from the next command to the end of the block.
     pub fn remaining(&self) -> Span {
         let end = self.tokens.last().map_or(0, |token| token.span.end);
         let start = self
-            .tokens
-            .get(self.position)
-            .map_or(end, |token| token.span.start);
+            .lite_block
+            .command_at(self.next_command)
+            .and_then(|command| self.lite_block.parts(command).first())
+            .map_or(end, |first| first.span.start);
         Span::new(start, end)
     }
 
     /// The first two words of the next statement (the second when it is on the same line),
     /// to tell what kind of statement comes without parsing it.
     pub fn next_words<'a>(&self, source: &'a str) -> (Option<&'a str>, Option<&'a str>) {
-        let rest = &self.tokens[self.position.min(self.stream_len())..self.stream_len()];
-        let mut words = rest
+        let parts = self
+            .lite_block
+            .command_at(self.next_command)
+            .map_or(&[][..], |command| self.lite_block.parts(command));
+        let mut words = parts
             .iter()
-            .skip_while(|token| {
-                matches!(
-                    token.contents,
-                    TokenContents::Eol | TokenContents::Comment | TokenContents::Semicolon
-                )
-            })
             .map_while(|token| token.is_item().then(|| token.text(source)));
         (words.next(), words.next())
     }
-
-    /// The number of tokens the statements are parsed from (all but the closing `Eof`).
-    fn stream_len(&self) -> usize {
-        match self.tokens.last() {
-            Some(last) if last.contents == TokenContents::Eof => self.tokens.len() - 1,
-            _ => self.tokens.len(),
-        }
-    }
-}
-
-/// nu's lite parser: a block whose last token, skipping trailing comment lines, is a `|` has a
-/// pipeline with no end (`ls |`, `ls |\n# c`, `alias x = ls |`), whatever absorbed the pipe,
-/// reported at the block's last token in place of the block's first lite-parse error
-/// ([`LiteError::PipelineMissingEnd`]).
-fn missing_end(tokens: &[Token]) -> Option<LiteError> {
-    if last_non_comment_token(tokens) != Some(TokenContents::Pipe) {
-        return None;
-    }
-    let last = tokens
-        .iter()
-        .rev()
-        .find(|token| token.contents != TokenContents::Eof)?;
-    Some(LiteError::PipelineMissingEnd(last.span))
-}
-
-/// The first lite-parse error of the commands of a block lexed into `tokens`, found by the
-/// lite parse alone ([`parse_pipeline`] with `lite_only`), as nu's `lite_parse` finds it before
-/// any statement is parsed: the statements parsed before the one it is in see it reported (a
-/// definition's body is not compiled then). Only a `||` or a redirection makes one, so a block
-/// with neither is not scanned. The scan stops at a statement whose lite parse fails, whose
-/// error, and those after, the statements report as they are parsed.
-fn first_lite_error(source: &str, tokens: &[Token]) -> Option<LiteError> {
-    if !tokens.iter().any(|token| {
-        matches!(
-            token.contents,
-            TokenContents::PipePipe | TokenContents::Redirection(_)
-        )
-    }) {
-        return None;
-    }
-    // A working set of its own: the diagnostics and comments the scan records are not the
-    // block's.
-    let working_set = WorkingSet::new(source, &ParseConfig::empty());
-    let mut stream = Tokens::from_lexed(&working_set, tokens);
-    let mut carried_comments = Vec::new();
-    let mut carried_pipe = CarriedPipes::default();
-    while let Some(token) = stream.peek_token() {
-        if matches!(
-            token.contents,
-            TokenContents::Eol | TokenContents::Semicolon | TokenContents::Comment
-        ) {
-            stream.next_token();
-            continue;
-        }
-        let mut lite_error = None;
-        parse_pipeline(
-            &mut stream,
-            &mut Vec::new(),
-            &mut carried_comments,
-            &mut carried_pipe,
-            &mut None,
-            &mut lite_error,
-            true,
-        )
-        .ok()?;
-        if lite_error.is_some() {
-            return lite_error;
-        }
-    }
-    None
 }
 
 /// Where [`parse_statements`] puts the pipelines it parses: a `Vec` for [`parse_block`],
@@ -454,18 +373,10 @@ trait StatementSink<'a> {
     /// Take the next pipeline. `before` is how the working set stood just before it was parsed.
     /// Returns whether to go on.
     fn push(&mut self, pipeline: Pipeline<'a>, before: StatementStart) -> bool;
-    /// Take the placeholder for a statement covering `span` that failed to
-    /// parse, with the lite-parse error found before it failed. Returns whether to go on.
-    fn push_garbage(
-        &mut self,
-        span: Span,
-        leading_comments: Vec<Comment>,
-        lite_error: Option<LiteError>,
-        before: StatementStart,
-    ) -> bool;
-    /// The pipeline pushed last, while it can still be amended (its
-    /// terminator, a comment after it on its line); `None` once it was handed over.
-    fn last_mut(&mut self) -> Option<&mut Pipeline<'a>>;
+    /// Take the placeholder for a statement that failed to parse. Returns whether to go on.
+    fn push_garbage(&mut self, garbage: Pipeline<'a>, before: StatementStart) -> bool {
+        self.push(garbage, before)
+    }
 }
 
 /// The whole block at once ([`parse_block`]): the diagnostics stay in the working set.
@@ -473,23 +384,6 @@ impl<'a> StatementSink<'a> for Vec<Pipeline<'a>> {
     fn push(&mut self, pipeline: Pipeline<'a>, _before: StatementStart) -> bool {
         Vec::push(self, pipeline);
         true
-    }
-
-    fn push_garbage(
-        &mut self,
-        span: Span,
-        _leading_comments: Vec<Comment>,
-        lite_error: Option<LiteError>,
-        _before: StatementStart,
-    ) -> bool {
-        let mut garbage = garbage_pipeline(span);
-        garbage.lite_error = lite_error.map(Box::new);
-        Vec::push(self, garbage);
-        true
-    }
-
-    fn last_mut(&mut self) -> Option<&mut Pipeline<'a>> {
-        self.as_mut_slice().last_mut()
     }
 }
 
@@ -517,504 +411,152 @@ impl<'a> StatementSink<'a> for StreamingSink<'_, '_, 'a> {
         let diagnostics = self.working_set.take_errors_from(before.errors);
         (self.sink)(pipeline, diagnostics, before.longest_name)
     }
-
-    fn push_garbage(
-        &mut self,
-        span: Span,
-        leading_comments: Vec<Comment>,
-        lite_error: Option<LiteError>,
-        before: StatementStart,
-    ) -> bool {
-        // The statement's doc comments go with it, for whoever parses it again.
-        let mut garbage = garbage_pipeline(span);
-        garbage.leading_comments = leading_comments;
-        garbage.lite_error = lite_error.map(Box::new);
-        self.push(garbage, before)
-    }
-
-    fn last_mut(&mut self) -> Option<&mut Pipeline<'a>> {
-        // Each pipeline went to the sink when it was pushed.
-        None
-    }
 }
 
-/// Where [`parse_statements`] stands between two statements, so that a block's statements can
-/// be parsed a few at a time ([`BlockStatements`]).
-#[derive(Debug)]
-struct StatementsState {
-    /// Comments on lines of their own since the last statement: the next statement's leading
-    /// comments, unless a blank line comes first.
-    pending: Vec<Comment>,
-    /// Comments after a `;`, or after a `|` that ends its pipeline, on that line: nu's lite
-    /// parser puts them in the next command, which it starts there, so they are the next
-    /// statement's leading comments, past blank lines too, unless comment lines come right
-    /// before it (`pending`, which nu puts in their place).
-    carried_comments: Vec<Comment>,
-    /// The pipes that no command took before the statement ended.
-    carried_pipe: CarriedPipes,
-    /// What the last token was (`Item` for a whole statement): an `Eol` after an `Eol` is a
-    /// blank line, and a `;` or a comment right after a statement belongs to it.
-    last: TokenContents,
-    /// Whether a statement was pushed. A comment that is not first on its line trails the
-    /// statement pushed last, if there is one; otherwise it waits for the next statement.
-    pushed: bool,
-    /// The lite-parse error of a command nu drops, which leaves no pipeline to carry it (an
-    /// `e>|` with nothing before it), the first: the block's.
-    dropped_error: Option<LiteError>,
-}
-
-/// The start of a block counts as the start of a line.
-impl Default for StatementsState {
-    fn default() -> Self {
-        Self {
-            pending: Vec::new(),
-            carried_comments: Vec::new(),
-            carried_pipe: CarriedPipes::default(),
-            last: TokenContents::Eol,
-            pushed: false,
-            dropped_error: None,
-        }
-    }
-}
-
-/// The statements of a block, pushed to `out` as they are parsed, until `out`
-/// says to stop. Comments on lines of their own before a statement become its
-/// leading comments.
-///
-/// A loop over the tokens rather than a combinator: what an `Eol`, `;` or
-/// comment means depends on the token before it (`state.last`), and the state
-/// must survive a stop so that a later call goes on from it.
+/// The statements of a block from the command `next_command` on, each a pipeline of `lite_block`,
+/// pushed to `out` as they are parsed, until `out` says to stop. `next_command` is up to date before
+/// each push, so that a later call goes on from there.
 fn parse_statements<'a>(
-    tokens: &mut Tokens<'_, 'a>,
-    state: &mut StatementsState,
+    working_set: &WorkingSet<'a>,
+    lite_block: &LiteBlock,
+    tokens: &[Token],
+    next_command: &mut usize,
     out: &mut dyn StatementSink<'a>,
 ) {
-    let working_set = tokens.working_set;
-    let StatementsState {
-        pending,
-        carried_comments,
-        carried_pipe,
-        last,
-        pushed,
-        dropped_error,
-    } = state;
-    while let Some(token) = tokens.peek_token() {
-        match token.contents {
-            TokenContents::Eol => {
-                // nu's lexer turns an end of line before a `|` that starts the next line into
-                // that `|`, and drops the ones before the comment lines right before it: they end
-                // no line, so they make no blank line (`# d\n\n| def f`).
-                let folded = reaches_a_pipe_past_comment_lines(tokens.all(), tokens.position() + 1);
-                if !folded {
-                    if *last == TokenContents::Eol {
-                        pending.clear();
-                    }
-                    *last = TokenContents::Eol;
-                }
-                tokens.next_token();
-            }
-            TokenContents::Semicolon => {
-                // A parsed pipeline took the `;` right after it already, so this sets the
-                // terminator of a garbage statement.
-                if !matches!(last, TokenContents::Eol | TokenContents::Semicolon)
-                    && let Some(pipeline) = out.last_mut()
-                    && pipeline.terminator.is_none()
-                {
-                    pipeline.terminator = Some(token.span);
-                }
-                tokens.next_token();
-                *last = TokenContents::Semicolon;
-            }
-            TokenContents::Comment => {
-                working_set.add_comment(token.span);
-                let comment = Comment { span: token.span };
-                match last {
-                    // Beside a `;`, or after a comment with its line end folded (above): nu's lite
-                    // parser drops the comment lines before it for this one, which it gives the
-                    // next command (`# a`, `; # b`, `def f [] {}`).
-                    TokenContents::Semicolon | TokenContents::Comment => {
-                        pending.clear();
-                        carried_comments.push(comment);
-                    }
-                    TokenContents::Eol => pending.push(comment),
-                    _ if *pushed => {
-                        if let Some(pipeline) = out.last_mut() {
-                            pipeline.trailing_comments.push(comment);
-                        }
-                    }
-                    _ => pending.push(comment),
-                }
-                tokens.next_token();
-                *last = TokenContents::Comment;
-            }
-            _ => {
-                let start = tokens.position();
-                let start_span = token.span;
-                let before = StatementStart {
-                    errors: working_set.error_count(),
-                    longest_name: working_set.longest_decl_name(),
-                };
-                // The state is up to date before each push: `out` may stop the loop there, and a
-                // later call goes on from the state.
-                let mut lite_end = None;
-                let mut lite_error = None;
-                let go_on = match parse_pipeline(
-                    tokens,
-                    pending,
-                    carried_comments,
-                    carried_pipe,
-                    &mut lite_end,
-                    &mut lite_error,
-                    false,
-                ) {
-                    Ok(Some(mut pipeline)) => {
-                        *pushed = true;
-                        *last = TokenContents::Item;
-                        // A comment right after the statement, on its line, is the statement's
-                        // (for a definition, part of its description), so it goes with it;
-                        // after its `;` it is the next statement's, as in nu.
-                        if let Some(comment) = tokens
-                            .peek_token()
-                            .filter(|next| next.contents == TokenContents::Comment)
-                        {
-                            working_set.add_comment(comment.span);
-                            let comment_after = Comment { span: comment.span };
-                            if pipeline.terminator.is_some() {
-                                carried_comments.push(comment_after);
-                            } else {
-                                pipeline.trailing_comments.push(comment_after);
-                            }
-                            tokens.next_token();
-                            *last = TokenContents::Comment;
-                        }
-                        out.push(pipeline, before)
-                    }
-                    Ok(None) => {
-                        // Only pipes: a blank line after them drops the comment lines before them.
-                        if tokens
-                            .peek_token()
-                            .is_none_or(|next| next.contents != TokenContents::Semicolon)
-                        {
-                            pending.clear();
-                        }
-                        *last = TokenContents::Item;
-                        if let Some(error) = lite_error {
-                            dropped_error.get_or_insert(error);
-                        }
-                        true
-                    }
-                    Err(error) => {
-                        // An error the statement failed on was gone past by nothing, even one
-                        // marked recovered where it was made, which only the construct's own
-                        // parser goes past: the statement is to be parsed again.
-                        let mut diagnostic = into_diagnostic(error);
-                        diagnostic.recovered = false;
-                        working_set.error(diagnostic);
-                        let end = match lite_end {
-                            // The lite parse found where the statement ends, as nu's does
-                            // (past the comments on its lines, its commands'), and the next
-                            // statement is parsed on from there.
-                            Some(end) => {
-                                tokens.reset_to(end);
-                                tokens.all()[end - 1].span
-                            }
-                            None => {
-                                tokens.reset_to(start);
-                                skip_to_statement_end(tokens)
-                            }
-                        };
-                        *pushed = true;
-                        *last = TokenContents::Item;
-                        out.push_garbage(
-                            start_span.merge(end),
-                            take_leading_comments(pending, carried_comments),
-                            lite_error,
-                            before,
-                        )
-                    }
-                };
-                if !go_on {
-                    return;
-                }
-            }
-        }
-    }
-}
-
-/// The leading comments of the statement that starts now: the comment lines right before it
-/// (`pending`), or else the comments carried to it ([`StatementsState::carried_comments`]),
-/// as nu's lite parser gives them to a command. Both are taken.
-fn take_leading_comments(pending: &mut Vec<Comment>, carried: &mut Vec<Comment>) -> Vec<Comment> {
-    if pending.is_empty() {
-        std::mem::take(carried)
-    } else {
-        carried.clear();
-        std::mem::take(pending)
-    }
-}
-
-/// Move the comments of `comments[from..]`, recorded after a `|` (or `e>|`) that ended their
-/// pipeline, to `carried` when something comes before them on their line: nu's lite parser puts
-/// those in the command it starts after a `|`, the next statement's. The comment lines among
-/// them are dropped from the pipeline (they stay in `Ast::comments`): nu clears them at the
-/// blank line that ends the pipeline.
-fn carry_comments_beside(
-    working_set: &WorkingSet<'_>,
-    comments: &mut Vec<Comment>,
-    from: usize,
-    carried: &mut Vec<Comment>,
-) {
-    for comment in comments.drain(from..) {
-        let before = working_set.get_span_contents(Span::new(0, comment.span.start));
-        let line_start = before.rfind('\n').map_or(0, |newline| newline + 1);
-        if !before[line_start..].trim().is_empty() {
-            carried.push(comment);
-        }
-    }
-}
-
-/// The pipes a statement leaves to the next one, which nu's lite parser keeps on the command it
-/// has not started yet.
-#[derive(Clone, Copy, Debug, Default)]
-pub(super) struct CarriedPipes {
-    /// The last `|` before the next command ([`PipelineElement::pipe`]).
-    before: Option<Span>,
-    /// What nu's `command.pipe` holds ([`PipelineElement::lite_pipe`]).
-    lite: Option<Span>,
-}
-
-/// Whether `tokens` from `at` is a `|`, past comment lines.
-fn reaches_a_pipe_past_comment_lines(tokens: &[Token], mut at: usize) -> bool {
-    let contents = |index: usize| tokens.get(index).map(|token| token.contents);
-    while contents(at) == Some(TokenContents::Comment)
-        && contents(at + 1) == Some(TokenContents::Eol)
-    {
-        at += 2;
-    }
-    contents(at) == Some(TokenContents::Pipe)
-}
-
-/// One pipeline (nu's `parse_pipeline`): commands separated by `|`. `None`
-/// when there was no command at all (a lone `|` before a blank line), the `|`
-/// then left in `carried_pipe`: nu's lite parser keeps it for the next command,
-/// which starts with it as with a leading `|`. A `;` right after a `|` never
-/// gets here: the lexer refuses it, as nu's does. The pipeline takes
-/// `leading_comments` (or else `carried_comments`) only when it parses; a
-/// comment on the line of a `|` that ends it goes to `carried_comments`.
-/// `lite_end` and `found_lite_error` tell where the lite parse ended the statement and its
-/// first lite-parse error, for a statement that fails after it. With `lite_only` the commands
-/// are not parsed: the lite parse is done and the result is `None` ([`first_lite_error`]).
-fn parse_pipeline<'a>(
-    tokens: &mut Tokens<'_, 'a>,
-    leading_comments: &mut Vec<Comment>,
-    carried_comments: &mut Vec<Comment>,
-    carried_pipe: &mut CarriedPipes,
-    lite_end: &mut Option<usize>,
-    found_lite_error: &mut Option<LiteError>,
-    lite_only: bool,
-) -> ParseResult<Option<Pipeline<'a>>> {
-    let working_set = tokens.working_set;
-    // The comments carried to this pipeline; any after are carried on from it.
-    let mut carried_to_it = carried_comments.len();
-    // The lite parse first: collect the commands, then parse them, because a
-    // command is parsed differently when it is one element of a longer pipeline.
-    let mut lite_commands: Vec<(Option<Span>, LiteCommand)> = Vec::new();
-    let mut trailing_comments = Vec::new();
-    let mut pipe: Option<Span> = carried_pipe.before.take();
-    // nu's `command.pipe` while its command is empty. A pipe that ends no command stays there, and
-    // the next command keeps it unless a pipe ends that command too.
-    let mut lite_pipe = carried_pipe.lite.take();
-    // Whether nu has not ended the last command yet, so that a `|` now ends it.
-    let mut command_open = false;
-    // A `|` after the last command that no command follows.
-    let mut dangling_pipe = None;
-    // The last command nu dropped, when no command came after it: the `|` before it and its own
-    // `e>|`.
-    let mut trailing_dropped: Option<(Option<Span>, Option<Span>)> = None;
-    // The first lite-parse error of the pipeline's commands.
-    let mut lite_error = None;
-    // The error of a command dropped before `lite_error` was set, not recorded yet.
-    let mut dropped_error = None;
-    // Whether the last command goes on to one on the next line with no `|` between
-    // (`LiteCommand::joins_next_line`).
-    let mut joins_next_line = false;
-    // Each turn takes the `|`s before a command, then the command. A `|` on the command's
-    // line is left for the next turn; an `e>|` is taken with the command (`pipe_after`).
-    'commands: loop {
-        // A pipeline may start with `|` (`( | str join)`) and `a | | b` is
-        // `a | b`: the empty commands are dropped.
-        let mut first_pipe = None;
-        let from = trailing_comments.len();
-        while let Some(token) = tokens
-            .peek_token()
-            .filter(|token| token.contents == TokenContents::Pipe)
-        {
-            pipe = Some(token.span);
-            first_pipe.get_or_insert(token.span);
-            match lite_commands.last_mut().filter(|_| command_open) {
-                Some((_, lite_command)) => lite_command.lite_pipe = Some(token.span),
-                None => lite_pipe = Some(token.span),
-            }
-            command_open = false;
-            tokens.next_token();
-            let after = after_pipe(tokens, true, &mut trailing_comments)?;
-            // After a `|` that no command came before, nu's lite parser reads comments as it does
-            // before a statement: one beside it drops the comment lines before it, and comment
-            // lines after it take their place. Those are this statement's when a command follows.
-            if lite_commands.is_empty() {
-                let next = tokens.peek_token().map(|next| next.contents);
-                // Before another `|` their line ends are folded, so each comes beside the last.
-                let folded = next == Some(TokenContents::Pipe);
-                // Only a blank line drops comment lines, and a `;` is none.
-                let keeps_lines =
-                    matches!(after, AfterPipe::Command) || next == Some(TokenContents::Semicolon);
-                for comment in trailing_comments.drain(from..) {
-                    let before = working_set.get_span_contents(Span::new(0, comment.span.start));
-                    let line_start = before.rfind('\n').map_or(0, |newline| newline + 1);
-                    if folded || !before[line_start..].trim().is_empty() {
-                        leading_comments.clear();
-                        carried_comments.push(comment);
-                    } else if keeps_lines {
-                        leading_comments.push(comment);
-                    }
-                }
-                if matches!(after, AfterPipe::Command) {
-                    carried_to_it = carried_comments.len();
-                }
-            }
-            if let AfterPipe::Dangling = after {
-                // nu ends the last command at the first `|` after it; with more, the empty
-                // commands between hand the last on to the next statement (`a | |`).
-                if !lite_commands.is_empty() {
-                    dangling_pipe = first_pipe;
-                    if pipe != first_pipe {
-                        carried_pipe.before = pipe;
-                    }
-                }
-                // A `;` is no blank line, so the comment lines before it stay (`1 |`, `# a`, `;`).
-                if tokens
-                    .peek_token()
-                    .is_some_and(|next| next.contents == TokenContents::Semicolon)
-                {
-                    carried_comments.extend(trailing_comments.drain(from..));
-                }
-                carry_comments_beside(working_set, &mut trailing_comments, from, carried_comments);
-                break 'commands;
-            }
-        }
-        if pipe.is_none() && !lite_commands.is_empty() {
-            let joins = std::mem::take(&mut joins_next_line);
-            if joins && command_on_next_line(tokens) {
-                // The end of line the redirection stopped at.
-                tokens.next_token();
-            } else if joins && pipe_on_a_later_line(tokens.all(), tokens.position() + 1).is_some() {
-                // A blank line, then a `|`: nu's lexer makes the blank line's end of line that
-                // `|`, which goes on with the pipeline.
-                tokens.next_token();
-                continue;
-            } else {
-                // After a command: the pipeline goes on only through a `|` on a later line.
-                if !take_pipe_on_later_line(tokens, &mut trailing_comments)? {
-                    break;
-                }
-                continue;
-            }
-        }
-        // nu's lite parser reads attribute lines where an `@` item follows an end of line or a
-        // `;`: before a statement's first command, and before a command starting a line.
-        let starts_line = tokens
-            .position()
-            .checked_sub(1)
-            .and_then(|previous| tokens.all().get(previous))
-            .is_some_and(|previous| {
-                matches!(
-                    previous.contents,
-                    TokenContents::Eol | TokenContents::Semicolon
-                )
-            });
-        let mut lite_command = parse_lite_command(tokens, pipe.is_none() || starts_line)?;
-        trailing_comments.extend(lite_command.comments.iter().copied());
-        let pipe_after = lite_command.pipe_after;
-        lite_error = lite_error.or(lite_command.lite_error.as_deref().copied());
-        joins_next_line = lite_command.joins_next_line;
-        // An `e>|` with nothing before it ends a command nu drops: the `|` before it, if any,
-        // is the pipe before the next command.
-        let dropped = lite_command.parts.is_empty()
-            && lite_command.attributes.is_empty()
-            && lite_command.redirections.is_empty();
-        if dropped {
-            dropped_error = dropped_error.or(lite_command.lite_error.as_deref().copied());
-            trailing_dropped = Some((pipe, pipe_after));
-            lite_pipe = pipe_after.or(lite_pipe);
-        } else {
-            trailing_dropped = None;
-            lite_command.lite_pipe = pipe_after.or(lite_pipe.take());
-            // An `e>|` ended it, or the end of line after a redirection without a target.
-            command_open = pipe_after.is_none() && !lite_command.joins_next_line;
-            lite_commands.push((pipe.take(), lite_command));
-        }
-        if pipe_after.is_some() {
-            // The `e>|` is the last pipe before the next command, also after a command nu
-            // dropped: nu's lite parser sets it on the command it does not take, which the
-            // next command's items then go into (`ls e>| e>| x`, `ls | e>| x`).
-            pipe = pipe_after;
-            // After an `e>|` nu goes on to a later line only through a `|` that starts it.
-            let from = trailing_comments.len();
-            if let AfterPipe::Dangling = after_pipe(tokens, false, &mut trailing_comments)? {
-                carry_comments_beside(working_set, &mut trailing_comments, from, carried_comments);
-                break;
-            }
-        }
-    }
-    if lite_commands.is_empty() {
-        // An `e>|` alone leaves no pipeline: nu reports its error as the block's and goes on,
-        // and so does the consumer, which the block or its statement loop hands it to.
-        // Its `e>|` is the pipe of the next command nu reads, as a lone `|` is.
-        if let Some(error) = dropped_error {
-            working_set.error(lite_diagnostic(error).as_recovered());
-            *found_lite_error = Some(error);
-            *carried_pipe = CarriedPipes {
-                before: pipe,
-                lite: lite_pipe,
-            };
-            return Ok(None);
-        }
-        // Only pipes (`|` and a blank line): nu drops the empty command.
-        *carried_pipe = CarriedPipes {
-            before: pipe,
-            lite: lite_pipe,
+    for commands in lite_block.pipelines_from(*next_command) {
+        let first_command = *next_command;
+        *next_command += commands.len();
+        let before = StatementStart {
+            errors: working_set.error_count(),
+            longest_name: working_set.longest_decl_name(),
         };
-        return Ok(None);
+        // nu reports these and goes on, and so does the consumer: recorded as recovered.
+        let mut lite_error = None;
+        for error in lite_block.errors_in(first_command, *next_command) {
+            working_set.error(lite_diagnostic(error).as_recovered());
+            lite_error.get_or_insert(error);
+        }
+        let parsed = parse_pipeline(working_set, lite_block, tokens, commands, lite_error);
+        let go_on = match parsed {
+            Ok(pipeline) => out.push(pipeline, before),
+            Err(error) => {
+                // An error the statement failed on was gone past by nothing, even one marked
+                // recovered where it was made, which only the construct's own parser goes past:
+                // the statement is to be parsed again.
+                let mut diagnostic = into_diagnostic(error);
+                diagnostic.recovered = false;
+                working_set.error(diagnostic);
+                let garbage = garbage_statement(lite_block, tokens, commands, lite_error);
+                out.push_garbage(garbage, before)
+            }
+        };
+        if !go_on {
+            return;
+        }
     }
-    if let Some(error) = dropped_error {
+    // A command nu dropped after the last one (`ls |`, then `e>|`) has no pipeline to report it.
+    for error in lite_block.errors_from(lite_block.command_count()) {
         working_set.error(lite_diagnostic(error).as_recovered());
     }
-    // A pipeline ending with a command nu dropped (`ls |` then `e>|`): the `|` before it stays
-    // with the command before, and its `e>|` is the pipe of the next command nu reads.
-    if let Some((before, own)) = trailing_dropped {
-        if dangling_pipe.is_none() {
-            dangling_pipe = before;
+}
+
+/// The placeholder for the statement of `commands`, which failed to parse: from the first of its
+/// tokens to the last the lite parse gave it, comments on its lines and a `|` that ends it included.
+/// Its comments go with it, for whoever parses it again.
+fn garbage_statement<'a>(
+    lite_block: &LiteBlock,
+    tokens: &[Token],
+    commands: &[LiteBlockCommand],
+    lite_error: Option<LiteError>,
+) -> Pipeline<'a> {
+    let (leading_comments, _) = pipeline_comments(lite_block, commands);
+    let first = commands
+        .first()
+        .and_then(|command| {
+            command
+                .pipe_before
+                .or_else(|| lite_block.parts(command).first().map(|first| first.span))
+        })
+        .unwrap_or_default();
+    let last = commands.last();
+    let end = last.and_then(|last| {
+        let ended_at = last.ended_at as usize;
+        match tokens.get(ended_at) {
+            Some(token) if is_pipe(token) => Some(token.span),
+            _ => tokens.get(ended_at.checked_sub(1)?).map(|token| token.span),
         }
-        carried_pipe.before = own;
+    });
+    let mut garbage = garbage_pipeline(end.map_or(first, |end| first.merge(end)));
+    garbage.leading_comments = leading_comments;
+    garbage.lite_error = lite_error.map(Box::new);
+    garbage.terminator = last.and_then(|last| terminator(tokens, last));
+    garbage
+}
+
+/// A `|`, or a redirection into one (`e>|`).
+fn is_pipe(token: &Token) -> bool {
+    match token.contents {
+        TokenContents::Pipe => true,
+        TokenContents::Redirection(operator) => operator.is_pipe(),
+        _ => false,
     }
-    carried_pipe.lite = lite_pipe;
-    // The lite parse is done: the statement ends here, unless a `|` without a command after
-    // it hands on to the next one (`a | |`) or ends it before a blank line.
-    if dangling_pipe.is_none() && carried_pipe.before.is_none() {
-        *lite_end = Some(tokens.position());
+}
+
+/// The `;` that ends the pipeline whose last command is `last`, right after it or after a pipe that
+/// no command follows.
+fn terminator(tokens: &[Token], last: &LiteBlockCommand) -> Option<Span> {
+    tokens
+        .get(last.ended_at as usize..)?
+        .iter()
+        .find(|token| !is_pipe(token) && token.contents != TokenContents::Comment)
+        .filter(|token| token.contents == TokenContents::Semicolon)
+        .map(|token| token.span)
+}
+
+/// The comments nu's lite parser keeps with the commands of a pipeline: those of its first command
+/// before the command's first part, which are the statement's own, and the rest.
+fn pipeline_comments(
+    lite_block: &LiteBlock,
+    commands: &[LiteBlockCommand],
+) -> (Vec<Comment>, Vec<Comment>) {
+    let mut leading = Vec::new();
+    let mut trailing = Vec::new();
+    let first_part = commands
+        .first()
+        .and_then(|first| lite_block.parts(first).first())
+        .map_or(0, |first| first.span.start);
+    for command in commands {
+        for span in lite_block.comments(command) {
+            let comment = Comment { span: *span };
+            if span.start < first_part {
+                leading.push(comment);
+            } else {
+                trailing.push(comment);
+            }
+        }
     }
-    *found_lite_error = lite_error;
-    if lite_only {
-        return Ok(None);
-    }
-    let single = lite_commands.len() == 1;
+    (leading, trailing)
+}
+
+/// One pipeline (nu's `parse_pipeline`), `commands` of `lite_block`, with `lite_error` the first
+/// lite-parse error among them.
+fn parse_pipeline<'a>(
+    working_set: &WorkingSet<'a>,
+    lite_block: &LiteBlock,
+    tokens: &[Token],
+    commands: &[LiteBlockCommand],
+    lite_error: Option<LiteError>,
+) -> ParseResult<Pipeline<'a>> {
+    let single = commands.len() == 1;
     if !single {
-        for (_, lite_command) in &lite_commands {
-            check_loop_in_pipeline(working_set, lite_command);
+        for command in commands {
+            check_loop_in_pipeline(working_set, &lite_block.command(command, tokens));
         }
     }
-    let mut elements: Vec<PipelineElement<'a>> = Vec::with_capacity(lite_commands.len());
-    for (pipe, lite_command) in &lite_commands {
+    let mut elements: Vec<PipelineElement<'a>> = Vec::with_capacity(commands.len());
+    let mut previous: Option<&LiteBlockCommand> = None;
+    for command in commands {
+        let lite_command = lite_block.command(command, tokens);
         let redirection_spans = lite_command
             .redirections
             .iter()
@@ -1023,93 +565,54 @@ fn parse_pipeline<'a>(
             })
             .collect();
         let outer = working_set.replace_element_redirections(redirection_spans);
-        let parsed = parse_pipeline_element(working_set, lite_command, !single);
+        let parsed = parse_pipeline_element(working_set, &lite_command, !single);
         working_set.replace_element_redirections(outer);
         let (expr, redirection) = parsed?;
+        // The last `|` before it, which the command before took if no command came between.
+        let pipe = command
+            .pipe_before
+            .or_else(|| previous.and_then(|previous| previous.pipe));
         let start = pipe.map_or(expr.span.start, |pipe| pipe.start);
         let end = redirection.as_ref().map_or(expr.span.end, |redirection| {
             redirection.span().end.max(expr.span.end)
         });
         // From the first attribute item, or else the first part, to the last part.
-        let first = lite_command
-            .attributes
-            .first()
-            .and_then(|line| line.first())
-            .or(lite_command.parts.first());
-        let last = lite_command
-            .parts
-            .last()
-            .or_else(|| lite_command.attributes.last().and_then(|line| line.last()));
-        let parts = match (first, last) {
+        let all_parts = lite_block.parts(command);
+        let parts = match (all_parts.first(), all_parts.last()) {
             (Some(first), Some(last)) => first.span.merge(last.span),
             _ => expr.span,
         };
         elements.push(PipelineElement {
             span: Span::new(start, end),
-            pipe: *pipe,
-            lite_pipe: lite_command.lite_pipe,
+            pipe,
+            lite_pipe: command.pipe,
             expr,
             redirection,
             parts,
         });
+        previous = Some(command);
     }
     let span = elements[0].span.merge(
         elements
             .last()
             .map_or(elements[0].span, |element| element.span),
     );
-    let terminator = match tokens.peek_token() {
-        Some(token) if token.contents == TokenContents::Semicolon => {
-            tokens.next_token();
-            Some(token.span)
-        }
-        _ => None,
-    };
-    // nu's lite parser gives the comment lines before a command to its first item that is no
-    // attribute, so attribute lines with no command after them take none: those comments stay
-    // for the next statement (`# a`, `@x`, `# b`, `def f [] {}` describes `f` with both).
-    let attributes_only = matches!(
-        lite_commands.as_slice(),
-        [(_, lite_command)] if lite_command.parts.is_empty()
-            && lite_command.redirections.is_empty()
-            && !lite_command.attributes.is_empty()
-    );
-    let carried_on = carried_comments.split_off(carried_to_it);
-    let leading_comments = match attributes_only {
-        true => Vec::new(),
-        false => take_leading_comments(leading_comments, carried_comments),
-    };
-    *carried_comments = carried_on;
-    Ok(Some(Pipeline {
+    let last = commands.last();
+    let (leading_comments, trailing_comments) = pipeline_comments(lite_block, commands);
+    Ok(Pipeline {
         span,
         elements,
         leading_comments,
         trailing_comments,
-        terminator,
-        dangling_pipe,
+        terminator: last.and_then(|last| terminator(tokens, last)),
+        // A `|` after the last command, which no command follows.
+        dangling_pipe: last
+            .and_then(|last| tokens.get(last.ended_at as usize))
+            .filter(|token| token.contents == TokenContents::Pipe)
+            .map(|token| token.span),
         lite_error: lite_error.map(Box::new),
         lex_error: None,
-    }))
-}
-
-/// Whether a command starts the line after the end of line `tokens` is at, for a pipeline that
-/// goes on there (`LiteCommand::joins_next_line`): not a blank line, a comment line, a `;` or
-/// the end of the block.
-fn command_on_next_line(tokens: &Tokens<'_, '_>) -> bool {
-    let all = tokens.all();
-    let at = tokens.position();
-    all.get(at)
-        .is_some_and(|token| token.contents == TokenContents::Eol)
-        && all.get(at + 1).is_some_and(|next| {
-            !matches!(
-                next.contents,
-                TokenContents::Eol
-                    | TokenContents::Comment
-                    | TokenContents::Semicolon
-                    | TokenContents::Pipe
-                    | TokenContents::Eof
-            )
-        })
+    })
 }
 
 /// Report a `while` or `loop` that is one command of a longer pipeline (nu's `parse_pipeline`):
@@ -1118,7 +621,7 @@ fn command_on_next_line(tokens: &Tokens<'_, '_>) -> bool {
 /// there, and an attribute line's first item counts as one. nu reports each such command
 /// before it parses the pipeline, which it then parses as any other, and so does the consumer:
 /// the error is recorded as recovered.
-fn check_loop_in_pipeline(working_set: &WorkingSet<'_>, lite_command: &LiteCommand) {
+fn check_loop_in_pipeline(working_set: &WorkingSet<'_>, lite_command: &LiteCommand<'_>) {
     let is_env_shorthand = |token: &&Token| {
         let text = working_set.get_span_contents(token.span);
         text.find('=')
@@ -1127,8 +630,8 @@ fn check_loop_in_pipeline(working_set: &WorkingSet<'_>, lite_command: &LiteComma
     let head = lite_command
         .attributes
         .iter()
-        .flatten()
-        .chain(&lite_command.parts)
+        .flat_map(|line| line.iter())
+        .chain(lite_command.parts)
         .find(|token| !is_env_shorthand(token));
     if let Some((head, keyword @ ("while" | "loop"))) =
         head.map(|head| (head, working_set.get_span_contents(head.span)))
@@ -1146,7 +649,7 @@ fn check_loop_in_pipeline(working_set: &WorkingSet<'_>, lite_command: &LiteComma
 /// elements; a lone command may be a statement (nu's `parse_builtin_commands`).
 fn parse_pipeline_element<'a>(
     working_set: &WorkingSet<'a>,
-    lite_command: &LiteCommand,
+    lite_command: &LiteCommand<'_>,
     in_pipeline: bool,
 ) -> ParseResult<(Expression<'a>, Option<PipelineRedirection<'a>>)> {
     let position = if in_pipeline {
@@ -1165,8 +668,8 @@ fn parse_pipeline_element<'a>(
                 matches!(working_set.get_span_contents(head.span), "let" | "mut")
             }) =>
         {
-            let mut items = lite_command.parts.clone();
-            for (operator, target) in &lite_command.redirections {
+            let mut items = lite_command.parts.to_vec();
+            for (operator, target) in lite_command.redirections {
                 items.push(Token {
                     contents: TokenContents::Item,
                     span: operator.span,
@@ -1188,7 +691,7 @@ fn parse_pipeline_element<'a>(
             // attribute line counts (`@a x = y\nb | c` assigns to `@a x`).
             let items: Vec<Token> = attribute_lines
                 .iter()
-                .flatten()
+                .flat_map(|line| line.iter())
                 .map(
                     |token| match assignment_operator(working_set.get_span_contents(token.span)) {
                         Some(operator) => Token {
@@ -1280,7 +783,7 @@ fn parse_pipeline_element<'a>(
         // nu never looks at a redirection on `export-env`, a `const` without a value (or one
         // asking for help) or attributes before no definition: it is ignored text, not
         // refused, so this comes before `rejects_redirection`.
-        for (operator, target) in &lite_command.redirections {
+        for (operator, target) in lite_command.redirections {
             working_set.add_ignored(operator.span);
             if let Some(target) = target {
                 working_set.add_ignored(target.span);
@@ -1374,10 +877,10 @@ fn rejects_redirection(expr: &Expression<'_>, in_pipeline: bool) -> bool {
 /// in either order). Redirecting the same stream twice is an error.
 fn parse_redirection<'a>(
     working_set: &WorkingSet<'a>,
-    lite_command: &LiteCommand,
+    lite_command: &LiteCommand<'_>,
 ) -> ParseResult<Option<PipelineRedirection<'a>>> {
     let mut redirection: Option<PipelineRedirection<'a>> = None;
-    for (operator, target) in &lite_command.redirections {
+    for (operator, target) in lite_command.redirections {
         let target = match target {
             Some(token) => RedirectionTarget::File {
                 op: *operator,

@@ -896,7 +896,7 @@ impl<'s> Lower<'_, '_, 's> {
         attributes: &[w::Attribute<'s>],
         module_name: Option<&[u8]>,
     ) -> Lowered<Definition> {
-        let (desc, extra_desc) = self.description(pipeline, attributes, command);
+        let (desc, extra_desc) = self.description(pipeline);
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         // A `def` that is not the keyword (an engine without the core language) is parsed like
         // any command by the classic parser.
@@ -1008,7 +1008,7 @@ impl<'s> Lower<'_, '_, 's> {
         attributes: &[w::Attribute<'s>],
         module_name: Option<&[u8]>,
     ) -> Lowered<Definition> {
-        let (desc, extra_desc) = self.description(pipeline, attributes, command);
+        let (desc, extra_desc) = self.description(pipeline);
         let (lowered_attributes, attribute_values) = self.attributes(attributes)?;
         let decl_id = statement_decl(self.working_set, "extern")
             .ok_or(Unlowered::Unsupported("extern that is not a keyword"))?;
@@ -1501,7 +1501,7 @@ impl<'s> Lower<'_, '_, 's> {
         }
         let (mut expression, decl) = match keyword {
             "def" => {
-                let (desc, extra_desc) = self.description(pipeline, attributes, command);
+                let (desc, extra_desc) = self.description(pipeline);
                 finish_def(
                     self.working_set,
                     DefCall {
@@ -1518,7 +1518,7 @@ impl<'s> Lower<'_, '_, 's> {
                 )
             }
             "extern" => {
-                let (desc, extra_desc) = self.description(pipeline, attributes, command);
+                let (desc, extra_desc) = self.description(pipeline);
                 let name_span = name_span.map_or(call_span, |span| self.span(span));
                 finish_extern(
                     self.working_set,
@@ -1760,7 +1760,7 @@ impl<'s> Lower<'_, '_, 's> {
                 return Ok(garbage(self.working_set, span));
             }
         }
-        let comments = self.doc_comments(pipeline, &[], command);
+        let comments = self.doc_comments(pipeline);
         finish_alias(self.working_set, &call, name, wrapped_call, &comments);
         Ok(statement)
     }
@@ -1830,62 +1830,21 @@ impl<'s> Lower<'_, '_, 's> {
         Ok((expression, block_id))
     }
 
-    /// A definition's description and extra description, from its doc comments and the comment
-    /// after it on its line (`build_desc` over the lite command's comments). With attributes
-    /// (`command` is the definition after them), the comments are those the classic lite parser
-    /// keeps: a comment beside an attribute drops the whole-line comments before it, so the doc
-    /// comments are the whole-line comments after the last comment beside an attribute (all of
-    /// them when no attribute has one) or, when that leaves none, the comments beside the
-    /// attributes. Comments from the definition on are kept in any case.
-    fn description(
-        &mut self,
-        pipeline: &w::Pipeline<'s>,
-        attributes: &[w::Attribute<'s>],
-        command: &w::Expression<'s>,
-    ) -> (String, String) {
-        let comments = self.doc_comments(pipeline, attributes, command);
+    /// A definition's description and extra description, from the comments nu's lite parser keeps
+    /// with it (`build_desc` over the lite command's comments).
+    fn description(&mut self, pipeline: &w::Pipeline<'s>) -> (String, String) {
+        let comments = self.doc_comments(pipeline);
         self.working_set.build_desc(&comments)
     }
 
-    /// The comments the classic lite parser keeps with `command` (`LiteCommand::comments`), the
-    /// statement of `pipeline` after `attributes`: see [`Self::description`].
-    pub(super) fn doc_comments(
-        &self,
-        pipeline: &w::Pipeline<'s>,
-        attributes: &[w::Attribute<'s>],
-        command: &w::Expression<'s>,
-    ) -> Vec<Span> {
-        let mut comments: Vec<WSpan> = pipeline
+    /// The comments nu's lite parser keeps with the statement of `pipeline` (`LiteCommand::comments`).
+    pub(super) fn doc_comments(&self, pipeline: &w::Pipeline<'s>) -> Vec<Span> {
+        pipeline
             .leading_comments
             .iter()
             .chain(&pipeline.trailing_comments)
-            .map(|comment| comment.span)
-            .collect();
-        if let Some(first) = attributes.first() {
-            comments.sort_by_key(|span| span.start);
-            // `after`: from the definition on; `beside`: after an attribute on its line, which
-            // drops the whole-line comments before it; `lines`: whole-line comments.
-            let (mut lines, mut beside, mut after) = (Vec::new(), Vec::new(), Vec::new());
-            for span in comments {
-                if span.start > command.span.start {
-                    after.push(span);
-                } else if span.start > first.span.start && !self.starts_line(span.start) {
-                    beside.push(span);
-                    lines.clear();
-                } else {
-                    lines.push(span);
-                }
-            }
-            comments = if lines.is_empty() { beside } else { lines };
-            comments.extend(after);
-        }
-        comments.into_iter().map(|span| self.span(span)).collect()
-    }
-
-    /// Whether only spaces or tabs come before `offset` on its line.
-    fn starts_line(&self, offset: usize) -> bool {
-        let before = self.source[..offset].trim_end_matches([' ', '\t', '\r']);
-        before.is_empty() || before.ends_with('\n')
+            .map(|comment| self.span(comment.span))
+            .collect()
     }
 
     /// A definition's attributes and their constant values (the loop that starts `parse_def`

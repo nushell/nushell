@@ -48,9 +48,14 @@ impl Lower<'_, '_, '_> {
     ) -> Lowered<()> {
         let (tokens, _) = self.lex_span(span, options);
         let (block, _) = self.lite_parse(&tokens);
-        for pipeline in &block.pipelines {
-            if let [command] = pipeline.as_slice() {
-                self.def_predecl_text(command.command_parts())?;
+        for pipeline in block.pipelines() {
+            if let [command] = pipeline {
+                let parts: Vec<Span> = block
+                    .command_parts(command)
+                    .iter()
+                    .map(|part| self.span(part.span))
+                    .collect();
+                self.def_predecl_text(&parts)?;
             }
         }
         Ok(())

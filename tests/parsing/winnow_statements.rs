@@ -4189,6 +4189,14 @@ fn default_before_a_type_has_no_type_yet(
 #[case::line_before_a_semicolon_after_a_pipe("| \n# a\n; def x [] {}", "a")]
 #[case::line_before_a_semicolon_after_a_command("1 | \n# a\n; def x [] {}", "a")]
 #[case::pipes_then_a_semicolon("# a\n| ; def x [] {}", "a")]
+#[case::line_after_the_one_beside_a_pipe("| # a\n#\n\n| def x [] {}", "")]
+#[case::line_after_a_semicolon_folded("1 ; \n# a\n| def x [] {}", "a")]
+#[case::lines_around_a_pipe_folded("# a\n| \n#\n\n| def x [] {}", "a\n")]
+#[case::beside_a_pipe_after_a_semicolon("; | # a\n#\n\n| def x [] {}", "")]
+#[case::attribute_after_a_pipe_is_a_command("# a\n| @a \ndef x [] {}", "a")]
+#[case::beside_a_pipe_and_an_attribute("| # a\n@a #\ndef x [] {}", "a\n")]
+#[case::beside_a_semicolon_and_an_attribute("; # a\n@a #\ndef x [] {}", "a\n")]
+#[case::beside_an_attribute_then_a_pipe("@a # a\n#\n| \ndef x [] {}", "a\n")]
 #[nu_test_support::test]
 #[exp(nu_experimental::WINNOW_PARSER)]
 fn description_comes_from_the_comments_nu_gives_the_command(
@@ -4204,6 +4212,54 @@ fn description_comes_from_the_comments_nu_gives_the_command(
         description,
         "`{code}`"
     );
+    Ok(())
+}
+
+/// An `e>|` with nothing before it ends a command nu drops, which leaves no pipeline to report its
+/// error in a nested block with no command after it: the block reports it.
+#[rstest]
+#[case::alone_in_parentheses("(e>|)")]
+#[case::alone_in_a_block("do { e>| }")]
+#[case::after_the_last_command("do { ls | e>| }")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn dropped_command_error_is_the_blocks(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.first(),
+            Some(ParseError::UnexpectedRedirection { .. })
+        ),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
+/// An attribute line that a `;` ends leaves its command open, as nu's lite parser reads it: a `|`
+/// after it makes the definition the pipeline's next command, which nu refuses.
+#[rstest]
+#[case::def("@a ; | def x [] {}")]
+#[case::extern_("@a ; | extern x []")]
+#[case::two_words("@b c ; | def x [] {}")]
+#[case::after_a_comment_line("#\n@a ; | def x [] {}")]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn definition_after_a_semicolon_ended_attribute_is_in_a_pipeline(#[case] code: &str) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        working_set
+            .parse_errors
+            .iter()
+            .any(|error| matches!(error, ParseError::BuiltinCommandInPipeline(..))),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    assert!(working_set.find_decl(b"x").is_none(), "`{code}`");
     Ok(())
 }
 

@@ -1,5 +1,5 @@
 Block 0..139
-  Pipeline 11..138 comments=2
+  Pipeline 11..138 comments=1
     AttributeBlock 11..138
       Attribute `example` 11..67
         String Double "say hi" 20..28

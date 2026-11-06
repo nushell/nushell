@@ -217,7 +217,7 @@ impl<'s> Lower<'_, '_, 's> {
         // The whole statement, a `--` after the body included (which nu drops, and which the
         // span of the `module` after an `export` leaves out).
         let call_span = Span::new(head.start, self.span(command.span).end);
-        let comments = self.doc_comments(pipeline, &[], command);
+        let comments = self.doc_comments(pipeline);
         let (statement, module_id) = finish_module(
             self.working_set,
             call,

@@ -72,21 +72,14 @@ it.
 | `item` | Any item |
 | `call_item` | An item, or an assignment operator, pipe or redirection read as a word, as a call reads what follows an `=` |
 | `keyword(word)` | An item spelled exactly `word`, such as `else` or `=>` |
-| `pipe`, `eol`, `comment` | A pipe, an end of line, a comment |
+| `pipe` | A pipe |
 | `expected(what, parser)` | `parser`, committed: where it doesn't match, the error `expected <what>`, and no alternative is tried |
 | `cut_with(parser, error)` | Like `expected`, with a diagnostic built from the stream |
 | `repeat_to_end(parser)` | `parser` repeated until the tokens run out |
 | `tokens_until(word)` | The tokens up to the item `word` or the end, as a stream of their own |
 
-With these, a grammar rule reads like the rule. The pipe continuation, `Eol (Comment Eol)* Pipe`:
-
-```rust,ignore
-fn pipe_on_later_line(tokens: &mut Tokens<'_, '_>) -> ParseResult<Vec<Token>> {
-    preceded(eol, terminated(repeat(0.., terminated(comment, eol)), peek(pipe))).parse_next(tokens)
-}
-```
-
-A match arm, `pattern (| pattern)* [if guard] => body`:
+With these, a grammar rule reads like the rule. A match arm, `pattern (| pattern)* [if guard] =>
+body`:
 
 ```rust,ignore
 fn parse_match_arm<'a>(tokens: &mut Tokens<'_, 'a>) -> ParseResult<MatchArm<'a>> {
@@ -178,11 +171,8 @@ assert!(text.contains("while parsing signature"));
 
 `parse_statements` in `parse_pipelines.rs`, the loop that `parse_block` and `BlockStatements::parse`
 run, is where a cut stops. It records the diagnostic, emits a pipeline whose single element is
-`Expr::Garbage` over the statement, and goes on after it. The statement ends:
-
-* where the lite parse ended it, when the error came after that, past a `|` that goes on to the next
-  line and the comments on its lines;
-* otherwise at the next `Eol` or `;`, by `skip_to_statement_end`.
+`Expr::Garbage` over the statement, and goes on with the next pipeline of the lite block. The statement
+covers what the lite parse gave it, the comments on its lines and a `|` that ends it included.
 
 Every block goes through this loop, so an error in a nested block doesn't fail the enclosing
 statement:

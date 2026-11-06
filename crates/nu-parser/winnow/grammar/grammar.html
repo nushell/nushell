@@ -1359,9 +1359,8 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   one pipeline. Exactly ONE Eol is absorbed: <code>a\n\n| b</code> keeps an Eol (see
   <pipe-continuation>, 2).
   nu: lex.rs:1005-1031
-  here: src/winnow/syntax/parser/lite<em>parser.rs::pipe</em>on<em>later</em>line, take<em>pipe</em>on<em>later</em>line,
-  after<em>pipe</em>lines (the same rule, applied in the block parser: exactly
-  <code>Eol (Comment Eol)* Pipe</code> continues the line) </p><section>
+  here: src/winnow/syntax/parser/lite_parser.rs::LiteBlock (the same rule, applied in the lite
+  parse: exactly <code>Eol (Comment Eol)* Pipe</code> continues the line) </p><section>
   <h4 id="pipe_pipe">pipe_pipe</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="137" style="max-height: 62px;" viewBox="0 0 137 62"><g transform="translate(.5 .5)"><g><path d="M20 21v20m10 -20v20m-10 -10h20"></path></g><path d="M40 31h10"></path><g class="terminal"><path d="M50 31h0"></path><path d="M87 31h0"></path><rect x="50" y="20" width="37" height="22" rx="10" ry="10"></rect><text x="68.5" y="35">||</text></g><path d="M87 31h10"></path><path d="M 97 31 h 20 m -10 -10 v 20 m 10 -20 v 20"></path></g></svg>
 </div>
@@ -1373,7 +1372,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 </section>
 <p>an error (ShellOrOr) everywhere except as empty closure parameters
   nu: lex.rs:991-1001, lite<em>parser.rs:295,361
-  here: src/winnow/syntax/lex.rs::lex</em>token, src/winnow/syntax/parser/lite<em>parser.rs::parse</em>lite_command </p><section>
+  here: src/winnow/syntax/lex.rs::lex</em>token, src/winnow/syntax/parser/lite_parser.rs::LiteBlock </p><section>
   <h4 id="semicolon">semicolon</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="128.5" style="max-height: 62px;" viewBox="0 0 128.5 62"><g transform="translate(.5 .5)"><g><path d="M20 21v20m10 -20v20m-10 -10h20"></path></g><path d="M40 31h10"></path><g class="terminal"><path d="M50 31h0"></path><path d="M78.5 31h0"></path><rect x="50" y="20" width="28.5" height="22" rx="10" ry="10"></rect><text x="64.25" y="35">;</text></g><path d="M78.5 31h10"></path><path d="M 88.5 31 h 20 m -10 -10 v 20 m 10 -20 v 20"></path></g></svg>
 </div>
@@ -1776,8 +1775,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   <code>a |\n\n| b</code> is ONE pipeline (comment lines may stand on either side of the blank
   line), while <code>a |\n\n\n| b</code> is two.
   nu: lite<em>parser.rs:198, 460; lex.rs:1005-1031
-  here: src/winnow/syntax/parser/lite</em>parser.rs::after<em>pipe</em>lines (<code>Comment* [Eol (Comment Eol)*]</code>, then
-  pipe<em>on</em>later_line) </p><p>The trailing-pipe rule: a BLOCK whose last non-comment token is "|" (skipping ([Comment]+ Eol) pairs
+  here: src/winnow/syntax/parser/lite</em>parser.rs::LiteBlock, last<em>non</em>comment_token </p><p>The trailing-pipe rule: a BLOCK whose last non-comment token is "|" (skipping ([Comment]+ Eol) pairs
   from the end) is UnexpectedEof("pipeline missing end"), whatever absorbed the
   pipe. So <code>ls |</code>, <code>ls | # c</code>, <code>ls |\n# c</code> (no final newline) and <code>alias x = ls |</code>
   are errors; <code>ls |\n</code>, <code>ls |\n\n</code>, <code>ls | # c\n</code> and <code>ls |\n# c\n</code> are not.
@@ -1817,7 +1815,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>Items after a file redirection are still part of the command (<code>^echo x o&gt; f extra</code>
   parses). A command with no items but a redirection is UnexpectedRedirection.
   nu: lite<em>parser.rs:365-450, 77, 89
-  here: src/winnow/syntax/parser/lite</em>parser.rs::parse<em>lite</em>command </p><section>
+  here: src/winnow/syntax/parser/lite</em>parser.rs::LiteBlock </p><section>
   <h4 id="redirection">redirection</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="360" style="max-height: 122px;" viewBox="0 0 360 122"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><path d="M40 31h10"></path><g><path d="M50 31h0"></path><path d="M310 31h0"></path><g><path d="M50 31h0"></path><path d="M246 31h0"></path><path d="M50 31h20"></path><g class="non-terminal"><path d="M70 31h17"></path><path d="M209 31h17"></path><rect x="87" y="20" width="122" height="22"></rect><a xlink:href="#out_redirect"><text x="148" y="35">out&#95;redirect</text></a></g><path d="M226 31h20"></path><path d="M50 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M70 61h17"></path><path d="M209 61h17"></path><rect x="87" y="50" width="122" height="22"></rect><a xlink:href="#err_redirect"><text x="148" y="65">err&#95;redirect</text></a></g><path d="M226 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10"></path><path d="M50 31a10 10 0 0 1 10 10v40a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M70 91h0"></path><path d="M226 91h0"></path><rect x="70" y="80" width="156" height="22"></rect><a xlink:href="#out_err_redirect"><text x="148" y="95">out&#95;err&#95;redirect</text></a></g><path d="M226 91a10 10 0 0 0 10 -10v-40a10 10 0 0 1 10 -10"></path></g><path d="M246 31h10"></path><g class="non-terminal"><path d="M256 31h0"></path><path d="M310 31h0"></path><rect x="256" y="20" width="54" height="22"></rect><a xlink:href="#item"><text x="283" y="35">item</text></a></g></g><path d="M310 31h10"></path><path d="M 320 31 h 20 m 0 -10 v 20"></path></g></svg>
 </div>
@@ -1840,12 +1838,12 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   Expected("redirection target"). The target item is parsed as a value (shape Any).
   An Eol there ends nu’s command but not its pipeline: an item first on the next line
   is the pipeline’s next command (<code>ls o&gt;\ndef f [] {}</code>: a <code>def</code> in a pipeline, no
-  definition), which the predeclaration scan follows.
+  definition), which the predeclaration follows.
   Combinations: the first redirection of any kind is Single; Stdout then Stderr or
   Stderr then Stdout is Separate; any other second, or any third, is
   MultipleRedirections.
   nu: lite<em>parser.rs:293-358, 497, 83 try</em>add<em>redirection; parse</em>pipelines.rs:26
-  here: src/winnow/syntax/parser/lite<em>parser.rs::parse</em>lite<em>command,
+  here: src/winnow/syntax/parser/lite<em>parser.rs::LiteBlock,
   src/winnow/syntax/parser/parse</em>pipelines.rs::parse_redirection </p><section>
   <h4 id="pipe_redirection">pipe_redirection</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="242" style="max-height: 92px;" viewBox="0 0 242 92"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><g><path d="M40 31h0"></path><path d="M202 31h0"></path><path d="M40 31h20"></path><g class="non-terminal"><path d="M60 31h17"></path><path d="M165 31h17"></path><rect x="77" y="20" width="88" height="22"></rect><a xlink:href="#err_pipe"><text x="121" y="35">err&#95;pipe</text></a></g><path d="M182 31h20"></path><path d="M40 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M60 61h0"></path><path d="M182 61h0"></path><rect x="60" y="50" width="122" height="22"></rect><a xlink:href="#out_err_pipe"><text x="121" y="65">out&#95;err&#95;pipe</text></a></g><path d="M182 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10"></path></g><path d="M 202 31 h 20 m 0 -10 v 20"></path></g></svg>
@@ -1867,7 +1865,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   only through a "|" that starts a later line, after comment lines but no blank
   line (<code>a e&gt;|\nb</code> is two pipelines, <code>a e&gt;|\n# c\n| b</code> one)
   nu: lite<em>parser.rs:427-450; lex.rs:1005-1031
-  here: src/winnow/syntax/parser/lite</em>parser.rs::parse<em>lite</em>command (<code>pipe_after</code>), after<em>pipe</em>lines,
+  here: src/winnow/syntax/parser/lite</em>parser.rs::LiteBlock,
   src/winnow/syntax/parser/parse<em>pipelines.rs::parse</em>redirection </p><section>
   <h4 id="assignment_tail">assignment_tail</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="479.5" style="max-height: 198px;" viewBox="0 0 479.5 198"><g transform="translate(.5 .5)"><g><path d="M20 29v20m0 -10h20"></path></g><path d="M40 39h10"></path><g><path d="M50 39h0"></path><path d="M429.5 39h0"></path><g class="non-terminal"><path d="M50 39h0"></path><path d="M180.5 39h0"></path><rect x="50" y="28" width="130.5" height="22"></rect><a xlink:href="#assignment_op"><text x="115.25" y="43">assignment&#95;op</text></a></g><path d="M180.5 39h10"></path><g><path d="M190.5 39h0"></path><path d="M429.5 39h0"></path><path d="M190.5 39a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path><g><path d="M210.5 19h199"></path></g><path d="M409.5 19a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10"></path><path d="M190.5 39h20"></path><g><path d="M210.5 39h0"></path><path d="M409.5 39h0"></path><path d="M210.5 39h10"></path><g><path d="M220.5 39h0"></path><path d="M399.5 39h0"></path><path d="M220.5 39h20"></path><g class="non-terminal"><path d="M240.5 39h42.5"></path><path d="M337 39h42.5"></path><rect x="283" y="28" width="54" height="22"></rect><a xlink:href="#item"><text x="310" y="43">item</text></a></g><path d="M379.5 39h20"></path><path d="M220.5 39a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M240.5 69h42.5"></path><path d="M337 69h42.5"></path><rect x="283" y="58" width="54" height="22"></rect><a xlink:href="#pipe"><text x="310" y="73">pipe</text></a></g><path d="M379.5 69a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10"></path><path d="M220.5 39a10 10 0 0 1 10 10v40a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M240.5 99h21.25"></path><path d="M358.25 99h21.25"></path><rect x="261.75" y="88" width="96.5" height="22"></rect><a xlink:href="#pipe_pipe"><text x="310" y="103">pipe&#95;pipe</text></a></g><path d="M379.5 99a10 10 0 0 0 10 -10v-40a10 10 0 0 1 10 -10"></path><path d="M220.5 39a10 10 0 0 1 10 10v70a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M240.5 129h0"></path><path d="M379.5 129h0"></path><rect x="240.5" y="118" width="139" height="22"></rect><a xlink:href="#redirection_op"><text x="310" y="133">redirection&#95;op</text></a></g><path d="M379.5 129a10 10 0 0 0 10 -10v-70a10 10 0 0 1 10 -10"></path><path d="M220.5 39a10 10 0 0 1 10 10v100a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M240.5 159h29.75"></path><path d="M349.75 159h29.75"></path><rect x="270.25" y="148" width="79.5" height="22"></rect><a xlink:href="#comment"><text x="310" y="163">comment</text></a></g><path d="M379.5 159a10 10 0 0 0 10 -10v-100a10 10 0 0 1 10 -10"></path></g><path d="M399.5 39h10"></path><path d="M220.5 39a10 10 0 0 0 -10 10v119a10 10 0 0 0 10 10"></path><g><path d="M220.5 178h179"></path></g><path d="M399.5 178a10 10 0 0 0 10 -10v-119a10 10 0 0 0 -10 -10"></path></g><path d="M409.5 39h20"></path></g></g><path d="M429.5 39h10"></path><path d="M 439.5 39 h 20 m 0 -10 v 20"></path></g></svg>
@@ -1893,8 +1891,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   trailing "|" or before a leading "|" exactly as in <pipe-continuation> (one Eol).
   ";" ends the assignment. The tail is re-lexed and parsed as a block (3.3).
   nu: lite<em>parser.rs:259-291, 392-400
-  here: src/winnow/syntax/parser/lite</em>parser.rs::parse<em>lite</em>command (<code>absorbing</code>, the same continuation
-  rule) </p><section>
+  here: src/winnow/syntax/parser/lite</em>parser.rs::LiteBlock (the same continuation rule) </p><section>
   <h4 id="attribute_lines">attribute_lines</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="259" style="max-height: 71px;" viewBox="0 0 259 71"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><path d="M40 31h10"></path><g><path d="M50 31h0"></path><path d="M209 31h0"></path><path d="M50 31h10"></path><g class="non-terminal"><path d="M60 31h0"></path><path d="M199 31h0"></path><rect x="60" y="20" width="139" height="22"></rect><a xlink:href="#attribute_line"><text x="129.5" y="35">attribute&#95;line</text></a></g><path d="M199 31h10"></path><path d="M60 31a10 10 0 0 0 -10 10v0a10 10 0 0 0 10 10"></path><g><path d="M60 51h139"></path></g><path d="M199 51a10 10 0 0 0 10 -10v0a10 10 0 0 0 -10 -10"></path></g><path d="M209 31h10"></path><path d="M 219 31 h 20 m 0 -10 v 20"></path></g></svg>
 </div>
@@ -1948,9 +1945,8 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   blank line, a second blank line, or a blank line after the ";" ends the statement.
   nu: lex.rs lex<em>internal (an Eol before "|" becomes it); lite</em>parser.rs:239-257,
   379-383, 455-469; parse<em>pipelines.rs parse</em>pipeline<em>element
-  here: src/winnow/syntax/parser/lite</em>parser.rs::lite<em>attribute</em>lines (for the first command of a
-  pipeline and a command that starts a line; every token of the line becomes a
-  word; <code>take_pipe_on_later_line</code> after the line’s Eol),
+  here: src/winnow/syntax/parser/lite</em>parser.rs::LiteBlock (every token of the line becomes a
+  word),
   src/winnow/syntax/parser/parse<em>pipelines.rs::parse</em>pipeline_element </p><p>==== 2.1 Which parser sees a command ==== </p><section>
   <h4 id="parsed_pipeline">parsed_pipeline</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="335.5" style="max-height: 92px;" viewBox="0 0 335.5 92"><g transform="translate(.5 .5)"><g><path d="M20 21v20m0 -10h20"></path></g><g><path d="M40 31h0"></path><path d="M295.5 31h0"></path><path d="M40 31h20"></path><g class="non-terminal"><path d="M60 31h0"></path><path d="M275.5 31h0"></path><rect x="60" y="20" width="215.5" height="22"></rect><a xlink:href="#single_command_pipeline"><text x="167.75" y="35">single&#95;command&#95;pipeline</text></a></g><path d="M275.5 31h20"></path><path d="M40 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10"></path><g class="non-terminal"><path d="M60 61h4.25"></path><path d="M271.25 61h4.25"></path><rect x="64.25" y="50" width="207" height="22"></rect><a xlink:href="#multi_command_pipeline"><text x="167.75" y="65">multi&#95;command&#95;pipeline</text></a></g><path d="M275.5 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10"></path></g><path d="M 295.5 31 h 20 m 0 -10 v 20"></path></g></svg>
@@ -4022,8 +4018,8 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   nu: parse</em>def.rs parse<em>def</em>predecl (add<em>type</em>predecl)
   here: src/winnow/syntax/parser/parse<em>def.rs::parse</em>def<em>predecl, scan</em>predecls (TypeAliasPredecl,
   for the engine’s BlockSink::predecl<em>type</em>alias; whether a pipe joins the next
-  command: src/winnow/syntax/parser/lite<em>parser.rs::after</em>pipe<em>lines, the statement parser’s
-  rule; the name: src/winnow/syntax/parser/parse</em>signatures.rs::parse<em>definition</em>name) </p><p>==== 6.2 let, mut, const ==== </p><section>
+  command: src/winnow/syntax/parser/lite<em>parser.rs::LiteBlock; the name:
+  src/winnow/syntax/parser/parse</em>signatures.rs::parse<em>definition</em>name) </p><p>==== 6.2 let, mut, const ==== </p><section>
   <h4 id="let">let</h4>
   <div class="diagram-container"><svg class="railroad-diagram" width="474" style="max-height: 70px;" viewBox="0 0 474 70"><g transform="translate(.5 .5)"><g><path d="M20 29v20m0 -10h20"></path></g><path d="M40 39h10"></path><g><path d="M50 39h0"></path><path d="M424 39h0"></path><g class="terminal"><path d="M50 39h0"></path><path d="M95.5 39h0"></path><rect x="50" y="28" width="45.5" height="22" rx="10" ry="10"></rect><text x="72.75" y="43">let</text></g><path d="M95.5 39h10"></path><path d="M105.5 39h10"></path><g class="non-terminal"><path d="M115.5 39h0"></path><path d="M203.5 39h0"></path><rect x="115.5" y="28" width="88" height="22"></rect><a xlink:href="#var_decl"><text x="159.5" y="43">var&#95;decl</text></a></g><path d="M203.5 39h10"></path><g><path d="M213.5 39h0"></path><path d="M424 39h0"></path><path d="M213.5 39a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path><g><path d="M233.5 19h170.5"></path></g><path d="M404 19a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10"></path><path d="M213.5 39h20"></path><g><path d="M233.5 39h0"></path><path d="M404 39h0"></path><g class="terminal"><path d="M233.5 39h0"></path><path d="M262 39h0"></path><rect x="233.5" y="28" width="28.5" height="22" rx="10" ry="10"></rect><text x="247.75" y="43">=</text></g><path d="M262 39h10"></path><path d="M272 39h10"></path><g class="non-terminal"><path d="M282 39h0"></path><path d="M404 39h0"></path><rect x="282" y="28" width="122" height="22"></rect><a xlink:href="#rhs_pipeline"><text x="343" y="43">rhs&#95;pipeline</text></a></g></g><path d="M404 39h20"></path></g></g><path d="M424 39h10"></path><path d="M 434 39 h 20 m 0 -10 v 20"></path></g></svg>
 </div>
@@ -5114,7 +5110,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
   stays
   nu: parse<em>calls.rs:2022 parse</em>attribute; parse<em>def.rs:278 parse</em>attribute<em>block;
   parse</em>module.rs:110, 203
-  here: src/winnow/syntax/parser/lite<em>parser.rs::lite</em>attribute<em>lines,
+  here: src/winnow/syntax/parser/lite<em>parser.rs::LiteBlock,
   src/winnow/syntax/parser/parse</em>pipelines.rs::parse<em>pipeline</em>element,
   src/winnow/syntax/parser/parse<em>calls.rs::parse</em>attribute (the empty name is the consumer’s; whether
   <code>attr &lt;name&gt;</code> exists is the consumer’s, it may come from a <code>use</code>d module; the
@@ -6337,7 +6333,7 @@ svg.railroad-diagram g.diagram-text:hover path.diagram-text {
 <p>(6.1) </p>
   </article>
   <footer>
-    <p>Date: 2026-11-04T04:56 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
+    <p>Date: 2026-11-06T15:26 - <a href="?theme=dark" data-theme="dark">Dark</a> - <a href="?theme=light" data-theme="light">Light</a></p>
   </footer>
   </main>
   <script type="text/javascript">
