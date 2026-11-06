@@ -306,11 +306,7 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut SeenVars)
             }
         }
         Pattern::Rest(var_id) => seen.push(*var_id),
-        Pattern::Expression(_)
-        | Pattern::Value(_)
-        | Pattern::IgnoreValue
-        | Pattern::IgnoreRest
-        | Pattern::Garbage => {}
+        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::IgnoreRest | Pattern::Garbage => {}
     }
 }
 
