@@ -22,7 +22,7 @@ impl Command for TuiImage {
     fn extra_description(&self) -> &str {
         "The same widget as `tui preview`, showing one fixed image instead of the highlighted row's file, so several can sit side by side: `tui split [(tui image a.png) (tui image b.png)]`. It takes the same `--image-fit`, `--image-width`, `--image-height`, and `--image-id` flags, and `$env.config.tui.image_protocol` applies.\n\
          \n\
-         Under Kitty the image is transmitted under an id that is freed when the TUI exits. With `--image-id` the id is yours: the image stays in the terminal's memory until `tui image delete` frees it."
+         Under Kitty the image is transmitted under an id that is freed when the TUI exits. With `--image-id` the id is yours: the image stays in the terminal's memory until `tui delete-image` frees it."
     }
 
     fn signature(&self) -> Signature {
@@ -52,7 +52,7 @@ impl Command for TuiImage {
             },
             Example {
                 description: "Keep the image in the terminal under Kitty id 7, and free it later",
-                example: "tui image logo.png --image-id 7 | tui run; tui image delete 7",
+                example: "tui image logo.png --image-id 7 | tui run; tui delete-image 7",
                 result: None,
             },
             Example {
@@ -107,11 +107,11 @@ impl Command for TuiImage {
 }
 
 #[derive(Clone)]
-pub struct TuiImageDelete;
+pub struct TuiDeleteImage;
 
-impl Command for TuiImageDelete {
+impl Command for TuiDeleteImage {
     fn name(&self) -> &str {
-        "tui image delete"
+        "tui delete-image"
     }
 
     fn description(&self) -> &str {
@@ -127,7 +127,7 @@ impl Command for TuiImageDelete {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("tui image delete")
+        Signature::build("tui delete-image")
             .category(Category::Viewers)
             .rest("ids", SyntaxShape::Int, "Kitty image ids to free.")
             .switch(
@@ -142,12 +142,12 @@ impl Command for TuiImageDelete {
         vec![
             Example {
                 description: "Free the image shown under id 7",
-                example: "tui image delete 7",
+                example: "tui delete-image 7",
                 result: None,
             },
             Example {
                 description: "Free an image from a key binding while the TUI runs",
-                example: "tui image logo.png --image-id 7 | tui bind ctrl+d {|| tui image delete 7 } | tui run",
+                example: "tui image logo.png --image-id 7 | tui bind ctrl+d {|| tui delete-image 7 } | tui run",
                 result: None,
             },
         ]

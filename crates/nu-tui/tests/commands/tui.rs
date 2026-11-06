@@ -1649,10 +1649,10 @@ fn file_styles_rules_look_at_the_file_on_disk_and_set_its_icon() -> Result {
 }
 
 #[test]
-fn image_delete_writes_to_the_terminal_and_returns_nothing() -> Result {
+fn delete_image_writes_to_the_terminal_and_returns_nothing() -> Result {
     // The sequence goes straight to stdout (`image::tests` checks its
     // bytes); the pipeline itself carries nothing.
-    let out: String = test().run("tui image delete 7 | describe")?;
+    let out: String = test().run("tui delete-image 7 | describe")?;
     assert_eq!(out, "nothing");
     Ok(())
 }

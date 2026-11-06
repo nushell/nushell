@@ -146,7 +146,7 @@ pub struct ImageOptions {
     pub max_height: Option<PaneSize>,
     /// A Kitty image id chosen by the caller. The widget transmits every
     /// image under it and leaves it in the terminal when the TUI exits;
-    /// `tui image delete` frees it.
+    /// `tui delete-image` frees it.
     pub kitty_id: Option<u32>,
 }
 

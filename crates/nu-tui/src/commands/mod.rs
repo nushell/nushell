@@ -35,7 +35,7 @@ pub use r#box::TuiBox;
 pub use button::TuiButton;
 pub use context::TuiContext;
 pub use debug::TuiDebug;
-pub use image::{TuiImage, TuiImageDelete};
+pub use image::{TuiDeleteImage, TuiImage};
 pub use label::TuiLabel;
 pub use log::TuiLog;
 pub use menu::TuiMenu;
@@ -123,7 +123,7 @@ pub(super) fn image_flags(sig: Signature) -> Signature {
     .named(
         "image-id",
         SyntaxShape::Int,
-        "Kitty image id to transmit under. The image then stays in the terminal after the TUI exits; free it with `tui image delete`.",
+        "Kitty image id to transmit under. The image then stays in the terminal after the TUI exits; free it with `tui delete-image`.",
         None,
     )
 }
