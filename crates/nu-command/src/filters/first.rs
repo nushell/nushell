@@ -1,7 +1,7 @@
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{Signals, shell_error::bridge::ShellErrorBridge};
 use std::io::Read;
 
 #[derive(Clone)]
@@ -322,7 +322,8 @@ fn first_helper(
         PipelineData::ListStream(stream, _) => {
             if return_single_element {
                 if let Some(v) = stream.into_iter().next() {
-                    Ok(v.into_pipeline_data_with_metadata(input_meta))
+                    Ok(v.unwrap_error()?
+                        .into_pipeline_data_with_metadata(input_meta))
                 } else if strict_mode {
                     Err(ShellError::AccessEmptyContent { span: head })
                 } else {
@@ -347,7 +348,7 @@ fn first_helper(
                         let mut byte = [0u8];
                         if reader
                             .read(&mut byte)
-                            .map_err(|err| IoError::new(err, span, None))?
+                            .map_err(|err| ShellErrorBridge::read_error(err, span))?
                             > 0
                         {
                             Ok(Value::int(byte[0] as i64, head)

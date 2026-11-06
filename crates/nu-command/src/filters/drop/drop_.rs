@@ -141,7 +141,7 @@ impl Command for Drop {
                 Ok(Value::binary(&bytes[..take], head).into_pipeline_data_with_metadata(metadata))
             }
             _ => {
-                let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();
+                let mut values = input.into_iter_strict(head)?.collect_values()?;
                 values.truncate(values.len().saturating_sub(rows));
                 Ok(Value::list(values, head).into_pipeline_data_with_metadata(metadata))
             }

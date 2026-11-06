@@ -5,7 +5,7 @@ use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use nu_heavy_utils::endian::Endian;
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{Signals, shell_error::bridge::ShellErrorBridge};
 use num_traits::ToPrimitive;
 
 struct Arguments {
@@ -156,7 +156,7 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
                 let mut byte = [0];
                 if reader
                     .read(&mut byte[..])
-                    .map_err(|err| IoError::new(err, head, None))?
+                    .map_err(|err| ShellErrorBridge::read_error(err, head))?
                     > 0
                 {
                     // Format the byte as bits

@@ -3,7 +3,7 @@ use std::io::{BufRead, Cursor};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DEFAULT_ERROR_CONTEXT, ListStream, Signals,
-    shell_error::{generic::GenericError, io::IoError},
+    shell_error::{bridge::ShellErrorBridge, generic::GenericError},
     truncated_source_window,
 };
 
@@ -154,7 +154,7 @@ fn read_json_lines(
             }) || line.is_err()
         })
         .map(move |line| {
-            let line = line.map_err(|err| IoError::new(err, span, None))?;
+            let line = line.map_err(|err| ShellErrorBridge::read_error(err, span))?;
             try_str_to_value(&line, span, strict, &iter_signals)
         })
         .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));
