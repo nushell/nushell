@@ -1,10 +1,11 @@
 //! Interactive event loop (`tui run`) and headless render/replay (`tui debug`).
 use crate::app::TuiApp;
 use crate::hooks::call_closure;
+use crate::image::{Images, kitty_delete};
 use crate::render::{render, render_to_string};
 use crate::session::Session;
 use crate::stream::Readers;
-use crossterm::cursor::{Hide, Show};
+use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, MouseEventKind};
 use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
@@ -17,7 +18,8 @@ use nu_protocol::{
 use nu_utils::time::Instant;
 use ratatui::layout::Rect;
 use ratatui::{Terminal, backend::CrosstermBackend};
-use std::io::stdout;
+use std::fs::File;
+use std::io::{self, IsTerminal, Stdout, Write, stdout};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -70,6 +72,157 @@ fn prepare_session(
     let session = Session::with_engine(app, cwd, Some((engine_state.clone(), stack.clone())));
     check_sources(&session)?;
     Ok(session)
+}
+
+/// The graphics protocol previews draw images with, per
+/// `$env.config.tui.image_protocol`: `none` disables images, `auto` (the
+/// default) asks the terminal, and a protocol name forces it. Nothing is
+/// asked when no widget can show an image, so other TUIs start as before.
+/// Headless runs never ask and never force: half blocks are the only
+/// protocol that is plain text on a test canvas.
+fn images_for(
+    engine_state: &EngineState,
+    stack: &Stack,
+    session: &Session,
+    query: bool,
+) -> Option<Images> {
+    use ratatui_image::picker::cap_parser::QueryStdioOptions;
+    use ratatui_image::picker::{Picker, ProtocolType};
+    let shows_images = session
+        .app
+        .iter()
+        .any(|w| matches!(w.kind, crate::widget::WidgetKind::Preview(_)));
+    if !shows_images {
+        return None;
+    }
+    let config = stack.get_config(engine_state);
+    let setting = config
+        .tui
+        .get("image_protocol")
+        .and_then(|value| value.as_str().ok())
+        .unwrap_or("auto")
+        .to_string();
+    let forced = match setting.as_str() {
+        "none" => return None,
+        // Half blocks need no cell size, so the terminal is not asked.
+        "halfblocks" => return Some(Images::headless()),
+        "kitty" => Some(ProtocolType::Kitty),
+        "sixel" => Some(ProtocolType::Sixel),
+        "iterm2" => Some(ProtocolType::Iterm2),
+        _ => None,
+    };
+    if !query {
+        return Some(Images::headless());
+    }
+    // The query writes to the terminal and reads its answers from stdin,
+    // so it must run before any event is read. A terminal that answers
+    // nothing gets half blocks at the default cell size. With stdout piped
+    // it talks to `/dev/tty` instead, as the TUI then draws there.
+    // Also probe for shared memory transmission (local terminals read the
+    // pixels straight from a POSIX shm object: no chunked stream, no blank
+    // frame on replace) and zlib compression for the base64 fallback.
+    let options = QueryStdioOptions {
+        kitty_compression: true,
+        kitty_shared_memory_object: QueryStdioOptions::probe_kitty_smo(),
+        #[cfg(not(windows))]
+        stdio: query_stdio(),
+        ..QueryStdioOptions::default()
+    };
+    let images = match Picker::from_query_stdio_with_options(options) {
+        Ok(picker) => Images::new(picker),
+        Err(_) => Images::headless(),
+    };
+    Some(match forced {
+        Some(protocol) => images.with_protocol(protocol),
+        None => images,
+    })
+}
+
+/// Where the TUI draws: stdout while that is the terminal, else the
+/// terminal itself (`/dev/tty`), so that `nu browse.nu | get name` gets
+/// only what `tui run` returns and the screen still shows. Keys come from
+/// the terminal either way: crossterm reads `/dev/tty` when stdin is not one.
+/// With no terminal at all (a test, a cron job) it is stdout as before.
+pub(crate) enum Tty {
+    Stdout(Stdout),
+    Device(File),
+}
+
+impl Tty {
+    pub(crate) fn open() -> Self {
+        let out = stdout();
+        if out.is_terminal() {
+            return Self::Stdout(out);
+        }
+        let device = if cfg!(windows) { "CONOUT$" } else { "/dev/tty" };
+        File::options()
+            .read(true)
+            .write(true)
+            .open(device)
+            .map_or(Self::Stdout(out), Self::Device)
+    }
+}
+
+impl Tty {
+    /// Whether the TUI's output reaches a terminal at all.
+    pub(crate) fn is_terminal(&self) -> bool {
+        match self {
+            Self::Stdout(out) => out.is_terminal(),
+            Self::Device(_) => true,
+        }
+    }
+}
+
+impl Write for Tty {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            Self::Stdout(out) => out.write(buf),
+            Self::Device(file) => file.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            Self::Stdout(out) => out.flush(),
+            Self::Device(file) => file.flush(),
+        }
+    }
+}
+
+/// The descriptors the image query uses when stdout is not the terminal:
+/// `None` keeps stdio. The query goes to `/dev/tty`; its answers are read
+/// from stdin while that is the terminal, since macOS's `poll` reports
+/// `/dev/tty` invalid, which would end the query before the terminal
+/// answers and leave its replies for the key reader to trip over.
+#[cfg(not(windows))]
+fn query_stdio() -> Option<(std::os::fd::OwnedFd, std::os::fd::OwnedFd)> {
+    use std::os::fd::{AsFd, OwnedFd};
+    if stdout().is_terminal() {
+        return None;
+    }
+    let tty = File::options()
+        .read(true)
+        .write(true)
+        .open("/dev/tty")
+        .ok()?;
+    let input = if io::stdin().is_terminal() {
+        io::stdin().as_fd().try_clone_to_owned()
+    } else {
+        tty.as_fd().try_clone_to_owned()
+    };
+    Some((input.ok()?, OwnedFd::from(tty)))
+}
+
+/// Free the Kitty images this run transmitted. Sent while the terminal is
+/// still ours, before the alternate screen closes.
+fn free_kitty_images(session: &Session, out: &mut impl Write) {
+    let ids = session.kitty_ids_to_free();
+    if ids.is_empty() {
+        return;
+    }
+    let tmux = session.images.as_ref().is_some_and(Images::is_tmux);
+    let _ = out.write_all(kitty_delete(&ids, tmux).as_bytes());
+    let _ = out.flush();
 }
 
 /// A widget with `--from` or a source closure that has no table, tree, or
@@ -154,6 +307,9 @@ pub fn debug(
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
     let mut session = prepare_session(app, engine_state, stack, cwd)?;
+    if let Some(images) = images_for(engine_state, stack, &session, false) {
+        session.enable_images(images);
+    }
     let frame = Rect {
         x: 0,
         y: 0,
@@ -182,9 +338,14 @@ pub fn debug(
     if let Some(closure) = opts.using.clone() {
         session.run_hook(closure);
     }
+    session.poll_images(true);
     for event in &opts.keys {
         session.handle_event(event);
+        if let Some(suspend) = session.suspend.take() {
+            session.run_suspended(suspend);
+        }
         session.layout(session.dialog_content_area(frame));
+        session.poll_images(true);
         if session.outcome.is_some() {
             break;
         }
@@ -226,7 +387,10 @@ pub fn run(
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
     let mut session = prepare_session(app, engine_state, stack, cwd)?;
-    let _raw = RawModeGuard::acquire(stack, opts.span)?;
+    let mut raw = RawModeGuard::acquire(stack, opts.span)?;
+    if let Some(images) = images_for(engine_state, stack, &session, true) {
+        session.enable_images(images);
+    }
     let (term_w, term_h) = crossterm::terminal::size()
         .map_err(|e| io_error("failed to read terminal size", e.to_string(), opts.span))?;
     if opts.dialog {
@@ -241,8 +405,8 @@ pub fn run(
             opts.popup_height,
         );
     }
-    let _guard = TerminalGuard::enter(opts.mouse, true, opts.span)?;
-    let backend = CrosstermBackend::new(stdout());
+    let mut guard = TerminalGuard::enter(opts.mouse, true, opts.span)?;
+    let backend = CrosstermBackend::new(Tty::open());
     let mut terminal = Terminal::new(backend)
         .map_err(|e| io_error("failed to create terminal", e.to_string(), opts.span))?;
     // Lay out once before the first frame so closures see their pane size.
@@ -270,6 +434,7 @@ pub fn run(
             session.append_values(owners, values)
         });
         session.stream_live = readers.is_live();
+        session.poll_images(false);
 
         if let (Some(interval), Some(closure)) = (opts.refresh, opts.using.clone())
             && last_refresh.elapsed() >= interval
@@ -307,11 +472,37 @@ pub fn run(
         if session.outcome.is_some() {
             break;
         }
+
+        if let Some(suspend) = session.suspend.take() {
+            // The hook gets the terminal: raw mode and the mouse off, the
+            // cursor at its area if it has one, else the normal screen back.
+            // Pictures are freed first and sent again when everything is
+            // drawn afresh afterwards.
+            free_kitty_images(&session, terminal.backend_mut());
+            let keep_screen = suspend.area.is_some();
+            guard.suspend(keep_screen);
+            drop(raw);
+            if let Some(area) = suspend.area {
+                let _ = execute!(terminal.backend_mut(), MoveTo(area.x, area.y));
+            }
+            session.run_suspended(suspend);
+            raw = RawModeGuard::acquire(stack, opts.span)?;
+            guard = TerminalGuard::enter(opts.mouse, true, opts.span)?;
+            session.reset_images();
+            // `Terminal::clear` would first ask where the cursor is, a query
+            // crossterm sends to stdout, which may be a pipe. A resize to the
+            // current size clears and forces the full redraw without asking.
+            terminal
+                .size()
+                .and_then(|size| terminal.resize(size.into()))
+                .map_err(|e| io_error("failed to clear the screen", e.to_string(), opts.span))?;
+        }
     }
 
     // Stop the streams while the alternate screen still hides anything a
     // stopping producer prints.
     drop(readers);
+    free_kitty_images(&session, terminal.backend_mut());
     drop(terminal);
     Ok(Value::record(session.result_fields(opts.span, None), opts.span).into_pipeline_data())
 }
@@ -344,13 +535,14 @@ fn io_error(title: impl Into<String>, msg: impl Into<String>, span: Span) -> She
 }
 
 struct TerminalGuard {
+    out: Tty,
     mouse: bool,
     alt_screen: bool,
 }
 
 impl TerminalGuard {
     fn enter(mouse: bool, alt_screen: bool, span: Span) -> Result<Self, ShellError> {
-        let mut out = stdout();
+        let mut out = Tty::open();
         if alt_screen {
             // Blank, not whatever the alternate screen held: ratatui never
             // writes a cell that matches its blank first buffer, and a cell
@@ -371,13 +563,27 @@ impl TerminalGuard {
         }
         // Last, so nothing above can fail with the cursor hidden.
         let _ = execute!(out, Hide);
-        Ok(Self { mouse, alt_screen })
+        Ok(Self {
+            out,
+            mouse,
+            alt_screen,
+        })
+    }
+
+    /// Give the terminal up for a while. With `keep_screen` the alternate
+    /// screen stays, so what the TUI drew remains round whatever runs next.
+    /// Coming back is a plain [`TerminalGuard::enter`] either way: entering
+    /// the alternate screen while on it saves the cursor and clears it
+    /// (xterm, Ghostty), and the TUI redraws in full anyway, while a program
+    /// that used the alternate screen itself has left it.
+    fn suspend(mut self, keep_screen: bool) {
+        self.alt_screen &= !keep_screen;
     }
 }
 
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
-        let mut out = stdout();
+        let out = &mut self.out;
         if self.mouse {
             let _ = execute!(out, DisableMouseCapture);
         }

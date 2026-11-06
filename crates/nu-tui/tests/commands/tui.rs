@@ -10,6 +10,8 @@ fn parent_command_lists_subcommands() -> Result {
         "tui run",
         "tui debug",
         "tui bind",
+        "tui theme",
+        "tui context",
         "tui table",
         "tui search",
         "tui split",
@@ -22,6 +24,62 @@ fn parent_command_lists_subcommands() -> Result {
     ] {
         assert_contains(sub, &help);
     }
+    Ok(())
+}
+
+#[test]
+fn theme_slots_ride_in_the_tui_value_and_unknown_ones_are_errors() -> Result {
+    let bg: String = test().run(
+        "tui table | tui theme {selected: {bg: red}} | tui theme {file_styles: [{kind: dir, fg: cyan}]} | get theme.selected.bg",
+    )?;
+    assert_eq!(bg, "red");
+    let err = test()
+        .run("tui table | tui theme {not_a_slot: red}")
+        .expect_error()?;
+    assert_contains("not_a_slot", &format!("{err:?}"));
+    assert_contains("file_styles", &format!("{err:?}"));
+    let err = test()
+        .run("tui table | tui theme {file_styles: [{kind: folder}]}")
+        .expect_error()?;
+    assert_contains("symlink", &format!("{err:?}"));
+    let err = test()
+        .run("tui table | tui theme {border_type: wavy}")
+        .expect_error()?;
+    assert_contains("wavy", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn glyph_slots_shape_tabs_marks_caps_and_the_gauge() -> Result {
+    let screen: String = test().run(
+        r#"[a b] | tui label --titlebar app | tui tab one [(tui select --multi)] | tui tab two [(tui table)]
+            | tui theme {title_caps: {open: "<", close: ">"}, tab_caps: {open: "[", close: "]"}, selected_caps: {open: "(", close: ")"}, check: {on: "*", off: "-"}}
+            | tui debug --size [40 8] | get screen"#,
+    )?;
+    assert_contains("< app >", &screen);
+    assert_contains("[ one ]", &screen);
+    assert_contains("[ two ]", &screen);
+    // The highlighted row sits between its caps; the other row has none.
+    assert_contains("(- a", &screen);
+    assert_contains(")", &screen);
+    assert!(!screen.contains("(- b"), "{screen}");
+    let screen: String = test().run(
+        r#"tui progress --value 0.5 | tui theme {progress_fill: "="} | tui debug --size [20 3] | get screen"#,
+    )?;
+    assert_contains("====", &screen);
+    let screen: String = test().run(
+        r#"[a b] | tui select | tui theme {radio: {on: ">>", off: "  "}} | tui debug --size [20 5] | get screen"#,
+    )?;
+    assert_contains(">> a", &screen);
+    assert_contains("   b", &screen);
+    let err = test()
+        .run("tui table | tui theme {check: {on: x, off: oo}}")
+        .expect_error()?;
+    assert_contains("one width", &format!("{err:?}"));
+    let err = test()
+        .run("tui table | tui theme {progress_fill: ab}")
+        .expect_error()?;
+    assert_contains("1 cell wide", &format!("{err:?}"));
     Ok(())
 }
 
@@ -1139,5 +1197,462 @@ fn closures_see_their_pane_size() -> Result {
         "[{name: a}] | tui split [(tui table --id src) (tui table --from src {|r| 1..$env.TUI_HEIGHT })] | tui debug --size [80 24] | get widgets.0.children.1.rows",
     )?;
     assert_eq!(rows, 22);
+    Ok(())
+}
+
+/// Writes `img.png`: 8 by 4 pixels, red on the left and blue on the right.
+const SAVE_PNG: &str = "0x[89504e470d0a1a0a0000000d4948445200000008000000040806000000b3cd7ef00000004a494441547801edc003a0245996c6f1ff77ee8dc8cca7724b63ae6ddbb66ddbb66ddbb66d698c9e964aaf9e323322eef976b76a7aa6873b6bd5af1acc0308f300042f1cc10b47f0c2f18f772e0309d0272ed70000000049454e44ae426082] | save -f img.png";
+
+#[test]
+fn preview_draws_an_image_file_headless_as_half_blocks() -> Result {
+    Playground::setup("tui_preview_image", |dirs, _| {
+        let image: String = test().cwd(dirs.test()).run(format!(
+            r#"
+                {SAVE_PNG}
+                ls
+                | tui split [(tui table --columns [name]) (tui preview)]
+                | tui debug --size [60 12]
+                | get values.preview-0.image
+                | $"($in.width)x($in.height) ($in.format) ($in.protocol) ($in.columns)x($in.rows)"
+            "#
+        ))?;
+        // Headless runs use half blocks at a 10x20 cell, so 8x4 pixels is one cell.
+        assert_eq!(image, "8x4 png halfblocks 1x1");
+
+        let screen: String = test().cwd(dirs.test()).run(format!(
+            "
+                {SAVE_PNG}
+                ls
+                | tui split [(tui table --columns [name]) (tui preview)]
+                | tui debug --size [60 12]
+                | get screen
+            "
+        ))?;
+        assert_contains("img.png", &screen);
+        assert_contains("▀", &screen);
+        Ok(())
+    })
+}
+
+#[test]
+fn image_widget_scales_within_its_caps_and_keeps_a_manual_id() -> Result {
+    Playground::setup("tui_image_widget", |dirs, _| {
+        // The pane is 58 cells wide inside its border; `--image-width 10`
+        // caps the box at 10x10 cells, which is 100x200 pixels. The 2:1
+        // image scales to 100x50 pixels: 10 columns and 3 rows.
+        let image: String = test().cwd(dirs.test()).run(format!(
+            r#"
+                {SAVE_PNG}
+                tui image img.png --image-fit scale --image-width 10 --image-id 7
+                | tui debug --size [60 12]
+                | get values.image-0.image
+                | $"($in.columns)x($in.rows) ($in.id)"
+            "#
+        ))?;
+        assert_eq!(image, "10x3 7");
+
+        // Without `--image-id` the run allocates one.
+        let auto_id: i64 = test().cwd(dirs.test()).run(format!(
+            "{SAVE_PNG}; tui image img.png | tui debug | get values.image-0.image.id"
+        ))?;
+        assert!(auto_id > 0, "{auto_id}");
+
+        // Bytes work as the source too, and `describe` shows the options.
+        let from_bytes: String = test().cwd(dirs.test()).run(format!(
+            r#"{SAVE_PNG}; tui image (open --raw img.png) --image-fit crop | tui debug | $"($in.values.image-0.image.format) ($in.widgets.0.image_fit)""#
+        ))?;
+        assert_eq!(from_bytes, "png crop");
+        Ok(())
+    })
+}
+
+#[test]
+fn image_that_cannot_be_decoded_or_drawn_is_described_instead() -> Result {
+    Playground::setup("tui_image_notes", |dirs, _| {
+        let note: String = test().cwd(dirs.test()).run(
+            "0x[89504e470d0a1a0a00] | save -f bad.png; tui image bad.png | tui debug | get values.image-0.text",
+        )?;
+        assert_contains("cannot decode", &note);
+
+        let described: String = test().cwd(dirs.test()).run(format!(
+            r#"
+                {SAVE_PNG}
+                $env.config.tui.image_protocol = "none"
+                tui image img.png | tui debug | $"($in.values.image-0.text) ($in.values.image-0.image | describe)"
+            "#
+        ))?;
+        assert_eq!(described, "(image 8x4 png, 131 bytes) nothing");
+        Ok(())
+    })
+}
+
+#[test]
+fn scoped_binds_pass_the_key_on_when_the_hook_returns_nothing() -> Result {
+    Playground::setup("tui_bind_when", |dirs, _| {
+        // PgDn is bound only while the preview is focused. The hook returns
+        // nothing for `lines.txt`, so the pane's own paging still happens;
+        // it submits for anything else.
+        let out: String = test().cwd(dirs.test()).run(
+            r#"
+                1..60 | each { $"line ($in)" } | str join "
+" | save -f lines.txt
+                "other" | save -f other.txt
+                let app = {|| ls | tui split [(tui table --id files --columns [name]) (tui preview --id view)]
+                    | tui bind --when view pagedown {|s| if $s.values.files.row.name == "lines.txt" { null } else { {action: submit, selected: claimed} } } }
+                let paged = do $app | tui debug --size [60 14] --keys [tab pagedown] | $"($in.values.view.scroll) ($in.action)"
+                let claimed = do $app | tui debug --size [60 14] --keys [down tab pagedown] | get selected
+                let unfocused = do $app | tui debug --size [60 14] --keys [down pagedown] | $"($in.action) ($in.selected.name)"
+                $"($paged) | ($claimed) | ($unfocused)"
+            "#,
+        )?;
+        // 12 inner rows paged once; claimed when focused on other.txt; and
+        // with the table focused the bind is dormant, so PgDn moves the table.
+        assert_eq!(out, "12 render | claimed | render other.txt");
+        Ok(())
+    })
+}
+
+#[test]
+fn context_is_shared_by_hooks_and_split_per_view() -> Result {
+    // `tui context` merges into the `tui` value; hooks read it as
+    // `$state.context` and write it with an id-less `context` action.
+    let seeded: String = test().run(
+        "tui table | tui context {dir: /a, n: 0} | tui context {n: 1} | get context | to nuon",
+    )?;
+    assert_eq!(seeded, "{dir: /a, n: 1}");
+    let counted: String = test().run(
+        "[1 2] | tui table | tui context {n: 0}
+            | tui bind x {|s| {action: context, value: {n: ($s.context.n + 1)}} }
+            | tui debug --keys [x x x] | get context.n | into string",
+    )?;
+    assert_eq!(counted, "3");
+
+    Playground::setup("tui_context_views", |dirs, _| {
+        // A preview's closure sees the shared keys under its own `views`
+        // part, which `--on-change` starts for the new file (`values.view.row`).
+        // It runs again for a change to either, not for a write to another
+        // widget's part; an unknown id is a hook error.
+        let out: String = test().cwd(dirs.test()).run(
+            r#"
+                "x" | save -f a.txt
+                ls a.txt
+                | tui split [(tui table --id files --columns [name]) (tui preview --id view --on-change {|s| {page: 1, file: $s.values.view.row.name} } {|row, ctx| "." | save --append runs.txt; $"w($ctx.width) p($ctx.page)" })]
+                | tui label --status "demo"
+                | tui context {width: 10}
+                | tui bind w {|| {action: context, value: {width: 20}} }
+                | tui bind p {|| {action: context, id: view, value: {page: 2}} }
+                | tui bind o {|| {action: context, id: files, value: {x: 1}} }
+                | tui bind n {|| {action: context, id: nope, value: {x: 1}} }
+                | tui debug --size [60 8] --keys [o w p n]
+                | $"($in.values.view.text) | ($in.context | to nuon) | ($in.values.view.context | to nuon) | (open runs.txt) | ($in.screen | lines | last)"
+            "#,
+        )?;
+        assert_contains(
+            "w20 p2 | {width: 20, views: {view: {page: 2, file: \"a.txt\"}, files: {x: 1}}} | {width: 20, page: 2, file: \"a.txt\"} | ... |",
+            &out,
+        );
+        assert_contains("`nope` is not a widget", &out);
+        Ok(())
+    })
+}
+
+#[test]
+fn hook_actions_change_one_widget() -> Result {
+    Playground::setup("tui_hook_actions", |dirs, _| {
+        // `context` merges into `$ctx` and re-runs the closure; `--on-change`
+        // seeds it per file, and its `hint` is the status hint.
+        let paged: String = test().cwd(dirs.test()).run(
+            r#"
+                "x" | save -f a.pdf
+                ls a.pdf
+                | tui split [(tui table --columns [name]) (tui preview --id view --on-change {|| {page: 1, hint: "pgdn: page"} } {|row, ctx| $"($row.name) page ($ctx.page)" })]
+                | tui label --status "demo"
+                | tui bind --when view pagedown {|s| {action: context, id: view, value: {page: ($s.values.view.context.page + 1)}} }
+                | tui debug --size [60 10] --keys [tab pagedown pagedown]
+                | $"($in.values.view.text) | ($in.values.view.context | to nuon) | ($in.screen | lines | last)"
+            "#,
+        )?;
+        assert_contains("a.pdf page 3 | {page: 3, hint: \"pgdn: page\"} |", &paged);
+        assert_contains("pgdn: page", &paged);
+
+        // `scroll` moves the text, negative from the end; `resize` and
+        // `focus` as a list apply in order.
+        let moved: String = test().cwd(dirs.test()).run(
+            r#"
+                1..60 | each { $"line ($in)" } | str join "
+" | save -f lines.txt
+                ls lines.txt
+                | tui split --id layout --sizes [50% 1fr] [(tui table --id files --columns [name]) (tui preview --id view)]
+                | tui bind g {|| {action: scroll, id: view, line: 40} }
+                | tui bind shift+g {|| {action: scroll, id: view, line: -1} }
+                | tui bind f {|| [{action: resize, id: layout, sizes: [0 1fr]} {action: focus, id: view}] }
+                | tui debug --size [60 14] --keys [g]
+                | $"($in.values.view.scroll)"
+            "#,
+        )?;
+        assert_eq!(moved, "40");
+        let end: String = test().cwd(dirs.test()).run(
+            r#"
+                ls lines.txt
+                | tui split --id layout --sizes [50% 1fr] [(tui table --id files --columns [name]) (tui preview --id view)]
+                | tui bind shift+g {|| {action: scroll, id: view, line: -1} }
+                | tui bind f {|| [{action: resize, id: layout, sizes: [0 1fr]} {action: focus, id: view}] }
+                | tui debug --size [60 14] --keys [shift+g f]
+                | $"($in.values.view.scroll) ($in.values.layout | to nuon) ($in.focused)"
+            "#,
+        )?;
+        // 60 lines in 12 inner rows: the last page starts at 48.
+        assert_eq!(end, "48 [0, \"1fr\"] view");
+        Ok(())
+    })
+}
+
+#[test]
+fn preview_threads_gives_the_same_result_from_a_thread() -> Result {
+    Playground::setup("tui_preview_threads", |dirs, _| {
+        // Headless runs wait for every job, so the thread is invisible
+        // except in the result: a file read, a transform, and a closure
+        // that returns image bytes all match their synchronous twins.
+        let both: String = test().cwd(dirs.test()).run(format!(
+            r#"
+                {SAVE_PNG}
+                "hello" | save -f notes.txt
+                let app = {{|flags| ls notes.txt | tui split [(tui table --columns [name]) (tui preview --id v ...$flags {{ str upcase }})] | tui debug --size [60 8] | get values.v.text }}
+                let img = {{|flags| ls img.png | tui split [(tui table --columns [name]) (tui preview --id v ...$flags {{|row| open --raw $row.name }})] | tui debug --size [60 8] | get values.v.image | $"($in.width)x($in.height) ($in.format)" }}
+                $"(do $app {{}}) (do $app {{threads: true}}) (do $img {{}}) (do $img {{threads: true}})"
+            "#
+        ))?;
+        assert_eq!(both, "HELLO HELLO 8x4 png 8x4 png");
+        Ok(())
+    })
+}
+
+#[test]
+fn focused_preview_scrolls_text_and_zooms_images() -> Result {
+    Playground::setup("tui_preview_keys", |dirs, _| {
+        // 60 lines in a 10-row pane: Tab to the preview, PageDown once.
+        let screen: String = test().cwd(dirs.test()).run(
+            r#"
+                1..60 | each { $"line ($in)" } | str join "\n" | save -f lines.txt
+                ls lines.txt
+                | tui split [(tui table --columns [name]) (tui preview)]
+                | tui label --status "demo"
+                | tui debug --size [60 14] --keys [tab pagedown]
+                | $"($in.focused)\n($in.screen)"
+            "#,
+        )?;
+        assert_contains("preview-0\n", &screen);
+        assert_contains("pgdn:scroll", &screen);
+        assert_contains("line 15", &screen);
+        assert!(!screen.contains("line 1 "), "{screen}");
+
+        // Up at the top stays at the top rather than counting from the end.
+        let top: i64 = test().cwd(dirs.test()).run(
+            "
+                ls lines.txt
+                | tui split [(tui table --columns [name]) (tui preview --id view)]
+                | tui debug --size [60 14] --keys [tab down up up pageup]
+                | get values.view.scroll
+            ",
+        )?;
+        assert_eq!(top, 0);
+
+        // `=` zooms in by 1.25 twice; `0` goes back to the first view.
+        let zoomed: String = test().cwd(dirs.test()).run(format!(
+            r#"
+                {SAVE_PNG}
+                tui image img.png --focus
+                | tui debug --size [60 12] --keys [= =]
+                | get values.image-0.image
+                | $"($in.columns)x($in.rows) ($in.zoom)"
+            "#
+        ))?;
+        assert_eq!(zoomed, "2x1 1.5625");
+        let reset: f64 = test().cwd(dirs.test()).run(format!(
+            "{SAVE_PNG}; tui image img.png --focus | tui debug --keys [= = 0] | get values.image-0.image.zoom"
+        ))?;
+        assert_eq!(reset, 1.0);
+        // `i` switches the resampling; `0` resets the zoom but keeps it.
+        let filters: String = test().cwd(dirs.test()).run(format!(
+            r#"{SAVE_PNG}; [[] [i] [i i] [i "0"]] | each {{|keys| tui image img.png --focus | tui debug --keys $keys | get values.image-0.image.filter }} | str join ','"#
+        ))?;
+        assert_eq!(filters, "linear,nearest,linear,nearest");
+        Ok(())
+    })
+}
+
+#[test]
+fn bind_sequences_wait_for_their_second_key() -> Result {
+    // `m` alone shows the panel; `m s` runs the hook; a key that continues
+    // nothing ends the sequence and goes nowhere itself.
+    let run = |keys: &str| -> Result<String> {
+        test().run(format!(
+            r#"
+                [{{a: 1, b: 2}}]
+                | tui table --id t --columns [a]
+                | tui label --status "demo"
+                | tui bind "m b" --label "show b" {{|| {{action: columns, id: t, columns: [b]}} }}
+                | tui bind "m a" --label "show a" {{|| {{action: columns, id: t, columns: [a]}} }}
+                | tui bind x {{|| {{action: quit}} }}
+                | tui debug --size [40 10] --keys [{keys}]
+                | $"($in.action) ($in.widgets.0.resolved_columns | str join ',')\n($in.screen)"
+            "#
+        ))
+    };
+    let pending = run("m")?;
+    assert_contains("a → show a", &pending);
+    assert_contains("b → show b", &pending);
+    assert_contains("render a\n", &pending);
+    let done = run("m b")?;
+    assert_contains("render b\n", &done);
+    assert!(!done.contains("show b"), "{done}");
+    // `x` after `m` is swallowed with the sequence; the next `x` quits.
+    assert_contains("render a\n", &run("m x")?);
+    assert_contains("quit a\n", &run("m x x")?);
+    Ok(())
+}
+
+#[test]
+fn a_suspended_hook_gets_its_area_and_its_result_is_applied() -> Result {
+    // Headless there is no terminal to lend, but the hook still runs with
+    // the area of the widget it named, and its result lands as usual.
+    let out: String = test().run(
+        r#"
+            [{a: 1}]
+            | tui table --id t
+            | tui bind z {|| {action: suspend, area: t, hook: {|s| [{a: ($"($s.area | reject screen | values | str join x) of ($s.area.screen.width)")}] }} }
+            | tui bind q {|| {action: suspend, hook: {|s| {action: submit, selected: ($s | get -o area | describe)} }} }
+            | tui bind e {|| {action: suspend, area: nope, hook: {|| [] }} }
+            | tui debug --size [30 6] --keys [z] | get values.t.row.a
+        "#,
+    )?;
+    assert_eq!(out, "0x0x30x6 of 30");
+    let plain: String = test().run(
+        "
+            [{a: 1}] | tui table --id t
+            | tui bind q {|| {action: suspend, hook: {|s| {action: submit, selected: ($s | get -o area | describe)} }} }
+            | tui debug --keys [q] | get selected
+        ",
+    )?;
+    assert_eq!(plain, "nothing");
+    let bad: String = test().run(
+        r#"
+            [{a: 1}] | tui table --id t | tui label --status "demo"
+            | tui bind e {|| {action: suspend, area: nope, hook: {|| [] }} }
+            | tui debug --keys [e] | get screen
+        "#,
+    )?;
+    assert_contains("`nope` is not a widget on screen", &bad);
+    Ok(())
+}
+
+#[test]
+fn a_hook_can_replace_the_rows_and_pick_the_highlight_together() -> Result {
+    let picked: i64 = test().run(
+        "
+            [{a: 1}] | tui table --id t
+            | tui bind b {|| [{action: data, value: [{a: 1} {a: 2} {a: 3}]} {action: select, id: t, index: 2}] }
+            | tui bind c {|| {action: select, id: t, index: 99} }
+            | tui debug --keys [b] | get values.t.row.a
+        ",
+    )?;
+    assert_eq!(picked, 3);
+    // Past the end lands on the last row.
+    let clamped: i64 = test().run(
+        "
+            [{a: 1} {a: 2}] | tui table --id t
+            | tui bind c {|| {action: select, id: t, index: 99} }
+            | tui debug --keys [c] | get values.t.row.a
+        ",
+    )?;
+    assert_eq!(clamped, 2);
+    Ok(())
+}
+
+#[test]
+fn icons_go_before_path_cells_and_color_names_a_column_of_bare_names() -> Result {
+    Playground::setup("tui_table_icons", |dirs, _| {
+        // `--icons` draws devicons' icon before a path cell, the one
+        // `table --icons` draws: a file's by its name, a directory's for
+        // one on disk. With `--color`, a column of bare names gets the
+        // same, looked up through the row's full `name`.
+        let rust = devicons::icon_for_file(std::path::Path::new("main.rs"), &None).icon;
+        let folder = devicons::icon_for_file(&dirs.test().join("sub"), &None).icon;
+        assert_ne!(rust, folder);
+        let screen: String = test().cwd(dirs.test()).run(
+            "
+                mkdir sub; 'fn main() {}' | save -f main.rs
+                ls
+                | insert file { $in.name | path basename }
+                | tui table --columns [file] --icons --color file
+                | tui debug --size [30 6]
+                | get screen
+            ",
+        )?;
+        assert_contains(format!("{rust} main.rs"), &screen);
+        assert_contains(format!("{folder} sub"), &screen);
+
+        // Without `--icons` the names are bare, and a column that is not a
+        // path keeps its text as it is.
+        let plain: String = test().cwd(dirs.test()).run(
+            "
+                ls | insert file { $in.name | path basename }
+                | tui table --columns [file]
+                | tui debug --size [30 6] | get screen
+            ",
+        )?;
+        assert!(!plain.contains(rust), "{plain}");
+        assert_contains("main.rs", &plain);
+        Ok(())
+    })
+}
+
+#[cfg(unix)]
+#[test]
+fn file_styles_rules_look_at_the_file_on_disk_and_set_its_icon() -> Result {
+    Playground::setup("tui_file_styles", |dirs, _| {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let root = dirs.test();
+        std::fs::create_dir(root.join("sub"))?;
+        for name in ["a.nu", "run.sh", "b.txt"] {
+            std::fs::write(root.join(name), "x")?;
+        }
+        std::fs::set_permissions(root.join("run.sh"), PermissionsExt::from_mode(0o755))?;
+        std::fs::set_permissions(root.join("a.nu"), PermissionsExt::from_mode(0o644))?;
+        std::fs::set_permissions(root.join("b.txt"), PermissionsExt::from_mode(0o644))?;
+        // A link to a directory is a symlink, not a directory.
+        symlink("sub", root.join("link"))?;
+        symlink("missing", root.join("gone"))?;
+        let screen: String = test().cwd(root).run(
+            r#"
+                ls
+                | tui table --columns [name] --icons
+                | tui theme {file_styles: [
+                    {kind: orphan, icon: "O"}
+                    {kind: symlink, icon: "L"}
+                    {kind: dir, icon: "D"}
+                    {mode: "??x*", icon: "X"}
+                    {ext: NU, icon: "N"}
+                ]}
+                | tui debug --size [30 10]
+                | get screen
+            "#,
+        )?;
+        for cell in ["O gone", "L link", "D sub", "X run.sh", "N a.nu"] {
+            assert_contains(cell, &screen);
+        }
+        // No rule matches: devicons' own glyph.
+        let text = devicons::icon_for_file(std::path::Path::new("b.txt"), &None).icon;
+        assert_contains(format!("{text} b.txt"), &screen);
+        Ok(())
+    })
+}
+
+#[test]
+fn delete_image_writes_to_the_terminal_and_returns_nothing() -> Result {
+    // The sequence goes straight to stdout (`image::tests` checks its
+    // bytes); the pipeline itself carries nothing.
+    let out: String = test().run("tui delete-image 7 | describe")?;
+    assert_eq!(out, "nothing");
     Ok(())
 }

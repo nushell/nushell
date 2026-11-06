@@ -3,26 +3,224 @@
 //! Every color slot is a `color_config`-style value (a color name, `#RRGGBB`,
 //! or `{fg, bg, attr}`); see `default_tui` in nu-protocol for the defaults.
 //! `border_type` names the `table --theme` whose outline borders draw.
-//! Table cells follow `color_config` per value type and `LS_COLORS` for path
-//! columns, through the converters shared with `explore`.
+//! Table cells follow `color_config` per value type, through the converters
+//! shared with `explore`. Path cells follow `file_styles`, an ordered list of
+//! rules on the kind of file, its mime type, extension, and mode, not
+//! `LS_COLORS`, whose default theme paints some names on a background.
 
-use lscolors::LsColors;
-use nu_color_config::{StyleComputer, get_color_map};
-use nu_explore::style::{
-    get_path_style, nu_ansi_color_to_tui_color, nu_style_to_tui, text_style_to_tui_style,
+use nu_color_config::{
+    StyleComputer, color_record_to_nustyle, get_color_map, lookup_ansi_color_style,
 };
+use nu_explore::style::{nu_ansi_color_to_tui_color, nu_style_to_tui, text_style_to_tui_style};
+use nu_glob::Pattern;
 use nu_protocol::{
-    ShellError, TableMode, Value,
+    Config, ShellError, TableMode, Value,
     engine::{EngineState, Stack},
     shell_error::generic::GenericError,
 };
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::border;
-use std::path::Path;
+use std::collections::HashMap;
+use std::ops::RangeInclusive;
+use std::sync::{Arc, LazyLock};
+use unicode_width::UnicodeWidthStr;
 
 /// The border of widgets without their own `--border` when
 /// `$env.config.tui.border_type` is unset: the plain ratatui lines.
 const DEFAULT_BORDER: TableMode = TableMode::Single;
+
+/// The color slots `$env.config.tui` and `tui theme` take, and the two
+/// fills.
+pub const COLOR_SLOTS: [&str; 14] = [
+    "title_bar",
+    "status_bar",
+    "border",
+    "border_focused",
+    "selected",
+    "header",
+    "muted",
+    "highlight",
+    "tab_active",
+    "tab_inactive",
+    "progress",
+    "button",
+    "surface",
+    "backdrop",
+];
+
+/// The glyph slots: strings, or `{open, close}` and `{on, off}` records.
+/// See [`Glyphs`].
+pub const GLYPH_SLOTS: [&str; 9] = [
+    "title_caps",
+    "status_caps",
+    "tab_caps",
+    "selected_caps",
+    "check",
+    "radio",
+    "tree_open",
+    "tree_closed",
+    "progress_fill",
+];
+
+/// Every key `$env.config.tui` and `tui theme` take.
+pub fn is_slot(name: &str) -> bool {
+    matches!(name, "border_type" | "file_styles")
+        || COLOR_SLOTS.contains(&name)
+        || GLYPH_SLOTS.contains(&name)
+}
+
+/// Two glyphs round a run of text, as `{open: "\u{e0b6}", close:
+/// "\u{e0b4}"}` (powerline's half circles): each is one cell, or empty
+/// for no cap on that side.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Caps {
+    pub open: String,
+    pub close: String,
+}
+
+/// The two faces of a mark, as `{on: "[x]", off: "[ ]"}`, of one width
+/// so rows line up.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mark {
+    pub on: String,
+    pub off: String,
+}
+
+impl Mark {
+    pub fn get(&self, on: bool) -> &str {
+        if on { &self.on } else { &self.off }
+    }
+
+    /// Cells the mark takes.
+    pub fn width(&self) -> usize {
+        self.on.width()
+    }
+}
+
+/// The glyphs widgets draw, from the string slots of `$env.config.tui`.
+/// Plain by default; a theme can give the bars powerline caps, a tree
+/// chevrons, a gauge another fill.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Glyphs {
+    /// `title_caps`: round the title bar's text, which then no longer
+    /// fills the bar: a pill, as yazi's mode.
+    pub title_caps: Option<Caps>,
+    /// `status_caps`: round each segment of the status bar.
+    pub status_caps: Option<Caps>,
+    /// `tab_caps`: round each tab's title.
+    pub tab_caps: Caps,
+    /// `selected_caps`: in a cell kept free at each side of a table,
+    /// select, or tree, beside the highlighted row.
+    pub selected_caps: Option<Caps>,
+    /// `check`: a `--multi` row's mark.
+    pub check: Mark,
+    /// `radio`: a `tui select` row's mark.
+    pub radio: Mark,
+    /// `tree_open`, `tree_closed`: before a tree node with children.
+    pub tree_open: String,
+    pub tree_closed: String,
+    /// `progress_fill`: a gauge's bar, in the progress color as far as
+    /// the value reaches and muted beyond.
+    pub progress_fill: String,
+}
+
+impl Default for Glyphs {
+    fn default() -> Self {
+        Self {
+            title_caps: None,
+            status_caps: None,
+            tab_caps: Caps {
+                open: String::new(),
+                close: String::new(),
+            },
+            selected_caps: None,
+            check: Mark {
+                on: "[x]".into(),
+                off: "[ ]".into(),
+            },
+            radio: Mark {
+                on: "(•)".into(),
+                off: "( )".into(),
+            },
+            tree_open: "▾".into(),
+            tree_closed: "▸".into(),
+            progress_fill: "█".into(),
+        }
+    }
+}
+
+impl Glyphs {
+    /// Set the slot `name` from a config value. The error says what the
+    /// slot takes; a name that is not a glyph slot changes nothing.
+    pub fn apply(&mut self, name: &str, value: &Value) -> Result<(), ShellError> {
+        match name {
+            "title_caps" => self.title_caps = Some(caps(value)?),
+            "status_caps" => self.status_caps = Some(caps(value)?),
+            "tab_caps" => self.tab_caps = caps(value)?,
+            "selected_caps" => self.selected_caps = Some(caps(value)?),
+            "check" => self.check = mark(value)?,
+            "radio" => self.radio = mark(value)?,
+            "tree_open" => self.tree_open = glyph(value, 1..=2)?,
+            "tree_closed" => self.tree_closed = glyph(value, 1..=2)?,
+            "progress_fill" => self.progress_fill = glyph(value, 1..=1)?,
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+/// A string `width` cells wide.
+fn glyph(value: &Value, width: RangeInclusive<usize>) -> Result<String, ShellError> {
+    let text = value.as_str()?;
+    if !width.contains(&text.width()) {
+        return Err(ShellError::InvalidValue {
+            valid: match (width.start(), width.end()) {
+                (lo, hi) if lo == hi => format!("{lo} cell wide"),
+                (lo, hi) => format!("{lo} to {hi} cells wide"),
+            },
+            actual: text.to_string(),
+            span: value.span(),
+        });
+    }
+    Ok(text.to_string())
+}
+
+/// A record of two glyphs under `keys`.
+fn pair(
+    value: &Value,
+    keys: [&str; 2],
+    width: RangeInclusive<usize>,
+) -> Result<(String, String), ShellError> {
+    let rec = value.as_record()?;
+    let get = |key: &str| {
+        let Some(glyph_value) = rec.get(key) else {
+            return Err(ShellError::Generic(GenericError::new(
+                format!("`{key}` is missing"),
+                format!("a record of {{{}, {}}}", keys[0], keys[1]),
+                value.span(),
+            )));
+        };
+        glyph(glyph_value, width.clone())
+    };
+    Ok((get(keys[0])?, get(keys[1])?))
+}
+
+fn caps(value: &Value) -> Result<Caps, ShellError> {
+    let (open, close) = pair(value, ["open", "close"], 0..=1)?;
+    Ok(Caps { open, close })
+}
+
+fn mark(value: &Value) -> Result<Mark, ShellError> {
+    let (on, off) = pair(value, ["on", "off"], 1..=4)?;
+    if on.width() != off.width() {
+        return Err(ShellError::InvalidValue {
+            valid: "`on` and `off` of one width".into(),
+            actual: format!("{on:?} and {off:?}"),
+            span: value.span(),
+        });
+    }
+    Ok(Mark { on, off })
+}
 
 /// Read a `--border` flag: one of [`TableMode::tui_border_names`].
 /// `$env.config.tui.border_type` is checked the same way when it is set.
@@ -130,9 +328,14 @@ pub struct Theme {
     tab_inactive: Style,
     progress: Style,
     button: Style,
+    /// `file_styles`: how path cells look, the first matching rule winning.
+    /// Shared, since the theme is cloned for every frame.
+    file_styles: Arc<[FileStyle]>,
     /// `$env.config.tui.border_type`: the border of widgets without their
     /// own `--border`.
     border_type: TableMode,
+    /// The glyph slots.
+    pub glyphs: Glyphs,
 }
 
 impl Default for Theme {
@@ -162,9 +365,156 @@ impl Default for Theme {
             tab_inactive: Style::default().fg(Color::DarkGray),
             progress: Style::default().fg(Color::Green),
             button: Style::default().fg(Color::White).bg(Color::Blue),
+            file_styles: default_file_styles(),
             border_type: DEFAULT_BORDER,
+            glyphs: Glyphs::default(),
         }
     }
+}
+
+/// What a path cell's file is on disk. A symlink is not followed for this:
+/// one that resolves is [`Symlink`](Self::Symlink), whatever it points at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileKind {
+    Dir,
+    File,
+    Symlink,
+    /// A symlink whose target is gone.
+    Orphan,
+}
+
+impl FileKind {
+    const NAMES: [&str; 4] = ["dir", "file", "symlink", "orphan"];
+
+    fn parse(name: &str) -> Option<Self> {
+        match name {
+            "dir" => Some(Self::Dir),
+            "file" => Some(Self::File),
+            "symlink" => Some(Self::Symlink),
+            "orphan" => Some(Self::Orphan),
+            _ => None,
+        }
+    }
+}
+
+/// What a `file_styles` rule can look at. A field that is `None` (a
+/// directory's mime type, a mode on Windows) matches no rule that asks for it.
+#[derive(Debug)]
+pub struct FileFacts<'a> {
+    pub kind: FileKind,
+    pub mime: Option<&'a str>,
+    /// The extension, lowercased.
+    pub ext: Option<String>,
+    /// As `ls -l` shows it: `rwxr-xr-x`.
+    pub mode: Option<String>,
+}
+
+/// One rule of `$env.config.tui.file_styles`: what a file must be, all of it,
+/// and how it then looks. The first rule a file matches is the one it gets.
+#[derive(Debug, Default)]
+pub struct FileStyle {
+    kind: Option<FileKind>,
+    mime_types: Vec<Pattern>,
+    exts: Vec<String>,
+    modes: Vec<Pattern>,
+    style: Style,
+    icon: Option<String>,
+}
+
+impl FileStyle {
+    fn parse(value: &Value) -> Result<Self, ShellError> {
+        let mut rule = Self {
+            style: config_style(color_record_to_nustyle(value)),
+            ..Self::default()
+        };
+        for (field, value) in value.as_record()? {
+            match field.as_str() {
+                "kind" => {
+                    let name = value.as_str()?;
+                    rule.kind =
+                        Some(
+                            FileKind::parse(name).ok_or_else(|| ShellError::InvalidValue {
+                                valid: format!("one of {}", FileKind::NAMES.join(", ")),
+                                actual: name.into(),
+                                span: value.span(),
+                            })?,
+                        );
+                }
+                "mime_type" => rule.mime_types = patterns(value)?,
+                "mode" => rule.modes = patterns(value)?,
+                "ext" => {
+                    rule.exts = strings(value)?.into_iter().map(str::to_lowercase).collect();
+                }
+                "icon" => rule.icon = Some(value.as_str()?.to_string()),
+                "fg" | "bg" | "attr" => {}
+                _ => {
+                    return Err(ShellError::InvalidValue {
+                        valid: "one of kind, mime_type, ext, mode, fg, bg, attr, icon".into(),
+                        actual: field.clone(),
+                        span: value.span(),
+                    });
+                }
+            }
+        }
+        Ok(rule)
+    }
+
+    fn matches(&self, file: &FileFacts) -> bool {
+        let glob = |patterns: &[Pattern], text: Option<&str>| {
+            patterns.is_empty() || text.is_some_and(|text| patterns.iter().any(|p| p.matches(text)))
+        };
+        self.kind.is_none_or(|kind| kind == file.kind)
+            && glob(&self.mime_types, file.mime)
+            && glob(&self.modes, file.mode.as_deref())
+            && (self.exts.is_empty()
+                || file.ext.as_ref().is_some_and(|ext| self.exts.contains(ext)))
+    }
+
+    /// The glyph that replaces `devicons`' under `--icons`.
+    pub fn icon(&self) -> Option<&str> {
+        self.icon.as_deref()
+    }
+}
+
+/// A field that takes one string or a list of them.
+fn strings(value: &Value) -> Result<Vec<&str>, ShellError> {
+    match value {
+        Value::List { vals, .. } => vals.iter().map(Value::as_str).collect(),
+        other => Ok(vec![other.as_str()?]),
+    }
+}
+
+/// A field that takes one glob or a list of them.
+fn patterns(value: &Value) -> Result<Vec<Pattern>, ShellError> {
+    strings(value)?
+        .into_iter()
+        .map(|glob| {
+            Pattern::new(glob).map_err(|err| ShellError::InvalidValue {
+                valid: format!("a glob ({err})"),
+                actual: glob.into(),
+                span: value.span(),
+            })
+        })
+        .collect()
+}
+
+/// Read a `file_styles` list, as `tui theme` and `Theme::from_config` do.
+pub fn parse_file_styles(value: &Value) -> Result<Vec<FileStyle>, ShellError> {
+    value.as_list()?.iter().map(FileStyle::parse).collect()
+}
+
+/// The rules in `default_tui`, read once: the theme is built with them
+/// before any config applies.
+fn default_file_styles() -> Arc<[FileStyle]> {
+    static DEFAULT: LazyLock<Arc<[FileStyle]>> = LazyLock::new(|| {
+        Config::default()
+            .tui
+            .get("file_styles")
+            .and_then(|value| parse_file_styles(value).ok())
+            .unwrap_or_default()
+            .into()
+    });
+    DEFAULT.clone()
 }
 
 impl Theme {
@@ -186,29 +536,57 @@ impl Theme {
             tab_inactive: Style::default(),
             progress: Style::default(),
             button: Style::default().add_modifier(Modifier::REVERSED),
+            file_styles: default_file_styles(),
             border_type: DEFAULT_BORDER,
+            glyphs: Glyphs::default(),
         }
     }
 
-    /// Read `$env.config.tui`. Slots missing from the config, or holding a
-    /// value that is not a color or border, keep the built-in default.
-    pub fn from_config(engine_state: &EngineState, stack: &Stack) -> Self {
+    /// Read `$env.config.tui`, with `overrides` (from `tui theme`) on top.
+    /// Slots missing from both, or holding a value that is not a color or
+    /// border, keep the built-in default.
+    pub fn from_config(
+        engine_state: &EngineState,
+        stack: &Stack,
+        overrides: &HashMap<String, Value>,
+    ) -> Self {
         let config = stack.get_config(engine_state);
-        let border_type = config
-            .tui
+        let mut tui = config.tui.clone();
+        tui.extend(overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let border_type = tui
             .get("border_type")
             .and_then(|value| value.as_str().ok())
             .and_then(TableMode::from_tui_border)
             .unwrap_or(DEFAULT_BORDER);
-        if !config.use_ansi_coloring.get(engine_state) {
+        // Bad rules keep the default list, as a bad color does. `tui theme`
+        // reports them; a plain theme still takes the rules' icons.
+        let file_styles = tui
+            .get("file_styles")
+            .and_then(|value| parse_file_styles(value).ok())
+            .map_or_else(default_file_styles, Into::into);
+        let mut glyphs = Glyphs::default();
+        for name in GLYPH_SLOTS {
+            if let Some(value) = tui.get(name) {
+                // A bad glyph keeps the default, as a bad color does.
+                let _ = glyphs.apply(name, value);
+            }
+        }
+        // Colors follow the terminal the TUI draws on, which is not stdout
+        // when that is a pipe (`nu browse.nu | get name`).
+        let is_terminal = crate::runtime::Tty::open().is_terminal();
+        if !config.use_ansi_coloring.get_for(engine_state, is_terminal) {
             return Self {
                 border_type,
+                file_styles,
+                glyphs,
                 ..Self::plain()
             };
         }
-        let colors = get_color_map(&config.tui);
+        let colors = get_color_map(&tui);
         let mut theme = Self {
             border_type,
+            file_styles,
+            glyphs,
             ..Self::default()
         };
         let slot = |name: &str, target: &mut Style| {
@@ -232,7 +610,7 @@ impl Theme {
         // (`surface: default`), which parses as a foreground.
         let fill = |name: &str, target: &mut Color| {
             let style = colors.get(name);
-            let color = match config.tui.get(name) {
+            let color = match tui.get(name) {
                 Some(Value::String { .. }) => style.and_then(|s| s.foreground),
                 _ => style.and_then(|s| s.background),
             };
@@ -293,6 +671,18 @@ impl Theme {
         self.selected
     }
 
+    /// The style of a cap glyph beside text drawn in `inner`: the glyph
+    /// takes the text's fill color on the surface, so the run ends in the
+    /// glyph's shape. Reverse video fills with the foreground; text with
+    /// no background of its own (only the surface) gets caps in its
+    /// foreground, shapes beside it rather than round it.
+    pub fn cap_style(&self, inner: Style) -> Style {
+        let reversed = inner.add_modifier.contains(Modifier::REVERSED);
+        let bg = inner.bg.filter(|bg| *bg != self.surface);
+        let fill = if reversed { inner.fg } else { bg.or(inner.fg) };
+        self.on_surface(Style::default().fg(fill.unwrap_or(Color::Reset)))
+    }
+
     pub fn text(&self) -> Style {
         self.surface()
     }
@@ -339,16 +729,34 @@ impl Theme {
         self.on_surface(text_style_to_tui_style(computer.style_primitive(value)))
     }
 
-    /// Style a filesystem path with `LS_COLORS`. Regular files with `fi=0`
-    /// get no foreground, the same rule `table` and `explore` use.
-    pub fn path_cell(&self, path: &str, cwd: &Path, ls_colors: &LsColors) -> Style {
+    /// The first `file_styles` rule the file matches.
+    pub fn file_style(&self, file: &FileFacts) -> Option<&FileStyle> {
+        self.file_styles.iter().find(|rule| rule.matches(file))
+    }
+
+    /// Style a path cell by its rule. A file no rule matches is plain text.
+    pub fn path_cell(&self, rule: Option<&FileStyle>) -> Style {
+        match rule {
+            Some(rule) if self.colored => self.on_surface(rule.style),
+            _ => self.text(),
+        }
+    }
+
+    /// Style for a rule's own icon: the rule's `fg`, else `color`, the
+    /// `#rrggbb` devicons gives the file.
+    pub fn rule_icon(&self, rule: &FileStyle, color: &str) -> Style {
+        match rule.style.fg {
+            Some(fg) if self.colored => self.on_surface(Style::default().fg(fg)),
+            _ => self.icon(color),
+        }
+    }
+
+    /// Style for a file icon, from the `#rrggbb` devicons gives it.
+    pub fn icon(&self, color: &str) -> Style {
         if !self.colored {
             return self.text();
         }
-        match get_path_style(path, &cwd.to_string_lossy(), ls_colors) {
-            Some(style) => self.on_surface(nu_style_to_tui(style)),
-            None => self.text(),
-        }
+        self.on_surface(nu_style_to_tui(lookup_ansi_color_style(color)))
     }
 }
 
@@ -357,7 +765,6 @@ mod tests {
     use super::*;
     use nu_color_config::ComputableStyle;
     use nu_protocol::engine::{EngineState, Stack};
-    use nu_utils::get_ls_colors;
     use std::collections::HashMap;
 
     #[test]
@@ -382,12 +789,247 @@ mod tests {
         assert_eq!(s.fg, Some(Color::Red));
     }
 
-    #[test]
-    fn regular_file_with_fi_0_has_no_forced_foreground() {
-        let ls = get_ls_colors(Some("fi=0:di=0;38;5;81:ex=1;38;5;203".into()));
+    /// A regular file with this mime type.
+    fn file(mime: &str) -> FileFacts<'_> {
+        FileFacts {
+            kind: FileKind::File,
+            mime: Some(mime),
+            ext: None,
+            mode: Some("rw-r--r--".into()),
+        }
+    }
+
+    /// The `fg` of the rule the default list picks.
+    fn default_fg(file: &FileFacts) -> Option<Color> {
         let theme = Theme::default();
-        let style = theme.path_cell("no-such-file-for-style.txt", Path::new("/tmp"), &ls);
-        assert_eq!(style.fg, None);
+        theme.path_cell(theme.file_style(file)).fg
+    }
+
+    fn rules(nuon: &[Value]) -> Vec<FileStyle> {
+        parse_file_styles(&Value::test_list(nuon.to_vec())).expect("valid rules")
+    }
+
+    #[test]
+    fn default_rules_by_kind_mode_and_mime() {
+        let theme = Theme::default();
+        let of = |kind| FileFacts {
+            kind,
+            mime: None,
+            ext: None,
+            mode: None,
+        };
+        assert_eq!(default_fg(&of(FileKind::Dir)), Some(Color::Blue));
+        assert_eq!(default_fg(&of(FileKind::Symlink)), Some(Color::Cyan));
+        assert_eq!(
+            theme.path_cell(theme.file_style(&of(FileKind::Orphan))).bg,
+            Some(Color::Red)
+        );
+        let exec = FileFacts {
+            mode: Some("rwxr-xr-x".into()),
+            ..file("image/png")
+        };
+        assert_eq!(default_fg(&exec), Some(Color::Green));
+        // No rule: plain text on the surface.
+        assert_eq!(default_fg(&file("text/plain")), None);
+        assert_eq!(
+            theme.path_cell(theme.file_style(&file("text/plain"))).bg,
+            Some(theme.surface)
+        );
+        // A plain theme has no colors, whatever the rule.
+        let plain = Theme::plain();
+        assert_eq!(
+            plain.path_cell(plain.file_style(&of(FileKind::Dir))).fg,
+            None
+        );
+        for (mime, fg) in [
+            ("image/png", Some(Color::Yellow)),
+            ("audio/mpeg", Some(Color::Magenta)),
+            ("video/mp4", Some(Color::Magenta)),
+            ("application/zip", Some(Color::Red)),
+            ("application/x-tar", Some(Color::Red)),
+            ("application/x-7z-compressed", Some(Color::Red)),
+            ("application/vnd.rar", Some(Color::Red)),
+            ("application/gzip", Some(Color::Red)),
+            ("application/pdf", Some(Color::Cyan)),
+            ("application/msword", Some(Color::Cyan)),
+            ("application/json", None),
+            ("text/plain", None),
+        ] {
+            assert_eq!(default_fg(&file(mime)), fg, "{mime}");
+        }
+    }
+
+    #[test]
+    fn the_first_matching_rule_wins_and_every_field_must_match() {
+        use nu_protocol::record;
+        let s = Value::test_string;
+        let list = rules(&[
+            Value::test_record(record! {
+                "kind" => s("dir"), "ext" => s("nu"), "fg" => s("red"),
+            }),
+            Value::test_record(record! { "ext" => s("NU"), "fg" => s("green") }),
+            Value::test_record(record! {
+                "mime_type" => Value::test_list(vec![s("text/*"), s("image/*")]),
+                "fg" => s("blue"),
+            }),
+            Value::test_record(record! { "mode" => s("??x*"), "fg" => s("cyan") }),
+            Value::test_record(record! { "fg" => s("white") }),
+        ]);
+        let picked = |file: &FileFacts| {
+            let index = list.iter().position(|rule| rule.matches(file));
+            index.expect("the last rule matches anything")
+        };
+        let nu = FileFacts {
+            ext: Some("nu".into()),
+            ..file("text/plain")
+        };
+        assert_eq!(
+            picked(&nu),
+            1,
+            "file, so not the dir rule; ext ignores case"
+        );
+        assert_eq!(picked(&file("image/png")), 2);
+        let exec = FileFacts {
+            mode: Some("rwx------".into()),
+            ..file("application/json")
+        };
+        assert_eq!(picked(&exec), 3);
+        // A field the file lacks never matches a rule that asks for it.
+        let no_facts = FileFacts {
+            kind: FileKind::Dir,
+            mime: None,
+            ext: None,
+            mode: None,
+        };
+        assert_eq!(picked(&no_facts), 4);
+    }
+
+    #[test]
+    fn bad_rules_are_errors() {
+        use nu_protocol::record;
+        let s = Value::test_string;
+        for rule in [
+            Value::test_record(record! { "kind" => s("folder") }),
+            Value::test_record(record! { "extension" => s("nu") }),
+            Value::test_record(record! { "mime_type" => s("[") }),
+            Value::test_record(record! { "ext" => Value::test_int(1) }),
+            s("dir"),
+        ] {
+            assert!(
+                parse_file_styles(&Value::test_list(vec![rule.clone()])).is_err(),
+                "{rule:?}"
+            );
+        }
+        assert!(parse_file_styles(&s("dir")).is_err());
+    }
+
+    #[test]
+    fn tui_theme_overrides_go_over_the_config_slots() {
+        use nu_protocol::{Config, UseAnsiColoring, record};
+        let mut engine_state = EngineState::new();
+        // No terminal here; the test is about the slots, not `auto`.
+        engine_state.set_config(Config {
+            use_ansi_coloring: UseAnsiColoring::True,
+            ..Config::default()
+        });
+        let stack = Stack::new();
+        let overrides = HashMap::from([
+            (
+                "file_styles".to_string(),
+                Value::test_list(vec![Value::test_record(record! {
+                    "kind" => Value::test_string("dir"),
+                    "fg" => Value::test_string("red"),
+                })]),
+            ),
+            (
+                "selected".to_string(),
+                Value::test_record(record! { "bg" => Value::test_string("white") }),
+            ),
+        ]);
+        let theme = Theme::from_config(&engine_state, &stack, &overrides);
+        let dir = FileFacts {
+            kind: FileKind::Dir,
+            mime: None,
+            ext: None,
+            mode: None,
+        };
+        assert_eq!(theme.path_cell(theme.file_style(&dir)).fg, Some(Color::Red));
+        assert_eq!(theme.selected().bg, Some(Color::White));
+        // The list replaces the config's: its other rules are gone.
+        assert_eq!(theme.file_style(&file("image/png")).map(|_| ()), None);
+        // Untouched slots keep the config's value.
+        let config = Theme::from_config(&engine_state, &stack, &HashMap::new());
+        assert_eq!(
+            config.path_cell(config.file_style(&dir)).fg,
+            Some(Color::Blue)
+        );
+    }
+
+    #[test]
+    fn glyph_slots_take_shaped_values_and_refuse_odd_widths() {
+        use nu_protocol::record;
+        let pair = |a: &str, b: &str, x: &str, y: &str| {
+            Value::test_record(record! { a => Value::test_string(x), b => Value::test_string(y) })
+        };
+        let mut glyphs = Glyphs::default();
+        glyphs
+            .apply("tab_caps", &pair("open", "close", "\u{e0b6}", "\u{e0b4}"))
+            .expect("one-cell powerline caps");
+        assert_eq!(glyphs.tab_caps.open, "\u{e0b6}");
+        assert_eq!(glyphs.tab_caps.close, "\u{e0b4}");
+        glyphs
+            .apply("check", &pair("on", "off", "▍", " "))
+            .expect("marks of one width");
+        assert_eq!(glyphs.check.get(false), " ");
+        assert_eq!(glyphs.check.width(), 1);
+        glyphs
+            .apply("progress_fill", &Value::test_string("━"))
+            .expect("a one-cell fill");
+        assert!(
+            glyphs
+                .apply("check", &pair("on", "off", "x", "oo"))
+                .is_err()
+        );
+        assert!(
+            glyphs
+                .apply("progress_fill", &Value::test_string("ab"))
+                .is_err()
+        );
+        assert!(
+            glyphs
+                .apply("selected_caps", &pair("open", "close", "<<", ">"))
+                .is_err()
+        );
+        assert!(glyphs.apply("radio", &Value::test_string("x")).is_err());
+        assert!(
+            glyphs
+                .apply("radio", &pair("on", "close", "x", "y"))
+                .is_err()
+        );
+        // Nothing above changed what it refused.
+        assert_eq!(glyphs.check.on, "▍");
+        assert_eq!(glyphs.radio, Glyphs::default().radio);
+    }
+
+    #[test]
+    fn cap_style_takes_the_fill_of_the_text() {
+        let theme = Theme::default();
+        let solid = Style::default().fg(Color::Black).bg(Color::Blue);
+        assert_eq!(theme.cap_style(solid).fg, Some(Color::Blue));
+        assert_eq!(theme.cap_style(solid).bg, Some(theme.surface));
+        let reversed = Style::default()
+            .fg(Color::Red)
+            .add_modifier(Modifier::REVERSED);
+        assert_eq!(theme.cap_style(reversed).fg, Some(Color::Red));
+        assert!(
+            !theme
+                .cap_style(reversed)
+                .add_modifier
+                .contains(Modifier::REVERSED)
+        );
+        // On the surface alone, the foreground is all there is to match.
+        let on_surface = theme.on_surface(Style::default().fg(Color::Green));
+        assert_eq!(theme.cap_style(on_surface).fg, Some(Color::Green));
     }
 
     #[test]
@@ -472,7 +1114,7 @@ mod tests {
         );
         let mut engine_state = EngineState::new();
         engine_state.set_config(config);
-        let theme = Theme::from_config(&engine_state, &Stack::new());
+        let theme = Theme::from_config(&engine_state, &Stack::new(), &HashMap::new());
         assert!(theme.colored);
         assert_eq!(theme.surface, Color::Rgb(0x11, 0x22, 0x33));
         assert_eq!(theme.backdrop, Color::Rgb(0x44, 0x55, 0x66));

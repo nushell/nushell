@@ -16,6 +16,8 @@ pub fn add_tui_context(mut engine_state: EngineState) -> EngineState {
             TuiDebug,
             TuiBind,
             TuiLabel,
+            TuiTheme,
+            TuiContext,
             TuiMenu,
             TuiTextBox,
             TuiTable,
@@ -29,6 +31,8 @@ pub fn add_tui_context(mut engine_state: EngineState) -> EngineState {
             TuiSplit,
             TuiSearch,
             TuiPreview,
+            TuiImage,
+            TuiDeleteImage,
         };
         working_set.render()
     };
