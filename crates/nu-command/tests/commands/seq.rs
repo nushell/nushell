@@ -27,6 +27,20 @@ fn zero_increment_is_rejected(#[case] code: &str) -> Result {
     Ok(())
 }
 
+#[rstest]
+#[case("seq 0.0 0.1 1.0 NaN")]
+#[case("seq 0.0 0.1 NaN 1.0")]
+#[case("seq 0.0 0.1 NaN")]
+#[case("seq 0.0 NaN 1.0")]
+#[case("seq NaN 0.1 1.0")]
+#[case("seq inf 0.1 1.0")]
+fn non_finite_range_is_rejected(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "non-finite values are not accepted");
+    Ok(())
+}
+
 #[test]
 fn int_sequence_at_max_does_not_panic() -> Result {
     // Advancing past i64::MAX previously panicked with "attempt to add with
