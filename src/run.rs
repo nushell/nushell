@@ -269,6 +269,8 @@ pub(crate) fn run_lsp(
     if parsed_nu_cli_args.no_config_file.is_none() {
         let mut stack = nu_protocol::engine::Stack::new();
         config_files::setup_config(&mut engine_state, &mut stack, false);
+        // The server discards this stack and evaluates on new ones.
+        engine_state.clear_runtime_overlays();
     }
 
     engine_state.finish_startup();
