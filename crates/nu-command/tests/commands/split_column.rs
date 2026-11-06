@@ -152,14 +152,19 @@ fn split_column_duplicate_column_error() -> Result {
 #[case("1 2 3")]
 fn split_column_incorrect_column_name_amount(#[case] column_names: &str) -> Result {
     let code = format!("'a-b' | split column '-' {}", column_names);
-    let err = test().run(code).expect_shell_error()?;
-    match err {
-        ShellError::Generic(e) => {
-            assert_eq!(e.error, "Incorrect column amount");
-        }
-        err => panic!("expected ShellError, got {err:?}"),
-    }
-    Ok(())
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incompatible_parameters")
+}
+
+#[rstest]
+#[case("1")]
+#[case("1 2 3")]
+fn split_column_incorrect_column_name_amount_number(#[case] column_names: &str) -> Result {
+    let code = format!("'a-b-c' | split column --number 2 '-' {}", column_names);
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incompatible_parameters")
 }
 
 #[test]
