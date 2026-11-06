@@ -139,6 +139,7 @@ nuon = { path = "crates/nuon", version = "0.116.2", default-features = false }
 aegis-password-generator = "0.1.1"
 alphanumeric-sort = "1.5.8"
 ansi-str = "0.9"
+ansiopt = { version = "0.4.0", default-features = false }
 anyhow = "1.0.104"
 base64 = "0.23.1"
 better_default = "1.0.5"
@@ -149,7 +150,7 @@ byteorder = "1.5"
 bytes = "1.12.1"
 bytesize = "2.3.1"
 byteyarn = "0.5"
-calamine = "0.36.1"
+calamine = "0.38.0"
 chardetng = "1.0.0"
 chrono = { default-features = false, version = "0.4.45" }
 chrono-humanize = "0.2.3"
@@ -165,9 +166,8 @@ digest = { default-features = false, version = "0.11.3" }
 dirs = "7.0"
 dirs-sys = "0.5"
 dns-lookup = "4.0.1"
-dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.19"
+fancy-regex = "0.20"
 filesize = "0.2"
 filetime = "0.2.27"
 fff-search = { version = "=0.11.0", default-features = false, features = ["ripgrep"] }
@@ -183,13 +183,14 @@ indoc = "2"
 interprocess = "2.4.3"
 is_executable = "1.0.6"
 itertools = "0.15"
+jiff = "0.2.23"
 kitest = "0.6.0"
 lean_string = { version = "0.8.0", features = ["serde"] }
 lexopt = "0.3.2"
 libc = "0.2.189"
 libproc = "0.14.11"
 log = "0.4.34"
-lru = "0.18.3"
+lru = "0.19.0"
 lscolors = { version = "0.21", default-features = false }
 lsp-server = "0.10.0"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
@@ -200,7 +201,7 @@ md5 = { version = "0.11.0", package = "md-5" }
 miette = "7.6"
 mime = "0.3.17"
 mime_guess = "2.0"
-mq-markdown = "0.9.1"
+mq-markdown = "0.10.0"
 mockito = { version = "1.7.2", default-features = false }
 multipart-rs = "0.2.3"
 native-tls = "0.2.18"
@@ -215,6 +216,7 @@ omnipath = "0.1"
 open = "5.4.2"
 os_pipe = { version = "1.2.3", features = ["io_safety"] }
 parking_lot = "0.12.5"
+parse_datetime = "0.16.0"
 pastey = "0.2.3"
 pathdiff = "0.2"
 percent-encoding = "2"
@@ -245,7 +247,7 @@ regex = "1.13.1"
 rmp = "0.8.15"
 rmp-serde = "1.3.1"
 roxmltree = "0.21.1"
-rstest = { version = "0.27.0", default-features = false }
+rstest = { version = "0.28.0", default-features = false }
 rstest_reuse = "0.7"
 rusqlite = "0.41.1"
 rustc-hash = "2.1.2"
@@ -255,7 +257,7 @@ rustc-hash = "2.1.2"
 # Patch updates are allowed though.
 rustls = { version = "~0.23.46", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8.4"
-serde-saphyr = "1.2.0"
+serde-saphyr = "2.0.0"
 scopeguard = { version = "1.2.0" }
 ndarray = { version = "0.17", features = ["serde", "approx", "rayon", "matrixmultiply-threading"] }
 semver = "1.0.28"
@@ -295,7 +297,7 @@ v_htmlescape = "0.17.0"
 memchr = "2.8.0"
 wax = "0.7.0"
 web-time = "1.1.0"
-webpki-roots = "1.0.9"
+webpki-roots = "1.0.10"
 which = "8.0.6"
 win_uds = "=0.2.4"
 windows = "0.62.2"
@@ -308,6 +310,7 @@ winreg = "0.56"
 # equivalent to -D warnings
 warnings = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(ci)"] }
+linker_messages = "allow" # silence '__eh_frame section too large (max 16MB)' on macos
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
@@ -400,7 +403,7 @@ fancy-regex = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
-tango-bench = "0.8.0"
+tango-bench = "0.9.0"
 tempfile = { workspace = true }
 
 [features]

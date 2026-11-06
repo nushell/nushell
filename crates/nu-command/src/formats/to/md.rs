@@ -1,4 +1,3 @@
-use indexmap::IndexMap;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, ast::PathMember};
@@ -260,14 +259,33 @@ fn to_md(
         return Ok(Value::string(result, head).into_pipeline_data_with_metadata(metadata));
     }
 
-    // For tables/records, use the grouping logic
-    let input = Value::list(values, head).into_pipeline_data();
-    let (grouped_input, single_list) = group_by(input, head, config);
-    if options.per_element || single_list {
+    // With --per-element each run of rows with the same shape gets its own
+    // table. Otherwise everything goes in one table, so the rows keep their
+    // input order even when some of them are missing columns.
+    if options.per_element || values.len() == 1 {
+        let groups = if options.per_element {
+            group_by(values, config)
+        } else {
+            vec![values]
+        };
         return Ok(Value::string(
-            grouped_input
+            groups
                 .into_iter()
-                .scan(0usize, |list_idx, val| {
+                .scan(0usize, |list_idx, mut group| {
+                    if group.len() > 1 {
+                        return Some(format!(
+                            "{}\n\n",
+                            table(
+                                Value::list(group, head).into_pipeline_data(),
+                                options.pretty,
+                                &options.center,
+                                options.escape_md,
+                                options.escape_html,
+                                config
+                            )
+                        ));
+                    }
+                    let val = group.pop().unwrap_or_else(|| Value::nothing(head));
                     Some(match &val {
                         Value::List { .. } => {
                             format!(
@@ -332,7 +350,7 @@ fn to_md(
     }
     Ok(Value::string(
         table(
-            grouped_input,
+            Value::list(values, head).into_pipeline_data(),
             options.pretty,
             &options.center,
             options.escape_md,
@@ -493,17 +511,14 @@ fn table(
         .collect::<Vec<Value>>();
     let mut headers = merge_descriptors(&vec_of_values);
 
-    let mut empty_header_index = 0;
+    // Put an empty column name where it sits in its own record. Every column
+    // before it in that record is already in `headers`, so the index fits.
     for value in &vec_of_values {
-        if let Value::Record { val, .. } = value {
-            for column in val.columns() {
-                if column.is_empty() && !headers.contains(&String::new()) {
-                    headers.insert(empty_header_index, String::new());
-                    empty_header_index += 1;
-                    break;
-                }
-                empty_header_index += 1;
-            }
+        if let Value::Record { val, .. } = value
+            && !headers.contains(&String::new())
+            && let Some(index) = val.columns().position(|column| column.is_empty())
+        {
+            headers.insert(index, String::new());
         }
     }
 
@@ -572,37 +587,31 @@ fn table(
     }
 }
 
-pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineData, bool) {
-    let mut lists = IndexMap::new();
-    let mut single_list = false;
+#[derive(PartialEq)]
+enum GroupKey {
+    Columns(Vec<String>),
+    Value(String),
+}
+
+/// Splits the values into runs of consecutive values with the same shape,
+/// so the output keeps the input order.
+fn group_by(values: Vec<Value>, config: &Config) -> Vec<Vec<Value>> {
+    let mut groups: Vec<Vec<Value>> = Vec::new();
+    let mut last_key = None;
     for val in values {
-        if let Value::Record {
-            val: ref record, ..
-        } = val
-        {
-            lists
-                .entry(record.columns().map(|c| c.as_str()).collect::<String>())
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
-                .or_insert_with(|| vec![val.clone()]);
-        } else {
-            lists
-                .entry(val.to_expanded_string(",", config))
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
-                .or_insert_with(|| vec![val.clone()]);
+        let key = match &val {
+            Value::Record { val: record, .. } => {
+                GroupKey::Columns(record.columns().cloned().collect())
+            }
+            other => GroupKey::Value(other.to_expanded_string(",", config)),
+        };
+        match groups.last_mut() {
+            Some(group) if last_key.as_ref() == Some(&key) => group.push(val),
+            _ => groups.push(vec![val]),
         }
+        last_key = Some(key);
     }
-    let mut output = vec![];
-    for (_, mut value) in lists {
-        if value.len() == 1 {
-            output.push(value.pop().unwrap_or_else(|| Value::nothing(head)))
-        } else {
-            output.push(Value::list(value.to_vec(), head))
-        }
-    }
-    if output.len() == 1 {
-        single_list = true;
-    }
-    (Value::list(output, head).into_pipeline_data(), single_list)
+    groups
 }
 
 fn get_output_string(

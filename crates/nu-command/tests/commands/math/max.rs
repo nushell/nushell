@@ -14,3 +14,10 @@ fn cannot_max_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn max_table_cell_path_takes_the_column_max() -> Result {
+    test()
+        .run("[[name n]; [a 1] [b 5] [c 3]] | math max n")
+        .expect_value_eq(test_value!({ n: 5 }))
+}

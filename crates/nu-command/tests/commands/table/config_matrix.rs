@@ -237,8 +237,10 @@ fn trim_stays_readable_for_index_mode(
         let first_data = rendered
             .lines()
             .find(|line| line.contains("grok-continue") || line.contains("file"));
+        // The name shrinks with the other columns but keeps its floor: 10
+        // characters, here `grok-con` and the `>>` suffix.
         if let Some(line) = first_data {
-            assert_contains("grok-continue", line);
+            assert_contains("grok-con", line);
         }
     }
     Ok(())

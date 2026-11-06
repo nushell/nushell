@@ -98,7 +98,7 @@ pub fn parse_export_in_block(
 
     let mut pipeline = match full_name {
         "export def" => parse_def(working_set, lite_command, None).0,
-        "export extern" => parse_extern(working_set, lite_command, None),
+        "export extern" => parse_extern(working_set, lite_command, None).0,
         _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         "export alias" => parse_alias(working_set, lite_command, None),
         "export const" => parse_const(working_set, &lite_command.parts[1..]).0,
@@ -197,30 +197,20 @@ pub fn parse_export_in_module(
                 (pipeline, result)
             }
             b"extern" => {
-                let mut pipeline = parse_extern(working_set, lite_command, Some(module_name));
-
-                if !warp_export_call(working_set, &mut pipeline, "export extern", spans) {
-                    return (garbage_pipeline(working_set, spans), vec![]);
-                }
+                let (mut pipeline, cmd_result) =
+                    parse_extern(working_set, lite_command, Some(module_name));
 
                 let mut result = vec![];
 
-                let decl_name = match spans.get(2) {
-                    Some(span) => working_set.get_span_contents(*span),
-                    None => &[],
-                };
-                let decl_name = trim_quotes(decl_name);
-
-                if let Some(decl_id) = working_set.find_decl(decl_name) {
+                if let Some((decl_name, decl_id)) = cmd_result {
                     result.push(Exportable::Decl {
-                        name: decl_name.to_vec(),
+                        name: decl_name,
                         id: decl_id,
                     });
-                } else {
-                    working_set.error(ParseError::InternalError(
-                        "failed to find added declaration".into(),
-                        Span::concat(&spans[1..]),
-                    ));
+                }
+
+                if !warp_export_call(working_set, &mut pipeline, "export extern", spans) {
+                    return (garbage_pipeline(working_set, spans), vec![]);
                 }
 
                 (pipeline, result)
@@ -553,7 +543,7 @@ pub fn parse_module_block(
                     .push(parse_def(working_set, command, None).0),
                 b"extern" => block
                     .pipelines
-                    .push(parse_extern(working_set, command, None)),
+                    .push(parse_extern(working_set, command, None).0),
                 b"export" => {
                     let (pipe, exportables) =
                         parse_export_in_module(working_set, command, module_name, &mut module);
@@ -819,11 +809,14 @@ pub fn parse_module_file_or_dir(
     }
 
     if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
         return None;
     }
 
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     let module_path = if let Some(path) = find_in_dirs(
         &module_path_str,
@@ -846,8 +839,10 @@ pub fn parse_module_file_or_dir(
             return None;
         };
 
-        let module_name = if let Some(stem) = module_path.file_stem() {
-            stem.to_string_lossy().to_string()
+        // A directory has no extension, so use its whole name. Otherwise
+        // `a.b` would become a module called `a`.
+        let module_name = if let Some(name) = module_path.path().file_name() {
+            name.to_string_lossy().to_string()
         } else {
             working_set.error(ParseError::ModuleNotFound(
                 path_span,
@@ -1007,6 +1002,7 @@ pub fn parse_module(
         )]);
 
         if working_set.skip_module_load {
+            working_set.skipped_module_load = true;
             return (pipeline, None);
         }
 
@@ -1248,6 +1244,7 @@ pub fn parse_use(
             module_id,
         )
     } else if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
         return (
             Pipeline::from_vec(vec![Expression::new(
                 working_set,
@@ -1779,6 +1776,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     true,
                 )
             } else if working_set.skip_module_load {
+                working_set.skipped_module_load = true;
                 return pipeline;
             } else if let Some(module_id) = parse_module_file_or_dir(
                 working_set,

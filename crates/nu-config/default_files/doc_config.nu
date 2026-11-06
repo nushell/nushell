@@ -247,6 +247,38 @@ $env.config.hinter.closure = null
 #   }
 # }
 
+# status_line (record): A line under the one being edited that comments on it
+# as you type. It is hidden in history search and erased when the line runs.
+# It is drawn in `color_config.status_line` with errors in
+# `color_config.status_line_error`, or plain when `use_ansi_coloring` is false.
+# status_line.enable (bool): Show the status line at all. false turns off every
+# part below.
+# Default: true
+$env.config.status_line.enable = true
+
+# status_line.errors (bool): Show the first parse or type error in the line,
+# unless it touches the cursor (you are still typing it) or the line is
+# unfinished, as with an open `{`. A line that `use`s a module not loaded yet
+# is not checked, since the module loads only when the line runs.
+# Default: true
+$env.config.status_line.errors = true
+
+# status_line.signature (bool): Show the signature of the command under the
+# cursor, with the parameter being typed emphasized.
+# Default: true
+$env.config.status_line.signature = true
+
+# status_line.type (bool): Show the type the pipeline at the cursor outputs, as
+# far as the parser can infer it (`any` and `nothing` are not shown).
+# Default: true
+$env.config.status_line.type = true
+
+# status_line.preview (bool): Show the value of a line built only from const
+# commands, such as `"a,b" | split row "," | str uppercase`. A preview that takes
+# longer than 25ms to compute is interrupted and not shown.
+# Default: true
+$env.config.status_line.preview = true
+
 # completions.algorithm (string): The algorithm used for matching completions.
 # "prefix": Match from the beginning of the text.
 # "substring": Match anywhere in the text.
@@ -535,12 +567,12 @@ $env.config.table.padding.left = 1
 # Default: 1
 $env.config.table.padding.right = 1
 
-# table.trim (record): How overflow cells are fitted after extra columns are dropped
-# (dropped columns become a trailing `...`, which is not truncating_suffix).
-# wrapping: show as many columns as will fit (wide terminals, or header_on_separator)
-#   and wrap undersized cells onto extra lines.
-# truncating: keep one line per row; squeeze leftover into the last visible column
-#   and cut it with truncating_suffix.
+# table.trim (record): How cells narrower than their text are fitted. A table that
+# does not fit shows as many columns as fit with each at least 10 characters wide (or
+# its natural width when less), shrinks the widest first, and drops the rest behind a
+# trailing `...` column (which is not truncating_suffix).
+# wrapping: wrap cells that do not fit onto extra lines.
+# truncating: keep one line per row and cut cells that do not fit with truncating_suffix.
 # wrapping_try_keep_words (bool): Prefer wrapping on word boundaries.
 # truncating_suffix (string): Marker appended to a cut cell (truncating only).
 # Default: { methodology: "wrapping", wrapping_try_keep_words: true }
@@ -549,7 +581,9 @@ $env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true
 # $env.config.table.trim = { methodology: "truncating", truncating_suffix: "..." }
 
 # table.header_on_separator (bool): Display column headers on table border.
-# true: Headers appear embedded in top/bottom border.
+# true: Headers appear embedded in top/bottom border, unless a visible header has
+#   characters wider or narrower than one column (CJK, emoji, a newline): then the
+#   headers keep their own row. Columns stay at least as wide as their header.
 # false: Headers in their own row with separator below.
 # Default: false
 $env.config.table.header_on_separator = false
@@ -700,13 +734,37 @@ $env.config.hooks.command_not_found = null
 # etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
 # still applied underneath and are listed by `keybindings default`.
 #
-# Assigning this list merges into the current bindings rather than replacing
-# them (an emptied list stays empty; defaults are not reintroduced).
-# An entry replaces the existing binding with the same name (updating its key
-# or event in place); when several bindings share a name, the key
-# (modifier/keycode/mode) decides which one it is, and a name reused for a
-# genuinely new key appends with a one-time warning. Set `event: null` on a
-# matching binding to unbind a key, or assign `[]` to clear the whole list.
+# Assigning this list replaces it, defaults included, so add bindings with
+# `++=` to keep the defaults. Assigning only your own entries turns off Tab and
+# Shift+Tab completion, Ctrl+Space, F1 help, Ctrl+X and Ctrl+Z paging and the
+# Ctrl+R history menu, since the keys that open the menus are in this list.
+# Reedline's own base maps are not, so movement and editing keep working.
+# Like any list it is stored as written, and reedline applies the entries in
+# order on top of its own base maps. When several entries bind the same modifier
+# and keycode in the same mode, the last one wins. The `name` is only a label
+# and plays no part in that.
+#
+# The modifier, keycode and mode of every entry are checked when the list is
+# assigned. If one can't be read, the assignment is an error and the list stays
+# as it was, like any other setting that can't be read. Other fields in the same
+# record still apply, but in config.nu the lines after it don't run. The `event`
+# is checked when the prompt is built.
+#
+# To remove a binding you added, assign the list without it:
+# $env.config.keybindings = $env.config.keybindings | where name != my_binding
+# To unbind a key that reedline itself binds, add an entry for it with
+# `event: null`. To tidy up exact repeats, keep the last of each (the fields are
+# compared as written, so `emacs` and `[emacs]` count as different):
+# $env.config.keybindings = $env.config.keybindings | reverse | uniq-by modifier keycode mode | reverse
+# Assign `[]` to clear the whole list. To get the defaults back in a running shell
+# (these are the entries nushell adds, not reedline's own base bindings, which
+# `keybindings default` lists):
+# $env.config.keybindings = (config default).keybindings
+# A config that is sourced again, for example by a reload binding, adds its `++=`
+# entries each time. To keep the list from growing, assign the defaults first and
+# append after, so the list is built from the same start every time:
+# $env.config.keybindings = (config default).keybindings
+# $env.config.keybindings ++= [...]
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -799,8 +857,20 @@ $env.config.abbreviations = {}
 # {completions, options} record name engine behaviour a menu has no say in and are ignored.
 #
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
-# Inspect with `$env.config.menus`. Assigning this list merges into the
-# defaults by `name` rather than replacing them, so `=` never clears them.
+# Inspect with `$env.config.menus`. Assigning this list replaces it, defaults
+# included, so add menus with `++=`. Assigning only your own menus removes the
+# defaults, which also turns off Tab completion. Like any list it is stored as
+# written, and reedline registers the menus in order: when several share a
+# `name`, the last one wins, so `++=` with a default's name overrides that
+# default. The `type.layout`, `input_mode` (or `only_buffer_difference`) and
+# `output_mode` of every menu are checked when the list is assigned. If one can't
+# be read, the assignment is an error and the list stays as it was. The fields
+# that belong to one layout, such as `columns` or `page_size`, are checked when
+# the prompt is built. To drop the ones a later menu overrides:
+# $env.config.menus = $env.config.menus | uniq-by name --keep-last
+# To get the defaults back in a running shell, which is also how a config that is
+# sourced again starts from the same list every time:
+# $env.config.menus = (config default).menus
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{
@@ -1234,6 +1304,15 @@ $env.config.color_config.block = "default"
 # Default: dark_gray
 $env.config.color_config.hints = "dark_gray"
 
+# color_config.status_line: Style for the REPL's status line (see
+# `status_line`). The parameter being typed is drawn in it, bold and underlined.
+# Default: the `hints` style, when not set
+$env.config.color_config.status_line = $env.config.color_config.hints
+
+# color_config.status_line_error: Style for an error on the REPL's status line.
+# Default: red
+$env.config.color_config.status_line_error = "red"
+
 # color_config.search_result: Style for `find` command search result highlights.
 # Default: { bg: red, fg: default }
 $env.config.color_config.search_result = {bg: "red", fg: "default"}
@@ -1370,7 +1449,7 @@ $env.config.explore.try.reactive = false
 # `$env.config.tui` styles the `tui` command family (`tui table`, `tui split`, `tui run`, ...).
 # It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key except
 # `border_type` is a color value in the same forms as `color_config`: a color name, `#RRGGBB`,
-# or `{ fg?, bg?, attr? }`.
+# or `{ fg?, bg?, attr? }`. In any slot, `default` is the terminal's own color.
 # When `use_ansi_coloring` is off the TUI draws without colors.
 
 # tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
@@ -1429,10 +1508,13 @@ $env.config.tui.progress = { fg: green }
 $env.config.tui.button = { fg: white, bg: blue }
 
 # tui.surface / tui.backdrop (color): Background fill behind widgets, and behind a `--dialog`.
-# Only the `bg` of the value is used.
-# Defaults: unset (a near-black fill)
-# $env.config.tui.surface = { bg: "#121216" }
-# $env.config.tui.backdrop = { bg: "#08080c" }
+# Only the fill color is used: a record's `bg`, or a bare color such as "#121216".
+# `default` is the terminal's own background, which keeps text readable on light and dark
+# terminals. A color gives an opaque fill, for example near-black `{ bg: "#121216" }` and
+# `{ bg: "#08080c" }`. Plain text keeps the terminal's foreground, so pick a fill it reads on.
+# Defaults: { bg: default } / { bg: default }
+$env.config.tui.surface = { bg: default }
+$env.config.tui.backdrop = { bg: default }
 
 # ---------------------------------------------------------------------------------------
 # Environment Variables
@@ -1539,6 +1621,10 @@ $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
 # ---------------------
 # Environment Settings
 # ---------------------
+
+# CMD_DURATION_MS: Duration of the last command in milliseconds.
+# At startup it is always "0823" (the day of Nushell's first release), so you can use
+# `$env.CMD_DURATION_MS == "0823"` to check if you are in the first prompt/command.
 
 # ENV_CONVERSIONS: Specifies how environment variables are converted.
 # from_string: Convert from string to Nushell value on startup.

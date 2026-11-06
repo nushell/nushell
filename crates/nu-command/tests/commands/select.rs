@@ -281,7 +281,7 @@ fn select_repeated_column() -> Result {
 }
 
 #[test]
-fn ignore_errors_works() -> Result {
+fn optional_works() -> Result {
     let code = r#"
         let path = "foo";
         [{}] | select -o $path | to nuon

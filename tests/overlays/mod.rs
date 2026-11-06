@@ -1417,6 +1417,29 @@ fn overlay_use_module_dir(#[case] code: &str, #[case] expected: impl IntoValue) 
         .expect_value_eq(expected)
 }
 
+#[test]
+fn overlay_use_module_dir_with_dot_by_path() -> Result {
+    Playground::setup(
+        "overlay_use_module_dir_with_dot",
+        |dirs, sandbox| -> Result {
+            sandbox.mkdir("spam.eggs").with_files(&[FileWithContent(
+                "spam.eggs/mod.nu",
+                r#"export def foo [] { "foo" }"#,
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            let () = tester.run("overlay use ./spam.eggs")?;
+            tester
+                .run("overlay list | where active | get name | where $it =~ spam | to nuon")
+                .expect_value_eq(r#"["spam.eggs"]"#)?;
+            let () = tester.run("overlay hide spam.eggs")?;
+            tester
+                .run("overlay list | where active | get name | where $it =~ spam | length")
+                .expect_value_eq(0)
+        },
+    )
+}
+
 #[rstest]
 #[case("spam", "spam")]
 #[case("spam foo", "foo")]

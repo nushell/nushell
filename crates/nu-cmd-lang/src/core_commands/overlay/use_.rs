@@ -100,6 +100,8 @@ impl Command for OverlayUse {
             .is_some()
         {
             name_arg_item.to_string()
+        } else if let Some(module_id) = maybe_origin_module_id {
+            String::from_utf8_lossy(&engine_state.get_module(module_id).name).to_string()
         } else if let Some(os_str) = Path::new(name_arg_item).file_stem() {
             if let Some(name) = os_str.to_str() {
                 name.to_string()

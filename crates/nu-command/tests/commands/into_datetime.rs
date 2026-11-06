@@ -416,6 +416,20 @@ fn list_flag_produces_available_format_entries() -> Result {
 }
 
 #[test]
+fn formats_flag_columns() -> Result {
+    test()
+        .run("into datetime --formats | columns | to nuon")
+        .expect_value_eq("[Recognized_Format, Format, Kind, Description]")
+}
+
+#[test]
+fn formats_flag_examples_all_convert() -> Result {
+    // every example, the standards, variants and relative forms included, reads as a date
+    let code = "into datetime --formats | get Recognized_Format | each { into datetime | describe } | uniq";
+    test().run(code).expect_value_eq(["datetime"])
+}
+
+#[test]
 fn into_datetime_list_of_strings() -> Result {
     let code =
         r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00"] | into datetime | length"#;

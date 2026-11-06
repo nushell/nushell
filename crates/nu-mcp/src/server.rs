@@ -30,8 +30,11 @@ impl NushellMcpServer {
         }
     }
 
-    #[tool(description = r#"List available Nushell native commands.
-By default all available commands will be returned. To find a specific command by searching command names, descriptions and search terms, use the find parameter."#)]
+    #[tool(
+        description = r#"List available Nushell native commands, one per line as `<call signature> - <description>`.
+Without `find`, every command in scope is returned (hundreds of lines). With `find`, only commands whose name, description, or search terms contain that string (case-insensitive) are returned; when nothing matches, the tool returns an error.
+Use command_help for one command's flags and parameters."#
+    )]
     async fn list_commands(
         &self,
         _ctx: RequestContext<RoleServer>,
@@ -41,7 +44,7 @@ By default all available commands will be returned. To find a specific command b
     }
 
     #[tool(
-        description = "Get help for a specific Nushell command. This will only work on commands that are native to nushell. To find out if a command is native to nushell you can use the list_commands tool."
+        description = "Get help for one Nushell command: its usage line, description, details, search terms, flags, and positional parameters. Pass the full name as you would call it, including subcommands (for example `str replace`). It covers commands defined in this session (built-ins, loaded plugin commands, and custom commands from earlier evaluations), not external programs; use the list_commands tool to see which names exist. The output does not include input/output types or examples; evaluate `help <name>` for those."
     )]
     async fn command_help(
         &self,

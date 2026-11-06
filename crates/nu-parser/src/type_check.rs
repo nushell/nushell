@@ -21,7 +21,7 @@ fn type_error(
             op_span,
             lhs_span: lhs.span,
             rhs_span: rhs.span,
-            help: None,
+            help: op.incompatible_types_help(&lhs.ty, &rhs.ty),
         },
         (true, false) => ParseError::OperatorUnsupportedType {
             op: op.as_str(),
@@ -295,6 +295,26 @@ fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
         })
     }
     operator_check(op, Type::Bool, lhs, rhs)
+}
+
+/// The result type of `older-than` and `newer-than`: a datetime on the left, and a datetime or a
+/// duration (counted back from now) on the right. `nothing` passes through, as it does for `<`.
+///
+/// An `any` operand doesn't excuse the other one: `where modified older-than '2wk'` has an `any`
+/// column on the left, and the quoted duration on the right is still an error. Where the other
+/// operand fits, an `any` makes the result `bool`, as it does for `<`.
+fn point_in_time_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+        Some(match (lhs, rhs) {
+            (Type::Date, Type::Date | Type::Duration) => Type::Bool,
+            (Type::Custom(a), _) | (Type::Any, Type::Custom(a)) => custom_comparison_type(a),
+            (Type::Any, Type::Date | Type::Duration | Type::Nothing | Type::Any)
+            | (Type::Date | Type::Nothing, Type::Any) => Type::Bool,
+            (Type::Nothing, _) | (_, Type::Nothing) => Type::Nothing,
+            _ => return None,
+        })
+    }
+    operator_check(op, None, lhs, rhs)
 }
 
 fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
@@ -572,6 +592,17 @@ pub fn math_result_type(
                 type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
             }
         },
+        Operator::Comparison(Comparison::OlderThan | Comparison::NewerThan) => {
+            match point_in_time_cmp_op(&lhs.ty, &rhs.ty) {
+                Some(ty) => (ty, None),
+                None => {
+                    *op = Expression::garbage(working_set, op.span);
+                    type_error(operator, op.span, lhs, rhs, |ty| {
+                        matches!(ty, Type::Date | Type::Duration)
+                    })
+                }
+            }
+        }
         Operator::Comparison(Comparison::In | Comparison::NotIn) => match in_op(&lhs.ty, &rhs.ty) {
             Some(ty) => (ty, None),
             None => {

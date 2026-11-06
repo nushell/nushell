@@ -2,19 +2,19 @@ use std::{fs::File, sync::Arc};
 
 use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_tilde};
 #[cfg(feature = "os")]
-use nu_protocol::process::check_exit_status_future;
+use nu_protocol::{ByteStreamSource, process::check_exit_status_future};
 use nu_protocol::{
     CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, LabeledError,
     ListStream, OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId,
     ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
-    debugger::DebugContext,
+    debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
         StateWorkingSet, TryHandler, env_var_eq,
     },
-    ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     shell_error::{
         eval_block_with_input::EvalBlockWithInputError, generic::GenericError, io::IoError,
     },
@@ -115,6 +115,8 @@ fn eval_ir_block_inner<D: DebugContext>(
         // Initialize file storage.
         let mut files = vec![None; ir_block.file_count as usize];
 
+        let mut record_items = vec![Vec::new(); ir_block.register_count as usize];
+
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
                 engine_state,
@@ -129,6 +131,7 @@ fn eval_ir_block_inner<D: DebugContext>(
                 matches: vec![],
                 registers: &mut registers[..],
                 files: &mut files[..],
+                record_items: &mut record_items[..],
             },
             ir_block,
             input,
@@ -191,9 +194,48 @@ struct EvalContext<'a> {
     registers: &'a mut [PipelineExecutionData],
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
+    /// The items added so far to the record literal being built in each register. Used to point
+    /// duplicate-key errors at the item that brought the key in.
+    record_items: &'a mut [Vec<RecordLiteralItem>],
+}
+
+/// One item of a record literal under construction: a `key: value` pair or a spread.
+#[derive(Clone, Copy)]
+struct RecordLiteralItem {
+    /// Length of the record after this item was added. Records keep insertion order, so this is
+    /// enough to tell which item added the key at a given index.
+    end: usize,
+    /// The source of the item: `key: value`, `...expr`, or a table cell. Used for the
+    /// "field first defined here" label.
+    span: Span,
+    /// Whether the item was a spread. A duplicate of a key it added gets the spread help.
+    is_spread: bool,
 }
 
 impl<'a> EvalContext<'a> {
+    /// Find the item that added `key` to the record literal being built in `reg`.
+    fn record_item_of_key(
+        &self,
+        reg: RegId,
+        record: &Record,
+        key: &str,
+    ) -> Option<RecordLiteralItem> {
+        let index = record.index_of(key)?;
+        let items = &self.record_items[reg.get() as usize];
+        items
+            .get(items.partition_point(|item| item.end <= index))
+            .copied()
+    }
+
+    /// Remember the item that was just added to the record literal being built in `reg`.
+    fn push_record_item(&mut self, reg: RegId, end: usize, span: Span, is_spread: bool) {
+        self.record_items[reg.get() as usize].push(RecordLiteralItem {
+            end,
+            span,
+            is_spread,
+        });
+    }
+
     /// Replace the contents of a register with a new value
     #[inline]
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineExecutionData) {
@@ -205,6 +247,13 @@ impl<'a> EvalContext<'a> {
     #[inline]
     fn borrow_reg(&self, reg_id: RegId) -> &PipelineData {
         &self.registers[reg_id.get() as usize]
+    }
+
+    /// Borrow the contents of a register mutably.
+    #[cfg(feature = "os")]
+    #[inline]
+    fn borrow_reg_mut(&mut self, reg_id: RegId) -> &mut PipelineData {
+        &mut self.registers[reg_id.get() as usize]
     }
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
@@ -285,14 +334,13 @@ fn eval_ir_block_impl<D: DebugContext>(
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
-        let ast = &ir_block.ast[pc];
 
         // So `scope` can match inlined keyword-body bindings via ScopeRegion.
         ctx.stack.ir_instruction_index = Some(pc);
 
         D::enter_instruction(ctx.engine_state, ctx.stack, ir_block, pc, ctx.registers);
 
-        let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
+        let result = eval_instruction::<D>(ctx, instruction, span, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
@@ -449,7 +497,7 @@ fn unwind_through_handlers(
                 // produced: collect it first, like `try-collect` does on the fall-through path.
                 if let Unwind::Return(data) = unwind {
                     #[cfg(feature = "os")]
-                    let collected = collect(data, span, false);
+                    let collected = try_collect(data, span, ctx.stack.stderr());
                     #[cfg(not(feature = "os"))]
                     let collected = collect(data, span);
                     unwind = match collected {
@@ -549,7 +597,6 @@ fn eval_instruction<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
     span: &Span,
-    ast: &Option<IrAstRef>,
     need_backtrace: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
@@ -578,6 +625,21 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Clone { dst, src } => {
+            // `try` passes on an external whose stderr has its own pipe uncollected, and
+            // `finally` copies its result. The copy is what the stdout collects to, read from
+            // memory, and `src` keeps the external, so the next command still gets its stderr.
+            #[cfg(feature = "os")]
+            if let PipelineData::ByteStream(stream, metadata) = ctx.borrow_reg_mut(*src)
+                && let Some(copy) = stream.copy_stdout()?
+            {
+                let metadata = metadata.clone().and_then(|m| m.for_collect());
+                let value = copy.into_value()?;
+                ctx.put_reg(
+                    *dst,
+                    PipelineExecutionData::from(PipelineData::value(value, metadata)),
+                );
+                return Ok(Continue);
+            }
             let data = ctx.clone_reg(*src, *span)?;
             ctx.put_reg(*dst, PipelineExecutionData::from(data));
             Ok(Continue)
@@ -594,7 +656,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = collect(data, *span, false)?;
+            let value = try_collect(data, *span, ctx.stack.stderr())?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -723,20 +785,16 @@ fn eval_instruction<D: DebugContext>(
             // Keep the value's own span (e.g. definition span from load-variable-origin for
             // `metadata $var`). Argument::span still records where the arg appears in the call.
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.stack.arguments.push(Argument::Positional {
-                span: *span,
-                val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
-            });
+            ctx.stack
+                .arguments
+                .push(Argument::Positional { span: *span, val });
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
             let vals = ctx.collect_reg(*src, *span)?;
-            ctx.stack.arguments.push(Argument::Spread {
-                span: *span,
-                vals,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
-            });
+            ctx.stack
+                .arguments
+                .push(Argument::Spread { span: *span, vals });
             Ok(Continue)
         }
         Instruction::PushFlag { name } => {
@@ -770,7 +828,6 @@ fn eval_instruction<D: DebugContext>(
                 short: DataSlice::empty(),
                 span: *span,
                 val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
             });
             Ok(Continue)
         }
@@ -783,7 +840,6 @@ fn eval_instruction<D: DebugContext>(
                 short: *short,
                 span: *span,
                 val,
-                ast: ast.clone().map(|ast_ref| ast_ref.0),
             });
             Ok(Continue)
         }
@@ -827,8 +883,11 @@ fn eval_instruction<D: DebugContext>(
             ctx.files[*file_num as usize] = Some(file);
             Ok(Continue)
         }
-        Instruction::WriteFile { file_num, src } => {
-            let src = ctx.take_reg(*src);
+        Instruction::WriteFile {
+            file_num,
+            src: src_reg,
+        } => {
+            let src = ctx.take_reg(*src_reg);
             let file = ctx
                 .files
                 .get(*file_num as usize)
@@ -843,13 +902,23 @@ fn eval_instruction<D: DebugContext>(
             } else {
                 false
             };
-            if let Err(err) = src.body.write_to(file.as_ref()) {
-                if is_external {
-                    ctx.stack.set_last_error(&err);
+            match src.body.write_stdout_to(file.as_ref()) {
+                Ok(rest) => {
+                    let mut rest = PipelineExecutionData::from(rest);
+                    // An external left with its stderr for the next command, which waits for it.
+                    #[cfg(feature = "os")]
+                    if !matches!(rest.body, PipelineData::Empty) {
+                        rest.exit = src.exit;
+                    }
+                    ctx.put_reg(*src_reg, rest);
+                    Ok(Continue)
                 }
-                Err(err)?
-            } else {
-                Ok(Continue)
+                Err(err) => {
+                    if is_external {
+                        ctx.stack.set_last_error(&err);
+                    }
+                    Err(err)?
+                }
             }
         }
         Instruction::CloseFile { file_num } => {
@@ -985,12 +1054,17 @@ fn eval_instruction<D: DebugContext>(
 
             let key = key.coerce_into_string()?;
             if let Some(old_value) = record.insert(&key, val) {
+                let first_item = ctx.record_item_of_key(*src_dst, &record, &key);
                 return Err(ShellError::ColumnDefinedTwice {
                     col_name: key,
                     second_use: *span,
-                    first_use: old_value.span(),
+                    first_use: first_item.map_or_else(|| old_value.span(), |item| item.span),
+                    help: first_item
+                        .filter(|item| item.is_spread)
+                        .map(|_| ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                 });
             }
+            ctx.push_record_item(*src_dst, record.len(), *span, false);
 
             ctx.put_reg(
                 *src_dst,
@@ -1014,13 +1088,18 @@ fn eval_instruction<D: DebugContext>(
             // Not using .extend() here because it doesn't handle duplicates
             for (key, val) in items {
                 if let Some(first_value) = record.insert(&key, val) {
+                    let first_use = ctx
+                        .record_item_of_key(*src_dst, &record, &key)
+                        .map_or_else(|| first_value.span(), |item| item.span);
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key,
                         second_use: *span,
-                        first_use: first_value.span(),
+                        first_use,
+                        help: Some(ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                     });
                 }
             }
+            ctx.push_record_item(*src_dst, record.len(), *span, true);
             ctx.put_reg(
                 *src_dst,
                 PipelineExecutionData::from(
@@ -1302,6 +1381,10 @@ fn load_literal(
     // represents the `null` value and should produce `PipelineData::Value(Value::Nothing)`.
     // Some commands (like `metadata`) distinguish between these when deciding
     // whether positional args are allowed.
+    // A new record literal starts here: forget the items of an earlier one.
+    if matches!(lit, Literal::Record { .. }) {
+        ctx.record_items[dst.get() as usize].clear();
+    }
     if matches!(lit, Literal::Empty) {
         ctx.put_reg(dst, PipelineExecutionData::empty());
     } else {
@@ -1438,6 +1521,8 @@ fn binary_op(
             Comparison::NotStartsWith => lhs_val.not_starts_with(op_span, &rhs_val, span)?,
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
             Comparison::NotEndsWith => lhs_val.not_ends_with(op_span, &rhs_val, span)?,
+            Comparison::OlderThan => lhs_val.older_than(op_span, &rhs_val, span)?,
+            Comparison::NewerThan => lhs_val.newer_than(op_span, &rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
             Math::Add => lhs_val.add(op_span, &rhs_val, span)?,
@@ -1482,7 +1567,7 @@ fn eval_call<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     decl_id: DeclId,
     head: Span,
-    mut input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let EvalContext {
         engine_state,
@@ -1494,7 +1579,6 @@ fn eval_call<D: DebugContext>(
     } = ctx;
 
     let args_len = caller_stack.arguments.get_len(*args_base);
-    let decl = engine_state.get_decl(decl_id);
     // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
     // whether to suppress or rethrow.
     let stderr_pipe_separate = matches!(
@@ -1505,104 +1589,15 @@ fn eval_call<D: DebugContext>(
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    let result = (|| {
-        if let Some(block_id) = decl.block_id() {
-            // If the decl is a custom command
-            let block = engine_state.get_block(block_id);
-
-            // check types after acquiring block to avoid unnecessarily cloning Signature
-            check_input_types(&input, &block.signature, head)?;
-
-            // Expand record spreads into named flags; drop null named values.
-            let args_len = normalize_call_arguments(
-                &block.signature,
-                &mut caller_stack,
-                *args_base,
-                args_len,
-            )?;
-
-            // Set up a callee stack with the captures and move arguments from the stack into variables
-            let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
-
-            gather_arguments(
-                engine_state,
-                block,
-                &mut caller_stack,
-                &mut callee_stack,
-                *args_base,
-                args_len,
-                head,
-            )?;
-
-            // Snapshot the call's return destination onto the callee stack. Intermediate
-            // expressions in the body may temporarily set OutDest::Value (e.g. `if (…)`);
-            // Stack::is_stdout_redirected / `is-redirected` read this frame instead.
-            // See Stack::with_invocation_stdout for details.
-            let mut callee_stack =
-                callee_stack.with_invocation_stdout(caller_stack.stdout().clone());
-
-            // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
-            // recoverable in Rust.
-            callee_stack.recursion_count += 1;
-
-            let result =
-                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
-                    .map(|p| p.body);
-
-            // Move environment variables back into the caller stack scope if requested to do so
-            if block.redirect_env {
-                redirect_env(engine_state, &mut caller_stack, &callee_stack);
-            }
-
-            result
-        } else {
-            // `ignore` intentionally handles upstream error values at command level.
-            // Skip early input-error propagation for the built-in `ignore` command so
-            // `run()` can apply `--stderr`/`--show-errors` semantics.
-            let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
-                && engine_state
-                    .find_decl(b"ignore", &[])
-                    .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
-            if !allow_error_input {
-                check_input_types(&input, &decl.signature(), head)?;
-            }
-
-            // Expand record spreads into named flags; drop null named values.
-            let args_len = normalize_call_arguments(
-                &decl.signature(),
-                &mut caller_stack,
-                *args_base,
-                args_len,
-            )?;
-
-            // FIXME: precalculate this and save it somewhere
-            let span = Span::merge_many(
-                std::iter::once(head).chain(
-                    caller_stack
-                        .arguments
-                        .get_args(*args_base, args_len)
-                        .iter()
-                        .flat_map(|arg| arg.span()),
-                ),
-            );
-
-            let call = Call {
-                decl_id,
-                head,
-                span,
-                args_base: *args_base,
-                args_len,
-            };
-
-            // Make sure that iterating value itself can be interrupted.
-            // e.g: 0..inf | to md
-            if let PipelineData::Value(v, ..) = &mut input {
-                v.inject_signals(engine_state);
-            }
-            // Run the call
-            decl.run(engine_state, &mut caller_stack, &(&call).into(), input)
-        }
-    })();
+    let result = eval_call_frame::<D>(
+        engine_state,
+        &mut caller_stack,
+        decl_id,
+        head,
+        *args_base,
+        args_len,
+        input,
+    );
 
     drop(caller_stack);
 
@@ -1614,6 +1609,163 @@ fn eval_call<D: DebugContext>(
     match result {
         Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
         result => result,
+    }
+}
+
+/// Evaluate a call to a command the way compiled code calls it. The call's arguments must be the
+/// last ones on `stack`, which is where [`CallBuilder`](nu_protocol::ir::CallBuilder) puts them.
+///
+/// The input is type checked and record spreads become flags. A custom command binds its
+/// parameters and runs its block; any other command goes through
+/// [`Command::run`](nu_protocol::engine::Command::run). Use this rather than calling `run` on a
+/// command found by name, like a `from <ext>` converter, because it may be a custom command.
+///
+/// Call [`Call::leave`] afterwards to reset the argument stack, whether or not the command
+/// consumed the arguments.
+pub fn eval_ir_call(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let Call {
+        decl_id,
+        head,
+        args_base,
+        args_len,
+        ..
+    } = *call;
+    engine_state.signals().check(&head)?;
+    // Normalizing the arguments re-pushes them at the end of the stack. A call without arguments
+    // never set its `args_base`.
+    if args_len != 0 && args_base + args_len != stack.arguments.get_base() {
+        return Err(ShellError::IrEvalError {
+            msg: "the call's arguments must be the last ones on the stack".into(),
+            span: Some(head),
+        });
+    }
+    if engine_state.is_debugging() {
+        eval_call_frame::<WithDebug>(
+            engine_state,
+            stack,
+            decl_id,
+            head,
+            args_base,
+            args_len,
+            input,
+        )
+    } else {
+        eval_call_frame::<WithoutDebug>(
+            engine_state,
+            stack,
+            decl_id,
+            head,
+            args_base,
+            args_len,
+            input,
+        )
+    }
+}
+
+/// Run the command `decl_id` with the `args_len` arguments at `args_base` on `caller_stack`.
+/// The caller removes the arguments from the stack afterwards.
+fn eval_call_frame<D: DebugContext>(
+    engine_state: &EngineState,
+    caller_stack: &mut Stack,
+    decl_id: DeclId,
+    head: Span,
+    args_base: usize,
+    args_len: usize,
+    mut input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let decl = engine_state.get_decl(decl_id);
+    if let Some(block_id) = decl.block_id() {
+        // If the decl is a custom command
+        let block = engine_state.get_block(block_id);
+
+        // check types after acquiring block to avoid unnecessarily cloning Signature
+        check_input_types(&input, &block.signature, head)?;
+
+        // Expand record spreads into named flags; drop null named values.
+        let args_len =
+            normalize_call_arguments(&block.signature, caller_stack, args_base, args_len)?;
+
+        // Set up a callee stack with the captures and move arguments from the stack into variables
+        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+
+        gather_arguments(
+            engine_state,
+            block,
+            caller_stack,
+            &mut callee_stack,
+            args_base,
+            args_len,
+            head,
+        )?;
+
+        // Snapshot the call's return destination onto the callee stack. Intermediate
+        // expressions in the body may temporarily set OutDest::Value (e.g. `if (…)`);
+        // Stack::is_stdout_redirected / `is-redirected` read this frame instead.
+        // See Stack::with_invocation_stdout for details.
+        let mut callee_stack = callee_stack.with_invocation_stdout(caller_stack.stdout().clone());
+
+        // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
+        // recoverable in Rust.
+        callee_stack.recursion_count += 1;
+
+        let result =
+            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
+                .map(|p| p.body);
+
+        // Move environment variables back into the caller stack scope if requested to do so
+        if block.redirect_env {
+            redirect_env(engine_state, caller_stack, &callee_stack);
+        }
+
+        result
+    } else {
+        let signature = engine_state.get_signature_cached(decl_id);
+
+        // `ignore` intentionally handles upstream error values at command level.
+        // Skip early input-error propagation for the built-in `ignore` command so
+        // `run()` can apply `--stderr`/`--show-errors` semantics.
+        let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
+            && engine_state
+                .find_decl(b"ignore", &[])
+                .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
+        if !allow_error_input {
+            check_input_types(&input, &signature, head)?;
+        }
+
+        // Expand record spreads into named flags; drop null named values.
+        let args_len = normalize_call_arguments(&signature, caller_stack, args_base, args_len)?;
+
+        // FIXME: precalculate this and save it somewhere
+        let span = Span::merge_many(
+            std::iter::once(head).chain(
+                caller_stack
+                    .arguments
+                    .get_args(args_base, args_len)
+                    .iter()
+                    .flat_map(|arg| arg.span()),
+            ),
+        );
+
+        let call = Call {
+            decl_id,
+            head,
+            span,
+            args_base,
+            args_len,
+        };
+
+        // Make sure that iterating value itself can be interrupted.
+        // e.g: 0..inf | to md
+        if let PipelineData::Value(v, ..) = &mut input {
+            v.inject_signals(engine_state);
+        }
+        // Run the call
+        decl.run(engine_state, caller_stack, &(&call).into(), input)
     }
 }
 
@@ -1918,8 +2070,23 @@ fn check_input_types(
     match input {
         // early return error directly if detected
         PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
-        // bypass run-time typechecking for custom types
-        PipelineData::Value(Value::Custom { .. }, ..) => return Ok(()),
+        // A custom value may stand in for a list, table or record (it converts to its base value
+        // at runtime), so a command taking any of those, directly or inside a `oneof`, is left to
+        // decide at runtime, as `Type::is_assignable_to` does. Otherwise the custom value is
+        // checked like any other input, so `[nothing -> X, polars_dataframe -> X]` rejects some
+        // other plugin's custom value the same way `polars_dataframe -> X` does.
+        PipelineData::Value(Value::Custom { .. }, ..)
+            if io_types.iter().any(|(input_type, _)| {
+                let is_collection =
+                    |ty: &Type| matches!(ty, Type::List(_) | Type::Table(_) | Type::Record(_));
+                match input_type {
+                    Type::OneOf(oneof) => oneof.iter().any(is_collection),
+                    ty => is_collection(ty),
+                }
+            }) =>
+        {
+            return Ok(());
+        }
         _ => (),
     }
 
@@ -2040,7 +2207,6 @@ fn collect(
     // still surfaces as an error, and collect to Empty like a drained stream.
     #[cfg(feature = "os")]
     {
-        use nu_protocol::ByteStreamSource;
         let stdout_uncaptured = matches!(
             &data,
             PipelineData::ByteStream(stream, ..)
@@ -2053,6 +2219,65 @@ fn collect(
     }
     let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))
+}
+
+/// When an error takes the place of an external's output, nothing is left to read the stderr it
+/// captured for the next command, so write that to `stderr`, where it would have gone
+/// uncaptured.
+#[cfg(feature = "os")]
+fn show_failed_stderr(data: PipelineData, stderr: &OutDest) {
+    let PipelineData::ByteStream(mut stream, ..) = data else {
+        return;
+    };
+    let signals = stream.signals().clone();
+    if let ByteStreamSource::Child(child) = stream.source_mut()
+        && let Some(mut pipe) = child.stderr.take()
+    {
+        let mut bytes = Vec::new();
+        // The error is what reaches `catch`, so a failure to show stderr isn't reported.
+        if std::io::Read::read_to_end(&mut pipe, &mut bytes).is_ok() {
+            let _ = nu_protocol::write_to_out_dest(&bytes, stderr, child.span(), false, &signals);
+        }
+    }
+}
+
+/// [`collect`] at the end of a `try` block, so that its errors surface inside the `try`.
+///
+/// A value can only hold stdout, but the next command may have asked for the external's stderr
+/// on its own pipe (`ignore`, `save --stderr`, `complete`, `tee --stderr`). Such a child is
+/// buffered instead: both pipes are read to the end, its exit status is checked here, and it is
+/// passed on as a finished external that still has its stderr (#19335). If an error takes the
+/// place of its output, the stderr it captured goes to `stderr`.
+#[cfg(feature = "os")]
+fn try_collect(
+    mut pipe: PipelineExecutionData,
+    fallback_span: Span,
+    stderr: &OutDest,
+) -> Result<PipelineData, ShellError> {
+    if let PipelineData::ByteStream(stream, ..) = &mut pipe.body
+        && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
+        && child.stderr.is_some()
+    {
+        // Read the pipes before waiting on the pipeline's exit statuses: a child that fills a
+        // pipe nobody reads never exits.
+        let mut checked = child.buffer_output();
+        if checked.is_ok() && nu_experimental::PIPE_FAIL.get() {
+            checked = check_exit_status_future(pipe.exit);
+        }
+        if let Err(err) = checked {
+            show_failed_stderr(pipe.body, stderr);
+            return Err(err);
+        }
+        return Ok(pipe.body);
+    }
+    // Here too, the output is read before the exit statuses are waited on. A failure still takes
+    // the place of the collected output.
+    let exit = std::mem::take(&mut pipe.exit);
+    let collected = collect(pipe, fallback_span, true)?;
+    if nu_experimental::PIPE_FAIL.get() {
+        check_exit_status_future(exit)?;
+    }
+    Ok(collected)
 }
 
 /// Helper for drain behavior.
@@ -2108,7 +2333,7 @@ fn drain(
     Ok(Continue)
 }
 
-/// Helper for drainIfEnd behavior
+/// Helper for drainIfEnd behavior, which only a `try` without `catch` or `finally` uses
 fn drain_if_end(
     ctx: &mut EvalContext<'_>,
     data: PipelineExecutionData,
@@ -2124,6 +2349,21 @@ fn drain_if_end(
     }
     #[cfg(feature = "os")]
     {
+        // A stream that goes on to the next command can't wait for its externals to exit: they
+        // may only finish once it reads them. Their exit statuses are ignored instead, as without
+        // pipefail, so a failure after the `try` doesn't escape it.
+        if matches!(
+            result,
+            PipelineData::ByteStream(..) | PipelineData::ListStream(..)
+        ) {
+            for guard in data.exit.into_iter().flatten() {
+                *guard
+                    .ignore_error
+                    .lock()
+                    .expect("lock ignore error should success") = true;
+            }
+            return Ok(result);
+        }
         check_exit_status_future(data.exit).map(|_| result)
     }
     #[cfg(not(feature = "os"))]
@@ -2161,6 +2401,7 @@ fn eval_redirection(
 ) -> Result<Option<Redirection>, ShellError> {
     match mode {
         RedirectMode::Pipe => Ok(Some(Redirection::Pipe(OutDest::Pipe))),
+        RedirectMode::PipeRaw => Ok(Some(Redirection::Pipe(OutDest::PipeRaw))),
         RedirectMode::PipeSeparate => Ok(Some(Redirection::Pipe(OutDest::PipeSeparate))),
         RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
@@ -2241,4 +2482,44 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
 
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicBool;
+
+    use super::*;
+
+    #[test]
+    fn eval_ir_call_rejects_arguments_below_the_top_of_the_stack() {
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        let mut call = Call::build(DeclId::new(0), Span::test_data());
+        call.add_positional(&mut stack, Span::test_data(), Value::test_int(1));
+        let call = call.finish();
+        // Another call's argument now sits above this call's.
+        Call::build(DeclId::new(0), Span::test_data()).add_positional(
+            &mut stack,
+            Span::test_data(),
+            Value::test_int(2),
+        );
+
+        let result = eval_ir_call(&engine_state, &mut stack, &call, PipelineData::empty());
+        assert!(matches!(result, Err(ShellError::IrEvalError { .. })));
+    }
+
+    #[test]
+    fn eval_ir_call_stops_when_interrupted() {
+        let mut engine_state = EngineState::new();
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
+        let call = Call::build(DeclId::new(0), Span::test_data()).finish();
+
+        let result = eval_ir_call(
+            &engine_state,
+            &mut Stack::new(),
+            &call,
+            PipelineData::empty(),
+        );
+        assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+    }
 }

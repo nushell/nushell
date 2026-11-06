@@ -168,7 +168,7 @@ impl Command for Do {
                 if ignore_all_errors
                     && !matches!(
                         caller_stack.stdout(),
-                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+                        OutDest::Pipe | OutDest::PipeRaw | OutDest::PipeSeparate | OutDest::Value
                     ) =>
             {
                 #[cfg(feature = "os")]

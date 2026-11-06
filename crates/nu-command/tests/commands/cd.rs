@@ -18,6 +18,76 @@ fn cd_works_with_in_var() -> Result {
     })
 }
 
+/// The drive letter `dir` is on, e.g. `C`.
+#[cfg(windows)]
+fn drive_letter(dir: &std::path::Path) -> char {
+    use std::path::{Component, Prefix};
+    match dir.components().next() {
+        Some(Component::Prefix(prefix)) => match prefix.kind() {
+            Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) => letter as char,
+            other => panic!("{dir:?} is not on a drive: {other:?}"),
+        },
+        _ => panic!("{dir:?} has no prefix"),
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn cd_bare_drive_on_current_drive_stays() -> Result {
+    Playground::setup("cd_bare_drive", |dirs, _| {
+        let drive = drive_letter(dirs.test().as_std_path());
+        for input in [
+            format!("cd {}:", drive.to_ascii_lowercase()),
+            format!("cd {}:", drive.to_ascii_uppercase()),
+            format!("cd \"{drive}:	\""),
+            format!("cd -P {drive}:"),
+        ] {
+            test()
+                .cwd(dirs.test())
+                .run(format!("{input}; $env.PWD"))
+                .expect_value_eq(dirs.test())?;
+        }
+        Ok(())
+    })
+}
+
+#[cfg(windows)]
+#[test]
+fn cd_drive_relative_path_on_current_drive() -> Result {
+    Playground::setup("cd_drive_relative", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        let drive = drive_letter(dirs.test().as_std_path());
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("cd {drive}:foo; $env.PWD"))
+            .expect_value_eq(dirs.test().join("foo"))?;
+
+        test()
+            .cwd(dirs.test().join("foo"))
+            .run(format!("cd {drive}:..; $env.PWD"))
+            .expect_value_eq(dirs.test())
+    })
+}
+
+#[cfg(windows)]
+#[test]
+fn cd_missing_drive_reports_input() -> Result {
+    let Some(drive) = ('A'..='Z')
+        .rev()
+        .find(|letter| !std::path::Path::new(&format!("{letter}:\\")).exists())
+    else {
+        return Ok(());
+    };
+    let err = test().run(format!("cd {drive}:")).expect_io_error()?;
+    assert_eq!(err.path.unwrap().to_string_lossy(), format!("{drive}:"));
+    assert!(matches!(
+        err.kind,
+        nu_protocol::shell_error::io::ErrorKind::DirectoryNotFound
+    ));
+    Ok(())
+}
+
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path() -> Result {
     Playground::setup("cd_test_1", |dirs, _| {

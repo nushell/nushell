@@ -1,8 +1,9 @@
 use crate::{
     is_math_expression_like,
+    lex::{TokenContents, lex},
     lite_parser::LiteCommand,
     parse_helpers::{garbage, garbage_pipeline},
-    parse_keywords::reject_parser_keyword_name,
+    parse_keywords::{is_uncallable_name, reject_parser_keyword_name},
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_call, parse_expression,
@@ -17,6 +18,45 @@ use nu_protocol::{
 };
 
 use crate::ALIASABLE_PARSER_KEYWORDS;
+
+/// Find the first `|` or redirection (`o>`, `e>|`, ...) at the top level of an alias's expansion.
+///
+/// The `=` in `alias name = ...` makes the lite parser keep pipes and redirections as words of the
+/// command, as it does for `let x = a | b`. An alias is a single command call, so either one would
+/// otherwise reach the command as an argument. Returns what was found (`"pipeline"` or
+/// `"redirection"`) and its span. A quoted `'|'`, or a pipe inside `( ... )`, is part of a word and
+/// isn't reported.
+fn find_pipe_or_redirection(
+    working_set: &StateWorkingSet,
+    replacement_spans: &[Span],
+) -> Option<(&'static str, Span)> {
+    let span = Span::concat(replacement_spans);
+    let (tokens, _) = lex(
+        working_set.get_span_contents(span),
+        span.start,
+        &[],
+        &[],
+        false,
+    );
+
+    tokens.iter().find_map(|token| match token.contents {
+        TokenContents::Pipe
+        | TokenContents::PipePipe
+        | TokenContents::ErrGreaterPipe
+        | TokenContents::OutErrGreaterPipe => Some(("pipeline", token.span)),
+        TokenContents::OutGreaterThan
+        | TokenContents::OutGreaterGreaterThan
+        | TokenContents::ErrGreaterThan
+        | TokenContents::ErrGreaterGreaterThan
+        | TokenContents::OutErrGreaterThan
+        | TokenContents::OutErrGreaterGreaterThan => Some(("redirection", token.span)),
+        TokenContents::Item
+        | TokenContents::Comment
+        | TokenContents::AssignmentOperator
+        | TokenContents::Semicolon
+        | TokenContents::Eol => None,
+    })
+}
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
     let command_len = if !spans.is_empty() {
@@ -134,13 +174,7 @@ pub fn parse_alias(
         };
 
         let alias_name = if let Some(name) = alias_name_expr.as_string() {
-            if name.contains('#')
-                || name.contains('^')
-                || name.contains('%')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-                || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
-            {
+            if is_uncallable_name(working_set, &name, alias_name_expr.span) {
                 working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
                 return garbage_pipeline(working_set, spans);
             } else if reject_parser_keyword_name(working_set, &name, "alias", alias_name_expr.span)
@@ -190,6 +224,11 @@ pub fn parse_alias(
                     expr.expr.description().to_string(),
                     replacement_spans[0],
                 ));
+                return alias_pipeline;
+            }
+
+            if let Some((what, span)) = find_pipe_or_redirection(working_set, replacement_spans) {
+                working_set.error(ParseError::CantAliasExpression(what.into(), span));
                 return alias_pipeline;
             }
 

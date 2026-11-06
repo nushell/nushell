@@ -292,7 +292,7 @@ impl Command for Ls {
             },
             Example {
                 description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days.",
-                example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
+                example: "ls -as ~ | where type == dir and modified older-than 7day",
                 result: None,
             },
             Example {
@@ -539,9 +539,9 @@ fn ls_for_one_pattern(
                                         prefix.to_path_buf()
                                     };
 
-                                    // Bare trailing `**` (dc-glob) can match the
-                                    // start dir itself; after stripping the prefix
-                                    // that is an empty relative path → show ".".
+                                    // A match that is the prefix itself, with the
+                                    // prefix being the cwd, joins to an empty
+                                    // relative path → show ".".
                                     let joined = new_prefix.join(remainder);
                                     if joined.as_os_str().is_empty() {
                                         Some(".".to_string())

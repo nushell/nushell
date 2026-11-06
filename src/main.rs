@@ -396,7 +396,7 @@ fn main() -> Result<()> {
 
     engine_state.add_env_var(
         "ENV_CONVERSIONS".to_string(),
-        Value::test_record(record! {}),
+        Value::record(record! {}, Span::unknown()),
     );
 
     start_time = nu_utils::time::Instant::now();

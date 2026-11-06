@@ -38,6 +38,10 @@ const BRACKET_TABLE_LEN: std::ops::RangeInclusive<usize> = 1024..=16 * 1024 * 10
 /// done with the file. So the tables are those of the files being parsed, innermost last, and a
 /// working set that parses many files one after another (nu-lsp's workspace search) does not keep
 /// a table for each of them.
+///
+/// A UTF-8 byte-order mark at the start of a whole file is skipped. Editors on Windows can save a
+/// script with one, and it would otherwise be lexed as part of the first word. The file's contents
+/// keep it, so spans into the file don't move.
 pub(crate) fn lex_file(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -45,12 +49,26 @@ pub(crate) fn lex_file(
     special_tokens: &[u8],
     skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
+    const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
+    let is_whole_file = |working_set: &StateWorkingSet, span: Span| {
+        working_set
+            .find_file_by_span(span)
+            .is_some_and(|file| file.covered_span == span)
+    };
+
+    let requested = span;
+    let span = if working_set.get_span_contents(span).starts_with(UTF8_BOM)
+        && is_whole_file(working_set, span)
+    {
+        Span::new(span.start + UTF8_BOM.len(), span.end)
+    } else {
+        span
+    };
+
     let is_new_file = working_set.lex_once
         && find_bracket_table(working_set, span).is_none()
         && BRACKET_TABLE_LEN.contains(&span.end.saturating_sub(span.start))
-        && working_set
-            .find_file_by_span(span)
-            .is_some_and(|file| file.covered_span == span);
+        && is_whole_file(working_set, requested);
     if !is_new_file {
         return lex_span(
             working_set,
@@ -446,5 +464,44 @@ mod tests {
         let small_span = working_set.get_span_for_file(small);
         lex_file(&mut working_set, small_span, b"", b"", false);
         assert_eq!(working_set.bracket_tables.len(), 1);
+    }
+
+    /// [`lex_file`] skips one byte-order mark at the start of a whole file and still records the
+    /// file's table. Part of a file, and a second byte-order mark, are lexed as they are.
+    #[test]
+    fn lex_file_skips_a_leading_byte_order_mark() {
+        const BOM: &str = "\u{feff}";
+        let engine_state = nu_protocol::engine::EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let source = format!("{BOM}[{}] {{ x: 1 }}", "1 ".repeat(600));
+        let file = working_set.add_file("bom.nu", source.as_bytes());
+        let span = working_set.get_span_for_file(file);
+        let code = Span::new(span.start + BOM.len(), span.end);
+
+        let (tokens, error) = lex_file(&mut working_set, span, b"", b"", false);
+        assert_eq!(error, None);
+        assert_eq!(
+            tokens.first().map(|token| token.span.start),
+            Some(code.start)
+        );
+        let [table] = working_set.bracket_tables.as_slice() else {
+            panic!("one table: {:?}", working_set.bracket_tables);
+        };
+        assert_eq!(table.covered_span, code);
+
+        let part = Span::new(span.start, span.start + 10);
+        let (tokens, _) = lex_file(&mut working_set, part, b"", b"", false);
+        assert_eq!(
+            tokens.first().map(|token| token.span.start),
+            Some(span.start)
+        );
+
+        let two = working_set.add_file("two.nu", format!("{BOM}{BOM}1").as_bytes());
+        let two_span = working_set.get_span_for_file(two);
+        let (tokens, _) = lex_file(&mut working_set, two_span, b"", b"", false);
+        assert_eq!(
+            tokens.first().map(|token| token.span),
+            Some(Span::new(two_span.start + BOM.len(), two_span.end))
+        );
     }
 }

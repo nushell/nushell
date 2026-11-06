@@ -129,6 +129,23 @@ pub struct Visibility {
     type_alias_ids: HashMap<TypeAliasId, bool, FxBuildHasher>,
 }
 
+/// The names an unscoped parse of a file bound in the scope frame it ran in: the commands,
+/// modules, variables and type aliases the file declared or imported there.
+///
+/// An unscoped parse (`source`, a script, a REPL entry) declares a file's names in the caller's
+/// scope frame. The parser's block cache keeps this record on the parsed
+/// [`Block`](crate::ast::Block). Reusing the block for a later parse of the same file declares
+/// nothing by itself, so the cache binds these names again wherever they are missing, such as
+/// after the scope of the first parse has ended (see
+/// [`StateWorkingSet::bind_names`](crate::engine::StateWorkingSet::bind_names)).
+#[derive(Debug, Clone, Default)]
+pub struct BoundNames {
+    pub decls: Vec<(Vec<u8>, DeclId)>,
+    pub modules: Vec<(Vec<u8>, ModuleId)>,
+    pub vars: Vec<(Vec<u8>, VarId)>,
+    pub type_aliases: Vec<(Vec<u8>, TypeAliasId)>,
+}
+
 /// Name bindings introduced while parsing a single block/closure scope.
 ///
 /// Nested scopes discard their name maps on `exit_scope`; this snapshot is stored on the
@@ -224,6 +241,17 @@ impl Visibility {
                 .entry(*type_alias_id)
                 .or_insert(*visible);
         }
+    }
+
+    /// Whether this hides a declaration or type alias that `before` didn't hide.
+    pub fn hides_more_than(&self, before: &Visibility) -> bool {
+        self.decl_ids
+            .iter()
+            .any(|(id, visible)| !visible && before.decl_ids.get(id) != Some(&false))
+            || self
+                .type_alias_ids
+                .iter()
+                .any(|(id, visible)| !visible && before.type_alias_ids.get(id) != Some(&false))
     }
 }
 

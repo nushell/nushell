@@ -254,7 +254,6 @@ fn update(
     // Keep non-iterable custom values (e.g. matrix) so cell-path updates stay
     // on the custom type. Iterable custom values such as SQLiteQueryBuilder
     // must become a list stream so closure updates run per row.
-    #[expect(deprecated)]
     let keep_as_custom = matches!(
         &input,
         PipelineData::Value(Value::Custom { val, .. }, _) if !val.is_iterable()

@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 fn type_short_name(t: &Type) -> String {
     match t {
-        Type::Custom(_) => String::from("custom"),
         Type::Record(_) => String::from("record"),
         Type::Table(_) => String::from("table"),
         Type::List(_) => String::from("list"),
@@ -270,6 +269,22 @@ mod tests {
                 "label": "a2:",
                 "kind": 2,
                 "tooltip": { "kind": "markdown", "value": "`any: `" }
+            }
+        ])
+    )]
+    // Custom value types are hinted by name, and the hint must also parse when written out: the
+    // annotated `let typed: semver` gives `$copy` its type, and `v: semver` shows in the tooltip
+    #[case::custom_value_type(
+        "custom_type.nu",
+        false,
+        serde_json::json!([
+            { "position": { "line": 0, "character": 11 }, "label": ": semver", "kind": 1 },
+            { "position": { "line": 2, "character": 8 }, "label": ": semver", "kind": 1 },
+            {
+                "position": { "line": 4, "character": 5 },
+                "label": "v:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`semver: `" }
             }
         ])
     )]

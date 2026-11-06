@@ -1,4 +1,5 @@
 mod date_;
+mod formats;
 mod from_human;
 mod humanize;
 mod list_timezone;
@@ -13,4 +14,6 @@ pub use humanize::DateHumanize;
 pub use list_timezone::DateListTimezones;
 pub use now::DateNow;
 pub use to_timezone::DateToTimezone;
-pub(crate) use utils::{generate_strftime_list, parse_date_from_string};
+pub(crate) use utils::{
+    generate_date_formats_list, generate_strftime_list, parse_date_from_string,
+};

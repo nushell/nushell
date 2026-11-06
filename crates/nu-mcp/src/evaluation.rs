@@ -16,7 +16,7 @@ use tokio::sync::{Mutex, oneshot};
 use tokio_util::sync::CancellationToken;
 
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
-const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
+const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kib
 
 /// Formats a miette Diagnostic error as NUON text plus a JSON mirror for MCP.
 ///
@@ -221,10 +221,21 @@ const DEFAULT_PROMOTE_AFTER: Duration = Duration::from_secs(120);
 /// The evaluator maintains a `$history` list that stores all command outputs.
 /// Each evaluation can access previous outputs via `$history.0`, `$history.1`, etc.
 /// History is stored as a ring buffer with a configurable limit (default: 100 entries) via
-/// `NU_MCP_HISTORY_LIMIT` env var. When the limit is reached, oldest entries are evicted.
+/// `NU_MCP_HISTORY_LIMIT` env var. When the limit is reached, oldest entries are evicted;
+/// indices don't shift, and an evicted index reads as `null`.
 /// Large outputs are truncated in the response but stored in full in history.
+///
+/// # Concurrency
+///
+/// Evaluations run one at a time, like lines typed into a REPL: a call made while another
+/// is running waits until that one commits its state or is promoted to a background job.
+/// Otherwise two calls would fork the same state, and the one that finished last would
+/// overwrite the other's history entry and variables.
 pub struct Evaluator {
     state: Mutex<EvalState>,
+    /// Held from fork to commit, so that evaluations don't overlap. `state` is only
+    /// locked briefly, so `list_commands` and `command_help` don't wait for an evaluation.
+    eval_lock: Mutex<()>,
 }
 
 /// The mutable evaluation state that persists across evaluations.
@@ -284,6 +295,7 @@ impl Evaluator {
                 stack: Stack::new().capture_all(),
                 history,
             }),
+            eval_lock: Mutex::new(()),
         }
     }
 
@@ -306,6 +318,10 @@ impl Evaluator {
         nu_source: &str,
         ct: CancellationToken,
     ) -> Result<EvalOutput, rmcp::ErrorData> {
+        // Released when this call returns: after the commit below, or once the
+        // evaluation is promoted to a background job (whose state is never committed).
+        let _eval_guard = self.eval_lock.lock().await;
+
         let (forked_state, interrupt, promote_after) = {
             let state = self.state.lock().await;
             let timeout = promote_timeout(&state.engine_state, &state.stack);
@@ -719,7 +735,7 @@ fn promote_timeout(engine_state: &EngineState, stack: &Stack) -> Duration {
 
 /// Returns the output limit in bytes.
 ///
-/// Defaults to 10kb. Can be overridden via `NU_MCP_OUTPUT_LIMIT` env var.
+/// Defaults to 10kib. Can be overridden via `NU_MCP_OUTPUT_LIMIT` env var.
 /// Set to `0` to disable truncation entirely.
 fn output_limit(engine_state: &EngineState, stack: &Stack) -> Option<usize> {
     let limit = stack
@@ -1567,36 +1583,98 @@ mod tests {
         let engine_state = nu_cmd_lang::create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
-        // Set a small history limit
+        // Set a small history limit (the env var set counts as entry 0)
         evaluator.eval("$env.NU_MCP_HISTORY_LIMIT = 3")?;
 
-        // Add items to history (the env var set above counts as first)
-        // After limit=3 is set: history=[{set_result}]
-        evaluator.eval("'second'")?; // history=[{set}, {second}]
-        evaluator.eval("'third'")?; // history=[{set}, {second}, {third}] - at limit
-        evaluator.eval("'fourth'")?; // evict oldest -> history=[{second}, {third}, {fourth}]
-        evaluator.eval("'fifth'")?; // evict oldest -> history=[{third}, {fourth}, {fifth}]
-
-        // At this point, before checking $history:
-        // history = [{third}, {fourth}, {fifth}]
-        // $history.0 should be "third"
-        let result = evaluator.eval("$history.0")?;
+        evaluator.eval("'second'")?; // 1
+        evaluator.eval("'third'")?; // 2 - at limit
+        evaluator.eval("'fourth'")?; // 3, evicts 0
+        let result = evaluator.eval("'fifth'")?; // 4, evicts 1
         assert!(
-            result.contains("third"),
-            "Oldest entry should be 'third' after eviction, got: {result}"
+            result.contains("history_index:4") || result.contains("history_index: 4"),
+            "Indices should keep increasing after eviction, got: {result}"
         );
 
-        // After the above query, history was:
-        // evict oldest -> [{fourth}, {fifth}]
-        // append result -> [{fourth}, {fifth}, {result_of_query}]
-        // So now $history.1 = "fifth"
-        let result = evaluator.eval("$history.1")?;
+        // Indices don't shift (entry 2 is still "third"), and evicted entries read as null
+        let result = evaluator.eval("$history == [null, null, third, fourth, fifth]")?;
         assert!(
-            result.contains("fifth"),
-            "Entry at index 1 should be 'fifth', got: {result}"
+            result.contains("output:true"),
+            "Entries should keep their indices after eviction, got: {result}"
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_history_lowering_limit_trims_to_new_limit() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        evaluator.eval("'a'")?; // 0
+        evaluator.eval("'b'")?; // 1
+        evaluator.eval("'c'")?; // 2
+        // Entry 3 is the assignment's empty output; storing it under the new limit evicts 0 and 1
+        evaluator.eval("$env.NU_MCP_HISTORY_LIMIT = 2")?;
+
+        let result = evaluator.eval("$history == [null, null, c, []]")?; // 4, evicts 2
+        assert!(
+            result.contains("output:true"),
+            "History should be trimmed to the new limit, got: {result}"
+        );
+
+        // A limit of 0 still keeps the newest entry
+        evaluator.eval("$env.NU_MCP_HISTORY_LIMIT = 0; 'd'")?; // 5
+        let result = evaluator.eval("$history == [null, null, null, null, null, d]")?;
+        assert!(
+            result.contains("output:true"),
+            "A limit of 0 should keep only the newest entry, got: {result}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_evaluations_run_one_at_a_time() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        // If both calls forked the same state, both would report history_index 0, and the
+        // one that committed last would drop the other's history entry and env change
+        let (first, second) = tokio::join!(
+            evaluator.eval_async("$env.A = 1; 'first'", CancellationToken::new()),
+            evaluator.eval_async("$env.B = 2; 'second'", CancellationToken::new()),
+        );
+        let history_index = |result: &CallToolResult| {
+            result
+                .structured_content
+                .as_ref()
+                .and_then(|value| value.get("history_index"))
+                .and_then(|value| value.as_u64())
+        };
+        // Either call may run first; what matters is that each gets its own index
+        let mut indices = [history_index(&first), history_index(&second)];
+        indices.sort();
+        assert_eq!(
+            indices,
+            [Some(0), Some(1)],
+            "each call should get its own index"
+        );
+
+        let result = evaluator
+            .eval_async(
+                "$env.A == 1 and $env.B == 2 and ($history == [first, second] or $history == [second, first])",
+                CancellationToken::new(),
+            )
+            .await;
+        assert_tool_success(&result);
+        let output = result
+            .structured_content
+            .and_then(|value| value.get("output").cloned());
+        assert_eq!(
+            output,
+            Some(json!(true)),
+            "Both calls' env changes and history entries should be kept"
+        );
     }
 
     #[tokio::test]

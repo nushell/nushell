@@ -82,6 +82,26 @@ fn bare_word_expand_path_glob(prefix: &str) -> Result {
     })
 }
 
+/// With dc-glob, braces alternate in an argument that is a glob. A word with braces but no `*`,
+/// `?` or `[` isn't a glob, so it reaches the program unchanged. Glob matches come in
+/// filesystem order, so the arguments are sorted before comparing.
+#[apply(direct_external_prefixes)]
+#[nu_test_support::test]
+#[exp(nu_experimental::DC_GLOB)]
+#[deps(TESTBIN_COCOCO)]
+fn dc_glob_braces_in_external_arguments(prefix: &str) -> Result {
+    Playground::setup("external with braces", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a.rs"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "{prefix}cococo *.{{rs,toml}} HEAD@{{1}} x{{a,b}} | split row ' ' | sort"
+            ))
+            .expect_value_eq(["HEAD@{1}", "a.rs", "b.toml", "x{a,b}"])
+    })
+}
+
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
@@ -252,9 +272,7 @@ fn external_command_ndots_args(prefix: &str) -> Result {
             // change everything to backslashes too. Would be good to fix that
             r"foo/. foo/.. foo\..\.. foo/./bar foo/../bar foo\..\..\bar ./bar ../bar ..\..\bar"
         }
-        _ => {
-            "foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar"
-        }
+        _ => "foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar",
     })
 }
 
@@ -266,6 +284,19 @@ fn external_command_ndots_leading_dot_slash(prefix: &str) -> Result {
     test()
         .run(format!("{prefix}cococo ./... ./...."))
         .expect_value_eq("./... ./....")
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn external_command_dots_inside_component_args(prefix: &str) -> Result {
+    // `...` at the end of a component (git revision ranges) is not ndots, so the arg is passed
+    // through untouched: no separator rewrite, no collapsed `//`
+    test()
+        .run(format!(
+            "{prefix}cococo origin/main... origin//main... a.../b"
+        ))
+        .expect_value_eq("origin/main... origin//main... a.../b")
 }
 
 #[apply(run_external_prefixes)]

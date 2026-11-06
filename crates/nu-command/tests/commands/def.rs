@@ -213,6 +213,18 @@ fn def_default_value_should_restrict_implicit_type(#[case] code: &str) -> Result
 }
 
 #[test]
+fn def_with_built_in_custom_value_types() -> Result {
+    // `semver` is a custom type declared by built-in commands (e.g. `semver bump`) rather than by
+    // a plugin, so it should resolve in signatures without any plugin loaded
+    test()
+        .run(
+            "def f [v: semver]: semver -> semver { $v }
+             '1.0.0' | into semver | f ('1.2.3' | into semver) | to text",
+        )
+        .expect_value_eq("1.2.3")
+}
+
+#[test]
 fn def_wrapped_with_block() -> Result {
     test()
         .run("def --wrapped foo [...rest] { $rest | str join ',' }; foo --bar baz -- -q -u -x")

@@ -10,8 +10,8 @@
 use crate::dap::protocol::DapWriter;
 use crate::dap::types::DapEvent;
 use crate::state::DebugState;
-use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::generic::GenericError;
+use nu_engine::{command_prelude::*, eval_ir_call};
+use nu_protocol::{ir, shell_error::generic::GenericError};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -409,13 +409,8 @@ impl DapPrint {
 
         let data = match engine_state.table_decl_id {
             Some(decl_id) => {
-                let table_call = nu_protocol::ast::Call::new(call.head);
-                engine_state.get_decl(decl_id).run(
-                    engine_state,
-                    stack,
-                    &(&table_call).into(),
-                    data,
-                )?
+                let table_call = ir::Call::build(decl_id, call.head).finish();
+                eval_ir_call(engine_state, stack, &table_call, data)?
             }
             None => data,
         };

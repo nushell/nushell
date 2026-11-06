@@ -1,9 +1,9 @@
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings};
+use nu_engine::{command_prelude::*, env_to_strings, eval_ir_call};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
@@ -404,6 +404,11 @@ If you create a custom command with this name, that will be used instead."
             },
         ]
     }
+
+    // Like `^cmd`, the external command reads its input as text.
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::PipeRaw), None)
+    }
 }
 
 /// Evaluate all arguments, performing expansions when necessary.
@@ -544,8 +549,13 @@ fn write_pipeline_data(
         engine_state.set_config(config);
 
         // Invoke the `table` command.
-        let output =
-            crate::Table.run(&engine_state, &mut stack, &Call::new(Span::unknown()), data)?;
+        let output = match engine_state.table_decl_id {
+            Some(decl_id) => {
+                let call = ir::Call::build(decl_id, Span::unknown()).finish();
+                eval_ir_call(&engine_state, &mut stack, &call, data)?
+            }
+            None => data,
+        };
 
         // Write the output.
         for value in output {
@@ -640,15 +650,6 @@ pub fn command_not_found(
                 // The hook did not return a string, so ignore it.
             }
         }
-    }
-
-    // If the name is one of the removed commands, recommend a replacement.
-    if let Some(replacement) = crate::removed_commands().get(&name.to_lowercase()) {
-        return ShellError::RemovedCommand {
-            removed: name.to_lowercase(),
-            replacement: replacement.clone(),
-            span,
-        };
     }
 
     // Making this a closure allows using return inside instead of nesting if-else's

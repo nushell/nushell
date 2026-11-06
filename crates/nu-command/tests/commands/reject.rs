@@ -261,7 +261,7 @@ fn reject_multiple_rows_descending() -> Result {
 }
 
 #[test]
-fn test_ignore_errors_flag() -> Result {
+fn test_optional_flag() -> Result {
     let code = "$in | reject 5 -o";
     let input = test_table![
         ["a", "b"];
@@ -281,7 +281,7 @@ fn test_ignore_errors_flag() -> Result {
 }
 
 #[test]
-fn test_ignore_errors_flag_var() -> Result {
+fn test_optional_flag_var() -> Result {
     let code = "let arg = [5 c]; $in | reject ...$arg -o";
     let input = test_table![
         ["a", "b"];

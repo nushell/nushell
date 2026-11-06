@@ -343,6 +343,7 @@ impl fmt::Display for RedirectMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RedirectMode::Pipe => write!(f, "pipe"),
+            RedirectMode::PipeRaw => write!(f, "pipe raw"),
             RedirectMode::PipeSeparate => write!(f, "pipe separate"),
             RedirectMode::Value => write!(f, "value"),
             RedirectMode::Null => write!(f, "null"),
