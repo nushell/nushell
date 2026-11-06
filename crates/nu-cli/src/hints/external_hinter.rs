@@ -68,9 +68,11 @@ impl ExternalHinter {
         )
         .map_err(|err| format!("failed to build context record: {err}"))?;
 
-        // Reedline owns the terminal while hinting. Neither external commands
-        // nor interactive builtins may read from it or take control of it.
-        let stack = Stack::with_parent(self.stack.clone()).suppress_stdin();
+        // Reuse completion-worker isolation so external commands cannot inherit
+        // Reedline's terminal through stdin, stdout or stderr.
+        let stack = Stack::with_parent(self.stack.clone())
+            .suppress_output()
+            .suppress_stdin();
         let result = ClosureEvalOnce::try_new(
             self.engine_state.as_ref(),
             &stack,
@@ -256,6 +258,55 @@ mod tests {
         let hint = hinter.handle("", 0, &history(), false, "/tmp");
 
         assert_eq!(hint.trim_end(), "hint text");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn external_command_stderr_is_off_the_terminal() {
+        let mut hinter = create_external_command_hinter(
+            "{|ctx| ^sh -c 'if [ /dev/fd/2 -ef /dev/null ]; then printf isolated; else printf attached; fi'}",
+        );
+
+        assert_eq!(hinter.handle("", 0, &history(), false, "/tmp"), "isolated");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn intermediate_external_command_stdout_is_off_the_terminal() {
+        let mut hinter = create_external_command_hinter(
+            "{|ctx| ^sh -c 'test /dev/fd/1 -ef /dev/null'; $env.LAST_EXIT_CODE | into string}",
+        );
+
+        assert_eq!(hinter.handle("", 0, &history(), false, "/tmp"), "0");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn external_command_stderr_can_still_be_captured() {
+        for source in [
+            "{|ctx| ^sh -c 'printf hint-error >&2' | complete | get stderr}",
+            "{|ctx| ^sh -c 'printf hint-error >&2' e>| str trim}",
+        ] {
+            let mut hinter = create_external_command_hinter(source);
+
+            assert_eq!(
+                hinter.handle("", 0, &history(), false, "/tmp"),
+                "hint-error",
+                "{source}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn input_declines_instead_of_reading_the_terminal() {
+        let mut hinter =
+            create_external_command_hinter("{|ctx| try { input; 'read' } catch {|e| $e.msg }}");
+
+        assert_eq!(
+            hinter.handle("", 0, &history(), false, "/tmp"),
+            "Interactive input is unavailable in this context"
+        );
     }
 
     #[test]
