@@ -1,0 +1,1521 @@
+//! Blocks, statements and pipelines (the classic parser's `parse_block`,
+//! `parse_builtin_commands`, `parse_pipeline` and `parse_pipeline_element`), and a statement
+//! the lowering gives back: a garbage pipeline with an error.
+
+use std::borrow::Cow;
+use std::sync::Arc;
+
+use nu_protocol::{
+    DeclId, Module, ParseError, Span, SyntaxShape, Type,
+    ast::{
+        AttributeBlock, Block, Call, Expr, Expression, Pipeline, PipelineElement,
+        PipelineRedirection, RedirectionSource, RedirectionTarget,
+    },
+    engine::StateWorkingSet,
+};
+
+use super::delimiter_hint::delimiter_structure_hint;
+use super::leaf::{is_env_name, trim_quotes};
+use super::module::{KeywordEffect, overlay_effect};
+use super::trial::Trial;
+use super::{Lower, Lowered, Unlowered};
+#[cfg(feature = "plugin")]
+use crate::parse_source::parse_plugin_use;
+use crate::winnow::syntax::lex::{
+    LexError, LexOptions, RedirectionSource as WinnowSource, TokenContents,
+};
+use crate::winnow::syntax::{Span as WSpan, ast as w};
+use crate::{
+    exportable::Exportable,
+    parse_captures_compile::wrap_element_with_collect,
+    parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
+    parse_module::{add_exportables, double_main_span},
+    parse_pipelines::{finish_block, hide_unlet_constants},
+    winnow::{
+        driver::{BlockKind, parse_block, parse_rest, statement_changes_names},
+        stats,
+    },
+};
+
+/// The keywords whose statement is a call when it asks for help (`def foo --help`), lowered by
+/// `help_statement`. (A `module` read as a call is `module_call`'s.)
+const HELP_STATEMENT_KEYWORDS: &[&str] = &[
+    "def",
+    "extern",
+    "for",
+    "alias",
+    "type",
+    "use",
+    "export-env",
+    "where",
+    "export",
+    "let",
+    "mut",
+    "const",
+];
+
+/// The keywords a module's body may have a call for help of (`parse_module_pipeline`), but
+/// `module`, whose call is `module_call`'s.
+const MODULE_HELP_KEYWORDS: &[&str] = &[
+    "def",
+    "extern",
+    "alias",
+    "type",
+    "use",
+    "const",
+    "export-env",
+];
+
+/// What a block is to the classic `parse_block` (its `is_subexpression` flag) and to its lexer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::winnow) enum BlockOf {
+    /// A file, a module's body, the body of a closure or a command.
+    Code,
+    /// The inside of `( ... )`: a subexpression, lexed as `parse_full_cell_path` lexes it,
+    /// newlines as whitespace.
+    Parentheses,
+    /// The value of a binding or an assignment (`let x = ...`): a subexpression, lexed again
+    /// from its text as a block is (`parse_let`), so a newline ends a pipeline even inside
+    /// `( ... )`.
+    Value,
+}
+
+impl BlockOf {
+    /// The classic `parse_block`'s `is_subexpression`.
+    pub(in crate::winnow) fn is_subexpression(self) -> bool {
+        self != BlockOf::Code
+    }
+}
+
+/// Where a statement goes: an ordinary block, or a module's body.
+pub(in crate::winnow) enum StatementTarget<'t> {
+    /// A statement of an ordinary block; `input_type` is the block's input, which only its
+    /// first statement receives.
+    Block { input_type: Option<&'t Type> },
+    /// A statement of the body of the module `name`, covering `span`; exports add to `module`.
+    Module {
+        name: &'t [u8],
+        module: &'t mut Module,
+        span: Span,
+    },
+}
+
+/// The first words `parse_module_pipeline` gives a statement of a module's body to a parse
+/// function of its own; it reports a statement with any other one (ExpectedKeyword).
+const MODULE_STATEMENT_KEYWORDS: &[&[u8]] = &[
+    b"def",
+    b"extern",
+    b"export",
+    b"const",
+    b"alias",
+    b"type",
+    b"use",
+    b"module",
+    b"export-env",
+];
+
+/// The items after `export` that `parse_export_in_module` gives a parse function of its own;
+/// any other is its error.
+const EXPORTED_KEYWORDS: &[&[u8]] = &[
+    b"def", b"extern", b"alias", b"use", b"module", b"const", b"type",
+];
+
+impl<'s> Lower<'_, '_, 's> {
+    /// A statement lowered, added to `out`, or a garbage pipeline over `span`, with an error,
+    /// when the lowering gives it back. Given back for an error ([`Unlowered::Error`]), the
+    /// statement keeps what the lowering reported, else an internal error says that it reported
+    /// nothing; given back as unsupported, it drops what the lowering reported and reports the
+    /// construct ([`unsupported_error`]). Either way the constants an `unlet` it lowered hid in
+    /// the current scope are found again, and what else it added to the working set stays,
+    /// unreachable from `out` (see the module documentation of `lower`).
+    pub(in crate::winnow) fn statement_or_garbage(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        span: Span,
+        target: &mut StatementTarget<'_>,
+        out: &mut Vec<Pipeline>,
+    ) {
+        let trial = Trial::new(self.working_set);
+        // Empty, and so free to copy, unless an `unlet` in the block hid a constant.
+        let hidden_vars = self
+            .working_set
+            .delta
+            .last_scope_frame_mut()
+            .hidden_vars
+            .clone();
+        match self.statement(pipeline, target) {
+            Ok(pipeline) => {
+                stats::record_lowered_statement();
+                out.push(pipeline);
+            }
+            Err(unlowered) => {
+                self.working_set.delta.last_scope_frame_mut().hidden_vars = hidden_vars;
+                match unlowered {
+                    Unlowered::Error if trial.failed(self.working_set) => {}
+                    Unlowered::Error => self.working_set.error(ParseError::InternalError(
+                        "the winnow parser gave up on this statement without an error".into(),
+                        span,
+                    )),
+                    Unlowered::Unsupported(what) => {
+                        trial.discard(self.working_set);
+                        self.working_set.error(unsupported_error(what, span));
+                    }
+                }
+                stats::record_unlowered(span, &unlowered, self.working_set);
+                out.push(garbage_pipeline(self.working_set, span));
+            }
+        }
+    }
+
+    /// One statement (`parse_pipeline`, or `parse_module_pipeline` in a module's body).
+    fn statement(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        target: &mut StatementTarget<'_>,
+    ) -> Lowered<Pipeline> {
+        match target {
+            StatementTarget::Block { input_type, .. } => self.pipeline(pipeline, *input_type),
+            StatementTarget::Module { name, module, span } => {
+                self.module_statement(pipeline, name, module, *span)
+            }
+        }
+    }
+
+    /// A statement of a module's body (`parse_module_pipeline`): definitions, constants,
+    /// aliases, modules, `use` and `export-env` blocks, and their exports added to `module`,
+    /// whose body covers `span`. `module` changes only once nothing can fail, since a statement
+    /// given back adds no exports.
+    fn module_statement(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        module_name: &[u8],
+        module: &mut Module,
+        span: Span,
+    ) -> Lowered<Pipeline> {
+        // A pipeline of several commands is reported over the whole body, which it makes
+        // garbage, as nu does (`parse_module_pipeline`).
+        let [element] = pipeline.elements.as_slice() else {
+            self.working_set
+                .error(ParseError::Expected("not a pipeline", span));
+            return Ok(Pipeline::from_vec(vec![Expression::garbage(
+                self.working_set,
+                span,
+            )]));
+        };
+        if let Some(redirection) = &element.redirection
+            && let Some(refused) = self.redirected_statement(&element.expr, redirection, true)?
+        {
+            return Ok(refused);
+        }
+        let (command, attributes) = match &element.expr.expr {
+            w::Expr::AttributeBlock(block) => (&*block.item, block.attributes.as_slice()),
+            _ => (&element.expr, &[][..]),
+        };
+        let expression = match &command.expr {
+            w::Expr::Def(def) => self.def(pipeline, command, def, attributes, None)?.0,
+            w::Expr::Extern(extern_def) => {
+                self.extern_def(pipeline, command, extern_def, attributes, None)?
+                    .0
+            }
+            w::Expr::Const(binding) if attributes.is_empty() => {
+                self.const_statement(command, binding)?.0
+            }
+            w::Expr::ExportEnv(export_env) if attributes.is_empty() => {
+                let (expression, block_id) = self.export_env(command, export_env)?;
+                module.add_env_block(block_id);
+                expression
+            }
+            w::Expr::Alias(alias) if attributes.is_empty() => {
+                self.alias(pipeline, command, alias, None)?
+            }
+            w::Expr::TypeAlias(alias) if attributes.is_empty() => {
+                return Ok(self.type_alias(command, alias)?.0);
+            }
+            w::Expr::Call(call) if attributes.is_empty() && call.head.name == "module" => {
+                let (pipeline, _) = self.module_call(pipeline, command, call, None)?;
+                return Ok(pipeline);
+            }
+            // An `export-env` nu reads as its call adds its block when the call is valid (a
+            // block left open).
+            w::Expr::Call(call)
+                if attributes.is_empty()
+                    && call.head.name == "export-env"
+                    && pipeline.elements.iter().all(|e| e.redirection.is_none()) =>
+            {
+                let (expression, block_id) = self.export_env_call(command, call)?;
+                if let Some(block_id) = block_id {
+                    module.add_env_block(block_id);
+                }
+                expression
+            }
+            w::Expr::Call(call)
+                if attributes.is_empty()
+                    && MODULE_HELP_KEYWORDS.contains(&call.head.name.as_ref()) =>
+            {
+                self.help_statement(pipeline, command, call, &[], None, None)?
+                    .0
+            }
+            // A definition nu reads as its keyword's call (`def f [a, a] {}`, a `def f` missing
+            // its signature) after attributes, which `parse_def` reads before the call.
+            w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
+                self.help_statement(pipeline, command, call, attributes, None, None)?
+                    .0
+            }
+            w::Expr::Use(use_statement) if attributes.is_empty() => {
+                let (pipeline, _) =
+                    self.use_statement(command, command, use_statement, Some(module))?;
+                return Ok(pipeline);
+            }
+            w::Expr::Module(submodule) if attributes.is_empty() => {
+                let (pipeline, _) = self.module_declaration(pipeline, command, submodule, None)?;
+                return Ok(pipeline);
+            }
+            w::Expr::Export(export) => match &export.item.expr {
+                w::Expr::Def(def) => {
+                    let (expression, decl) =
+                        self.def(pipeline, command, def, attributes, Some(module_name))?;
+                    if let Some((name, decl_id)) = decl {
+                        self.add_export_decl(module, module_name, name, decl_id, &expression);
+                    }
+                    expression
+                }
+                w::Expr::Extern(extern_def) => {
+                    let (expression, decl) = self.extern_def(
+                        pipeline,
+                        command,
+                        extern_def,
+                        attributes,
+                        Some(module_name),
+                    )?;
+                    if let Some((name, decl_id)) = decl {
+                        self.add_export_decl(module, module_name, name, decl_id, &expression);
+                    }
+                    expression
+                }
+                // The constant is exported unless it holds no value, which is reported. One
+                // without a value (`export const x`) exports nothing.
+                w::Expr::Const(binding) if attributes.is_empty() => {
+                    let (expression, var_span) = self.export_const(command, export, binding)?;
+                    let Some(var_span) = var_span else {
+                        return Ok(Pipeline::from_vec(vec![expression]));
+                    };
+                    let name = trim_quotes(self.working_set.get_span_contents(var_span)).to_vec();
+                    match self.working_set.find_variable(&name) {
+                        Some(var_id) => match self.working_set.get_constant(var_id) {
+                            Ok(_) => {
+                                module.add_variable(name, var_id);
+                            }
+                            Err(error) => self.working_set.error(error),
+                        },
+                        None => {
+                            let start = self.span(export.item.span).start;
+                            let end = self.span(command.span).end;
+                            self.working_set.error(ParseError::InternalError(
+                                "failed to find added variable".into(),
+                                Span::new(start, end),
+                            ));
+                        }
+                    }
+                    expression
+                }
+                w::Expr::Alias(alias) if attributes.is_empty() => {
+                    self.export_alias(pipeline, command, &export.item, alias, module_name, module)?
+                }
+                w::Expr::TypeAlias(alias) if attributes.is_empty() => {
+                    let (pipeline, exportables) = self.type_alias(command, alias)?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
+                }
+                w::Expr::Use(use_statement) if attributes.is_empty() => {
+                    let (pipeline, exportables) =
+                        self.use_statement(command, &export.item, use_statement, Some(module))?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
+                }
+                w::Expr::Module(submodule) if attributes.is_empty() => {
+                    let (pipeline, exportables) =
+                        self.module_declaration(pipeline, command, submodule, Some(module_name))?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
+                }
+                w::Expr::Call(call) if attributes.is_empty() && call.head.name == "module" => {
+                    let (pipeline, exportables) =
+                        self.module_call(pipeline, command, call, Some(module_name))?;
+                    let main_span =
+                        double_main_span(pipeline.elements.first().map(|e| &e.expr), span);
+                    add_exportables(
+                        self.working_set,
+                        module,
+                        module_name,
+                        exportables,
+                        main_span,
+                    );
+                    return Ok(pipeline);
+                }
+                // An `export extern` defines its command even when it asks for help. An `export
+                // alias` that does declares nothing, but `parse_export_in_module` looks the alias
+                // up by the statement's third item, its quotes trimmed: that exports another
+                // command, or reports that none was found. A definition nu reads as its call
+                // keeps the attributes before it (`parse_def` reads them).
+                w::Expr::Call(call)
+                    if attributes.is_empty()
+                        || matches!(call.head.name.as_ref(), "def" | "extern") =>
+                {
+                    let (expression, decl) = self.help_statement(
+                        pipeline,
+                        command,
+                        call,
+                        attributes,
+                        Some(module_name),
+                        None,
+                    )?;
+                    if let Some((name, decl_id)) = decl {
+                        self.add_export_decl(module, module_name, name, decl_id, &expression);
+                    } else if call.head.name.as_ref() == "alias" {
+                        let span = self.span(command.span);
+                        let (items, _) = self.lex_span(span, LexOptions::BLOCK);
+                        let name = items
+                            .iter()
+                            .filter(|item| item.contents != TokenContents::Comment)
+                            .nth(2)
+                            .map_or(Vec::new(), |item| {
+                                trim_quotes(self.text(item.span).as_bytes()).to_vec()
+                            });
+                        match self.working_set.find_decl(&name) {
+                            Some(decl_id) => self.add_export_decl(
+                                module,
+                                module_name,
+                                name,
+                                decl_id,
+                                &expression,
+                            ),
+                            None => {
+                                let start = self.span(export.item.span).start;
+                                self.working_set.error(ParseError::InternalError(
+                                    "failed to find added alias".into(),
+                                    Span::new(start, span.end),
+                                ));
+                            }
+                        }
+                    }
+                    expression
+                }
+                // Attributes before an export of anything but a definition: their block, with
+                // garbage for the export, which exports nothing (`parse_export_in_module`).
+                _ if !attributes.is_empty() => {
+                    self.attributes_without_definition(command, attributes)?
+                }
+                _ => return Err(Unlowered::Unsupported("export in a module")),
+            },
+            // Any other statement nu reports at its first item and makes garbage over its
+            // parts, assignment operators included (`parse_module_pipeline`), reading nothing
+            // of it; a statement with one of its keywords first is its parse function's.
+            // A lone `export`, with attributes before it or not: nu reads it as an export
+            // (by its first word), which misses its keyword (`parse_export_in_module`).
+            _ if self.text(command.span) == "export" => self.lone_export(command.span),
+            _ if attributes.is_empty() => {
+                // The command's items as the lite parser grouped them, from the first to the
+                // last: `let x o> f` is `let x`, `^ls o>` all of it.
+                let parts = self.span(element.parts);
+                let (tokens, _) = self.lex_span(parts, LexOptions::SUBEXPRESSION);
+                let Some(first) = tokens
+                    .iter()
+                    .find(|token| token.contents != TokenContents::Comment)
+                    .map(|token| self.span(token.span))
+                else {
+                    return Err(Unlowered::Error);
+                };
+                // `export` and an item that names nothing it exports (`export let x`): nu
+                // reports that item and makes the statement garbage (`parse_export_in_module`).
+                let words: Vec<Span> = tokens
+                    .iter()
+                    .filter(|token| token.contents != TokenContents::Comment)
+                    .map(|token| self.span(token.span))
+                    .collect();
+                if let [export, second, ..] = words.as_slice()
+                    && self.working_set.get_span_contents(*export) == b"export"
+                    && !EXPORTED_KEYWORDS.contains(&self.working_set.get_span_contents(*second))
+                {
+                    self.working_set.error(ParseError::Expected(
+                        "def, alias, use, module, const, extern or type keyword",
+                        *second,
+                    ));
+                    return Ok(Pipeline::from_vec(vec![Expression::garbage(
+                        self.working_set,
+                        parts,
+                    )]));
+                }
+                if MODULE_STATEMENT_KEYWORDS.contains(&self.working_set.get_span_contents(first)) {
+                    return Err(Unlowered::Unsupported("module statement"));
+                }
+                self.working_set.error(ParseError::ExpectedKeyword(
+                    "def, const, extern, alias, type, use, module, export or export-env keyword"
+                        .into(),
+                    first,
+                ));
+                Expression::garbage(self.working_set, parts)
+            }
+            // Attributes before any other statement: their block, with garbage for the
+            // statement (`parse_module_pipeline` reads them before its keywords).
+            _ => self.attributes_without_definition(command, attributes)?,
+        };
+        Ok(Pipeline::from_vec(vec![expression]))
+    }
+
+    /// A lone `export` in a module's body, at `span` (`parse_export_in_module`): the keyword
+    /// after it is missing, and the word is garbage; attributes before it are dropped.
+    fn lone_export(&mut self, span: WSpan) -> Expression {
+        const KEYWORDS: &str = "def, alias, use, module, const, extern or type keyword";
+        let span = self.span(span);
+        self.working_set.error(ParseError::MissingPositional(
+            KEYWORDS.into(),
+            Span::new(span.end, span.end),
+            KEYWORDS.into(),
+        ));
+        Expression::garbage(self.working_set, span)
+    }
+
+    /// `export alias name = target` in a module's body (`parse_export_in_module`): the alias,
+    /// declared as `alias` declares it with the module's name forbidden, made a call to `export
+    /// alias` covering the statement (`warp_export_call`), and added to the module's exports
+    /// under the item after `alias`, its quotes trimmed: whatever command has that name, or,
+    /// when none does (an alias nu refused), nu's internal error.
+    fn export_alias(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        command: &w::Expression<'s>,
+        item: &w::Expression<'s>,
+        alias: &w::Alias<'s>,
+        module_name: &[u8],
+        module: &mut Module,
+    ) -> Lowered<Expression> {
+        let mut expression = self.alias(pipeline, item, alias, Some(module_name))?;
+        let span = self.span(command.span);
+        self.export_call(&mut expression, "export alias", span)?;
+        // The head covers `export alias`, the blanks between them included.
+        if let Expr::Call(call) = &mut expression.expr {
+            call.head = Span::new(span.start, self.span(item.span).start + "alias".len());
+        }
+        let name = trim_quotes(self.text(alias.name.span).as_bytes()).to_vec();
+        match self.working_set.find_decl(&name) {
+            Some(decl_id) => self.add_export_decl(module, module_name, name, decl_id, &expression),
+            None => {
+                let start = self.span(item.span).start;
+                self.working_set.error(ParseError::InternalError(
+                    "failed to find added alias".into(),
+                    Span::new(start, span.end),
+                ));
+            }
+        }
+        Ok(expression)
+    }
+
+    /// Add an exported command, the statement `expression`, to a module: as its `main`, or
+    /// under its name (`add_exportables`).
+    fn add_export_decl(
+        &mut self,
+        module: &mut Module,
+        module_name: &[u8],
+        name: Vec<u8>,
+        decl_id: DeclId,
+        expression: &Expression,
+    ) {
+        let main_span = double_main_span(Some(expression), expression.span);
+        let exportable = Exportable::Decl { name, id: decl_id };
+        add_exportables(
+            self.working_set,
+            module,
+            module_name,
+            vec![exportable],
+            main_span,
+        );
+    }
+
+    /// `export const` (in a script or a module): the constant, made a call to `export const`
+    /// covering the statement. Returns it with the variable's name span, which a constant
+    /// without a value has none of.
+    fn export_const(
+        &mut self,
+        command: &w::Expression<'s>,
+        export: &w::Export<'s>,
+        binding: &w::Binding<'s>,
+    ) -> Lowered<(Expression, Option<Span>)> {
+        let (mut expression, var_span) = self.const_statement(&export.item, binding)?;
+        let span = self.span(command.span);
+        self.export_call(&mut expression, "export const", span)?;
+        if let Expr::Call(call) = &mut expression.expr {
+            call.head = Span::new(span.start, call.head.end);
+        }
+        Ok((expression, var_span))
+    }
+
+    /// A pipeline of an ordinary block (`parse_pipeline`): the output type of each element is
+    /// the input type of the next, and an element after the first that uses `$in` is wrapped
+    /// in a `collect`.
+    fn pipeline(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Pipeline> {
+        match pipeline.elements.as_slice() {
+            [] => Err(Unlowered::Unsupported("empty pipeline")),
+            [single] => self.builtin_commands(pipeline, single, input_type),
+            [first, rest @ ..] => {
+                // `parse_pipeline` reports each `while` or `loop` command before it parses the
+                // elements, at its first item after any environment shorthand.
+                for element in &pipeline.elements {
+                    let items = self.parts(element.parts);
+                    let head = items.iter().find(|item| {
+                        let text = self.working_set.get_span_contents(**item);
+                        !text
+                            .iter()
+                            .position(|&byte| byte == b'=')
+                            .is_some_and(|equals| is_env_name(&text[..equals]))
+                    });
+                    if let Some(&head) = head
+                        && let keyword @ (b"while" | b"loop") =
+                            self.working_set.get_span_contents(head)
+                    {
+                        let keyword = String::from_utf8_lossy(keyword).into_owned();
+                        self.working_set
+                            .error(ParseError::BuiltinCommandInPipeline(keyword, head));
+                    }
+                }
+                let mut current = input_type.cloned().unwrap_or(Type::Any);
+                let mut elements = Vec::with_capacity(pipeline.elements.len());
+                let element = self.pipeline_element(first, &current)?;
+                current = element.expr.ty.clone();
+                elements.push(element);
+                for element in rest {
+                    let input = current.clone();
+                    let element = self.pipeline_element(element, &current)?;
+                    current = element.expr.ty.clone();
+                    let element = if element.has_in_variable(self.working_set) {
+                        wrap_element_with_collect(self.working_set, element, Some(&input))
+                    } else {
+                        element
+                    };
+                    elements.push(element);
+                }
+                Ok(Pipeline { elements })
+            }
+        }
+    }
+
+    /// A pipeline of one command, which may be a statement (`parse_builtin_commands`).
+    fn builtin_commands(
+        &mut self,
+        pipeline: &w::Pipeline<'s>,
+        element: &w::PipelineElement<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Pipeline> {
+        if let Some(redirection) = &element.redirection
+            && let Some(refused) = self.redirected_statement(&element.expr, redirection, false)?
+        {
+            return Ok(refused);
+        }
+        let expr = match &element.expr.expr {
+            w::Expr::Def(def) => self.def(pipeline, &element.expr, def, &[], None)?.0,
+            w::Expr::Extern(extern_def) => {
+                self.extern_def(pipeline, &element.expr, extern_def, &[], None)?
+                    .0
+            }
+            w::Expr::Const(binding) => self.const_statement(&element.expr, binding)?.0,
+            w::Expr::ExportEnv(export_env) => self.export_env(&element.expr, export_env)?.0,
+            // `export def`, `export extern` and `export const` outside a module
+            // (`parse_export_in_block`).
+            w::Expr::Export(export) => match &export.item.expr {
+                w::Expr::Def(def) => self.def(pipeline, &element.expr, def, &[], None)?.0,
+                w::Expr::Extern(extern_def) => {
+                    self.extern_def(pipeline, &element.expr, extern_def, &[], None)?
+                        .0
+                }
+                w::Expr::Const(binding) => self.export_const(&element.expr, export, binding)?.0,
+                // `parse_alias` with `export alias` its head, made a call to `export alias`.
+                w::Expr::Alias(alias) => {
+                    let mut expression = self.alias(pipeline, &element.expr, alias, None)?;
+                    let span = self.span(element.expr.span);
+                    self.export_call(&mut expression, "export alias", span)?;
+                    expression
+                }
+                w::Expr::Use(use_statement) => {
+                    let (pipeline, _) =
+                        self.use_statement(&element.expr, &export.item, use_statement, None)?;
+                    return Ok(pipeline);
+                }
+                w::Expr::Module(module) => {
+                    let (pipeline, _) =
+                        self.module_declaration(pipeline, &element.expr, module, None)?;
+                    return Ok(pipeline);
+                }
+                w::Expr::TypeAlias(alias) => return Ok(self.type_alias(&element.expr, alias)?.0),
+                w::Expr::Call(call) if call.head.name == "module" => {
+                    let (pipeline, _) = self.module_call(pipeline, &element.expr, call, None)?;
+                    return Ok(pipeline);
+                }
+                w::Expr::Call(call) => {
+                    let e = &element.expr;
+                    self.help_statement(pipeline, e, call, &[], None, None)?.0
+                }
+                _ => return Err(Unlowered::Unsupported("export")),
+            },
+            w::Expr::AttributeBlock(block) => {
+                let command = &*block.item;
+                let attributes = block.attributes.as_slice();
+                let definition = match &command.expr {
+                    w::Expr::Export(export) => &export.item.expr,
+                    other => other,
+                };
+                match definition {
+                    w::Expr::Def(def) => self.def(pipeline, command, def, attributes, None)?.0,
+                    w::Expr::Extern(extern_def) => {
+                        self.extern_def(pipeline, command, extern_def, attributes, None)?
+                            .0
+                    }
+                    w::Expr::Garbage => {
+                        let expression = self.attributes_without_definition(command, attributes)?;
+                        let first_word = self.text(command.span).split_ascii_whitespace().next();
+                        match first_word == Some("export") {
+                            true => {
+                                self.exported_attribute_block(expression, command, attributes)?
+                            }
+                            false => expression,
+                        }
+                    }
+                    // A definition nu reads as its keyword's call (`def f [a, a] {}`).
+                    w::Expr::Call(call) if matches!(call.head.name.as_ref(), "def" | "extern") => {
+                        self.help_statement(pipeline, command, call, attributes, None, None)?
+                            .0
+                    }
+                    _ => return Err(Unlowered::Unsupported("attributes")),
+                }
+            }
+            w::Expr::Let(binding) => return self.let_statement(element, binding, input_type),
+            w::Expr::Mut(binding) => return self.mut_statement(element, binding),
+            w::Expr::For(for_loop) => self.for_statement(element, for_loop)?,
+            w::Expr::Alias(alias) => self.alias(pipeline, &element.expr, alias, None)?,
+            w::Expr::TypeAlias(alias) => return Ok(self.type_alias(&element.expr, alias)?.0),
+            w::Expr::Module(module) => {
+                let (pipeline, _) =
+                    self.module_declaration(pipeline, &element.expr, module, None)?;
+                return Ok(pipeline);
+            }
+            w::Expr::Use(use_statement) => {
+                let (pipeline, _) =
+                    self.use_statement(&element.expr, &element.expr, use_statement, None)?;
+                return Ok(pipeline);
+            }
+            // The parser keywords the classic parser picks by the statement's first words (the
+            // winnow parser too, so `source me` is `source` where a command `source me` exists).
+            w::Expr::Call(call) if call.sigil.is_none() => {
+                match call.head.name.as_ref() {
+                    "source" | "source-env" => return self.source(&element.expr, call),
+                    "hide" => return self.hide(&element.expr, call),
+                    "run" => return Ok(Pipeline::from_vec(vec![self.run(&element.expr, call)?])),
+                    #[cfg(feature = "plugin")]
+                    "plugin use" => {
+                        return self.keyword_statement(&element.expr, call, Some(parse_plugin_use));
+                    }
+                    "module" => {
+                        return Ok(self.module_call(pipeline, &element.expr, call, None)?.0);
+                    }
+                    // `parse_where` keeps the element's redirection, a call for help's too.
+                    "where" if element.redirection.is_some() => {
+                        return Ok(without_pipe(self.single_element(element, input_type)?));
+                    }
+                    name if HELP_STATEMENT_KEYWORDS.contains(&name) => {
+                        let e = &element.expr;
+                        let (statement, _) =
+                            self.help_statement(pipeline, e, call, &[], None, input_type)?;
+                        return Ok(Pipeline::from_vec(vec![statement]));
+                    }
+                    // `overlay =` is `parse_call`'s incomplete statement, as for any command.
+                    "overlay"
+                        if call
+                            .arguments
+                            .first()
+                            .is_some_and(|first| self.text(first.span()) == "=") =>
+                    {
+                        let span = self.span(element.expr.span);
+                        self.working_set.error(ParseError::UnknownState(
+                            "Incomplete statement".into(),
+                            span,
+                        ));
+                        return Ok(garbage_pipeline(self.working_set, span));
+                    }
+                    name if name.split(' ').next() == Some("overlay") => {
+                        let effect = overlay_effect(name);
+                        return self.keyword_statement(&element.expr, call, effect);
+                    }
+                    _ => {}
+                }
+                return self.single_element(element, input_type);
+            }
+            w::Expr::Where(_) => {
+                return Ok(without_pipe(self.single_element(element, input_type)?));
+            }
+            _ => return self.single_element(element, input_type),
+        };
+        Ok(Pipeline::from_vec(vec![expr]))
+    }
+
+    /// A pipeline of one command that is no statement (the end of `parse_builtin_commands`). A
+    /// call to `overlay use`, `overlay hide` or `overlay new` through an alias changes the
+    /// overlays as a call to the command itself does (`parse_overlay_use`, ...): the statement
+    /// is what that gives, without the element's redirection.
+    fn single_element(
+        &mut self,
+        element: &w::PipelineElement<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Pipeline> {
+        let errors = self.working_set.parse_errors.len();
+        let first_block = self.working_set.delta.blocks.len();
+        let first_word = self.text(element.expr.span);
+        let first_word = first_word
+            .split(|c: char| c.is_ascii_whitespace())
+            .next()
+            .unwrap_or_default();
+        let lowered = self.pipeline_element(element, input_type.unwrap_or(&Type::Any))?;
+        if let Expr::Call(call) = &lowered.expr.expr
+            && let Some(effect) = self.overlay_call_effect(call)
+        {
+            return Ok(effect(self.working_set, call.clone()));
+        }
+        // To find such a call, `parse_builtin_commands` parses a statement whose first word
+        // names an alias once before parsing it as a statement, as a call (`parse_call`), and
+        // keeps that parse's errors. For a call they are the statement's own, reported twice;
+        // an assignment (`foo = ls`) only that parse reads as a call, its errors first.
+        if self.names_alias(first_word, self.span(element.expr.span)) {
+            if matches!(element.expr.expr, w::Expr::Assignment(_)) {
+                let statement_errors = self.working_set.parse_errors.split_off(errors);
+                let parts = self.parts(element.expr.span);
+                if !parts.is_empty() {
+                    self.call_text(&parts, None)?;
+                }
+                self.working_set.parse_errors.extend(statement_errors);
+            } else if self.working_set.parse_errors.len() > errors {
+                let again = self.working_set.parse_errors[errors..].to_vec();
+                self.working_set.parse_errors.extend(again);
+                // The parse nu keeps comes second, with those errors there: it compiles no block.
+                for block in &mut self.working_set.delta.blocks[first_block..] {
+                    Arc::make_mut(block).ir_block = None;
+                }
+            }
+        }
+        Ok(Pipeline {
+            elements: vec![lowered],
+        })
+    }
+
+    /// Whether `word`, a statement's first word at the start of `span`, names an alias, as
+    /// `parse_builtin_commands` asks: unless the word reads as a value.
+    fn names_alias(&mut self, word: &str, span: Span) -> bool {
+        let is_alias = self
+            .working_set
+            .find_decl(word.as_bytes())
+            .is_some_and(|decl_id| self.working_set.get_decl(decl_id).is_alias());
+        is_alias
+            && !matches!(
+                self.math_like_at(Span::new(span.start, span.start + word.len())),
+                Ok(true)
+            )
+    }
+
+    /// Whether `expression` calls `overlay use`, `overlay hide` or `overlay new`, maybe through
+    /// an alias: the classic `parse_builtin_commands` applies such a call's effect on the
+    /// scope as it parses it.
+    pub(in crate::winnow) fn calls_overlay(&self, expression: &Expression) -> bool {
+        matches!(
+            &expression.expr,
+            Expr::Call(call) if self.overlay_call_effect(call).is_some()
+        )
+    }
+
+    /// The effect on the overlays of `call` when it calls `overlay use`, `overlay hide` or
+    /// `overlay new`, maybe through an alias. A dynamic `%` call has none: its declaration is a
+    /// placeholder until the IR compiler names the command (`parse_builtin_commands`).
+    fn overlay_call_effect(&self, call: &Call) -> Option<KeywordEffect> {
+        if call
+            .parser_info
+            .contains_key(PERCENT_FORCED_BUILTIN_PARSER_INFO)
+        {
+            return None;
+        }
+        overlay_effect(self.working_set.get_decl(call.decl_id).name())
+    }
+
+    /// One command of a pipeline with its redirection (`parse_pipeline_element`). An `unlet` of a
+    /// constant hides it from here on, as there.
+    fn pipeline_element(
+        &mut self,
+        element: &w::PipelineElement<'s>,
+        input_type: &Type,
+    ) -> Lowered<PipelineElement> {
+        let redirection_spans = match &element.redirection {
+            Some(redirection) => self.redirection_spans_of(redirection),
+            None => Vec::new(),
+        };
+        let outer = std::mem::replace(&mut self.redirection_spans, redirection_spans);
+        let expr = self.expression(&element.expr, Some(input_type));
+        self.redirection_spans = outer;
+        let expr = expr?;
+        let redirection = match &element.redirection {
+            Some(redirection) => Some(self.redirection(redirection)?),
+            None => None,
+        };
+        hide_unlet_constants(self.working_set, &expr);
+        Ok(PipelineElement {
+            pipe: element.lite_pipe.map(|pipe| self.span(pipe)),
+            expr,
+            redirection,
+        })
+    }
+
+    /// A statement nu refuses to redirect (`redirecting_builtin_error`), reported with the
+    /// name its parse function gives it ([`refused_redirection_name`]; `in_module`: in a
+    /// module's body) and made garbage: over its items, or for a `for` over its keyword.
+    /// `None` for any other command.
+    fn redirected_statement(
+        &mut self,
+        e: &w::Expression<'s>,
+        redirection: &w::PipelineRedirection<'s>,
+        in_module: bool,
+    ) -> Lowered<Option<Pipeline>> {
+        if let w::Expr::AttributeBlock(block) = &e.expr {
+            return self.redirected_attribute_block(e, block, redirection, in_module);
+        }
+        // The statement's keyword, and whether `export` comes before it: a keyword's call for
+        // help (`export def -h o> f`) is named as its statement.
+        let (keyword, exported) = match &e.expr {
+            w::Expr::Def(_) => ("def", false),
+            w::Expr::Extern(_) => ("extern", false),
+            w::Expr::For(_) => ("for", false),
+            w::Expr::Alias(_) => ("alias", false),
+            w::Expr::TypeAlias(_) => ("type", false),
+            w::Expr::Module(_) => ("module", false),
+            w::Expr::Use(_) => ("use", false),
+            w::Expr::Export(export) => match &export.item.expr {
+                w::Expr::Def(_) => ("def", true),
+                w::Expr::Extern(_) => ("extern", true),
+                w::Expr::Alias(_) => ("alias", true),
+                w::Expr::Use(_) => ("use", true),
+                w::Expr::Module(_) => ("module", true),
+                w::Expr::Const(_) => ("const", true),
+                w::Expr::TypeAlias(_) => ("type", true),
+                w::Expr::Call(call) => (call.head.name.as_ref(), true),
+                _ => return Ok(None),
+            },
+            w::Expr::Call(call) => match call.head.name.as_ref() {
+                "export" => (
+                    call.arguments
+                        .first()
+                        .map_or("", |argument| self.text(argument.span())),
+                    true,
+                ),
+                name => match name.strip_prefix("export ") {
+                    Some(keyword) => (keyword, true),
+                    None => (name, false),
+                },
+            },
+            _ => return Ok(None),
+        };
+        let Some(name) = refused_redirection_name(keyword, exported, in_module) else {
+            return Ok(None);
+        };
+        self.refuse_redirection(name, redirection);
+        // In a module's body an export goes to its keyword's parse function, which made it
+        // garbage: `warp_export_call` finds no call to export, and for an alias
+        // `parse_export_in_module` looks for the alias its third item names.
+        if in_module && exported {
+            let parts = self.parts(e.span);
+            if let Some(rest) = parts.get(1..).filter(|rest| !rest.is_empty()) {
+                let rest = Span::concat(rest);
+                self.working_set.error(ParseError::InternalError(
+                    "unexpected output from parsing a definition".into(),
+                    rest,
+                ));
+                let alias_found = parts.get(2).is_some_and(|name| {
+                    let name = trim_quotes(self.working_set.get_span_contents(*name));
+                    self.working_set.find_decl(name).is_some()
+                });
+                if keyword == "alias" && !alias_found {
+                    self.working_set.error(ParseError::InternalError(
+                        "failed to find added alias".into(),
+                        rest,
+                    ));
+                }
+            }
+        }
+        let span = match name {
+            "for" => Span::new(self.span(e.span).start, self.span(e.span).start + 3),
+            _ => self.span(e.span),
+        };
+        Ok(Some(Pipeline::from_vec(vec![Expression::garbage(
+            self.working_set,
+            span,
+        )])))
+    }
+
+    /// Report a redirection nu refuses on the statement it names `name`
+    /// (`redirecting_builtin_error`): at its operator, or at both of a separate one.
+    fn refuse_redirection(&mut self, name: &'static str, redirection: &w::PipelineRedirection<'s>) {
+        let connector = |target: &w::RedirectionTarget<'s>| match target {
+            w::RedirectionTarget::File { op, .. } | w::RedirectionTarget::Pipe { op } => op.span,
+        };
+        let (first, second) = match redirection {
+            w::PipelineRedirection::Single { target, .. } => (self.span(connector(target)), None),
+            w::PipelineRedirection::Separate { out, err } => {
+                let (out, err) = (self.span(connector(out)), self.span(connector(err)));
+                (out.min(err), Some(out.max(err)))
+            }
+        };
+        self.working_set
+            .error(ParseError::RedirectingBuiltinCommand(name, first, second));
+    }
+
+    /// Attributes before a statement nu refuses to redirect. `parse_export_in_block` refuses
+    /// an export before it reads the attributes: garbage over every item. A definition's parse
+    /// function (`parse_def`, `parse_extern`) reads the attributes first, then refuses: the
+    /// attributes, with garbage over the definition, which in a module's body
+    /// `warp_export_call` stretches over the export's items and reports as no call to export.
+    /// In a module's body nu reads an export of anything else with its attributes
+    /// (`parse_attribute_block`), which drops the redirection: `None`, as for attributes
+    /// before no definition, whose redirection the winnow parser already dropped.
+    fn redirected_attribute_block(
+        &mut self,
+        e: &w::Expression<'s>,
+        block: &w::AttributeBlock<'s>,
+        redirection: &w::PipelineRedirection<'s>,
+        in_module: bool,
+    ) -> Lowered<Option<Pipeline>> {
+        let command = &*block.item;
+        let words: Vec<&str> = self.text(command.span).split_whitespace().take(2).collect();
+        let exported = words.first() == Some(&"export");
+        let keyword = match exported {
+            true => words.get(1).copied().unwrap_or_default(),
+            false => words.first().copied().unwrap_or_default(),
+        };
+        let definition = matches!(keyword, "def" | "extern");
+        if exported && !in_module {
+            let name = refused_redirection_name(keyword, true, false).unwrap_or("export");
+            self.refuse_redirection(name, redirection);
+            return Ok(Some(Pipeline::from_vec(vec![Expression::garbage(
+                self.working_set,
+                self.span(e.span),
+            )])));
+        }
+        if !definition {
+            return Ok(None);
+        }
+        let (attributes, _) = self.attributes(&block.attributes)?;
+        let name = if keyword == "def" { "def" } else { "extern" };
+        self.refuse_redirection(name, redirection);
+        let command_span = self.span(command.span);
+        let item = Expression::garbage(self.working_set, command_span);
+        let ty = item.ty.clone();
+        let span = match (exported, attributes.first()) {
+            (true, _) | (false, None) => command_span,
+            (false, Some(first)) => first.expr.span.merge(command_span),
+        };
+        if exported {
+            let parts = self.parts(command.span);
+            if let Some(rest) = parts.get(1..).filter(|rest| !rest.is_empty()) {
+                self.working_set.error(ParseError::InternalError(
+                    "unexpected output from parsing a definition".into(),
+                    Span::concat(rest),
+                ));
+            }
+        }
+        let expression = self.node(
+            Expr::AttributeBlock(AttributeBlock {
+                attributes,
+                item: Box::new(item),
+            }),
+            span,
+            ty,
+        );
+        Ok(Some(Pipeline::from_vec(vec![expression])))
+    }
+
+    /// The spans of `redirection`'s operators and file targets.
+    fn redirection_spans_of(&self, redirection: &w::PipelineRedirection<'s>) -> Vec<Span> {
+        let targets = match redirection {
+            w::PipelineRedirection::Single { target, .. } => [Some(target), None],
+            w::PipelineRedirection::Separate { out, err } => [Some(out), Some(err)],
+        };
+        targets
+            .into_iter()
+            .flatten()
+            .flat_map(|target| match target {
+                w::RedirectionTarget::File { op, path, .. } => [Some(op.span), Some(path.span)],
+                w::RedirectionTarget::Pipe { op } => [Some(op.span), None],
+            })
+            .flatten()
+            .map(|span| self.span(span))
+            .collect()
+    }
+
+    /// The redirection of a command (`parse_redirection`).
+    fn redirection(
+        &mut self,
+        redirection: &w::PipelineRedirection<'s>,
+    ) -> Lowered<PipelineRedirection> {
+        Ok(match redirection {
+            w::PipelineRedirection::Single { source, target } => PipelineRedirection::Single {
+                source: redirection_source(*source),
+                target: self.redirection_target(target)?,
+            },
+            w::PipelineRedirection::Separate { out, err } => PipelineRedirection::Separate {
+                out: self.redirection_target(out)?,
+                err: self.redirection_target(err)?,
+            },
+        })
+    }
+
+    /// Where a redirection goes (`parse_redirection_target`): a file, whose path is read with
+    /// any shape, or the next command (`e>|`, `o+e>|`).
+    fn redirection_target(
+        &mut self,
+        target: &w::RedirectionTarget<'s>,
+    ) -> Lowered<RedirectionTarget> {
+        Ok(match target {
+            w::RedirectionTarget::File { op, append, path } => RedirectionTarget::File {
+                expr: self.value(path, &SyntaxShape::Any, None)?,
+                append: *append,
+                span: self.span(op.span),
+            },
+            w::RedirectionTarget::Pipe { op } => RedirectionTarget::Pipe {
+                span: self.span(op.span),
+            },
+        })
+    }
+
+    /// A block from the winnow tree (`parse_block`), covering `span`: a new scope when
+    /// `scoped`, its definitions declared first, then its statements
+    /// ([`Self::statement_or_garbage`]); the rest of the block after one that called
+    /// `overlay use` (or `hide`, `new`) through an alias is parsed again with the commands known
+    /// then.
+    pub(super) fn block(
+        &mut self,
+        block: &w::Block<'s>,
+        span: Span,
+        scoped: bool,
+        of: BlockOf,
+        input_type: Option<&Type>,
+    ) -> Lowered<Block> {
+        // In an alias's target, a block's statements are statements again. In a row condition
+        // a block's are no condition (`where ($it ! "x")`): nu parses a nested block's math
+        // without the row variable, so no word in it reads as a column.
+        let outer_alias_target = std::mem::replace(&mut self.alias_target, false);
+        let outer_row_var = self.row_var.take();
+        let lowered = self.block_statements(block, span, scoped, of, input_type);
+        self.alias_target = outer_alias_target;
+        self.row_var = outer_row_var;
+        lowered
+    }
+
+    /// [`Self::block`], outside an alias's target.
+    fn block_statements(
+        &mut self,
+        block: &w::Block<'s>,
+        span: Span,
+        scoped: bool,
+        of: BlockOf,
+        input_type: Option<&Type>,
+    ) -> Lowered<Block> {
+        // Only the block nu-parser handed over was lexed by it, not the blocks inside it.
+        let caller_lexed = std::mem::take(&mut self.caller_lexed);
+        // A statement that changes which commands exist (`use`, `overlay use`, `source`, ...)
+        // changes how the statements after it parse, which the winnow parser could not know
+        // when it parsed this block as part of its statement: the block is parsed again, one
+        // statement at a time, as a file is. The winnow parser leaves such a block unparsed,
+        // empty (`CommandLookup::defers_command_changing_blocks`).
+        let unparsed = block.pipelines.is_empty()
+            && block.without_pipelines.is_none()
+            && !self.text(block.span).trim().is_empty();
+        if unparsed || block.pipelines.iter().any(changes_commands) {
+            let inner = self.span(block.span);
+            let kind = BlockKind::Block {
+                scoped,
+                of,
+                input_type: input_type.cloned(),
+                caller_lexed,
+            };
+            return Ok(parse_block(
+                self.working_set,
+                self.source,
+                self.offset,
+                span,
+                inner,
+                kind,
+            )
+            .0);
+        }
+        let mut block_errors = BlockErrors::new(self.working_set);
+        if caller_lexed {
+            block_errors.lexed_by_caller();
+        }
+        if let Some(lex_error) = block.lex_error() {
+            let error = self.lex_parse_error(&lex_error.error, lex_error.lexed_from);
+            block_errors.lex_error(self.working_set, error);
+        }
+        // The block's lite-parse error, which nu reports before its statements' errors: a `|`
+        // ending the block, else the first.
+        let lite_error = block
+            .pipelines
+            .last()
+            .and_then(|last| last.lite_error())
+            .filter(|error| matches!(error, w::LiteError::PipelineMissingEnd(_)))
+            .or_else(|| {
+                block
+                    .pipelines
+                    .iter()
+                    .find_map(|pipeline| pipeline.lite_error())
+            })
+            .or_else(|| block.lite_error_without_pipelines());
+        if let Some(error) = lite_error {
+            let error = self.lite_parse_error(error);
+            block_errors.lite_error(self.working_set, error);
+        }
+        if scoped {
+            self.working_set.enter_scope();
+        }
+        // A definition the lowering cannot predeclare gives the whole block back, with the
+        // statement it is in.
+        for pipeline in &block.pipelines {
+            if let [element] = pipeline.elements.as_slice()
+                && let Err(unlowered) = self.predecl_statement(&element.expr)
+            {
+                if scoped {
+                    self.working_set.exit_scope();
+                }
+                return Err(unlowered);
+            }
+        }
+        let mut out = Block::new_with_capacity(block.pipelines.len());
+        for (index, pipeline) in block.pipelines.iter().enumerate() {
+            let span = self.statement_span(pipeline);
+            let input_type = if index == 0 { input_type } else { None };
+            let mut target = StatementTarget::Block { input_type };
+            let first = out.pipelines.len();
+            self.statement_or_garbage(pipeline, span, &mut target, &mut out.pipelines);
+            // A statement may call `overlay use` through an alias (which `changes_commands`
+            // cannot tell from its head) that the winnow parser did not know as one when it
+            // parsed the block (it leaves a block with a call through an alias it knows
+            // unparsed, `DeclKind::OverlayAlias`), which changed the overlays as it was
+            // lowered: the rest of the block, parsed before with the old commands, is parsed
+            // again with the new ones, a statement at a time, as a file is.
+            if let Some(next) = block.pipelines.get(index + 1)
+                && out.pipelines[first..]
+                    .iter()
+                    .flat_map(|pipeline| &pipeline.elements)
+                    .any(|element| self.calls_overlay(&element.expr))
+            {
+                let rest = Span::new(self.statement_span(next).start, self.span(block.span).end);
+                let parsed = parse_rest(
+                    self.working_set,
+                    self.source,
+                    self.offset,
+                    span,
+                    rest,
+                    of,
+                    &mut out.pipelines,
+                    &mut block_errors,
+                );
+                // The rest lexed as part of the block already, so it lexes on its own.
+                if !parsed {
+                    self.working_set.error(ParseError::InternalError(
+                        "the winnow parser could not lex the rest of the block again".into(),
+                        rest,
+                    ));
+                    out.pipelines.push(garbage_pipeline(self.working_set, rest));
+                }
+                break;
+            }
+        }
+        Ok(finish_block(
+            self.working_set,
+            out,
+            span,
+            scoped,
+            of.is_subexpression(),
+            input_type,
+        ))
+    }
+
+    /// nu's error for a lexer error of the winnow parser in text lexed from `lexed_from`, in the
+    /// winnow parser's span space: an unclosed delimiter's help names the construct before its
+    /// opener there (`delimiter_structure_hint`).
+    pub(in crate::winnow) fn lex_parse_error(
+        &self,
+        error: &LexError,
+        lexed_from: usize,
+    ) -> ParseError {
+        let unclosed = |delimiter: Cow<'static, str>, open: WSpan, end: WSpan| {
+            let before = self
+                .source
+                .as_bytes()
+                .get(lexed_from..open.start)
+                .unwrap_or_default();
+            let hint = delimiter_structure_hint(before);
+            ParseError::unclosed_with_hint(
+                delimiter,
+                self.span(open),
+                self.span(end),
+                hint.as_deref(),
+            )
+        };
+        match *error {
+            LexError::Unbalanced {
+                open, close, span, ..
+            } => ParseError::unbalanced(open, close, self.span(span)),
+            LexError::Unclosed {
+                delimiter,
+                open,
+                end,
+            } => unclosed(delimiter.into(), open, end),
+            LexError::UnclosedRawString { hashes, open, end } => {
+                unclosed(format!("'{}", "#".repeat(hashes)).into(), open, end)
+            }
+            LexError::RawStringQuote(span) => ParseError::Expected("'", self.span(span)),
+            LexError::ShellAndAnd(span) => ParseError::ShellAndAnd(self.span(span)),
+            LexError::ShellErrRedirect(span) => ParseError::ShellErrRedirect(self.span(span)),
+            LexError::ShellOutErrRedirect(span) => ParseError::ShellOutErrRedirect(self.span(span)),
+            LexError::OutPipe(span) => ParseError::Expected(
+                "`|`.  Redirecting stdout to a pipe is the same as normal piping.",
+                self.span(span),
+            ),
+            LexError::SemicolonAfterPipe(span) => ParseError::ExtraTokens(self.span(span)),
+        }
+    }
+
+    /// nu's error for a lite-parse error of the winnow parser.
+    pub(in crate::winnow) fn lite_parse_error(&self, error: w::LiteError) -> ParseError {
+        match error {
+            w::LiteError::ShellOrOr(span) => ParseError::ShellOrOr(self.span(span)),
+            w::LiteError::PipelineMissingEnd(span) => {
+                ParseError::UnexpectedEof("pipeline missing end".into(), self.span(span))
+            }
+            w::LiteError::MissingRedirectionTarget(span) => {
+                ParseError::Expected("redirection target", self.span(span))
+            }
+            w::LiteError::NothingToRedirect(span) => ParseError::UnexpectedRedirection {
+                span: self.span(span),
+            },
+            w::LiteError::MultipleRedirections {
+                source,
+                first,
+                second,
+            } => ParseError::MultipleRedirections(
+                redirection_source(source),
+                self.span(first),
+                self.span(second),
+            ),
+        }
+    }
+
+    /// The span of a statement in the working set, with its doc comments, the comment after it
+    /// on its line and a `|` after it that no command follows, which the classic parser keeps
+    /// with its last element.
+    ///
+    /// A doc comment after the `;` of the statement before (`a; # doc`) is the statement's
+    /// because the classic lite parser reads it after that `;`; read from the comment on, it is
+    /// dropped at a blank line before the statement. The span then starts at the `;`.
+    pub(in crate::winnow) fn statement_span(&self, pipeline: &w::Pipeline<'s>) -> Span {
+        let start = pipeline
+            .leading_comments
+            .first()
+            .map_or(pipeline.span.start, |comment| {
+                let before = self.source[..comment.span.start].trim_end_matches([' ', '\t']);
+                match before.strip_suffix(';') {
+                    Some(rest) => rest.len(),
+                    None => comment.span.start,
+                }
+            });
+        let end = pipeline
+            .trailing_comments
+            .last()
+            .map(|comment| comment.span.end)
+            .into_iter()
+            .chain(pipeline.dangling_pipe.map(|pipe| pipe.end))
+            .fold(pipeline.span.end, usize::max);
+        self.span(WSpan::new(start, end))
+    }
+}
+
+/// The name the parse function of the statement of `keyword` (after `export` when
+/// `exported`; in a module's body when `in_module`) reports a redirection with
+/// (`redirecting_builtin_error`), or `None` when it takes one. `parse_export_in_block` names an
+/// export by its second item, `export` alone when that is no keyword it exports (`export let
+/// x o> f`); in a module's body `parse_export_in_module` hands an export to its keyword's
+/// parse function, which names it by the keyword. `parse_const` and `parse_export_env` drop
+/// the redirection.
+fn refused_redirection_name(
+    keyword: &str,
+    exported: bool,
+    in_module: bool,
+) -> Option<&'static str> {
+    if exported && !in_module {
+        return Some(match keyword {
+            "alias" => "export alias",
+            "def" => "export def",
+            "extern" => "export extern",
+            "use" => "export use",
+            "module" => "export module",
+            "const" => "export const",
+            "type" => "export type",
+            _ => "export",
+        });
+    }
+    match keyword {
+        "def" => Some("def"),
+        "extern" => Some("extern"),
+        "alias" => Some("alias"),
+        "type" => Some("type"),
+        "module" => Some("module"),
+        "use" => Some("use"),
+        // Not module statements: `parse_module_pipeline` refuses them before.
+        _ if in_module => None,
+        "for" => Some("for"),
+        "hide" => Some("hide"),
+        "source" => Some("source"),
+        "source-env" => Some("source-env"),
+        "run" => Some("run"),
+        "plugin use" => Some("plugin use"),
+        _ if keyword.split(' ').next() == Some("overlay") => Some("overlay"),
+        _ => None,
+    }
+}
+
+/// A pipeline of one garbage expression over `span`: a statement the winnow front end could
+/// not read, as nu-parser leaves one it reports an error over.
+pub(in crate::winnow) fn garbage_pipeline(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> Pipeline {
+    Pipeline::from_vec(vec![Expression::garbage(working_set, span)])
+}
+
+/// The error over `span` for a statement whose construct, `what`, the lowering does not read.
+fn unsupported_error(what: &str, span: Span) -> ParseError {
+    ParseError::LabeledErrorWithHelp {
+        error: "The winnow parser cannot read this statement".into(),
+        label: format!("{what} is not supported"),
+        help: "parse it with nu-parser: turn the experimental option `winnow-parser` off".into(),
+        span,
+    }
+}
+
+/// Whether a statement changes which commands exist for the statements after it: one the
+/// driver ends a run parsed ahead after ([`statement_changes_names`]), a module or an export.
+/// A `true` too many costs only parsing the block again ([`Lower::block`]); a statement this
+/// misses (a call through an alias of `overlay use`) is caught there once it is lowered.
+fn changes_commands(pipeline: &w::Pipeline<'_>) -> bool {
+    pipeline
+        .elements
+        .iter()
+        .any(|element| matches!(element.expr.expr, w::Expr::Module(_) | w::Expr::Export(_)))
+        || statement_changes_names(pipeline)
+}
+
+/// Where the errors of a block go that nu reports before any statement's: nu lexes and
+/// lite-parses a whole block before it parses a statement (`parse_block`), so the block's first
+/// lexer error, then its first lite-parse error, come before every statement error of the block,
+/// those of the statements before them included.
+#[derive(Clone, Copy, Debug)]
+pub(in crate::winnow) struct BlockErrors {
+    /// Where the block's errors start: its lexer error goes there, its lite-parse error after.
+    start: usize,
+    /// Whether the block's lexer error was reported.
+    lexed: bool,
+    /// Whether the block's lite-parse error was reported.
+    lite_parsed: bool,
+}
+
+impl BlockErrors {
+    /// The errors of a block that start after those reported so far.
+    pub(in crate::winnow) fn new(working_set: &StateWorkingSet) -> Self {
+        Self {
+            start: working_set.parse_errors.len(),
+            lexed: false,
+            lite_parsed: false,
+        }
+    }
+
+    /// The block's lexer error was reported by nu-parser, which lexed the block's text itself
+    /// before handing the block over (`winnow::nested_block`): none is reported again, a
+    /// statement's that nu-parser parses either.
+    pub(in crate::winnow) fn lexed_by_caller(&mut self) {
+        self.lexed = true;
+    }
+
+    /// Report `error` as the block's lexer error, unless it has one.
+    pub(in crate::winnow) fn lex_error(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        error: ParseError,
+    ) {
+        if !std::mem::replace(&mut self.lexed, true) {
+            self.insert(working_set, 0, error);
+        }
+    }
+
+    /// Report `error` as the block's lite-parse error, unless it has one.
+    pub(in crate::winnow) fn lite_error(
+        &mut self,
+        working_set: &mut StateWorkingSet,
+        error: ParseError,
+    ) {
+        if !std::mem::replace(&mut self.lite_parsed, true) {
+            self.insert(working_set, usize::from(self.lexed), error);
+        }
+    }
+
+    /// Put `error` `offset` errors past the block's start.
+    fn insert(&self, working_set: &mut StateWorkingSet, offset: usize, error: ParseError) {
+        let at = (self.start + offset).min(working_set.parse_errors.len());
+        working_set.parse_errors.insert(at, error);
+    }
+}
+
+/// `pipeline` without the `|` before its element: `parse_where` builds the element of a `where`
+/// statement itself, without the lite command's pipe (`| where a > 1`).
+fn without_pipe(mut pipeline: Pipeline) -> Pipeline {
+    for element in &mut pipeline.elements {
+        element.pipe = None;
+    }
+    pipeline
+}
+
+/// The stream a redirection takes, as `nu-protocol` names it.
+fn redirection_source(source: WinnowSource) -> RedirectionSource {
+    match source {
+        WinnowSource::Stdout => RedirectionSource::Stdout,
+        WinnowSource::Stderr => RedirectionSource::Stderr,
+        WinnowSource::StdoutAndStderr => RedirectionSource::StdoutAndStderr,
+    }
+}

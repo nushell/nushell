@@ -1,0 +1,11 @@
+Block 0..23
+  Pipeline 0..22
+    If 0..22
+      Condition
+        Bool true 3..7
+      Then 9..9
+      Else 11..15
+        Record 16..22
+          Pair
+            String Bare "a" 17..18
+            Int 1 20..21

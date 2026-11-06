@@ -1,0 +1,9 @@
+Block 0..11
+  Pipeline 0..10
+    DynamicCall 0..10
+      Subexpression 1..8 2..7
+        Pipeline 2..7
+          BinaryOp + 2..7
+            Int 1 2..3
+            Int 1 6..7
+      String Bare "x" 9..10

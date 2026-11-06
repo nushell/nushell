@@ -1,0 +1,6 @@
+Block 0..42
+  Pipeline 0..41
+    List 0..41
+      String Single "ünïcödé" 1..14
+      String Double "héllo 🧼" 15..28
+      String Backtick "日本語" 29..40

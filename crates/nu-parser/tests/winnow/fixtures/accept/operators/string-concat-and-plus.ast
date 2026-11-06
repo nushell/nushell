@@ -1,0 +1,23 @@
+Block 0..56
+  Pipeline 0..55
+    List 0..55
+      String Double "a" 1..4
+      String Bare "+" 5..6
+      String Double "b" 7..10
+      String Double "a" 11..14
+      String Bare "++" 15..17
+      String Double "b" 18..21
+      List 22..25
+        Int 1 23..24
+      String Bare "++" 26..28
+      List 29..32
+        Int 2 30..31
+      Record 33..39
+        Pair
+          String Bare "a" 34..35
+          Int 1 37..38
+      String Bare "merge" 42..47
+      Record 48..54
+        Pair
+          String Bare "b" 49..50
+          Int 2 52..53

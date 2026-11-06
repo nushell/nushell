@@ -1,0 +1,14 @@
+Block 0..102
+  Pipeline 71..101 comments=1
+    List 71..79
+      Record 72..78
+        Pair
+          String Bare "a" 73..74
+          Int 1 76..77
+    | 80..81
+    Where 82..101
+      BinaryOp == 88..101
+        String Raw(1) "a" 88..94
+        String Single "a" 98..101
+Comments (1)
+  0..70 "# A raw string in a row condition is a value, not a column of the row."

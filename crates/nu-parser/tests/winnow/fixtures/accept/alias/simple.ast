@@ -1,0 +1,5 @@
+Block 0..18
+  Pipeline 0..17
+    Alias `ll` 0..17
+      Call `ls` 11..17
+        Flag -la 14..17

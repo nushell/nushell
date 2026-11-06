@@ -1,0 +1,6 @@
+error: expected `:` after record key
+  --> reject/records/missing-colon.nu:1:9
+  |
+1 | { a: 2 b }
+  |         ^
+  = help: record fields look like `key: value`

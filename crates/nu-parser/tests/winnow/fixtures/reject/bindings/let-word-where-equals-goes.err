@@ -1,0 +1,5 @@
+error: expected `=`
+  --> reject/bindings/let-word-where-equals-goes.nu:2:7
+  |
+2 | let x y
+  |       ^

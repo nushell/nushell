@@ -1,0 +1,19 @@
+Block 0..30
+  Pipeline 0..29
+    Record 0..29
+      Pair
+        String Bare "f" 1..2
+        Closure 4..16
+          Signature 5..8
+            Param positional `x` 6..7
+          Body 9..15
+            Pipeline 9..15
+              BinaryOp + 9..15
+                Var $x 9..11
+                Int 1 14..15
+      Pair
+        String Bare "g" 18..19
+        Closure 21..28
+          Body 23..27
+            Pipeline 23..26
+              Var $in 23..26

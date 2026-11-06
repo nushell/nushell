@@ -1,0 +1,6 @@
+error: expected string
+  --> reject/cellpaths/member-is-paren.nu:1:16
+  |
+1 | let x = {}; $x.(a)
+  |                ^^^
+  = help: a cell-path member with `(` in it must be quoted

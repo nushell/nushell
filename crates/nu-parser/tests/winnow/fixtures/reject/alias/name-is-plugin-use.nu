@@ -1,0 +1,1 @@
+alias 'plugin use' = ls

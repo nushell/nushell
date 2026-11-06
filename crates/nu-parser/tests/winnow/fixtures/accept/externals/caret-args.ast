@@ -1,0 +1,10 @@
+Block 0..35
+  Pipeline 0..34
+    ExternalCall 0..34
+      String Bare "git" 1..4
+      String Bare "commit" 5..11
+      String Bare "-m" 12..14
+      String Single "msg" 15..20
+      String Bare "--all" 21..26
+      String Bare "-am" 27..30
+      String Double "x" 31..34

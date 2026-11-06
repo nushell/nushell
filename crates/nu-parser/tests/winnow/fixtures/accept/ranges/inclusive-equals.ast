@@ -1,0 +1,7 @@
+Block 0..7
+  Pipeline 0..6
+    Range Inclusive 0..6
+      From
+        Int 0 0..1
+      To
+        Int 10 4..6

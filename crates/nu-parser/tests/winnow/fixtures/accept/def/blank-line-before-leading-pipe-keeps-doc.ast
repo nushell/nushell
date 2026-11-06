@@ -1,0 +1,8 @@
+Block 0..21
+  Pipeline 7..20 comments=1
+    | 7..8
+    Def `k` 9..20
+      Signature 15..17
+      Body 19..19
+Comments (1)
+  0..5 "# doc"

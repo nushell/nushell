@@ -1,0 +1,10 @@
+Block 0..27
+  Pipeline 0..26
+    AttributeBlock 0..26
+      Attribute `example` 0..14
+        String Bare "x" 9..10
+        String Bare "|" 11..12
+        String Bare "y" 13..14
+      Def `f` 15..26
+        Signature 21..23
+        Body 25..25

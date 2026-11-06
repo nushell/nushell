@@ -1,0 +1,11 @@
+Block 0..18
+  Pipeline 0..17
+    Table 0..17
+      Columns
+        List 1..9
+          String Bare "null" 2..6
+          String Bare "y" 7..8
+      Row
+        List 11..16
+          Int 3 12..13
+          Int 4 14..15

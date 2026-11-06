@@ -1,0 +1,23 @@
+Block 0..102
+  Pipeline 0..101
+    List 0..101
+      Subexpression 1..24 2..23
+        Pipeline 2..23
+          BinaryOp starts-with 2..23
+            String Double "abc" 2..7
+            String Double "a" 20..23
+      Subexpression 25..52 26..51
+        Pipeline 26..51
+          BinaryOp not-starts-with 26..51
+            String Double "abc" 26..31
+            String Double "b" 48..51
+      Subexpression 53..74 54..73
+        Pipeline 54..73
+          BinaryOp ends-with 54..73
+            String Double "abc" 54..59
+            String Double "c" 70..73
+      Subexpression 75..100 76..99
+        Pipeline 76..99
+          BinaryOp not-ends-with 76..99
+            String Double "abc" 76..81
+            String Double "a" 96..99

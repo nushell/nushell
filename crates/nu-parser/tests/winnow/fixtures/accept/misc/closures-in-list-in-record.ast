@@ -1,0 +1,29 @@
+Block 0..56
+  Pipeline 0..55
+    Record 0..55
+      Pair
+        String Bare "hooks" 1..6
+        List 8..33
+          Closure 9..15
+            Signature 10..12
+            Body 13..14
+              Pipeline 13..14
+                Int 1 13..14
+          Closure 16..24
+            Signature 17..20
+              Param positional `x` 18..19
+            Body 21..23
+              Pipeline 21..23
+                Var $x 21..23
+          Closure 25..32
+            Body 27..31
+              Pipeline 27..30
+                Var $in 27..30
+      Pair
+        String Bare "pre" 35..38
+        Closure 40..54
+          Signature 41..43
+          Body 44..53
+            Pipeline 44..53
+              Call `print` 44..53
+                String Bare "pre" 50..53

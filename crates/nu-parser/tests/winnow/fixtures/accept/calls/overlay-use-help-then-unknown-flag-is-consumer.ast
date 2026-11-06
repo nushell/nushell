@@ -1,0 +1,6 @@
+Block 0..32
+  Pipeline 0..31
+    Call `overlay use` 0..31
+      Flag --help 12..18
+      Flag --bogus 19..26
+      String Bare "spam" 27..31

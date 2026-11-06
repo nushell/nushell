@@ -1,0 +1,19 @@
+Block 0..86
+  Pipeline 0..14
+    Module 0..14
+      String Bare "spam" 7..11
+      Body 13..13
+  Pipeline 15..35
+    Call `overlay use` 15..35
+      Flag -pr 27..30
+      String Bare "spam" 31..35
+  Pipeline 36..56
+    Call `overlay use` 36..56
+      Flag -hp 48..51
+      String Bare "spam" 52..56
+  Pipeline 57..85
+    Call `overlay hide` 57..85
+      Flag -ke 70..73
+      List 74..80
+        String Bare "PATH" 75..79
+      String Bare "spam" 81..85

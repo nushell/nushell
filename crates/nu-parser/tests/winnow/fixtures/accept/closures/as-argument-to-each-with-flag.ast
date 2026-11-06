@@ -1,0 +1,30 @@
+Block 0..78
+  Pipeline 0..77
+    FullCellPath 0..77
+      Subexpression 0..75 1..74
+        Pipeline 1..74
+          List 1..10
+            String Bare "a" 2..3
+            String Bare "b" 5..6
+            String Bare "c" 8..9
+          | 11..12
+          Call `enumerate` 13..22
+          | 23..24
+          Call `each` 25..74
+            Flag --keep-empty 30..42
+            Closure 43..74
+              Signature 45..48
+                Param positional `e` 46..47
+              Body 49..73
+                Pipeline 49..73
+                  If 49..73
+                    Condition
+                      BinaryOp != 52..65
+                        FullCellPath 52..60
+                          Var $e 52..54
+                          Member "index" 55..60
+                        Int 1 64..65
+                    Then 67..72
+                      Pipeline 68..71
+                        Int 100 68..71
+      Member 1 76..77

@@ -1,0 +1,23 @@
+Block 0..124
+  Pipeline 69..85 comments=1
+    let x 69..74
+    Redirect ErrPipe 75..78
+    | 75..78
+    Call `length` 79..85
+  Pipeline 86..102
+    List 86..89
+      Int 1 87..88
+    | 90..91
+    let y 92..97
+    Redirect Out 98..100
+      String Bare "f" 101..102
+  Pipeline 103..123
+    Call `ls` 103..105
+    | 106..107
+    let z 108..113
+    Redirect Out 114..116
+      String Bare "f" 117..118
+    Redirect Err 119..121
+      String Bare "g" 122..123
+Comments (1)
+  0..68 "# In a longer pipeline `let` is an ordinary call, redirected as any."

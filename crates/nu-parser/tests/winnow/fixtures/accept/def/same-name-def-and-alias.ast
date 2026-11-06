@@ -1,0 +1,8 @@
+Block 0..29
+  Pipeline 0..13
+    Def `foo` 0..13
+      Signature 8..10
+      Body 12..12
+  Pipeline 14..28
+    Alias `foo` 14..28
+      Call `ls` 26..28

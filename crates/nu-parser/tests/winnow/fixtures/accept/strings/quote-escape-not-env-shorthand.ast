@@ -1,0 +1,3 @@
+Block 0..9
+  Pipeline 0..8
+    String Double "\"=foo" 0..8

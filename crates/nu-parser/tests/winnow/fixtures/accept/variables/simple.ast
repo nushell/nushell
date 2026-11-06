@@ -1,0 +1,8 @@
+Block 0..13
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..12
+    Var $x 10..12

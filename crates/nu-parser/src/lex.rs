@@ -2,7 +2,7 @@ use nu_protocol::{ParseError, Span, engine::BracketTable};
 use std::cell::Cell;
 
 #[path = "delimiter_diagnostics.rs"]
-mod delimiter_diagnostics;
+pub(crate) mod delimiter_diagnostics;
 use delimiter_diagnostics::{
     closing_delimiter_str, quote_delimiter_str, unbalanced_closer, unclosed_from_open,
 };

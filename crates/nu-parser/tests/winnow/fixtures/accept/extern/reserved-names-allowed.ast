@@ -1,0 +1,7 @@
+Block 0..30
+  Pipeline 0..29
+    Extern `foo` 0..29
+      Signature 11..29
+        Param positional `in` 12..14
+        Param flag --env `env` 16..21
+        Param rest `nu` 23..28

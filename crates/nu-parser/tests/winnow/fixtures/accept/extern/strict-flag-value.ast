@@ -1,0 +1,15 @@
+Block 0..70
+  Pipeline 0..33
+    Extern `foo` [Strict] 0..33
+      FlagValue Strict 7..21
+        Bool false 16..21
+      Signature 26..33
+        Param flag --bar `bar` 27..32
+  Pipeline 34..69
+    Extern `foo2` [Strict] 34..69
+      FlagValue Strict 46..61
+        Subexpression 55..61 56..60
+          Pipeline 56..60
+            Bool true 56..60
+      Signature 62..69
+        Param flag --bar `bar` 63..68

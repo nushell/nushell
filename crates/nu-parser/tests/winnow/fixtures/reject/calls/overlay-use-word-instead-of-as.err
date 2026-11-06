@@ -1,0 +1,11 @@
+error: expected keyword `as`
+  --> reject/calls/overlay-use-word-instead-of-as.nu:1:18
+  |
+1 | overlay use null x
+  |                  ^
+
+error: missing argument to `as`
+  --> reject/calls/overlay-use-word-instead-of-as.nu:1:19
+  |
+1 | overlay use null x
+  |                   ^

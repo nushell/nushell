@@ -1,0 +1,12 @@
+Block 0..121
+  Pipeline 0..79
+    Extern `git checkout` 0..79
+      Signature 22..79
+        Param optional `branch` 23..65 : string @"nu-complete git branches"
+        Param flag --track -t `track` 67..78
+  Pipeline 80..120
+    Def `nu-complete git branches` 80..120
+      Signature 111..113
+      Body 115..119
+        Pipeline 116..118
+          List 116..118

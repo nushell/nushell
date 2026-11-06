@@ -1,0 +1,17 @@
+Block 0..39
+  Pipeline 0..18
+    let foo 0..18
+      Value 10..18
+        Pipeline 10..18
+          Record 10..18
+            Pair
+              String Bare "bar" 11..14
+              Int 1 16..17
+  Pipeline 19..38
+    Interpolation Double 19..38
+      Text "Hello " 21..27
+      Subexpression 27..37 28..36
+        Pipeline 28..36
+          FullCellPath 28..36
+            Var $foo 28..32
+            Member "bar" 33..36

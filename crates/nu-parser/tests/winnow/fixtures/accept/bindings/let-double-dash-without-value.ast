@@ -1,0 +1,5 @@
+Block 0..9
+  Pipeline 0..8
+    let x 0..8
+Ignored (1)
+  4..6 "--"

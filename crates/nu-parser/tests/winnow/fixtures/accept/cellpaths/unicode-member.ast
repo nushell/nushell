@@ -1,0 +1,13 @@
+Block 0..30
+  Pipeline 0..19
+    let x 0..19
+      Value 8..19
+        Pipeline 8..19
+          Record 8..19
+            Pair
+              String Bare "héllo" 9..15
+              Int 1 17..18
+  Pipeline 20..29
+    FullCellPath 20..29
+      Var $x 20..22
+      Member "héllo" 23..29

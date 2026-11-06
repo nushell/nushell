@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/redirections/hide-redirected.nu:1:9
+  |
+1 | hide ls o> x
+  |         ^^

@@ -1,0 +1,6 @@
+Block 0..17
+  Pipeline 0..16
+    Return 0..16
+      String Bare "--help" 10..16
+Ignored (1)
+  7..9 "--"

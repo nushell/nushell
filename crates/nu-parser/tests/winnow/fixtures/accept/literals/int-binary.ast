@@ -1,0 +1,5 @@
+Block 0..30
+  Pipeline 0..29
+    BinaryOp + 0..29
+      Int 10 0..6
+      Int 21426 9..29

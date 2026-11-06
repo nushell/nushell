@@ -1,0 +1,18 @@
+Block 0..32
+  Pipeline 0..31
+    List 0..31
+      List 1..6
+        Int 1 2..3
+        Int 2 4..5
+      List 7..18
+        Int 3 8..9
+        List 10..17
+          Int 4 11..12
+          List 13..16
+            Int 5 14..15
+      List 19..21
+      List 22..30
+        Record 23..29
+          Pair
+            String Bare "a" 24..25
+            Int 1 27..28

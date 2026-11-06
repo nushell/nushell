@@ -1,0 +1,1 @@
+$nu.os-info.name

@@ -1,0 +1,6 @@
+Block 0..12
+  Pipeline 0..11
+    EnvShorthand 0..11
+      Env FOO 0..5
+        String Bare "1" 4..5
+      let x 6..11

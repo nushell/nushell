@@ -1,0 +1,11 @@
+Block 0..20
+  Pipeline 0..19
+    Call `match` 0..19
+      Int -1 6..8
+      Closure 9..19
+        Body 11..18
+          Pipeline 11..17
+            ExternalCall 11..17
+              String Bare "_" 11..12
+              String Bare "=>" 13..15
+              String Bare "1" 16..17

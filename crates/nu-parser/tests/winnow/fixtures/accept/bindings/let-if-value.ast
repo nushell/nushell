@@ -1,0 +1,22 @@
+Block 0..53
+  Pipeline 0..52
+    let x 0..52
+      Value 8..52
+        Pipeline 8..52
+          If 8..52
+            Condition
+              Bool true 11..15
+            Then 17..20
+              Pipeline 18..19
+                Int 1 18..19
+            Else 22..26
+              If 27..52
+                Condition
+                  Bool false 30..35
+                Then 37..40
+                  Pipeline 38..39
+                    Int 2 38..39
+                Else 42..46
+                  BlockExpr 47..52 48..51
+                    Pipeline 49..50
+                      Int 3 49..50

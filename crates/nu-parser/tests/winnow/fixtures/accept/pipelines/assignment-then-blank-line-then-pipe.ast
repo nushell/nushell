@@ -1,0 +1,17 @@
+Block 0..25
+  Pipeline 0..9
+    mut x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 2 8..9
+  Pipeline 10..16
+    Assignment = 10..16
+      Var $x 10..12
+      Value 15..16
+        Pipeline 15..16
+          Int 5 15..16
+  Pipeline 18..21
+    | 18..19
+    Int 3 20..21
+  Pipeline 22..24
+    Var $x 22..24

@@ -1,0 +1,7 @@
+Block 0..20
+  Pipeline 0..19
+    BinaryOp + 0..5
+      Int 1 0..1
+      Int 1 4..5
+    | 6..7
+    Call `into string` 8..19

@@ -1,0 +1,13 @@
+Block 0..138
+  Pipeline 110..137 comments=2
+    Module 110..137
+      String Bare "foo" 117..120
+      Body 122..136
+        Pipeline 123..135
+          | 123..124
+          Def `x` 124..135
+            Signature 130..132
+            Body 134..134
+Comments (2)
+  0..76 "# nu lexes a module body as it is, without looking at its first tokens, so a"
+  77..109 "# leading `|` is a leading pipe."

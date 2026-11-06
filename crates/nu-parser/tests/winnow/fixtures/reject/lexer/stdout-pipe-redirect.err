@@ -1,0 +1,6 @@
+error: `o>|` is not Nushell syntax; use `|` instead
+  --> reject/lexer/stdout-pipe-redirect.nu:1:5
+  |
+1 | ^ls o>| lines
+  |     ^^^
+  = help: redirecting stdout to a pipe is the same as normal piping

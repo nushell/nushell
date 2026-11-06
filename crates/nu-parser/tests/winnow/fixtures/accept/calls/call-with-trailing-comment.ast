@@ -1,0 +1,6 @@
+Block 0..16
+  Pipeline 0..5 comments=1
+    Call `ls` 0..5
+      Flag -l 3..5
+Comments (1)
+  6..15 "# comment"

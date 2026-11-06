@@ -1,0 +1,7 @@
+Block 0..24
+  Pipeline 0..23
+    Call `overlay use` 0..23
+      Nothing 12..16
+      String Bare "as" 17..19
+      String Bare "x" 20..21
+      String Bare "y" 22..23

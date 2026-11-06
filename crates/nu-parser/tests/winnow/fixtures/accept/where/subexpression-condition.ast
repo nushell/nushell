@@ -1,0 +1,18 @@
+Block 0..39
+  Pipeline 0..38
+    Table 0..10
+      Columns
+        List 1..4
+          String Bare "a" 2..3
+      Row
+        List 6..9
+          Int 1 7..8
+    | 11..12
+    Where 13..38
+      Subexpression 19..38 20..37
+        Pipeline 20..37
+          FullCellPath 20..25
+            Var $it 20..23
+            Member "a" 24..25
+          | 26..27
+          Call `into bool` 28..37

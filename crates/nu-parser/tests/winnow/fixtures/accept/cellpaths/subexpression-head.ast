@@ -1,0 +1,7 @@
+Block 0..10
+  Pipeline 0..9
+    FullCellPath 0..9
+      Subexpression 0..4 1..3
+        Pipeline 1..3
+          Call `ls` 1..3
+      Member "name" 5..9

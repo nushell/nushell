@@ -1,0 +1,5 @@
+error: expected `.` or `!`
+  --> reject/cellpaths/optional-then-equals.nu:2:6
+  |
+2 | $x.a?=
+  |      ^

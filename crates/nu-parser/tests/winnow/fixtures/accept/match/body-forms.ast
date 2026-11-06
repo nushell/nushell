@@ -1,0 +1,117 @@
+Block 0..282
+  Pipeline 0..281
+    Match 0..281
+      Int 1 6..7
+      Arm 12..18
+        Pattern value 12..13
+          Int 1 12..13
+        Int 1 17..18
+      Arm 21..29
+        Pattern value 21..22
+          Int 2 21..22
+        String Double "s" 26..29
+      Arm 32..42
+        Pattern value 32..33
+          Int 3 32..33
+        BlockExpr 37..42 38..41
+          Pipeline 39..40
+            Int 1 39..40
+      Arm 45..67
+        Pattern value 45..46
+          Int 4 45..46
+        BlockExpr 50..67 51..66
+          Pipeline 52..61 terminator=61..62
+            let x 52..61
+              Value 60..61
+                Pipeline 60..61
+                  Int 1 60..61
+          Pipeline 63..65
+            Var $x 63..65
+      Arm 70..81
+        Pattern value 70..71
+          Int 5 70..71
+        Closure 75..81
+          Signature 76..78
+          Body 79..80
+            Pipeline 79..80
+              Int 1 79..80
+      Arm 84..95
+        Pattern value 84..85
+          Int 6 84..85
+        Record 89..95
+          Pair
+            String Bare "a" 90..91
+            Int 1 93..94
+      Arm 98..108
+        Pattern value 98..99
+          Int 7 98..99
+        List 103..108
+          Int 1 104..105
+          Int 2 106..107
+      Arm 111..123
+        Pattern value 111..112
+          Int 8 111..112
+        Subexpression 116..123 117..122
+          Pipeline 117..122
+            BinaryOp + 117..122
+              Int 1 117..118
+              Int 1 121..122
+      Arm 126..139
+        Pattern value 126..127
+          Int 9 126..127
+        FullCellPath 131..139
+          Var $env 131..135
+          Member "PWD" 136..139
+      Arm 142..174
+        Pattern value 142..144
+          Int 10 142..144
+        Subexpression 148..174 149..173
+          Pipeline 149..173
+            If 149..173
+              Condition
+                Bool true 152..156
+              Then 158..161
+                Pipeline 159..160
+                  Int 1 159..160
+              Else 163..167
+                BlockExpr 168..173 169..172
+                  Pipeline 170..171
+                    Int 2 170..171
+      Arm 177..188
+        Pattern value 177..179
+          Int 11 177..179
+        Call `print` 183..188
+      Arm 191..210
+        Pattern value 191..193
+          Int 12 191..193
+        Subexpression 197..210 198..209
+          Pipeline 198..209
+            Call `ls` 198..200
+            | 201..202
+            Call `length` 203..209
+      Arm 213..239
+        Pattern value 213..215
+          Int 13 213..215
+        BlockExpr 219..239 220..238
+          Pipeline 221..228 terminator=228..229
+            Call `print` 221..228
+              String Bare "a" 227..228
+          Pipeline 230..237
+            Call `print` 230..237
+              String Bare "b" 236..237
+      Arm 242..251
+        Pattern value 242..244
+          Int 14 242..244
+        ExternalCall 248..251
+          String Bare "ls" 249..251
+      Arm 254..267
+        Pattern value 254..256
+          Int 15 254..256
+        Interpolation Double 260..267
+          Text "x" 262..263
+          Subexpression 263..266 264..265
+            Pipeline 264..265
+              Int 1 264..265
+      Arm 270..279
+        Pattern _ 270..271
+        Nothing 275..279

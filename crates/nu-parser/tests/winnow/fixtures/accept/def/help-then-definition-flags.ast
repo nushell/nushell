@@ -1,0 +1,24 @@
+Block 0..91
+  Pipeline 0..24
+    Call `def` 0..24
+      Flag --help 4..10
+      Flag --env 11..16
+      String Bare "f" 17..18
+      List 19..21
+      Record 22..24
+  Pipeline 25..51
+    Call `extern` 25..51
+      Flag -h 32..34
+      Flag --strict 35..43
+      String Bare "e" 44..45
+      List 46..51
+        String Bare "--a" 47..50
+  Pipeline 52..90
+    Call `def` 52..90
+      Flag --help 56..68
+        Bool false 63..68
+      Flag --wrapped 69..78
+      String Bare "g" 79..80
+      List 81..87
+        String Bare "...r" 82..86
+      Record 88..90

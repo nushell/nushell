@@ -1,0 +1,6 @@
+error: `||` is not Nushell syntax; use `or` instead
+  --> reject/lexer/or-or.nu:1:4
+  |
+1 | ls || pwd
+  |    ^^
+  = help: use `or` for boolean logic, or `try { } catch { }` to run a fallback command

@@ -1,0 +1,19 @@
+Block 0..89
+  Pipeline 0..22
+    Extern `cmd` 0..22
+      Signature 11..22
+        Param positional `in` 12..14
+        Param flag --env `env` 16..21
+  Pipeline 23..60
+    Export 23..60
+      Extern `cmd2` 30..60
+        Signature 42..60
+          Param positional `in` 43..45
+          Param flag --env `env` 47..52
+          Param rest `nu` 54..59
+  Pipeline 61..88
+    Extern `cmd3` 61..88
+      Signature 73..88
+        Param positional `in` 74..82 : bool
+Ignored (1)
+  83..87 "true"

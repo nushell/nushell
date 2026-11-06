@@ -1,0 +1,11 @@
+Block 0..28
+  Pipeline 0..15 terminator=15..16
+    const x 0..15
+      Value 10..15
+        Pipeline 10..15
+          String Double "log" 10..15
+  Pipeline 17..27
+    Use 17..27
+      String Bare "std" 21..24
+      Member (ignored) 25..27
+        Var $x 25..27

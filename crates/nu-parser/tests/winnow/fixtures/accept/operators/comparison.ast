@@ -1,0 +1,43 @@
+Block 0..86
+  Pipeline 0..9
+    let a 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..19
+    let b 10..19
+      Value 18..19
+        Pipeline 18..19
+          Int 2 18..19
+  Pipeline 20..85
+    List 20..85
+      Subexpression 21..31 22..30
+        Pipeline 22..30
+          BinaryOp == 22..30
+            Var $a 22..24
+            Var $b 28..30
+      Subexpression 32..42 33..41
+        Pipeline 33..41
+          BinaryOp != 33..41
+            Var $a 33..35
+            Var $b 39..41
+      Subexpression 43..52 44..51
+        Pipeline 44..51
+          BinaryOp < 44..51
+            Var $a 44..46
+            Var $b 49..51
+      Subexpression 53..63 54..62
+        Pipeline 54..62
+          BinaryOp <= 54..62
+            Var $a 54..56
+            Var $b 60..62
+      Subexpression 64..73 65..72
+        Pipeline 65..72
+          BinaryOp > 65..72
+            Var $a 65..67
+            Var $b 70..72
+      Subexpression 74..84 75..83
+        Pipeline 75..83
+          BinaryOp >= 75..83
+            Var $a 75..77
+            Var $b 81..83

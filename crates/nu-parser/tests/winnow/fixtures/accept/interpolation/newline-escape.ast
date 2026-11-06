@@ -1,0 +1,8 @@
+Block 0..33
+  Pipeline 0..32
+    Interpolation Double 0..15
+      Text "hello\nworld" 2..14
+    | 16..17
+    Call `lines` 18..23
+    | 24..25
+    Call `length` 26..32

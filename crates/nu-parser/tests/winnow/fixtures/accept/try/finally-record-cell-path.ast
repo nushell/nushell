@@ -1,0 +1,13 @@
+Block 0..81
+  Pipeline 57..80 comments=1
+    Try 57..80
+      Body 62..62
+      Finally 64..71
+        FullCellPath 72..80
+          Record 72..78
+            Pair
+              String Bare "a" 73..74
+              Int 1 76..77
+          Member "a" 79..80
+Comments (1)
+  0..56 "# A cell path on a record passes as a `finally` handler."

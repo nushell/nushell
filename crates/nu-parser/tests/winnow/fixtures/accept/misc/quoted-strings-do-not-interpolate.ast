@@ -1,0 +1,12 @@
+Block 0..46
+  Pipeline 0..45
+    Call `echo` 0..45
+      Interpolation Double 5..15
+        Subexpression 7..14 8..13
+          Pipeline 8..13
+            BinaryOp + 8..13
+              Int 1 8..9
+              Int 1 12..13
+      String Double "(1 + 1)" 16..25
+      String Single "(1 + 1)" 26..35
+      String Backtick "(1 + 1)" 36..45

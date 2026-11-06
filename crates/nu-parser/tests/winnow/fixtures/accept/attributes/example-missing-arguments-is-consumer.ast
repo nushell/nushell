@@ -1,0 +1,7 @@
+Block 0..21
+  Pipeline 0..20
+    AttributeBlock 0..20
+      Attribute `example` 0..8
+      Def `x` 9..20
+        Signature 15..17
+        Body 19..19

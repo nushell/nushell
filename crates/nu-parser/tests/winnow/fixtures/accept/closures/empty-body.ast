@@ -1,0 +1,6 @@
+Block 0..7
+  Pipeline 0..6
+    Closure 0..6
+      Signature 1..4
+        Param positional `x` 2..3
+      Body 5..5

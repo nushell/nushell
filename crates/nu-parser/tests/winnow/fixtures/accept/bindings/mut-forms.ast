@@ -1,0 +1,24 @@
+Block 0..57
+  Pipeline 0..9
+    mut x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..24
+    mut y : int 10..24
+      Value 23..24
+        Pipeline 23..24
+          Int 2 23..24
+  Pipeline 25..35
+    mut z 25..35
+      Value 34..35
+        Pipeline 34..35
+          Int 3 34..35
+  Pipeline 36..56
+    mut w 36..56
+      Value 44..56
+        Pipeline 44..56
+          List 44..47
+            Int 1 45..46
+          | 48..49
+          Call `length` 50..56

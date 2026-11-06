@@ -1,0 +1,24 @@
+Block 0..103
+  Pipeline 0..102
+    Def `f` 0..102
+      Signature 6..98
+        Param positional `a` 7..17 : int
+          Default
+            Int 1 16..17
+        Param positional `b` 19..34 : string
+          Default
+            String Double "x" 31..34
+        Param positional `c` 36..54 : list<int>
+          Default
+            List 51..54
+              Int 1 52..53
+        Param positional `d` 56..82 : record<a: int>
+          Default
+            Record 76..82
+              Pair
+                String Bare "a" 77..78
+                Int 1 80..81
+        Param positional `e` 84..97 : any
+          Default
+            Nothing 93..97
+      Body 100..101

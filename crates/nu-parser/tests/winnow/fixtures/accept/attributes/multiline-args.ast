@@ -1,0 +1,16 @@
+Block 0..53
+  Pipeline 0..52
+    AttributeBlock 0..52
+      Attribute `example` 0..39
+        String Double "multi" 9..16
+        Closure 17..28
+          Body 18..27
+            Pipeline 21..26
+              BinaryOp + 21..26
+                Int 1 21..22
+                Int 1 25..26
+        Flag --result 29..37
+        Int 2 38..39
+      Def `f` 40..52
+        Signature 46..48
+        Body 50..51

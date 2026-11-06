@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `}` without a matching `{`
+  --> reject/lexer/extra-brace-with-raw-string-content.nu:6:1
+  |
+6 | }
+  | ^

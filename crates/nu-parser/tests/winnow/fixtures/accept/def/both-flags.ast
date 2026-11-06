@@ -1,0 +1,11 @@
+Block 0..79
+  Pipeline 0..38
+    Def `both` [Env, Wrapped] 0..38
+      Signature 25..34
+        Param rest `args` 26..33
+      Body 36..37
+  Pipeline 39..78
+    Def `both2` [Wrapped, Env] 39..78
+      Signature 65..74
+        Param rest `args` 66..73
+      Body 76..77

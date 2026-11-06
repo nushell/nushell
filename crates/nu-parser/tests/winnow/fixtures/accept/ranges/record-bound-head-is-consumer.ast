@@ -1,0 +1,15 @@
+Block 0..100
+  Pipeline 83..99 comments=1
+    let x 83..99
+      Value 91..99
+        Pipeline 91..99
+          Range Inclusive 91..99
+            From
+              Int 5 91..92
+            To
+              Record 94..99
+                Pair
+                  String Bare "a" 95..96
+                  Int 1 97..98
+Comments (1)
+  0..82 "# A record bound at the head of a command: still a range for nu, which it refuses."

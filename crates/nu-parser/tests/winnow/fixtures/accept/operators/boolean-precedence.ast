@@ -1,0 +1,36 @@
+Block 0..125
+  Pipeline 0..124
+    List 0..124
+      Subexpression 1..25 2..24
+        Pipeline 2..24
+          BinaryOp or 2..24
+            BinaryOp and 2..16
+              Bool true 2..6
+              Bool false 11..16
+            Bool true 20..24
+      Subexpression 26..60 27..59
+        Pipeline 27..59
+          BinaryOp xor 27..59
+            BinaryOp and 27..40
+              Bool true 27..31
+              Bool true 36..40
+            BinaryOp and 45..59
+              Bool true 45..49
+              Bool false 54..59
+      Subexpression 61..94 62..93
+        Pipeline 62..93
+          BinaryOp or 62..93
+            BinaryOp or 62..84
+              Bool true 62..66
+              BinaryOp xor 70..84
+                Bool false 70..75
+                Bool true 80..84
+            Bool false 88..93
+      Subexpression 95..123 96..122
+        Pipeline 96..122
+          BinaryOp or 96..122
+            BinaryOp and 96..114
+              Not 96..104
+                Bool true 100..104
+              Bool false 109..114
+            Bool true 118..122

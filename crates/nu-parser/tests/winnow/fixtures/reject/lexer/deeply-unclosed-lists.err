@@ -1,0 +1,13 @@
+error: unclosed delimiter: expected `]`
+  --> reject/lexer/deeply-unclosed-lists.nu:1:29
+  |
+1 | [[[[[[[[[[[[[[[[[[[[[[[[[[[[
+  |                             ^
+  = note: opened at 1:28
+
+error: unclosed delimiter: expected `]`
+  --> reject/lexer/deeply-unclosed-lists.nu:1:29
+  |
+1 | [[[[[[[[[[[[[[[[[[[[[[[[[[[[
+  |                             ^
+  = note: opened at 1:28

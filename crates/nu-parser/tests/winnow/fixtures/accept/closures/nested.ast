@@ -1,0 +1,15 @@
+Block 0..20
+  Pipeline 0..19
+    Closure 0..19
+      Signature 1..3
+      Body 4..18
+        Pipeline 4..17
+          Closure 4..17
+            Signature 5..7
+            Body 8..16
+              Pipeline 8..15
+                Closure 8..15
+                  Signature 9..11
+                  Body 12..14
+                    Pipeline 12..13
+                      Int 1 12..13

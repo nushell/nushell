@@ -1,0 +1,7 @@
+Block 0..16
+  Pipeline 0..2
+    Call `ls` 0..2
+  Pipeline 3..6
+    Call `pwd` 3..6
+  Pipeline 7..15
+    Call `date now` 7..15

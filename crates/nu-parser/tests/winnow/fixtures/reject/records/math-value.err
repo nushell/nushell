@@ -1,0 +1,6 @@
+error: expected `:` after record key
+  --> reject/records/math-value.nu:1:9
+  |
+1 | {a: 1 + 1}
+  |         ^
+  = help: record fields look like `key: value`; a missing colon often makes this parse as a block or closure

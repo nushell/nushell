@@ -1,0 +1,33 @@
+Block 0..64
+  Pipeline 0..63
+    List 0..63
+      Record 1..9
+        Pair
+          String Double "a=" 2..6
+          String Bare "b" 7..8
+      Record 10..18
+        Pair
+          String Double "=a" 11..15
+          String Bare "b" 16..17
+      Record 19..27
+        Pair
+          String Bare "a" 20..21
+          String Double "=b" 22..26
+      Record 28..36
+        Pair
+          String Bare "a" 29..30
+          String Double "b=" 31..35
+      Record 37..49
+        Pair
+          String Bare "a" 38..39
+          String Bare "b" 40..41
+        Pair
+          String Double "=c" 42..46
+          String Bare "d" 47..48
+      Record 50..62
+        Pair
+          String Bare "a" 51..52
+          String Bare "b" 53..54
+        Pair
+          String Double "c=" 55..59
+          String Bare "d" 60..61

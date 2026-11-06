@@ -1,0 +1,26 @@
+Block 0..77
+  Pipeline 0..76
+    List 0..76
+      Subexpression 1..12 2..11
+        Pipeline 2..11
+          Not 2..11
+            Bool false 6..11
+      Subexpression 13..26 14..25
+        Pipeline 14..25
+          Not 14..25
+            Subexpression 18..25 19..24
+              Pipeline 19..24
+                Bool false 19..24
+      Subexpression 27..50 28..49
+        Pipeline 28..49
+          Not 28..49
+            Not 32..49
+              Not 36..49
+                Not 40..49
+                  Bool false 44..49
+      Subexpression 51..75 52..74
+        Pipeline 52..74
+          Not 52..74
+            FullCellPath 56..74
+              Var $nu 56..59
+              Member "is-interactive" 60..74

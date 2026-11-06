@@ -1,0 +1,6 @@
+Block 0..20
+  Pipeline 0..19
+    Call `if` 0..19
+      String Bare "if" 3..5
+      Flag --help 6..12
+      Flag --help 13..19

@@ -1,0 +1,5 @@
+Block 0..17
+  Pipeline 0..16
+    Call `overlay hide` 0..16
+      String Bare "a" 13..14
+      String Bare "b" 15..16

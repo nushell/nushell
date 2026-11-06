@@ -1,0 +1,12 @@
+Block 0..63
+  Pipeline 0..15
+    Def `c` 0..15
+      Signature 6..8
+      Body 10..14
+        Pipeline 11..13
+          List 11..13
+  Pipeline 16..62
+    Extern `cmd` 16..62
+      Signature 27..62
+        Param positional `x` 28..39 : string @c
+        Param flag --flag -f `flag` 41..61 : string @c

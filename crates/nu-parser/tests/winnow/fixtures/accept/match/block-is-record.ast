@@ -1,0 +1,9 @@
+Block 0..15
+  Pipeline 0..14
+    Match 0..14
+      Int 1 6..7
+      ValueBlock
+        Record 8..14
+          Pair
+            String Bare "a" 9..10
+            Int 1 12..13

@@ -1,0 +1,1 @@
+$env.FOO = bar

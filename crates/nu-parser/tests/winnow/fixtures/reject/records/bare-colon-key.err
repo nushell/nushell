@@ -1,0 +1,6 @@
+error: colon in bare word specifying record key
+  --> reject/records/bare-colon-key.nu:1:3
+  |
+1 | { :: x }
+  |   ^
+  = help: quote the key if the `:` is part of it

@@ -1,0 +1,14 @@
+Block 0..29
+  Pipeline 0..28
+    BinaryOp + 0..28
+      Int 1 0..1
+      If 4..28
+        Condition
+          Bool true 7..11
+        Then 13..16
+          Pipeline 14..15
+            Int 2 14..15
+        Else 18..22
+          BlockExpr 23..28 24..27
+            Pipeline 25..26
+              Int 3 25..26

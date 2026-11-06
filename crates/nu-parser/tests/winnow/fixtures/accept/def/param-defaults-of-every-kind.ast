@@ -1,0 +1,61 @@
+Block 0..167
+  Pipeline 0..166
+    Def `f` 0..166
+      Signature 6..162
+        Param positional `a` 10..15
+          Default
+            Int 1 14..15
+        Param positional `b` 18..25
+          Default
+            String Double "s" 22..25
+        Param positional `c` 28..37
+          Default
+            List 32..37
+              Int 1 33..34
+              Int 2 35..36
+        Param positional `d` 40..50
+          Default
+            Record 44..50
+              Pair
+                String Bare "x" 45..46
+                Int 1 48..49
+        Param positional `e` 53..61
+          Default
+            Nothing 57..61
+        Param positional `f` 64..72
+          Default
+            Bool true 68..72
+        Param positional `g` 75..82
+          Default
+            Filesize 1 kB 79..82
+        Param positional `h` 85..99
+          Default
+            DateTime 2024-01-02 89..99
+        Param positional `i` 102..113
+          Default
+            Subexpression 106..113 107..112
+              Pipeline 107..112
+                BinaryOp + 107..112
+                  Int 1 107..108
+                  Int 1 111..112
+        Param positional `j` 116..127
+          Default
+            Interpolation Double 120..127
+              Text "x" 122..123
+              Subexpression 123..126 124..125
+                Pipeline 124..125
+                  Int 1 124..125
+        Param positional `k` 130..140
+          Default
+            Binary radix=16 [255] 134..140
+        Param positional `l` 143..151
+          Default
+            Range Inclusive 147..151
+              From
+                Int 1 147..148
+              To
+                Int 3 150..151
+        Param positional `m` 154..160
+          Default
+            Int -1 158..160
+      Body 164..165

@@ -1,0 +1,30 @@
+Block 0..75
+  Pipeline 0..43
+    let x 0..43
+      Value 8..43
+        Pipeline 8..43
+          Record 8..43
+            Pair
+              String Double "a b" 9..14
+              Int 1 16..17
+            Pair
+              String Single "c.d" 19..24
+              Int 2 26..27
+            Pair
+              String Double "e" 29..32
+              Record 34..42
+                Pair
+                  String Double "f" 35..38
+                  Int 3 40..41
+  Pipeline 44..74
+    List 44..74
+      FullCellPath 45..53
+        Var $x 45..47
+        Member "a b" 48..53
+      FullCellPath 54..62
+        Var $x 54..56
+        Member "c.d" 57..62
+      FullCellPath 63..73
+        Var $x 63..65
+        Member "e" 66..69
+        Member "f" 70..73

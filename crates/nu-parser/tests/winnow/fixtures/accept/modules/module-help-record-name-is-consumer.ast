@@ -1,0 +1,10 @@
+Block 0..100
+  Pipeline 79..99 comments=1
+    Call `module` 79..99
+      Flag --help 86..92
+      Record 93..99
+        Pair
+          String Bare "a" 94..95
+          Int 1 97..98
+Comments (1)
+  0..78 "# The name of a `module` help call is still a string, and a record is not one."

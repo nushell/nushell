@@ -1,0 +1,6 @@
+error: `ans` used as variable name
+  --> reject/bindings/let-ans.nu:1:5
+  |
+1 | let ans = 1
+  |     ^^^
+  = help: `$ans` is a built-in variable and cannot be declared

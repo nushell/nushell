@@ -1,0 +1,6 @@
+error: duplicate command definition within a block
+  --> reject/def/duplicate-in-block.nu:1:20
+  |
+1 | def foo [] {}; def foo [] {}
+  |                    ^^^
+  = help: `foo` is already defined in this block

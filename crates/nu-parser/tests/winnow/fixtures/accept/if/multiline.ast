@@ -1,0 +1,19 @@
+Block 0..51
+  Pipeline 0..50
+    If 0..50
+      Condition
+        Bool true 3..7
+      Then 9..14
+        Pipeline 12..13
+          Int 1 12..13
+      Else 16..20
+        If 21..50
+          Condition
+            Bool false 24..29
+          Then 31..36
+            Pipeline 34..35
+              Int 2 34..35
+          Else 38..42
+            BlockExpr 43..50 44..49
+              Pipeline 47..48
+                Int 3 47..48

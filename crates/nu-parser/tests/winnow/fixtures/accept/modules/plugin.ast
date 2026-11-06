@@ -1,0 +1,9 @@
+Block 0..52
+  Pipeline 0..16
+    Call `plugin use` 0..16
+      String Bare "query" 11..16
+  Pipeline 17..39
+    Call `plugin add` 17..39
+      String Bare "nu_plugin_x" 28..39
+  Pipeline 40..51
+    Call `plugin list` 40..51

@@ -1,0 +1,5 @@
+error: invalid datetime literal: not a valid date
+  --> reject/literals/invalid-date-with-time.nu:1:2
+  |
+1 | [2023-02-29T10:00:00]
+  |  ^^^^^^^^^^^^^^^^^^^

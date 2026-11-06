@@ -1,0 +1,12 @@
+Block 0..20
+  Pipeline 0..19
+    Subexpression 0..19 1..18
+      Pipeline 1..10 terminator=10..11
+        let x 1..10
+          Value 9..10
+            Pipeline 9..10
+              Int 1 9..10
+      Pipeline 12..18
+        BinaryOp + 12..18
+          Var $x 12..14
+          Int 1 17..18

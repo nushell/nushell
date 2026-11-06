@@ -1,0 +1,5 @@
+error: expected redirection target
+  --> reject/redirections/target-is-pipe.nu:1:8
+  |
+1 | ^ls o> | lines
+  |        ^

@@ -1,0 +1,22 @@
+Block 0..52
+  Pipeline 0..51
+    List 0..13
+      List 1..6
+        Int 1 2..3
+        Int 2 4..5
+      List 7..12
+        Int 3 8..9
+        Int 4 10..11
+    | 14..15
+    Call `each` 16..51
+      Closure 21..51
+        Signature 23..28
+          Param positional `row` 24..27
+        Body 29..50
+          Pipeline 29..49
+            Var $row 29..33
+            | 34..35
+            Where 36..49
+              BinaryOp > 42..49
+                Var $it 42..45
+                Int 1 48..49

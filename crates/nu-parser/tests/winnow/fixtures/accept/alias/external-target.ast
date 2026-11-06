@@ -1,0 +1,6 @@
+Block 0..26
+  Pipeline 0..25
+    Alias `ext` 0..25
+      ExternalCall 12..25
+        String Bare "nu" 13..15
+        String Bare "--version" 16..25

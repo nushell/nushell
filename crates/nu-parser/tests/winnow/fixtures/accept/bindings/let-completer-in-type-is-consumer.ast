@@ -1,0 +1,6 @@
+Block 0..26
+  Pipeline 0..25
+    let x : int@completer 0..25
+      Value 23..25
+        Pipeline 23..25
+          Int 42 23..25

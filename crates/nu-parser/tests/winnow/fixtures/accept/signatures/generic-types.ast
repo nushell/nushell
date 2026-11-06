@@ -1,0 +1,19 @@
+Block 0..348
+  Pipeline 0..347
+    Def `f` 0..347
+      Signature 6..343
+        Param positional `a` 10..22 : list<int>
+        Param positional `b` 25..34 : list<>
+        Param positional `c` 37..54 : list< string >
+        Param positional `d` 57..68 : record<>
+        Param positional `e` 71..98 : record<a: int b: string>
+        Param positional `f` 101..129 : record<a: int, b: string>
+        Param positional `g` 132..151 : record<a b: int>
+        Param positional `h` 154..170 : table<a: int>
+        Param positional `i` 173..183 : table<>
+        Param positional `j` 186..216 : oneof<int, string, nothing>
+        Param positional `k` 219..229 : oneof<>
+        Param positional `l` 232..256 : list<list<list<int>>>
+        Param positional `m` 259..293 : record<a: list<record<b: int>>>
+        Param positional `n` 296..341 : record<"quoted key": int, 'other': string>
+      Body 345..346

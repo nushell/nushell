@@ -1,0 +1,6 @@
+error: command name not supported
+  --> reject/def/name-with-percent.nu:1:8
+  |
+1 | extern "a%b" []
+  |        ^^^^^
+  = help: a name may not contain `#`, `^` or `%`, start with a word that reads as a value (a number, filesize, duration, date, binary or range), or use whitespace other than single spaces between words

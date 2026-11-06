@@ -1,0 +1,18 @@
+Block 0..48
+  Pipeline 0..22
+    let handler 0..22
+      Value 14..22
+        Pipeline 14..22
+          Closure 14..22
+            Signature 15..18
+              Param positional `e` 16..17
+            Body 19..21
+              Pipeline 19..20
+                Int 1 19..20
+  Pipeline 23..47
+    Try 23..47
+      Body 28..31
+        Pipeline 29..30
+          Int 1 29..30
+      Catch 33..38
+        Var $handler 39..47

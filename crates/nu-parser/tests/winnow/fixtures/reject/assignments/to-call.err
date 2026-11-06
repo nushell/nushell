@@ -1,0 +1,6 @@
+error: assignment requires a variable
+  --> reject/assignments/to-call.nu:1:1
+  |
+1 | ls = 1
+  | ^^
+  = help: only variables (`$x`) and their cell paths (`$x.a`, `$env.FOO`) can be assigned to

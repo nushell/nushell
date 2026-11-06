@@ -1,0 +1,8 @@
+Block 0..21
+  Pipeline 0..20
+    ExternalCall 0..3
+      String Bare "ls" 1..3
+    | 4..5
+    Call `lines` 6..11
+    | 12..13
+    Call `length` 14..20

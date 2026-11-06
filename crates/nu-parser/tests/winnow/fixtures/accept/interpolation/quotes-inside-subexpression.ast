@@ -1,0 +1,47 @@
+Block 0..109
+  Pipeline 0..108
+    List 0..108
+      Interpolation Double 1..11
+        Subexpression 3..10 4..9
+          Pipeline 4..9
+            String Single "\" \"" 4..9
+      Interpolation Double 12..26
+        Subexpression 14..25 15..24
+          Pipeline 15..24
+            BinaryOp + 15..24
+              String Single "a" 15..18
+              String Double "b" 21..24
+      Interpolation Single 27..37
+        Subexpression 29..36 30..35
+          Pipeline 30..35
+            String Double "a b" 30..35
+      Interpolation Double 38..49
+        Subexpression 40..48 41..47
+          Pipeline 41..47
+            String Double "a\"b" 41..47
+      Interpolation Double 50..63
+        Subexpression 52..57 53..56
+          Pipeline 53..56
+            String Single "(" 53..56
+        Subexpression 57..62 58..61
+          Pipeline 58..61
+            String Single ")" 58..61
+      Interpolation Double 64..81
+        Subexpression 66..71 67..70
+          Pipeline 67..70
+            String Single "(" 67..70
+        Text "test" 71..75
+        Subexpression 75..80 76..79
+          Pipeline 76..79
+            String Single ")" 76..79
+      Interpolation Double 82..107
+        Subexpression 84..89 85..88
+          Pipeline 85..88
+            String Single "(" 85..88
+        Subexpression 89..97 90..96
+          Pipeline 90..96
+            String Double "test" 90..96
+        Text "test" 97..101
+        Subexpression 101..106 102..105
+          Pipeline 102..105
+            String Single ")" 102..105

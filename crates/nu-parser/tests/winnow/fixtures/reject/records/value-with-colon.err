@@ -1,0 +1,6 @@
+error: colon in bare word specifying record value
+  --> reject/records/value-with-colon.nu:1:7
+  |
+1 | { a: x:y }
+  |       ^
+  = help: quote the value if the `:` is part of it

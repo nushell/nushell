@@ -1,0 +1,7 @@
+Block 0..31
+  Pipeline 0..30
+    BinaryOp ++ 0..30
+      Interpolation Double 0..13
+        Text "plain text" 2..12
+      Interpolation Single 17..30
+        Text "also plain" 19..29

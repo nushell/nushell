@@ -1,0 +1,5 @@
+error: expected table row
+  --> reject/tables/header-only-with-semicolon.nu:1:8
+  |
+1 | [[a b];]
+  |        ^

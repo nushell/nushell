@@ -1,0 +1,9 @@
+Block 0..14
+  Pipeline 0..13
+    Use 0..13
+      String Bare "std" 4..7
+      Member (ignored) 8..13
+        Subexpression 8..13 9..12
+          Pipeline 9..12
+            ExternalCall 9..12
+              String Bare "foo" 9..12

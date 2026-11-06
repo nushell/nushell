@@ -1,0 +1,31 @@
+Block 0..71
+  Pipeline 0..34
+    Module 0..34
+      String Bare "m" 7..8
+      Body 10..33
+        Pipeline 11..32
+          Export 11..32
+            Def `f` 18..32
+              Signature 24..26
+              Body 28..31
+                Pipeline 29..30
+                  Int 1 29..30
+  Pipeline 35..40
+    Use 35..40
+      String Bare "m" 39..40
+  Pipeline 41..48
+    Use 41..48
+      String Bare "m" 45..46
+      Member "f" 47..48
+  Pipeline 49..58
+    Use 49..58
+      String Bare "m" 53..54
+      Members ["f"] 55..58
+  Pipeline 59..66
+    Use 59..66
+      String Bare "m" 63..64
+      Member * 65..66
+  Pipeline 67..70
+    ExternalCall 67..70
+      String Bare "m" 67..68
+      String Bare "f" 69..70

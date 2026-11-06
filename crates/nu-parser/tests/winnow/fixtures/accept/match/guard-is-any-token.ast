@@ -1,0 +1,9 @@
+Block 0..25
+  Pipeline 0..24
+    Match 0..24
+      Int 1 6..7
+      Arm 10..22
+        Pattern $a 10..12
+        Guard
+          String Bare ";" 16..17
+        Int 1 21..22

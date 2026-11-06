@@ -1,0 +1,9 @@
+Block 0..23
+  Pipeline 0..22
+    Call `for` 0..22
+      String Bare "x" 4..5
+      String Bare "in" 6..8
+      List 9..12
+        Int 1 10..11
+      Record 13..16
+      String Bare "extra" 17..22

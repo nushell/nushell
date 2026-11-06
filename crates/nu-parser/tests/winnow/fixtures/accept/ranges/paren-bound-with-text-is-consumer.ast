@@ -1,0 +1,11 @@
+Block 0..10
+  Pipeline 0..9
+    Range Inclusive 0..9
+      From
+        Interpolation Bare 0..6
+          Subexpression 0..3 1..2
+            Pipeline 1..2
+              Int 1 1..2
+          Text "abc" 3..6
+      To
+        Int 5 8..9

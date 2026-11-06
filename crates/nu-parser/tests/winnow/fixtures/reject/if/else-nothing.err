@@ -1,0 +1,5 @@
+error: expected block or expression after `else`
+  --> reject/if/else-nothing.nu:1:17
+  |
+1 | if true { } else
+  |                 ^

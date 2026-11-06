@@ -1,0 +1,7 @@
+Block 0..20
+  Pipeline 0..19
+    Extern `foo` 0..19
+      Signature 11..19
+        Param positional `x` 12..13
+Ignored (1)
+  16..18 "0x"

@@ -1,0 +1,29 @@
+Block 0..58
+  Pipeline 0..29
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 8..9
+    Where 10..29
+      Closure 16..29
+        Signature 17..20
+          Param positional `x` 18..19
+        Body 21..28
+          Pipeline 21..27
+            BinaryOp > 21..27
+              Var $x 21..23
+              Int 1 26..27
+  Pipeline 30..57
+    List 30..37
+      Int 1 31..32
+      Int 2 33..34
+      Int 3 35..36
+    | 38..39
+    Where 40..57
+      Closure 46..57
+        Body 48..56
+          Pipeline 48..55
+            BinaryOp > 48..55
+              Var $in 48..51
+              Int 1 54..55

@@ -1,0 +1,21 @@
+Block 0..68
+  Pipeline 0..19
+    Call `type` 0..19
+      String Bare "t" 5..6
+      Flag --help 7..13
+      String Bare "=" 14..15
+      String Bare "int" 16..19
+  Pipeline 20..45
+    Call `type` 20..45
+      Flag --help 25..37
+        Bool false 32..37
+      String Bare "t" 38..39
+      String Bare "=" 40..41
+      String Bare "int" 42..45
+  Pipeline 46..67
+    Call `type` 46..67
+      String Bare "t" 51..52
+      Flag --help 53..61
+        Int 1 60..61
+      String Bare "=" 62..63
+      String Bare "int" 64..67

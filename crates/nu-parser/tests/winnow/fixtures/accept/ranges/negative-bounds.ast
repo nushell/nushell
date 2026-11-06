@@ -1,0 +1,18 @@
+Block 0..28
+  Pipeline 0..27
+    List 0..27
+      Range Inclusive 1..8
+        From
+          Int -10 1..4
+        To
+          Int -3 6..8
+      Range Inclusive 9..17
+        From
+          Int -10 9..12
+        To
+          Int -3 15..17
+      Range RightExclusive 18..26
+        From
+          Int -10 18..21
+        To
+          Int -3 24..26

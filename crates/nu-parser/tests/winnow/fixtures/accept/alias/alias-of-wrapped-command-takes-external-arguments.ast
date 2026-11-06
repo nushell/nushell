@@ -1,0 +1,15 @@
+Block 0..113
+  Pipeline 62..90 comments=1
+    Def `f` [Wrapped] 62..90
+      Signature 78..87
+        Param rest `rest` 79..86
+      Body 89..89
+  Pipeline 91..105
+    Alias `g` 91..105
+      Call `f` 101..105
+        Flag -e 103..105
+  Pipeline 106..112
+    Call `g` 106..112
+      String Bare "x$" 108..112
+Comments (1)
+  0..61 "# An alias of a wrapped command takes external arguments too."

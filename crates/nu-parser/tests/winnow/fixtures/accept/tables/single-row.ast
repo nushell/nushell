@@ -1,0 +1,9 @@
+Block 0..11
+  Pipeline 0..10
+    Table 0..10
+      Columns
+        List 1..4
+          String Bare "a" 2..3
+      Row
+        List 6..9
+          Int 1 7..8

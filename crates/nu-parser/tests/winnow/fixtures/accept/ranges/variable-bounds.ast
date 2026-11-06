@@ -1,0 +1,37 @@
+Block 0..55
+  Pipeline 0..9
+    let a 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 2 8..9
+  Pipeline 10..54
+    List 10..54
+      Range Inclusive 11..17
+        From
+          Var $a 11..13
+        To
+          Int 10 15..17
+      Range Inclusive 18..25
+        From
+          Var $a 18..20
+        To
+          Int 10 23..25
+      Range RightExclusive 26..40
+        From
+          Var $a 26..28
+        To
+          Subexpression 31..40 32..39
+            Pipeline 32..39
+              BinaryOp + 32..39
+                Var $a 32..34
+                Int 10 37..39
+      Range RightExclusive 41..47
+        From
+          Int 0 41..42
+        To
+          Var $a 45..47
+      Range Inclusive 48..53
+        From
+          Int 1 48..49
+        To
+          Var $a 51..53

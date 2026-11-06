@@ -1,0 +1,21 @@
+Block 0..85
+  Pipeline 0..56
+    Module 0..56
+      String Bare "m" 7..8
+      Body 10..55
+        Pipeline 15..34
+          Export 15..34
+            TypeAlias `T` = int 22..34
+        Pipeline 39..54
+          TypeAlias `U` = string 39..54
+  Pipeline 57..64
+    Use 57..64
+      String Bare "m" 61..62
+      Member "T" 63..64
+  Pipeline 65..84
+    Def `f` 65..84
+      Signature 71..77
+        Param positional `x` 72..76 : T
+      Body 79..83
+        Pipeline 80..82
+          Var $x 80..82

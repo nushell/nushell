@@ -1,0 +1,15 @@
+Block 0..31
+  Pipeline 0..19
+    let l 0..19
+      Value 8..19
+        Pipeline 8..19
+          List 8..19
+            Int 1 9..10
+            Int 2 12..13
+            List 15..18
+              Int 3 16..17
+  Pipeline 20..30
+    List 20..30
+      Spread 21..24
+        Var $l 24..26
+      Var $l 27..29

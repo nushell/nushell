@@ -1,0 +1,105 @@
+Block 0..245
+  Pipeline 0..9
+    let a 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..19
+    let b 10..19
+      Value 18..19
+        Pipeline 18..19
+          Int 2 18..19
+  Pipeline 20..32
+    let t 20..32
+      Value 28..32
+        Pipeline 28..32
+          Bool true 28..32
+  Pipeline 33..42
+    If 33..42
+      Condition
+        Var $t 36..38
+      Then 40..41
+  Pipeline 43..57
+    If 43..57
+      Condition
+        BinaryOp > 46..53
+          Var $a 46..48
+          Var $b 51..53
+      Then 55..56
+  Pipeline 58..106
+    If 58..106
+      Condition
+        BinaryOp or 61..82
+          Subexpression 61..70 62..69
+            Pipeline 62..69
+              BinaryOp == 62..69
+                Var $a 62..64
+                Int 1 68..69
+          Subexpression 74..82 75..81
+            Pipeline 75..81
+              BinaryOp > 75..81
+                Var $a 75..77
+                Int 0 80..81
+      Then 84..90
+        Pipeline 85..89
+          Bool true 85..89
+      Else 92..96
+        BlockExpr 97..106 98..105
+          Pipeline 99..104
+            Bool false 99..104
+  Pipeline 107..123
+    If 107..123
+      Condition
+        Not 110..119
+          Bool false 114..119
+      Then 121..122
+  Pipeline 124..146
+    If 124..146
+      Condition
+        Subexpression 127..142 128..141
+          Pipeline 128..141
+            Call `ls` 128..130
+            | 131..132
+            Call `is-empty` 133..141
+      Then 144..145
+  Pipeline 147..187
+    If 147..187
+      Condition
+        BinaryOp and 150..183
+          Subexpression 150..163 151..162
+            Pipeline 151..162
+              BinaryOp in 151..162
+                Var $a 151..153
+                List 157..162
+                  Int 1 158..159
+                  Int 2 160..161
+          Subexpression 168..183 169..182
+            Pipeline 169..182
+              BinaryOp not-in 169..182
+                Var $b 169..171
+                List 179..182
+                  Int 3 180..181
+      Then 185..186
+  Pipeline 188..224
+    If 188..224
+      Condition
+        BinaryOp and 191..220
+          BinaryOp in 191..202
+            Var $a 191..193
+            List 197..202
+              Int 1 198..199
+              Int 2 200..201
+          BinaryOp not-in 207..220
+            Var $b 207..209
+            List 217..220
+              Int 3 218..219
+      Then 222..223
+  Pipeline 225..244
+    If 225..244
+      Condition
+        Subexpression 228..240 229..239
+          Pipeline 229..239
+            BinaryOp and 229..239
+              Var $t 229..231
+              Var $t 237..239
+      Then 242..243

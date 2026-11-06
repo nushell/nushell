@@ -1,0 +1,7 @@
+Block 0..19
+  Pipeline 0..18
+    Call `run` 0..18
+      Nothing 4..8
+      String Bare "a" 9..10
+      String Bare "b" 11..12
+      Flag --foo 13..18

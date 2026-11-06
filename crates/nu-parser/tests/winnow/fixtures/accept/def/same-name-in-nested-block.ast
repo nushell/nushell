@@ -1,0 +1,9 @@
+Block 0..29
+  Pipeline 0..28
+    Def `foo` 0..28
+      Signature 8..10
+      Body 12..27
+        Pipeline 13..26
+          Def `foo` 13..26
+            Signature 21..23
+            Body 25..25

@@ -1,0 +1,15 @@
+Block 0..38
+  Pipeline 0..31 terminator=31..32
+    let x 0..31
+      Value 8..31
+        Pipeline 8..31
+          Record 8..31
+            Pair
+              String Bare "y" 14..15
+              Int 20 17..19
+  Pipeline 33..37
+    FullCellPath 33..37
+      Var $x 33..35
+      Member "y" 36..37
+Comments (1)
+  24..29 "# foo"

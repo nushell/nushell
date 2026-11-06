@@ -1,0 +1,10 @@
+Block 0..20
+  Pipeline 0..19
+    let n 0..19
+      Value 8..19
+        Pipeline 8..19
+          Subexpression 8..19 9..18
+            Pipeline 12..17
+              BinaryOp + 12..17
+                Int 1 12..13
+                Int 2 16..17

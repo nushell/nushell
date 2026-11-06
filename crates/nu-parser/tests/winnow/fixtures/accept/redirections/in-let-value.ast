@@ -1,0 +1,49 @@
+Block 0..170
+  Pipeline 0..26
+    let a 0..26
+      Value 8..26
+        Pipeline 8..26
+          ExternalCall 8..11
+            String Bare "ls" 9..11
+          Redirect Err 12..16
+            String Bare "/dev/null" 17..26
+  Pipeline 27..53
+    let b 27..53
+      Value 35..53
+        Pipeline 35..53
+          ExternalCall 35..38
+            String Bare "ls" 36..38
+          Redirect Out 39..43
+            String Bare "/dev/null" 44..53
+  Pipeline 54..84
+    let c 54..84
+      Value 62..84
+        Pipeline 62..84
+          ExternalCall 62..65
+            String Bare "ls" 63..65
+          Redirect OutErr 66..74
+            String Bare "/dev/null" 75..84
+  Pipeline 85..111
+    mut d 85..111
+      Value 93..111
+        Pipeline 93..111
+          ExternalCall 93..96
+            String Bare "ls" 94..96
+          Redirect Err 97..101
+            String Bare "/dev/null" 102..111
+  Pipeline 112..138
+    mut e 112..138
+      Value 120..138
+        Pipeline 120..138
+          ExternalCall 120..123
+            String Bare "ls" 121..123
+          Redirect Out 124..128
+            String Bare "/dev/null" 129..138
+  Pipeline 139..169
+    mut f 139..169
+      Value 147..169
+        Pipeline 147..169
+          ExternalCall 147..150
+            String Bare "ls" 148..150
+          Redirect OutErr 151..159
+            String Bare "/dev/null" 160..169

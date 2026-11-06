@@ -1,0 +1,6 @@
+error: unclosed delimiter: expected `}`
+  --> reject/lexer/text-after-closing-brace.nu:1:7
+  |
+1 | {a:b}/
+  |       ^
+  = note: opened at 1:1

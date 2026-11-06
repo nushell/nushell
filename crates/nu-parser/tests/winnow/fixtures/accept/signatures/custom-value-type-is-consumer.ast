@@ -1,0 +1,11 @@
+Block 0..55
+  Pipeline 0..54
+    Def `f` 0..54
+      Signature 6..41
+        Param positional `v` 7..16 : semver
+        IoType semver -> list<semver>
+      Body 43..53
+        Pipeline 44..52
+          List 44..52
+            Var $in 45..48
+            Var $v 49..51

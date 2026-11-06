@@ -1,0 +1,6 @@
+error: external command calls must be explicit in assignments
+  --> reject/assignments/rhs-external-in-pipeline.nu:1:17
+  |
+1 | mut x = 1; $x = git | length
+  |                 ^^^
+  = help: `git` is not a known command; write `^git` to run it and capture its output, or quote the string

@@ -1,0 +1,4 @@
+Block 0..11
+  Pipeline 0..10
+    Call `while` 0..10
+      Bool true 6..10

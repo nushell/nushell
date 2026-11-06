@@ -1,0 +1,6 @@
+Block 0..24
+  Pipeline 0..23
+    Def `f` 0..23
+      Signature 6..19
+        Param positional `x` 7..18 : Foo<int>
+      Body 21..22

@@ -1,0 +1,12 @@
+Block 0..13
+  Pipeline 0..12
+    Closure 0..12
+      Body 1..11
+        Pipeline 6..11 comments=1
+          | 6..7
+          ExternalCall 7..8
+            String Bare "x" 7..8
+          | 8..9
+          Int 1 10..11
+Comments (1)
+  2..5 "# c"

@@ -1,0 +1,8 @@
+Block 0..19
+  Pipeline 0..5
+    Call `cd` 0..5
+      String Bare ".." 3..5
+  Pipeline 6..18
+    Call `echo` 6..18
+      String Bare "a..b" 11..15
+      String Bare ".." 16..18

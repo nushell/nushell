@@ -1,0 +1,8 @@
+Block 0..20
+  Pipeline 0..19
+    Try 0..10
+      Body 5..9
+        Pipeline 6..8
+          Call `ls` 6..8
+    | 11..12
+    Call `length` 13..19

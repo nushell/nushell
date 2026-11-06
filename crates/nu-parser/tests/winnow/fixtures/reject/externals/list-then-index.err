@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `]`
+  --> reject/externals/list-then-index.nu:1:10
+  |
+1 | cmd [a].0
+  |          ^
+  = note: opened at 1:5
+  = help: an external command's list argument must end with `]`; a cell path after it is not allowed

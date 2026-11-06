@@ -1,0 +1,8 @@
+Block 0..17
+  Pipeline 0..16
+    let x 0..16
+      Value 8..16
+        Pipeline 8..16
+          ExternalCall 8..16
+            String Bare "echo" 9..13
+            String Bare "hi" 14..16

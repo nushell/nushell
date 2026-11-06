@@ -1,0 +1,32 @@
+Block 0..54
+  Pipeline 0..27
+    mut rec 0..27
+      Value 10..27
+        Pipeline 10..27
+          Record 10..27
+            Pair
+              String Bare "a" 11..12
+              Int 1 14..15
+            Pair
+              String Bare "d" 17..18
+              Record 20..26
+                Pair
+                  String Bare "e" 21..22
+                  Int 0 24..25
+  Pipeline 28..40
+    Assignment += 28..40
+      FullCellPath 28..34
+        Var $rec 28..32
+        Member "a" 33..34
+      Value 38..40
+        Pipeline 38..40
+          Int 10 38..40
+  Pipeline 41..53
+    Assignment = 41..53
+      FullCellPath 41..49
+        Var $rec 41..45
+        Member "d" 46..47
+        Member "e" 48..49
+      Value 52..53
+        Pipeline 52..53
+          Int 2 52..53

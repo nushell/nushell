@@ -1,0 +1,6 @@
+Block 0..20
+  Pipeline 0..19
+    Export 0..19
+      Call `alias` 7..19
+        String Bare "h" 13..14
+        String Bare "home" 15..19

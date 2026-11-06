@@ -1,0 +1,7 @@
+error: blocks are not supported as first-class values
+  --> reject/def/block-type.nu:1:13
+  |
+1 | def foo [x: block] { }
+  |             ^^^^^
+  = while parsing signature
+  = help: use `closure` instead of `block`

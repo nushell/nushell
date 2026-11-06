@@ -1,0 +1,14 @@
+Block 0..21
+  Pipeline 0..14
+    let r 0..14
+      Value 8..14
+        Pipeline 8..14
+          Record 8..14
+            Pair
+              String Bare "a" 9..10
+              Int 1 12..13
+  Pipeline 15..20
+    Minus 15..20
+      FullCellPath 16..20
+        Var $r 16..18
+        Member "a" 19..20

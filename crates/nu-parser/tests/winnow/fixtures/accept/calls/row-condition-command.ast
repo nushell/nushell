@@ -1,0 +1,11 @@
+Block 0..22
+  Pipeline 0..21
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 8..9
+    Call `any` 10..21
+      BinaryOp > 14..21
+        Var $it 14..17
+        Int 2 20..21

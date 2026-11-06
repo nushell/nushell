@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/blank-line-before-def.nu:1:12
+  |
+1 | @deprecated
+  |            ^
+  = help: put a `def` or `extern` on the line after the attributes

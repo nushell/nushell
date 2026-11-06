@@ -1,0 +1,11 @@
+error: expected expression
+  --> reject/match/nested-match-without-parens.nu:1:21
+  |
+1 | match 1 { 1 => match 2 { 2 => a, _ => b } }
+  |                     ^
+
+error: expected `=>`
+  --> reject/match/nested-match-without-parens.nu:1:24
+  |
+1 | match 1 { 1 => match 2 { 2 => a, _ => b } }
+  |                        ^^^^^^^^^^^^^^^^^^

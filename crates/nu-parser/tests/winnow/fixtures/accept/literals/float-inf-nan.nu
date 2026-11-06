@@ -1,0 +1,1 @@
+[inf -inf NaN]

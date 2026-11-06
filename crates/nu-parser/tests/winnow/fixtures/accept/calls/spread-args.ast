@@ -1,0 +1,38 @@
+Block 0..94
+  Pipeline 0..27
+    Def `foo` 0..27
+      Signature 8..17
+        Param rest `rest` 9..16
+      Body 19..26
+        Pipeline 20..25
+          Var $rest 20..25
+  Pipeline 28..44
+    let args 28..44
+      Value 39..44
+        Pipeline 39..44
+          List 39..44
+            Int 1 40..41
+            Int 2 42..43
+  Pipeline 45..93
+    Call `foo` 45..93
+      Spread 49..52
+        Var $args 52..57
+      Spread 58..61
+        List 61..66
+          Int 3 62..63
+          Int 4 64..65
+      Spread 67..70
+        Subexpression 70..91 71..90
+          Pipeline 71..90
+            Range Inclusive 71..75
+              From
+                Int 5 71..72
+              To
+                Int 6 74..75
+            | 76..77
+            Call `each` 78..90
+              Closure 83..90
+                Body 85..89
+                  Pipeline 85..88
+                    Var $in 85..88
+      Int 7 92..93

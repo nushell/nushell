@@ -1,0 +1,6 @@
+error: unexpected semicolon in list
+  --> reject/lists/semicolon-between-items.nu:1:8
+  |
+1 | [a | b ; c]
+  |        ^
+  = help: use commas or whitespace to separate list items

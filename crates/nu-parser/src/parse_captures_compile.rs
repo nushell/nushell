@@ -855,18 +855,20 @@ fn parse_with_block_cache(
     // decides where the block can be reused (see `cached_block_reusable`).
     let frame_before = (!scoped).then(|| working_set.delta.last_scope_frame().clone());
 
-    let mut output = {
+    let mut block = if crate::winnow::enabled() {
+        crate::winnow::parse_file_block(working_set, contents, new_span, scoped)
+    } else {
         let (output, err) = lex_file(working_set, new_span, &[], &[], false);
         if let Some(err) = err {
             working_set.error(err)
         }
 
-        let mut block = parse_block(working_set, &output, new_span, scoped, false, None);
-        if let Some(frame_before) = &frame_before {
-            block.bound_names = working_set.names_bound_since(frame_before).map(Arc::new);
-        }
-        Arc::new(block)
+        parse_block(working_set, &output, new_span, scoped, false, None)
     };
+    if let Some(frame_before) = &frame_before {
+        block.bound_names = working_set.names_bound_since(frame_before).map(Arc::new);
+    }
+    let mut output = Arc::new(block);
     working_set.bracket_tables.truncate(bracket_tables);
 
     // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them

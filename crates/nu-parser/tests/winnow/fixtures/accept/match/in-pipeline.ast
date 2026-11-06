@@ -1,0 +1,19 @@
+Block 0..48
+  Pipeline 0..47
+    Record 0..11
+      Pair
+        String Bare "a" 1..2
+        Record 4..10
+          Pair
+            String Bare "b" 5..6
+            Int 3 8..9
+    | 12..13
+    Match 14..47
+      Var $in 20..23
+      Arm 25..45
+        Pattern record 25..39
+          Field "a"
+            Pattern record 29..38
+              Field "b"
+                Pattern $b 34..36
+        Var $b 43..45

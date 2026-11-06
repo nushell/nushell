@@ -1,0 +1,6 @@
+error: missing columns
+  --> reject/tables/missing-columns.nu:1:9
+  |
+1 | [[a b]; [1]]
+  |         ^^^
+  = help: expected 2 columns, found 1

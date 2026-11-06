@@ -1,0 +1,9 @@
+Block 0..21
+  Pipeline 0..20
+    Record 0..20
+      Pair
+        String Bare "a" 1..2
+        String Double "x:y" 4..9
+      Pair
+        String Bare "b" 11..12
+        String Single "c:d" 14..19

@@ -1,0 +1,1 @@
+hide std [a b]

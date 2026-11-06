@@ -1,0 +1,5 @@
+error: invalid filesize literal: too large
+  --> reject/literals/filesize-kilobytes-too-large.nu:1:1
+  |
+1 | 9223372036854776KB
+  | ^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,93 @@
+Block 0..356
+  Pipeline 0..355
+    AttributeBlock 0..355
+      Attribute `example` 0..28
+        String Double "hello world" 9..22
+        Closure 23..28
+          Body 25..27
+            Pipeline 25..26
+              Int 1 25..26
+      Attribute `example` 29..62
+        String Double "int" 38..43
+        Closure 44..50
+          Body 46..49
+            Pipeline 46..48
+              Int 42 46..48
+        Flag --result 51..59
+        Int 42 60..62
+      Attribute `example` 63..101
+        String Double "null" 72..78
+        Closure 79..87
+          Body 81..86
+            Pipeline 81..85
+              Nothing 81..85
+        Flag --result 88..96
+        Nothing 97..101
+      Attribute `example` 102..142
+        String Double "list" 111..117
+        Closure 118..127
+          Body 120..126
+            Pipeline 120..125
+              List 120..125
+                Int 1 121..122
+                Int 2 123..124
+        Flag --result 128..136
+        List 137..142
+          Int 1 138..139
+          Int 2 140..141
+      Attribute `example` 143..187
+        String Double "record" 152..160
+        Closure 161..171
+          Body 163..170
+            Pipeline 163..169
+              Record 163..169
+                Pair
+                  String Bare "a" 164..165
+                  Int 1 167..168
+        Flag --result 172..180
+        Record 181..187
+          Pair
+            String Bare "a" 182..183
+            Int 1 185..186
+      Attribute `example` 188..226
+        String Double "math" 197..203
+        Closure 204..215
+          Body 206..214
+            Pipeline 206..213
+              Subexpression 206..213 207..212
+                Pipeline 207..212
+                  BinaryOp + 207..212
+                    Int 1 207..208
+                    Int 1 211..212
+        Flag --result 216..224
+        Int 2 225..226
+      Attribute `example` 227..270
+        String Double "interp" 236..244
+        Closure 245..256
+          Body 247..255
+            Pipeline 247..254
+              Interpolation Double 247..254
+                Text "x" 249..250
+                Subexpression 250..253 251..252
+                  Pipeline 251..252
+                    Int 1 251..252
+        Flag --result 257..265
+        String Double "x1" 266..270
+      Attribute `example` 271..306
+        String Double "mixed" 280..287
+        Closure 288..306
+          Body 290..305
+            Pipeline 290..304
+              List 290..304
+                Bool true 291..295
+                Float 1.5 296..299
+                Filesize 1 kB 300..303
+      Attribute `search-terms` 307..326
+        String Bare "a" 321..322
+        String Bare "b" 323..324
+        String Bare "c" 325..326
+      Attribute `category` 327..341
+        String Bare "math" 337..341
+      Def `foo` 342..355
+        Signature 350..352
+        Body 354..354

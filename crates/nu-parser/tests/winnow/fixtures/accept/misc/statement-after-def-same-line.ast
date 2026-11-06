@@ -1,0 +1,17 @@
+Block 0..35
+  Pipeline 0..14 terminator=14..15
+    Def `f` 0..14
+      Signature 6..8
+      Body 10..13
+        Pipeline 11..12
+          Int 1 11..12
+  Pipeline 16..17
+    Call `f` 16..17
+  Pipeline 18..32
+    Def `g` 18..32
+      Signature 24..26
+      Body 28..31
+        Pipeline 29..30
+          Int 2 29..30
+  Pipeline 33..34
+    Call `g` 33..34

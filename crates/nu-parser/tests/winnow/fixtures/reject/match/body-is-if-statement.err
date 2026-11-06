@@ -1,0 +1,11 @@
+error: expected expression
+  --> reject/match/body-is-if-statement.nu:1:19
+  |
+1 | match 1 { 10 => if true { 1 } else { 2 } }
+  |                   ^
+
+error: expected `=>`
+  --> reject/match/body-is-if-statement.nu:1:25
+  |
+1 | match 1 { 10 => if true { 1 } else { 2 } }
+  |                         ^^^^^

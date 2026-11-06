@@ -1,0 +1,17 @@
+Block 0..119
+  Pipeline 0..118
+    Def `foo` 0..118
+      Signature 8..114
+        Param flag --flag `flag` 9..15
+        Param flag --other -o `other` 16..27
+        Param flag --typed `typed` 28..40 : int
+        Param flag --with-default `with-default` 41..64 : int
+          Default
+            Int 3 63..64
+        Param flag --dflt `dflt` 65..75
+          Default
+            Int 3 74..75
+        Param flag -s `s` 76..78
+        Param flag --long -l `long` 79..90
+        Param flag --spaced-type `spaced-type` 91..113 : string
+      Body 116..117

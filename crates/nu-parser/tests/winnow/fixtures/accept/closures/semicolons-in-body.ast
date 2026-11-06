@@ -1,0 +1,13 @@
+Block 0..27
+  Pipeline 0..26
+    Call `do` 0..26
+      Closure 3..26
+        Body 5..25
+          Pipeline 5..12 terminator=12..13
+            Call `print` 5..12
+              String Bare "a" 11..12
+          Pipeline 14..21 terminator=21..22
+            Call `print` 14..21
+              String Bare "b" 20..21
+          Pipeline 23..24
+            Int 3 23..24

@@ -1,0 +1,15 @@
+Block 0..34
+  Pipeline 0..33
+    EnvShorthand 0..33
+      Env FOO 0..7
+        String Bare "BAR" 4..7
+      If 8..33
+        Condition
+          Bool false 11..16
+        Then 18..21
+          Pipeline 19..20
+            Int 3 19..20
+        Else 23..27
+          BlockExpr 28..33 29..32
+            Pipeline 30..31
+              Int 4 30..31

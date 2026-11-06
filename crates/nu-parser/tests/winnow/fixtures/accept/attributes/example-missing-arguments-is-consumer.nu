@@ -1,0 +1,2 @@
+@example
+def x [] {}

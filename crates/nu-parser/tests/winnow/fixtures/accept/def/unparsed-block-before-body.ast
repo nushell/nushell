@@ -1,0 +1,7 @@
+Block 0..21
+  Pipeline 0..20
+    Def `foo` 0..20
+      Signature 8..10
+      Body 19..19
+Ignored (1)
+  11..17 "{0xzz}"
