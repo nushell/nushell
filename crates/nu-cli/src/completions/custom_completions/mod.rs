@@ -382,6 +382,11 @@ impl UserCompletion {
         let mut callee_stack = ctx
             .stack
             .captures_to_stack_preserve_out_dest(self.captures.clone());
+        // A later interactive fallback can route the whole query inline. That must
+        // not let earlier, unannotated sources take over the terminal.
+        if !self.interactive {
+            callee_stack = callee_stack.suppress_stdin();
+        }
 
         // A completer opts into what it receives through the positional parameters it
         // declares: the input record is overloaded on them, carrying exactly the recognized
@@ -453,6 +458,12 @@ impl UserCompletion {
 
 impl Completer for UserCompletion {
     fn fetch(&mut self, ctx: &Context) -> Fetched {
+        // LSP has no terminal for interactive sources. Skipping an unavailable source
+        // declines to later completers; it is not an interactive cancellation.
+        if self.interactive && ctx.working_set.permanent_state.is_lsp {
+            return Fetched::declining();
+        }
+
         match self.eval(ctx) {
             Err(err) => {
                 report(format!("failed to eval completer block: {err}"));
