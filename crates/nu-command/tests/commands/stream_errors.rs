@@ -2,6 +2,7 @@
 //! when the consumer doesn't return that item. See <https://github.com/nushell/nushell/issues/19463>.
 
 use nu_test_support::prelude::*;
+use nu_utils::consts::LINE_SEPARATOR_STR;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
@@ -316,7 +317,10 @@ fn exit_is_not_lost(#[case] pipeline: &str) -> Result {
     "do --ignore-errors { failing 1 | to text } | ignore; 'continued'",
     "continued"
 )]
-#[case::to_text_ends_at_the_error("do --ignore-errors { failing 2 | to text }", "1\n")]
+#[case::to_text_ends_at_the_error(
+    "do --ignore-errors { failing 2 | to text }",
+    &format!("1{LINE_SEPARATOR_STR}")
+)]
 fn do_ignore_errors_covers_a_byte_stream(#[case] pipeline: &str, #[case] expected: &str) -> Result {
     test()
         .run(format!("{STREAMS}\n{pipeline}"))
