@@ -1325,10 +1325,10 @@ impl Stack {
     }
 
     /// Error if this stack is detached from the controlling terminal (see
-    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads). Commands that grab
-    /// the terminal (`input`, `input list`, `input listen`, `term query`) call this first so
-    /// they decline instead of racing reedline for it; completers turn the error into a
-    /// fallback. `span` points at the offending call.
+    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads and hint closures).
+    /// Commands that grab the terminal (`input`, `input list`, `input listen`, `term query`)
+    /// call this first so they decline instead of racing reedline for it; completers turn
+    /// the error into a fallback. `span` points at the offending call.
     pub fn require_stdin(&self, span: Span) -> Result<(), ShellError> {
         if self.suppress_stdin {
             Err(ShellError::Generic(
@@ -1338,7 +1338,7 @@ impl Stack {
                     span,
                 )
                 .with_help(
-                    "this stack is detached from the terminal (completion worker or MCP), so \
+                    "this stack is detached from the terminal (completion worker, hint closure or MCP), so \
                      interactive commands like `input`, `input list`, `input listen`, and \
                      `term query` cannot run here",
                 ),

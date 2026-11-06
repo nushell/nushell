@@ -234,6 +234,8 @@ $env.config.show_hints = true
 # Any closure error or unsupported return type yields no hint.
 # To use the built-in hinter instead, set hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
+# Hint closures cannot read terminal input. External commands run detached from
+# the terminal, but can still receive input from a pipeline.
 # Default: null
 $env.config.hinter.closure = null
 

@@ -68,7 +68,9 @@ impl ExternalHinter {
         )
         .map_err(|err| format!("failed to build context record: {err}"))?;
 
-        let stack = Stack::with_parent(self.stack.clone());
+        // Reedline owns the terminal while hinting. Neither external commands
+        // nor interactive builtins may read from it or take control of it.
+        let stack = Stack::with_parent(self.stack.clone()).suppress_stdin();
         let result = ClosureEvalOnce::try_new(
             self.engine_state.as_ref(),
             &stack,
@@ -187,7 +189,10 @@ mod tests {
     }
 
     fn create_hinter(source: &str) -> ExternalHinter {
-        let mut engine_state = EngineState::new();
+        create_hinter_with_engine(source, EngineState::new())
+    }
+
+    fn create_hinter_with_engine(source: &str, mut engine_state: EngineState) -> ExternalHinter {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let parsed = parse(&mut working_set, None, source.as_bytes(), false);
         assert!(
@@ -216,6 +221,41 @@ mod tests {
             closure,
             Style::new(),
         )
+    }
+
+    #[cfg(unix)]
+    fn create_external_command_hinter(source: &str) -> ExternalHinter {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        crate::gather_parent_env_vars(&mut engine_state, &std::env::current_dir().unwrap());
+        create_hinter_with_engine(source, engine_state)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn external_command_is_detached_from_the_shell() {
+        // A detached child starts a new session and process group even when the
+        // parent is not interactive, as is typical when running tests in CI.
+        let mut hinter = create_external_command_hinter(
+            r#"{|ctx| ^sh -c 'pgid=$(ps -o pgid= -p $$); if [ "$((pgid))" = "$$" ]; then printf isolated; else printf attached; fi'}"#,
+        );
+
+        let hint = hinter.handle("", 0, &history(), false, "/tmp");
+
+        assert_eq!(hint, "isolated");
+        assert!(!hinter.stack.suppress_stdin);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn detached_external_command_still_receives_pipeline_input() {
+        let mut hinter = create_external_command_hinter(
+            r#"{|ctx| 'hint text' | ^sh -c 'pgid=$(ps -o pgid= -p $$); if [ "$((pgid))" = "$$" ]; then cat; else printf attached; fi'}"#,
+        );
+
+        let hint = hinter.handle("", 0, &history(), false, "/tmp");
+
+        assert_eq!(hint.trim_end(), "hint text");
     }
 
     #[test]
