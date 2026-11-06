@@ -172,8 +172,21 @@ pub fn run_get(
     call: &Call,
     _input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    run_get_with_url(engine_state, stack, call, _input, None)
+}
+
+pub fn run_get_with_url(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    _input: PipelineData,
+    cached_url: Option<Value>,
+) -> Result<PipelineData, ShellError> {
     let args = Arguments {
-        url: call.req(engine_state, stack, 0)?,
+        url: match cached_url {
+            Some(url) => url,
+            None => call.req(engine_state, stack, 0)?,
+        },
         headers: call.get_flag(engine_state, stack, "headers")?,
         raw: call.has_flag(engine_state, stack, "raw")?,
         insecure: call.has_flag(engine_state, stack, "insecure")?,
