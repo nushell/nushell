@@ -174,6 +174,11 @@ fn update_recursive(
                 // cannot fail since loop above does at least one iteration or returns an error
                 let value = pre_elems.last_mut().expect("one element");
 
+                // Replacing an item that holds an error would lose the error.
+                if let Value::Error { error, .. } = value {
+                    return Err((**error).clone());
+                }
+
                 if let Value::Closure { val, .. } = replacement {
                     update_single_value_by_closure(
                         value,

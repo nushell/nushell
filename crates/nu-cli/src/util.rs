@@ -13,7 +13,7 @@ use nu_protocol::{
     process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
-    shell_error::{generic::GenericError, io::IoError},
+    shell_error::{bridge::ShellErrorBridge, generic::GenericError},
     truncate_value_to_budget, value_from_bytes, value_is_error_only,
 };
 #[cfg(windows)]
@@ -574,6 +574,7 @@ fn store_byte_stream_prefix(
     let mut prefix = Vec::new();
     let mut buf = [0u8; 8192];
     let mut truncated = false;
+    let mut read_failure = None;
 
     while prefix.len() < max_bytes {
         // Honor Ctrl-C while filling the budget (large streams can take a while).
@@ -587,7 +588,11 @@ fn store_byte_stream_prefix(
             Ok(n) => prefix.extend_from_slice(&buf[..n]),
             // EINTR: retry like ByteStream::into_bytes.
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(_) => break,
+            Err(err) => {
+                read_failure = Some(err);
+                truncated = true;
+                break;
+            }
         }
     }
 
@@ -607,7 +612,10 @@ fn store_byte_stream_prefix(
                     // Treat as "may have more" without consuming a peek byte.
                     truncated = true;
                 }
-                _ => {}
+                Err(err) => {
+                    read_failure = Some(err);
+                    truncated = true;
+                }
             }
         }
     }
@@ -633,6 +641,8 @@ fn store_byte_stream_prefix(
     let rebuilt = ByteStream::from_result_iter(
         std::iter::once(Ok::<Vec<u8>, ShellError>(prefix_for_print))
             .chain(trailing.map(|b| Ok(vec![b])))
+            // A failure comes out after what was read before it, which is where it belongs.
+            .chain(read_failure.map(|err| Err(ShellErrorBridge::read_error(err, span))))
             .chain(std::iter::from_fn(move || {
                 let mut chunk = vec![0u8; 8192];
                 match std::io::Read::read(&mut reader, &mut chunk) {
@@ -641,7 +651,7 @@ fn store_byte_stream_prefix(
                         chunk.truncate(n);
                         Some(Ok(chunk))
                     }
-                    Err(err) => Some(Err(ShellError::from(IoError::new(err, span, None)))),
+                    Err(err) => Some(Err(ShellErrorBridge::read_error(err, span))),
                 }
             })),
         span,
@@ -655,6 +665,30 @@ fn store_byte_stream_prefix(
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn byte_stream_prefix_keeps_a_read_failure() {
+        let mut stack = Stack::new();
+        let exit = ShellError::Exit {
+            code: 7,
+            abort: false,
+        };
+        let stream = ByteStream::from_result_iter(
+            [Ok(b"1\n".to_vec()), Err(exit), Ok(b"3\n".to_vec())],
+            Span::test_data(),
+            Signals::empty(),
+            nu_protocol::ByteStreamType::String,
+        );
+
+        let PipelineData::ByteStream(rebuilt, _) =
+            store_byte_stream_prefix(&mut stack, stream, None, 1024)
+        else {
+            panic!("a byte stream should stay a byte stream");
+        };
+
+        let err = rebuilt.into_bytes().expect_err("the failure should remain");
+        assert!(err.is_exit());
+    }
 
     #[test]
     fn test_gather_env_vars() {

@@ -2,7 +2,7 @@ use crate::{
     ShellError, Span,
     byte_stream::convert_file,
     engine::{EngineState, FrozenJob, Job},
-    shell_error::{generic::GenericError, io::IoError},
+    shell_error::{bridge::ShellErrorBridge, generic::GenericError, io::IoError},
 };
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
@@ -11,7 +11,7 @@ use std::{
     fmt::Debug,
     io::{self, Read},
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     thread,
 };
 
@@ -218,6 +218,40 @@ impl Read for ChildPipe {
     }
 }
 
+/// How the thread that feeds a child's stdin got on, for a child that has such a thread.
+#[derive(Debug, Clone)]
+struct StdinFeed {
+    /// That thread has nobody to return its error to, so it leaves the error here.
+    failure: Arc<OnceLock<ShellError>>,
+    /// Set by `do --ignore-errors`. Doesn't apply to `exit`, which isn't an error.
+    ignore_errors: bool,
+}
+
+impl StdinFeed {
+    fn check(&self) -> Result<(), ShellError> {
+        match self.failure.get() {
+            Some(error) if !self.ignore_errors || error.is_exit() => Err(error.clone()),
+            _ => Ok(()),
+        }
+    }
+}
+
+/// Reads a child's stdout, then fails at the end of it if feeding the child's stdin failed.
+struct StdoutThenStdinFeed {
+    stdout: ChildPipe,
+    stdin: StdinFeed,
+}
+
+impl Read for StdoutThenStdinFeed {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let read = self.stdout.read(buf)?;
+        if read == 0 && !buf.is_empty() {
+            self.stdin.check().map_err(ShellErrorBridge)?;
+        }
+        Ok(read)
+    }
+}
+
 #[derive(Debug)]
 pub struct ChildProcess {
     pub stdout: Option<ChildPipe>,
@@ -228,6 +262,7 @@ pub struct ChildProcess {
     /// that stops reading early (an interactive viewer) kill a producer that
     /// would otherwise keep the pipeline waiting on its exit status.
     pid: Option<u32>,
+    stdin: Option<StdinFeed>,
     span: Span,
 }
 
@@ -365,6 +400,7 @@ impl ChildProcess {
             )),
             ignore_error: Arc::new(Mutex::new(false)),
             pid: None,
+            stdin: None,
             span,
         }
     }
@@ -372,6 +408,42 @@ impl ChildProcess {
     /// The process id, if this child was spawned by the shell.
     pub fn pid(&self) -> Option<u32> {
         self.pid
+    }
+
+    /// Reports `failure`, once it's set, as the failure of this child, after the child finishes.
+    ///
+    /// This is for a thread that feeds the child's stdin. To make sure the failure is seen, set it
+    /// before closing stdin: a child can't get to the end of its input before that. A child that
+    /// exits without reading its input isn't held up, so a later failure then goes unreported.
+    pub fn with_stdin_failure(mut self, failure: Option<Arc<OnceLock<ShellError>>>) -> Self {
+        self.stdin = failure.map(|failure| StdinFeed {
+            failure,
+            ignore_errors: false,
+        });
+        self
+    }
+
+    /// Whether the shell feeds this child's stdin, as set up by
+    /// [`with_stdin_failure`](Self::with_stdin_failure).
+    pub fn is_stdin_fed(&self) -> bool {
+        self.stdin.is_some()
+    }
+
+    /// Stops reporting a failure to feed stdin, unless the failure is an `exit`.
+    pub fn ignore_stdin_errors(&mut self) {
+        if let Some(stdin) = &mut self.stdin {
+            stdin.ignore_errors = true;
+        }
+    }
+
+    /// Takes stdout for a reader that won't wait for the process. Since nothing will check on the
+    /// process after that, a failure to feed stdin comes at the end of what stdout reads.
+    pub(crate) fn take_stdout_to_read(&mut self) -> Option<ChildPipe> {
+        let stdout = self.stdout.take()?;
+        Some(match self.stdin.clone() {
+            Some(stdin) => ChildPipe::Tee(Box::new(StdoutThenStdinFeed { stdout, stdin })),
+            None => stdout,
+        })
     }
 
     pub fn ignore_error(&mut self, ignore: bool) -> &mut Self {
@@ -461,6 +533,10 @@ impl ChildProcess {
             .expect("lock exit_status future should success");
         let exit_status = exit_status.wait(self.span)?;
 
+        if let Some(stdin) = &self.stdin {
+            stdin.check()?;
+        }
+
         Ok(ProcessOutput {
             stdout,
             stderr,
@@ -503,11 +579,15 @@ impl ChildProcess {
             exit_status: self.exit_status.clone(),
             ignore_error: self.ignore_error.clone(),
             pid: None,
+            stdin: self.stdin.clone(),
             span: self.span,
         })
     }
 
     /// Wait for the process, then return an error if it failed, unless its errors are ignored.
+    ///
+    /// A failure to feed its stdin comes first, as it may be why the process failed. It isn't the
+    /// process's own error, so ignoring those doesn't ignore it.
     fn check_exit(&self) -> Result<(), ShellError> {
         let ignore_error = *self
             .ignore_error
@@ -517,7 +597,13 @@ impl ChildProcess {
             .exit_status
             .lock()
             .expect("lock exit_status future should success");
-        check_ok(exit_status.wait(self.span)?, ignore_error, self.span)
+        let exit_status = exit_status.wait(self.span)?;
+
+        if let Some(stdin) = &self.stdin {
+            stdin.check()?;
+        }
+
+        check_ok(exit_status, ignore_error, self.span)
     }
 
     pub fn clone_exit_status_future(&self) -> Arc<Mutex<ExitStatusFuture>> {

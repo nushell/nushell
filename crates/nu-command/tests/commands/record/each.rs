@@ -78,8 +78,12 @@ fn failed_row_does_not_shift_arguments_of_the_next_row() -> Result {
     // own key and value instead of reusing the first row's key.
     let code = "
         let pair = {|key, value: string| [$key $value]}
-        [{a: 1} {b: y}] | record each $pair | skip 1
+        [{a: 1} {b: y}]
+        | record each $pair
+        | each {|row| try { $row | ignore; $row } catch { 'failed' } }
     ";
 
-    test().run(code).expect_value_eq(test_value!([{b: "y"}]))
+    test()
+        .run(code)
+        .expect_value_eq(test_value!(["failed", {b: "y"}]))
 }
