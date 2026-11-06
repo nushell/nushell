@@ -115,6 +115,14 @@ fn seq(
         });
     }
 
+    if let Some(num) = rest_nums.iter().find(|i| !i.item.is_finite()) {
+        return Err(ShellError::IncorrectValue {
+            msg: "non-finite values are not accepted".into(),
+            val_span: num.span,
+            call_span: span,
+        });
+    }
+
     let rest_nums: Vec<f64> = rest_nums.iter().map(|n| n.item).collect();
 
     run_seq(rest_nums, span, contains_decimals, engine_state)
