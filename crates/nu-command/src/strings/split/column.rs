@@ -1,5 +1,6 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use std::collections::HashMap;
 
 use super::split;
@@ -266,6 +267,23 @@ fn split_column_helper(
                 .filter(|x| !(collapse_empty && x.is_empty()))
                 .collect(),
         };
+        if !rest.is_empty() && split_result.len() != rest.len() {
+            let span = v.span();
+            println!("{:?} {:?}", span, head);
+            return vec![Value::error(
+                ShellError::Generic(GenericError::new(
+                    "Incorrect column amount",
+                    format!(
+                        "The record has {} columns, but {} column names have been given",
+                        split_result.len(),
+                        rest.len()
+                    ),
+                    head,
+                )),
+                span,
+            )];
+        }
+
         let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
 
         // If they didn't provide column names, make up our own
