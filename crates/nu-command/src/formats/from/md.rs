@@ -55,7 +55,7 @@ title: Demo
     | group-by attrs.row | values
     | each {get children | each {get attrs.value | str join} | wrap cell | transpose -id}
     | headers",
-                description: "Extract a Markdown table with plain-text cells, keeping cell values as strings.",
+                description: "Extract a single Markdown table with plain-text cells, keeping cell values as strings.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" => Value::test_string("1"),
