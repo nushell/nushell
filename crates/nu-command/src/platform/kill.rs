@@ -126,18 +126,18 @@ impl Command for Kill {
         if !quiet && !output.status.success() {
             return Err(ShellError::Generic(GenericError::new(
                 "process didn't terminate successfully",
-                String::from_utf8(output.stderr).unwrap_or_default(),
+                String::from_utf8_lossy(&output.stderr).into_owned(),
                 call.head,
             )));
         }
 
-        let mut output = String::from_utf8(output.stdout).map_err(|e| {
-            ShellError::Generic(GenericError::new(
-                "failed to convert output to string",
-                e.to_string(),
-                call.head,
-            ))
-        })?;
+        // The underlying kill command's (e.g. `taskkill` on Windows) output is
+        // encoded using the system's active codepage, not necessarily UTF-8, so a
+        // non-English locale (e.g. Shift-JIS/932 on Japanese Windows) can produce
+        // bytes that aren't valid UTF-8. Decode lossily instead of hard-erroring:
+        // the process was still killed successfully, so failing to report its
+        // (informational-only) output isn't worth surfacing as a command error.
+        let mut output = String::from_utf8_lossy(&output.stdout).into_owned();
 
         output.truncate(output.trim_end().len());
 
@@ -200,5 +200,26 @@ mod tests {
         assert_eq!(inferred_signal_number(b"-9", -9), Some(9));
         assert_eq!(inferred_signal_number(b"0", 0), None);
         assert_eq!(inferred_signal_number(b"9", 9), None);
+    }
+
+    /// Regression test for https://github.com/nushell/nushell/issues/13476: on a
+    /// non-English Windows codepage (e.g. Shift-JIS/932), `taskkill`'s stdout is
+    /// encoded in that codepage rather than UTF-8, and can contain byte sequences
+    /// that are outright invalid UTF-8 -- `String::from_utf8` hard-errors on
+    /// these ("invalid utf-8 sequence of 1 bytes from index 0" was the exact
+    /// error reported), even though the process was killed successfully.
+    /// `String::from_utf8_lossy` never errors, by contract of the standard
+    /// library API, so this can no longer regress -- this test exists to pin
+    /// down the exact byte shape that used to trip `String::from_utf8`.
+    #[test]
+    fn decodes_non_utf8_taskkill_output_without_erroring() {
+        // 0x82 is a lone Shift-JIS lead byte with no following byte: on its own
+        // it is not valid UTF-8 in any position, which is exactly what produced
+        // "invalid utf-8 sequence of 1 bytes from index 0" in the original report.
+        let stdout: Vec<u8> = vec![b'O', b'K', 0x82];
+        assert!(String::from_utf8(stdout.clone()).is_err());
+
+        let decoded = String::from_utf8_lossy(&stdout).into_owned();
+        assert!(decoded.starts_with("OK"));
     }
 }
