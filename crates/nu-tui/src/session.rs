@@ -671,24 +671,22 @@ impl Session {
     }
 
     /// Draw images with `images` from now on, and give every preview the
-    /// Kitty id it transmits under: its `--image-id`, else a fresh one.
+    /// Kitty id it transmits under.
     /// Called before the first layout pass, so nothing is encoded twice.
     pub fn enable_images(&mut self, mut images: Images) {
-        let ids: Vec<(String, Option<u32>)> = self
+        let ids: Vec<String> = self
             .app
             .iter()
-            .filter_map(|w| match &w.kind {
-                WidgetKind::Preview(p) => Some((w.id.clone(), p.image.kitty_id)),
-                _ => None,
-            })
+            .filter(|w| matches!(w.kind, WidgetKind::Preview(_)))
+            .map(|w| w.id.clone())
             .collect();
-        for (id, requested) in ids {
+        for id in ids {
             if let Some(preview) = self
                 .states
                 .get_mut(&id)
                 .and_then(WidgetState::as_preview_mut)
             {
-                preview.kitty_id = Some(requested.unwrap_or_else(|| images.alloc_id()));
+                preview.kitty_id = Some(images.alloc_id());
             }
             self.derived_key.remove(&id);
         }
@@ -706,8 +704,7 @@ impl Session {
     }
 
     /// The Kitty ids this run allocated, to delete from the terminal when
-    /// it ends. Ids given with `--image-id` belong to the caller and stay.
-    /// Deleting an id that was never transmitted is harmless, so no widget
+    /// it ends. Deleting an id that was never transmitted is harmless, so no widget
     /// tracks whether it showed anything.
     pub fn kitty_ids_to_free(&self) -> Vec<u32> {
         if !self.images.as_ref().is_some_and(Images::is_kitty) {
@@ -715,7 +712,6 @@ impl Session {
         }
         self.app
             .iter()
-            .filter(|w| matches!(&w.kind, WidgetKind::Preview(p) if p.image.kitty_id.is_none()))
             .filter_map(|w| self.state(&w.id)?.as_preview()?.kitty_id)
             .collect()
     }

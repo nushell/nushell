@@ -1235,7 +1235,7 @@ fn preview_draws_an_image_file_headless_as_half_blocks() -> Result {
 }
 
 #[test]
-fn image_widget_scales_within_its_caps_and_keeps_a_manual_id() -> Result {
+fn image_widget_scales_within_its_caps() -> Result {
     Playground::setup("tui_image_widget", |dirs, _| {
         // The pane is 58 cells wide inside its border; `--image-width 10`
         // caps the box at 10x10 cells, which is 100x200 pixels. The 2:1
@@ -1243,15 +1243,15 @@ fn image_widget_scales_within_its_caps_and_keeps_a_manual_id() -> Result {
         let image: String = test().cwd(dirs.test()).run(format!(
             r#"
                 {SAVE_PNG}
-                tui image img.png --image-fit scale --image-width 10 --image-id 7
+                tui image img.png --image-fit scale --image-width 10
                 | tui debug --size [60 12]
                 | get values.image-0.image
-                | $"($in.columns)x($in.rows) ($in.id)"
+                | $"($in.columns)x($in.rows)"
             "#
         ))?;
-        assert_eq!(image, "10x3 7");
+        assert_eq!(image, "10x3");
 
-        // Without `--image-id` the run allocates one.
+        // The run allocates the Kitty id.
         let auto_id: i64 = test().cwd(dirs.test()).run(format!(
             "{SAVE_PNG}; tui image img.png | tui debug | get values.image-0.image.id"
         ))?;
@@ -1646,13 +1646,4 @@ fn file_styles_rules_look_at_the_file_on_disk_and_set_its_icon() -> Result {
         assert_contains(format!("{text} b.txt"), &screen);
         Ok(())
     })
-}
-
-#[test]
-fn delete_image_writes_to_the_terminal_and_returns_nothing() -> Result {
-    // The sequence goes straight to stdout (`image::tests` checks its
-    // bytes); the pipeline itself carries nothing.
-    let out: String = test().run("tui delete-image 7 | describe")?;
-    assert_eq!(out, "nothing");
-    Ok(())
 }

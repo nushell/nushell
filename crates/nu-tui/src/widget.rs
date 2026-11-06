@@ -484,8 +484,8 @@ pub struct PreviewState {
     pub scroll: usize,
     /// The image on show, or the job still decoding and encoding it.
     pub image: Option<crate::widgets::preview::ImageState>,
-    /// The Kitty id this widget transmits its images under: `--image-id`,
-    /// or one allocated when images were enabled for the run.
+    /// The Kitty id this widget transmits its images under, allocated when
+    /// images were enabled for the run and freed when it ends.
     pub kitty_id: Option<u32>,
     /// Zoom and pan applied to the image on show; reset when the previewed
     /// file changes.

@@ -35,7 +35,7 @@ pub use r#box::TuiBox;
 pub use button::TuiButton;
 pub use context::TuiContext;
 pub use debug::TuiDebug;
-pub use image::{TuiDeleteImage, TuiImage};
+pub use image::TuiImage;
 pub use label::TuiLabel;
 pub use log::TuiLog;
 pub use menu::TuiMenu;
@@ -98,8 +98,7 @@ pub(super) fn border_flag(sig: Signature) -> Signature {
     )
 }
 
-/// Flags for widgets that can show an image: how it is sized in its pane
-/// and, under Kitty, the id it is transmitted as.
+/// Flags for widgets that can show an image: how it is sized in its pane.
 pub(super) fn image_flags(sig: Signature) -> Signature {
     let fits = ImageFit::NAMES.map(String::from).to_vec();
     sig.param(
@@ -118,12 +117,6 @@ pub(super) fn image_flags(sig: Signature) -> Signature {
         "image-height",
         SyntaxShape::Any,
         "Tallest an image may be: cells, or a percentage of the pane like \"50%\".",
-        None,
-    )
-    .named(
-        "image-id",
-        SyntaxShape::Int,
-        "Kitty image id to transmit under. The image then stays in the terminal after the TUI exits; free it with `tui delete-image`.",
         None,
     )
 }
@@ -157,24 +150,10 @@ pub(super) fn image_options(
     };
     let max_width = cap("image-width", stack)?;
     let max_height = cap("image-height", stack)?;
-    let kitty_id = match call.get_flag::<Spanned<i64>>(engine_state, stack, "image-id")? {
-        None => None,
-        Some(id) => Some(
-            u32::try_from(id.item)
-                .ok()
-                .filter(|id| *id > 0)
-                .ok_or_else(|| ShellError::InvalidValue {
-                    valid: format!("a Kitty image id from 1 to {}", u32::MAX),
-                    actual: id.item.to_string(),
-                    span: id.span,
-                })?,
-        ),
-    };
     Ok(ImageOptions {
         fit,
         max_width,
         max_height,
-        kitty_id,
     })
 }
 

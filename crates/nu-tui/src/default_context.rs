@@ -32,7 +32,6 @@ pub fn add_tui_context(mut engine_state: EngineState) -> EngineState {
             TuiSearch,
             TuiPreview,
             TuiImage,
-            TuiDeleteImage,
         };
         working_set.render()
     };

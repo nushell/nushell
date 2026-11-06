@@ -136,7 +136,7 @@ impl ImageFit {
     }
 }
 
-/// `--image-fit`, `--image-width`, `--image-height`, and `--image-id`.
+/// `--image-fit`, `--image-width`, and `--image-height`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ImageOptions {
     pub fit: ImageFit,
@@ -144,10 +144,6 @@ pub struct ImageOptions {
     /// the pane. Only `Size::Length` and `Size::Percent` are accepted.
     pub max_width: Option<PaneSize>,
     pub max_height: Option<PaneSize>,
-    /// A Kitty image id chosen by the caller. The widget transmits every
-    /// image under it and leaves it in the terminal when the TUI exits;
-    /// `tui delete-image` frees it.
-    pub kitty_id: Option<u32>,
 }
 
 impl ImageOptions {
@@ -373,14 +369,6 @@ pub fn kitty_delete(ids: &[u32], tmux: bool) -> String {
     out
 }
 
-/// The sequence that frees every Kitty image in the terminal, whoever
-/// transmitted it.
-pub fn kitty_delete_all(tmux: bool) -> String {
-    let mut out = String::new();
-    kitty_command(&mut out, "a=d,d=A,q=2", tmux);
-    out
-}
-
 /// Append one Kitty graphics command. Inside tmux it goes in a passthrough
 /// wrapper with its escapes doubled, as tmux requires.
 fn kitty_command(out: &mut String, command: &str, tmux: bool) {
@@ -446,7 +434,6 @@ pub(crate) mod tests {
             "\x1bPtmux;\x1b\x1b_Ga=d,d=I,i=7,q=2\x1b\x1b\\\x1b\\"
         );
         assert_eq!(kitty_delete(&[], false), "");
-        assert_eq!(kitty_delete_all(false), "\x1b_Ga=d,d=A,q=2\x1b\\");
     }
 
     #[test]

@@ -639,13 +639,6 @@ impl TuiWidget for PreviewWidget {
         rec.insert("max_bytes", Value::int(self.max_bytes as i64, span));
         rec.insert("has_transform", Value::bool(self.transform.is_some(), span));
         rec.insert("image_fit", Value::string(self.image.fit.name(), span));
-        rec.insert(
-            "image_id",
-            match self.image.kitty_id {
-                Some(id) => Value::int(i64::from(id), span),
-                None => Value::nothing(span),
-            },
-        );
     }
 
     fn scroll(
