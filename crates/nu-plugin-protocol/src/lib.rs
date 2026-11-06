@@ -8,10 +8,18 @@
 //! crate explicitly avoids implementing any functionality that depends on I/O, so the exact
 //! byte-level encoding scheme is not implemented here. See the protocol ref or `nu_plugin_core` for
 //! more details on how that works.
+//!
+//! # Protocol version
+//!
+//! Compatibility is decided by [`PLUGIN_PROTOCOL_VERSION`] in the `Hello` handshake, not by the
+//! Nushell version, so a plugin keeps working across Nushell releases until the protocol changes.
+//! The documentation of [`PLUGIN_PROTOCOL_VERSION`] lists which types the version covers and when
+//! to bump it.
 
 mod evaluated_call;
 mod plugin_custom_value;
 mod protocol_info;
+mod wire_witness;
 
 #[cfg(test)]
 mod tests;
@@ -37,7 +45,7 @@ use std::{collections::HashMap, path::PathBuf};
 pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
 #[allow(unused_imports)] // may be unused by compile flags
-pub use protocol_info::{Feature, Protocol, ProtocolInfo};
+pub use protocol_info::{Feature, PLUGIN_PROTOCOL_VERSION, Protocol, ProtocolInfo};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;
@@ -705,10 +713,66 @@ impl<D> EngineCall<D> {
 pub enum EngineCallResponse<D> {
     Error(ShellError),
     PipelineData(D),
-    Config(SharedCow<Config>),
+    Config(#[serde(with = "config_record")] SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
     Identifier(DeclId),
     IrBlock(Box<IrBlock>),
+}
+
+/// Serde for [`EngineCallResponse::Config`].
+///
+/// The config travels as a record and is read back with [`Config::update_from_value`], the same
+/// parser `$env.config` uses. Options that one side doesn't know are skipped and options it
+/// doesn't receive keep their defaults, so config changes between Nushell versions never break
+/// the protocol.
+mod config_record {
+    use nu_protocol::{Config, HistoryFileFormat, IntoValue, Span, Value};
+    use nu_utils::SharedCow;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::sync::LazyLock;
+
+    pub fn serialize<S: Serializer>(
+        config: &SharedCow<Config>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        Config::clone(config)
+            .into_value(Span::unknown())
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<SharedCow<Config>, D::Error> {
+        static DEFAULT: LazyLock<Config> = LazyLock::new(Config::default);
+
+        let value = Value::deserialize(deserializer)?;
+        let record = value.as_record().map_err(serde::de::Error::custom)?;
+
+        let mut config = Config::clone(&DEFAULT);
+        // `update_from_value` merges keybindings into the current list, which keeps the defaults
+        // for `$env.config` edits. The record holds the sender's whole list, so start from an
+        // empty one, or bindings the sender removed would come back. If that list doesn't parse,
+        // this side ends up with no keybindings instead of the defaults.
+        if record.contains("keybindings") {
+            config.keybindings.clear();
+        }
+        // The errors and warnings name options this side can't use. Skipping those options is
+        // what makes the record tolerant, so they are dropped.
+        let _ = config.update_from_value(&DEFAULT, &value);
+        // Without nu-protocol's `sqlite` feature, which plugins built outside the workspace
+        // don't enable, the parser above turns a sqlite history into plaintext. The record
+        // describes the sender's history, so keep the format it names.
+        if let Some(format) = record
+            .get("history")
+            .and_then(|history| history.as_record().ok())
+            .and_then(|history| history.get("file_format"))
+            .and_then(|format| format.as_str().ok())
+            .and_then(|format| format.parse::<HistoryFileFormat>().ok())
+        {
+            config.history.file_format = format;
+        }
+        Ok(SharedCow::new(config))
+    }
 }
 
 impl<D> EngineCallResponse<D> {

@@ -3,6 +3,7 @@ mod metadata;
 mod registered;
 mod registry_file;
 mod signature;
+mod wire_witness;
 
 pub use identity::*;
 pub use metadata::*;

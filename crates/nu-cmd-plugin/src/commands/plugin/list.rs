@@ -1,5 +1,6 @@
 use itertools::{EitherOrBoth, Itertools};
 use nu_engine::command_prelude::*;
+use nu_plugin_protocol::PLUGIN_PROTOCOL_VERSION;
 use nu_protocol::{IntoValue, PluginRegistryItemData};
 
 use crate::util::read_plugin_file;
@@ -20,6 +21,8 @@ impl Command for PluginList {
                     vec![
                         ("name".into(), Type::String),
                         ("version".into(), Type::String),
+                        ("protocol_version".into(), Type::String),
+                        ("nushell_version".into(), Type::String),
                         ("status".into(), Type::String),
                         ("pid".into(), Type::Int),
                         ("filename".into(), Type::String),
@@ -83,6 +86,19 @@ or the plugin has not been loaded yet, the values of `version`, `filename`,
 `shell`, and `commands` reflect the values in the engine and not the ones in
 the plugin registry file.
 
+Version columns:
+
+- `version`: the plugin's own self-reported version
+- `protocol_version`: plugin protocol the binary was built for (compatibility)
+- `nushell_version`: Nushell SDK version used to build the plugin (informational)
+
+When the engine has no value for a version column of a loaded plugin, the
+value from the plugin registry file is shown instead, unless the registry
+entry was written for a different build of the plugin.
+
+Missing protocol/nushell version fields usually mean the plugin was registered
+before those fields existed; re-add the plugin to refresh registry metadata.
+
 See also: `plugin use`
 "
         .trim()
@@ -100,6 +116,8 @@ See also: `plugin use`
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "name" => Value::test_string("inc"),
                     "version" => Value::test_string(env!("CARGO_PKG_VERSION")),
+                    "protocol_version" => Value::test_string(PLUGIN_PROTOCOL_VERSION),
+                    "nushell_version" => Value::test_string(env!("CARGO_PKG_VERSION")),
                     "status" => Value::test_string("running"),
                     "pid" => Value::test_int(106480),
                     "filename" => if cfg!(windows) {
@@ -158,6 +176,8 @@ See also: `plugin use`
 struct PluginInfo {
     name: String,
     version: Option<String>,
+    protocol_version: Option<String>,
+    nushell_version: Option<String>,
     status: PluginStatus,
     pid: Option<u32>,
     filename: String,
@@ -182,6 +202,7 @@ enum PluginStatus {
     Invalid,
 }
 
+// Builds plugin info for plugins currently loaded in the engine (cached metadata only).
 fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
     // Group plugin decls by plugin identity
     let decls = engine_state.plugin_decls().into_group_map_by(|decl| {
@@ -194,6 +215,8 @@ fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
         .plugins()
         .iter()
         .map(|plugin| {
+            let metadata = plugin.metadata().unwrap_or_default();
+
             // Find commands that belong to the plugin
             let commands: Vec<(String, String)> = decls
                 .get(plugin.identity())
@@ -208,7 +231,9 @@ fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
 
             PluginInfo {
                 name: plugin.identity().name().into(),
-                version: plugin.metadata().and_then(|m| m.version),
+                version: metadata.version,
+                protocol_version: metadata.protocol_version,
+                nushell_version: metadata.nushell_version,
                 status: if plugin.pid().is_some() {
                     PluginStatus::Running
                 } else {
@@ -233,6 +258,7 @@ fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
         .collect()
 }
 
+// Reads plugin entries from the registry file and maps them to display rows.
 fn get_plugins_in_registry(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -248,6 +274,8 @@ fn get_plugins_in_registry(
             let mut info = PluginInfo {
                 name: plugin.name,
                 version: None,
+                protocol_version: None,
+                nushell_version: None,
                 status: PluginStatus::Added,
                 pid: None,
                 filename: plugin.filename.to_string_lossy().into_owned(),
@@ -257,6 +285,8 @@ fn get_plugins_in_registry(
 
             if let PluginRegistryItemData::Valid { metadata, commands } = plugin.data {
                 info.version = metadata.version;
+                info.protocol_version = metadata.protocol_version;
+                info.nushell_version = metadata.nushell_version;
                 info.commands = commands
                     .into_iter()
                     .map(|command| CommandInfo {
@@ -279,6 +309,8 @@ fn get_plugins_in_registry(
 /// If no options are provided, the command loads from both the plugin list in the engine and what's
 /// in the registry file. We need to reconcile the two to set the proper states and make sure that
 /// new plugins that were added to the plugin registry file show up.
+///
+/// Engine fields remain authoritative, while missing metadata may be backfilled from the registry.
 fn merge_plugin_info(
     from_engine: Vec<PluginInfo>,
     from_registry: Vec<PluginInfo>,
@@ -313,7 +345,7 @@ fn merge_plugin_info(
                     // Otherwise, `loaded` (it's not running)
                     _ => PluginStatus::Loaded,
                 },
-                ..info_engine
+                ..info_engine.with_metadata_fallback_from(&info_registry)
             },
         })
         .sorted()
@@ -321,12 +353,145 @@ fn merge_plugin_info(
 }
 
 impl PluginInfo {
+    /// Fills the versions this row is missing from `other`, unless the two rows describe
+    /// different builds of the plugin. Mixing those would show a combination no build has.
+    fn with_metadata_fallback_from(mut self, other: &PluginInfo) -> Self {
+        if !self.versions_differ(other) {
+            self.version = self.version.or_else(|| other.version.clone());
+            self.protocol_version = self
+                .protocol_version
+                .or_else(|| other.protocol_version.clone());
+            self.nushell_version = self
+                .nushell_version
+                .or_else(|| other.nushell_version.clone());
+        }
+        self
+    }
+
+    /// True if a version that both rows know differs between them. A version that only one side
+    /// knows, such as one missing from a registry entry written before that column existed,
+    /// doesn't count.
+    fn versions_differ(&self, other: &PluginInfo) -> bool {
+        let differs =
+            |a: &Option<String>, b: &Option<String>| matches!((a, b), (Some(a), Some(b)) if a != b);
+        differs(&self.version, &other.version)
+            || differs(&self.protocol_version, &other.protocol_version)
+            || differs(&self.nushell_version, &other.nushell_version)
+    }
+
     /// True if the plugin info shows some kind of change (other than status/pid) relative to the
-    /// other
+    /// other.
     fn is_modified(&self, other: &PluginInfo) -> bool {
         self.name != other.name
             || self.filename != other.filename
             || self.shell != other.shell
             || self.commands != other.commands
+            || self.versions_differ(other)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Creates minimal plugin info for targeted merge behavior tests.
+    fn plugin_info(name: &str) -> PluginInfo {
+        PluginInfo {
+            name: name.into(),
+            version: None,
+            protocol_version: None,
+            nushell_version: None,
+            status: PluginStatus::Loaded,
+            pid: None,
+            filename: format!("/plugins/nu_plugin_{name}"),
+            shell: None,
+            commands: vec![],
+        }
+    }
+
+    // Ensures registry metadata fills missing engine metadata in merged output.
+    #[test]
+    fn merge_plugin_info_uses_registry_metadata_when_engine_metadata_is_missing() {
+        let engine = plugin_info("gstat");
+        let registry = PluginInfo {
+            version: Some("0.112.3".into()),
+            protocol_version: Some(PLUGIN_PROTOCOL_VERSION.into()),
+            nushell_version: Some("0.112.3".into()),
+            ..plugin_info("gstat")
+        };
+
+        let merged = merge_plugin_info(vec![engine], vec![registry]);
+        let merged = merged
+            .into_iter()
+            .next()
+            .expect("expected merged plugin info");
+
+        assert_eq!(Some("0.112.3"), merged.version.as_deref());
+        assert_eq!(
+            Some(PLUGIN_PROTOCOL_VERSION),
+            merged.protocol_version.as_deref()
+        );
+        assert_eq!(Some("0.112.3"), merged.nushell_version.as_deref());
+        assert_eq!(PluginStatus::Loaded, merged.status);
+    }
+
+    // Ensures engine fields stay authoritative even when metadata is backfilled from registry.
+    #[test]
+    fn merge_plugin_info_keeps_engine_fields_while_filling_metadata_from_registry() {
+        let engine = PluginInfo {
+            filename: "/engine/nu_plugin_gstat".into(),
+            commands: vec![CommandInfo {
+                name: "gstat".into(),
+                description: "engine command".into(),
+            }],
+            ..plugin_info("gstat")
+        };
+        let registry = PluginInfo {
+            filename: "/registry/nu_plugin_gstat".into(),
+            protocol_version: Some(PLUGIN_PROTOCOL_VERSION.into()),
+            nushell_version: Some("0.112.3".into()),
+            ..plugin_info("gstat")
+        };
+
+        let merged = merge_plugin_info(vec![engine], vec![registry]);
+        let merged = merged
+            .into_iter()
+            .next()
+            .expect("expected merged plugin info");
+
+        assert_eq!("/engine/nu_plugin_gstat", merged.filename);
+        assert_eq!(1, merged.commands.len());
+        assert_eq!(
+            Some(PLUGIN_PROTOCOL_VERSION),
+            merged.protocol_version.as_deref()
+        );
+        assert_eq!(Some("0.112.3"), merged.nushell_version.as_deref());
+        assert_eq!(PluginStatus::Modified, merged.status);
+    }
+
+    // A registry entry rewritten for another build must not fill in the loaded build's versions.
+    #[test]
+    fn merge_plugin_info_does_not_mix_versions_of_different_builds() {
+        let engine = PluginInfo {
+            version: Some("0.116.0".into()),
+            ..plugin_info("gstat")
+        };
+        let registry = PluginInfo {
+            version: Some("0.116.2".into()),
+            protocol_version: Some(PLUGIN_PROTOCOL_VERSION.into()),
+            nushell_version: Some("0.116.2".into()),
+            ..plugin_info("gstat")
+        };
+
+        let merged = merge_plugin_info(vec![engine], vec![registry]);
+        let merged = merged
+            .into_iter()
+            .next()
+            .expect("expected merged plugin info");
+
+        assert_eq!(Some("0.116.0"), merged.version.as_deref());
+        assert_eq!(None, merged.protocol_version);
+        assert_eq!(None, merged.nushell_version);
+        assert_eq!(PluginStatus::Modified, merged.status);
     }
 }

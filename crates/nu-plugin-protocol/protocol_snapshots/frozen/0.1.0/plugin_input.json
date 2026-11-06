@@ -1,0 +1,1875 @@
+[
+  {
+    "Hello": {
+      "protocol": "nu-plugin",
+      "version": "0.1.0",
+      "nushell_version": "0.0.0-test",
+      "features": [
+        {
+          "name": "LocalSocket"
+        }
+      ]
+    }
+  },
+  {
+    "Call": [
+      0,
+      "Metadata"
+    ]
+  },
+  {
+    "Call": [
+      1,
+      "Signature"
+    ]
+  },
+  {
+    "Call": [
+      2,
+      {
+        "Run": {
+          "name": "demo",
+          "call": {
+            "head": {
+              "start": 1,
+              "end": 2
+            },
+            "positional": [
+              {
+                "Bool": {
+                  "val": true,
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Int": {
+                  "val": -7,
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                }
+              },
+              {
+                "Float": {
+                  "val": 1.5,
+                  "span": {
+                    "start": 3,
+                    "end": 4
+                  }
+                }
+              },
+              {
+                "String": {
+                  "val": "text",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                }
+              },
+              {
+                "Glob": {
+                  "val": "*.rs",
+                  "no_expand": true,
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "Filesize": {
+                  "val": 1024,
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  }
+                }
+              },
+              {
+                "Duration": {
+                  "val": 1000000000,
+                  "span": {
+                    "start": 7,
+                    "end": 8
+                  }
+                }
+              },
+              {
+                "Date": {
+                  "val": "2024-01-02T03:04:05+02:00",
+                  "span": {
+                    "start": 8,
+                    "end": 9
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "1..3..10",
+                  "span": {
+                    "start": 9,
+                    "end": 10
+                  }
+                }
+              },
+              {
+                "Record": {
+                  "val": {
+                    "a": {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 10,
+                          "end": 11
+                        }
+                      }
+                    },
+                    "b": {
+                      "List": {
+                        "vals": [
+                          {
+                            "Nothing": {
+                              "span": {
+                                "start": 11,
+                                "end": 12
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "start": 12,
+                          "end": 13
+                        }
+                      }
+                    }
+                  },
+                  "span": {
+                    "start": 13,
+                    "end": 14
+                  }
+                }
+              },
+              {
+                "List": {
+                  "vals": [
+                    {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 14,
+                          "end": 15
+                        }
+                      }
+                    },
+                    {
+                      "String": {
+                        "val": "two",
+                        "span": {
+                          "start": 15,
+                          "end": 16
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "start": 16,
+                    "end": 17
+                  }
+                }
+              },
+              {
+                "Closure": {
+                  "val": {
+                    "block_id": 3,
+                    "captures": [
+                      [
+                        4,
+                        {
+                          "Int": {
+                            "val": 5,
+                            "span": {
+                              "start": 17,
+                              "end": 18
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  },
+                  "span": {
+                    "start": 18,
+                    "end": 19
+                  }
+                }
+              },
+              {
+                "Error": {
+                  "error": {
+                    "msg": "error message",
+                    "labels": [
+                      {
+                        "text": "label",
+                        "span": {
+                          "start": 1,
+                          "end": 2
+                        }
+                      }
+                    ],
+                    "code": "nu::test::error",
+                    "url": "https://www.nushell.sh",
+                    "help": "help text",
+                    "inner": [
+                      {
+                        "msg": "inner error",
+                        "labels": [],
+                        "code": null,
+                        "url": null,
+                        "help": null,
+                        "inner": []
+                      }
+                    ]
+                  },
+                  "span": {
+                    "start": 19,
+                    "end": 20
+                  }
+                }
+              },
+              {
+                "Binary": {
+                  "val": [
+                    0,
+                    1,
+                    255
+                  ],
+                  "span": {
+                    "start": 20,
+                    "end": 21
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.name!?.2",
+                  "span": {
+                    "start": 23,
+                    "end": 24
+                  }
+                }
+              },
+              {
+                "Custom": {
+                  "val": {
+                    "type": "PluginCustomValue",
+                    "name": "CustomType",
+                    "data": [
+                      1,
+                      2,
+                      3
+                    ],
+                    "notify_on_drop": true
+                  },
+                  "span": {
+                    "start": 24,
+                    "end": 25
+                  }
+                }
+              },
+              {
+                "Nothing": {
+                  "span": {
+                    "start": 25,
+                    "end": 26
+                  }
+                }
+              }
+            ],
+            "named": [
+              [
+                {
+                  "item": "named",
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                },
+                {
+                  "Int": {
+                    "val": 9,
+                    "span": {
+                      "start": 3,
+                      "end": 4
+                    }
+                  }
+                }
+              ],
+              [
+                {
+                  "item": "switch",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                },
+                null
+              ]
+            ]
+          },
+          "input": "Empty"
+        }
+      }
+    ]
+  },
+  {
+    "Call": [
+      3,
+      {
+        "Run": {
+          "name": "demo",
+          "call": {
+            "head": {
+              "start": 1,
+              "end": 2
+            },
+            "positional": [
+              {
+                "Bool": {
+                  "val": true,
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Int": {
+                  "val": -7,
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                }
+              },
+              {
+                "Float": {
+                  "val": 1.5,
+                  "span": {
+                    "start": 3,
+                    "end": 4
+                  }
+                }
+              },
+              {
+                "String": {
+                  "val": "text",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                }
+              },
+              {
+                "Glob": {
+                  "val": "*.rs",
+                  "no_expand": true,
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "Filesize": {
+                  "val": 1024,
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  }
+                }
+              },
+              {
+                "Duration": {
+                  "val": 1000000000,
+                  "span": {
+                    "start": 7,
+                    "end": 8
+                  }
+                }
+              },
+              {
+                "Date": {
+                  "val": "2024-01-02T03:04:05+02:00",
+                  "span": {
+                    "start": 8,
+                    "end": 9
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "1..3..10",
+                  "span": {
+                    "start": 9,
+                    "end": 10
+                  }
+                }
+              },
+              {
+                "Record": {
+                  "val": {
+                    "a": {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 10,
+                          "end": 11
+                        }
+                      }
+                    },
+                    "b": {
+                      "List": {
+                        "vals": [
+                          {
+                            "Nothing": {
+                              "span": {
+                                "start": 11,
+                                "end": 12
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "start": 12,
+                          "end": 13
+                        }
+                      }
+                    }
+                  },
+                  "span": {
+                    "start": 13,
+                    "end": 14
+                  }
+                }
+              },
+              {
+                "List": {
+                  "vals": [
+                    {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 14,
+                          "end": 15
+                        }
+                      }
+                    },
+                    {
+                      "String": {
+                        "val": "two",
+                        "span": {
+                          "start": 15,
+                          "end": 16
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "start": 16,
+                    "end": 17
+                  }
+                }
+              },
+              {
+                "Closure": {
+                  "val": {
+                    "block_id": 3,
+                    "captures": [
+                      [
+                        4,
+                        {
+                          "Int": {
+                            "val": 5,
+                            "span": {
+                              "start": 17,
+                              "end": 18
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  },
+                  "span": {
+                    "start": 18,
+                    "end": 19
+                  }
+                }
+              },
+              {
+                "Error": {
+                  "error": {
+                    "msg": "error message",
+                    "labels": [
+                      {
+                        "text": "label",
+                        "span": {
+                          "start": 1,
+                          "end": 2
+                        }
+                      }
+                    ],
+                    "code": "nu::test::error",
+                    "url": "https://www.nushell.sh",
+                    "help": "help text",
+                    "inner": [
+                      {
+                        "msg": "inner error",
+                        "labels": [],
+                        "code": null,
+                        "url": null,
+                        "help": null,
+                        "inner": []
+                      }
+                    ]
+                  },
+                  "span": {
+                    "start": 19,
+                    "end": 20
+                  }
+                }
+              },
+              {
+                "Binary": {
+                  "val": [
+                    0,
+                    1,
+                    255
+                  ],
+                  "span": {
+                    "start": 20,
+                    "end": 21
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.name!?.2",
+                  "span": {
+                    "start": 23,
+                    "end": 24
+                  }
+                }
+              },
+              {
+                "Custom": {
+                  "val": {
+                    "type": "PluginCustomValue",
+                    "name": "CustomType",
+                    "data": [
+                      1,
+                      2,
+                      3
+                    ],
+                    "notify_on_drop": true
+                  },
+                  "span": {
+                    "start": 24,
+                    "end": 25
+                  }
+                }
+              },
+              {
+                "Nothing": {
+                  "span": {
+                    "start": 25,
+                    "end": 26
+                  }
+                }
+              }
+            ],
+            "named": [
+              [
+                {
+                  "item": "named",
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                },
+                {
+                  "Int": {
+                    "val": 9,
+                    "span": {
+                      "start": 3,
+                      "end": 4
+                    }
+                  }
+                }
+              ],
+              [
+                {
+                  "item": "switch",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                },
+                null
+              ]
+            ]
+          },
+          "input": {
+            "Value": [
+              {
+                "String": {
+                  "val": "input",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "data_source": {
+                  "FilePath": "/data/file.json"
+                },
+                "path_columns": [
+                  "name"
+                ],
+                "content_type": "application/json",
+                "custom": {
+                  "plugin_field": {
+                    "String": {
+                      "val": "x",
+                      "span": {
+                        "start": 1,
+                        "end": 2
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "Call": [
+      4,
+      {
+        "Run": {
+          "name": "demo",
+          "call": {
+            "head": {
+              "start": 1,
+              "end": 2
+            },
+            "positional": [
+              {
+                "Bool": {
+                  "val": true,
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Int": {
+                  "val": -7,
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                }
+              },
+              {
+                "Float": {
+                  "val": 1.5,
+                  "span": {
+                    "start": 3,
+                    "end": 4
+                  }
+                }
+              },
+              {
+                "String": {
+                  "val": "text",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                }
+              },
+              {
+                "Glob": {
+                  "val": "*.rs",
+                  "no_expand": true,
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "Filesize": {
+                  "val": 1024,
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  }
+                }
+              },
+              {
+                "Duration": {
+                  "val": 1000000000,
+                  "span": {
+                    "start": 7,
+                    "end": 8
+                  }
+                }
+              },
+              {
+                "Date": {
+                  "val": "2024-01-02T03:04:05+02:00",
+                  "span": {
+                    "start": 8,
+                    "end": 9
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "1..3..10",
+                  "span": {
+                    "start": 9,
+                    "end": 10
+                  }
+                }
+              },
+              {
+                "Record": {
+                  "val": {
+                    "a": {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 10,
+                          "end": 11
+                        }
+                      }
+                    },
+                    "b": {
+                      "List": {
+                        "vals": [
+                          {
+                            "Nothing": {
+                              "span": {
+                                "start": 11,
+                                "end": 12
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "start": 12,
+                          "end": 13
+                        }
+                      }
+                    }
+                  },
+                  "span": {
+                    "start": 13,
+                    "end": 14
+                  }
+                }
+              },
+              {
+                "List": {
+                  "vals": [
+                    {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 14,
+                          "end": 15
+                        }
+                      }
+                    },
+                    {
+                      "String": {
+                        "val": "two",
+                        "span": {
+                          "start": 15,
+                          "end": 16
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "start": 16,
+                    "end": 17
+                  }
+                }
+              },
+              {
+                "Closure": {
+                  "val": {
+                    "block_id": 3,
+                    "captures": [
+                      [
+                        4,
+                        {
+                          "Int": {
+                            "val": 5,
+                            "span": {
+                              "start": 17,
+                              "end": 18
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  },
+                  "span": {
+                    "start": 18,
+                    "end": 19
+                  }
+                }
+              },
+              {
+                "Error": {
+                  "error": {
+                    "msg": "error message",
+                    "labels": [
+                      {
+                        "text": "label",
+                        "span": {
+                          "start": 1,
+                          "end": 2
+                        }
+                      }
+                    ],
+                    "code": "nu::test::error",
+                    "url": "https://www.nushell.sh",
+                    "help": "help text",
+                    "inner": [
+                      {
+                        "msg": "inner error",
+                        "labels": [],
+                        "code": null,
+                        "url": null,
+                        "help": null,
+                        "inner": []
+                      }
+                    ]
+                  },
+                  "span": {
+                    "start": 19,
+                    "end": 20
+                  }
+                }
+              },
+              {
+                "Binary": {
+                  "val": [
+                    0,
+                    1,
+                    255
+                  ],
+                  "span": {
+                    "start": 20,
+                    "end": 21
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.name!?.2",
+                  "span": {
+                    "start": 23,
+                    "end": 24
+                  }
+                }
+              },
+              {
+                "Custom": {
+                  "val": {
+                    "type": "PluginCustomValue",
+                    "name": "CustomType",
+                    "data": [
+                      1,
+                      2,
+                      3
+                    ],
+                    "notify_on_drop": true
+                  },
+                  "span": {
+                    "start": 24,
+                    "end": 25
+                  }
+                }
+              },
+              {
+                "Nothing": {
+                  "span": {
+                    "start": 25,
+                    "end": 26
+                  }
+                }
+              }
+            ],
+            "named": [
+              [
+                {
+                  "item": "named",
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                },
+                {
+                  "Int": {
+                    "val": 9,
+                    "span": {
+                      "start": 3,
+                      "end": 4
+                    }
+                  }
+                }
+              ],
+              [
+                {
+                  "item": "switch",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                },
+                null
+              ]
+            ]
+          },
+          "input": {
+            "ListStream": {
+              "id": 0,
+              "span": {
+                "start": 2,
+                "end": 3
+              },
+              "metadata": {
+                "data_source": "HtmlThemes",
+                "path_columns": [],
+                "content_type": null,
+                "custom": {}
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "Call": [
+      5,
+      {
+        "Run": {
+          "name": "demo",
+          "call": {
+            "head": {
+              "start": 1,
+              "end": 2
+            },
+            "positional": [
+              {
+                "Bool": {
+                  "val": true,
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Int": {
+                  "val": -7,
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                }
+              },
+              {
+                "Float": {
+                  "val": 1.5,
+                  "span": {
+                    "start": 3,
+                    "end": 4
+                  }
+                }
+              },
+              {
+                "String": {
+                  "val": "text",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                }
+              },
+              {
+                "Glob": {
+                  "val": "*.rs",
+                  "no_expand": true,
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "Filesize": {
+                  "val": 1024,
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  }
+                }
+              },
+              {
+                "Duration": {
+                  "val": 1000000000,
+                  "span": {
+                    "start": 7,
+                    "end": 8
+                  }
+                }
+              },
+              {
+                "Date": {
+                  "val": "2024-01-02T03:04:05+02:00",
+                  "span": {
+                    "start": 8,
+                    "end": 9
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "1..3..10",
+                  "span": {
+                    "start": 9,
+                    "end": 10
+                  }
+                }
+              },
+              {
+                "Record": {
+                  "val": {
+                    "a": {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 10,
+                          "end": 11
+                        }
+                      }
+                    },
+                    "b": {
+                      "List": {
+                        "vals": [
+                          {
+                            "Nothing": {
+                              "span": {
+                                "start": 11,
+                                "end": 12
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "start": 12,
+                          "end": 13
+                        }
+                      }
+                    }
+                  },
+                  "span": {
+                    "start": 13,
+                    "end": 14
+                  }
+                }
+              },
+              {
+                "List": {
+                  "vals": [
+                    {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 14,
+                          "end": 15
+                        }
+                      }
+                    },
+                    {
+                      "String": {
+                        "val": "two",
+                        "span": {
+                          "start": 15,
+                          "end": 16
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "start": 16,
+                    "end": 17
+                  }
+                }
+              },
+              {
+                "Closure": {
+                  "val": {
+                    "block_id": 3,
+                    "captures": [
+                      [
+                        4,
+                        {
+                          "Int": {
+                            "val": 5,
+                            "span": {
+                              "start": 17,
+                              "end": 18
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  },
+                  "span": {
+                    "start": 18,
+                    "end": 19
+                  }
+                }
+              },
+              {
+                "Error": {
+                  "error": {
+                    "msg": "error message",
+                    "labels": [
+                      {
+                        "text": "label",
+                        "span": {
+                          "start": 1,
+                          "end": 2
+                        }
+                      }
+                    ],
+                    "code": "nu::test::error",
+                    "url": "https://www.nushell.sh",
+                    "help": "help text",
+                    "inner": [
+                      {
+                        "msg": "inner error",
+                        "labels": [],
+                        "code": null,
+                        "url": null,
+                        "help": null,
+                        "inner": []
+                      }
+                    ]
+                  },
+                  "span": {
+                    "start": 19,
+                    "end": 20
+                  }
+                }
+              },
+              {
+                "Binary": {
+                  "val": [
+                    0,
+                    1,
+                    255
+                  ],
+                  "span": {
+                    "start": 20,
+                    "end": 21
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.name!?.2",
+                  "span": {
+                    "start": 23,
+                    "end": 24
+                  }
+                }
+              },
+              {
+                "Custom": {
+                  "val": {
+                    "type": "PluginCustomValue",
+                    "name": "CustomType",
+                    "data": [
+                      1,
+                      2,
+                      3
+                    ],
+                    "notify_on_drop": true
+                  },
+                  "span": {
+                    "start": 24,
+                    "end": 25
+                  }
+                }
+              },
+              {
+                "Nothing": {
+                  "span": {
+                    "start": 25,
+                    "end": 26
+                  }
+                }
+              }
+            ],
+            "named": [
+              [
+                {
+                  "item": "named",
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                },
+                {
+                  "Int": {
+                    "val": 9,
+                    "span": {
+                      "start": 3,
+                      "end": 4
+                    }
+                  }
+                }
+              ],
+              [
+                {
+                  "item": "switch",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                },
+                null
+              ]
+            ]
+          },
+          "input": {
+            "ByteStream": {
+              "id": 1,
+              "span": {
+                "start": 3,
+                "end": 4
+              },
+              "type": "String",
+              "metadata": {
+                "data_source": "None",
+                "path_columns": [],
+                "content_type": null,
+                "custom": {}
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "Call": [
+      6,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          "ToBaseValue"
+        ]
+      }
+    ]
+  },
+  {
+    "Call": [
+      7,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          {
+            "FollowPathInt": {
+              "index": {
+                "item": 0,
+                "span": {
+                  "start": 4,
+                  "end": 5
+                }
+              },
+              "optional": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Call": [
+      8,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          {
+            "FollowPathString": {
+              "column_name": {
+                "item": "column",
+                "span": {
+                  "start": 5,
+                  "end": 6
+                }
+              },
+              "optional": false,
+              "casing": "Sensitive"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Call": [
+      9,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          {
+            "PartialCmp": {
+              "Int": {
+                "val": 1,
+                "span": {
+                  "start": 6,
+                  "end": 7
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Call": [
+      10,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          {
+            "Operation": [
+              {
+                "item": {
+                  "Math": "Add"
+                },
+                "span": {
+                  "start": 7,
+                  "end": 8
+                }
+              },
+              {
+                "Int": {
+                  "val": 2,
+                  "span": {
+                    "start": 8,
+                    "end": 9
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Call": [
+      11,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          {
+            "Operation": [
+              {
+                "item": {
+                  "Comparison": "Equal"
+                },
+                "span": {
+                  "start": 9,
+                  "end": 10
+                }
+              },
+              {
+                "Int": {
+                  "val": 3,
+                  "span": {
+                    "start": 10,
+                    "end": 11
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Call": [
+      12,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          {
+            "Save": {
+              "path": {
+                "item": "out.bin",
+                "span": {
+                  "start": 11,
+                  "end": 12
+                }
+              },
+              "save_call_span": {
+                "start": 12,
+                "end": 13
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Call": [
+      13,
+      {
+        "CustomValueOp": [
+          {
+            "item": {
+              "name": "CustomType",
+              "data": [
+                1,
+                2,
+                3
+              ]
+            },
+            "span": {
+              "start": 1,
+              "end": 2
+            }
+          },
+          "Dropped"
+        ]
+      }
+    ]
+  },
+  {
+    "EngineCallResponse": [
+      0,
+      {
+        "Error": {
+          "msg": "error message",
+          "labels": [
+            {
+              "text": "label",
+              "span": {
+                "start": 1,
+                "end": 2
+              }
+            }
+          ],
+          "code": "nu::test::error",
+          "url": "https://www.nushell.sh",
+          "help": "help text",
+          "inner": [
+            {
+              "msg": "inner error",
+              "labels": [],
+              "code": null,
+              "url": null,
+              "help": null,
+              "inner": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "EngineCallResponse": [
+      1,
+      {
+        "PipelineData": {
+          "ByteStream": {
+            "id": 2,
+            "span": {
+              "start": 13,
+              "end": 14
+            },
+            "type": "Binary",
+            "metadata": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "EngineCallResponse": [
+      2,
+      {
+        "PipelineData": {
+          "ByteStream": {
+            "id": 3,
+            "span": {
+              "start": 14,
+              "end": 15
+            },
+            "type": "Unknown",
+            "metadata": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "EngineCallResponse": [
+      3,
+      {
+        "ValueMap": {
+          "PWD": {
+            "String": {
+              "val": "/home",
+              "span": {
+                "start": 15,
+                "end": 16
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "EngineCallResponse": [
+      4,
+      {
+        "Identifier": 5
+      }
+    ]
+  },
+  {
+    "Data": [
+      0,
+      {
+        "List": {
+          "Int": {
+            "val": 1,
+            "span": {
+              "start": 16,
+              "end": 17
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "Data": [
+      0,
+      {
+        "List": {
+          "List": {
+            "vals": [
+              {
+                "Range": {
+                  "val": "1..10",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "1..<10",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "5..",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "-5..-1",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "10..8..0",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "1.5..3.0",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "0.5..1.0..<3.0",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "0.5..",
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.\"a b\".\"1\".\"true\".\"inf\".\"x.y\".\"a=b\".\"a?\".\"b!\".\"#c\"",
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.\"a\\\"b\".a\\b.\"a\\0b\".\"\"",
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.0?.c?",
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.",
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              }
+            ],
+            "span": {
+              "start": 17,
+              "end": 18
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "Data": [
+      1,
+      {
+        "Raw": {
+          "Ok": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "Data": [
+      1,
+      {
+        "Raw": {
+          "Err": {
+            "msg": "error message",
+            "labels": [
+              {
+                "text": "label",
+                "span": {
+                  "start": 1,
+                  "end": 2
+                }
+              }
+            ],
+            "code": "nu::test::error",
+            "url": "https://www.nushell.sh",
+            "help": "help text",
+            "inner": [
+              {
+                "msg": "inner error",
+                "labels": [],
+                "code": null,
+                "url": null,
+                "help": null,
+                "inner": []
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "End": 0
+  },
+  {
+    "Drop": 0
+  },
+  {
+    "Ack": 0
+  },
+  {
+    "Signal": "Interrupt"
+  },
+  {
+    "Signal": "Reset"
+  },
+  "Goodbye"
+]

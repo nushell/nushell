@@ -4821,6 +4821,7 @@ dependencies = [
  "nu-engine",
  "nu-path",
  "nu-plugin-engine",
+ "nu-plugin-protocol",
  "nu-protocol",
 ]
 
@@ -5262,11 +5263,13 @@ dependencies = [
 name = "nu-plugin-protocol"
 version = "0.116.2"
 dependencies = [
+ "chrono",
  "nu-protocol",
  "nu-utils",
  "rmp-serde",
  "semver",
  "serde",
+ "serde_json",
  "typetag",
 ]
 

@@ -40,6 +40,15 @@ struct SharedContent {
     notify_on_drop: bool,
 }
 
+// Wire witness for the private fields above; see `src/wire_witness.rs`.
+const _: fn(&SharedContent) = |content| {
+    let SharedContent {
+        name: _,
+        data: _,
+        notify_on_drop: _,
+    } = content;
+};
+
 fn is_false(b: &bool) -> bool {
     !b
 }
