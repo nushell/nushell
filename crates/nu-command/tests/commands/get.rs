@@ -341,3 +341,12 @@ fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) ->
     assert_eq!(target_metadata, out_metadata);
     Ok(())
 }
+
+#[test]
+fn get_index_propagates_errors_in_skipped_items() -> Result {
+    let err = test()
+        .run("[1 2 3] | each {|x| if $x == 1 { error make {msg: 'boom'} }; $x } | get 2")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
+    Ok(())
+}

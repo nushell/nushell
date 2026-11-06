@@ -463,7 +463,8 @@ impl PipelineData {
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
+            PipelineData::ListStream(stream, ..) => stream
+                .into_value()?
                 .follow_cell_path(cell_path)
                 .map(Cow::into_owned),
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
