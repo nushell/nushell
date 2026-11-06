@@ -8,7 +8,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
 };
 
-use super::{Lower, Lowered};
+use super::{Lower, Lowered, trial::Trial};
 use crate::parse_def::reject_command_name;
 use crate::parse_helpers::SPREAD_OPERATOR_STR;
 use crate::parse_signatures::{Arg, assemble_signature, ensure_not_reserved_variable_name};
@@ -103,10 +103,10 @@ impl Lower<'_, '_, '_> {
             return Ok(());
         };
         let wrapped = !external && spans.iter().any(|span| self.text_at(*span) == "--wrapped");
-        let errors = self.working_set.parse_errors.len();
+        let trial = Trial::new(self.working_set);
         self.working_set.enter_scope();
         let signature = self.full_signature_text(&spans[signature_pos..], external);
-        self.working_set.parse_errors.truncate(errors);
+        trial.discard_errors(self.working_set);
         self.working_set.exit_scope();
         let Some(signature) = signature?.as_signature() else {
             return Ok(());

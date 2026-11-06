@@ -13,7 +13,7 @@ use nu_protocol::{
     ast::{Block, Expr, Expression, MatchPattern, Pattern},
 };
 
-use super::{BlockOf, Lower, Lowered, lexed_block};
+use super::{BlockOf, Lower, Lowered, lexed_block, trial::Trial};
 use crate::parse_captures_compile::compile_block;
 use crate::winnow::syntax::Span as WSpan;
 use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
@@ -224,13 +224,13 @@ impl Lower<'_, '_, '_> {
             .map(|token| self.span(token.span))
             .collect();
         // A scope a failed reading leaves open goes; nu's never fails.
-        let scopes = self.working_set.delta.scope.len();
+        let trial = Trial::new(self.working_set);
         let arms = self.match_arms_text(&items, span, closed, input_type);
         let arms = match arms {
             Ok(Some(arms)) => arms,
             Ok(None) => return Ok(Expression::garbage(self.working_set, span)),
             Err(unlowered) => {
-                self.take_open_scopes(scopes);
+                trial.close_scopes(self.working_set);
                 return Err(unlowered);
             }
         };

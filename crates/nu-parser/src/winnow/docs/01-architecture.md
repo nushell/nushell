@@ -187,6 +187,7 @@ names it in its documentation.
 | `lower/value.rs` | Values: literals, variables, cell paths, lists, tables, records, closures, blocks |
 | `lower/leaf.rs` | Leaf values by shape: ports of nu's readers in `parse_literals.rs` |
 | `lower/signature.rs` | Signatures, parameter types, predeclaration of commands |
+| `lower/trial.rs` | Trial reads: `Trial` marks and restores what a read reported, and `read_oneof` is the one port of `parse_oneof` |
 | `lower/lite.rs` | nu's lite parse over winnow tokens, for text the lowering reads again |
 | `lower/math_items.rs` | Math read from items, through nu's operator stack |
 | `lower/block_text.rs`, `call_text.rs`, `layout_text.rs`, `list_text.rs`, `pattern_text.rs`, `record_text.rs`, `shape_text.rs`, `signature_text.rs` | Ports of nu's readers, used where the winnow parser read an item otherwise or went past an error in it |

@@ -12,6 +12,7 @@ use nu_protocol::{
 };
 
 use super::leaf::is_assignment;
+use super::trial::Trial;
 use super::{BlockOf, Lower, Lowered, Unlowered, call::STATEMENTS_IN_PIPELINE, statement_decl};
 use crate::winnow::syntax::lex::{AssignmentOperator, LexOptions, TokenContents};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
@@ -97,7 +98,7 @@ impl<'s> Lower<'_, '_, 's> {
             // doesn't, which only an error shows, is that external call (`0..<$nope` runs a
             // command).
             _ => {
-                let errors = self.working_set.parse_errors.len();
+                let trial = Trial::new(self.working_set);
                 let math = self.math(e, input_type)?;
                 let first = match &e.expr {
                     w::Expr::Garbage => self.items(e.span).first().copied(),
@@ -105,10 +106,10 @@ impl<'s> Lower<'_, '_, 's> {
                 };
                 // nu reads such a statement as a call to an external command named by its first
                 // item, its other items the arguments (`parse_external_call`).
-                if self.working_set.parse_errors.len() > errors
+                if trial.failed(self.working_set)
                     && !first.map_or(Ok(false), |first| self.math_like_at(first))?
                 {
-                    self.working_set.parse_errors.truncate(errors);
+                    trial.discard_errors(self.working_set);
                     let items = self.parts(e.span);
                     if items.is_empty() {
                         return Err(Unlowered::Error);
@@ -463,10 +464,10 @@ impl<'s> Lower<'_, '_, 's> {
                 // nu drops the error and reads the items from this shorthand on as the command
                 // (`parse_call`), an external one, in `with-env` with the shorthands before it.
                 [b'$', ..] => {
-                    let errors = self.working_set.parse_errors.len();
+                    let trial = Trial::new(self.working_set);
                     let value = self.value(&assignment.value, &SyntaxShape::Any, None)?;
-                    if self.working_set.parse_errors.len() > errors {
-                        self.working_set.parse_errors.truncate(errors);
+                    if trial.failed(self.working_set) {
+                        trial.discard_errors(self.working_set);
                         // Its parts, the `|` of an alias's target among them. An assignment
                         // among them comes first, as in `parse_expression`.
                         let rest = WSpan::new(assignment.span.start, e.span.end);
@@ -652,7 +653,7 @@ impl<'s> Lower<'_, '_, 's> {
         // `chunk-by { |t| $it // 3 }`), its errors are dropped and the condition is read again
         // below, with `$it` declared, as `parse_row_condition` does.
         if let w::Expr::Closure(closure) = &condition.expr {
-            let errors = self.working_set.parse_errors.len();
+            let trial = Trial::new(self.working_set);
             let closure = self.closure(
                 condition.span,
                 closure.params.as_ref(),
@@ -660,25 +661,25 @@ impl<'s> Lower<'_, '_, 's> {
                 &SyntaxShape::Any,
                 None,
             )?;
-            if self.working_set.parse_errors.len() == errors
+            if !trial.failed(self.working_set)
                 && let Expr::Closure(block_id) = closure.expr
             {
                 return Ok(self.node(Expr::RowCondition(block_id), span, Type::Bool));
             }
-            self.working_set.parse_errors.truncate(errors);
+            trial.discard_errors(self.working_set);
         }
         // A condition the winnow parser left as garbage, or read as a record as a call's argument
         // (`where --help {}`), is tried as a closure first, its errors dropped when it reads as
         // none.
         if let w::Expr::Garbage | w::Expr::Record(_) = condition.expr {
-            let errors = self.working_set.parse_errors.len();
+            let trial = Trial::new(self.working_set);
             let closure = self.closure_text(span, &SyntaxShape::Any, None)?;
-            if self.working_set.parse_errors.len() == errors
+            if !trial.failed(self.working_set)
                 && let Expr::Closure(block_id) = closure.expr
             {
                 return Ok(self.node(Expr::RowCondition(block_id), span, Type::Bool));
             }
-            self.working_set.parse_errors.truncate(errors);
+            trial.discard_errors(self.working_set);
         }
         // `Ok(block_id)` is a row condition's block; `Err(expression)` the expression that
         // stands for the condition, where `parse_row_condition` returns early.

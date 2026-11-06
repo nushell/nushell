@@ -594,6 +594,9 @@ fn render(working_set: &StateWorkingSet, block: &Block) -> String {
     for error in &working_set.compile_errors {
         renderer.line(&format!("COMPILE_ERROR {error:?}"));
     }
+    for warning in &working_set.parse_warnings {
+        renderer.line(&format!("PARSE_WARNING {warning:?}"));
+    }
     for (span, shape) in flatten_block(working_set, block) {
         renderer.line(&format!("FLAT {}..{} {shape}", span.start, span.end));
     }

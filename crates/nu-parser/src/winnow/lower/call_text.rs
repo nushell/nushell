@@ -12,6 +12,7 @@ use nu_protocol::{
 
 use super::expression::assignment_operator;
 use super::leaf::{is_assignment, is_env_name};
+use super::trial::Trial;
 use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::parse_calls::find_longest_decl;
 use crate::parse_helpers::extract_spread_list;
@@ -46,11 +47,11 @@ impl<'s> Lower<'_, '_, 's> {
         let (_, words, name, decl) = find_longest_decl(self.working_set, spans);
         let Some(decl_id) = decl else {
             if self.text_at(first).starts_with("..") {
-                let errors = self.working_set.parse_errors.len();
+                let trial = Trial::new(self.working_set);
                 if let Some(range) = self.range(self.local(first))? {
                     return Ok(range);
                 }
-                self.working_set.parse_errors.truncate(errors);
+                trial.discard_errors(self.working_set);
             }
             return self.external_call_text(spans, call_span);
         };
@@ -91,13 +92,13 @@ impl<'s> Lower<'_, '_, 's> {
             && is_env_name(name.as_bytes())
         {
             let value_span = Span::new(first.start + name.len() + 1, first.end);
-            let errors = self.working_set.parse_errors.len();
+            let trial = Trial::new(self.working_set);
             if value.starts_with('$') {
                 let value_item = self.local(value_span);
                 self.value_text(value_item, &SyntaxShape::Any)?;
             }
-            let value_fails = self.working_set.parse_errors.len() > errors;
-            self.working_set.parse_errors.truncate(errors);
+            let value_fails = trial.failed(self.working_set);
+            trial.discard_errors(self.working_set);
             if !value_fails {
                 return Err(Unlowered::Unsupported(
                     "environment shorthand read from its items",

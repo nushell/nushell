@@ -4247,3 +4247,37 @@ fn range_with_an_int_too_large_before_any_other_error(#[case] code: &str) -> Res
     );
     Ok(())
 }
+
+/// nu reads an `else` item and a match arm's result with `oneof<block, expression>`, and
+/// `parse_oneof` keeps only part of what a reading reported: all of it for a clean reading, nothing
+/// for a reading it gave up on, and the errors and warnings but not the compile errors of the best
+/// guess. The counts are errors, warnings and compile errors, `old` reporting one warning each time
+/// it is read and `{|| break }` one compile error each time it is compiled.
+#[rstest]
+#[case::else_closure_wins("[1] | if true {} else { old; $in / 1 }", (0, 1, 0))]
+#[case::else_closure_compiles("[1] | if true {} else { {|| break }; $in / 1 }", (0, 0, 1))]
+#[case::else_block_is_the_guess("if true {} else { old; {|| break }; $nope }", (1, 1, 0))]
+#[case::else_if_is_the_guess("if true {} else if false { old; {|| break }; $nope }", (1, 1, 0))]
+#[case::arm_closure_alone("[1] | match 1 { _ => { $in / 1 } }", (0, 0, 0))]
+#[case::arm_closure_wins("[1] | match 1 { _ => { old; $in / 1 } }", (0, 1, 0))]
+#[case::arm_closure_compiles("[1] | match 1 { _ => { {|| break }; $in / 1 } }", (0, 0, 1))]
+#[case::arm_block_is_the_guess("match 1 { 1 => { old; {|| break }; $nope } }", (1, 1, 0))]
+#[case::arm_parenthesis_is_the_guess("match 1 { 1 => (old; {|| break }; $nope) }", (1, 1, 0))]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn block_or_expression_keeps_what_parse_oneof_keeps(
+    #[case] code: &str,
+    #[case] expected: (usize, usize, usize),
+) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = format!("@deprecated --report every\ndef old [] {{}}\n{code}");
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let reported = (
+        working_set.parse_errors.len(),
+        working_set.parse_warnings.len(),
+        working_set.compile_errors.len(),
+    );
+    assert_eq!(reported, expected, "`{code}`");
+    Ok(())
+}

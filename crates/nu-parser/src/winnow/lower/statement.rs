@@ -17,6 +17,7 @@ use nu_protocol::{
 use super::delimiter_hint::delimiter_structure_hint;
 use super::leaf::{is_env_name, trim_quotes};
 use super::module::{KeywordEffect, overlay_effect};
+use super::trial::Trial;
 use super::{Lower, Lowered, Unlowered};
 #[cfg(feature = "plugin")]
 use crate::parse_source::parse_plugin_use;
@@ -134,9 +135,7 @@ impl<'s> Lower<'_, '_, 's> {
         target: &mut StatementTarget<'_>,
         out: &mut Vec<Pipeline>,
     ) {
-        let errors = self.working_set.parse_errors.len();
-        let warnings = self.working_set.parse_warnings.len();
-        let compile_errors = self.working_set.compile_errors.len();
+        let trial = Trial::new(self.working_set);
         // Empty, and so free to copy, unless an `unlet` in the block hid a constant.
         let hidden_vars = self
             .working_set
@@ -152,15 +151,13 @@ impl<'s> Lower<'_, '_, 's> {
             Err(unlowered) => {
                 self.working_set.delta.last_scope_frame_mut().hidden_vars = hidden_vars;
                 match unlowered {
-                    Unlowered::Error if self.working_set.parse_errors.len() > errors => {}
+                    Unlowered::Error if trial.failed(self.working_set) => {}
                     Unlowered::Error => self.working_set.error(ParseError::InternalError(
                         "the winnow parser gave up on this statement without an error".into(),
                         span,
                     )),
                     Unlowered::Unsupported(what) => {
-                        self.working_set.parse_errors.truncate(errors);
-                        self.working_set.parse_warnings.truncate(warnings);
-                        self.working_set.compile_errors.truncate(compile_errors);
+                        trial.discard(self.working_set);
                         self.working_set.error(unsupported_error(what, span));
                     }
                 }

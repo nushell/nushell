@@ -69,12 +69,13 @@ mod signature;
 mod signature_text;
 mod source;
 mod statement;
+mod trial;
 mod value;
 
 use nu_protocol::{
     DeclId, ParseError, Span, Type,
     ast::{Expr, Expression},
-    engine::{ScopeFrame, StateWorkingSet},
+    engine::StateWorkingSet,
 };
 
 use crate::parse_calls::{CallKind, check_call};
@@ -372,13 +373,6 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
         let result = f(self);
         self.working_set.exit_scope();
         result
-    }
-
-    /// The scopes entered since there were `count` and left open (an unclosed closure's), taken
-    /// off the scope stack.
-    pub(super) fn take_open_scopes(&mut self, count: usize) -> Vec<ScopeFrame> {
-        let scopes = &mut self.working_set.delta.scope;
-        scopes.split_off(count.min(scopes.len()))
     }
 
     /// [`Self::in_scope`] for a `def` or `for` (`parse_def_inner`, `parse_for`), which leave

@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::CommandType,
 };
 
-use super::{Lower, Lowered, Unlowered};
+use super::{Lower, Lowered, Unlowered, trial::Trial};
 use crate::winnow::syntax::{Span as WSpan, ast as w};
 use crate::{
     parse_def::{reject_command_name, rest_param_is_type_annotated},
@@ -63,7 +63,7 @@ impl<'s> Lower<'_, '_, 's> {
         if reject_command_name(self.working_set, name, name_span) {
             return true;
         }
-        let errors = self.working_set.parse_errors.len();
+        let trial = Trial::new(self.working_set);
         self.working_set.enter_scope();
         let lowered = self.signature_params(written, predecl.external);
         let lowered = lowered.and_then(|mut sig| {
@@ -74,7 +74,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             Ok(sig)
         });
-        self.working_set.parse_errors.truncate(errors);
+        trial.discard_errors(self.working_set);
         self.working_set.exit_scope();
         let Ok(signature) = lowered else {
             return false;

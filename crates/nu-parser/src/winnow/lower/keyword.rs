@@ -9,8 +9,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use nu_protocol::eval_const::eval_constant;
 use nu_protocol::{
-    BlockId, CompileError, DeclId, ParseError, PositionalArg, ShellError, Span, Spanned,
-    SyntaxShape, Type, TypeSet, Value,
+    BlockId, DeclId, ParseError, PositionalArg, ShellError, Span, Spanned, SyntaxShape, Type,
+    TypeSet, Value,
     ast::{
         Argument, Attribute, AttributeBlock, Call, Expr, Expression, Keyword, MatchPattern,
         Pattern, Pipeline,
@@ -18,6 +18,7 @@ use nu_protocol::{
 };
 
 use super::leaf::{is_assignment, is_env_name};
+use super::trial::Trial;
 use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument, statement_decl};
 use crate::winnow::syntax::lex::{LexOptions, TokenContents, pipe_or_redirection};
 use crate::winnow::syntax::parse_helpers::is_variable;
@@ -189,33 +190,7 @@ impl<'s> Lower<'_, '_, 's> {
         if let Some(branch) = &if_expr.else_branch {
             let body = match &branch.body.expr {
                 w::Expr::Block(block) => {
-                    let errors = self.working_set.parse_errors.len();
-                    let scopes = self.working_set.delta.scope.len();
-                    let mut body = self.block_expression(branch.body.span, block, branch_input)?;
-                    // nu reads the `else` item with its keyword's shape, a block before an
-                    // expression (`parse_oneof`): a block with an error is read again as a
-                    // closure, without the input (`else {$in / 1}` on a list). One with no error
-                    // is the item. Otherwise its errors start no later, so the block stays the
-                    // best guess; only what that reading declares stays (a `def` predeclared
-                    // again), and its errors and the scopes it leaves open go.
-                    if self.working_set.parse_errors.len() > errors {
-                        let block_errors = self.working_set.parse_errors.split_off(errors);
-                        let block_scopes = self.working_set.delta.scope.split_off(scopes);
-                        let closure =
-                            self.closure(branch.body.span, None, block, &SyntaxShape::Any, None);
-                        match closure {
-                            Ok(closure) if self.working_set.parse_errors.len() == errors => {
-                                body = closure;
-                            }
-                            _ => {
-                                self.working_set.parse_errors.truncate(errors);
-                                self.working_set.delta.scope.truncate(scopes);
-                                self.working_set.parse_errors.extend(block_errors);
-                                self.working_set.delta.scope.extend(block_scopes);
-                            }
-                        }
-                    }
-                    body
+                    self.block_or_closure(branch.body.span, block, branch_input)?
                 }
                 // A brace item the winnow parser left as garbage (`else {...` left open): nu
                 // reads it with the `else` keyword's shape, a block before an expression
@@ -231,9 +206,9 @@ impl<'s> Lower<'_, '_, 's> {
                     self.multispan_value_text(&[span], &shape, branch_input)?.0
                 }
                 _ => {
-                    let marks = self.error_marks();
+                    let trial = Trial::new(self.working_set);
                     let body = self.expression(&branch.body, branch_input)?;
-                    self.block_or_expression(body, branch.body.span, marks, branch_input)?
+                    self.block_or_expression(body, branch.body.span, trial, branch_input)?
                 }
             };
             let branch_type = self.branch_type(&body, input_type);
@@ -337,7 +312,7 @@ impl<'s> Lower<'_, '_, 's> {
                 w::HandlerKind::Catch => "catch",
                 w::HandlerKind::Finally => "finally",
             };
-            let compile_errors = self.working_set.compile_errors.len();
+            let trial = Trial::new(self.working_set);
             let (closure, value_shape) = match &handler.body.expr {
                 w::Expr::Closure(closure) => (
                     self.closure(
@@ -356,12 +331,8 @@ impl<'s> Lower<'_, '_, 's> {
                     (self.value(&handler.body, &shape, None)?, Some(shape))
                 }
             };
-            if let [CompileError::NotInALoop { .. }] =
-                &self.working_set.compile_errors[compile_errors..]
-                && let Expr::Closure(block_id) = closure.expr
-                && self.working_set.get_block(block_id).ir_block.is_none()
-            {
-                self.working_set.compile_errors.truncate(compile_errors);
+            if let Expr::Closure(block_id) = closure.expr {
+                trial.forgive_handler_break(self.working_set, block_id);
             }
             let keyword_span = self.span(handler.keyword);
             let span = keyword_span.merge(closure.span);
@@ -491,56 +462,73 @@ impl<'s> Lower<'_, '_, 's> {
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
         match &body.expr {
-            w::Expr::Block(block) => self.block_expression(body.span, block, input_type),
+            w::Expr::Block(block) => self.block_or_closure(body.span, block, input_type),
             w::Expr::Closure(closure) if closure.params.is_none() => {
-                self.block_expression(body.span, &closure.body, input_type)
+                self.block_or_closure(body.span, &closure.body, input_type)
             }
             w::Expr::Record(_) if self.text(body.span).starts_with('{') => {
                 self.value(body, &SyntaxShape::Block, input_type)
             }
             _ => {
-                let marks = self.error_marks();
+                let trial = Trial::new(self.working_set);
                 let expression = self.expression(body, input_type)?;
-                self.block_or_expression(expression, body.span, marks, input_type)
+                self.block_or_expression(expression, body.span, trial, input_type)
             }
         }
     }
 
-    /// How many errors, warnings and compile errors the working set has, for
-    /// [`Self::block_or_expression`].
-    fn error_marks(&self) -> (usize, usize, usize) {
-        (
-            self.working_set.parse_errors.len(),
-            self.working_set.parse_warnings.len(),
-            self.working_set.compile_errors.len(),
-        )
+    /// An `else` branch or a match arm's result in braces, which nu reads with
+    /// `oneof<block, expression>` (`parse_oneof`): a block with an error is read again as a
+    /// closure, without the input (`else {$in / 1}` on a list). One with no error is the item.
+    /// Otherwise its errors start no later, so the block stays the best guess; only what that
+    /// reading declares stays (a `def` predeclared again), and what it reported and the scopes
+    /// it leaves open go.
+    fn block_or_closure(
+        &mut self,
+        span: WSpan,
+        block: &w::Block<'s>,
+        input_type: Option<&Type>,
+    ) -> Lowered<Expression> {
+        let trial = Trial::new(self.working_set);
+        let as_block = self.block_expression(span, block, input_type)?;
+        if !trial.failed(self.working_set) {
+            return Ok(as_block);
+        }
+        let reported = trial.take(self.working_set);
+        match self.closure(span, None, block, &SyntaxShape::Any, None) {
+            Ok(closure) if !trial.failed(self.working_set) => Ok(closure),
+            _ => {
+                trial.discard(self.working_set);
+                reported.restore(self.working_set);
+                Ok(as_block)
+            }
+        }
     }
 
     /// An `else` branch or a match arm's result, `item`, which nu reads with
     /// `oneof<block, expression>` (`parse_oneof`), given `expression`, the item read as an
-    /// expression with what it reported since `marks` ([`Self::error_marks`]). The block shape
-    /// fails first, at the item's start, so an expression whose first error is past it is nu's
-    /// best guess. Otherwise which wins depends on how the block shape fails, which nu's value
-    /// parser decides by the item's first byte (`else $foo {}` is the variable's error, `else
-    /// def f [] {}` that no shape reads it): what the lowering reported is dropped and the item
-    /// is read again from its text as `parse_multispan_value` reads it, with `input_type`.
+    /// expression with what it reported since `trial`. The block shape fails first, at the
+    /// item's start, so an expression whose first error is past it is nu's best guess, which
+    /// keeps all but its compile errors. Otherwise which wins depends on how the block shape
+    /// fails, which nu's value parser decides by the item's first byte (`else $foo {}` is the
+    /// variable's error, `else def f [] {}` that no shape reads it): the lowering's reading
+    /// leaves no trace and the item is read again from its text as `parse_multispan_value` reads
+    /// it, with `input_type`.
     fn block_or_expression(
         &mut self,
         expression: Expression,
         item: WSpan,
-        (errors, warnings, compile_errors): (usize, usize, usize),
+        trial: Trial,
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let first_error = self.working_set.parse_errors[errors..]
-            .iter()
-            .map(|error| error.span().start)
-            .min();
-        if first_error.is_none_or(|first_error| first_error > self.span(item).start) {
+        let Some(first_error) = trial.first_error(self.working_set) else {
+            return Ok(expression);
+        };
+        if first_error > self.span(item).start {
+            trial.take(self.working_set).restore(self.working_set);
             return Ok(expression);
         }
-        self.working_set.parse_errors.truncate(errors);
-        self.working_set.parse_warnings.truncate(warnings);
-        self.working_set.compile_errors.truncate(compile_errors);
+        trial.discard(self.working_set);
         let parts = self.parts(item);
         let shape = SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]);
         Ok(self.multispan_value_text(&parts, &shape, input_type)?.0)
@@ -1390,7 +1378,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
             return Ok((garbage, None));
         }
-        let errors_before_call = self.working_set.parse_errors.len();
+        let trial = Trial::new(self.working_set);
         let (lowered, output, kind) = match keyword {
             "def" => self.in_body_scope(|this| {
                 let body = arguments.last().map(|argument| this.span(argument.span()));
@@ -1405,13 +1393,12 @@ impl<'s> Lower<'_, '_, 's> {
             }
             // `parse_alias` and `parse_type_alias` drop the errors of the call.
             "alias" | "type" => {
-                let errors = self.working_set.parse_errors.len();
                 let arguments = match keyword {
                     "type" => &arguments[..arguments.len().min(2)],
                     _ => arguments,
                 };
                 let lowered = self.internal_call(head, arguments, decl_id, None)?;
-                self.working_set.parse_errors.truncate(errors);
+                trial.discard_errors(self.working_set);
                 lowered
             }
             "let" => self.internal_call(head, arguments, decl_id, input_type)?,
@@ -1470,7 +1457,7 @@ impl<'s> Lower<'_, '_, 's> {
         // reports a valid one, which names nothing to export (`export`, `export foo`), as an
         // unexpected keyword, with garbage, its errors dropped.
         if keyword == "export" && kind == CallKind::Valid {
-            self.working_set.parse_errors.truncate(errors_before_call);
+            trial.discard_errors(self.working_set);
             let keyword_span = self.span(call.head.span);
             self.working_set
                 .error(ParseError::UnexpectedKeyword("export".into(), keyword_span));
@@ -1598,7 +1585,7 @@ impl<'s> Lower<'_, '_, 's> {
     ) -> Lowered<Expression> {
         let decl_id = statement_decl(self.working_set, "alias")
             .ok_or(Unlowered::Unsupported("alias that is not a keyword"))?;
-        let errors_before = self.working_set.parse_errors.len();
+        let trial = Trial::new(self.working_set);
         let head = self.command_head(command, "alias");
         let mut call = Call::new(head);
         call.decl_id = decl_id;
@@ -1679,7 +1666,7 @@ impl<'s> Lower<'_, '_, 's> {
             }
         };
         // The errors of the call to `alias` are dropped.
-        self.working_set.parse_errors.truncate(errors_before);
+        trial.discard_errors(self.working_set);
         let value = value?;
         let equals = self.span(alias.eq);
         let span = equals.merge(value.span);
@@ -1714,9 +1701,9 @@ impl<'s> Lower<'_, '_, 's> {
             && let Some(first) = parts.first().copied()
             && self.math_like_at(first)?
         {
-            let errors = self.working_set.parse_errors.len();
+            let as_expression = Trial::new(self.working_set);
             let expression = self.expression_text(&parts, None)?;
-            self.working_set.parse_errors.truncate(errors);
+            as_expression.discard_errors(self.working_set);
             self.working_set.error(ParseError::CantAliasExpression(
                 expression.expr.description().to_string(),
                 first,
@@ -1747,11 +1734,11 @@ impl<'s> Lower<'_, '_, 's> {
             w::Expr::Call(ref target_call)
                 if target_call.sigil.is_none() && target_call.head.name == "run" =>
             {
-                let errors = self.working_set.parse_errors.len();
+                let second_reading = Trial::new(self.working_set);
                 match self.lower_alias_target(target) {
                     Ok(wrapped_call) => Ok(wrapped_call),
                     Err(_) => {
-                        self.working_set.parse_errors.truncate(errors);
+                        second_reading.discard_errors(self.working_set);
                         let parts = self.parts(target.span);
                         self.call_text(&parts, None)
                     }
@@ -1763,10 +1750,10 @@ impl<'s> Lower<'_, '_, 's> {
         let wrapped_call = wrapped_call?;
         // When the first error is a missing argument, all are forgiven; any other makes the
         // statement garbage, its errors kept. They come from the target's nested statements.
-        match self.working_set.parse_errors.get(errors_before) {
+        match trial.new_errors(self.working_set).first() {
             None => {}
             Some(error) if is_missing_argument(error) => {
-                self.working_set.parse_errors.truncate(errors_before);
+                trial.discard_errors(self.working_set);
             }
             Some(_) => {
                 let span = self.span(target.span);

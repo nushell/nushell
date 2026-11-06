@@ -18,6 +18,7 @@ use nu_protocol::{
 };
 
 use super::list_text::ListItems;
+use super::trial::Trial;
 use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::type_check::{check_range_types, negation_type};
 use crate::winnow::driver::{BlockKind, parse_block};
@@ -118,13 +119,13 @@ impl<'s> Lower<'_, '_, 's> {
             SyntaxShape::Number,
             SyntaxShape::String,
         ];
+        let trial = Trial::new(self.working_set);
         for shape in &SHAPES {
-            let errors = self.working_set.parse_errors.len();
             let value = self.leaf_by_shape(e, shape)?;
-            match self.working_set.parse_errors.get(errors) {
+            match trial.new_errors(self.working_set).first() {
                 None => return Ok(value),
                 Some(ParseError::Expected(..) | ParseError::ExpectedWithStringMsg(..)) => {
-                    self.working_set.parse_errors.truncate(errors);
+                    trial.discard_errors(self.working_set);
                 }
                 Some(_) => return Ok(value),
             }
@@ -283,13 +284,13 @@ impl<'s> Lower<'_, '_, 's> {
         if text.starts_with("$.") {
             return Ok(self.simple_cell_path(WSpan::new(span.start + 2, span.end)));
         }
-        let errors = self.working_set.parse_errors.len();
+        let trial = Trial::new(self.working_set);
         if text.contains("..")
             && let Some(range) = self.range(span)?
         {
             return Ok(range);
         }
-        self.working_set.parse_errors.truncate(errors);
+        trial.discard_errors(self.working_set);
         self.full_cell_path_text(span, None, input_type)
     }
 
@@ -297,13 +298,13 @@ impl<'s> Lower<'_, '_, 's> {
     /// in (`parse_paren_expr`): a range when it reads as one, else a full cell path, or, when
     /// that finds a parenthesis unmatched, a string interpolation (or a glob).
     pub(super) fn paren_text(&mut self, span: WSpan, shape: &SyntaxShape) -> Lowered<Expression> {
-        let errors = self.working_set.parse_errors.len();
+        let as_range = Trial::new(self.working_set);
         if self.text(span).contains("..")
             && let Some(range) = self.range(span)?
         {
             return Ok(range);
         }
-        self.working_set.parse_errors.truncate(errors);
+        as_range.discard_errors(self.working_set);
         if matches!(
             shape,
             SyntaxShape::Signature | SyntaxShape::ExternalSignature
@@ -311,9 +312,10 @@ impl<'s> Lower<'_, '_, 's> {
             let external = matches!(shape, SyntaxShape::ExternalSignature);
             return self.signature_text(self.span(span), external);
         }
-        let scopes = self.working_set.delta.scope.len();
+        let as_path = Trial::new(self.working_set);
         let path = self.full_cell_path_text(span, None, None)?;
-        let unmatched = self.working_set.parse_errors[errors..]
+        let unmatched = as_path
+            .new_errors(self.working_set)
             .first()
             .is_some_and(|error| {
                 matches!(error, ParseError::Unclosed(delimiter, ..) if delimiter == ")")
@@ -322,10 +324,8 @@ impl<'s> Lower<'_, '_, 's> {
         if !unmatched {
             return Ok(path);
         }
-        self.working_set.parse_errors.truncate(errors);
-        while self.working_set.delta.scope.len() > scopes {
-            self.working_set.exit_scope();
-        }
+        as_path.discard_errors(self.working_set);
+        as_path.close_scopes(self.working_set);
         match shape {
             SyntaxShape::GlobPattern => self.interpolation_as(span, PathKind::Glob),
             _ => self.interpolation_text(span),
@@ -998,7 +998,7 @@ impl<'s> Lower<'_, '_, 's> {
             _ => {}
         }
         let nu_span = self.span(span);
-        let errors = self.working_set.parse_errors.len();
+        let trial = Trial::new(self.working_set);
         let literal_error = |error: Option<&ParseError>| {
             matches!(
                 error,
@@ -1012,31 +1012,28 @@ impl<'s> Lower<'_, '_, 's> {
                 2 => self.unit_leaf(text, nu_span, UnitKind::Duration),
                 _ => self.datetime_leaf(text, nu_span),
             };
-            let first = self.working_set.parse_errors.get(errors);
+            let first = trial.new_errors(self.working_set).first();
             let is_literal = first.is_none() || literal_error(first);
-            self.working_set.parse_errors.truncate(errors);
+            trial.discard_errors(self.working_set);
             if is_literal {
                 return Ok(true);
             }
         }
         let item = w::Expression::new(w::Expr::Garbage, span);
         self.binary_leaf(&item);
-        let binary = match self.working_set.parse_errors.len() == errors {
-            true => true,
-            false => !matches!(
-                self.working_set.parse_errors.last(),
-                Some(ParseError::Expected(..))
-            ),
-        };
-        self.working_set.parse_errors.truncate(errors);
+        let binary = !matches!(
+            trial.new_errors(self.working_set).last(),
+            Some(ParseError::Expected(..))
+        );
+        trial.discard_errors(self.working_set);
         if binary {
             return Ok(true);
         }
         // A bound that is a broken literal (`1..99999999999999999999`) makes a range too.
         let range = text.contains("..")
             && (self.range(span)?.is_some()
-                || literal_error(self.working_set.parse_errors.get(errors)));
-        self.working_set.parse_errors.truncate(errors);
+                || literal_error(trial.new_errors(self.working_set).first()));
+        trial.discard_errors(self.working_set);
         Ok(range)
     }
 

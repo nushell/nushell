@@ -6,13 +6,13 @@ use std::cell::RefCell;
 
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    CompileError, DeclId, Flag, ParseError, Signature, Span, Spanned, SyntaxShape, Type, TypeSet,
+    DeclId, Flag, ParseError, Signature, Span, Spanned, SyntaxShape, Type, TypeSet,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, Keyword},
     did_you_mean,
     engine::{CommandType, StateWorkingSet},
 };
 
-use super::{Lower, Lowered, Unlowered, value::best_guess_propagates};
+use super::{Lower, Lowered, Unlowered, trial::Trial};
 use crate::winnow::syntax::lex::{LexOptions, TokenContents};
 use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{
@@ -20,7 +20,7 @@ use crate::winnow::syntax::{
 };
 use crate::{
     parse_calls::{
-        CallKind, accepts_any_bareword, check_call, find_decl_with_command_type, find_longest_decl,
+        CallKind, check_call, find_decl_with_command_type, find_longest_decl,
         find_longest_decl_with_prefix, shape_allows_negative_number,
     },
     parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO,
@@ -680,7 +680,7 @@ impl<'s> Lower<'_, '_, 's> {
                             }
                             _ => None,
                         };
-                        let compile_errors = self.working_set.compile_errors.len();
+                        let trial = Trial::new(self.working_set);
                         let def_body =
                             special == Some(SpecialKeyword::Def) && positional.name == "block";
                         let value = if def_body {
@@ -705,21 +705,16 @@ impl<'s> Lower<'_, '_, 's> {
                         } else {
                             self.value(expr, shape, positional_input)?
                         };
-                        // `try`'s handler is a closure, compiled on its own, so a `break` in it
-                        // is outside any loop: `parse_internal_call` drops that error when it
-                        // is the handler's own (its closure has no IR), for each positional
-                        // whose shape lists the `catch` keyword (`try_call` does the same).
+                        // For each positional whose shape lists the `catch` keyword, as
+                        // `parse_internal_call` does (`try_call` does the same).
                         if let SyntaxShape::OneOf(shapes) = shape
                             && shapes.iter().any(|shape| {
                                 matches!(shape, SyntaxShape::Keyword(keyword, _) if keyword == b"catch")
                             })
-                            && let [CompileError::NotInALoop { .. }] =
-                                &self.working_set.compile_errors[compile_errors..]
                             && let Expr::Keyword(clause) = &value.expr
                             && let Expr::Closure(block_id) = clause.expr.expr
-                            && self.working_set.get_block(block_id).ir_block.is_none()
                         {
-                            self.working_set.compile_errors.truncate(compile_errors);
+                            trial.forgive_handler_break(self.working_set, block_id);
                         }
                         match special {
                             Some(SpecialKeyword::Match) if positional.name == "match_block" => {
@@ -789,12 +784,12 @@ impl<'s> Lower<'_, '_, 's> {
                 if !matches!(e.expr, w::Expr::Garbage) || self.text(e.span).starts_with('{') =>
             {
                 let span = self.span(e.span);
-                let errors = self.working_set.parse_errors.len();
+                let trial = Trial::new(self.working_set);
                 let value = self.closure_text(span, shape, input_type)?;
                 if matches!(value.expr, Expr::Closure(_)) {
                     return Ok(value);
                 }
-                self.working_set.parse_errors.truncate(errors);
+                trial.discard_errors(self.working_set);
                 self.value_text_with_input(e.span, shape, input_type)
             }
             _ => self.value(e, shape, None),
@@ -1067,13 +1062,8 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// A multi-item `oneof` (`parse_oneof` with `multispan`): the first of `shapes` that reads
-    /// the items from `index` without an error, in the order [`Self::one_of`] tries them. A
-    /// shape the lowering gives back gives the statement back: at once when unsupported, after
-    /// the other shapes when for an error. When none reads them, the value is the guess
-    /// whose first error is the furthest along, with its errors and warnings, as in
-    /// [`Self::one_of`], else garbage over the first item with an error that lists the shapes;
-    /// either way the call goes on after the items the last shape tried read, as there.
+    /// A multi-item `oneof` (`parse_oneof` with `multispan`): [`Self::read_oneof`] over the items
+    /// from `index`, each shape reading up to `end`.
     fn multispan_one_of(
         &mut self,
         arguments: &[w::Argument<'s>],
@@ -1082,76 +1072,20 @@ impl<'s> Lower<'_, '_, 's> {
         shapes: &[SyntaxShape],
         input_type: Option<&Type>,
     ) -> Lowered<(Expression, usize)> {
-        let defer_barewords = !matches!(
-            self.text(arguments[index].span()).as_bytes().first(),
-            Some(b'$' | b'(' | b'{')
-        );
-        let deferred = |shape: &&SyntaxShape| defer_barewords && accepts_any_bareword(shape);
-        let ordered = shapes
-            .iter()
-            .filter(|shape| !deferred(shape))
-            .chain(shapes.iter().filter(|shape| deferred(shape)));
-        let start = self.span(arguments[index].span());
-        let mut best_guess = None;
-        let mut furthest = 0;
-        let mut propagate = false;
-        let mut given_back = false;
-        let mut next = index + 1;
-        let scopes = self.working_set.delta.scope.len();
-        for shape in ordered {
-            let errors = self.working_set.parse_errors.len();
-            let warnings = self.working_set.parse_warnings.len();
-            let compile_errors = self.working_set.compile_errors.len();
-            match self.multispan_value(arguments, index, end, shape, input_type) {
-                Ok(value) if self.working_set.parse_errors.len() == errors => return Ok(value),
-                Err(unsupported @ Unlowered::Unsupported(_)) => return Err(unsupported),
-                Ok((value, after)) => {
-                    next = after;
-                    // A failed shape's open scopes go back only for the best guess (`one_of`).
-                    let open = self.take_open_scopes(scopes);
-                    let new_errors = &self.working_set.parse_errors[errors..];
-                    let first = new_errors
-                        .iter()
-                        .map(|error| error.span().start)
-                        .min()
-                        .unwrap_or_default();
-                    if first > furthest {
-                        // The item the shape read last, as `parse_oneof` compares with it.
-                        let last = || {
-                            arguments
-                                .get(after.saturating_sub(1))
-                                .map_or(start, |argument| self.span(argument.span()))
-                        };
-                        propagate = best_guess_propagates(new_errors.last(), shape, last);
-                        furthest = first;
-                        let warnings = self.working_set.parse_warnings[warnings..].to_vec();
-                        best_guess = Some((value, new_errors.to_vec(), warnings, open));
-                    }
-                }
-                Err(_) => given_back = true,
-            }
-            self.working_set.parse_errors.truncate(errors);
-            self.working_set.parse_warnings.truncate(warnings);
-            self.working_set.compile_errors.truncate(compile_errors);
-        }
-        if given_back {
-            return Err(Unlowered::Error);
-        }
-        match best_guess {
-            Some((value, errors, warnings, open)) if furthest > start.start || propagate => {
-                self.working_set.parse_errors.extend(errors);
-                self.working_set.parse_warnings.extend(warnings);
-                self.working_set.delta.scope.extend(open);
-                Ok((value, next))
-            }
-            _ => {
-                self.working_set.error(ParseError::ExpectedWithStringMsg(
-                    format!("one of a list of accepted shapes: {shapes:?}"),
-                    start,
-                ));
-                Ok((Expression::garbage(self.working_set, start), next))
-            }
-        }
+        let first_item = arguments[index].span();
+        let start = self.span(first_item);
+        self.read_oneof(
+            first_item,
+            shapes,
+            index + 1,
+            |this, shape| this.multispan_value(arguments, index, end, shape, input_type),
+            // The item the shape read last, as `parse_oneof` compares with it.
+            |this, after| {
+                arguments
+                    .get(after.saturating_sub(1))
+                    .map_or(start, |argument| this.span(argument.span()))
+            },
+        )
     }
 
     /// A keyword parameter's argument, `keyword value`, from `arguments[index]` (the `Keyword`
@@ -1374,7 +1308,7 @@ impl<'s> Lower<'_, '_, 's> {
         // As `parse_short_flags`: a flag that takes a value must come last in the batch, which
         // ends the batch there, and the first letter the signature lacks is the unknown flag;
         // the flags found are added unless the command forwards the batch as an argument.
-        let errors = self.working_set.parse_errors.len();
+        let trial = Trial::new(self.working_set);
         let mut found: Vec<Flag> = Vec::new();
         let mut unmatched = None;
         let count = flag.name.chars().count();
@@ -1404,7 +1338,7 @@ impl<'s> Lower<'_, '_, 's> {
                 "Use `--help` to see available flags".to_owned(),
             ));
             if self.forwards_unknown_flag(token, signature) {
-                self.working_set.parse_errors.truncate(errors);
+                trial.discard_errors(self.working_set);
                 let value = self.unknown_arg(flag.span, signature)?;
                 call.add_unknown(value);
                 return Ok(false);

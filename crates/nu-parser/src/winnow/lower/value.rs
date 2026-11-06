@@ -12,12 +12,12 @@ use nu_protocol::{
 };
 
 use super::leaf::is_quoted;
+use super::trial::Trial;
 use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::winnow::lookup::EngineLookup;
 use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{Span as WSpan, ast as w, parse_braces_as_closure, parse_match_arms};
 use crate::{
-    parse_calls::accepts_any_bareword,
     parse_captures_compile::compile_block,
     parse_expressions::{check_record_key_or_value, table_type},
     type_check::negation_type,
@@ -35,28 +35,6 @@ fn negates(shape: &SyntaxShape) -> bool {
             | SyntaxShape::Duration
             | SyntaxShape::Filesize
     )
-}
-
-/// Whether the errors of a `oneof` shape's best guess, whose last error is `last`, are kept
-/// even when the guess got no further than the item's start (`parse_oneof`): an expected value
-/// is dropped unless the shape is a block, a closure or an expression and the error is inside
-/// the item, `item` the span of the item the shape read last; any other error is kept.
-pub(super) fn best_guess_propagates(
-    last: Option<&ParseError>,
-    shape: &SyntaxShape,
-    item: impl FnOnce() -> Span,
-) -> bool {
-    match last {
-        Some(
-            ParseError::Expected(_, error_span) | ParseError::ExpectedWithStringMsg(_, error_span),
-        ) => {
-            matches!(
-                shape,
-                SyntaxShape::Block | SyntaxShape::Closure(_) | SyntaxShape::Expression
-            ) && *error_span != item()
-        }
-        _ => true,
-    }
 }
 
 impl<'s> Lower<'_, '_, 's> {
@@ -117,84 +95,23 @@ impl<'s> Lower<'_, '_, 's> {
         }
     }
 
-    /// The first of `shapes` that reads the item without an error (`parse_oneof`), each read
-    /// as `parse_value` reads it there ([`Self::value`]). As there, the shapes that take
-    /// nearly any bare word go last unless the item starts with `$`, `(` or `{`, and each
-    /// shape's errors, warnings and compile errors (a closure it compiled) are dropped before
-    /// the next is tried. When none reads it, the value is the guess whose first error is the
-    /// furthest along, with its errors and warnings, if that error is past the item's start or
-    /// its last error is not just an expected value (but in a block, a closure or an
-    /// expression); else the item is garbage, with an error that lists the shapes. A shape the
-    /// lowering gives back gives the statement back.
+    /// The first of `shapes` that reads the item without an error, each read as `parse_value`
+    /// reads it in `parse_oneof` ([`Self::value`]): [`Self::read_oneof`] over one item.
     pub(super) fn one_of(
         &mut self,
         e: &w::Expression<'s>,
         shapes: &[SyntaxShape],
         input_type: Option<&Type>,
     ) -> Lowered<Expression> {
-        let defer_barewords = !matches!(
-            self.text(e.span).as_bytes().first(),
-            Some(b'$' | b'(' | b'{')
-        );
-        let deferred = |shape: &&SyntaxShape| defer_barewords && accepts_any_bareword(shape);
-        let ordered = shapes
-            .iter()
-            .filter(|shape| !deferred(shape))
-            .chain(shapes.iter().filter(|shape| deferred(shape)));
         let span = self.span(e.span);
-        let mut best_guess = None;
-        let mut furthest = 0;
-        let mut propagate = false;
-        let mut given_back = None;
-        let scopes = self.working_set.delta.scope.len();
-        for shape in ordered {
-            let errors = self.working_set.parse_errors.len();
-            let warnings = self.working_set.parse_warnings.len();
-            let compile_errors = self.working_set.compile_errors.len();
-            match self.value(e, shape, input_type) {
-                Ok(value) => {
-                    let new_errors = &self.working_set.parse_errors[errors..];
-                    let Some(first) = new_errors.iter().map(|error| error.span().start).min()
-                    else {
-                        return Ok(value);
-                    };
-                    // An unclosed closure leaves its scope open, which `parse_oneof` takes off
-                    // until it knows the best guess, whose scopes go back.
-                    let open = self.take_open_scopes(scopes);
-                    let new_errors = &self.working_set.parse_errors[errors..];
-                    if first > furthest {
-                        propagate = best_guess_propagates(new_errors.last(), shape, || span);
-                        furthest = first;
-                        let warnings = self.working_set.parse_warnings[warnings..].to_vec();
-                        best_guess = Some((value, new_errors.to_vec(), warnings, open));
-                    }
-                }
-                Err(reason) => {
-                    given_back.get_or_insert(reason);
-                }
-            }
-            self.working_set.parse_errors.truncate(errors);
-            self.working_set.parse_warnings.truncate(warnings);
-            self.working_set.compile_errors.truncate(compile_errors);
-        }
-        if let Some(reason) = given_back {
-            return Err(reason);
-        }
-        match best_guess {
-            Some((value, errors, warnings, open)) if furthest > span.start || propagate => {
-                self.working_set.parse_errors.extend(errors);
-                self.working_set.parse_warnings.extend(warnings);
-                self.working_set.delta.scope.extend(open);
-                Ok(value)
-            }
-            _ => {
-                self.working_set.error(ParseError::ExpectedWithStringMsg(
-                    format!("one of a list of accepted shapes: {shapes:?}"),
-                    span,
-                ));
-                Ok(Expression::garbage(self.working_set, span))
-            }
-        }
+        let (value, _) = self.read_oneof(
+            e.span,
+            shapes,
+            0,
+            |this, shape| Ok((this.value(e, shape, input_type)?, 0)),
+            |_, _| span,
+        )?;
+        Ok(value)
     }
 
     /// An item starting with none of `$`, `(`, `{` and `[` (`parse_value`): a raw string
@@ -716,10 +633,10 @@ impl<'s> Lower<'_, '_, 's> {
             // A table the classic parser reports an error in, which the lowering gives back
             // (`table`): nu's table parser reads the item, reporting it.
             w::Expr::Table(table) => {
-                let errors = self.working_set.parse_errors.len();
+                let trial = Trial::new(self.working_set);
                 match self.table(e.span, table) {
                     Err(Unlowered::Error) => {
-                        self.working_set.parse_errors.truncate(errors);
+                        trial.discard_errors(self.working_set);
                         self.table_text(e.span, element)
                     }
                     lowered => lowered,
