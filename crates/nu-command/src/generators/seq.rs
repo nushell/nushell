@@ -127,10 +127,9 @@ fn seq(
         }
 
         // Any value other than the final one must not be infinite.
-        // The first value can be infinite if it's the only value given.
-        if i != rest_nums.len().saturating_sub(1) && num.item.is_infinite() {
+        if (i == 0 || i != rest_nums.len().saturating_sub(1)) && num.item.is_infinite() {
             return Err(ShellError::IncorrectValue {
-                msg: "Non-final infinite values are not allowed".into(),
+                msg: "First and increment cannot be infinite".into(),
                 val_span: num.span,
                 call_span: span,
             });
@@ -194,7 +193,10 @@ impl Iterator for FloatSeq {
         let count = self.first + self.index as f64 * self.step;
         // Accuracy guaranteed as far as possible; each time, the value is re-evaluated from the
         // base arguments
-        if (count > self.last && self.step >= 0.0) || (count < self.last && self.step <= 0.0) {
+        if !count.is_finite()
+            || (count > self.last && self.step >= 0.0)
+            || (count < self.last && self.step <= 0.0)
+        {
             return None;
         }
         self.index += 1;

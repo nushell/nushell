@@ -43,16 +43,16 @@ fn nan_is_rejected(#[case] code: &str) -> Result {
 #[case::step("seq 0 inf 10")]
 #[case::start_negative("seq -inf 1")]
 #[case::rounds_to_inf("seq 1e309 1")]
+#[case::solo("seq inf")]
 fn non_final_infinite_is_rejected(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
-    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "Non-final infinite values are not allowed");
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "First and increment cannot be infinite");
     Ok(())
 }
 
 #[rstest]
 #[case::trio("seq 0 1 inf", [0.0, 1.0])]
 #[case::duo("seq 0 inf", [0.0, 1.0])]
-#[case::solo_negative("seq -inf", [f64::NEG_INFINITY, f64::NEG_INFINITY])]
 fn final_infinite_is_allowed(#[case] code: &str, #[case] expected: [f64; 2]) -> Result {
     let code = format!("{} | first 2", code);
     test().run(code).expect_value_eq(expected)
