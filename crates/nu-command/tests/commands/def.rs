@@ -444,7 +444,9 @@ fn recursive_func_should_compile(#[case] first_code: &str, #[case] recursive_cod
 fn completer_inside_generic_type_is_reported(#[case] ty: &str, #[case] at: &str) -> Result {
     // https://github.com/nushell/nushell/issues/16773
     let code = format!("def baz [] {{ [] }}; def foo [bar: {ty}] {{ $bar }}");
-    let err = test().run(code).expect_parse_error()?;
+    let mut tester = test();
+    let base = tester.engine_state.next_span_start();
+    let err = tester.run(&code).expect_parse_error()?;
     let ParseError::LabeledErrorWithHelp {
         error, label, span, ..
     } = err
@@ -456,7 +458,31 @@ fn completer_inside_generic_type_is_reported(#[case] ty: &str, #[case] at: &str)
         label,
         "Type specifications do not support custom completers"
     );
-    assert_eq!(span.len(), at.len());
+    assert_eq!(&code[span.start - base..span.end - base], at);
+    Ok(())
+}
+
+#[rstest]
+#[case::quoted_key("recrod<\"a@b\": string>")]
+#[case::comment("recrod<\n  a: string # see @x\n>")]
+fn at_inside_unknown_type_reports_unknown_type(#[case] ty: &str) -> Result {
+    let code = format!("def foo [bar: {ty}] {{ $bar }}");
+    let err = test().run(code).expect_parse_error()?;
+    assert!(
+        matches!(err, ParseError::UnknownType(_)),
+        "expected UnknownType, got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn at_inside_type_alias_params_reports_alias_error() -> Result {
+    let code = r#"type T = string; def foo [bar: T<"a@b">] { $bar }"#;
+    let err = test().run(code).expect_parse_error()?;
+    assert!(
+        matches!(err, ParseError::TypeAliasWithParams(..)),
+        "expected TypeAliasWithParams, got {err:?}"
+    );
     Ok(())
 }
 

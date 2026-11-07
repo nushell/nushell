@@ -82,12 +82,7 @@ pub fn parse_shape_name(
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
         b"string" => SyntaxShape::String,
-        _ if matches!(type_name(bytes), b"oneof" | b"list" | b"record" | b"table")
-            && completer_position(bytes).is_none() =>
-        {
-            parse_generic_shape(working_set, bytes, span)
-        }
-        _ if bytes.contains(&b'@') => {
+        _ if completer_position(bytes).is_some() => {
             working_set.error(ParseError::LabeledErrorWithHelp {
                 error: "Unexpected custom completer in type spec".into(),
                 label: "Type specifications do not support custom completers".into(),
@@ -98,6 +93,9 @@ pub fn parse_shape_name(
             });
             working_set.error(ParseError::UnknownType(span));
             SyntaxShape::Any
+        }
+        _ if matches!(type_name(bytes), b"oneof" | b"list" | b"record" | b"table") => {
+            parse_generic_shape(working_set, bytes, span)
         }
         _ => expand_type_alias(working_set, bytes, span),
     }
