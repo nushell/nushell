@@ -86,3 +86,12 @@ fn row_condition_capture_keeps_definition_span() -> Result {
     let code = r#"let x = 'abc'; [1] | where { let s = (metadata $x).span; (view span $s.start $s.end) == "'abc'" } | length"#;
     test().run(code).expect_value_eq(1)
 }
+
+// A value with no source span of its own takes the use site, so a label doesn't land in the host
+// env vars.
+#[test]
+fn captured_value_without_source_span_gets_use_site_span() -> Result {
+    let code =
+        "def f [x] { do { let s = (metadata $x).span; view span $s.start $s.end } }; f $nu.pid";
+    test().run(code).expect_value_eq("$x")
+}

@@ -694,16 +694,7 @@ fn eval_instruction<D: DebugContext>(
                 ctx.stack.last_result_pipeline_data(*span)
             } else if *preserve_origin {
                 // Keep definition span (e.g. `metadata $x`).
-                let value = ctx
-                    .stack
-                    .get_var_with_origin(*var_id, *span)
-                    .or_else(|err| {
-                        if let Some(const_val) = ctx.engine_state.get_constant(*var_id).cloned() {
-                            Ok(const_val)
-                        } else {
-                            Err(err)
-                        }
-                    })?;
+                let value = get_var_with_origin(ctx, *var_id, *span)?;
                 value.into_pipeline_data()
             } else {
                 let value = get_var(ctx, *var_id, *span)?;
@@ -1417,11 +1408,7 @@ fn literal_value(
                 .captures
                 .iter()
                 .map(|(var_id, span)| {
-                    ctx.stack
-                        .get_var_with_origin(*var_id, *span)
-                        .or_else(|err| ctx.engine_state.get_constant(*var_id).cloned().ok_or(err))
-                        .or_else(|_| get_var(ctx, *var_id, *span))
-                        .map(|val| (*var_id, val))
+                    get_var_with_origin(ctx, *var_id, *span).map(|val| (*var_id, val))
                 })
                 .collect::<Result<Vec<_>, ShellError>>()?;
             Value::closure(
@@ -2121,6 +2108,26 @@ fn check_input_types(
         (_, None) => Err(ShellError::NushellFailed {
             msg: "Command input type strings is empty, despite being non-zero earlier".to_string(),
         }),
+    }
+}
+
+/// Get a variable with the span it was defined with, for `metadata $x` and closure captures.
+///
+/// Values with no source location of their own, like `$nu.pid` or `$NU_LIB_DIRS`, take `span`
+/// instead, because their placeholder span would point an error label at the host env vars.
+fn get_var_with_origin(
+    ctx: &EvalContext<'_>,
+    var_id: VarId,
+    span: Span,
+) -> Result<Value, ShellError> {
+    let value = ctx
+        .stack
+        .get_var_with_origin(var_id, span)
+        .or_else(|err| ctx.engine_state.get_constant(var_id).cloned().ok_or(err))?;
+    if value.span() == Span::unknown() || value.span() == Span::test_data() {
+        Ok(value.with_span(span))
+    } else {
+        Ok(value)
     }
 }
 
