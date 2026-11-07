@@ -104,6 +104,10 @@ impl Command for IntoDatetime {
                     Type::List(Box::new(Type::Date)),
                 ),
                 (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Date)),
+                ),
+                (
                     Type::List(Box::new(Type::Duration)),
                     Type::List(Box::new(Type::Date)),
                 ),
