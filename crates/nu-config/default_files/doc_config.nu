@@ -235,8 +235,9 @@ $env.config.show_hints = true
 # To use the built-in hinter instead, set hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
 # External commands run detached from the terminal, but can still receive input
-# from a pipeline. Uncaptured output is discarded. `input`, `input list`,
-# `input listen` and `term query` return an error, which yields no hint unless caught.
+# from a pipeline. Their uncaptured output is discarded. `print` still writes to
+# the screen. `input`, `input list`, `input listen` and `term query` return an
+# error, which yields no hint unless caught.
 # Default: null
 $env.config.hinter.closure = null
 
