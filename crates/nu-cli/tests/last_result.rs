@@ -21,6 +21,7 @@ use nu_protocol::{
 };
 use nu_test_support::prelude::*;
 use nu_test_support::tester::PATH_ENV_AUTO_LOAD;
+use nu_utils::consts::LINE_SEPARATOR_STR;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -912,7 +913,10 @@ fn byte_stream_is_not_drained_ahead_of_display() -> Result {
     let Value::String { val, .. } = &last else {
         panic!("expected string last payload, got {last:?}");
     };
-    assert!(val.starts_with("1\n"), "got {val:?}");
+    assert!(
+        val.starts_with(&format!("1{LINE_SEPARATOR_STR}")),
+        "got {val:?}"
+    );
     assert!(!val.contains("100"), "the whole stream was read: {val:?}");
     assert!(session.stack.last_result_was_truncated());
     Ok(())
@@ -997,7 +1001,10 @@ fn display_hook_that_fails_keeps_prior_last() -> Result {
 fn byte_stream_is_stored_whole_under_budget() -> Result {
     let mut session = Interactive::new();
     session.run("[a b] | each {|x| $x} | to text");
-    assert_eq!(session.last_payload()?, Value::test_string("a\nb\n"));
+    assert_eq!(
+        session.last_payload()?,
+        Value::test_string(format!("a{LINE_SEPARATOR_STR}b{LINE_SEPARATOR_STR}"))
+    );
     assert!(!session.stack.last_result_was_truncated());
     Ok(())
 }
@@ -1020,7 +1027,10 @@ fn byte_stream_can_read_prior_last_while_running() -> Result {
     let mut session = Interactive::new();
     session.run("42");
     session.run("1..2 | each {|i| $ans.last} | to text");
-    assert_eq!(session.last_payload()?, Value::test_string("42\n42\n"));
+    assert_eq!(
+        session.last_payload()?,
+        Value::test_string(format!("42{LINE_SEPARATOR_STR}42{LINE_SEPARATOR_STR}"))
+    );
     Ok(())
 }
 
