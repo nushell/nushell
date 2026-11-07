@@ -111,7 +111,7 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     /// The local bindings a lookup at `at` walks, innermost first: the IR regions covering the
-    /// current instruction, then the whole-block bindings. Frames from a block that doesn't
+    /// current instruction and the whole-block bindings. Frames from a block that doesn't
     /// contain `at` are skipped.
     fn local_frames(&self, at: Span) -> impl Iterator<Item = &'s ScopeBindings> {
         let stack = self.stack;
@@ -119,18 +119,23 @@ impl<'e, 's> ScopeData<'e, 's> {
             stack
                 .ir_scope_regions
                 .iter()
-                .rev()
                 .filter(move |region| region.contains(pc))
                 .map(|region| &*region.bindings)
         });
         let blocks = stack
             .active_scope_bindings
             .iter()
-            .rev()
             .map(|bindings| &**bindings);
-        regions
+        let mut frames: Vec<_> = regions
             .chain(blocks)
-            .filter(move |frame| frame.span.is_some_and(|span| span.contains_span(at)))
+            .filter(|frame| frame.span.is_some_and(|span| span.contains_span(at)))
+            .collect();
+        // Why: neither the order regions are recorded in nor stack order is lexical order (an
+        // inner keyword body's region is pushed before the outer one, and a recursive command
+        // stacks blocks out of order). The blocks around `at` always nest, so the smaller the
+        // span, the closer the block.
+        frames.sort_by_key(|frame| frame.span.map(|span| span.len()));
+        frames.into_iter()
     }
 
     /// Permanent overlays, then whole-block active bindings, then IR regions covering the PC.

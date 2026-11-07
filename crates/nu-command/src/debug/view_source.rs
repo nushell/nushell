@@ -150,9 +150,7 @@ and an explicit type annotation is lost. `$nu` and the record bound by
                 // scope first also finds commands, aliases and modules defined in the running
                 // block, like inside a closure.
                 let scope = ScopeData::new(engine_state, stack);
-                let found_decl = scope.find_decl(val.as_bytes(), call.head);
-                let found_module = || scope.find_module(val.as_bytes(), call.head);
-                if let Some(decl_id) = found_decl {
+                if let Some(decl_id) = scope.find_decl(val.as_bytes(), call.head) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
 
@@ -241,7 +239,7 @@ and an explicit type annotation is lost. `$nu` and the record bound by
                             arg_span,
                         )))
                     }
-                } else if let Some(module_id) = found_module() {
+                } else if let Some(module_id) = scope.find_module(val.as_bytes(), call.head) {
                     // arg is a module
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {

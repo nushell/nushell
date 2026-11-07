@@ -309,3 +309,33 @@ fn hiding_a_local_alias_shows_the_outer_one() -> Result {
     let code = "do { alias a = ls; do { alias a = print; hide a; view source a } }";
     test().run(code).expect_value_eq("ls")
 }
+
+#[test]
+fn inner_keyword_body_shadows_the_outer_one() -> Result {
+    let code = "if true { alias a = ls; if true { alias a = print; view source a } }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn hide_in_an_inner_keyword_body_hides_the_outer_alias() -> Result {
+    let code = "if true { alias a = print; if true { hide a; view source a } }";
+    let err = match test().run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        err => panic!("expected a GenericError, got {err:?}"),
+    };
+    assert_eq!(err.error, "Cannot view string value");
+    Ok(())
+}
+
+// Stack order isn't lexical order once a command recurses, so the closest block is picked by span.
+#[test]
+fn closest_block_wins_in_a_recursive_command() -> Result {
+    let code = "
+        def f [n c?] {
+            alias a = ls
+            if $n == 0 { do $c } else { do { alias a = print; f 0 {|| view source a } } }
+        }
+        f 1
+    ";
+    test().run(code).expect_value_eq("print")
+}
