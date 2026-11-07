@@ -22,23 +22,41 @@ fn ints_in_seq_leads_to_lists_of_ints() -> Result {
 #[case::float("seq 1.0 0.0 5.0")]
 fn zero_increment_is_rejected(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
-
-    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "increment cannot be 0");
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "Increment can't be 0");
     Ok(())
 }
 
 #[rstest]
-#[case("seq 0.0 0.1 1.0 NaN")]
-#[case("seq 0.0 0.1 NaN 1.0")]
-#[case("seq 0.0 0.1 NaN")]
-#[case("seq 0.0 NaN 1.0")]
-#[case("seq NaN 0.1 1.0")]
-#[case("seq inf 0.1 1.0")]
-fn non_finite_range_is_rejected(#[case] code: &str) -> Result {
+#[case("seq 0 1 10 NaN")]
+#[case("seq 0 1 NaN 10")]
+#[case("seq 0 1 NaN")]
+#[case("seq 0 NaN 10")]
+#[case("seq NaN 1 10")]
+fn nan_is_rejected(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
-
-    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "non-finite values are not accepted");
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "NaN values are not allowed");
     Ok(())
+}
+
+#[rstest]
+#[case("seq 0 1 inf 10")]
+#[case("seq 0 inf 10")]
+#[case("seq inf 1 10")]
+#[case("seq inf 1")]
+fn non_final_infinite_is_rejected(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "Non-final infinite values are not allowed");
+    Ok(())
+}
+
+#[rstest]
+#[case("seq 0 1 10 inf", [0.0, 1.0, 2.0])]
+#[case("seq 0 1 inf", [0.0, 1.0, 2.0])]
+#[case("seq 0 inf", [0.0, 1.0, 2.0])]
+#[case("seq inf", [f64::INFINITY, f64::INFINITY, f64::INFINITY])]
+fn final_infinite_is_allowed(#[case] code: &str, #[case] expected: [f64; 3]) -> Result {
+    let code = format!("{} | first 3", code);
+    test().run(code).expect_value_eq(expected)
 }
 
 #[test]

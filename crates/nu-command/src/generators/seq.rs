@@ -103,24 +103,35 @@ fn seq(
         )));
     }
 
-    // A zero increment never terminates (`seq 5 0 5` would emit `5` forever) or
-    // silently produces nothing, so reject it up front like GNU `seq` does.
-    // The increment is the middle argument; with fewer than three arguments it
-    // defaults to 1 and cannot be zero.
-    if rest_nums.len() > 2 && rest_nums[1].item == 0.0 {
-        return Err(ShellError::IncorrectValue {
-            msg: "increment cannot be 0".into(),
-            val_span: rest_nums[1].span,
-            call_span: span,
-        });
-    }
+    // Throw an error if an invalid range has been given
+    for (i, num) in rest_nums.iter().enumerate() {
+        // NaN values are not allowed at all.
+        if num.item.is_nan() {
+            return Err(ShellError::IncorrectValue {
+                msg: "NaN values are not allowed".into(),
+                val_span: num.span,
+                call_span: span,
+            });
+        }
 
-    if let Some(num) = rest_nums.iter().find(|i| !i.item.is_finite()) {
-        return Err(ShellError::IncorrectValue {
-            msg: "non-finite values are not accepted".into(),
-            val_span: num.span,
-            call_span: span,
-        });
+        // Do not accept a step/increment of 0, consistent with GNU seq.
+        if i == 1 && rest_nums.len() >= 3 && num.item == 0.0 {
+            return Err(ShellError::IncorrectValue {
+                msg: "Increment can't be 0".into(),
+                val_span: num.span,
+                call_span: span,
+            });
+        }
+
+        // Any value other than the final one must not be infinite.
+        // The first value can be infinite if it's the only value given.
+        if i != rest_nums.len().saturating_sub(1) && num.item.is_infinite() {
+            return Err(ShellError::IncorrectValue {
+                msg: "Non-final infinite values are not allowed".into(),
+                val_span: num.span,
+                call_span: span,
+            });
+        }
     }
 
     let rest_nums: Vec<f64> = rest_nums.iter().map(|n| n.item).collect();
