@@ -463,11 +463,17 @@ fn ls_for_one_pattern(
             && nu_glob::is_glob_with_backend(pattern)
             && nu_glob::Pattern::new(pattern).is_ok()
         {
+            // Backtick strings have no escapes, so only offer one when the pattern has no backtick.
+            let backticks = if pattern.contains('`') {
+                String::new()
+            } else {
+                format!(" or backticks, as in ls `{pattern}`")
+            };
             (
                 "File or folder not found",
                 format!(
                     "Strings are not expanded as glob patterns. If you meant a glob, use \
-                    `into glob` or backticks, as in ls `{pattern}`"
+                    `into glob`{backticks}"
                 ),
             )
         } else {

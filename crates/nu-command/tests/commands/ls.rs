@@ -263,6 +263,30 @@ fn quoted_glob_pattern_explains_that_it_is_not_expanded(
 }
 
 #[test]
+fn quoted_glob_pattern_with_backtick_only_suggests_into_glob() -> Result {
+    Playground::setup("ls_test_quoted_glob_backtick", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a`tick1")]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("ls 'a`*'")
+            .expect_shell_error()?;
+        let ShellError::Generic(err) = err else {
+            panic!("expected a generic error, got {err:?}");
+        };
+        assert_eq!(
+            err.help.as_deref(),
+            Some("Strings are not expanded as glob patterns. If you meant a glob, use `into glob`")
+        );
+
+        test()
+            .cwd(dirs.test())
+            .run("ls ('a`*' | into glob) | get name.0")
+            .expect_value_eq("a`tick1")
+    })
+}
+
+#[test]
 fn quoted_invalid_glob_pattern_gets_the_plain_error() -> Result {
     Playground::setup("ls_test_quoted_bad_glob", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("report1.txt")]);
