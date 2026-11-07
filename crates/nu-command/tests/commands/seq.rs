@@ -23,7 +23,7 @@ fn ints_in_seq_leads_to_lists_of_ints() -> Result {
 #[case::rounds_to_zero("seq 1.0 1e-324 5.0")]
 fn zero_increment_is_rejected(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
-    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "Increment can't be 0");
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "Increment cannot be 0");
     Ok(())
 }
 

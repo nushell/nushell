@@ -114,10 +114,13 @@ fn seq(
             });
         }
 
-        // Do not accept a step/increment of 0, consistent with GNU seq.
+        // A zero increment never terminates (`seq 5 0 5` would emit `5` forever) or
+        // silently produces nothing, so reject it up front like GNU `seq` does.
+        // The increment is the middle argument; with fewer than three arguments it
+        // defaults to 1 and cannot be zero.
         if i == 1 && rest_nums.len() >= 3 && num.item == 0.0 {
             return Err(ShellError::IncorrectValue {
-                msg: "Increment can't be 0".into(),
+                msg: "Increment cannot be 0".into(),
                 val_span: num.span,
                 call_span: span,
             });
