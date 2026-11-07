@@ -143,8 +143,10 @@ impl Command for UrlJoin {
 fn same_query(left: &str, right: &str) -> bool {
     let left = left.strip_prefix('?').unwrap_or(left);
     let right = right.strip_prefix('?').unwrap_or(right);
+    // Why: `foo` isn't a special scheme. For `http` the `url` crate encodes a raw `'` in the
+    // query, which would turn away queries like `ref='v1'` that `url parse` gives for other schemes.
     let reads_back = |query: &str| {
-        Url::parse(&format!("http://h?{query}")).is_ok_and(|url| url.query() == Some(query))
+        Url::parse(&format!("foo://h?{query}")).is_ok_and(|url| url.query() == Some(query))
     };
     let decode = |query| serde_urlencoded::from_str::<Vec<(String, String)>>(query).ok();
     left == right || (reads_back(left) && reads_back(right) && decode(left) == decode(right))
@@ -288,7 +290,7 @@ impl UrlComponents {
                 {
                     // if query is present it means that also params_span is set.
                     return Err(ShellError::IncompatibleParameters {
-                        left_message: format!("Mismatch, query param is: {s}"),
+                        left_message: format!("Mismatch, query param is: ?{s}"),
                         left_span: value_span,
                         right_message: format!("instead query string from params is: {q}"),
                         right_span: self.params_span.unwrap_or(value_span),

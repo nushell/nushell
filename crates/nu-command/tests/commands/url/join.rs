@@ -159,14 +159,15 @@ fn url_join_with_encoded_query_and_params() -> Result {
         .expect_value_eq("http://localhost?name=a%20b&x=%28y%29")
 }
 
-#[test]
-fn url_parse_then_join_keeps_encoded_query() -> Result {
-    // https://github.com/nushell/nushell/issues/12352
-    let code = r#""https://example.com/search?q=a%20b&lang=en" | url parse | url join"#;
-
+#[rstest::rstest]
+// https://github.com/nushell/nushell/issues/12352
+#[case::encoded_space("https://example.com/search?q=a%20b&lang=en")]
+#[case::quote_in_other_scheme("git+ssh://h/r?ref='v1'")]
+#[case::quote_and_encoded_space("foo://h/p?q=a%20b&r='c'")]
+fn url_parse_then_join_keeps_encoded_query(#[case] url: &str) -> Result {
     test()
-        .run(code)
-        .expect_value_eq("https://example.com/search?q=a%20b&lang=en")
+        .run(format!(r#""{url}" | url parse | url join"#))
+        .expect_value_eq(url)
 }
 
 #[test]
@@ -183,6 +184,24 @@ fn url_join_with_question_mark_in_query_ignores_field_order(#[case] record: &str
     test()
         .run(format!("{record} | url join"))
         .expect_value_eq("http://h??a=1")
+}
+
+#[test]
+fn url_join_mismatch_shows_question_mark_of_query() -> Result {
+    let code = r#"{scheme: http, host: h, params: {a: "1"}, query: "?a=1"} | url join"#;
+    let err = test().run(code).expect_error()?;
+    match err {
+        ShellError::IncompatibleParameters {
+            left_message,
+            right_message,
+            ..
+        } => {
+            assert_eq!(left_message, "Mismatch, query param is: ??a=1");
+            assert_eq!(right_message, "instead query string from params is: ?a=1");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[rstest::rstest]
@@ -256,7 +275,7 @@ fn url_join_with_different_query_and_params() -> Result {
         } => {
             assert_eq!(
                 left_message,
-                "Mismatch, query param is: par_1=aaa&par_2=bbb"
+                "Mismatch, query param is: ?par_1=aaa&par_2=bbb"
             );
             assert_eq!(
                 right_message,
