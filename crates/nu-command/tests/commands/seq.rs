@@ -23,7 +23,7 @@ fn ints_in_seq_leads_to_lists_of_ints() -> Result {
 #[case::rounds_to_zero("seq 1.0 1e-324 5.0")]
 fn zero_increment_is_rejected(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
-    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "Increment cannot be 0");
+    assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "increment cannot be 0");
     Ok(())
 }
 
@@ -43,7 +43,7 @@ fn nan_is_rejected(#[case] code: &str) -> Result {
 #[case::step("seq 0 inf 10")]
 #[case::start_negative("seq -inf 1")]
 #[case::rounds_to_inf("seq 1e309 1")]
-#[case::solo("seq inf")]
+#[case::single("seq inf")]
 fn non_final_infinite_is_rejected(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::IncorrectValue { msg, .. } if msg == "First and increment cannot be infinite");
@@ -51,11 +51,20 @@ fn non_final_infinite_is_rejected(#[case] code: &str) -> Result {
 }
 
 #[rstest]
-#[case::trio("seq 0 1 inf", [0.0, 1.0])]
-#[case::duo("seq 0 inf", [0.0, 1.0])]
+#[case::start_step_end("seq 0 1 inf", [0.0, 1.0])]
+#[case::start_end("seq 0 inf", [0.0, 1.0])]
+#[case::negative("seq 5 -1 -inf", [5.0, 4.0])]
 fn final_infinite_is_allowed(#[case] code: &str, #[case] expected: [f64; 2]) -> Result {
     let code = format!("{} | first 2", code);
     test().run(code).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::positive("seq 0 1e308 inf")]
+#[case::negative("seq 0 -1e308 -inf")]
+fn overflow_stops_iteration(#[case] code: &str) -> Result {
+    let code = format!("{} | first 3 | length", code);
+    test().run(code).expect_value_eq(2)
 }
 
 #[test]

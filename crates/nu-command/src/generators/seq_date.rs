@@ -303,8 +303,8 @@ pub fn run_seq_dates(
 
     if step_size == 0 {
         return Err(ShellError::Generic(GenericError::new(
-            "Increment cannot be 0",
-            "Increment cannot be 0",
+            "increment cannot be 0",
+            "increment cannot be 0",
             increment_span,
         )));
     }
