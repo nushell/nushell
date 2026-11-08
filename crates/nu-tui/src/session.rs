@@ -777,7 +777,14 @@ impl Session {
         match call_closure(&engine_state, &stack, closure.clone(), state)
             .and_then(|data| data.into_value(span))
         {
-            Ok(part) => part,
+            Ok(part @ (Value::Record { .. } | Value::Nothing { .. })) => part,
+            Ok(other) => {
+                self.error = Some(format!(
+                    "--on-change must return a record, not {}",
+                    other.get_type()
+                ));
+                Value::nothing(span)
+            }
             Err(err) => {
                 self.error = Some(truncate_chars(&err.to_string(), 80));
                 Value::nothing(span)
@@ -1757,16 +1764,20 @@ impl Session {
     }
 
     /// Whether `column` holds paths: one the data marks, `name` beside a
-    /// `type` (as `ls` gives), or the table's own `--color` column.
-    pub fn is_path_column(&self, column: &str, row: &Value, path_column: Option<&str>) -> bool {
-        if path_column == Some(column) || self.app.path_columns.iter().any(|c| c == column) {
+    /// `type` (as `ls` gives), or one of the table's own `--path-columns`.
+    pub fn is_path_column(&self, column: &str, row: &Value, path_columns: &[String]) -> bool {
+        if path_columns
+            .iter()
+            .chain(&self.app.path_columns)
+            .any(|c| c == column)
+        {
             return true;
         }
         column == "name" && row.as_record().ok().and_then(|r| r.get("type")).is_some()
     }
 
     /// The file a path cell stands for: `path` under `cwd` when that
-    /// exists, else the row's `name` (a `--color` column of bare names
+    /// exists, else the row's `name` (a `--path-columns` column of bare names
     /// beside the full paths `ls` gives), else `path` as given. Icons and
     /// colors look at the file itself where they can.
     fn disk_path(&self, row: &Value, path: &str) -> PathBuf {
@@ -1839,14 +1850,14 @@ impl Session {
         }
     }
 
-    /// Text and style of one table cell. `path_column` is the table's
-    /// `--color` column, shown as paths besides those the data marks.
+    /// Text and style of one table cell. `path_columns` are the table's
+    /// `--path-columns`, shown as paths besides those the data marks.
     pub fn styled_cell(
         &self,
         row: &Value,
         column: &str,
         computer: Option<&StyleComputer>,
-        path_column: Option<&str>,
+        path_columns: &[String],
     ) -> (String, Style) {
         let value = match row {
             Value::Record { val, .. } => val
@@ -1856,7 +1867,7 @@ impl Session {
             other => other.clone(),
         };
         let text = self.format_value(&value);
-        if self.is_path_column(column, row, path_column)
+        if self.is_path_column(column, row, path_columns)
             && let Some(path) = value.as_str().ok()
         {
             return (text, self.theme.path_cell(self.file_style(row, path)));
@@ -1875,10 +1886,10 @@ impl Session {
         &self,
         row: &Value,
         column: &str,
-        path_column: Option<&str>,
+        path_columns: &[String],
     ) -> Option<ratatui::text::Span<'static>> {
         use devicons::icon_for_file;
-        if !self.is_path_column(column, row, path_column) {
+        if !self.is_path_column(column, row, path_columns) {
             return None;
         }
         let path = row.as_record().ok()?.get(column)?.as_str().ok()?;
@@ -1902,7 +1913,7 @@ impl Session {
     /// the value's type color. `computer` comes from
     /// [`Session::style_computer`], built once per frame rather than per row.
     pub fn row_style(&self, row: &Value, computer: Option<&StyleComputer>) -> Style {
-        if self.is_path_column("name", row, None)
+        if self.is_path_column("name", row, &[])
             && let Some(path) = crate::widgets::preview::row_path(row)
         {
             return self.theme.path_cell(self.file_style(row, &path));
@@ -2286,7 +2297,7 @@ mod tests {
                 multi: false,
                 index: false,
                 icons: false,
-                color: None,
+                path_columns: Vec::new(),
             }),
         )
     }
@@ -2545,7 +2556,7 @@ mod tests {
                 multi: false,
                 index: false,
                 icons: false,
-                color: None,
+                path_columns: Vec::new(),
             }),
         ));
         app(widgets, rows)
@@ -3148,7 +3159,7 @@ mod tests {
             multi: false,
             index: false,
             icons: false,
-            color: None,
+            path_columns: Vec::new(),
         });
         let mut session = Session::new(app(
             vec![
@@ -3390,7 +3401,7 @@ mod tests {
                     multi: true,
                     index: false,
                     icons: false,
-                    color: None,
+                    path_columns: Vec::new(),
                 }),
             )],
             Value::test_nothing(),

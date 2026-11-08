@@ -52,9 +52,9 @@ impl Command for TuiTable {
                     Some('o'),
                 )
                 .named(
-                    "color",
-                    SyntaxShape::String,
-                    "A column to color and icon as paths (directories blue, executables green, images yellow, …; `$env.config.tui.file_styles`): for a column of bare names beside the data's own `name`.",
+                    "path-columns",
+                    SyntaxShape::List(Box::new(SyntaxShape::String)),
+                    "Columns to color and icon as paths (directories blue, executables green, images yellow, …; `$env.config.tui.file_styles`), as `metadata set --path-columns` marks them: for a column of bare names beside the data's own `name`.",
                     None,
                 ),
         )
@@ -65,7 +65,7 @@ impl Command for TuiTable {
         vec![
             Example {
                 description: "List files with their icons, the names shown bare but colored and iconed as paths",
-                example: "ls | insert file { $in.name | path basename } | tui table --columns [file size] --icons --color file | tui run",
+                example: "ls | insert file { $in.name | path basename } | tui table --columns [file size] --icons --path-columns [file] | tui run",
                 result: None,
             },
             Example {
@@ -111,7 +111,7 @@ impl Command for TuiTable {
                 multi: call.has_flag(engine_state, stack, "multi")?,
                 index: call.has_flag(engine_state, stack, "index")?,
                 icons: call.has_flag(engine_state, stack, "icons")?,
-                color: call.get_flag(engine_state, stack, "color")?,
+                path_columns: flag_strings(engine_state, stack, call, "path-columns")?,
             };
             push_widget(
                 engine_state,

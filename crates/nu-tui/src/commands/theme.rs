@@ -1,5 +1,5 @@
 use super::{builder_io_types, with_app};
-use crate::theme::{COLOR_SLOTS, GLYPH_SLOTS, Glyphs, is_slot};
+use crate::theme::check_slot;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -15,7 +15,7 @@ impl Command for TuiTheme {
     }
 
     fn extra_description(&self) -> &str {
-        "The record's keys are the slots of `$env.config.tui`. Colors: `title_bar`, `status_bar`, `border`, `border_focused`, `selected`, `header`, `muted`, `highlight`, `tab_active`, `tab_inactive`, `progress`, `button`, `surface`, `backdrop`; each takes a color name, `#rrggbb`, or `{fg, bg, attr}`. `border_type` takes a `table --theme` name.\n\
+        "The record's keys are the slots of `$env.config.tui`, all but `image_protocol`, which only the config sets; the config's slots are checked the same way when a TUI starts. Colors: `title_bar`, `status_bar`, `border`, `border_focused`, `selected`, `header`, `muted`, `highlight`, `tab_active`, `tab_inactive`, `progress`, `button`, `surface`, `backdrop`; each takes a color name, `#rrggbb`, or `{fg, bg, attr}`. `border_type` takes a `table --theme` name.\n\
          \n\
          `file_styles` is a list of rules for path cells, the first one a file matches winning. A rule can ask for `kind` (`dir`, `file`, `symlink`, `orphan`, a symlink whose target is gone), `mime_type` and `mode` (globs, as `image/*` and `??x*`, the mode as `ls -l` shows it, which Windows lacks), and `ext` (ignoring case); the last three also take a list, any of which may match. All it asks for must hold. It looks like `fg`, `bg`, and `attr`, and under `--icons` `icon` replaces the file's glyph. A file no rule matches is plain text. A TUI's list replaces the config's.\n\
          \n\
@@ -68,24 +68,7 @@ impl Command for TuiTheme {
     ) -> Result<PipelineData, ShellError> {
         let slots: Record = call.req(engine_state, stack, 0)?;
         for (name, value) in &slots {
-            if !is_slot(name) {
-                return Err(ShellError::InvalidValue {
-                    valid: format!(
-                        "one of border_type, file_styles, {}, {}",
-                        COLOR_SLOTS.join(", "),
-                        GLYPH_SLOTS.join(", ")
-                    ),
-                    actual: name.clone(),
-                    span: value.span(),
-                });
-            }
-            if name == "border_type" {
-                crate::theme::parse_border(value)?;
-            }
-            if name == "file_styles" {
-                crate::theme::parse_file_styles(value)?;
-            }
-            Glyphs::default().apply(name, value)?;
+            check_slot(name, value)?;
         }
         with_app(call, input, |app| {
             app.theme.extend(slots);

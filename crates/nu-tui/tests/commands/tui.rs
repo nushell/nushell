@@ -84,6 +84,69 @@ fn glyph_slots_shape_tabs_marks_caps_and_the_gauge() -> Result {
 }
 
 #[test]
+fn config_slots_are_checked_as_tui_theme_checks_them() -> Result {
+    for (setting, expected) in [
+        ("$env.config.tui.check = {on: xx, off: y}", "one width"),
+        (r#"$env.config.tui.tree_open = "xyz""#, "1 to 2 cells wide"),
+        ("$env.config.tui.file_styles = [{kind: nope}]", "symlink"),
+        ("$env.config.tui.bogus = 1", "bogus"),
+    ] {
+        let err = test()
+            .run(format!("{setting}; [a] | tui table | tui debug"))
+            .expect_error()?;
+        let err = format!("{err:?}");
+        assert_contains("invalid $env.config.tui", &err);
+        assert_contains(expected, &err);
+    }
+    Ok(())
+}
+
+#[test]
+fn bind_rejects_a_key_shadowing_a_sequence_and_an_unknown_when_id() -> Result {
+    for binds in [
+        r#"tui bind m {|| null } | tui bind "m s" {|| null }"#,
+        r#"tui bind "m s" {|| null } | tui bind m {|| null }"#,
+    ] {
+        let err = test()
+            .run(format!("[a] | tui table | {binds}"))
+            .expect_error()?;
+        assert_contains("both alone and as a sequence", &format!("{err:?}"));
+    }
+    // Scoped to different widgets, the two never meet.
+    let rows: i64 = test().run(
+        r#"[a] | tui table --id t | tui bind m {|| null } | tui bind --when t "m s" {|| null } | tui debug | get rows"#,
+    )?;
+    assert_eq!(rows, 1);
+    let err = test()
+        .run("[a] | tui table | tui bind --when nope x {|| null } | tui debug")
+        .expect_error()?;
+    assert_contains("nope", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn malformed_hook_actions_keep_the_rows_and_report_an_error() -> Result {
+    for hook in [
+        "{action: bogus}",
+        "[{action: select, id: t, index: 1} 5]",
+        "{action: context, value: 5}",
+        "{action: data}",
+    ] {
+        let state: Value = test().run(format!(
+            "[a b] | tui table --id t | tui label --status s | tui bind x {{|s| {hook} }} | tui debug --size [100 6] --keys x"
+        ))?;
+        let rows = state.get_data_by_key("rows").and_then(|r| r.as_int().ok());
+        assert_eq!(rows, Some(2), "{hook}");
+        let screen = state
+            .get_data_by_key("screen")
+            .and_then(|s| s.coerce_into_string().ok())
+            .unwrap_or_default();
+        assert_contains("error:", &screen);
+    }
+    Ok(())
+}
+
+#[test]
 fn headless_renders_title_and_status() -> Result {
     let screen: String = test().run(
         r#"tui label --titlebar "Demo" | tui label --status "ready" | tui debug | get screen"#,
@@ -1262,6 +1325,17 @@ fn image_widget_scales_within_its_caps() -> Result {
             r#"{SAVE_PNG}; tui image (open --raw img.png) --image-fit crop | tui debug | $"($in.values.image-0.image.format) ($in.widgets.0.image_fit)""#
         ))?;
         assert_eq!(from_bytes, "png crop");
+
+        // A cap is cells or a percentage above 0; split sizes mean nothing
+        // here, and the error does not suggest them.
+        for cap in ["0", "-3", "\"1fr\"", "\"min:10\"", "abc", "\"0%\""] {
+            let err = test()
+                .run(format!("tui image x.png --image-width {cap}"))
+                .expect_error()?;
+            let err = format!("{err:?}");
+            assert_contains("cells or a percentage above 0", &err);
+            assert!(!err.contains("max:40"), "{cap}: {err}");
+        }
         Ok(())
     })
 }
@@ -1570,11 +1644,11 @@ fn a_hook_can_replace_the_rows_and_pick_the_highlight_together() -> Result {
 }
 
 #[test]
-fn icons_go_before_path_cells_and_color_names_a_column_of_bare_names() -> Result {
+fn icons_go_before_path_cells_and_path_columns_mark_bare_names() -> Result {
     Playground::setup("tui_table_icons", |dirs, _| {
         // `--icons` draws devicons' icon before a path cell, the one
         // `table --icons` draws: a file's by its name, a directory's for
-        // one on disk. With `--color`, a column of bare names gets the
+        // one on disk. With `--path-columns`, a column of bare names gets the
         // same, looked up through the row's full `name`.
         let rust = devicons::icon_for_file(std::path::Path::new("main.rs"), &None).icon;
         let folder = devicons::icon_for_file(&dirs.test().join("sub"), &None).icon;
@@ -1584,7 +1658,7 @@ fn icons_go_before_path_cells_and_color_names_a_column_of_bare_names() -> Result
                 mkdir sub; 'fn main() {}' | save -f main.rs
                 ls
                 | insert file { $in.name | path basename }
-                | tui table --columns [file] --icons --color file
+                | tui table --columns [file] --icons --path-columns [file]
                 | tui debug --size [30 6]
                 | get screen
             ",

@@ -6,11 +6,12 @@
 //! it returns decides what happens:
 //!
 //! - `null` (or no output): nothing changes.
-//! - a record with an `action` field: `{action: submit, selected: ...}` ends
-//!   the TUI with that value; `{action: quit}` quits; `context` writes the
-//!   app's context record (`$state.context`); `focus`, `resize`, `scroll`,
-//!   and `context` with an `id` change one widget (see [`HookAction`]). A
-//!   list of such records applies each in turn.
+//! - a record with a string `action` field: `{action: submit, selected: ...}`
+//!   ends the TUI with that value; `{action: quit}` quits; `context` writes
+//!   the app's context record (`$state.context`); `focus`, `resize`,
+//!   `scroll`, and `context` with an `id` change one widget (see
+//!   [`HookAction`]). A list of such records applies each in turn. An
+//!   unknown action, or a list mixing actions and other values, is an error.
 //! - anything else: it replaces the shared data list, so every table, log,
 //!   and tree that shows the outer pipeline's data redraws.
 
@@ -38,8 +39,8 @@ pub enum HookAction {
     /// `{action: resize, id, sizes}`: give a split new child sizes, in the
     /// forms `--sizes` takes.
     Resize(String, Vec<crate::widget::Size>),
-    /// `{action: context, value}`: merge `value` into the app context (a
-    /// record merges key by key, anything else replaces it); with an `id`,
+    /// `{action: context, value}`: merge the record `value` into the app
+    /// context key by key; with an `id`,
     /// into that widget's `views.<id>`. Closures that see the change run
     /// again.
     Context(Option<String>, Value),
@@ -145,16 +146,14 @@ pub fn interpret(value: Value) -> HookOutcome {
                 }),
                 Some("context") => {
                     let id = val.get("id").map(|id| id.as_str().map(str::to_string));
-                    let value = val
-                        .get("value")
-                        .cloned()
-                        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-                    match id {
-                        Some(Err(_)) => Err("context action's `id` must be a string".to_string()),
-                        Some(Ok(id)) => {
-                            Ok(HookOutcome::Action(HookAction::Context(Some(id), value)))
+                    match (id, val.get("value")) {
+                        (Some(Err(_)), _) => {
+                            Err("context action's `id` must be a string".to_string())
                         }
-                        None => Ok(HookOutcome::Action(HookAction::Context(None, value))),
+                        (id, Some(value @ Value::Record { .. })) => Ok(HookOutcome::Action(
+                            HookAction::Context(id.and_then(Result::ok), value.clone()),
+                        )),
+                        _ => Err("context action needs a record `value`".to_string()),
                     }
                 }
                 Some("scroll") => id().and_then(|id| match val.get("line").map(Value::as_int) {
@@ -176,11 +175,11 @@ pub fn interpret(value: Value) -> HookOutcome {
                 },
                 // `{action: data, value}` is a returned value that can sit in
                 // a list of actions, so rows and a selection go together.
-                Some("data") => Ok(HookOutcome::Data(
-                    val.get("value")
-                        .cloned()
-                        .unwrap_or_else(|| Value::nothing(Span::unknown())),
-                )),
+                Some("data") => val
+                    .get("value")
+                    .cloned()
+                    .map(HookOutcome::Data)
+                    .ok_or_else(|| "data action needs a `value`".to_string()),
                 Some("select") => id().and_then(|id| match val.get("index").map(Value::as_int) {
                     Some(Ok(index)) if index >= 0 => {
                         Ok(HookOutcome::Action(HookAction::Select(id, index as usize)))
@@ -196,12 +195,21 @@ pub fn interpret(value: Value) -> HookOutcome {
                         .map_err(|_| "columns action needs a list of column names".to_string()),
                     _ => Err("columns action needs a `columns` list".to_string()),
                 }),
-                _ => Ok(HookOutcome::Data(value)),
+                // A string `action` is reserved, so a typo is an error
+                // rather than rows that wipe out the data.
+                Some(other) => Err(format!("unknown action `{other}`; see `help tui bind`")),
+                None => Ok(HookOutcome::Data(value)),
             };
             outcome.unwrap_or_else(HookOutcome::Error)
         }
-        Value::List { vals, .. } if !vals.is_empty() && vals.iter().all(is_action) => {
-            HookOutcome::Many(vals.iter().cloned().map(interpret).collect())
+        Value::List { vals, .. } if vals.iter().any(is_action) => {
+            if vals.iter().all(is_action) {
+                HookOutcome::Many(vals.iter().cloned().map(interpret).collect())
+            } else {
+                HookOutcome::Error(
+                    "a list of actions cannot hold other values; see `help tui bind`".to_string(),
+                )
+            }
         }
         _ => HookOutcome::Data(value),
     }
@@ -348,6 +356,29 @@ mod tests {
         // Plain rows stay data even when a column is called `action`.
         let rows = Value::test_list(vec![action(&[("action", Value::test_int(1))])]);
         assert!(matches!(interpret(rows), HookOutcome::Data(_)));
+        // A list mixing actions with anything else is an error, not data.
+        let mixed = Value::test_list(vec![
+            action(&[("action", Value::test_string("quit"))]),
+            Value::test_int(5),
+        ]);
+        assert!(matches!(interpret(mixed), HookOutcome::Error(_)));
+    }
+
+    #[test]
+    fn malformed_actions_are_errors_not_data() {
+        let unknown = action(&[("action", Value::test_string("bogus"))]);
+        assert!(
+            matches!(interpret(unknown), HookOutcome::Error(e) if e.starts_with("unknown action `bogus`"))
+        );
+        let not_a_record = action(&[
+            ("action", Value::test_string("context")),
+            ("value", Value::test_int(5)),
+        ]);
+        assert!(matches!(interpret(not_a_record), HookOutcome::Error(_)));
+        let no_value = action(&[("action", Value::test_string("context"))]);
+        assert!(matches!(interpret(no_value), HookOutcome::Error(_)));
+        let no_rows = action(&[("action", Value::test_string("data"))]);
+        assert!(matches!(interpret(no_rows), HookOutcome::Error(_)));
     }
 
     #[test]

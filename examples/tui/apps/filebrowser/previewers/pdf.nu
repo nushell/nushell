@@ -12,7 +12,8 @@
 
 $env.file-browser.preview.plugins ++= [{
     name: pdf
-    handles: {|file| $file.mime == "application/pdf" }
+    # Without poppler the built-in pane takes over.
+    handles: {|file| $file.mime == "application/pdf" and (which pdftoppm | is-not-empty) }
     context: { page: 1 }
     render: {|file, ctx|
         pdftoppm -png -singlefile -f $ctx.page -l $ctx.page -scale-to $env.file-browser.preview.raster_px $file.path
@@ -28,8 +29,9 @@ $env.file-browser.preview.plugins ++= [{
     hint: "pgup/pgdn/home/end: page  +/-: zoom  arrows: pan"
 }]
 
-# The page count, from `pdfinfo`; 1 when it cannot say.
+# The page count, from `pdfinfo`; 1 when it cannot say or is not installed.
 def pdf-pages [path: string]: nothing -> int {
+    if (which pdfinfo | is-empty) { return 1 }
     pdfinfo $path
     | complete
     | get stdout

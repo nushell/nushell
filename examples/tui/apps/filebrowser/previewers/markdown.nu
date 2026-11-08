@@ -3,7 +3,8 @@
 
 $env.file-browser.preview.plugins ++= [{
     name: markdown
-    handles: {|file| $file.ext == "md" }
+    # Without glow the built-in pane shows the text instead.
+    handles: {|file| $file.ext == "md" and (which glow | is-not-empty) }
     # Fed through stdin: given a path, glow waits on a stdin that is not a
     # terminal, and inside the TUI it never is.
     render: {|file, ctx|

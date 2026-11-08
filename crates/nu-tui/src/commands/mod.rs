@@ -109,13 +109,13 @@ pub(super) fn image_flags(sig: Signature) -> Signature {
     )
     .named(
         "image-width",
-        SyntaxShape::Any,
+        SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::String]),
         "Widest an image may be: cells, or a percentage of the pane like \"50%\".",
         None,
     )
     .named(
         "image-height",
-        SyntaxShape::Any,
+        SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::String]),
         "Tallest an image may be: cells, or a percentage of the pane like \"50%\".",
         None,
     )
@@ -139,10 +139,12 @@ pub(super) fn image_options(
         let Some(value) = call.get_flag::<Value>(engine_state, stack, name)? else {
             return Ok(None);
         };
-        match parse_size(&value)? {
-            size @ (Size::Length(_) | Size::Percent(_)) => Ok(Some(size)),
+        // `parse_size` also takes split sizes (`1fr`, `min:10`), which mean
+        // nothing for a cap, and clamps a negative int to 0 cells.
+        match parse_size(&value) {
+            Ok(size @ (Size::Length(1..) | Size::Percent(1..))) => Ok(Some(size)),
             _ => Err(ShellError::InvalidValue {
-                valid: "cells or a percentage, like 40 or \"50%\"".into(),
+                valid: "cells or a percentage above 0, like 40 or \"50%\"".into(),
                 actual: value.to_abbreviated_string(engine_state.get_config()),
                 span: value.span(),
             }),
@@ -430,7 +432,7 @@ impl Command for Tui {
     fn extra_description(&self) -> &str {
         "You must use one of the following subcommands. Using this command as-is will only produce this help message.\n\
          \n\
-         Builders (`tui table`, `tui split`, ...) append widgets to a `tui` value. `tui run` shows it and returns one record: `{action, focused, selected, page, values, rows, live}`, where `values` holds every widget's state by id. `tui debug` returns the same record plus the painted `screen` and the resolved layout, for scripts and tests.\n\
+         Builders (`tui table`, `tui split`, ...) append widgets to a `tui` value. `tui run` shows it and returns one record: `{action, focused, selected, page, values, rows, live, context}`, where `values` holds every widget's state by id. `tui debug` returns the same record plus the painted `screen` and the resolved layout, for scripts and tests.\n\
          \n\
          Data: a value piped into a builder is the shared data list. Builders never read a stream: a list stream, a range, or an external command's output is kept in the `tui` value and read while the TUI runs, so its rows appear as they are produced (`1.. | each {|n| sleep 1sec; $n} | tui log`). A stream keeps its newest 100k rows (older rows are dropped in batches, so up to 12.5k more may show). When the TUI closes, a stream still producing is stopped: an external command piped straight into a builder at once, and one behind other commands (`^tail -f app.log | lines | tui log`) at once in an interactive shell, elsewhere the next time it writes. Nushell code in a stream (an `each` closure) finishes the row it is on, and what it prints while the TUI runs lands on the TUI's screen. A `tui` value saved with `let` reads its stream the first time it runs; if that run read it to the end, later runs show the same rows. A widget can have its own rows with `--data`, or by piping into it inside a container's child list: `tui split [(ls | tui table) (ps | tui table)]`. A widget can also follow the highlighted row of a table, tree, or select. A closure on `tui table`, `tree`, `log`, `progress`, or `label` turns that row into what the widget shows, and `--from <id>` picks which one to follow; without it the widget follows the focused one, else the nearest, else one on another tab page, but never one that follows it back. `--from` without a closure shows the row itself. A widget with nothing to follow is an error when the TUI starts, and `--data` cannot be combined with `--from` or a closure.\n\
          \n\

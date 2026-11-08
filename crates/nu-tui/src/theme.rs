@@ -69,6 +69,51 @@ pub fn is_slot(name: &str) -> bool {
         || GLYPH_SLOTS.contains(&name)
 }
 
+/// Check one slot as `tui theme` and `$env.config.tui` take it: a known
+/// name, and for a border, the rules, or a glyph, a value of the right
+/// shape. Colors are not checked, as in `color_config`.
+pub fn check_slot(name: &str, value: &Value) -> Result<(), ShellError> {
+    if !is_slot(name) {
+        return Err(ShellError::InvalidValue {
+            valid: format!(
+                "one of border_type, file_styles, {}, {}",
+                COLOR_SLOTS.join(", "),
+                GLYPH_SLOTS.join(", ")
+            ),
+            actual: name.to_string(),
+            span: value.span(),
+        });
+    }
+    match name {
+        "border_type" => parse_border(value).map(drop),
+        "file_styles" => parse_file_styles(value).map(drop),
+        _ => Glyphs::default().apply(name, value),
+    }
+}
+
+/// Check `$env.config.tui` when a TUI starts, so a bad slot is an error
+/// rather than a silent default. `image_protocol` is config-only and
+/// checked where it is set.
+pub fn check_config(tui: &HashMap<String, Value>) -> Result<(), ShellError> {
+    for (name, value) in tui {
+        if name == "image_protocol" {
+            continue;
+        }
+        check_slot(name, value).map_err(|err| {
+            ShellError::Generic(
+                GenericError::new(
+                    format!("invalid $env.config.tui.{name}"),
+                    "set here",
+                    value.span(),
+                )
+                .with_help("`tui theme` takes the same slots; see `help tui theme`")
+                .with_inner([err]),
+            )
+        })?;
+    }
+    Ok(())
+}
+
 /// Two glyphs round a run of text, as `{open: "\u{e0b6}", close:
 /// "\u{e0b4}"}` (powerline's half circles): each is one cell, or empty
 /// for no cap on that side.

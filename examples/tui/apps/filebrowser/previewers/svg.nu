@@ -4,7 +4,8 @@
 
 $env.file-browser.preview.plugins ++= [{
     name: svg
-    handles: {|file| $file.ext == "svg" }
+    # Without resvg the built-in pane takes over.
+    handles: {|file| $file.ext == "svg" and (which resvg | is-not-empty) }
     render: {|file, ctx|
         resvg --width $env.file-browser.preview.raster_px $file.path -c
         | complete

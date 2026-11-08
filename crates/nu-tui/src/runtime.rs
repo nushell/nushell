@@ -69,9 +69,33 @@ fn prepare_session(
     stack: &Stack,
     cwd: PathBuf,
 ) -> Result<Session, ShellError> {
+    crate::theme::check_config(&stack.get_config(engine_state).tui)?;
     let session = Session::with_engine(app, cwd, Some((engine_state.clone(), stack.clone())));
     check_sources(&session)?;
+    check_binds(&session)?;
     Ok(session)
+}
+
+/// A `tui bind --when <id>` naming no widget would never fire, with no
+/// hint why.
+fn check_binds(session: &Session) -> Result<(), ShellError> {
+    let Some(id) = session
+        .app
+        .binds
+        .iter()
+        .filter_map(|b| b.when.as_deref())
+        .find(|id| session.widget(id).is_none())
+    else {
+        return Ok(());
+    };
+    let ids: Vec<&str> = session.app.iter().map(|w| w.id.as_str()).collect();
+    Err(ShellError::Generic(GenericError::new_internal(
+        "unknown --when id",
+        format!(
+            "a `tui bind --when` names '{id}', but no widget has that id. Widgets: {}",
+            ids.join(", ")
+        ),
+    )))
 }
 
 /// The graphics protocol previews draw images with, per

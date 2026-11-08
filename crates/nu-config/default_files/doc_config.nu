@@ -1449,7 +1449,9 @@ $env.config.explore.try.reactive = false
 # It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Keys marked (color) take
 # the same forms as `color_config`: a color name, `#RRGGBB`, or `{ fg?, bg?, attr? }`. In any
 # such slot, `default` is the terminal's own color. `tui theme` lays one TUI's slots over these.
-# When `use_ansi_coloring` is off the TUI draws without colors.
+# When `use_ansi_coloring` is off the TUI draws without colors. An unknown key, or a border,
+# glyph, or `file_styles` value of the wrong shape, is an error when a TUI starts, as it is for
+# `tui theme`.
 
 # tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
 # Default: { fg: white, bg: blue, attr: b }
@@ -1521,8 +1523,8 @@ $env.config.tui.backdrop = { bg: default }
 # Default: "auto"
 $env.config.tui.image_protocol = "auto"
 
-# tui.file_styles (list): How path cells look: `ls`'s `name` beside `type`, a `tui table --color`
-# column, and tree nodes. The first rule a file matches wins, and a file no rule matches is plain
+# tui.file_styles (list): How path cells look: `ls`'s `name` beside `type`, `tui table
+# --path-columns`, and tree nodes. The first rule a file matches wins, and a file no rule matches is plain
 # text. `tui theme` replaces the whole list. A rule can ask for any of these, all of which must hold:
 #   kind: "dir", "file", "symlink" (not followed, so a link to a directory is a symlink), or
 #         "orphan" (a symlink whose target is gone)

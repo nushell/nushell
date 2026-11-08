@@ -43,7 +43,7 @@ impl Command for TuiContext {
                 result: None,
             },
             Example {
-                description: "Shared keys a preview closure reads beside its own `--context` part",
+                description: "Shared keys a preview closure reads beside its own `--on-change` part",
                 example: "ls | tui split [(tui table) (tui preview --id view --on-change {|| {page: 1} } {|row, ctx| pdftoppm -png -singlefile -f $ctx.page -scale-to $ctx.width $row.name | complete | get stdout })] | tui context {width: 1600} | tui run",
                 result: None,
             },

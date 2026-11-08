@@ -11,14 +11,25 @@
 #
 #   nu examples/tui/apps/filebrowser/filebrowser.nu | from nuon | open $in.name
 #
+# Customising
+#   `nu filebrowser.nu` starts a fresh shell, which sees neither your `$env`
+#   nor config.nu. To restyle it or add previewers, set `$env.file-browser`
+#   first, then source the script and call its `main`:
+#
+#   $env.file-browser = { theme: { selected: { bg: "#3b4252" } } }
+#   source examples/tui/apps/filebrowser/filebrowser.nu
+#   main ~/Pictures
+#
 # Previewers
 #   Every row goes to the first previewer in `$env.file-browser.preview.plugins`
 #   whose `handles` closure accepts it; the rest fall back to the built-in
 #   pane: images draw, text shows highlighted by `bat` (plain without it),
 #   binaries get a note. The bundled ones live
-#   in previewers/: PDF pages via poppler, SVG via resvg, Markdown via glow.
-#   To add one, append a record to that list before `tui run` (sourcing a
-#   file that does so is enough); previewers/pdf.nu documents the fields.
+#   in previewers/: PDF pages via poppler, SVG via resvg, Markdown via glow,
+#   each skipped when its tool is not installed.
+#   To add one, append a record to that list after sourcing this script
+#   (see Customising) and before calling `main`; previewers/pdf.nu
+#   documents the fields.
 #
 #   Previewers run on a thread (`tui preview --threads`): the list keeps
 #   moving while a page rasterises, and leaving the row kills the renderer.
@@ -42,7 +53,7 @@
 #                    scroll text; `+`/`-` zoom an image, arrows pan, `0` resets
 #   q, esc           quit
 
-# Defaults, under anything set before the script runs: `theme` holds slots
+# Defaults, under anything set before the script is sourced: `theme` holds slots
 # laid over `$env.config.tui` (`tui theme`), so
 # `$env.file-browser.theme.selected = { bg: "#3b4252" }` recolors the
 # highlighted row here and nowhere else. Previewers append to `preview.plugins`.
@@ -75,7 +86,7 @@ const DIR_TYPE = "dir"
 
 # The rows for one directory. `name` holds the full path, which is what the
 # preview opens; `file` holds the bare name, which is what the table shows
-# (`tui table --icons --color file` gives it its icon and file color);
+# (`tui table --icons --path-columns [file]` gives it its icon and file color);
 # `type` is the mime type; the rest are `ls -l`'s columns for the
 # linemodes. The first row is `..`, so every directory can be left again.
 # The order is yazi's default: directories first, then names compared
@@ -220,10 +231,12 @@ def main [dir: path = "."] {
     | tui theme $env.file-browser.theme
     | tui context { dir: $dir, hidden: false }
     | tui split --id layout --sizes [40% 1fr] [
-        (tui table --id files --columns [file size] --icons --color file --focus)
+        (tui table --id files --columns [file size] --icons --path-columns [file] --focus)
         (tui preview --id view --threads --on-change {|s| initial-context $s.values.view.row } {|row, ctx| preview $row $ctx })
     ]
-    | tui label --status "enter: open / pick  backspace: up  .: dotfiles  tab: preview  f: full  m: linemode  Z: zoxide"
+    # Short, so a focused previewer's hint, which follows it, fits in 120
+    # columns. Tab and Z are in the header.
+    | tui label --status "enter: open  bksp: up  .: hidden  f: full  m: linemode"
     | plugin-binds
     | linemode-binds
     | tui bind f {|state|
@@ -253,7 +266,10 @@ def main [dir: path = "."] {
             { action: select, id: files, index: $index }
         ]
     }
-    | tui bind shift+z {|| { action: suspend, area: layout, hook: {|state| zoxide-pick $state } } }
+    | tui bind shift+z {||
+        if (which zoxide | is-empty) { error make { msg: "Z needs zoxide, which is not installed" } }
+        { action: suspend, area: layout, hook: {|state| zoxide-pick $state } }
+    }
     | tui bind enter {|state|
         # A directory replaces the rows; a file is the result.
         let row = current-row $state

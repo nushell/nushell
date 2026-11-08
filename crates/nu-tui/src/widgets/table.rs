@@ -23,10 +23,10 @@ pub struct TableWidget {
     /// Put each path cell's file icon before it (`table --icons`).
     #[serde(default)]
     pub icons: bool,
-    /// A column to color (and icon) as paths, besides
+    /// `--path-columns`: columns to color (and icon) as paths, besides
     /// those the data marks.
     #[serde(default)]
-    pub color: Option<String>,
+    pub path_columns: Vec<String>,
 }
 
 /// Chords `--capture-keys` leaves alone: list navigation, and the global
@@ -198,9 +198,10 @@ impl TuiWidget for TableWidget {
         rec.insert("multi", Value::bool(self.multi, span));
         rec.insert("index", Value::bool(self.index, span));
         rec.insert("icons", Value::bool(self.icons, span));
-        if let Some(color) = &self.color {
-            rec.insert("color", Value::string(color, span));
-        }
+        rec.insert(
+            "path_columns",
+            crate::app::string_list(&self.path_columns, span),
+        );
     }
 
     fn handle_key(
@@ -297,14 +298,14 @@ impl TuiWidget for TableWidget {
             widths.push(Constraint::Percentage((100 / n) as u16));
         }
         // The style the highlighted row shows: its path cell's, else plain.
-        let path_column = self.color.as_deref();
+        let path_columns = &self.path_columns;
         let base_style = |row: &Value| {
             columns
                 .iter()
-                .find(|c| session.is_path_column(c, row, path_column))
+                .find(|c| session.is_path_column(c, row, path_columns))
                 .map_or(theme.text(), |col| {
                     session
-                        .styled_cell(row, col, computer.as_ref(), path_column)
+                        .styled_cell(row, col, computer.as_ref(), path_columns)
                         .1
                 })
         };
@@ -325,10 +326,10 @@ impl TuiWidget for TableWidget {
                 }
                 for col in &columns {
                     let (text, style) =
-                        session.styled_cell(row, col, computer.as_ref(), path_column);
+                        session.styled_cell(row, col, computer.as_ref(), path_columns);
                     let mut line = Line::default();
                     if self.icons
-                        && let Some(icon) = session.path_icon(row, col, path_column)
+                        && let Some(icon) = session.path_icon(row, col, path_columns)
                     {
                         line.push_span(match row_style {
                             Some(_) => icon.style(Style::default()),

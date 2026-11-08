@@ -8,6 +8,8 @@
 #
 # Keys
 #   t              next theme (the TUI is rebuilt: a theme is fixed at `tui run`)
+#   d              show the TUI as a dialog over `backdrop`, and back
+#   g, then g/e    first or last row: `g` alone opens the key panel
 #   tab            move focus between the widgets: watch `border_focused`
 #   /              the search box; what matches is drawn in `highlight`
 #   space          check a row in the table: the marks use `highlight` too
@@ -15,8 +17,8 @@
 #   q, esc         quit
 #
 # Slots, and what each colors
-#   surface            fill behind every widget (only `bg` is read)
-#   backdrop           fill behind a dialog, such as the key panel (only `bg`)
+#   surface            fill behind every widget and the key panel (only `bg`)
+#   backdrop           fill round a `tui run --dialog` popup (only `bg`)
 #   title_bar          `tui label --titlebar`, and a dialog's title
 #   status_bar         `tui label --status`, with the focus and filter hints
 #   border             the frame round a widget
@@ -32,7 +34,7 @@
 #   progress           the reached part of `tui progress`'s bar (`muted` beyond)
 #   button             `tui button`
 #   file_styles        path cells: `ls`'s `name` beside `type`, a
-#                      `tui table --color <column>`, and tree nodes. A list
+#                      `tui table --path-columns`, and tree nodes. A list
 #                      of rules, the first a file matches winning; see below
 #
 # A color is what `$env.config.color_config` takes: a color name, `#rrggbb`,
@@ -129,6 +131,7 @@ const THEMES = {
         ]
         # Plain Unicode half-circles: no special font needed.
         title_caps: { open: "◖", close: "◗" }
+        status_caps: { open: "◖", close: "◗" }
         tab_caps: { open: "◖", close: "◗" }
         selected_caps: { open: "◖", close: "◗" }
         check: { on: "■", off: "□" }
@@ -139,8 +142,9 @@ const THEMES = {
     }
 }
 
-# One run under `name`. Returns `tui run`'s record; `t` submits `next`.
-def show [name: string, dir: path]: nothing -> record {
+# One run under `name`, as a dialog with `--dialog`. Returns `tui run`'s
+# record; `t` submits `next`, `d` submits `dialog`.
+def show [name: string, dir: path, --dialog]: nothing -> record {
     let theme = $THEMES | get -o $name
     if $theme == null {
         error make { msg: $"no theme ($name); one of ($THEMES | columns | str join ', ')" }
@@ -152,7 +156,7 @@ def show [name: string, dir: path]: nothing -> record {
         (tui split --sizes [1fr 24] [
             (tui box "list" [
                 (tui search --bind "/" --placeholder "type to filter")
-                (tui table --id files --columns [file size type] --icons --color file --multi --focus)
+                (tui table --id files --columns [file size type] --icons --path-columns [file] --multi --focus)
             ])
             (tui split --vertical --sizes [3 1fr 3] [
                 (tui progress --label "used" --value 0.42)
@@ -162,19 +166,28 @@ def show [name: string, dir: path]: nothing -> record {
         ])
     ]
     | tui tab "tree" [(tui tree --walk)]
-    | tui label --status "t: next theme  tab: focus  /: search  space: check  q: quit"
+    | tui label --status "t: theme  d: dialog  g: go to  tab: focus  /: search  space: check  q: quit"
     | tui theme $theme
     | tui bind t {|| { action: submit, selected: next } }
-    | tui run
+    | tui bind d {|| { action: submit, selected: dialog } }
+    | tui bind "g g" --label "first row" {|| { action: select, id: files, index: 0 } }
+    | tui bind "g e" --label "last row" {|state| { action: select, id: files, index: ([($state.rows - 1) 0] | math max) } }
+    | tui run --dialog=$dialog
 }
 
-# `t` rebuilds the screen with the next theme; anything else ends it.
+# `t` rebuilds the screen with the next theme, `d` as or out of a dialog;
+# anything else ends it.
 def main [name: string = nord, dir: path = "."] {
     let names = $THEMES | columns
     mut name = $name
+    mut dialog = false
     loop {
-        let out = show $name $dir
+        let out = show $name $dir --dialog=$dialog
         if $out.action != submit { break }
+        if $out.selected == dialog {
+            $dialog = not $dialog
+            continue
+        }
         let at = $names | enumerate | where item == $name | get -o 0.index | default 0
         $name = $names | get (($at + 1) mod ($names | length))
     }
