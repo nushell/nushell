@@ -20,6 +20,28 @@ fn lists_regular_files() -> Result {
     })
 }
 
+#[cfg(windows)]
+#[test]
+fn lists_drive_relative_path_against_pwd() -> Result {
+    Playground::setup("ls_drive_relative", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("andres.txt")]);
+        sandbox.within("sub").with_files(&[EmptyFile("jt.txt")]);
+
+        // e.g. `C:`, the drive `$env.PWD` is on
+        let drive = dirs.test().as_std_path().components().next().unwrap();
+        let drive = drive.as_os_str().to_string_lossy();
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("(ls {drive}).name"))
+            .expect_value_eq(["andres.txt", "sub"])?;
+        test()
+            .cwd(dirs.test())
+            .run(format!("(ls {drive}sub).name"))
+            .expect_value_eq([r"sub\jt.txt"])
+    })
+}
+
 #[test]
 fn lists_regular_files_using_asterisk_wildcard() -> Result {
     Playground::setup("ls_test_2", |dirs, sandbox| {
