@@ -14,7 +14,7 @@ pub struct MenuLine(Arc<parking_lot::Mutex<Option<String>>>);
 impl MenuLine {
     /// Record current editor line.
     pub(crate) fn record(&self, line: &str) {
-        *self.0.lock() = Some(line.to_string());
+        *self.0.lock() = Some(line.to_owned());
     }
 
     /// Last recorded line.
@@ -30,6 +30,11 @@ impl MenuLine {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SourceMode {
     Diff,
+    /// List menus interpret a selector in the changed text. Only the default
+    /// output mode uses the suggestion's exact range when accepting a row.
+    DiffList {
+        suggested_span: bool,
+    },
     Live,
 }
 
@@ -41,6 +46,10 @@ impl SourceMode {
         }
     }
 
+    fn is_diff(self) -> bool {
+        matches!(self, Self::Diff | Self::DiffList { .. })
+    }
+
     /// What the source parses, with a floored/clamped cursor.
     pub(crate) fn buffer(
         self,
@@ -49,11 +58,11 @@ impl SourceMode {
         pos: usize,
         replacing_start: usize,
     ) -> (String, usize) {
-        let buffer = match self {
-            Self::Diff => line
-                .read()
-                .unwrap_or_else(|| " ".repeat(replacing_start) + handed),
-            Self::Live => handed.to_owned(),
+        let buffer = if self.is_diff() {
+            line.read()
+                .unwrap_or_else(|| " ".repeat(replacing_start) + handed)
+        } else {
+            handed.to_owned()
         };
         let cursor = buffer.floor_char_boundary(pos.min(buffer.len()));
         (buffer, cursor)
@@ -167,11 +176,16 @@ impl<M: Menu> Menu for SourcedMenu<M> {
         editor: &mut Editor,
         completer: &mut dyn Completer,
     ) -> bool {
+        // ListMenu does not fetch values during this probe. Wait for its first
+        // real update before deciding whether an empty list should close.
+        if matches!(self.mode, SourceMode::DiffList { .. }) {
+            return false;
+        }
         self.record(editor);
         let spliced = self
             .menu
             .can_partially_complete(values_updated, editor, completer);
-        if spliced && matches!((self.mode, &self.line), (SourceMode::Diff, Some(_))) {
+        if spliced && self.mode.is_diff() && self.line.is_some() {
             // The splice ran past this wrapper, so a `Diff` source would answer
             // with pre-splice spans without a refresh (#19053); anything else
             // already saw the spliced buffer through the handed line.
