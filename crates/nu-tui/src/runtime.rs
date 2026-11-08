@@ -147,6 +147,7 @@ fn images_for(
     // frame on replace) and zlib compression for the base64 fallback.
     let options = QueryStdioOptions {
         kitty_compression: true,
+        #[cfg(not(windows))]
         kitty_shared_memory_object: QueryStdioOptions::probe_kitty_smo(),
         #[cfg(not(windows))]
         stdio: query_stdio(),
