@@ -1,0 +1,1543 @@
+[
+  {
+    "Hello": {
+      "protocol": "nu-plugin",
+      "version": "0.1.0",
+      "nushell_version": "0.0.0-test",
+      "features": [
+        {
+          "name": "LocalSocket"
+        }
+      ]
+    }
+  },
+  {
+    "Option": {
+      "GcDisabled": true
+    }
+  },
+  {
+    "CallResponse": [
+      0,
+      "Ok"
+    ]
+  },
+  {
+    "CallResponse": [
+      1,
+      {
+        "Error": {
+          "msg": "error message",
+          "labels": [
+            {
+              "text": "label",
+              "span": {
+                "start": 1,
+                "end": 2
+              }
+            }
+          ],
+          "code": "nu::test::error",
+          "url": "https://www.nushell.sh",
+          "help": "help text",
+          "inner": [
+            {
+              "msg": "inner error",
+              "labels": [],
+              "code": null,
+              "url": null,
+              "help": null,
+              "inner": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      2,
+      {
+        "Metadata": {
+          "version": "1.2.3",
+          "protocol_version": "0.1.0",
+          "nushell_version": "0.0.0-test"
+        }
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      3,
+      {
+        "Signature": [
+          {
+            "sig": {
+              "name": "demo",
+              "description": "description",
+              "extra_description": "extra description",
+              "search_terms": [
+                "term"
+              ],
+              "required_positional": [
+                {
+                  "name": "required",
+                  "desc": "required positional",
+                  "shape": "String",
+                  "completion": {
+                    "List": [
+                      "a",
+                      "b"
+                    ]
+                  },
+                  "var_id": null,
+                  "default_value": {
+                    "String": {
+                      "val": "a",
+                      "span": {
+                        "start": 1,
+                        "end": 2
+                      }
+                    }
+                  }
+                }
+              ],
+              "optional_positional": [
+                {
+                  "name": "optional0",
+                  "desc": "optional positional",
+                  "shape": "Any",
+                  "completion": {
+                    "Command": 7
+                  },
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional1",
+                  "desc": "optional positional",
+                  "shape": "Binary",
+                  "completion": {
+                    "Builtin": {
+                      "NuFile": {
+                        "std_virtual_path": true
+                      }
+                    }
+                  },
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional2",
+                  "desc": "optional positional",
+                  "shape": "Block",
+                  "completion": {
+                    "Builtin": {
+                      "Command": {
+                        "internal_only": false
+                      }
+                    }
+                  },
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional3",
+                  "desc": "optional positional",
+                  "shape": "Boolean",
+                  "completion": {
+                    "Builtin": "EnvVar"
+                  },
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional4",
+                  "desc": "optional positional",
+                  "shape": "CellPath",
+                  "completion": {
+                    "Builtin": "ModuleExports"
+                  },
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional5",
+                  "desc": "optional positional",
+                  "shape": {
+                    "Closure": [
+                      "Int"
+                    ]
+                  },
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional6",
+                  "desc": "optional positional",
+                  "shape": "DateTime",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional7",
+                  "desc": "optional positional",
+                  "shape": "Directory",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional8",
+                  "desc": "optional positional",
+                  "shape": "Duration",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional9",
+                  "desc": "optional positional",
+                  "shape": "Error",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional10",
+                  "desc": "optional positional",
+                  "shape": "Expression",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional11",
+                  "desc": "optional positional",
+                  "shape": "ExternalArgument",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional12",
+                  "desc": "optional positional",
+                  "shape": "Filepath",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional13",
+                  "desc": "optional positional",
+                  "shape": "Filesize",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional14",
+                  "desc": "optional positional",
+                  "shape": "Float",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional15",
+                  "desc": "optional positional",
+                  "shape": "FullCellPath",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional16",
+                  "desc": "optional positional",
+                  "shape": "GlobPattern",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional17",
+                  "desc": "optional positional",
+                  "shape": "Int",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional18",
+                  "desc": "optional positional",
+                  "shape": "ImportPattern",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional19",
+                  "desc": "optional positional",
+                  "shape": {
+                    "Keyword": [
+                      [
+                        97,
+                        115
+                      ],
+                      "String"
+                    ]
+                  },
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional20",
+                  "desc": "optional positional",
+                  "shape": {
+                    "List": "Number"
+                  },
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional21",
+                  "desc": "optional positional",
+                  "shape": "MathExpression",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional22",
+                  "desc": "optional positional",
+                  "shape": "MatchBlock",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional23",
+                  "desc": "optional positional",
+                  "shape": "Nothing",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional24",
+                  "desc": "optional positional",
+                  "shape": "Number",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional25",
+                  "desc": "optional positional",
+                  "shape": {
+                    "OneOf": [
+                      "Int",
+                      "String"
+                    ]
+                  },
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional26",
+                  "desc": "optional positional",
+                  "shape": "Operator",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional27",
+                  "desc": "optional positional",
+                  "shape": "Range",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional28",
+                  "desc": "optional positional",
+                  "shape": {
+                    "Record": [
+                      [
+                        "a",
+                        "Int"
+                      ]
+                    ]
+                  },
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional29",
+                  "desc": "optional positional",
+                  "shape": "RowCondition",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional30",
+                  "desc": "optional positional",
+                  "shape": "Signature",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional31",
+                  "desc": "optional positional",
+                  "shape": "ExternalSignature",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional32",
+                  "desc": "optional positional",
+                  "shape": "String",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional33",
+                  "desc": "optional positional",
+                  "shape": {
+                    "Table": [
+                      [
+                        "b",
+                        "String"
+                      ]
+                    ]
+                  },
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "name": "optional34",
+                  "desc": "optional positional",
+                  "shape": "VarWithOptType",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                }
+              ],
+              "rest_positional": {
+                "name": "rest",
+                "desc": "rest positional",
+                "shape": "Any",
+                "completion": null,
+                "var_id": null,
+                "default_value": null
+              },
+              "named": [
+                {
+                  "long": "help",
+                  "short": "h",
+                  "arg": null,
+                  "required": false,
+                  "desc": "Display the help message for this command",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                },
+                {
+                  "long": "named",
+                  "short": "n",
+                  "arg": "Int",
+                  "required": false,
+                  "desc": "named flag",
+                  "completion": {
+                    "List": [
+                      "1",
+                      "2"
+                    ]
+                  },
+                  "var_id": 8,
+                  "default_value": {
+                    "Int": {
+                      "val": 1,
+                      "span": {
+                        "start": 2,
+                        "end": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "long": "switch",
+                  "short": null,
+                  "arg": null,
+                  "required": false,
+                  "desc": "switch flag",
+                  "completion": null,
+                  "var_id": null,
+                  "default_value": null
+                }
+              ],
+              "input_output_types": [
+                [
+                  "Any",
+                  "Any"
+                ],
+                [
+                  "Binary",
+                  "Binary"
+                ],
+                [
+                  "Block",
+                  "Block"
+                ],
+                [
+                  "Bool",
+                  "Bool"
+                ],
+                [
+                  "CellPath",
+                  "CellPath"
+                ],
+                [
+                  "Closure",
+                  "Closure"
+                ],
+                [
+                  {
+                    "Custom": "CustomType"
+                  },
+                  {
+                    "Custom": "CustomType"
+                  }
+                ],
+                [
+                  "Date",
+                  "Date"
+                ],
+                [
+                  "Duration",
+                  "Duration"
+                ],
+                [
+                  "Error",
+                  "Error"
+                ],
+                [
+                  "Filesize",
+                  "Filesize"
+                ],
+                [
+                  "Float",
+                  "Float"
+                ],
+                [
+                  "Int",
+                  "Int"
+                ],
+                [
+                  {
+                    "List": "String"
+                  },
+                  {
+                    "List": "String"
+                  }
+                ],
+                [
+                  "Nothing",
+                  "Nothing"
+                ],
+                [
+                  "Number",
+                  "Number"
+                ],
+                [
+                  {
+                    "OneOf": [
+                      "Int",
+                      "String"
+                    ]
+                  },
+                  {
+                    "OneOf": [
+                      "Int",
+                      "String"
+                    ]
+                  }
+                ],
+                [
+                  "Range",
+                  "Range"
+                ],
+                [
+                  {
+                    "Record": [
+                      [
+                        "a",
+                        "Int"
+                      ]
+                    ]
+                  },
+                  {
+                    "Record": [
+                      [
+                        "a",
+                        "Int"
+                      ]
+                    ]
+                  }
+                ],
+                [
+                  "String",
+                  "String"
+                ],
+                [
+                  "Glob",
+                  "Glob"
+                ],
+                [
+                  {
+                    "Table": [
+                      [
+                        "b",
+                        "String"
+                      ]
+                    ]
+                  },
+                  {
+                    "Table": [
+                      [
+                        "b",
+                        "String"
+                      ]
+                    ]
+                  }
+                ]
+              ],
+              "allow_variants_without_examples": true,
+              "is_filter": true,
+              "creates_scope": true,
+              "allows_unknown_args": true,
+              "complete": "External",
+              "category": {
+                "Custom": "plugin category"
+              }
+            },
+            "examples": [
+              {
+                "example": "demo a",
+                "description": "example",
+                "result": {
+                  "String": {
+                    "val": "result",
+                    "span": {
+                      "start": 3,
+                      "end": 4
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      4,
+      {
+        "Ordering": "Less"
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      5,
+      {
+        "Ordering": "Equal"
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      6,
+      {
+        "Ordering": "Greater"
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      7,
+      {
+        "Ordering": null
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      8,
+      {
+        "CompletionItems": [
+          {
+            "value": "value",
+            "display_override": "display",
+            "description": "description",
+            "extra": [
+              "extra"
+            ],
+            "append_whitespace": true,
+            "match_indices": [
+              0,
+              2
+            ],
+            "span": {
+              "start": 1,
+              "end": 2
+            },
+            "kind": {
+              "Command": [
+                "Plugin",
+                9
+              ]
+            }
+          },
+          {
+            "value": "other",
+            "display_override": null,
+            "description": null,
+            "extra": null,
+            "append_whitespace": true,
+            "match_indices": null,
+            "span": null,
+            "kind": {
+              "Value": "Int"
+            }
+          },
+          {
+            "value": "file",
+            "display_override": null,
+            "description": null,
+            "extra": null,
+            "append_whitespace": true,
+            "match_indices": null,
+            "span": null,
+            "kind": "File"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      9,
+      {
+        "CompletionItems": null
+      }
+    ]
+  },
+  {
+    "CallResponse": [
+      10,
+      {
+        "PipelineData": {
+          "Value": [
+            {
+              "List": {
+                "vals": [
+                  {
+                    "Bool": {
+                      "val": true,
+                      "span": {
+                        "start": 1,
+                        "end": 2
+                      }
+                    }
+                  },
+                  {
+                    "Int": {
+                      "val": -7,
+                      "span": {
+                        "start": 2,
+                        "end": 3
+                      }
+                    }
+                  },
+                  {
+                    "Float": {
+                      "val": 1.5,
+                      "span": {
+                        "start": 3,
+                        "end": 4
+                      }
+                    }
+                  },
+                  {
+                    "String": {
+                      "val": "text",
+                      "span": {
+                        "start": 4,
+                        "end": 5
+                      }
+                    }
+                  },
+                  {
+                    "Glob": {
+                      "val": "*.rs",
+                      "no_expand": true,
+                      "span": {
+                        "start": 5,
+                        "end": 6
+                      }
+                    }
+                  },
+                  {
+                    "Filesize": {
+                      "val": 1024,
+                      "span": {
+                        "start": 6,
+                        "end": 7
+                      }
+                    }
+                  },
+                  {
+                    "Duration": {
+                      "val": 1000000000,
+                      "span": {
+                        "start": 7,
+                        "end": 8
+                      }
+                    }
+                  },
+                  {
+                    "Date": {
+                      "val": "2024-01-02T03:04:05+02:00",
+                      "span": {
+                        "start": 8,
+                        "end": 9
+                      }
+                    }
+                  },
+                  {
+                    "Range": {
+                      "val": "1..3..10",
+                      "span": {
+                        "start": 9,
+                        "end": 10
+                      }
+                    }
+                  },
+                  {
+                    "Record": {
+                      "val": {
+                        "a": {
+                          "Int": {
+                            "val": 1,
+                            "span": {
+                              "start": 10,
+                              "end": 11
+                            }
+                          }
+                        },
+                        "b": {
+                          "List": {
+                            "vals": [
+                              {
+                                "Nothing": {
+                                  "span": {
+                                    "start": 11,
+                                    "end": 12
+                                  }
+                                }
+                              }
+                            ],
+                            "span": {
+                              "start": 12,
+                              "end": 13
+                            }
+                          }
+                        }
+                      },
+                      "span": {
+                        "start": 13,
+                        "end": 14
+                      }
+                    }
+                  },
+                  {
+                    "List": {
+                      "vals": [
+                        {
+                          "Int": {
+                            "val": 1,
+                            "span": {
+                              "start": 14,
+                              "end": 15
+                            }
+                          }
+                        },
+                        {
+                          "String": {
+                            "val": "two",
+                            "span": {
+                              "start": 15,
+                              "end": 16
+                            }
+                          }
+                        }
+                      ],
+                      "span": {
+                        "start": 16,
+                        "end": 17
+                      }
+                    }
+                  },
+                  {
+                    "Closure": {
+                      "val": {
+                        "block_id": 3,
+                        "captures": [
+                          [
+                            4,
+                            {
+                              "Int": {
+                                "val": 5,
+                                "span": {
+                                  "start": 17,
+                                  "end": 18
+                                }
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "span": {
+                        "start": 18,
+                        "end": 19
+                      }
+                    }
+                  },
+                  {
+                    "Error": {
+                      "error": {
+                        "msg": "error message",
+                        "labels": [
+                          {
+                            "text": "label",
+                            "span": {
+                              "start": 1,
+                              "end": 2
+                            }
+                          }
+                        ],
+                        "code": "nu::test::error",
+                        "url": "https://www.nushell.sh",
+                        "help": "help text",
+                        "inner": [
+                          {
+                            "msg": "inner error",
+                            "labels": [],
+                            "code": null,
+                            "url": null,
+                            "help": null,
+                            "inner": []
+                          }
+                        ]
+                      },
+                      "span": {
+                        "start": 19,
+                        "end": 20
+                      }
+                    }
+                  },
+                  {
+                    "Binary": {
+                      "val": [
+                        0,
+                        1,
+                        255
+                      ],
+                      "span": {
+                        "start": 20,
+                        "end": 21
+                      }
+                    }
+                  },
+                  {
+                    "CellPath": {
+                      "val": "$.name!?.2",
+                      "span": {
+                        "start": 23,
+                        "end": 24
+                      }
+                    }
+                  },
+                  {
+                    "Custom": {
+                      "val": {
+                        "type": "PluginCustomValue",
+                        "name": "CustomType",
+                        "data": [
+                          1,
+                          2,
+                          3
+                        ],
+                        "notify_on_drop": true
+                      },
+                      "span": {
+                        "start": 24,
+                        "end": 25
+                      }
+                    }
+                  },
+                  {
+                    "Nothing": {
+                      "span": {
+                        "start": 25,
+                        "end": 26
+                      }
+                    }
+                  }
+                ],
+                "span": {
+                  "start": 1,
+                  "end": 2
+                }
+              }
+            },
+            {
+              "data_source": {
+                "FilePath": "/data/file.json"
+              },
+              "path_columns": [
+                "name"
+              ],
+              "content_type": "application/json",
+              "custom": {
+                "plugin_field": {
+                  "String": {
+                    "val": "x",
+                    "span": {
+                      "start": 1,
+                      "end": 2
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 0,
+      "call": "GetConfig"
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 1,
+      "call": "GetPluginConfig"
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 2,
+      "call": {
+        "GetEnvVar": "PWD"
+      }
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 3,
+      "call": "GetEnvVars"
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 4,
+      "call": "GetCurrentDir"
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 5,
+      "call": {
+        "AddEnvVar": [
+          "FOO",
+          {
+            "String": {
+              "val": "bar",
+              "span": {
+                "start": 2,
+                "end": 3
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 6,
+      "call": "GetHelp"
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 7,
+      "call": "EnterForeground"
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 8,
+      "call": "LeaveForeground"
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 9,
+      "call": {
+        "GetSpanContents": {
+          "start": 3,
+          "end": 4
+        }
+      }
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 10,
+      "call": {
+        "EvalClosure": {
+          "closure": {
+            "item": {
+              "block_id": 1,
+              "captures": []
+            },
+            "span": {
+              "start": 4,
+              "end": 5
+            }
+          },
+          "positional": [
+            {
+              "Int": {
+                "val": 1,
+                "span": {
+                  "start": 5,
+                  "end": 6
+                }
+              }
+            }
+          ],
+          "input": "Empty",
+          "redirect_stdout": true,
+          "redirect_stderr": false
+        }
+      }
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 11,
+      "call": {
+        "FindDecl": "ls"
+      }
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 12,
+      "call": {
+        "GetBlockIR": 2
+      }
+    }
+  },
+  {
+    "EngineCall": {
+      "context": 0,
+      "id": 13,
+      "call": {
+        "CallDecl": {
+          "decl_id": 3,
+          "call": {
+            "head": {
+              "start": 1,
+              "end": 2
+            },
+            "positional": [
+              {
+                "Bool": {
+                  "val": true,
+                  "span": {
+                    "start": 1,
+                    "end": 2
+                  }
+                }
+              },
+              {
+                "Int": {
+                  "val": -7,
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                }
+              },
+              {
+                "Float": {
+                  "val": 1.5,
+                  "span": {
+                    "start": 3,
+                    "end": 4
+                  }
+                }
+              },
+              {
+                "String": {
+                  "val": "text",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                }
+              },
+              {
+                "Glob": {
+                  "val": "*.rs",
+                  "no_expand": true,
+                  "span": {
+                    "start": 5,
+                    "end": 6
+                  }
+                }
+              },
+              {
+                "Filesize": {
+                  "val": 1024,
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  }
+                }
+              },
+              {
+                "Duration": {
+                  "val": 1000000000,
+                  "span": {
+                    "start": 7,
+                    "end": 8
+                  }
+                }
+              },
+              {
+                "Date": {
+                  "val": "2024-01-02T03:04:05+02:00",
+                  "span": {
+                    "start": 8,
+                    "end": 9
+                  }
+                }
+              },
+              {
+                "Range": {
+                  "val": "1..3..10",
+                  "span": {
+                    "start": 9,
+                    "end": 10
+                  }
+                }
+              },
+              {
+                "Record": {
+                  "val": {
+                    "a": {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 10,
+                          "end": 11
+                        }
+                      }
+                    },
+                    "b": {
+                      "List": {
+                        "vals": [
+                          {
+                            "Nothing": {
+                              "span": {
+                                "start": 11,
+                                "end": 12
+                              }
+                            }
+                          }
+                        ],
+                        "span": {
+                          "start": 12,
+                          "end": 13
+                        }
+                      }
+                    }
+                  },
+                  "span": {
+                    "start": 13,
+                    "end": 14
+                  }
+                }
+              },
+              {
+                "List": {
+                  "vals": [
+                    {
+                      "Int": {
+                        "val": 1,
+                        "span": {
+                          "start": 14,
+                          "end": 15
+                        }
+                      }
+                    },
+                    {
+                      "String": {
+                        "val": "two",
+                        "span": {
+                          "start": 15,
+                          "end": 16
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "start": 16,
+                    "end": 17
+                  }
+                }
+              },
+              {
+                "Closure": {
+                  "val": {
+                    "block_id": 3,
+                    "captures": [
+                      [
+                        4,
+                        {
+                          "Int": {
+                            "val": 5,
+                            "span": {
+                              "start": 17,
+                              "end": 18
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  },
+                  "span": {
+                    "start": 18,
+                    "end": 19
+                  }
+                }
+              },
+              {
+                "Error": {
+                  "error": {
+                    "msg": "error message",
+                    "labels": [
+                      {
+                        "text": "label",
+                        "span": {
+                          "start": 1,
+                          "end": 2
+                        }
+                      }
+                    ],
+                    "code": "nu::test::error",
+                    "url": "https://www.nushell.sh",
+                    "help": "help text",
+                    "inner": [
+                      {
+                        "msg": "inner error",
+                        "labels": [],
+                        "code": null,
+                        "url": null,
+                        "help": null,
+                        "inner": []
+                      }
+                    ]
+                  },
+                  "span": {
+                    "start": 19,
+                    "end": 20
+                  }
+                }
+              },
+              {
+                "Binary": {
+                  "val": [
+                    0,
+                    1,
+                    255
+                  ],
+                  "span": {
+                    "start": 20,
+                    "end": 21
+                  }
+                }
+              },
+              {
+                "CellPath": {
+                  "val": "$.name!?.2",
+                  "span": {
+                    "start": 23,
+                    "end": 24
+                  }
+                }
+              },
+              {
+                "Custom": {
+                  "val": {
+                    "type": "PluginCustomValue",
+                    "name": "CustomType",
+                    "data": [
+                      1,
+                      2,
+                      3
+                    ],
+                    "notify_on_drop": true
+                  },
+                  "span": {
+                    "start": 24,
+                    "end": 25
+                  }
+                }
+              },
+              {
+                "Nothing": {
+                  "span": {
+                    "start": 25,
+                    "end": 26
+                  }
+                }
+              }
+            ],
+            "named": [
+              [
+                {
+                  "item": "named",
+                  "span": {
+                    "start": 2,
+                    "end": 3
+                  }
+                },
+                {
+                  "Int": {
+                    "val": 9,
+                    "span": {
+                      "start": 3,
+                      "end": 4
+                    }
+                  }
+                }
+              ],
+              [
+                {
+                  "item": "switch",
+                  "span": {
+                    "start": 4,
+                    "end": 5
+                  }
+                },
+                null
+              ]
+            ]
+          },
+          "input": {
+            "Value": [
+              {
+                "Int": {
+                  "val": 1,
+                  "span": {
+                    "start": 6,
+                    "end": 7
+                  }
+                }
+              },
+              null
+            ]
+          },
+          "redirect_stdout": false,
+          "redirect_stderr": true
+        }
+      }
+    }
+  },
+  {
+    "Data": [
+      0,
+      {
+        "List": {
+          "String": {
+            "val": "item",
+            "span": {
+              "start": 7,
+              "end": 8
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "Data": [
+      1,
+      {
+        "Raw": {
+          "Ok": [
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "End": 0
+  },
+  {
+    "Drop": 0
+  },
+  {
+    "Ack": 0
+  }
+]

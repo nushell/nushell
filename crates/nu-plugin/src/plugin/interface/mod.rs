@@ -274,9 +274,10 @@ impl InterfaceManager for EngineInterfaceManager {
                 } else {
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
-                            "Plugin is compiled for nushell version {}, \
-                                which is not compatible with version {}",
-                            local_info.version, info.version
+                            "Engine speaks plugin protocol {}, \
+                                which is not compatible with this plugin's protocol {}. \
+                                Rebuild the plugin against the version of Nushell that runs it",
+                            info.version, local_info.version
                         ),
                     })
                 }
@@ -606,6 +607,11 @@ impl EngineInterface {
 
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
     /// provided on request only.
+    ///
+    /// The engine sends the configuration as a record, and this side reads it with the same
+    /// parser as `$env.config`. Options that this plugin's version of Nushell doesn't know are
+    /// skipped, and options the engine doesn't send keep their defaults. Values stored in the
+    /// configuration lose their source spans on the way.
     ///
     /// # Example
     ///
@@ -985,6 +991,10 @@ impl EngineInterface {
     }
 
     /// Get the compiled IR for a block.
+    ///
+    /// IR changes with the Nushell compiler, so it is not covered by the plugin protocol
+    /// version. The engine only answers when the plugin was built from the same Nushell version
+    /// as the engine, and returns an error otherwise.
     ///
     /// # Example
     ///

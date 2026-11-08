@@ -135,6 +135,14 @@ pub fn make_plugin_interface(
                 gc,
             )
         }
+        // `nu-plugin-core` has the local socket variant whenever its own `local-socket` feature
+        // is on, which another crate in the build (such as `nu-plugin`) can enable without
+        // enabling this crate's. This crate never asks for a local socket then, so the arm
+        // can't be reached, but the match must still cover the variant.
+        #[allow(unreachable_patterns)]
+        _ => Err(ShellError::PluginFailedToLoad {
+            msg: "local socket support is not enabled in nu-plugin-engine".into(),
+        }),
     }
 }
 

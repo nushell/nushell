@@ -21,6 +21,7 @@ pub const TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY: &str = "table_width_priorit
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PipelineMetadata {
     pub data_source: DataSource,
+    #[serde(default)]
     pub path_columns: Vec<String>,
     pub content_type: Option<String>,
     #[serde(default)]

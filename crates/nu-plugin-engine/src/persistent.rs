@@ -13,6 +13,7 @@ use nu_protocol::{
 };
 use std::{
     collections::HashMap,
+    path::Path,
     sync::{Arc, Mutex},
 };
 
@@ -168,22 +169,27 @@ impl PersistentPlugin {
         // Before running the command, prepare communication
         let comm = mode.serve()?;
 
-        // Run the plugin command
-        let child = plugin_cmd.spawn().map_err(|err| {
-            let error_msg = match err.kind() {
-                std::io::ErrorKind::NotFound => match program_name {
-                    Ok(prog_name) => {
-                        format!(
-                            "Can't find {prog_name}, please make sure that {prog_name} is in PATH."
-                        )
-                    }
-                    _ => {
-                        format!("Error spawning child process: {err}")
-                    }
-                },
-                _ => {
-                    format!("Error spawning child process: {err}")
+        // Run the plugin command. `.py` plugins run with `python`, which some systems only install
+        // as `python3` (macOS without Xcode's developer tools, many Linux distributions), so try
+        // that before giving up.
+        let mut spawned = plugin_cmd.spawn();
+        if matches!(&spawned, Err(err) if err.kind() == std::io::ErrorKind::NotFound)
+            && plugin_cmd.get_program() == "python"
+        {
+            plugin_cmd = create_command(source_file, Some(Path::new("python3")), &mode);
+            plugin_cmd.envs(envs);
+            spawned = plugin_cmd.spawn();
+        }
+        let child = spawned.map_err(|err| {
+            let error_msg = match (err.kind(), program_name.as_deref()) {
+                (std::io::ErrorKind::NotFound, Ok("python")) => {
+                    "Can't find python or python3, please make sure that one of them is in PATH."
+                        .into()
                 }
+                (std::io::ErrorKind::NotFound, Ok(prog_name)) => {
+                    format!("Can't find {prog_name}, please make sure that {prog_name} is in PATH.")
+                }
+                _ => format!("Error spawning child process: {err}"),
             };
             ShellError::PluginFailedToLoad { msg: error_msg }
         })?;
