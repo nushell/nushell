@@ -2124,11 +2124,8 @@ fn get_var_with_origin(
         .stack
         .get_var_with_origin(var_id, span)
         .or_else(|err| ctx.engine_state.get_constant(var_id).cloned().ok_or(err))?;
-    if value.span() == Span::unknown() || value.span() == Span::test_data() {
-        Ok(value.with_span(span))
-    } else {
-        Ok(value)
-    }
+    let origin = value.span().fallback(span);
+    Ok(value.with_span(origin))
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
