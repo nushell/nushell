@@ -1,6 +1,9 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{FloatRange, Range};
-use rand::random_range;
+use rand::{
+    distr::{Distribution, Uniform},
+    random_range,
+};
 use std::ops::Bound;
 
 #[derive(Clone)]
@@ -76,22 +79,26 @@ fn float(
             let range_span = range.span;
             let range = FloatRange::from(range.item);
 
+            let invalid_range = || ShellError::InvalidRange {
+                left_flank: range.start().to_string(),
+                right_flank: match range.end() {
+                    Bound::Included(end) | Bound::Excluded(end) => end.to_string(),
+                    Bound::Unbounded => "".into(),
+                },
+                span: range_span,
+            };
+
             if range.step() < 0.0 {
-                return Err(ShellError::InvalidRange {
-                    left_flank: range.start().to_string(),
-                    right_flank: match range.end() {
-                        Bound::Included(end) | Bound::Excluded(end) => end.to_string(),
-                        Bound::Unbounded => "".into(),
-                    },
-                    span: range_span,
-                });
+                return Err(invalid_range());
             }
 
-            let value = match range.end() {
-                Bound::Included(end) => random_range(range.start()..=end),
-                Bound::Excluded(end) => random_range(range.start()..end),
-                Bound::Unbounded => random_range(range.start()..f64::MAX),
-            };
+            let distribution = match range.end() {
+                Bound::Included(end) => Uniform::new_inclusive(range.start(), end),
+                Bound::Excluded(end) => Uniform::new(range.start(), end),
+                Bound::Unbounded => Uniform::new(range.start(), f64::MAX),
+            }
+            .map_err(|_| invalid_range())?;
+            let value = distribution.sample(&mut rand::rng());
 
             Ok(PipelineData::value(Value::float(value, span), None))
         }
