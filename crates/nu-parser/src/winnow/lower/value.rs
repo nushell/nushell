@@ -172,6 +172,14 @@ impl<'s> Lower<'_, '_, 's> {
             {
                 (Expr::String(string.value.to_string()), Type::String)
             }
+            // A cell path the winnow parser read by the shape (`parse_simple_cell_path`):
+            // `get name`, `select a.0?`.
+            (SyntaxShape::CellPath, w::Expr::CellPath(path)) => (
+                Expr::CellPath(CellPath {
+                    members: self.members(&path.members),
+                }),
+                Type::CellPath,
+            ),
             // A word or quoted string as a path, a directory or a glob (`parse_path_like`),
             // quoted when it has quotes (backticks do not count).
             (
