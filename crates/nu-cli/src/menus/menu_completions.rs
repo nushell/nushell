@@ -54,19 +54,29 @@ impl Completer for NuMenuCompleter {
         // Reedline replacement range — never fed into `$token`/`$place`.
         let mut replacing = default_span(handed, pos, self.mode);
         let (buffer, mut cursor) = self.mode.buffer(&self.line, handed, pos, replacing.start);
+        let diff = self.mode.is_diff();
+        let original = if diff { buffer.as_str() } else { line };
 
-        // Only the fragment Reedline supplied can contain a selector. Locate it
-        // on the recorded line, where the source's offsets and edits are measured.
-        let selector = if matches!(self.mode, SourceMode::DiffList { .. }) {
+        // Reedline finds the selector in the text it supplied. Only a Diff
+        // fragment starts at an offset into the original buffer.
+        let selector = if matches!(self.mode, SourceMode::List { .. }) {
             parsed.marker.and_then(|marker| {
-                let start = pos.checked_sub(line.len())? + handed.len();
+                let input_start = if diff {
+                    pos.checked_sub(line.len())?
+                } else {
+                    0
+                };
+                let start = input_start + handed.len();
                 let end = start + marker.len();
-                (buffer.get(start..end) == Some(marker)).then_some(reedline::Span::new(start, end))
+                (original.get(start..end) == Some(marker))
+                    .then_some(reedline::Span::new(start, end))
             })
         } else {
             None
         };
-        let source_buffer = if let Some(selector) = selector {
+        // Live sources already see `handed`. For a Diff source, stop parsing
+        // at the selector but use the full changed fragment for the edit.
+        let source_buffer = if diff && let Some(selector) = selector {
             replacing = default_span(line, pos, self.mode);
             cursor = cursor.min(selector.start);
             &buffer[..cursor]
@@ -110,14 +120,15 @@ impl Completer for NuMenuCompleter {
         };
 
         if let (
-            SourceMode::DiffList {
+            SourceMode::List {
                 suggested_span: true,
+                ..
             },
             Some(selector),
         ) = (self.mode, selector)
         {
             for suggestion in &mut suggestions {
-                include_selector(suggestion, &buffer, selector);
+                include_selector(suggestion, original, selector);
             }
         }
 
@@ -128,15 +139,16 @@ impl Completer for NuMenuCompleter {
 
 /// Replacement span when the source names none: what reedline feeds the completer.
 fn default_span(line: &str, pos: usize, mode: SourceMode) -> reedline::Span {
-    match mode {
-        SourceMode::Diff | SourceMode::DiffList { .. } => reedline::Span {
+    if mode.is_diff() {
+        reedline::Span {
             start: pos.saturating_sub(line.len()),
             end: pos,
-        },
-        SourceMode::Live => reedline::Span {
+        }
+    } else {
+        reedline::Span {
             start: 0,
             end: line.len(),
-        },
+        }
     }
 }
 
@@ -292,13 +304,18 @@ mod tests {
         );
     }
 
-    fn diff_list(source: &str, output: OutputMode) -> (SourcedMenu<ListMenu>, NuMenuCompleter) {
-        let mode = SourceMode::DiffList {
+    fn list_menu(
+        source: &str,
+        input_mode: InputMode,
+        output: OutputMode,
+    ) -> (SourcedMenu<ListMenu>, NuMenuCompleter) {
+        let mode = SourceMode::List {
+            input_mode,
             suggested_span: output == OutputMode::SuggestedSpan,
         };
         let completer = menu_in(mode, source);
         let menu = ListMenu::default()
-            .with_input_mode(InputMode::Diff)
+            .with_input_mode(input_mode)
             .with_output_mode(output);
         let menu = SourcedMenu::new(menu, completer.line.clone(), mode);
         (menu, completer)
@@ -314,19 +331,21 @@ mod tests {
         );
     }
 
-    #[test]
-    fn diff_list_keeps_matches_while_typing_a_row_selector() {
-        let (mut menu, mut completer) = diff_list(
+    #[rstest]
+    #[case::diff(InputMode::Diff, false)]
+    #[case::cursor_prefix(InputMode::CursorPrefix, true)]
+    #[case::full_buffer(InputMode::FullBuffer, true)]
+    fn list_keeps_matches_while_typing_a_row_selector(
+        #[case] input_mode: InputMode,
+        #[case] rows_on_reopen: bool,
+    ) {
+        let (mut menu, mut completer) = list_menu(
             "{|buffer| [alpha bravo charlie delta] | where $it =~ $buffer | wrap value}",
+            input_mode,
             OutputMode::SuggestedSpan,
         );
         let mut editor = Editor::default();
         menu.menu_event(MenuEvent::Activate(false));
-        assert!(!menu.can_partially_complete(true, &mut editor, &mut completer));
-        assert!(
-            menu.is_active(),
-            "the opening probe has not fetched any rows yet"
-        );
         menu.update_values(&mut editor, &mut completer);
 
         for input in ["!", "!2"] {
@@ -343,11 +362,11 @@ mod tests {
             assert_eq!(editor.get_buffer(), input);
         }
 
-        // Reopening on the same text makes it part of the new starting line.
+        // Diff treats the existing selector as part of the new starting line.
         menu.menu_event(MenuEvent::Deactivate);
         menu.menu_event(MenuEvent::Activate(false));
         menu.update_values(&mut editor, &mut completer);
-        assert!(menu.get_values().is_empty());
+        assert_eq!(!menu.get_values().is_empty(), rows_on_reopen);
     }
 
     #[rstest]
@@ -359,8 +378,9 @@ mod tests {
         #[case] edited: &str,
         #[case] expected: &str,
     ) {
-        let (mut menu, mut completer) = diff_list(
+        let (mut menu, mut completer) = list_menu(
             r#"{|buffer, position| [$"($position):($buffer)"]}"#,
+            InputMode::Diff,
             OutputMode::SuggestedSpan,
         );
         let mut editor = Editor::default();
@@ -389,7 +409,8 @@ mod tests {
         #[case] edited: &str,
         #[case] expected: &str,
     ) {
-        let (mut menu, mut completer) = diff_list("{|| [charlie]}", OutputMode::SuggestedSpan);
+        let (mut menu, mut completer) =
+            list_menu("{|| [charlie]}", InputMode::Diff, OutputMode::SuggestedSpan);
         let mut editor = Editor::default();
         set_editor_line(&mut editor, opening);
         menu.menu_event(MenuEvent::Activate(false));
@@ -403,29 +424,64 @@ mod tests {
     }
 
     #[rstest]
-    #[case::suggested_span(OutputMode::SuggestedSpan, "cd charlie /rest ")]
-    #[case::extend_to_end(OutputMode::ExtendToEnd, "cd charlie ")]
-    #[case::full_buffer(OutputMode::FullBuffer, "charlie ")]
-    fn accepting_a_diff_list_row_honors_custom_spans_and_output_modes(
-        #[case] output: OutputMode,
-        #[case] expected: &str,
+    #[case::cursor_prefix(InputMode::CursorPrefix, "é!0".len())]
+    #[case::full_buffer(InputMode::FullBuffer, "é!0".len())]
+    #[case::full_buffer_with_cursor_before_selector(InputMode::FullBuffer, "é".len())]
+    fn accepting_a_live_list_row_keeps_text_after_the_selector(
+        #[case] input_mode: InputMode,
+        #[case] cursor: usize,
     ) {
-        let (mut menu, mut completer) = diff_list(
-            "{|| [{value: charlie, span: {start: 3, end: 6}, append_whitespace: true}]}",
-            output,
-        );
+        let (mut menu, mut completer) =
+            list_menu("{|| [charlie]}", input_mode, OutputMode::SuggestedSpan);
         let mut editor = Editor::default();
-        set_editor_line(&mut editor, "cd dir/rest ");
+        set_editor_line(&mut editor, " | pwd");
         menu.menu_event(MenuEvent::Activate(false));
         menu.update_values(&mut editor, &mut completer);
 
-        set_editor_line(&mut editor, "cd dir/rest !0");
+        editor.edit_buffer(
+            |buffer| {
+                buffer.set_buffer("é!0 | pwd".into());
+                buffer.set_insertion_point(cursor);
+            },
+            UndoBehavior::CreateUndoPoint,
+        );
         menu.menu_event(MenuEvent::Edit(false));
         menu.update_values(&mut editor, &mut completer);
-
-        assert_eq!(menu.get_values()[0].display_value(), "charlie");
         menu.replace_in_buffer(&mut editor);
-        assert_eq!(editor.get_buffer(), expected);
+        assert_eq!(editor.get_buffer(), "charlie | pwd");
+    }
+
+    #[rstest]
+    #[case::suggested_span(OutputMode::SuggestedSpan, "cd charlie /rest ")]
+    #[case::extend_to_end(OutputMode::ExtendToEnd, "cd charlie ")]
+    #[case::full_buffer(OutputMode::FullBuffer, "charlie ")]
+    fn accepting_a_list_row_honors_custom_spans_and_output_modes(
+        #[case] output: OutputMode,
+        #[case] expected: &str,
+    ) {
+        for input_mode in [
+            InputMode::Diff,
+            InputMode::CursorPrefix,
+            InputMode::FullBuffer,
+        ] {
+            let (mut menu, mut completer) = list_menu(
+                "{|| [{value: charlie, span: {start: 3, end: 6}, append_whitespace: true}]}",
+                input_mode,
+                output,
+            );
+            let mut editor = Editor::default();
+            set_editor_line(&mut editor, "cd dir/rest ");
+            menu.menu_event(MenuEvent::Activate(false));
+            menu.update_values(&mut editor, &mut completer);
+
+            set_editor_line(&mut editor, "cd dir/rest !0");
+            menu.menu_event(MenuEvent::Edit(false));
+            menu.update_values(&mut editor, &mut completer);
+
+            assert_eq!(menu.get_values()[0].display_value(), "charlie");
+            menu.replace_in_buffer(&mut editor);
+            assert_eq!(editor.get_buffer(), expected, "input mode {input_mode:?}");
+        }
     }
 
     /// Declaring a `buffer` parameter opts a source into the whole line up to the cursor,

@@ -288,12 +288,9 @@ pub(crate) fn add_list_menu(
     list_menu = apply_output_mode(list_menu, output_mode);
 
     let completer = if let Some(closure) = &menu.source {
-        let mode = if input_mode == InputMode::Diff {
-            SourceMode::DiffList {
-                suggested_span: matches!(output_mode, None | Some(MenuOutputMode::SuggestedSpan)),
-            }
-        } else {
-            SourceMode::of(&input_mode)
+        let mode = SourceMode::List {
+            input_mode,
+            suggested_span: matches!(output_mode, None | Some(MenuOutputMode::SuggestedSpan)),
         };
         menu_with_source(list_menu, closure, span, stack, engine_state, mode)
     } else {
