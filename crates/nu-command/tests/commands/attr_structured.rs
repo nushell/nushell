@@ -72,18 +72,52 @@ fn structured_extern_to_file_runs_as_written() -> Result {
     })
 }
 
-#[rstest]
-#[case::terminal("cococo")]
-#[case::print("cococo | print")]
-#[nu_test_support::test]
+/// Runs `code` in a fresh `nu` and returns what it printed to the terminal.
+fn terminal_output(code: String) -> Result<String> {
+    let result: CompleteResult =
+        test().run_with_data("let code; nu -n -c $code | complete", code)?;
+    Ok(result.stdout)
+}
+
+#[test]
 #[deps(NU, TESTBIN_COCOCO)]
-fn structured_extern_runs_as_written_to_terminal(#[case] call: &str) -> Result {
-    let result: CompleteResult = test().run_with_data(
-        "let code; nu -n -c $code | complete",
-        format!("{STRUCTURED_COCOCO}\n{call}"),
-    )?;
-    assert_eq!(result.stdout.trim(), "cococo");
+fn structured_extern_decodes_to_terminal() -> Result {
+    let stdout = terminal_output(format!("{STRUCTURED_COCOCO}\ncococo"))?;
+    // The decoded list is shown as a table, not the raw `1,2,3`.
+    assert!(!stdout.contains("1,2,3"), "{stdout}");
+    for item in ["1", "2", "3"] {
+        assert_contains(item, &stdout);
+    }
     Ok(())
+}
+
+#[test]
+#[deps(NU, TESTBIN_COCOCO)]
+fn structured_extern_runs_as_written_into_print() -> Result {
+    let stdout = terminal_output(format!("{STRUCTURED_COCOCO}\ncococo | print"))?;
+    assert_eq!(stdout.trim(), "cococo");
+    Ok(())
+}
+
+const PIPE_ONLY_COCOCO: &str = r#"
+    @structured --pipe-only ["1,2,3"] { str trim | split row "," }
+    extern cococo []
+"#;
+
+#[test]
+#[deps(NU, TESTBIN_COCOCO)]
+fn pipe_only_runs_as_written_to_terminal() -> Result {
+    let stdout = terminal_output(format!("{PIPE_ONLY_COCOCO}\ncococo"))?;
+    assert_eq!(stdout.trim(), "cococo");
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn pipe_only_decodes_when_piped() -> Result {
+    test()
+        .run(format!("{PIPE_ONLY_COCOCO}\ncococo | length"))
+        .expect_value_eq(3)
 }
 
 #[test]

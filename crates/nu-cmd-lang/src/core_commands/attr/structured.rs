@@ -20,6 +20,7 @@ impl Command for AttrStructured {
                     vec![
                         ("args".into(), Type::list(Type::String)),
                         ("decode".into(), Type::Closure),
+                        ("pipe_only".into(), Type::Bool),
                     ]
                     .into(),
                 ),
@@ -35,6 +36,11 @@ impl Command for AttrStructured {
                 SyntaxShape::Block,
                 "Turns that output, given as `$in`, into data.",
             )
+            .switch(
+                "pipe-only",
+                "Only decode when nushell uses the output; run as written when it goes to the terminal.",
+                None,
+            )
             .category(Category::Core)
     }
 
@@ -43,13 +49,14 @@ impl Command for AttrStructured {
     }
 
     fn extra_description(&self) -> &str {
-        "When the output of the extern is used by nushell (piped into an internal command or \
-collected into a variable), the arguments are added right after the command's name and the \
-output is decoded with the block. When the output goes to the terminal, `print`, a file, \
-`ignore`, `save`, `tee`, `complete` or another external command (`run-external` included), \
-the command runs as written. The same holds when the extern is the last command of a `do` \
-block or a custom command. Calling the command with a caret, like `^git status`, always runs \
-it as written.
+        "When the output of the extern is shown in the terminal or used by nushell (piped into an \
+internal command or collected into a variable), the arguments are added right after the \
+command's name and the output is decoded with the block. When the output goes to `print`, a \
+file, `ignore`, `save`, `tee`, `complete` or another external command (`run-external` \
+included), the command runs as written. The same holds when the extern is the last command of \
+a `do` block or a custom command. With `--pipe-only`, output shown in the terminal is not \
+decoded either, so only output nushell uses is. Calling the command with a caret, like \
+`^git status`, always runs it as written.
 
 The arguments come before the user's own, so a format flag the user passes can override them \
 and break the decode, as in `kubectl get pods -o wide`. Use a caret call for that. `tee` \
@@ -69,10 +76,8 @@ declared before the extern, but not `mut` variables."
     ) -> Result<PipelineData, ShellError> {
         let args: Value = call.req(engine_state, stack, 0)?;
         let decode: Value = call.req(engine_state, stack, 1)?;
-        Ok(
-            Value::record(record! { "args" => args, "decode" => decode }, call.head)
-                .into_pipeline_data(),
-        )
+        let pipe_only = call.has_flag(engine_state, stack, "pipe-only")?;
+        Ok(structured_record(args, decode, pipe_only, call.head).into_pipeline_data())
     }
 
     fn run_const(
@@ -84,10 +89,8 @@ declared before the extern, but not `mut` variables."
     ) -> Result<PipelineData, ShellError> {
         let args: Value = call.req_const(working_set, stack, 0)?;
         let decode: Value = call.req_const(working_set, stack, 1)?;
-        Ok(
-            Value::record(record! { "args" => args, "decode" => decode }, call.head)
-                .into_pipeline_data(),
-        )
+        let pipe_only = call.has_flag_const(working_set, stack, "pipe-only")?;
+        Ok(structured_record(args, decode, pipe_only, call.head).into_pipeline_data())
     }
 
     fn is_const(&self) -> bool {
@@ -124,6 +127,25 @@ declared before the extern, but not `mut` variables."
     kubectl get pods | where status.phase != Running"#,
                 result: None,
             },
+            Example {
+                description: "Show `pip list` as a table only when piped, and as pip's own text in the terminal.",
+                example: r#"@structured --pipe-only [--format=json] { from json }
+    extern "pip list" []
+    pip list"#,
+                result: None,
+            },
         ]
     }
+}
+
+/// The record an `@structured` attribute evaluates to, read back as `StructuredOutput`.
+fn structured_record(args: Value, decode: Value, pipe_only: bool, span: Span) -> Value {
+    Value::record(
+        record! {
+            "args" => args,
+            "decode" => decode,
+            "pipe_only" => Value::bool(pipe_only, span),
+        },
+        span,
+    )
 }
