@@ -202,9 +202,9 @@ mod tests {
         };
         let spans: Vec<_> = warnings
             .iter()
-            .map(|warning| match warning {
-                ConfigWarning::IncompatibleOptions { span, .. } => *span,
-                other => panic!("unexpected warning: {other:?}"),
+            .map(|warning| {
+                let ConfigWarning::IncompatibleOptions { span, .. } = warning;
+                *span
             })
             .collect();
         // `()` is in `pairs`, so it does not warn; `<>` warns once per occurrence.
