@@ -394,20 +394,8 @@ pub(crate) fn evaluate_parsed_block(
     }?;
     let mut pipeline_data = pipeline.body;
 
-    // Update engine_state with deleted variables. `unlet` on a constant already took effect
-    // while parsing, for the block it's in (see `parse_pipeline_element`), so a constant
-    // unlet in a nested block stays for later source.
-    for var_id in &stack.deletions {
-        if engine_state.get_constant(*var_id).is_some() {
-            continue;
-        }
-        if let Some(active_id) = engine_state.scope.active_overlays.last()
-            && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
-        {
-            overlay.vars.retain(|_, v| *v != *var_id);
-        }
-    }
-    stack.deletions.clear();
+    // Update engine_state with deleted variables
+    engine_state.merge_deletions(stack);
 
     // Capture interactive last-result before display_output transforms/prints the value.
     // Only for true REPL user lines (`capture_repl_last_result`), not config/env/banner.

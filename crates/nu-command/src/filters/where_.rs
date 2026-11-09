@@ -107,7 +107,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
             },
             Example {
                 description: "List all files that were modified in the last two weeks.",
-                example: "ls | where modified >= (date now) - 2wk",
+                example: "ls | where modified newer-than 2wk",
                 result: None,
             },
             Example {

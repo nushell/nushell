@@ -9,8 +9,10 @@ use tabled::{
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
+        colors::Colors,
         config::{
-            AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
+            AlignmentHorizontal, Border, Borders, ColoredConfig, Entity, Indent, Position, Sides,
+            SpannedConfig,
         },
         dimension::{CompleteDimension, PeekableGridDimension},
         records::{
@@ -653,10 +655,13 @@ fn draw_table(
 
     set_styles(&mut table, t.styles, &structure);
     set_indent(&mut table, t.config.indent);
-    load_theme(&mut table, &t.config.theme, &structure, sep_color);
+    load_theme(&mut table, &t.config.theme, &structure);
     let ctrl = DimensionCtrl::new(width, current, t.config.trim.clone(), &t.config, t.heights);
     table.with(ctrl);
     table_set_border_header(&mut table, head, &t.config);
+    if let Some(style) = sep_color {
+        color_borders(&mut table, style);
+    }
 
     let string = table.to_string();
     Some(string)
@@ -901,12 +906,7 @@ fn colorize_table(table: &mut Table, styles: CellConfiguration<Color>, structure
     }
 }
 
-fn load_theme(
-    table: &mut Table,
-    theme: &TableTheme,
-    structure: &TableStructure,
-    sep_color: Option<Style>,
-) {
+fn load_theme(table: &mut Table, theme: &TableTheme, structure: &TableStructure) {
     let with_header = table.count_rows() > 1 && structure.with_header;
     let with_footer = with_header && structure.with_footer;
     let mut theme = theme.as_base().clone();
@@ -920,12 +920,117 @@ fn load_theme(
     }
 
     table.with(theme);
+}
 
-    if let Some(style) = sep_color {
-        let color = convert_style(style);
-        let color = ANSIBuf::from(color);
-        table.get_config_mut().set_border_color_default(color);
+/// Colors the borders with the separator style, once the table's text is final.
+///
+/// A colored border ends with a reset, which leaves the terminal at its default colors. With
+/// the default separator style (the default foreground), only the borders that start a line
+/// keep their color: every horizontal line, and the first vertical border of each cell line,
+/// which is the left border or, in themes without one, the first inner border. Each line then
+/// starts as it would with every border colored, whatever was printed before it, even when it
+/// is printed on its own. From that border on the colors are the defaults, and a border or a
+/// cell colored with the default foreground looks the same uncolored, as long as every cell
+/// line ends with the defaults (see [`cells_to_uncolor`]). The table looks the same, line by
+/// line, with fewer escape sequences.
+fn color_borders(table: &mut Table, style: Style) {
+    let color = ANSIBuf::from(convert_style(style));
+    let count_rows = table.count_rows();
+    let count_columns = table.count_columns();
+    let first_vertical =
+        (0..=count_columns).find(|&col| table.get_config().has_vertical(col, count_columns));
+    let uncolored = first_vertical.and_then(|col| cells_to_uncolor(table, col));
+    let cfg = table.get_config_mut();
+    let (Some(first_vertical), Some(uncolored)) = (first_vertical, uncolored) else {
+        cfg.set_border_color_default(color);
+        return;
+    };
+
+    for pos in uncolored {
+        cfg.set_color(pos.into(), ANSIBuf::default());
     }
+
+    if style != nu_ansi_term::Color::Default.normal() {
+        cfg.set_border_color_default(color);
+        return;
+    }
+
+    let line = || Some(color.clone());
+    cfg.set_borders_color(Borders {
+        top: line(),
+        top_left: line(),
+        top_right: line(),
+        top_intersection: line(),
+        horizontal: line(),
+        left_intersection: line(),
+        right_intersection: line(),
+        intersection: line(),
+        bottom: line(),
+        bottom_left: line(),
+        bottom_right: line(),
+        bottom_intersection: line(),
+        // The left border is colored once for every row, an inner one row by row.
+        left: (first_vertical == 0).then(|| color.clone()),
+        ..Borders::default()
+    });
+    if first_vertical > 0 {
+        for row in 0..count_rows {
+            let border = Border {
+                left: line(),
+                ..Border::default()
+            };
+            cfg.set_border_color(Position::new(row, first_vertical), border);
+        }
+    }
+}
+
+/// The cells right of the first vertical border that are colored only with the default
+/// foreground, if the terminal's colors are its defaults after every cell line as printed;
+/// `None` if a cell line can end with other colors.
+///
+/// Cells left of the first vertical border keep their color, since nothing before them on
+/// their line resets colors left on by whatever was printed before it. A colored cell line is
+/// printed between the color's prefix and suffix, so it ends with the defaults when the suffix
+/// is a reset. An uncolored one has to end with them by itself (see
+/// [`ends_with_default_colors`]).
+fn cells_to_uncolor(table: &Table, first_vertical: usize) -> Option<Vec<Position>> {
+    let default_fg = ANSIBuf::from(convert_style(nu_ansi_term::Color::Default.normal()));
+    let colors = table.get_config().get_colors();
+    let records = table.get_records();
+    let mut uncolored = Vec::new();
+    for row in 0..table.count_rows() {
+        for col in 0..table.count_columns() {
+            let pos = Position::new(row, col);
+            let ends_clean = || {
+                records
+                    .get_text(pos)
+                    .split('\n')
+                    .all(ends_with_default_colors)
+            };
+            match colors.get_color(pos).filter(|color| !color.is_empty()) {
+                None if !ends_clean() => return None,
+                Some(color) if color.get_suffix() != RESET => return None,
+                Some(color) if col >= first_vertical && *color == default_fg && ends_clean() => {
+                    uncolored.push(pos)
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Some(uncolored)
+}
+
+const RESET: &str = "\x1b[0m";
+
+/// Whether a line that starts with the terminal's default colors ends with them: it has no
+/// escape sequence, or its last one is a reset. A C1 control sequence introducer (U+009B),
+/// which some terminals read like `ESC [`, never counts as a reset.
+fn ends_with_default_colors(line: &str) -> bool {
+    line.rfind(['\x1b', '\u{9b}']).is_none_or(|i| {
+        let last = &line[i..];
+        last.starts_with(RESET) || last.starts_with("\x1b[m")
+    })
 }
 
 /// Plans how the columns of a table fit `termwidth`.
@@ -1427,5 +1532,111 @@ pub fn get_color_if_exists(c: &Color) -> Option<Color> {
         Some(c.clone())
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A table with the default separator style, the given theme and these rows of cell texts.
+    fn colored_table(theme: TableTheme, rows: &[&[&str]]) -> NuTable {
+        let mut table = NuTable::new(rows.len(), rows[0].len());
+        table.set_theme(theme);
+        table.set_structure(false, false, false);
+        table.set_border_color(nu_ansi_term::Color::Default.normal());
+        for (row, cells) in rows.iter().enumerate() {
+            for (col, text) in cells.iter().enumerate() {
+                table.insert((row, col), String::from(*text));
+            }
+        }
+        table
+    }
+
+    /// Colors these cells with the default foreground.
+    fn color_default_foreground(table: &mut NuTable, cells: &[(usize, usize)]) {
+        let default_fg = TextStyle::new().style(nu_ansi_term::Color::Default.normal());
+        for &pos in cells {
+            table.insert_style(pos, default_fg);
+        }
+    }
+
+    #[test]
+    fn default_separator_colors_horizontal_lines_and_first_borders() {
+        let table = colored_table(
+            TableTheme::rounded(),
+            &[&["a", "b"], &["\x1b[31mc\x1b[0m", "d\ne"]],
+        );
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[39m╭───┬───╮\x1b[0m\n\
+             \x1b[39m│\x1b[0m a │ b │\n\
+             \x1b[39m│\x1b[0m \x1b[31mc\x1b[0m │ d │\n\
+             \x1b[39m│\x1b[0m   │ e │\n\
+             \x1b[39m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn cell_leaving_colors_on_colors_every_border() {
+        let table = colored_table(TableTheme::rounded(), &[&["a", "b"], &["\x1b[41mc", "d"]]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[39m╭───┬───╮\x1b[0m\n\
+             \x1b[39m│\x1b[0m a \x1b[39m│\x1b[0m b \x1b[39m│\x1b[0m\n\
+             \x1b[39m│\x1b[0m \x1b[41mc \x1b[39m│\x1b[0m d \x1b[39m│\x1b[0m\n\
+             \x1b[39m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn theme_without_left_border_colors_its_first_inner_border() {
+        let mut table = colored_table(TableTheme::psql(), &[&["a", "b", "c"], &["d", "e", "f"]]);
+        color_default_foreground(&mut table, &[(0, 0), (0, 1)]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            " \x1b[39ma\x1b[0m \x1b[39m|\x1b[0m b | c \n d \x1b[39m|\x1b[0m e | f "
+        );
+    }
+
+    #[test]
+    fn default_foreground_cells_are_uncolored_unless_they_leave_colors_on() {
+        let mut table = colored_table(TableTheme::rounded(), &[&["a", "b"], &["\x1b[41mc", "d"]]);
+        color_default_foreground(&mut table, &[(0, 0), (1, 0)]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[39m╭───┬───╮\x1b[0m\n\
+             \x1b[39m│\x1b[0m a │ b │\n\
+             \x1b[39m│\x1b[0m \x1b[39m\x1b[41mc\x1b[0m │ d │\n\
+             \x1b[39m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn other_separator_colors_every_border_and_uncolors_default_foreground_cells() {
+        let mut table = colored_table(TableTheme::rounded(), &[&["a", "b"], &["c", "d"]]);
+        table.set_border_color(nu_ansi_term::Color::Red.normal());
+        color_default_foreground(&mut table, &[(0, 0), (1, 0)]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[31m╭───┬───╮\x1b[0m\n\
+             \x1b[31m│\x1b[0m a \x1b[31m│\x1b[0m b \x1b[31m│\x1b[0m\n\
+             \x1b[31m│\x1b[0m c \x1b[31m│\x1b[0m d \x1b[31m│\x1b[0m\n\
+             \x1b[31m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn lines_ending_with_default_colors() {
+        let clean = ["", "plain", "\x1b[31mx\x1b[0m", "\x1b[31mx\x1b[m tail"];
+        let dirty = [
+            "\x1b[31mx",
+            "\x1b[0m\x1b]8;;\x1b\\",
+            "\x1b[1mx\x1b[22m",
+            "x\x1b[0m\u{9b}41m",
+            "\x1b[31mx\u{9b}0m",
+        ];
+        assert!(clean.into_iter().all(ends_with_default_colors));
+        assert!(!dirty.into_iter().any(ends_with_default_colors));
     }
 }

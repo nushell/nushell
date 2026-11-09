@@ -282,7 +282,7 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 // + 1 masked error). Since `length` now propagates stream errors, drop the row with a
 // closure that takes no arguments (`tee { ignore }`), keeping streaming intact.
 #[case::tee("tee { ignore } | flatten | length", 5)]
-#[case::filter("filter {|row| $row.z > 100 } | length", 2)]
+#[case::where_closure("where {|row| $row.z > 100 } | length", 2)]
 fn sqlite_int_table_operations(
     #[case] operation: &str,
     #[case] expected: impl IntoValue,

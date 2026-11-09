@@ -257,7 +257,6 @@ fn ir_call_to_extern_call(
                 let name_arg = engine::Argument::Positional {
                     span: *span,
                     val: Value::string(known_external_option_name(data, *name, *short), *span),
-                    ast: None,
                 };
                 extern_call.add_argument(stack, name_arg);
             }
@@ -272,12 +271,10 @@ fn ir_call_to_extern_call(
                 let name_arg = engine::Argument::Positional {
                     span: *span,
                     val: Value::string(known_external_option_name(data, *name, *short), *span),
-                    ast: None,
                 };
                 let val_arg = engine::Argument::Positional {
                     span: *span,
                     val: val.clone(),
-                    ast: None,
                 };
                 extern_call.add_argument(stack, name_arg);
                 extern_call.add_argument(stack, val_arg);

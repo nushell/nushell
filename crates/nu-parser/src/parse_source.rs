@@ -74,8 +74,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         let scoped = name == b"source-env";
 
         if let Some(decl_id) = working_set.find_decl(name) {
-            #[allow(deprecated)]
-            let cwd = working_set.get_cwd();
+            let cwd = working_set
+                .permanent()
+                .cwd_as_string(None)
+                .unwrap_or_default();
 
             let ParsedInternalCall {
                 call,
@@ -237,8 +239,10 @@ fn parse_run_expr_internal(
         if let Some(decl_id) =
             find_keyword_decl(working_set, name).or_else(|| working_set.find_decl(name))
         {
-            #[allow(deprecated)]
-            let cwd = working_set.get_cwd();
+            let cwd = working_set
+                .permanent()
+                .cwd_as_string(None)
+                .unwrap_or_default();
 
             // `run`'s own flags come before the script path, and everything after the path
             // belongs to the script, like `nu [flags] script.nu [args]`. So `run x.nu -f` passes
@@ -280,9 +284,8 @@ fn parse_run_expr_internal(
                 has_flag_const(working_set, &call, "full-reparse")
             };
 
-            // The script arguments are parsed in the caller's scope before this parse of the
-            // script, so its definitions can't change what they mean. (A script that `run` parsed
-            // earlier in the same scope has already declared its definitions there.)
+            // The script arguments are parsed in the caller's scope. The script itself is parsed in
+            // its own scope below, so its definitions can't change what they mean.
             add_script_arguments(working_set, &mut call, script_args);
 
             let Ok(do_full_reparse) = do_full_reparse else {
@@ -377,11 +380,15 @@ fn parse_run_expr_internal(
                         return garbage(working_set, Span::concat(spans));
                     }
 
+                    // Unlike `source`, the script is parsed in a scope of its own, so its commands,
+                    // `main` included, and its variable names don't join the caller's scope. The
+                    // block's `scope_bindings` keep the names of the commands and modules it
+                    // declares, for `run` to make them findable by name while the script runs.
                     let mut block = parse(
                         working_set,
                         Some(&path.path().to_string_lossy()),
                         &contents,
-                        false,
+                        true,
                     );
                     if block.ir_block.is_none() {
                         let block_mut = Arc::make_mut(&mut block);
@@ -452,18 +459,26 @@ fn parse_run_expr_internal(
     garbage(working_set, Span::concat(spans))
 }
 
-/// Append the arguments after `run <script>` to the `run` call, parsed without `main`'s signature.
+/// Append arguments to a call whose callee's signature isn't known yet: the arguments after
+/// `run <script>`, for the script's `main`, and the arguments of `%$cmd`, for a builtin named at
+/// runtime.
 ///
 /// Each argument is parsed as `any`, like an unknown argument of an external command, and `run`
-/// matches them to `main`'s parameters when it executes. `--name=value` before any `--` becomes a
-/// named argument whose value is parsed, as the parser does for a flag it knows. `--help=...` stays
-/// a word, because a named `help` would make the compiler turn the whole call into `help run`.
+/// or `run-internal` matches them to the callee's parameters when it executes. `--name=value`
+/// before any `--` becomes a named argument whose value is parsed, as the parser does for a flag
+/// it knows. `--help=...` stays a word, because a named `help` would make the compiler turn the
+/// whole call into `help run`.
 ///
-/// The value of a spread or of a `--name=value` reaches `run` wrapped in a one-item list, and
-/// `run` takes the item out. The evaluator checks a call's arguments against `run`'s own
-/// signature: it would expand a record spread against `run`'s flags, and drop `--full-reparse=null`
-/// because `run`'s `--full-reparse` doesn't take `null`. It passes a list on as it is.
-fn add_script_arguments(working_set: &mut StateWorkingSet, call: &mut Call, args: &[Span]) {
+/// The value of a spread or of a `--name=value` reaches the command wrapped in a one-item list,
+/// and the command takes the item out. The evaluator checks a call's arguments against the
+/// command's own signature: it would expand a record spread against `run`'s flags, and drop
+/// `--full-reparse=null` because `run`'s `--full-reparse` doesn't take `null`. It passes a list on
+/// as it is.
+pub(crate) fn add_script_arguments(
+    working_set: &mut StateWorkingSet,
+    call: &mut Call,
+    args: &[Span],
+) {
     let mut end_of_options = false;
     for &span in args {
         let contents = working_set.get_span_contents(span);
@@ -644,8 +659,10 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     use nu_protocol::{FromValue, PluginRegistryFile};
 
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     if let Err(err) = (|| {
         let name = call

@@ -2,11 +2,11 @@ use core::slice;
 use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::{
-    IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value,
+    IntoPipelineData, PipelineData, Range, Record, ShellError, Signals, Span, Value,
     ast::CellPath,
     engine::{Call, EngineState, Stack, StateWorkingSet},
 };
-use std::sync::Arc;
+use std::{borrow::Cow, iter, sync::Arc};
 
 pub fn run_with_function(
     call: &Call,
@@ -97,10 +97,10 @@ pub fn calculate(
                 })?;
             Ok(Value::record(record, span))
         }
-        PipelineData::Value(Value::Range { val, .. }, ..) => {
+        PipelineData::Value(Value::Range { val, signals, .. }, ..) => {
             ensure_bounded(val.as_ref(), span, name)?;
             let new_vals: Result<Vec<Value>, ShellError> = val
-                .into_range_iter(span, Signals::empty())
+                .into_range_iter(span, signals.unwrap_or_else(Signals::empty))
                 .map(|val| mf(&[val], span, name))
                 .collect();
 
@@ -119,18 +119,51 @@ pub fn calculate(
     }
 }
 
-/// Apply a reducing math function (`mf`) under each cell path, **per pipeline item**.
+/// Reduce the values under each cell path over all rows of a table, giving one
+/// record keyed by [`CellPath::to_column_name`] (the keys `select` would use).
+/// A column named twice is reduced once.
+fn reduce_table_columns(
+    rows: &[Value],
+    cell_paths: &[CellPath],
+    span: Span,
+    name: Span,
+    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+) -> Result<Value, ShellError> {
+    let mut record = Record::new();
+    for path in cell_paths {
+        let column = path.to_column_name();
+        if record.contains(&column) {
+            continue;
+        }
+        // An error row comes back as its own error from `follow_cell_path`.
+        let values = rows
+            .iter()
+            .map(|row| row.follow_cell_path(&path.members).map(Cow::into_owned))
+            .collect::<Result<Vec<_>, _>>()?;
+        record.push(column, mf(&values, span, name)?);
+    }
+    Ok(Value::record(record, name))
+}
+
+/// Apply a reducing math function (`mf`) to the values under each cell path.
 ///
-/// List-valued cells are reduced as a whole (e.g. average of the list). Scalar
-/// cells are reduced as a one-element list. Tables are handled row-by-row (like
-/// `input_handler::operate`), not by collecting a whole column and writing the
-/// same result into every row.
+/// - A table (a list or stream whose first item is a record) reduces each named
+///   column over all of its rows and returns one record keyed by column name.
+///   For column names on a non-empty table, this is `select <paths> | math <op>`.
+/// - Any other input is updated **per pipeline item**: a record reduces the
+///   named fields in place. List-valued cells are reduced as a whole (e.g. the
+///   average of the list); scalar cells are reduced as a one-element list.
+///
+/// Only the first item of a stream is read to tell whether it is a table, so a
+/// stream that is not a table keeps streaming. A stream whose first item is an
+/// error returns that error.
 ///
 /// When `cell_paths` is empty, falls through to [`run_with_function`].
 ///
-/// Path update failures and math errors surface as top-level [`ShellError`] for a
-/// single concrete value (`PipelineData::map` converts `Value::Error`), and as
-/// in-band `Value::Error` items in streams.
+/// On a table, a missing column or a math error is a top-level [`ShellError`].
+/// On the per-item path, path update failures and math errors surface as
+/// top-level [`ShellError`] for a single concrete value (`PipelineData::map`
+/// converts `Value::Error`), and as in-band `Value::Error` items in streams.
 pub fn run_with_function_and_cell_paths(
     call: &Call,
     input: PipelineData,
@@ -144,10 +177,35 @@ pub fn run_with_function_and_cell_paths(
 
     let name = call.head;
     let span = input.span().unwrap_or(name);
-    let mf = Arc::new(mf);
 
-    // Always map per pipeline item so tables (list of records) update each row
-    // independently rather than reducing the whole column once.
+    // A table is collected and reduced per column. A stream is only collected
+    // once its first item shows it is a table; otherwise that item is put back.
+    let input = match input {
+        PipelineData::Value(Value::List { vals, .. }, ..)
+            if matches!(vals.first(), Some(Value::Record { .. })) =>
+        {
+            return Ok(
+                reduce_table_columns(&vals, &cell_paths, span, name, mf)?.into_pipeline_data()
+            );
+        }
+        PipelineData::ListStream(mut stream, metadata) => match stream.next_value() {
+            Some(first @ Value::Record { .. }) => {
+                let rows: Vec<Value> = iter::once(first).chain(stream).collect();
+                return Ok(
+                    reduce_table_columns(&rows, &cell_paths, span, name, mf)?.into_pipeline_data()
+                );
+            }
+            Some(Value::Error { error, .. }) => return Err(*error),
+            Some(first) => PipelineData::list_stream(
+                stream.modify(|rest| iter::once(first).chain(rest)),
+                metadata,
+            ),
+            None => PipelineData::list_stream(stream, metadata),
+        },
+        input => input,
+    };
+
+    let mf = Arc::new(mf);
     input.map(
         move |mut v| {
             for path in &cell_paths {
@@ -410,5 +468,24 @@ pub fn variance_denominator(
         Ok(n - 1)
     } else {
         Ok(n)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::{ops::Bound, sync::atomic::AtomicBool};
+
+    #[test]
+    fn interrupted_range_stops() {
+        let mut engine_state = EngineState::new();
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
+        let mut range = Value::test_range(Range::new_int(1, None, Bound::Included(1000)));
+        range.inject_signals(&engine_state);
+
+        let span = Span::test_data();
+        let count = |values: &[Value], _, _| Ok(Value::int(values.len() as i64, span));
+        let counted = calculate(range.into_pipeline_data(), span, count);
+        assert_eq!(counted.unwrap(), Value::test_int(0));
     }
 }

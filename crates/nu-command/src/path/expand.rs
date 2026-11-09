@@ -78,7 +78,6 @@ impl Command for PathExpand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        #[allow(deprecated)]
         let args = Arguments {
             strict: call.has_flag_const(working_set, stack, "strict")?,
             cwd: working_set.permanent_state.cwd_as_string(None)?,

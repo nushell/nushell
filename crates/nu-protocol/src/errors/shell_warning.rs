@@ -102,11 +102,12 @@ mod tests {
         std::hash::Hasher::finish(&hasher)
     }
 
-    fn shared_name_batch(names: &str) -> ShellWarning {
+    fn incompatible_batch(label: &'static str) -> ShellWarning {
         ShellWarning::InvalidConfig {
-            warnings: vec![ConfigWarning::SharedKeybindingName {
-                names: names.into(),
+            warnings: vec![ConfigWarning::IncompatibleOptions {
+                label,
                 span: Span::test_data(),
+                help: "",
             }],
         }
     }
@@ -116,8 +117,8 @@ mod tests {
     #[test]
     fn different_config_warning_batches_hash_differently() {
         assert_ne!(
-            hash_of(&shared_name_batch("atuin")),
-            hash_of(&shared_name_batch("other")),
+            hash_of(&incompatible_batch("history")),
+            hash_of(&incompatible_batch("other")),
         );
     }
 
@@ -125,8 +126,8 @@ mod tests {
     #[test]
     fn an_identical_config_warning_batch_hashes_the_same() {
         assert_eq!(
-            hash_of(&shared_name_batch("atuin")),
-            hash_of(&shared_name_batch("atuin")),
+            hash_of(&incompatible_batch("history")),
+            hash_of(&incompatible_batch("history")),
         );
     }
 }

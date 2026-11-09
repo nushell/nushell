@@ -109,7 +109,6 @@ pub(crate) fn finish_redirection(
                 }
                 .into_spanned(span),
             )?;
-            builder.load_empty(out_reg)?;
         }
         builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
     }

@@ -190,7 +190,7 @@ impl Command for Input {
             Ok(Signal::Success(buffer) | Signal::HostCommand(buffer)) => {
                 buf.push_str(&buffer);
             }
-            Ok(Signal::CtrlC) => {
+            Ok(Signal::CtrlC(_)) => {
                 return Err(IoError::new(
                     shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Interrupted),
                     call.head,

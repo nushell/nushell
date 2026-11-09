@@ -1,6 +1,4 @@
-use std::{ops::Deref, sync::LazyLock};
-
-use crate::{generate_strftime_list, parse_date_from_string};
+use crate::{generate_date_formats_list, generate_strftime_list, parse_date_from_string};
 use chrono::{
     DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Offset, TimeZone,
     Timelike, Utc,
@@ -8,6 +6,7 @@ use chrono::{
 use chrono_tz::TZ_VARIANTS;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use std::{ops::Deref, sync::LazyLock};
 
 const HOUR: i32 = 60 * 60;
 const ALLOWED_COLUMNS: [&str; 10] = [
@@ -108,7 +107,7 @@ impl Command for IntoDatetime {
                 (Type::record(), Type::Date),
                 // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
                 // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
-                // only applicable for --list flag
+                // only applicable for --list and --formats flags
                 (Type::Any, Type::table()),
             ])
             .allow_variants_without_examples(true)
@@ -130,13 +129,18 @@ impl Command for IntoDatetime {
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify expected format of INPUT string to parse to datetime. Use --list to see options.",
+                "Specify expected format of INPUT string to parse to datetime. Use --list to see options, or --formats for the formats read without one.",
                 Some('f'),
             )
             .switch(
                 "list",
                 "Show all possible variables for use in --format flag.",
                 Some('l'),
+            )
+            .switch(
+                "formats",
+                "Show the formats read without --format, with an example of each.",
+                None,
             )
             .rest(
                 "rest",
@@ -155,6 +159,8 @@ impl Command for IntoDatetime {
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag(engine_state, stack, "list")? {
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
+        } else if call.has_flag(engine_state, stack, "formats")? {
+            Ok(generate_date_formats_list(call.head).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
             let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -186,6 +192,14 @@ impl Command for IntoDatetime {
         "Convert text or timestamp into a datetime."
     }
 
+    fn extra_description(&self) -> &str {
+        "Without --format, a string is a date, a time, or a date with a time after T, a space or \
+         a comma, and an offset or time zone can follow the time. Parts left out come from today, \
+         and a time without an offset is local time. An int, or a string of digits, is \
+         nanoseconds since 1970-01-01 UTC. Run `into datetime --formats` to list each format with \
+         an example."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["convert", "timezone", "UTC"]
     }
@@ -209,6 +223,31 @@ impl Command for IntoDatetime {
                 example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_224600000),
+            },
+            Example {
+                description: "Convert a date written with a month name, an ordinal and a 12-hour \
+                              time.",
+                example: "'April 18th, 2025 4:04 PM +05:30' | into datetime",
+                result: DateTime::parse_from_rfc3339("2025-04-18T16:04:00+05:30")
+                    .ok()
+                    .map(|date| Value::date(date, Span::test_data())),
+            },
+            Example {
+                description: "Convert a date-time in an IANA time zone.",
+                example: "'2025-04-18 04:04:32 America/New_York' | into datetime",
+                result: DateTime::parse_from_rfc3339("2025-04-18T04:04:32-04:00")
+                    .ok()
+                    .map(|date| Value::date(date, Span::test_data())),
+            },
+            Example {
+                description: "Convert a relative date.",
+                example: "'tomorrow 10am' | into datetime",
+                result: None,
+            },
+            Example {
+                description: "List the formats read without --format, with an example of each.",
+                example: "into datetime --formats",
+                result: None,
             },
             Example {
                 description: "Convert non-standard timestamp string, with timezone offset, to \
@@ -374,13 +413,16 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         return merge_record(record, head, span).unwrap_or_else(|err| Value::error(err, span));
     }
 
-    // Let's try dtparse first
+    // Without a format, try reading the string as a date (RFC 3339, then the other layouts) first.
+    // A string that isn't a date or an integer timestamp is an error here, not parsed again below.
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
-        if let Ok(input_val) = input.coerce_str()
-            && let Ok(date) = parse_date_from_string(&input_val, span)
-        {
-            return Value::date(date, span);
+        if let Ok(input_val) = input.coerce_str() {
+            match parse_date_from_string(&input_val, span) {
+                Ok(date) => return Value::date(date, span),
+                Err(err) if input_val.parse::<i64>().is_err() => return err,
+                Err(_) => {}
+            }
         }
     }
 

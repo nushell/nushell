@@ -388,6 +388,93 @@ fn try_catch_inherited_external_output_has_no_extra_blank_line(
     );
 }
 
+// `ignore`, `save --stderr` and `complete` ask for an external's stderr on its own pipe, but a
+// `try` with `catch` collects the block's output to see whether it failed, and a value can only
+// hold stdout. Collecting a child that still had a stderr pipe failed with "internal error:
+// stderr should not exist", so `catch` ran for an external that succeeded. The output after
+// the `try` must now be the same as without it, stderr included.
+// https://github.com/nushell/nushell/issues/19335
+#[rstest]
+#[case::ignore("{} | ignore; print done")]
+#[case::ignore_stdout("{} | ignore --stdout; print done")]
+#[case::ignore_stderr("{} | ignore --stderr; print done")]
+#[case::complete("{} | complete | to nuon")]
+#[case::save_stderr(
+    "let d = mktemp -d; {} | save ($d | path join out) --stderr ($d | path join err); [(open --raw ($d | path join out)) (open --raw ($d | path join err))] | to nuon"
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_keeps_a_piped_stderr_of_a_successful_external(
+    #[case] consumer: &str,
+    #[values(
+        "print hi; print -e oops",
+        // More than a pipe buffer holds: reading it only after the child exits would hang.
+        "print -e ('' | fill -c x -w 200000)"
+    )]
+    external: &str,
+) {
+    let run = |producer: String| {
+        std::process::Command::new(NU.path())
+            .args(["-n", "-c", &consumer.replace("{}", &producer)])
+            .env("TEST_NU_BIN", NU.path())
+            .output()
+            .expect("failed to run nu")
+    };
+    let external = format!("^$env.TEST_NU_BIN -n -c \"{external}\"");
+    let expected = run(external.clone());
+    let actual = run(format!("try {{ {external} }} catch {{ print caught }}"));
+
+    assert!(expected.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&expected.stdout),
+        String::from_utf8_lossy(&actual.stdout)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&expected.stderr),
+        String::from_utf8_lossy(&actual.stderr)
+    );
+}
+
+#[rstest]
+#[case::in_a_def(
+    "def f [] { try { ^$env.TEST_NU_BIN -n -c 'print -e oops' } catch { print caught } }; f | ignore; print done",
+    "done\n",
+    "oops\n"
+)]
+// `finally` sees the stdout as a value, and the stderr still goes to the next command.
+#[case::finally(
+    "try { ^$env.TEST_NU_BIN -n -c 'print hi; print -e oops' } catch { print caught } finally {|v| print $'fin ($v | str trim)' } | ignore --stderr; print done",
+    "fin hi\ndone\n",
+    ""
+)]
+#[case::finally_without_catch(
+    "try { ^$env.TEST_NU_BIN -n -c 'print -e oops' } finally { print fin } | ignore; print done",
+    "fin\ndone\n",
+    "oops\n"
+)]
+// A failing external is still caught.
+#[case::failure(
+    "try { ^$env.TEST_NU_BIN -n -c 'exit 1' } catch { print caught } | ignore; print done",
+    "caught\ndone\n",
+    ""
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_piped_into_ignore_catches_only_a_failing_external(
+    #[case] script: &str,
+    #[case] stdout: &str,
+    #[case] stderr: &str,
+) {
+    let child_output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", script])
+        .env("TEST_NU_BIN", NU.path())
+        .output()
+        .expect("failed to run nu");
+
+    assert_eq!(stdout, String::from_utf8_lossy(&child_output.stdout));
+    assert_eq!(stderr, String::from_utf8_lossy(&child_output.stderr));
+}
+
 #[test]
 #[deps(NU)]
 fn run_with_no_newline() {
@@ -808,6 +895,144 @@ fn source_same_file_does_not_multiply_decls() -> Result {
         tester.run("shared_a").expect_value_eq(0)?;
         Ok(())
     })
+}
+
+/// A cached `source` declares the file's names again where they're missing: after the scope of
+/// the first `source` has ended, in the enclosing block or in a sibling block.
+#[rstest]
+#[case::def("source_cached_def", "def zz [] { 'def' }", "zz", "def")]
+#[case::alias("source_cached_alias", "alias zz = echo alias", "zz", "alias")]
+#[case::const_("source_cached_const", "const zz = 'const'", "$zz", "const")]
+#[case::let_("source_cached_let", "let zz = 'let'", "$zz", "let")]
+#[case::type_alias(
+    "source_cached_type_alias",
+    "type Zz = string",
+    "let x: Zz = 'type'; $x",
+    "type"
+)]
+#[case::use_std("source_cached_use", "use std/assert", "assert true; 'use'", "use")]
+#[case::captured_const(
+    "source_cached_captured_const",
+    "const zz = 'captured'\ndef zzget [] { $zz }",
+    "zzget",
+    "captured"
+)]
+fn source_cached_file_declares_its_names_in_another_scope(
+    #[case] topic: &str,
+    #[case] lib: &str,
+    #[case] usage: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", lib)]);
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("do {{ source lib.nu }}; source lib.nu; {usage}"))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "if true {{ source lib.nu }}; if true {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "do {{ source lib.nu }}; do {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)
+    })
+}
+
+/// A variable a sourced file declares belongs to the block around `source`, also when that block
+/// is a closure, so the closure doesn't try to capture it from outside.
+#[rstest]
+#[case::let_in_do("source_let_in_do", "do { source lib.nu; $zz }", "let")]
+#[case::let_in_closure(
+    "source_let_in_closure",
+    "let c = { source lib.nu; $zz }; do $c",
+    "let"
+)]
+#[case::mut_in_do("source_mut_in_do", "do { source lib.nu; $zzmut }", "mut")]
+#[case::nested_source("source_let_nested_in_do", "do { source outer.nu; $zz }", "let")]
+#[case::read_by_file_command("source_let_read_by_def_in_do", "do { source lib.nu; zzget }", "let")]
+fn source_variable_is_local_to_a_closure(
+    #[case] topic: &str,
+    #[case] code: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent(
+                "lib.nu",
+                "let zz = 'let'\nmut zzmut = 'mut'\ndef zzget [] { $zz }",
+            ),
+            FileWithContent("outer.nu", "source lib.nu"),
+        ]);
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(expected)
+    })
+}
+
+#[test]
+fn source_cached_file_declares_its_names_after_hide() -> Result {
+    Playground::setup("source_cached_after_hide", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", "def zz [] { 'def' }")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("source lib.nu; hide zz; source lib.nu; zz")
+            .expect_value_eq("def")
+    })
+}
+
+/// A second `source` in the same parse and scope reuses the block, as a later one does.
+#[test]
+fn source_same_file_twice_in_one_parse_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_same_file_twice_one_parse",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let once: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; scope engine-stats | get num_decls")?;
+            let twice: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; source lib.nu; scope engine-stats | get num_decls")?;
+            assert_eq!(once, twice);
+            Ok(())
+        },
+    )
+}
+
+/// Declaring a cached file's names again reuses its declarations instead of parsing it again.
+#[test]
+fn source_cached_file_in_another_scope_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_cached_other_scope_no_multiply",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            let () = tester.run("source lib.nu")?;
+            let () = tester.run("hide shared_a; hide shared_b")?;
+            let after_first: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            let () = tester.run("source lib.nu")?;
+            let after_more: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            assert_eq!(after_first, after_more);
+            tester.run("shared_a").expect_value_eq(0)
+        },
+    )
 }
 
 #[test]

@@ -415,6 +415,7 @@ fn column_defined_twice(col_name: String, first_use: Span, second_use: Span) -> 
             col_name,
             second_use,
             first_use,
+            help: None,
         },
         second_use,
     )

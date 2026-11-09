@@ -4,9 +4,9 @@ use crate::{
     TypeAlias, TypeAliasId, TypeSet, Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
-        BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings,
-        StateDelta, Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
-        engine_state::FileHint, signature_cache::SignatureCache,
+        BoundNames, BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+        ScopeBindings, ScopeFrame, StateDelta, Variable, VirtualPath, Visibility, VisibilityStack,
+        description::build_desc, engine_state::FileHint, signature_cache::SignatureCache,
     },
 };
 use core::panic;
@@ -35,6 +35,9 @@ pub struct StateWorkingSet<'a> {
     /// The REPL highlighter sets this so typing `use std` does not parse-time-load
     /// the standard library on every keystroke.
     pub skip_module_load: bool,
+    /// Set when [`skip_module_load`](Self::skip_module_load) left a module
+    /// unloaded, so what it would have imported is missing from the parse.
+    pub skipped_module_load: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
@@ -72,6 +75,7 @@ impl<'a> StateWorkingSet<'a> {
             files,
             search_predecls: true,
             skip_module_load: false,
+            skipped_module_load: false,
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
@@ -258,33 +262,42 @@ impl<'a> StateWorkingSet<'a> {
             .map(|(name, decl_id)| self.last_overlay_mut().predecls.insert(name, decl_id));
     }
 
+    /// Hide the declaration `name` from here to the end of the current block.
+    ///
+    /// The hide is recorded in the current scope frame, not in the frame that declared `name`, so
+    /// a `hide` inside a nested block (`do { hide f }`, a command body) doesn't hide `name` in the
+    /// enclosing block.
+    ///
+    /// Returns the declaration that was hidden, or `None` if no declaration `name` was visible.
     pub fn hide_decl(&mut self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
         let mut visibility: Visibility = Visibility::new();
 
-        // Since we can mutate scope frames in delta, remove the id directly
-        for scope_frame in self.delta.scope.iter_mut().rev() {
+        let mut found = None;
+        'frames: for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame
                 .active_overlay_ids(&mut removed_overlays)
                 .iter()
                 .rev()
             {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
+                let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
                 visibility.append(&overlay_frame.visibility);
 
                 if let Some(decl_id) = overlay_frame.get_decl(name)
                     && visibility.is_decl_id_visible(&decl_id)
                 {
-                    // Hide decl only if it's not already hidden
-                    overlay_frame.visibility.hide_decl_id(&decl_id);
-                    return Some(decl_id);
+                    found = Some(decl_id);
+                    break 'frames;
                 }
             }
         }
+        if let Some(decl_id) = found {
+            self.last_overlay_mut().visibility.hide_decl_id(&decl_id);
+            return Some(decl_id);
+        }
 
-        // We cannot mutate the permanent state => store the information in the current overlay frame
-        // for scope in self.permanent_state.scope.iter().rev() {
+        // The permanent state can't be changed, so the hide goes in the current overlay frame too
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
@@ -311,27 +324,33 @@ impl<'a> StateWorkingSet<'a> {
         let mut removed_overlays = vec![];
         let mut visibility: Visibility = Visibility::new();
 
-        // Since we can mutate scope frames in delta, hide the id in the frame that has it
-        for scope_frame in self.delta.scope.iter_mut().rev() {
+        let mut found = None;
+        'frames: for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame
                 .active_overlay_ids(&mut removed_overlays)
                 .iter()
                 .rev()
             {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
+                let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
                 visibility.append(&overlay_frame.visibility);
 
                 if let Some(type_alias_id) = overlay_frame.type_aliases.get(name).copied()
                     && visibility.is_type_alias_id_visible(&type_alias_id)
                 {
-                    overlay_frame.visibility.hide_type_alias_id(&type_alias_id);
-                    return Some(type_alias_id);
+                    found = Some(type_alias_id);
+                    break 'frames;
                 }
             }
         }
+        if let Some(type_alias_id) = found {
+            self.last_overlay_mut()
+                .visibility
+                .hide_type_alias_id(&type_alias_id);
+            return Some(type_alias_id);
+        }
 
-        // We cannot mutate the permanent state => store the information in the current overlay frame
+        // The permanent state can't be changed, so the hide goes in the current overlay frame too
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
@@ -864,18 +883,6 @@ impl<'a> StateWorkingSet<'a> {
         self.last_overlay_mut().insert_variable(name, var_id);
     }
 
-    /// Returns the current working directory as a String, which is guaranteed to be canonicalized.
-    /// Returns an empty string if $env.PWD doesn't exist, is not a String, or is not an absolute path.
-    ///
-    /// It does NOT consider modifications to the working directory made on a stack.
-    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
-    pub fn get_cwd(&self) -> String {
-        self.permanent_state
-            .cwd(None)
-            .map(|path| path.to_string_lossy().to_string())
-            .unwrap_or_default()
-    }
-
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         self.permanent_state.get_env_var(name)
     }
@@ -963,6 +970,88 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    /// The names the innermost scope frame bound since `before`, an earlier copy of that frame.
+    ///
+    /// Returns `None` if the frame changed in a way names don't describe: an overlay was activated
+    /// or removed, a declaration or type alias was hidden, or a variable was `unlet`. The parser's
+    /// block cache records this for an unscoped parse of a file (see [`BoundNames`]).
+    pub fn names_bound_since(&self, before: &ScopeFrame) -> Option<BoundNames> {
+        let after = self.delta.last_scope_frame();
+        if after.active_overlays != before.active_overlays
+            || after.removed_overlays != before.removed_overlays
+            || after.hidden_vars.len() != before.hidden_vars.len()
+        {
+            return None;
+        }
+
+        let mut names = BoundNames::default();
+        for overlay_id in &after.active_overlays {
+            let overlay = after.get_overlay(*overlay_id);
+            let (_, previous) = before.overlays.get(overlay_id.get())?;
+            if overlay.visibility.hides_more_than(&previous.visibility) {
+                return None;
+            }
+            names.decls.extend(
+                overlay
+                    .decls
+                    .iter()
+                    .filter(|(name, id)| previous.decls.get(name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+            names.modules.extend(
+                overlay
+                    .modules
+                    .iter()
+                    .filter(|(name, id)| previous.modules.get(*name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+            names.vars.extend(
+                overlay
+                    .vars
+                    .iter()
+                    .filter(|(name, id)| previous.vars.get(*name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+            names.type_aliases.extend(
+                overlay
+                    .type_aliases
+                    .iter()
+                    .filter(|(name, id)| previous.type_aliases.get(*name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+        }
+        Some(names)
+    }
+
+    /// Bind each name in `names` that doesn't stand for its command, module, variable or type alias
+    /// here, in the current scope frame, as the parse that recorded `names` did.
+    ///
+    /// The block cache calls this when it reuses an unscoped parse of a file, which declares
+    /// nothing by itself: in another scope than the first parse's, or after a `hide`, the file's
+    /// names would be missing otherwise.
+    pub fn bind_names(&mut self, names: &BoundNames) {
+        let decls = (names.decls.iter())
+            .filter(|(name, id)| self.find_decl(name) != Some(*id))
+            .cloned()
+            .collect();
+        let modules = (names.modules.iter())
+            .filter(|(name, id)| self.find_module(name) != Some(*id))
+            .cloned()
+            .collect();
+        let vars = (names.vars.iter())
+            .filter(|(name, id)| self.find_variable(name) != Some(*id))
+            .cloned()
+            .collect();
+        let type_aliases = (names.type_aliases.iter())
+            .filter(|(name, id)| self.find_type_alias(name) != Some(*id))
+            .cloned()
+            .collect();
+        self.use_decls(decls);
+        self.use_modules(modules);
+        self.use_variables(vars);
+        self.use_type_aliases(type_aliases);
+    }
+
     pub fn get_constant(&self, var_id: VarId) -> Result<&Value, ParseError> {
         let var = self.get_variable(var_id);
 
@@ -1018,12 +1107,7 @@ impl<'a> StateWorkingSet<'a> {
         if decl_id.get() >= self.permanent_state.num_decls() {
             return Arc::new(self.get_signature(self.get_decl(decl_id)));
         }
-        let mut cache = SignatureCache::lock(&self.permanent_state.signature_cache.effective);
-        Arc::clone(
-            cache
-                .entry(decl_id)
-                .or_insert_with(|| Arc::new(self.get_signature(self.get_decl(decl_id)))),
-        )
+        self.permanent_state.get_signature_shared(decl_id)
     }
 
     /// Shared version of `Command::signature()` for the declaration `decl_id`, i.e. the

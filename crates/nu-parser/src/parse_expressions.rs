@@ -47,6 +47,15 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
         _ => {}
     }
 
+    is_literal_like(working_set, span)
+}
+
+/// Whether the token reads as a literal value: a number, a filesize, a duration, a datetime, a
+/// binary literal or a range.
+///
+/// The call site reads the head word this way before it looks it up as a command, so a name
+/// that this accepts can never be called: the value wins at the call site.
+pub(crate) fn is_literal_like(working_set: &mut StateWorkingSet, span: Span) -> bool {
     let starting_error_count = working_set.parse_errors.len();
 
     // A token that a literal parser accepts is a value. So is one it rejects as an invalid
@@ -1325,6 +1334,8 @@ fn operator_from_bytes(bytes: &[u8]) -> Option<Operator> {
         b"not-starts-with" => Operator::Comparison(Comparison::NotStartsWith),
         b"ends-with" => Operator::Comparison(Comparison::EndsWith),
         b"not-ends-with" => Operator::Comparison(Comparison::NotEndsWith),
+        b"older-than" => Operator::Comparison(Comparison::OlderThan),
+        b"newer-than" => Operator::Comparison(Comparison::NewerThan),
         b"+" => Operator::Math(Math::Add),
         b"-" => Operator::Math(Math::Subtract),
         b"*" => Operator::Math(Math::Multiply),

@@ -48,6 +48,51 @@ fn pipeline_data_with_metadata(kind: InputKind, meta: Option<PipelineMetadata>) 
 }
 
 #[test]
+fn const_first() -> Result {
+    test()
+        .run("const x = [1 2 3] | first; $x")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn const_first_with_rows() -> Result {
+    test()
+        .run("const x = [1 2 3] | first 2; $x | to nuon --raw")
+        .expect_value_eq("[1,2]")
+}
+
+#[test]
+fn const_first_range() -> Result {
+    test()
+        .run("const x = 1.. | first 3; $x | to nuon --raw")
+        .expect_value_eq("[1,2,3]")
+}
+
+#[test]
+fn const_first_binary_with_filesize() -> Result {
+    test()
+        .run("const x = 0x[01 02 03] | first 2b; $x | to nuon --raw")
+        .expect_value_eq("0x[0102]")
+}
+
+#[test]
+fn const_first_strict_on_empty_list_errors() -> Result {
+    let err = test()
+        .run("const x = [] | first --strict")
+        .expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    Ok(())
+}
+
+#[test]
+fn first_takes_rows_from_unbounded_range() -> Result {
+    test()
+        .run("1.. | first 2 | to nuon --raw")
+        .expect_value_eq("[1,2]")
+}
+
+#[test]
 fn gets_first_rows_by_amount() -> Result {
     test()
         .run_with_data(

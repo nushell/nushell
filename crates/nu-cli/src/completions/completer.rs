@@ -18,8 +18,8 @@ use nu_protocol::{
 };
 use nu_utils::time::Instant;
 use reedline::{
-    Completer as ReedlineCompleter, CompletionOrigin, CompletionResult, CompletionStatus, Partial,
-    Suggestion, Suggestions,
+    Completer as ReedlineCompleter, CompletionOrigin, CompletionResult, CompletionStatus,
+    Suggestions,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
@@ -285,6 +285,24 @@ fn find_flag(signature: &Signature, flag: FlagRef<'_>) -> Option<Flag> {
         FlagRef::Long(n) => signature.get_long_flag(n),
         FlagRef::Short(s) => s.chars().next().and_then(|c| signature.get_short_flag(c)),
     }
+}
+
+/// The [`FlagRef`] of a last-argument flag still awaiting its value.
+pub(crate) fn pending_flag_value<'a>(
+    call: &'a Call,
+    working_set: &StateWorkingSet,
+) -> Option<FlagRef<'a>> {
+    let Argument::Named((name, short, None)) = call.arguments.last()? else {
+        return None;
+    };
+
+    let flag_ref = FlagRef::from_named(name, short.as_ref());
+    let signature = working_set.get_decl(call.decl_id).signature();
+
+    find_flag(&signature, flag_ref)?
+        .arg
+        .is_some()
+        .then_some(flag_ref)
 }
 
 /// Positional arguments before `before_index`.
@@ -650,6 +668,15 @@ impl NarrowingCache {
                     })
                     .max_by_key(|&(cursor, ..)| cursor)?;
 
+                // Files replace `r` while subcommands replace `foo r`. Narrowing one span's
+                // token would drop the other group, and Tab would insert a prefix of what is
+                // left. So a mixed answer gives no fallback, and every keystroke in this token
+                // is pending until the fresh answer arrives. Tab inserts nothing meanwhile,
+                // and an open menu keeps showing its last answer.
+                if suggestions.iter().any(|suggestion| suggestion.span != span) {
+                    return None;
+                }
+
                 let token = query.typed().get(span.start..)?;
                 Some((Arc::clone(suggestions), span, token))
             })
@@ -660,13 +687,9 @@ impl NarrowingCache {
         // Keep the producer's ranking: re-sorting a stale list makes the menu flip between keystrokes.
         let mut matcher = NuMatcher::new(search_token, options, false);
 
-        base_suggestions
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.span == ref_span)
-            .for_each(|(i, s)| {
-                matcher.add(s.display_value(), i);
-            });
+        base_suggestions.iter().enumerate().for_each(|(i, s)| {
+            matcher.add(s.display_value(), i);
+        });
 
         let updated_span = reedline::Span::new(ref_span.start, query.cursor());
 
@@ -1819,7 +1842,7 @@ impl<'engine> CompletionEngine<'engine> {
 
         let point = Span::point(absolute_position);
 
-        if let Some(flag_ref) = Self::pending_flag_value(call, working_set) {
+        if let Some(flag_ref) = pending_flag_value(call, working_set) {
             // `arg_slot` past the last argument: no node exists yet; `ArgValueCompletion` reads `None`.
             CompletionSite::at(
                 absolute_position,
@@ -1903,24 +1926,6 @@ impl<'engine> CompletionEngine<'engine> {
                 Span::point(absolute_position),
             )
         })
-    }
-
-    /// The [`FlagRef`] of a last-argument flag still awaiting its value.
-    fn pending_flag_value<'a>(
-        call: &'a Call,
-        working_set: &StateWorkingSet,
-    ) -> Option<FlagRef<'a>> {
-        let Argument::Named((name, short, None)) = call.arguments.last()? else {
-            return None;
-        };
-
-        let flag_ref = FlagRef::from_named(name, short.as_ref());
-        let signature = working_set.get_decl(call.decl_id).signature();
-
-        find_flag(&signature, flag_ref)?
-            .arg
-            .is_some()
-            .then_some(flag_ref)
     }
 
     fn resolve_argument_site<'a>(
@@ -2111,7 +2116,8 @@ impl<'engine> CompletionEngine<'engine> {
         signature: &Signature,
     ) -> Fetched {
         let mut results = FlagCompletion { decl_id }.fetch(context);
-        results.merge(self.command_wide_completion_helper(signature, context));
+        // A command-wide completer, such as an external one, often lists the declared flags too.
+        results.merge_new(self.command_wide_completion_helper(signature, context));
         results
     }
 
@@ -2372,43 +2378,8 @@ impl NuCompleter {
     }
 }
 
-/// Byte length of the longest prefix `a` and `b` share. Always a char boundary in both.
-fn common_prefix_len(a: &str, b: &str) -> usize {
-    a.char_indices()
-        .zip(b.chars())
-        .find_map(|((index, x), y)| (x != y).then_some(index))
-        .unwrap_or_else(|| a.len().min(b.len()))
-}
-
-fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
-    let span = suggestions.first()?.span;
-
-    let mut matching_values = suggestions
-        .iter()
-        .filter(|suggestion| suggestion.span == span)
-        .map(|suggestion| suggestion.value.as_str());
-
-    // Slice a window into the first value rather than allocating a `String`; runs every
-    // keystroke.
-    let first = matching_values.next()?;
-    let shared_len = matching_values.try_fold(first.len(), |shared, value| {
-        let common = common_prefix_len(first.get(..shared)?, value);
-        (common > 0).then_some(common)
-    })?;
-    let shared_prefix = first.get(..shared_len)?;
-
-    let entered = line.get(span.start..span.end)?;
-    let extends = shared_prefix != entered
-        && shared_prefix
-            .to_lowercase()
-            .starts_with(&entered.to_lowercase());
-
-    extends.then_some(Partial {
-        span,
-        insert: shared_prefix.to_string(),
-    })
-}
-
+// No `with_partial` on the results: reedline derives Tab's shared prefix itself, lining
+// up suggestions that replace different spans.
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
         let query = CompletionQuery::new(line, pos);
@@ -2416,8 +2387,7 @@ impl ReedlineCompleter for NuCompleter {
 
         if let Some(suggestions) = self.fresh_for(&query) {
             self.settle_pending(&query);
-            let partial = partial_of(line, &suggestions);
-            return CompletionResult::fresh(suggestions).with_partial(partial);
+            return CompletionResult::fresh(suggestions);
         }
 
         // Interactive completers run on UI thread to own terminal.
@@ -2432,12 +2402,10 @@ impl ReedlineCompleter for NuCompleter {
                 suggestions: suggestions.clone(),
                 cacheable: false,
             });
-            let partial = partial_of(line, &suggestions);
-            return CompletionResult::fresh(suggestions).with_partial(partial);
+            return CompletionResult::fresh(suggestions);
         }
 
         let fallback = self.stale_fallback(&query);
-        let partial = partial_of(line, &fallback);
 
         let worker = self.worker.get_or_insert_with(|| {
             Self::spawn_worker(Arc::clone(&self.engine_state), Arc::clone(&self.stack))
@@ -2454,7 +2422,6 @@ impl ReedlineCompleter for NuCompleter {
         }
 
         CompletionResult::stale_or_pending(fallback, CompletionOrigin::new(line, pos))
-            .with_partial(partial)
     }
 
     fn poll_completion(&mut self) -> CompletionStatus {
@@ -2980,6 +2947,40 @@ mod completer_tests {
             next_prompt.complete("ls | c", 6).is_pending(),
             "entries from another environment must not answer"
         );
+    }
+
+    /// `foo r` + Tab, then `e` + Tab: the stale fallback narrows the cached `foo r` answer.
+    /// With a file in it as well, no fallback is given, so Tab can't insert `foo reb` and
+    /// drop `README.md` before the fresh answer arrives.
+    #[rstest::rstest]
+    #[case::file_and_subcommands(&[("README.md", 4), ("foo rebase", 0), ("foo rebuild", 0)], &[])]
+    #[case::subcommands_only(&[("foo rebase", 0), ("foo rebuild", 0)], &["foo rebase", "foo rebuild"])]
+    fn narrowed_fallback_needs_one_span(
+        #[case] cached: &[(&str, usize)],
+        #[case] expected: &[&str],
+    ) {
+        let environment = CacheEnv(0);
+        let cache = NarrowingCache::default();
+        cache.store(
+            CompletionQuery::new("foo r", 5),
+            environment,
+            cached
+                .iter()
+                .map(|&(value, start)| reedline::Suggestion {
+                    value: value.into(),
+                    span: reedline::Span::new(start, 5),
+                    ..Default::default()
+                })
+                .collect(),
+        );
+
+        let fallback = cache.narrowed_fallback(
+            &CompletionQuery::new("foo re", 6),
+            environment,
+            &CompletionOptions::default(),
+        );
+        let values: Vec<_> = fallback.iter().map(|s| s.value.as_str()).collect();
+        assert_eq!(values, expected);
     }
 
     /// Any `$env.config` assignment, including ones that are not completion

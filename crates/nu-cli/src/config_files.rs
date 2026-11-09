@@ -19,11 +19,6 @@ use nu_utils::perf;
 use nu_utils::time::Instant;
 use std::path::PathBuf;
 
-#[cfg(feature = "plugin")]
-const PLUGIN_FILE: &str = "plugin.msgpackz";
-#[cfg(feature = "plugin")]
-const OLD_PLUGIN_FILE: &str = "plugin.nu";
-
 /// Load the plugin registry file from the already-resolved path in
 /// `engine_state.config_dirs.plugin_file`.
 ///
@@ -31,10 +26,7 @@ const OLD_PLUGIN_FILE: &str = "plugin.nu";
 /// only for error reporting.
 #[cfg(feature = "plugin")]
 pub fn read_plugin_file(engine_state: &mut EngineState, override_span: Option<Span>) {
-    use nu_protocol::{ShellError, shell_error::io::IoError};
-
     let span = override_span;
-    let is_override = engine_state.config_dirs.plugin_file.is_override();
 
     // Check and warn + abort if this is a .nu plugin file
     if engine_state
@@ -81,17 +73,6 @@ pub fn read_plugin_file(engine_state: &mut EngineState, override_span: Option<Sp
             Err(err) => {
                 if err.kind() == std::io::ErrorKind::NotFound {
                     log::warn!("Plugin file not found: {}", plugin_path.display());
-
-                    // Try migration of an old plugin file if this wasn't a custom plugin file
-                    if !is_override && migrate_old_plugin_file(engine_state) {
-                        let Ok(file) = std::fs::File::open(&plugin_path) else {
-                            log::warn!("Failed to load newly migrated plugin file");
-                            return;
-                        };
-                        file
-                    } else {
-                        return;
-                    }
                 } else {
                     report_shell_error(
                         None,
@@ -102,8 +83,8 @@ pub fn read_plugin_file(engine_state: &mut EngineState, override_span: Option<Sp
                             plugin_path,
                         )),
                     );
-                    return;
                 }
+                return;
             }
         };
 
@@ -313,138 +294,4 @@ pub fn eval_config_contents_with_kind(
             }
         }
     }
-}
-
-#[cfg(feature = "plugin")]
-pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
-    use nu_protocol::{
-        PluginExample, PluginIdentity, PluginRegistryItem, PluginRegistryItemData, PluginSignature,
-        ShellError, shell_error::io::IoError,
-    };
-    use std::collections::BTreeMap;
-
-    let start_time = Instant::now();
-
-    let config_dir = &engine_state.config_dirs.config_home;
-    if config_dir.as_os_str().is_empty() {
-        return false;
-    }
-
-    let Ok(old_plugin_file_path) = nu_path::absolute_with(OLD_PLUGIN_FILE, config_dir) else {
-        return false;
-    };
-
-    if !config_dir.exists() || !old_plugin_file_path.exists() {
-        return false;
-    }
-
-    let old_contents = match std::fs::read(&old_plugin_file_path) {
-        Ok(old_contents) => old_contents,
-        Err(err) => {
-            report_shell_error(
-                None,
-                engine_state,
-                &ShellError::Generic(
-                    GenericError::new_internal("Can't read old plugin file to migrate", "")
-                        .with_help(err.to_string()),
-                ),
-            );
-            return false;
-        }
-    };
-
-    // Make a copy of the engine state, because we'll read the newly generated file
-    let mut engine_state = engine_state.clone();
-    let mut stack = Stack::new();
-
-    if eval_source(
-        &mut engine_state,
-        &mut stack,
-        &old_contents,
-        &old_plugin_file_path.to_string_lossy(),
-        PipelineData::empty(),
-        false,
-    ) != 0
-    {
-        return false;
-    }
-
-    // Now that the plugin commands are loaded, we just have to generate the file
-    let mut contents = PluginRegistryFile::new();
-
-    let mut groups = BTreeMap::<PluginIdentity, Vec<PluginSignature>>::new();
-
-    for decl in engine_state.plugin_decls() {
-        if let Some(identity) = decl.plugin_identity() {
-            groups
-                .entry(identity.clone())
-                .or_default()
-                .push(PluginSignature {
-                    sig: decl.signature(),
-                    examples: decl
-                        .examples()
-                        .into_iter()
-                        .map(PluginExample::from)
-                        .collect(),
-                })
-        }
-    }
-
-    for (identity, commands) in groups {
-        contents.upsert_plugin(PluginRegistryItem {
-            name: identity.name().to_owned(),
-            filename: identity.filename().to_owned(),
-            shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginRegistryItemData::Valid {
-                metadata: Default::default(),
-                commands,
-            },
-        });
-    }
-
-    // Write the new file
-    let new_plugin_file_path = config_dir.join(PLUGIN_FILE);
-    if let Err(err) = std::fs::File::create(&new_plugin_file_path)
-        .map_err(|err| {
-            IoError::new_internal_with_path(
-                err,
-                "Could not create new plugin file",
-                new_plugin_file_path.clone(),
-            )
-        })
-        .map_err(ShellError::from)
-        .and_then(|file| contents.write_to(file, None))
-    {
-        report_shell_error(
-            None,
-            &engine_state,
-            &ShellError::Generic(
-                GenericError::new_internal("Failed to save migrated plugin file", "")
-                    .with_help("ensure `$nu.plugin-path` is writable")
-                    .with_inner([err]),
-            ),
-        );
-        return false;
-    }
-
-    if engine_state.is_interactive {
-        eprintln!(
-            "Your old plugin.nu file has been migrated to the new format: {}",
-            new_plugin_file_path.display()
-        );
-        eprintln!(
-            "The plugin.nu file has not been removed. If `plugin list` looks okay, \
-            you may do so manually."
-        );
-    }
-
-    perf!(
-        "migrate old plugin file",
-        start_time,
-        engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state)
-    );
-    true
 }
