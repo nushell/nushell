@@ -37,7 +37,7 @@ parse / parse_module_block / parse_block             nu-parser's entry points
 | `parse_file_block` | The top-level block of a file. Skips a whole file's UTF-8 byte-order mark (`code_span`) |
 | `parse_module_block` | A module's body, returning its block, the module and the comments at its top (`first_comments`) |
 | `nested_block` | nu-parser's `parse_block`, which hands over the block its caller lexed. The tokens are converted and read by `syntax::parse_lexed_block`, so no statement is nu-parser's |
-| `parse_shorter_head_reading` | The completer's next-shorter reading of a command head. It is the one fallback: when the front end can't read the head, nu-parser's `parse_shorter_head_reading` goes on with its own call parser |
+| `parse_shorter_head_reading` | The completer's next-shorter reading of a command head. When the front end can't read the call it would be, there is none, and nu-parser doesn't read it either |
 
 Text that isn't UTF-8, which the winnow parser doesn't read, is `NonUtf8` at its first such byte,
 over a garbage block.

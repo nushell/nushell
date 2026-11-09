@@ -949,3 +949,32 @@ fn shorter_head_reading_is_lowered(
     );
     Ok(())
 }
+
+/// With the option on, the completer's shorter reading comes from the winnow front end alone
+/// (nu-parser never reads the head), so the head of every multi-word command must have one there,
+/// as it always does in nu-parser.
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn every_multi_word_command_head_has_a_shorter_reading() -> Result {
+    let engine_state = test().engine_state;
+    let heads: Vec<String> = engine_state
+        .get_decls_sorted(false)
+        .into_iter()
+        .map(|(name, _)| String::from_utf8_lossy(&name).into_owned())
+        .filter(|name| name.contains(' '))
+        .collect();
+    // The engine has the built-in subcommands, so the check below is not vacuous.
+    assert!(heads.iter().any(|head| head == "str join"), "{heads:?}");
+    let missing: Vec<&String> = heads
+        .iter()
+        .filter(|name| {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            let start = working_set.next_span_start();
+            let _ = working_set.add_file("head", name.as_bytes());
+            let span = nu_protocol::Span::new(start, start + name.len());
+            nu_parser::parse_shorter_head_reading(&mut working_set, span, None).is_none()
+        })
+        .collect();
+    assert!(missing.is_empty(), "no shorter reading: {missing:?}");
+    Ok(())
+}

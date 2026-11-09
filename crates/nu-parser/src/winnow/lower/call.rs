@@ -1804,13 +1804,13 @@ fn is_multispan_shape(shape: &SyntaxShape) -> bool {
 /// shorter than the one they spell (`find_longest_decl`), and the call to it, its other items
 /// the arguments, read by the winnow parser and lowered as `parse_internal_call` builds it
 /// whatever kind the command is; with no such command, nu's external call over the items.
-/// `Some(None)` when the head has no shorter reading (a single word); `None` when the winnow
-/// parser cannot read the call.
+/// `None` when the head has no shorter reading (a single word), or when the winnow parser
+/// cannot read the call.
 pub(in crate::winnow) fn shorter_head_reading(
     working_set: &mut StateWorkingSet,
     head: Span,
     input_type: Option<&Type>,
-) -> Option<Option<Expression>> {
+) -> Option<Expression> {
     let source = String::from_utf8(working_set.get_span_contents(head).to_vec()).ok()?;
     let tokens = crate::winnow::syntax::lex::lex(&source, 0, LexOptions::BLOCK).ok()?;
     let items: Vec<Span> = tokens
@@ -1820,13 +1820,13 @@ pub(in crate::winnow) fn shorter_head_reading(
         .collect();
     let (_, greedy, _, _) = find_longest_decl(working_set, &items);
     if greedy <= 1 {
-        return Some(None);
+        return None;
     }
     let (_, words, _, decl) = find_longest_decl(working_set, &items[..greedy - 1]);
     let call_span = Span::concat(&items);
     let Some(decl_id) = decl else {
         let mut lower = Lower::new(working_set, &source, head.start);
-        return lower.external_call_text(&items, call_span).ok().map(Some);
+        return lower.external_call_text(&items, call_span).ok();
     };
     let local = WSpan::new(call_span.start - head.start, call_span.end - head.start);
     let cell = RefCell::new(working_set);
@@ -1836,10 +1836,7 @@ pub(in crate::winnow) fn shorter_head_reading(
     let w::Expr::Call(call) = &tree.expr else {
         return None;
     };
-    lower
-        .ordinary_call(&tree, call, decl_id, input_type)
-        .ok()
-        .map(Some)
+    lower.ordinary_call(&tree, call, decl_id, input_type).ok()
 }
 
 /// Whether `extern --strict` still forwards a flag its signature does not declare (nu's

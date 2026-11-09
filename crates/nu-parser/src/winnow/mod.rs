@@ -106,13 +106,13 @@ pub(crate) fn parse_file_block(
 }
 
 /// The completer's next-shorter reading of the command head at `head`
-/// (`parse_shorter_head_reading`): `Some(None)` when it has none, `None` when the winnow front
-/// end cannot read it; nothing was changed then.
+/// (`parse_shorter_head_reading`): `None` when it has none, or when the winnow front end cannot
+/// read the call it would be.
 pub(crate) fn parse_shorter_head_reading(
     working_set: &mut StateWorkingSet,
     head: Span,
     input_type: Option<&nu_protocol::Type>,
-) -> Option<Option<nu_protocol::ast::Expression>> {
+) -> Option<nu_protocol::ast::Expression> {
     lower::shorter_head_reading(working_set, head, input_type)
 }
 
