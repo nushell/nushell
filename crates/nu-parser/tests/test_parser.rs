@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
+    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit, Value,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
@@ -3822,8 +3822,158 @@ fn rejects_multiple_default_values(#[case] source: &str) {
     );
 }
 
+// The value of a rejected extra default must be skipped rather than parsed as
+// a new parameter, so only the duplicate default diagnostic is reported.
+#[rstest]
+#[case::positional("def cmd [a = 1 = 2] { $a }")]
+#[case::flag("def cmd [--flag = 1 = 2] { $flag }")]
+#[case::extern_positional("extern cmd [a = 1 = 2]")]
+#[case::closure("{|a = 1 = 2| $a}")]
+fn extra_default_value_reports_a_single_error(#[case] source: &str) {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert_eq!(
+        working_set.parse_errors.len(),
+        1,
+        "expected exactly one error, got {:?}",
+        working_set.parse_errors
+    );
+    assert!(
+        reports_extra_default_value(&working_set),
+        "expected extra default value diagnostic, got {:?}",
+        working_set.parse_errors
+    );
+}
+
+#[test]
+fn extra_default_value_keeps_the_first_default_and_adds_no_parameter() {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, b"def cmd [a = 1 = 2] { $a }", false);
+
+    let decl_id = working_set
+        .find_decl(b"cmd")
+        .expect("`cmd` should be declared");
+    let signature = working_set.get_decl(decl_id).signature();
+
+    assert!(
+        signature.required_positional.is_empty(),
+        "{:?}",
+        signature.required_positional
+    );
+    assert_eq!(signature.optional_positional.len(), 1);
+    let arg = &signature.optional_positional[0];
+    assert_eq!(arg.name, "a");
+    assert!(
+        matches!(arg.default_value, Some(Value::Int { val: 1, .. })),
+        "{:?}",
+        arg.default_value
+    );
+}
+
+/// Names of all positional parameters in declaration order: required, then
+/// optional, then rest.
+fn positional_names(signature: &Signature) -> Vec<&str> {
+    signature
+        .required_positional
+        .iter()
+        .chain(&signature.optional_positional)
+        .chain(&signature.rest_positional)
+        .map(|arg| arg.name.as_str())
+        .collect()
+}
+
+// A malformed parameter is reported once, and the tokens following the error
+// must not be parsed as new parameters.
+#[rstest]
+#[case::extra_default("def cmd [a = 1 = 2] { $a }", &["a"])]
+#[case::extra_defaults("def cmd [a = 1 = 2 = 3] { $a }", &["a"])]
+#[case::type_after_default("def cmd [a = 1 : string] { $a }", &["a"])]
+#[case::type_after_extra_default("def cmd [a = 1 = 2 : int] { $a }", &["a"])]
+#[case::leading_default("def cmd [= 1] { 1 }", &[])]
+#[case::leading_default_then_param("def cmd [= 1, b = 2] { $b }", &["b"])]
+#[case::missing_extra_default("def cmd [a = 1 = , b = 3] { $b }", &["a", "b"])]
+#[case::missing_extra_default_typed("def cmd [a = 1 =, b: int = 3] { $b }", &["a", "b"])]
+#[case::invalid_short_flag_default("def cmd [--a(-bc) = 1] { }", &[])]
+// `extern` signatures always get an implicit `args` rest parameter.
+#[case::extern_leading_default("extern cmd [= 1]", &["args"])]
+#[case::extern_type_after_default("extern cmd [a = 1 : string]", &["a", "args"])]
+fn malformed_signature_reports_one_error_without_inventing_params(
+    #[case] source: &str,
+    #[case] expected_names: &[&str],
+) {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert_eq!(
+        working_set.parse_errors.len(),
+        1,
+        "expected exactly one error, got {:?}",
+        working_set.parse_errors
+    );
+    let decl_id = working_set
+        .find_decl(b"cmd")
+        .expect("`cmd` should be declared");
+    let signature = working_set.get_decl(decl_id).signature();
+    assert_eq!(positional_names(&signature), expected_names);
+}
+
+// A flag whose declaration failed must not let its `:`/`=` modify the
+// previous parameter.
+#[test]
+fn failed_flag_does_not_modify_previous_param() {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(
+        &mut working_set,
+        None,
+        b"def cmd [x: int = 1, --a(-bc): string = 2] { $x }",
+        false,
+    );
+
+    assert_eq!(
+        working_set.parse_errors.len(),
+        1,
+        "expected exactly one error, got {:?}",
+        working_set.parse_errors
+    );
+    let decl_id = working_set
+        .find_decl(b"cmd")
+        .expect("`cmd` should be declared");
+    let signature = working_set.get_decl(decl_id).signature();
+    assert_eq!(signature.optional_positional.len(), 1);
+    let arg = &signature.optional_positional[0];
+    assert_eq!(arg.name, "x");
+    assert_eq!(arg.shape, SyntaxShape::Int);
+    assert!(
+        matches!(arg.default_value, Some(Value::Int { val: 1, .. })),
+        "{:?}",
+        arg.default_value
+    );
+}
+
+#[rstest]
+#[case::type_after_default("{|a = 1 : string| $a}")]
+#[case::leading_default("{|= 1| 1}")]
+#[case::missing_extra_default("{|a = 1 = , b = 2| $b}")]
+fn malformed_closure_signature_reports_one_error(#[case] source: &str) {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert_eq!(
+        working_set.parse_errors.len(),
+        1,
+        "expected exactly one error, got {:?}",
+        working_set.parse_errors
+    );
+}
+
 // A type annotation after a default value (`: string`) should also be rejected;
-// it is silently accepted on nu 0.116.2 because the parse mode resets to `Arg`
+// it was previously accepted silently because the parse mode reset to `Arg`
 // after a default value.
 #[rstest]
 #[case::positional("def cmd [a = 1 : string] { $a }")]
@@ -3887,7 +4037,7 @@ fn rest_positional_default_is_not_reported_as_a_duplicate(#[case] source: &[u8])
 
 #[rstest]
 #[case::def_duplicate(b"def cmd [...rest = 1 = 2] { $rest }")]
-#[case::extern_duplicate(b"extern cmd [...rest = 1 = 2] { $rest }")]
+#[case::extern_duplicate(b"extern cmd [...rest = 1 = 2]")]
 fn rest_positional_duplicate_default_is_reported(#[case] source: &[u8]) {
     // Duplicate defaults on a rest positional should be caught even for
     // extern commands, where defaults aren't stored in the AST.
@@ -3905,7 +4055,7 @@ fn rest_positional_duplicate_default_is_reported(#[case] source: &[u8]) {
 #[test]
 fn default_before_any_argument_is_reported_as_an_error() {
     // An `=` with no preceding parameter is an error: `def cmd [= 1, arg = 2]`
-    // used to silently drop the `= 1` on nu 0.116.2.
+    // used to silently drop the `= 1` before this change.
     let engine_state = engine_with_def_and_extern();
     let mut working_set = StateWorkingSet::new(&engine_state);
     let _ = parse(
