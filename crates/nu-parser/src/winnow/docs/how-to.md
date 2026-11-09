@@ -300,7 +300,6 @@ nu winnow/tools/scripts/nufmt-fixtures.nu [NUFMT_DIR]
 nu winnow/tools/scripts/extract-corpus.nu [--nushell DIR] [--book DIR] [--out DIR]
 nu winnow/tools/scripts/gen-builtin-commands.nu [--check]
 nu winnow/tools/scripts/gen-std-commands.nu [STD_DIR] | save -f winnow/tools/scripts/std_commands.txt
-nu winnow/tools/scripts/gen-grammar.nu [--check]
 ```
 
 `fixtures-compare.nu` runs every fixture through `ours` (`winnow_parse --check`), `nu` (`nu-check`

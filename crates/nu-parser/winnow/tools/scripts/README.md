@@ -37,15 +37,6 @@ All scripts run with `nu` 0.115.2 and need the example binary built with
   (the nushell commit named in its header does not count).
 * `gen-std-commands.nu [STD_DIR]` — regenerates `std_commands.txt`, the list
   of standard-library exports both bare and module-prefixed.
-* `gen-grammar.nu` — regenerates `winnow/grammar/grammar.bnf` (the ```` ```ebnf ````
-  fences of `winnow/grammar/grammar.md` verbatim, with the section headings as
-  comments) and `winnow/grammar/grammar.ebnf` (the same grammar in ISO 14977 style,
-  which `ebnf2railroad` and the VS Code EBNF extension understand: `<a-b>
-  ::=` becomes `a_b =`, `1*x` becomes `x, { x }`, `; comment` becomes
-  `(* comment *)`, prose rules become special sequences). `--check` exits 1
-  when the files are stale; `--root DIR` works on another checkout. Needs no
-  external tool; the railroad diagram is then rendered with `ebnf2railroad`
-  as the README says.
 
 ```text
 nu winnow/tools/scripts/verify.nu
@@ -56,5 +47,4 @@ nu winnow/tools/scripts/flatcmp.nu --commands winnow/tools/scripts/std_commands.
 nu winnow/tools/scripts/nufmt-fixtures.nu --diff closure
 nu winnow/tools/scripts/gen-builtin-commands.nu --check
 nu winnow/tools/scripts/gen-std-commands.nu ~/src/nushell/crates/nu-std | save -f winnow/tools/scripts/std_commands.txt
-nu winnow/tools/scripts/gen-grammar.nu --check
 ```

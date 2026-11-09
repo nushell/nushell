@@ -33,11 +33,11 @@ that the two parsers are checked against the same text.
   pin is about the end of the file (`ls |` followed by a comment); make such
   a file with `printf '%s'` and check it with `cat -v`, and use
   `printf '%s\n'` for the others so that `\r` and `\t` survive the shell.
-* Every syntactic disagreement `grammar/grammar.md` (section 9) ever
+* Every syntactic disagreement `winnow/GRAMMAR.md` (section 9) ever
   recorded between nu-parser and this crate lives here as a fixture, so a
   golden file that changes is either a deliberate rule change or a
-  regression against nu; the grammar file's `; here:` annotation names the
-  code for each rule.
+  regression against nu; `winnow/GRAMMAR.md` names the code for each rule
+  of the grammar.
 * An `accept` fixture should be something `nu-check` accepts too, so define
   the variables and commands it uses. Where that is impossible (a `use` of a
   file that does not exist, a plugin) the comparison script lists it under
@@ -46,7 +46,7 @@ that the two parsers are checked against the same text.
   syntactic reason. If nu accepts it, either the fixture belongs in `accept/`
   or the parser has found a real difference; run the comparison script to
   find out which. A check that needs a signature, a declaration, constant
-  evaluation, a type or a file is the consumer's (`grammar/grammar.md`
+  evaluation, a type or a file is the consumer's (`winnow/GRAMMAR.md`
   section 9.4) and gets an `accept` fixture named `*-is-consumer.nu`.
 * Golden files are generated, never written by hand:
 

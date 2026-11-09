@@ -118,12 +118,15 @@ These take seconds. Run them after any change to the lexer or to how an item bec
   default), with its `CommandType` and signature. Regenerate it when the checkout gains or loses
   commands. `--check` compares the commands, not the commit named in the header.
 * **`std_commands.txt`** comes from `gen-std-commands.nu`.
-* **`winnow/grammar/grammar.bnf` and `grammar.ebnf`** come from the fences of
-  `winnow/grammar/grammar.md` through `gen-grammar.nu`. The grammar is the audit trail from
-  nu-parser's source to this parser: every rule carries a `; nu:` line and a `; here:` line, and
-  section 9 describes the open differences.
 * **`tests/winnow/corpus/snippets/*.json`** come from `extract-corpus.nu`, which pulls the `Example`
   literals out of the command crates and the code blocks out of the book.
+
+## The grammar
+
+The grammar is in [nushell/grammar](https://github.com/nushell/grammar), with a corpus that checks it
+against nu-parser. Every rule carries a `; nu:` line naming the nu-parser source that decides
+it. `winnow/GRAMMAR.md` is the audit trail from those rules to this parser: where each one is
+implemented, and in its section 9 the open differences.
 
 ## Benchmarks
 

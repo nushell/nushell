@@ -23,12 +23,12 @@ Paths in these documents are relative to `crates/nu-parser`, and commands run th
   Nushell's standard library parses; the parser's accept/reject verdicts agree
   with `nu-check` on all 1,599 files except those `nu-check` rejects for
   semantic reasons (missing modules, type mismatches, signature-dependent
-  argument counts). `winnow/grammar/grammar.md` is a BNF of the language as
-  `nu-parser` accepts it, derived from nu-parser's source rule by rule and
-  annotated with where this parser implements each rule; every syntactic
-  disagreement it found but one has been closed and pinned as a fixture
-  (section 9 of that file counts them, describes the open one, and lists what
-  remains for a consumer with signatures, declarations or files).
+  argument counts). The grammar in [nushell/grammar](https://github.com/nushell/grammar) is a BNF of
+  the language as `nu-parser` accepts it, derived from nu-parser's source rule
+  by rule, and [`GRAMMAR.md`](GRAMMAR.md) says where this parser implements each
+  rule; every syntactic disagreement found but one has been closed and pinned as
+  a fixture (section 9 of `GRAMMAR.md` counts them, describes the open one, and
+  lists what remains for a consumer with signatures, declarations or files).
 * **Fast.** Roughly 30–45 MB/s per file and 40 MB/s over a 7 MB corpus of
   real scripts in release mode (single-threaded, including file I/O), with
   zero-copy borrowing of identifiers, bare words and unescaped string bodies.
@@ -148,9 +148,7 @@ mirroring nu-parser's own tests, every built-in command's examples), a
 traceability matrix from every `SyntaxShape`, keyword, `FlatShape` and
 `ParseError` of nu-parser to a fixture and a test (`src/winnow/docs/11-traceability.md`),
 and differential parsing of every corpus and their mutations with nu-parser
-itself. See [`TESTING.md`](TESTING.md). The grammar files in `grammar/` are
-generated from `winnow/grammar/grammar.md` by `nu winnow/tools/scripts/gen-grammar.nu`
-(`--check` fails when they are stale).
+itself. See [`TESTING.md`](TESTING.md).
 
 ## Design
 
@@ -207,7 +205,7 @@ IR. This parser is a pure syntactic front end:
 Because the item lexer and the expression grammar are the same, the two
 parsers accept the same programs; the only divergences are semantic checks
 that need declarations, signatures, constant evaluation, types or files
-(`winnow/grammar/grammar.md`, section 9.4, lists them).
+([`GRAMMAR.md`](GRAMMAR.md), section 9.4, lists them).
 
 ### Measured against the reference
 
@@ -227,7 +225,7 @@ Nushell scripts in `winnow/tools/scripts/`):
   mutants of seed 1. Other seeds find a few rows that nu-parser reports as
   syntax errors although deciding them needs more than the text (a module's
   contents in `use m f f`, a signature in `skip 0x[01 23 45 67]`, a
-  variable's existence in `..$$ a`; `winnow/grammar/grammar.md` section 9.4), and
+  variable's existence in `..$$ a`; `winnow/GRAMMAR.md` section 9.4), and
   one open syntactic row, `alias i = if if x y` (section 9.2).
 * **Token classification.** For every standard-library file,
   `winnow/tools/scripts/flatcmp.nu` compares the output of nu's `ast --flatten` with
@@ -349,25 +347,11 @@ Run everything with `cargo test`; run the comparison with Nushell itself
 with `nu winnow/tools/scripts/verify.nu`; run the benchmarks with
 `cargo bench --bench winnow -- solo`.
 
-## Grammar Railroad Diagram
+## Grammar
 
-`winnow/grammar/grammar.md` is the source of truth; `grammar.bnf` and
-`grammar.ebnf` are generated from its ```` ```ebnf ```` fences:
-```sh
-nu winnow/tools/scripts/gen-grammar.nu           # rewrite winnow/grammar/grammar.bnf and winnow/grammar/grammar.ebnf
-nu winnow/tools/scripts/gen-grammar.nu --check   # exit 1 when they are stale
-```
-
-I used this tool to generate the grammar.html from grammar.ebnf
-```sh
-ebnf2railroad --title "Nushell Grammar" grammar.ebnf -o grammar.html
-```
-or to just lint the ebnf
-```sh
-ebnf2railroad --lint grammar.ebnf --no-target
-```
-
-https://github.com/matthijsgroen/ebnf2railroad
+The grammar this parser implements is in [nushell/grammar](https://github.com/nushell/grammar),
+with its railroad diagrams (`grammar.html`) and the corpus that checks it against
+nu-parser. [`GRAMMAR.md`](GRAMMAR.md) maps its rules to this parser's code.
 
 ## License
 
