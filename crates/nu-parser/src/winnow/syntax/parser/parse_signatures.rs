@@ -17,6 +17,7 @@ use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::{Span, Spanned};
 
 use super::WorkingSet;
+use super::call_shapes::nu_shape;
 use super::parse_expressions::{ExpectedShape, parse_value};
 use super::parse_helpers::{declared_variable_name, is_identifier, is_variable};
 use super::parse_literals::parse_string_literal;
@@ -407,7 +408,7 @@ fn parse_parameters<'a>(
                         Some(declared) => parse_value(
                             working_set,
                             token.span,
-                            ExpectedShape::Declared(&declared.shape),
+                            ExpectedShape::Declared(&nu_shape(&declared.shape)),
                         ),
                         None => parse_value(working_set, token.span, ExpectedShape::Any),
                     }

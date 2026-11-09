@@ -4,13 +4,14 @@
 
 use std::borrow::Cow;
 
+use nu_protocol::SyntaxShape;
 use winnow::Parser;
 use winnow::error::ErrMode;
 
+use crate::parse_calls::shape_allows_negative_number;
 use crate::winnow::syntax::ast::{
     Argument, Attribute, Call, CallHead, DynamicCall, Expr, Expression, ExternalArgument,
     ExternalCall, InterpolationPart, NamedArgument, Quote, StringInterpolation, StringLiteral,
-    SyntaxShape,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{ParseFailure, ParseResult, cut};
@@ -421,10 +422,10 @@ fn parse_call_arguments_with<'a>(
 /// positionals are the consumer's.
 fn parse_call_arguments_by_shape<'a>(
     mut tokens: Tokens<'_, 'a>,
-    shapes: &CallShapes<'a>,
+    shapes: &CallShapes,
 ) -> ParseResult<Vec<Argument<'a>>> {
     let working_set = tokens.working_set;
-    let value = |span: Span, shape: &SyntaxShape<'a>| {
+    let value = |span: Span, shape: &SyntaxShape| {
         let read = parse_value(working_set, span, ExpectedShape::Declared(shape));
         recover_literal(working_set, span, read)
     };
@@ -481,7 +482,7 @@ fn parse_call_arguments_by_shape<'a>(
             let negative_number = found.next().is_none()
                 && shapes
                     .positional(positional)
-                    .is_some_and(allows_negative_number)
+                    .is_some_and(shape_allows_negative_number)
                 && text.parse::<f64>().is_ok();
             if !negative_number {
                 // Only the last letter takes a value; one before it ends nu's batch there.
@@ -520,18 +521,6 @@ fn parse_call_arguments_by_shape<'a>(
         arguments.push(Argument::Positional(value(span, shape)?));
     }
     Ok(arguments)
-}
-
-/// Whether `shape` takes a negative number for an item that looks like flags (nu's
-/// `shape_allows_negative_number`).
-fn allows_negative_number(shape: &SyntaxShape<'_>) -> bool {
-    match shape {
-        SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float => true,
-        SyntaxShape::OneOf(shapes) => shapes
-            .iter()
-            .any(|shape| allows_negative_number(&shape.shape)),
-        _ => false,
-    }
 }
 
 /// One argument of a call, when the parser does not know the command's signature

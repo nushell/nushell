@@ -5,15 +5,17 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
+use nu_protocol::SyntaxShape;
 use winnow::Parser;
 use winnow::combinator::{Infix, eof, expression, opt, preceded, repeat, repeat_till};
 use winnow::error::ErrMode;
 use winnow::stream::Location;
 
+use crate::parse_calls::accepts_any_bareword;
 use crate::winnow::syntax::ast::{
     Assignment, BinaryOp, Block, Closure, EnvAssignment, EnvShorthand, Expr, Expression,
     InterpolationPart, ListItem, MatchArm, MatchPattern, NOT_PRECEDENCE, Operator, Pattern, Quote,
-    RecordItem, Signature, StringLiteral, SyntaxShape, Table, TypeAnnotation, UnaryMinus, UnaryNot,
+    RecordItem, Signature, StringLiteral, Table, UnaryMinus, UnaryNot,
 };
 use crate::winnow::syntax::error::{Diagnostic, ErrorKind};
 use crate::winnow::syntax::input::{Input, ParseFailure, ParseResult, backtrack, cut, input};
@@ -896,7 +898,7 @@ fn negated_operand_end(tokens: &Tokens<'_, '_>, start: usize) -> usize {
 /// `[` may start. Statement bodies (`if`, `def`, ...) never go through
 /// [`parse_value`]: the statement parsers call [`parse_block_body`] directly.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ExpectedShape<'t, 'a> {
+pub enum ExpectedShape<'t> {
     /// Anything.
     Any,
     /// A closure (`{|x| ...}` or `{ ... }`).
@@ -910,9 +912,9 @@ pub enum ExpectedShape<'t, 'a> {
     /// `true`, `false` and `null` are refused and `[...]` is a bare word.
     String,
     /// The declared shape of a parameter whose default value this is
-    /// (`[x: int = 1]`), or of the items of a `list<...>`: nu parses the value
-    /// with that shape.
-    Declared(&'t SyntaxShape<'a>),
+    /// (`[x: int = 1]`), or of a call's argument, or of the items of a `list<...>`: nu parses
+    /// the value with that shape.
+    Declared(&'t SyntaxShape),
 }
 
 /// One item, parsed as `shape` expects (nu's `parse_value`). How the item
@@ -921,7 +923,7 @@ pub enum ExpectedShape<'t, 'a> {
 pub fn parse_value<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
-    shape: ExpectedShape<'_, 'a>,
+    shape: ExpectedShape<'_>,
 ) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     if let ExpectedShape::Declared(declared) = shape {
@@ -1133,15 +1135,15 @@ fn parse_any_value<'a>(
     parse_string(working_set, span)
 }
 
-/// nu's `parse_value` with a declared shape: the value a parameter default
-/// must be. A type alias is parsed as `any`: what it names is the consumer's
-/// to look up, and so is whether the value fits it. `$`, `(` and `{` items are what they always are (a closure is
-/// refused for a `block`), `[` is allowed for the list-like and string-like
+/// nu's `parse_value` with a declared shape: the value a parameter default or an argument
+/// must be. A type alias, which the parser does not look up, is `any` here
+/// ([`nu_shape`](super::call_shapes::nu_shape)). `$`, `(` and `{` items are what they always
+/// are (a closure is refused for a `block`), `[` is allowed for the list-like and string-like
 /// shapes only, and a bare word must be a literal of the shape.
 fn parse_value_for_shape<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
-    declared: &SyntaxShape<'a>,
+    declared: &SyntaxShape,
 ) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     // nu's `parse_value` tries a `oneof`'s shapes before it looks at the item.
@@ -1156,7 +1158,6 @@ fn parse_value_for_shape<'a>(
         && matches!(
             declared,
             SyntaxShape::Any
-                | SyntaxShape::TypeAlias(_)
                 | SyntaxShape::Number
                 | SyntaxShape::Int
                 | SyntaxShape::Float
@@ -1177,8 +1178,8 @@ fn parse_value_for_shape<'a>(
             // Only `closure` and `any` take a body of code; for the other shapes the `{`
             // must be a record or have closure parameters (`String` stands for "a value").
             let shape = match declared {
-                SyntaxShape::Closure => ExpectedShape::Closure,
-                SyntaxShape::Any | SyntaxShape::TypeAlias(_) => ExpectedShape::Any,
+                SyntaxShape::Closure(_) => ExpectedShape::Closure,
+                SyntaxShape::Any => ExpectedShape::Any,
                 _ => ExpectedShape::String,
             };
             return parse_brace_expr(working_set, span, shape).map_err(|error| {
@@ -1194,14 +1195,14 @@ fn parse_value_for_shape<'a>(
         }
         [b'[', ..] => {
             return match declared {
-                SyntaxShape::Any
-                | SyntaxShape::TypeAlias(_)
-                | SyntaxShape::Table(_)
-                | SyntaxShape::ExternalArgument => parse_full_cell_path(working_set, span, false),
+                SyntaxShape::Any | SyntaxShape::Table(_) | SyntaxShape::ExternalArgument => {
+                    parse_full_cell_path(working_set, span, false)
+                }
+                // nu's `list` is `list<any>`, whose items are read as any value's.
                 SyntaxShape::List(element) => parse_list_expression_with_shape(
                     working_set,
                     span,
-                    element.as_deref().map(|element| &element.shape),
+                    Some(&**element).filter(|element| **element != SyntaxShape::Any),
                 ),
                 SyntaxShape::String | SyntaxShape::Filepath | SyntaxShape::GlobPattern => {
                     parse_string(working_set, span)
@@ -1215,7 +1216,7 @@ fn parse_value_for_shape<'a>(
     }
     let literal = |expr: Expr<'a>| Ok(Expression::new(expr, span));
     match declared {
-        SyntaxShape::Any | SyntaxShape::TypeAlias(_) => parse_any_value(working_set, span, text),
+        SyntaxShape::Any => parse_any_value(working_set, span, text),
         SyntaxShape::Number => parse_number(working_set, span),
         SyntaxShape::Float => {
             parse_float(text).map_or_else(|| Err(expected()), |float| literal(Expr::Float(float)))
@@ -1265,15 +1266,14 @@ fn parse_value_for_shape<'a>(
 fn parse_oneof<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
-    alternatives: &[TypeAnnotation<'a>],
+    alternatives: &[SyntaxShape],
 ) -> ParseResult<Expression<'a>> {
     let defer_barewords = !matches!(
         working_set.get_span_contents(span).as_bytes().first(),
         Some(b'$' | b'(' | b'{')
     );
-    let deferred = |alternative: &&TypeAnnotation<'a>| {
-        defer_barewords && accepts_any_bareword(&alternative.shape)
-    };
+    let deferred =
+        |alternative: &&SyntaxShape| defer_barewords && accepts_any_bareword(alternative);
     let ordered = alternatives
         .iter()
         .filter(|alternative| !deferred(alternative))
@@ -1284,7 +1284,7 @@ fn parse_oneof<'a>(
         );
     let mut first_error = None;
     for alternative in ordered {
-        match parse_value_for_shape(working_set, span, &alternative.shape) {
+        match parse_value_for_shape(working_set, span, alternative) {
             Ok(value) => return Ok(value),
             Err(error) => first_error.get_or_insert(error),
         };
@@ -1292,30 +1292,14 @@ fn parse_oneof<'a>(
     Err(first_error.unwrap_or_else(|| cut(Diagnostic::expected("value", span))))
 }
 
-/// Whether a shape accepts nearly any bare word without error (nu's `accepts_any_bareword`):
-/// `string`, `path` and `directory` take `5` or `5sec` as a string, `glob` and `external_arg` as a
-/// glob, `cell-path` takes `5` as `$.5`, and `any` falls back to a string.
-fn accepts_any_bareword(shape: &SyntaxShape<'_>) -> bool {
-    matches!(
-        shape,
-        SyntaxShape::String
-            | SyntaxShape::Filepath
-            | SyntaxShape::Directory
-            | SyntaxShape::GlobPattern
-            | SyntaxShape::CellPath
-            | SyntaxShape::ExternalArgument
-            | SyntaxShape::Any
-    )
-}
-
 /// The word nu uses for a shape in "expected ..." errors.
-fn shape_description(shape: &SyntaxShape<'_>) -> &'static str {
+fn shape_description(shape: &SyntaxShape) -> &'static str {
     match shape {
         SyntaxShape::Any => "any",
         SyntaxShape::Binary => "binary",
         SyntaxShape::Boolean => "bool",
         SyntaxShape::CellPath => "cell-path",
-        SyntaxShape::Closure => "closure",
+        SyntaxShape::Closure(_) => "closure",
         SyntaxShape::DateTime => "datetime",
         SyntaxShape::Directory => "directory",
         SyntaxShape::Duration => "duration",
@@ -1334,7 +1318,8 @@ fn shape_description(shape: &SyntaxShape<'_>) -> &'static str {
         SyntaxShape::Record(_) => "record",
         SyntaxShape::Table(_) => "table",
         SyntaxShape::OneOf(_) => "one of the accepted shapes",
-        SyntaxShape::TypeAlias(_) => "type alias",
+        // The shapes no type annotation names, which only an engine's signature has.
+        _ => "value",
     }
 }
 
@@ -1533,7 +1518,7 @@ pub fn is_typed_record(expr: &Expression<'_>) -> bool {
 fn parse_brace_expr<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
-    shape: ExpectedShape<'_, 'a>,
+    shape: ExpectedShape<'_>,
 ) -> ParseResult<Expression<'a>> {
     let text = working_set.get_span_contents(span);
     if !text.ends_with('}') {
@@ -1791,7 +1776,7 @@ pub fn parse_list_expression<'a>(
 fn parse_list_expression_with_shape<'a>(
     working_set: &WorkingSet<'a>,
     span: Span,
-    element: Option<&SyntaxShape<'a>>,
+    element: Option<&SyntaxShape>,
 ) -> ParseResult<Expression<'a>> {
     // The interior's own lexer and lite-parser errors (`[1 2]]`, `[1 || 2]`, `[1 2 |]`), and
     // a `;` (`[1; 2]`), nu reports and goes on past: the list is a garbage leaf.
@@ -1925,7 +1910,7 @@ fn parse_table_expression<'a>(
 fn parse_list_item<'a>(
     working_set: &WorkingSet<'a>,
     token: &Token,
-    element: Option<&SyntaxShape<'a>>,
+    element: Option<&SyntaxShape>,
 ) -> ParseResult<ListItem<'a>> {
     let text = working_set.get_span_contents(token.span);
     if token.contents == TokenContents::Item && is_spread(text, b"[$(") {

@@ -116,7 +116,7 @@ struct ConfiguredSignature {
     /// The signature item, `[...]`.
     text: &'static str,
     /// Its parameters; `None` inside when it does not parse.
-    shapes: OnceLock<Option<Arc<CallShapes<'static>>>>,
+    shapes: OnceLock<Option<Arc<CallShapes>>>,
 }
 
 /// The kind of a configured command (nu-protocol's `CommandType`, for the
@@ -297,7 +297,7 @@ impl ParseConfig {
 
     /// The parameters a call to `name` reads its arguments by, if it has a signature that
     /// parses.
-    pub(crate) fn call_shapes(&self, name: &str) -> Option<Arc<CallShapes<'static>>> {
+    pub(crate) fn call_shapes(&self, name: &str) -> Option<Arc<CallShapes>> {
         let signature = self.commands.signatures.get(name)?;
         signature
             .shapes

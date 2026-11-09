@@ -247,7 +247,7 @@ pub struct WorkingSet<'a> {
     /// The parameters of the commands the text defines that calls asked for so far, by the
     /// span of the signature item ([`WorkingSet::call_shapes`]); `None` for one that does not
     /// parse.
-    defined_shapes: RefCell<Vec<(Span, Option<Rc<CallShapes<'a>>>)>>,
+    defined_shapes: RefCell<Vec<(Span, Option<Rc<CallShapes>>)>>,
 }
 
 impl std::fmt::Debug for WorkingSet<'_> {
@@ -656,7 +656,7 @@ impl<'a> WorkingSet<'a> {
     /// first time a call asks, or of a configured command unless an import may have brought in
     /// another ([`WorkingSet::note_import`]), or those an alias's target leaves. `None` for a
     /// definition whose signature does not parse and a command without a signature.
-    pub fn call_shapes(&self, name: &str) -> Option<CommandShapes<'a>> {
+    pub fn call_shapes(&self, name: &str) -> Option<CommandShapes> {
         if self.lookup.is_some() {
             return None;
         }
@@ -714,7 +714,7 @@ impl<'a> WorkingSet<'a> {
 
     /// The parameters of the `def` or `extern` whose signature is at `span`, parsed the first
     /// time a call asks.
-    fn defined_shapes(&self, span: Span, external: bool) -> Option<Rc<CallShapes<'a>>> {
+    fn defined_shapes(&self, span: Span, external: bool) -> Option<Rc<CallShapes>> {
         if let Some((_, shapes)) = self
             .defined_shapes
             .borrow()
