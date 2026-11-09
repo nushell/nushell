@@ -83,6 +83,7 @@ use crate::parse_keywords::find_keyword_decl;
 use crate::winnow::syntax::Span as WSpan;
 
 pub(super) use call::shorter_head_reading;
+use leaf::head_is_value;
 pub(super) use signature::Predecl;
 pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, garbage_pipeline};
 

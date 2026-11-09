@@ -15,6 +15,7 @@ use nu_protocol::{
         ValueWithUnit,
     },
     casing::Casing,
+    engine::StateWorkingSet,
 };
 
 use super::list_text::ListItems;
@@ -28,11 +29,11 @@ use crate::winnow::syntax::lex::{
     GroupEnds, LexOptions, TokenContents, interp_subexpr_step, lex_recovering,
 };
 use crate::winnow::syntax::parse_literals::{
-    IntLiteral, UnitError, UnitValue, duration_value, filesize_value, is_bare_string_interpolation,
-    is_invalid_date_literal, parse_float, read_int, simple_escape,
+    IntLiteral, UnitError, UnitValue, duration_value, filesize_value, has_range_operator,
+    is_bare_string_interpolation, is_invalid_date_literal, parse_float, read_int, simple_escape,
 };
-use crate::winnow::syntax::parse_number_item;
 use crate::winnow::syntax::{Span as WSpan, ast as w};
+use crate::winnow::syntax::{is_literal_like_but_range, parse_number_item};
 
 /// Which unit a unit literal has (`parse_duration`, `parse_filesize`).
 #[derive(Clone, Copy)]
@@ -1549,4 +1550,58 @@ pub(super) fn unescape(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
         }
     }
     (output, None)
+}
+
+/// Whether the call site reads the first word of the command or alias name `name`, written at
+/// `name_span`, as a value instead of looking it up as a command (the shared name checks'
+/// `HeadIsValue`, nu-parser's `is_shadowed_by_a_value`): a literal whose text tells it, or a
+/// range, read as `parse_range` reads one ([`Lower::range`]) so that its bounds see the variables
+/// in scope. The head word is read where it is written or, for a name written with escapes,
+/// decoded in a working set of its own.
+pub(super) fn head_is_value(
+    working_set: &mut StateWorkingSet<'_>,
+    name: &str,
+    name_span: Span,
+) -> bool {
+    let head = name.split(' ').next().unwrap_or(name);
+    if is_literal_like_but_range(head) {
+        return true;
+    }
+    if !has_range_operator(head) {
+        return false;
+    }
+    // The name as written, without its quotes or backticks, shows the head word when the two are
+    // the same.
+    let written = working_set.get_span_contents(name_span);
+    let quoted = usize::from(matches!(
+        written,
+        [b'\'', .., b'\''] | [b'"', .., b'"'] | [b'`', .., b'`']
+    ));
+    if &written[quoted..written.len() - quoted] == name.as_bytes() {
+        reads_as_range(working_set, head, name_span.start + quoted)
+    } else {
+        // Read in a working set of its own, so the check leaves no file in the one it checks.
+        let mut scratch = StateWorkingSet::new(working_set.permanent_state);
+        let file_id = scratch.add_file("command name", head.as_bytes());
+        let start = scratch.get_span_for_file(file_id).start;
+        reads_as_range(&mut scratch, head, start)
+    }
+}
+
+/// Whether `head`, the text at `start` in the working set's span space, is a range for nu's
+/// `is_literal_like`: one `parse_range` reads without an error, or one with a bound that is an
+/// invalid literal of its kind (`1..99999999999999999999`), whose error the value reports. The
+/// reading's errors and blocks (a bound such as `(ls)` is a subexpression) are taken back.
+fn reads_as_range(working_set: &mut StateWorkingSet<'_>, head: &str, start: usize) -> bool {
+    let trial = Trial::new(working_set);
+    let blocks = working_set.delta.blocks.len();
+    let range = Lower::new(working_set, head, start).range(WSpan::new(0, head.len()));
+    let is_range = matches!(range, Ok(Some(_)))
+        || matches!(
+            trial.new_errors(working_set).first(),
+            Some(ParseError::InvalidLiteral(..) | ParseError::LiteralTooLarge(..))
+        );
+    trial.discard_errors(working_set);
+    working_set.delta.blocks.truncate(blocks);
+    is_range
 }

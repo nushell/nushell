@@ -1485,40 +1485,53 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         }
     };
 
-    finish_hide(working_set, call, Span::concat(spans), args_spans)
+    let call_span = Span::concat(spans);
+    let import_pattern = match hide_import_pattern(working_set, &call, call_span, args_spans) {
+        Ok(import_pattern) => import_pattern,
+        Err(garbage) => return garbage,
+    };
+    // Each item is read as a string again, which reports what is wrong with it once more.
+    for span in args_spans {
+        parse_string(working_set, *span);
+    }
+    finish_hide(working_set, call, import_pattern, call_span, args_spans)
 }
 
-/// What `parse_hide` does with its call to `hide`: the import pattern read from the call's
-/// arguments, and the commands and type aliases it names hidden. `call_span` is the statement
-/// and `args_spans` the items after `hide`, of which there is at least one in a valid call.
+/// The import pattern of `parse_hide`'s call to `hide`, read from the call's arguments.
+/// `call_span` is the statement and `args_spans` the items after `hide`. When the arguments name
+/// no import pattern, the error is reported and the statement is garbage.
+pub(crate) fn hide_import_pattern(
+    working_set: &mut StateWorkingSet,
+    call: &Call,
+    call_span: Span,
+    args_spans: &[Span],
+) -> Result<ImportPattern, Pipeline> {
+    let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
+    match import_pattern_expr.expr {
+        Expr::ImportPattern(import_pattern) => Ok(*import_pattern),
+        _ => {
+            working_set.error(ParseError::UnknownState(
+                "internal error: Import pattern positional is not import pattern".into(),
+                import_pattern_expr.span,
+            ));
+            Err(garbage_pipeline(working_set, &[call_span]))
+        }
+    }
+}
+
+/// The rest of `parse_hide` once the front end has read the import pattern
+/// ([`hide_import_pattern`]) and each item after `hide` again as a string, for its errors: the
+/// commands and type aliases the pattern names hidden. `call_span` is the statement and
+/// `args_spans` the items after `hide`, of which there is at least one in a valid call.
 pub(crate) fn finish_hide(
     working_set: &mut StateWorkingSet,
     call: Box<Call>,
+    import_pattern: ImportPattern,
     call_span: Span,
     args_spans: &[Span],
 ) -> Pipeline {
-    let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
-
-    let import_pattern = if let Expression {
-        expr: Expr::ImportPattern(import_pattern),
-        ..
-    } = &import_pattern_expr
-    {
-        import_pattern.clone()
-    } else {
-        working_set.error(ParseError::UnknownState(
-            "internal error: Import pattern positional is not import pattern".into(),
-            import_pattern_expr.span,
-        ));
-        return garbage_pipeline(working_set, &[call_span]);
-    };
-
     // `parse_hide` checked the call's name.
     if let Some(&first_span) = args_spans.first() {
-        for span in args_spans {
-            parse_string(working_set, *span);
-        }
-
         let (is_module, module) =
             if let Some(module_id) = working_set.find_module(&import_pattern.head.name) {
                 (true, working_set.get_module(module_id).clone())

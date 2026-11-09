@@ -38,6 +38,7 @@ const SHARED: &[&str] = &[
     "parse_module::exported_module",
     "parse_module::finish_export_env",
     "parse_module::finish_hide",
+    "parse_module::hide_import_pattern",
     "parse_module::finish_module",
     "parse_module::finish_use",
     "parse_module::parse_overlay_hide",
@@ -52,6 +53,7 @@ const SHARED: &[&str] = &[
     "parse_source::finish_source",
     "parse_source::parse_plugin_use",
     "parse_type_alias::finish_type_alias",
+    "parse_type_alias::type_alias_name",
     // Calls: their kind, their check against the signature, and shapes' properties.
     "parse_calls::CallKind",
     "parse_calls::accepts_any_bareword",

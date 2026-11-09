@@ -15,8 +15,8 @@ use crate::{
     parse_calls::CallKind,
     parse_helpers::garbage,
     parse_module::{
-        exported_module, finish_hide, finish_module, finish_use, parse_overlay_hide,
-        parse_overlay_new, parse_overlay_use, warp_export_call,
+        exported_module, finish_hide, finish_module, finish_use, hide_import_pattern,
+        parse_overlay_hide, parse_overlay_new, parse_overlay_use, warp_export_call,
     },
 };
 
@@ -36,8 +36,9 @@ pub(super) fn overlay_effect(name: &str) -> Option<KeywordEffect> {
 
 impl<'s> Lower<'_, '_, 's> {
     /// `hide name [members]` (`parse_hide`), the statement `e`: the call, its arguments read with
-    /// the signature's shapes, then `finish_hide`, which hides what the import pattern names. A
-    /// call for help is the statement as it is.
+    /// the signature's shapes, the import pattern read from them (`hide_import_pattern`), each
+    /// item read as a string again for its errors, then `finish_hide`, which hides what the
+    /// import pattern names. A call for help is the statement as it is.
     pub(super) fn hide(&mut self, e: &w::Expression<'s>, call: &w::Call<'s>) -> Lowered<Pipeline> {
         let decl_id = self
             .working_set
@@ -55,9 +56,21 @@ impl<'s> Lower<'_, '_, 's> {
             .iter()
             .map(|argument| self.span(argument.span()))
             .collect();
+        let import_pattern =
+            match hide_import_pattern(self.working_set, &lowered, call_span, &args_spans) {
+                Ok(import_pattern) => import_pattern,
+                Err(garbage) => return Ok(garbage),
+            };
+        // Each item is read as a string again (`parse_string`), which reports what is wrong
+        // with it once more.
+        for argument in &call.arguments {
+            let item = w::Expression::new(w::Expr::Garbage, argument.span());
+            self.string_leaf(&item)?;
+        }
         Ok(finish_hide(
             self.working_set,
             lowered,
+            import_pattern,
             call_span,
             &args_spans,
         ))

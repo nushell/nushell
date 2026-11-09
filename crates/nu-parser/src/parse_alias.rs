@@ -3,7 +3,9 @@ use crate::{
     lex::{TokenContents, lex},
     lite_parser::LiteCommand,
     parse_helpers::{garbage, garbage_pipeline},
-    parse_keywords::{is_uncallable_name, reject_parser_keyword_name},
+    parse_keywords::{
+        HeadIsValue, is_shadowed_by_a_value, is_uncallable_name, reject_parser_keyword_name,
+    },
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_call, parse_expression,
@@ -176,7 +178,8 @@ pub fn parse_alias(
             return garbage_pipeline(working_set, spans);
         };
 
-        let Some(alias_name) = alias_name(working_set, alias_name_expr) else {
+        let Some(alias_name) = alias_name(working_set, alias_name_expr, is_shadowed_by_a_value)
+        else {
             return garbage_pipeline(working_set, spans);
         };
 
@@ -291,16 +294,18 @@ pub(crate) fn report_incomplete_alias(
 }
 
 /// The name of an alias, the first positional of its call to `alias`: a string that is a valid
-/// command name and no parser keyword. Otherwise reports why and returns `None`.
+/// command name (whose first word the front end reads as a value by `head_is_value`) and no
+/// parser keyword. Otherwise reports why and returns `None`.
 pub(crate) fn alias_name(
     working_set: &mut StateWorkingSet,
     alias_name_expr: &Expression,
+    head_is_value: HeadIsValue,
 ) -> Option<String> {
     let Some(name) = alias_name_expr.as_string() else {
         working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
         return None;
     };
-    if is_uncallable_name(working_set, &name, alias_name_expr.span) {
+    if is_uncallable_name(working_set, &name, alias_name_expr.span, head_is_value) {
         working_set.error(ParseError::AliasNotValid(alias_name_expr.span));
         None
     } else if reject_parser_keyword_name(working_set, &name, "alias", alias_name_expr.span) {

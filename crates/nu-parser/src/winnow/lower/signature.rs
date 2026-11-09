@@ -60,7 +60,7 @@ impl<'s> Lower<'_, '_, 's> {
         let name = predecl.name;
         let name_span = self.span(predecl.name_span);
         // The name checks of `parse_def_predecl`, shared with it.
-        if reject_command_name(self.working_set, name, name_span) {
+        if reject_command_name(self.working_set, name, name_span, super::head_is_value) {
             return true;
         }
         let trial = Trial::new(self.working_set);

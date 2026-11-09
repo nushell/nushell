@@ -19,7 +19,9 @@ use nu_protocol::{
 
 use super::leaf::{is_assignment, is_env_name};
 use super::trial::Trial;
-use super::{BlockOf, Lower, Lowered, Unlowered, is_missing_argument, statement_decl};
+use super::{
+    BlockOf, Lower, Lowered, Unlowered, garbage_pipeline, is_missing_argument, statement_decl,
+};
 use crate::winnow::syntax::lex::{LexOptions, TokenContents, pipe_or_redirection};
 use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{ItemsValue, Span as WSpan, ast as w};
@@ -32,7 +34,7 @@ use crate::{
     parse_helpers::garbage,
     parse_module::{finish_export_env, warp_export_call},
     parse_signatures::ensure_not_reserved_variable_name,
-    parse_type_alias::finish_type_alias,
+    parse_type_alias::{finish_type_alias, type_alias_name},
     type_check::{check_pipeline_type, type_compatible},
 };
 
@@ -1194,8 +1196,9 @@ impl<'s> Lower<'_, '_, 's> {
     /// module exports, as an exportable. The head's span is registered, as `parse_internal_call` registers it for
     /// the call that checks whether the statement asks for help.
     ///
-    /// A type that doesn't parse still defines the alias, as `any`, so once
-    /// `finish_type_alias` has run the statement is never handed back.
+    /// The name is checked by nu's `type_alias_name` and the type read by
+    /// [`Self::type_alias_type`]. A type that doesn't parse still defines the alias, as `any`, so
+    /// once `finish_type_alias` has run the statement is never handed back.
     pub(super) fn type_alias(
         &mut self,
         command: &w::Expression<'s>,
@@ -1210,16 +1213,28 @@ impl<'s> Lower<'_, '_, 's> {
         let head = self.command_head(command, "type");
         let _ = self.working_set.add_span(head);
         let call_span = self.span(command.span);
-        let (mut pipeline, type_alias) = finish_type_alias(
-            self.working_set,
-            decl_id,
-            head,
-            call_span,
-            self.span(alias.name.span),
-            self.span(alias.eq),
-            // No type after the `=`: the winnow parser's type is a point after it.
-            Some(self.span(alias.ty.span)).filter(|span| !span.is_empty()),
-        );
+        let (mut pipeline, type_alias) =
+            match type_alias_name(self.working_set, self.span(alias.name.span)) {
+                Some(name) => {
+                    // No type after the `=`: the winnow parser's type is a point after it.
+                    let type_span = Some(self.span(alias.ty.span)).filter(|span| !span.is_empty());
+                    let type_ = match type_span {
+                        Some(span) => Some((span, self.type_alias_type(span)?)),
+                        None => None,
+                    };
+                    let equals = self.span(alias.eq);
+                    finish_type_alias(
+                        self.working_set,
+                        decl_id,
+                        head,
+                        call_span,
+                        name,
+                        equals,
+                        type_,
+                    )
+                }
+                None => (garbage_pipeline(self.working_set, call_span), None),
+            };
         if export {
             // `export`, `type`, and the rest of the statement, as `warp_export_call` takes them.
             let spans = [
@@ -1416,7 +1431,9 @@ impl<'s> Lower<'_, '_, 's> {
                     Span::concat(&alias_spans),
                 ));
             }
-            if name.is_none_or(|name| alias_name(self.working_set, name).is_none()) {
+            if name.is_none_or(|name| {
+                alias_name(self.working_set, name, super::head_is_value).is_none()
+            }) {
                 let garbage = garbage(self.working_set, call_span);
                 return Ok(match &command.expr {
                     w::Expr::Export(export) => (
@@ -1687,7 +1704,7 @@ impl<'s> Lower<'_, '_, 's> {
         let Some(name) = call
             .positional_iter()
             .next()
-            .and_then(|name| alias_name(self.working_set, name))
+            .and_then(|name| alias_name(self.working_set, name, super::head_is_value))
         else {
             return Ok(garbage(self.working_set, statement_span));
         };

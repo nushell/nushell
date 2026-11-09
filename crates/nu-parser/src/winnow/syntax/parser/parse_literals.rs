@@ -1398,7 +1398,7 @@ pub fn is_range_syntax(text: &str) -> bool {
 /// Whether `text` holds `..` anywhere. The search goes from `.` to `.` (a
 /// `memchr`), since it also runs over whole subexpressions.
 #[inline]
-pub(super) fn has_range_operator(text: &str) -> bool {
+pub(crate) fn has_range_operator(text: &str) -> bool {
     let mut rest = text;
     while let Some(dot) = rest.find('.') {
         rest = &rest[dot + 1..];

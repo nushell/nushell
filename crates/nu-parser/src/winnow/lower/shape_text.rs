@@ -160,6 +160,38 @@ impl Lower<'_, '_, '_> {
         Ok(self.shape_name(text, span)?.to_type())
     }
 
+    /// A type alias's type at `span`, read from its text as one annotation, as nu-parser's
+    /// `parse_type_alias` reads it (`type_alias_type`, which lexes it as `parse_var_with_opt_type`
+    /// does): `any` when it doesn't parse, which is reported.
+    pub(super) fn type_alias_type(&mut self, span: Span) -> Lowered<SyntaxShape> {
+        let (tokens, error) = self.lex_span(span, LexOptions::VAR_TYPE);
+        Ok(match (error, tokens.as_slice()) {
+            (Some(error), _) => {
+                self.working_set.error(error);
+                SyntaxShape::Any
+            }
+            (None, [token]) => {
+                let errors = self.working_set.parse_errors.len();
+                let shape = self.shape_name(self.text(token.span), self.span(token.span))?;
+                if self.working_set.parse_errors.len() == errors {
+                    shape
+                } else {
+                    SyntaxShape::Any
+                }
+            }
+            (None, [_, extra, ..]) => {
+                let start = self.span(extra.span).start;
+                self.working_set
+                    .error(ParseError::ExtraTokens(Span::new(start, span.end)));
+                SyntaxShape::Any
+            }
+            (None, []) => {
+                self.working_set.error(ParseError::MissingType(span));
+                SyntaxShape::Any
+            }
+        })
+    }
+
     /// The shape `text` names, reported at `span` (`parse_shape_name`): a built-in type, a
     /// generic one with its parameters (`list<int>`, `record<a: int>`, `oneof<a, b>`), a type
     /// alias in scope or a plugin's custom type; anything else reported, as `any`.

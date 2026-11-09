@@ -3,7 +3,10 @@ use crate::{
     lite_parser::LiteCommand,
     parse_captures_compile::discover_closure_captures,
     parse_helpers::{SPREAD_OPERATOR, garbage},
-    parse_keywords::{find_keyword_decl, is_uncallable_name, reject_parser_keyword_name},
+    parse_keywords::{
+        HeadIsValue, find_keyword_decl, is_shadowed_by_a_value, is_uncallable_name,
+        reject_parser_keyword_name,
+    },
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id, parse_attribute,
@@ -52,14 +55,17 @@ pub(crate) fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &
 }
 
 /// Report at `span` a name `def` or `extern` cannot define: one that could never be called
-/// ([`is_uncallable_name`]), or a parser keyword. Returns whether it did; the caller then predeclares nothing.
+/// ([`is_uncallable_name`], whose first word the front end reads as a value by
+/// `head_is_value`), or a parser keyword. Returns whether it did; the caller then predeclares
+/// nothing.
 pub(crate) fn reject_command_name(
     working_set: &mut StateWorkingSet,
     name: &str,
     span: Span,
+    head_is_value: HeadIsValue,
 ) -> bool {
     // A name that could never be called is rejected where it is defined.
-    if is_uncallable_name(working_set, name, span) {
+    if is_uncallable_name(working_set, name, span, head_is_value) {
         working_set.error(ParseError::CommandDefNotValid(span));
         return true;
     }
@@ -114,7 +120,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
-    if reject_command_name(working_set, &name, spans[name_pos]) {
+    if reject_command_name(working_set, &name, spans[name_pos], is_shadowed_by_a_value) {
         return;
     }
 

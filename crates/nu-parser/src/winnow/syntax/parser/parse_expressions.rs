@@ -1383,7 +1383,7 @@ pub fn is_literal_like(text: &str) -> bool {
 }
 
 /// [`is_literal_like`] but for a range.
-fn is_literal_like_but_range(text: &str) -> bool {
+pub(crate) fn is_literal_like_but_range(text: &str) -> bool {
     let unit = |result: Option<Result<_, UnitError>>| {
         matches!(result, Some(Ok(_) | Err(UnitError::TooLarge)))
     };

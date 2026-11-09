@@ -99,7 +99,7 @@ impl Lower<'_, '_, '_> {
         let Some(name) = self.string_leaf(&name)?.as_string() else {
             return Ok(());
         };
-        if reject_command_name(self.working_set, &name, name_span) {
+        if reject_command_name(self.working_set, &name, name_span, super::head_is_value) {
             return Ok(());
         }
         let Some(signature_pos) =
