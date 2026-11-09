@@ -610,6 +610,10 @@ pub struct Duration {
     pub value: f64,
     /// The unit.
     pub unit: DurationUnit,
+    /// The value in nanoseconds, as nu stores it (exact for a whole number).
+    pub nanoseconds: i64,
+    /// The length of the text before the unit: the number, signs and separators included.
+    pub number_len: usize,
 }
 
 impl Duration {
@@ -698,6 +702,10 @@ pub struct Filesize {
     pub value: f64,
     /// The unit.
     pub unit: FilesizeUnit,
+    /// The value in bytes, as nu stores it (exact for a whole number).
+    pub bytes: i64,
+    /// The length of the text before the unit: the number, signs and separators included.
+    pub number_len: usize,
 }
 
 impl Filesize {

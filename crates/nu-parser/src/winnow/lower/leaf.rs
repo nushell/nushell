@@ -1206,15 +1206,8 @@ impl<'s> Lower<'_, '_, 's> {
                 return self.leaf_error(ParseError::Expected(expected, span));
             }
         };
-        let number_span = Span::new(span.start, span.start + number_len);
-        let value = ValueWithUnit {
-            expr: Expression::new_unknown(Expr::Int(in_base), number_span, Type::Number),
-            unit: Spanned {
-                item: base_unit,
-                span: Span::new(span.start + number_len, span.end),
-            },
-        };
-        self.node(Expr::ValueWithUnit(Box::new(value)), span, ty)
+        let expr = value_with_unit(span, in_base, number_len, base_unit);
+        self.node(expr, span, ty)
     }
 
     /// A date and time, or a date (midnight, UTC), or a date and a time (UTC), each as RFC 3339
@@ -1604,4 +1597,18 @@ fn reads_as_range(working_set: &mut StateWorkingSet<'_>, head: &str, start: usiz
     trial.discard_errors(working_set);
     working_set.delta.blocks.truncate(blocks);
     is_range
+}
+
+/// nu's value of the duration or filesize literal at `span` (`parse_unit_value`): `in_base`, the
+/// value in `unit`, over the number's text, the first `number_len` bytes, and `unit` over the
+/// rest.
+pub(super) fn value_with_unit(span: Span, in_base: i64, number_len: usize, unit: Unit) -> Expr {
+    let number_span = Span::new(span.start, span.start + number_len);
+    Expr::ValueWithUnit(Box::new(ValueWithUnit {
+        expr: Expression::new_unknown(Expr::Int(in_base), number_span, Type::Number),
+        unit: Spanned {
+            item: unit,
+            span: Span::new(span.start + number_len, span.end),
+        },
+    }))
 }

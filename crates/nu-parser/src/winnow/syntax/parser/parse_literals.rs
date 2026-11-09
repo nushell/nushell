@@ -353,7 +353,14 @@ fn parse_unit_value<'u, U: Copy>(
 /// A filesize literal such as `10kb` or `1.5MiB` (nu's `parse_filesize`;
 /// units are case-insensitive).
 pub fn parse_filesize(text: &str) -> Option<Result<Filesize, UnitError>> {
-    filesize_parts(text).map(|result| result.map(|(value, unit, _)| Filesize { value, unit }))
+    filesize_parts(text).map(|result| {
+        result.map(|(value, unit, stored)| Filesize {
+            value,
+            unit,
+            bytes: stored.in_base,
+            number_len: stored.number_len,
+        })
+    })
 }
 
 /// [`parse_filesize`], as the value in bytes nu stores.
@@ -376,8 +383,14 @@ fn filesize_parts(text: &str) -> Option<Result<(f64, FilesizeUnit, UnitValue), U
 /// A duration literal such as `1sec` or `2.5hr` (nu's `parse_duration`;
 /// units are case-sensitive).
 pub fn parse_duration(text: &str) -> Option<Result<Duration, UnitError>> {
-    parse_unit_value(text, DURATION_UNITS, false, DurationUnit::nanoseconds)
-        .map(|result| result.map(|(value, unit, _)| Duration { value, unit }))
+    parse_unit_value(text, DURATION_UNITS, false, DurationUnit::nanoseconds).map(|result| {
+        result.map(|(value, unit, stored)| Duration {
+            value,
+            unit,
+            nanoseconds: stored.in_base,
+            number_len: stored.number_len,
+        })
+    })
 }
 
 /// [`parse_duration`], as the value in nanoseconds nu stores.
@@ -1659,21 +1672,27 @@ mod tests {
             parse_filesize("1kb").unwrap().unwrap(),
             Filesize {
                 value: 1.0,
-                unit: FilesizeUnit::KB
+                unit: FilesizeUnit::KB,
+                bytes: 1000,
+                number_len: 1,
             }
         );
         assert_eq!(
             parse_filesize("1.5MiB").unwrap().unwrap(),
             Filesize {
                 value: 1.5,
-                unit: FilesizeUnit::MiB
+                unit: FilesizeUnit::MiB,
+                bytes: 1_572_864,
+                number_len: 3,
             }
         );
         assert_eq!(
             parse_filesize("10B").unwrap().unwrap(),
             Filesize {
                 value: 10.0,
-                unit: FilesizeUnit::B
+                unit: FilesizeUnit::B,
+                bytes: 10,
+                number_len: 2,
             }
         );
         assert_eq!(parse_filesize("1b").unwrap().unwrap().unit, FilesizeUnit::B);
@@ -1692,8 +1711,18 @@ mod tests {
             parse_duration("2.5hr").unwrap().unwrap(),
             Duration {
                 value: 2.5,
-                unit: DurationUnit::Hour
+                unit: DurationUnit::Hour,
+                nanoseconds: 9_000_000_000_000,
+                number_len: 3,
             }
+        );
+        // A whole number is stored exactly, past what an `f64` holds exactly.
+        assert_eq!(
+            parse_duration("9007199254740993ns")
+                .unwrap()
+                .unwrap()
+                .nanoseconds,
+            9_007_199_254_740_993
         );
         assert!(parse_duration("5NS").is_none());
         assert!(parse_duration("-3sec").unwrap().is_ok());

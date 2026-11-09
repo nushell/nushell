@@ -4,14 +4,15 @@
 use std::{cell::RefCell, sync::Arc};
 
 use nu_protocol::{
-    DidYouMean, ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID,
-    NU_VARIABLE_ID, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet,
+    DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME,
+    LAST_VARIABLE_ID, NU_VARIABLE_ID, ParseError, PositionalArg, Signature, Span, SyntaxShape,
+    Type, TypeSet, Unit,
     ast::{CellPath, Expr, Expression, FullCellPath, ListItem, PathMember, RecordItem, Table},
     casing::Casing,
     engine::StateWorkingSet,
 };
 
-use super::leaf::is_quoted;
+use super::leaf::{is_quoted, value_with_unit};
 use super::trial::Trial;
 use super::{BlockOf, Lower, Lowered, Unlowered};
 use crate::winnow::lookup::EngineLookup;
@@ -179,6 +180,25 @@ impl<'s> Lower<'_, '_, 's> {
                     members: self.members(&path.members),
                 }),
                 Type::CellPath,
+            ),
+            // A duration or a filesize, its value as nu stores it (`parse_unit_value`).
+            (SyntaxShape::Any | SyntaxShape::Duration, w::Expr::Duration(duration)) => (
+                value_with_unit(
+                    span,
+                    duration.nanoseconds,
+                    duration.number_len,
+                    Unit::Nanosecond,
+                ),
+                Type::Duration,
+            ),
+            (SyntaxShape::Any | SyntaxShape::Filesize, w::Expr::Filesize(filesize)) => (
+                value_with_unit(
+                    span,
+                    filesize.bytes,
+                    filesize.number_len,
+                    Unit::Filesize(FilesizeUnit::B),
+                ),
+                Type::Filesize,
             ),
             // A word or quoted string as a path, a directory or a glob (`parse_path_like`),
             // quoted when it has quotes (backticks do not count).

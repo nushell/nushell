@@ -347,7 +347,7 @@ fn numbers() {
 #[test]
 fn units_and_datetimes() {
     let ast = ok("1.5sec");
-    kind!(expr(&ast), Expr::Duration(d) => assert_eq!(*d, Duration { value: 1.5, unit: DurationUnit::Second }));
+    kind!(expr(&ast), Expr::Duration(d) => assert_eq!(*d, Duration { value: 1.5, unit: DurationUnit::Second, nanoseconds: 1_500_000_000, number_len: 3 }));
     let ast = ok("10kib");
     kind!(expr(&ast), Expr::Filesize(f) => {
         assert_eq!(f.unit, FilesizeUnit::KiB);
