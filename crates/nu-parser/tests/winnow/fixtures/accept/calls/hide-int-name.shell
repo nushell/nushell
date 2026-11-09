@@ -1,0 +1,3 @@
+Pipeline 0..6
+  Call `hide` 0..6
+    Int 1 5..6

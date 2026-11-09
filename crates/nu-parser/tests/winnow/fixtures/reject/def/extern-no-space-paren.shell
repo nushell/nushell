@@ -1,0 +1,8 @@
+Pipeline 0..18
+  Call `extern` 0..18
+    Interpolation Bare 7..18
+      Text "cmd" 7..10
+      Subexpression 10..18 11..17
+        Pipeline 11..17
+          String Bare "--flag" 11..17
+Diagnostic 10..10 no space between name and parameters recovered

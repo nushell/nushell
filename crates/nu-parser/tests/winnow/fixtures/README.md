@@ -8,7 +8,13 @@ runs the same files through Nushell itself.
 ```text
 accept/<area>/<name>.nu    must parse; <name>.ast pins the tree (pretty::dump)
 reject/<area>/<name>.nu    must not parse; <name>.err pins the rendered error
+<area>/<name>.shell        the tree the shell's front end reads, each statement with its diagnostics
 ```
+
+The `.shell` goldens come from the root crate's `tests/parsing/winnow_shell_trees.rs`: the same
+file parsed in the shell, with the `winnow-parser` option on and the test engine's commands, where
+the parser asks the engine which commands exist instead of using its own configuration. Regenerate
+them with `UPDATE_FIXTURES=1 cargo test --test tests -- parsing::winnow_shell_trees`.
 
 Areas mirror the grammar chapters in `src/winnow/docs/`: `pipelines`, `comments`,
 `literals`, `strings`, `interpolation`, `variables`, `cellpaths`, `ranges`,

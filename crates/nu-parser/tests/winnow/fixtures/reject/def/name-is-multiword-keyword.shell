@@ -1,0 +1,5 @@
+Pipeline 0..22
+  Def `export def` 0..22
+    Signature 17..19
+    Body 21..21
+Diagnostic 4..16 cannot use parser keyword `export def` as command name recovered

@@ -6,6 +6,7 @@ mod winnow_blocks;
 mod winnow_calls;
 mod winnow_definitions;
 mod winnow_literals;
+mod winnow_shell_trees;
 mod winnow_statements;
 
 use std::time::Duration;

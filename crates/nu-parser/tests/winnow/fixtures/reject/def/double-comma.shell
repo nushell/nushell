@@ -1,0 +1,8 @@
+Pipeline 0..19
+  Call `def` 0..19
+    String Bare "foo" 4..7
+    List 8..15
+      String Bare "a" 9..10
+      String Bare "b" 13..14
+    Record 16..19
+Diagnostic 11..12 expected parameter or flag recovered

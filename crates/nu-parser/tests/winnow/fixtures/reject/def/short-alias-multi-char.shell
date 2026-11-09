@@ -1,0 +1,11 @@
+Pipeline 0..19
+  Call `def` 0..19
+    String Bare "f" 4..5
+    List 6..16
+      Interpolation Bare 7..15
+        Text "--a" 7..10
+        Subexpression 10..15 11..14
+          Pipeline 11..14
+            String Bare "-ab" 11..14
+    Record 17..19
+Diagnostic 7..15 expected single-character short flag recovered

@@ -1,0 +1,6 @@
+Pipeline 0..11
+  let x 0..11
+    Value 8..11
+      Pipeline 8..9 dangling_pipe=10..11
+        Int 1 8..9
+Diagnostic 10..11 unexpected end of input, expected command after `|` recovered

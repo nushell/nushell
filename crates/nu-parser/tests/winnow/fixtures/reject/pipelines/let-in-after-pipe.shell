@@ -1,0 +1,10 @@
+Pipeline 0..17
+  List 0..3
+    Int 1 1..2
+  | 4..5
+  Assignment = 6..17
+    let x 6..11
+    Value 14..17
+      Pipeline 14..17
+        Var $in 14..17
+Diagnostic 6..11 assignment requires a variable recovered

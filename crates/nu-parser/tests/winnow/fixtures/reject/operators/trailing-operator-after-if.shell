@@ -1,0 +1,12 @@
+Pipeline 0..19
+  BinaryOp + 0..19
+    Int 1 0..1
+    Call `if` 4..19
+      Bool true 7..11
+      Closure 12..17
+        Body 14..16
+          Pipeline 14..15
+            Int 1 14..15
+      String Bare "+" 18..19
+Diagnostic 12..17 expected operator recovered
+Diagnostic 18..19 expected block after the condition recovered

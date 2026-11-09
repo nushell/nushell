@@ -1,0 +1,4 @@
+Pipeline 0..8
+  Call `ls` 0..8
+    Flag -a 3..5
+    Flag -l 6..8

@@ -1,0 +1,8 @@
+Pipeline 0..19
+  Call `if` 0..19
+    Flag --help 3..9
+    Bool true 10..14
+    Record 15..17
+    String Bare "x" 18..19
+Diagnostic 15..17 expected operator recovered
+Diagnostic 18..19 expected block after the condition recovered

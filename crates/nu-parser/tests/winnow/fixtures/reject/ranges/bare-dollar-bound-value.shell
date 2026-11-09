@@ -1,0 +1,6 @@
+Pipeline 0..8
+  Call `echo` 0..8
+    Range Inclusive 5..8
+      To
+        Garbage 7..8
+Diagnostic 7..8 expected valid variable name recovered

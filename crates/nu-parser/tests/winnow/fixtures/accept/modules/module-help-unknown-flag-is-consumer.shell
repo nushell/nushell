@@ -1,0 +1,5 @@
+Pipeline 51..72 comments=1
+  Call `module` 51..72
+    String Bare "x" 58..59
+    Flag --help 60..66
+    Flag --foo 67..72

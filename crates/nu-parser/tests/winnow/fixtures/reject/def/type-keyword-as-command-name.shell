@@ -1,0 +1,5 @@
+Pipeline 0..15
+  Def `type` 0..15
+    Signature 9..11
+    Body 13..14
+Diagnostic 4..8 cannot use parser keyword `type` as command name recovered

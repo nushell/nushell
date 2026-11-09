@@ -1,0 +1,5 @@
+Pipeline 0..10
+  Call `type` 0..10
+    String Bare "=" 5..6
+    String Bare "int" 7..10
+Diagnostic 5..6 expected type alias name recovered

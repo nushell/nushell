@@ -1,0 +1,8 @@
+Pipeline 0..23
+  Call `def` 0..23
+    String Bare "foo" 4..7
+    List 8..10
+    Record 11..13
+    Record 14..16
+    Flag --help 17..23
+Diagnostic 11..13 expected `:` before the input/output types recovered

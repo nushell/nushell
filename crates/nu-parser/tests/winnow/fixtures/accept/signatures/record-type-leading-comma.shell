@@ -1,0 +1,5 @@
+Pipeline 0..32
+  Def `foo` 0..32
+    Signature 8..29
+      Param positional `x` 9..28 : record<, a: int>
+    Body 31..31

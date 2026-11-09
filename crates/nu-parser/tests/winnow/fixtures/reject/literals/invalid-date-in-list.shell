@@ -1,0 +1,4 @@
+Pipeline 0..12
+  List 0..12
+    Garbage 1..11
+Diagnostic 1..11 invalid datetime literal: not a valid date recovered

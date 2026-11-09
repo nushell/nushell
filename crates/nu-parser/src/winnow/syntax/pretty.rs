@@ -48,6 +48,17 @@ pub fn dump(ast: &Ast<'_>) -> String {
     printer.out
 }
 
+/// Render one pipeline (a statement) as an indented tree, as [`dump`] renders each of a block's.
+pub fn dump_pipeline(source: &str, pipeline: &Pipeline<'_>) -> String {
+    let mut printer = Printer {
+        src: source,
+        out: String::new(),
+        depth: 0,
+    };
+    printer.pipeline(pipeline);
+    printer.out
+}
+
 /// Render a single expression as an indented tree.
 pub fn dump_expression(source: &str, expr: &Expression<'_>) -> String {
     let mut printer = Printer {

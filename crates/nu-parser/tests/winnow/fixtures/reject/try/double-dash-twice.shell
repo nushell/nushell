@@ -1,0 +1,8 @@
+Pipeline 0..21
+  Call `try` 0..21
+    Record 4..6
+    EndOfOptions 7..9
+    String Bare "catch" 10..15
+    Record 16..18
+    EndOfOptions 19..21
+Diagnostic 19..21 expected `catch` or `finally` recovered

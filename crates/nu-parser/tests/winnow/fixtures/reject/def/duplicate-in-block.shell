@@ -1,0 +1,8 @@
+Pipeline 0..13 terminator=13..14
+  Def `foo` 0..13
+    Signature 8..10
+    Body 12..12
+Pipeline 15..28
+  Def `foo` 15..28
+    Signature 23..25
+    Body 27..27

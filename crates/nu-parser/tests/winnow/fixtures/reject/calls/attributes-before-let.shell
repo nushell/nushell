@@ -1,0 +1,5 @@
+Pipeline 0..12
+  AttributeBlock 0..12
+    Attribute `x` 0..2
+    Garbage 3..12
+Diagnostic 3..6 attributes must be followed by a definition recovered

@@ -1,0 +1,11 @@
+Pipeline 0..15
+  Record 0..15
+    Pair
+      String Bare "a" 2..3
+      Interpolation Bare 5..13
+        Text "x" 5..6
+        Subexpression 6..11 7..10
+          Pipeline 7..10
+            String Single "y" 7..10
+        Text ":z" 11..13
+Diagnostic 11..12 colon in bare word specifying record value recovered

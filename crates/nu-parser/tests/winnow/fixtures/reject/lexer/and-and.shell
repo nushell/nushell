@@ -1,0 +1,4 @@
+Pipeline 0..9
+  Call `ls` 0..2
+  | 3..5
+  Call `pwd` 6..9

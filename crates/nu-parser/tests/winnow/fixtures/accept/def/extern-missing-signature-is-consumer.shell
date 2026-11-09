@@ -1,0 +1,3 @@
+Pipeline 0..10
+  Call `extern` 0..10
+    String Bare "cmd" 7..10

@@ -1,0 +1,16 @@
+Pipeline 0..28
+  Call `def` 0..28
+    String Bare "f" 4..5
+    List 6..24
+      Interpolation Bare 7..14
+        Text "--a" 7..10
+        Subexpression 10..14 11..13
+          Pipeline 11..13
+            String Bare "-x" 11..13
+      Interpolation Bare 16..23
+        Text "--b" 16..19
+        Subexpression 19..23 20..22
+          Pipeline 20..22
+            String Bare "-x" 20..22
+    Record 25..28
+Diagnostic 16..23 `-x` uses a name that is already taken recovered

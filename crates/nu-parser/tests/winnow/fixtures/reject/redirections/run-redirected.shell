@@ -1,0 +1,6 @@
+Pipeline 0..13
+  Call `run` 0..8
+    Nothing 4..8
+  Redirect Out 9..11
+    String Bare "f" 12..13
+Diagnostic 9..11 this statement cannot be redirected recovered

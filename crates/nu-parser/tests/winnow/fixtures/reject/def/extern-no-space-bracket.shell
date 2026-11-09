@@ -1,0 +1,4 @@
+Pipeline 0..12
+  Call `extern` 0..12
+    String Bare "cmd[]" 7..12
+Diagnostic 10..10 no space between name and parameters recovered

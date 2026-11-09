@@ -1,0 +1,3 @@
+Pipeline 0..15
+  Garbage 0..15
+Diagnostic 2..5 cannot spread in a table row recovered

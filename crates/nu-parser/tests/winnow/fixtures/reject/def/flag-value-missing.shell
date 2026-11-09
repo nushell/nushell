@@ -1,0 +1,7 @@
+Pipeline 0..18
+  Def `f` [Env] 0..18
+    FlagValue Env 4..10
+      Garbage 10..10
+    Signature 13..15
+    Body 17..17
+Diagnostic 10..10 expected value after `=` recovered

@@ -1,0 +1,8 @@
+Pipeline 0..16
+  Call `def` 0..16
+    String Bare "f" 4..5
+    List 6..8
+    Garbage 9..14
+    String Bare "}" 15..16
+Diagnostic 14..14 unclosed delimiter: expected `}` recovered
+Diagnostic 15..16 expected definition body closure { ... } recovered

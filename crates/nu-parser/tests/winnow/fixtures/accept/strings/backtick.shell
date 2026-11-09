@@ -1,0 +1,3 @@
+Pipeline 0..15
+  ExternalCall 0..15
+    String Backtick "hello nushell" 0..15

@@ -1,0 +1,10 @@
+Pipeline 0..48
+  Assignment = 0..48
+    FullCellPath 0..11
+      Var $env 0..4
+      Member "config" 5..11
+    Value 14..48
+      Pipeline 14..48
+        Garbage 14..48
+Diagnostic 47..48 unclosed delimiter: expected `}` recovered
+Diagnostic 47..48 unclosed delimiter: expected `}` recovered

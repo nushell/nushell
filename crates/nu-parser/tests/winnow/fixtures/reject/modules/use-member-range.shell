@@ -1,0 +1,10 @@
+Pipeline 0..12
+  Use 0..12
+    String Bare "std" 4..7
+    Member (ignored) 8..12
+      Range Inclusive 8..12
+        From
+          Int 1 8..9
+        To
+          Int 2 11..12
+Diagnostic 8..12 wrong import pattern structure recovered

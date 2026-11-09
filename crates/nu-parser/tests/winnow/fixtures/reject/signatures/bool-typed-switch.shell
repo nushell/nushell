@@ -1,0 +1,8 @@
+Pipeline 0..22
+  Call `def` 0..22
+    String Bare "foo" 4..7
+    List 8..19
+      String Bare "--x:" 9..13
+      String Bare "bool" 14..18
+    Record 20..22
+Diagnostic 14..18 type annotations are not allowed for boolean switches recovered

@@ -1,0 +1,7 @@
+Pipeline 0..25
+  Loop 0..14 6..13
+    Pipeline 7..12
+      Break 7..12
+  | 15..16
+  Call `describe` 17..25
+Diagnostic 0..4 `loop` is a statement and cannot be used inside a pipeline recovered

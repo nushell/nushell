@@ -1,0 +1,10 @@
+Pipeline 75..93 comments=1
+  If 75..93
+    Condition
+      Bool true 78..82
+    ThenValue
+      Record 83..93
+        Pair
+          String Double "a" 85..88
+          Int 1 90..91
+Diagnostic 83..93 expected block after the condition recovered

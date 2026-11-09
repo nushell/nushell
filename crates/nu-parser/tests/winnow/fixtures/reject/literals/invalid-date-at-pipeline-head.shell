@@ -1,0 +1,3 @@
+Pipeline 0..10
+  Garbage 0..10
+Diagnostic 0..10 invalid datetime literal: not a valid date recovered

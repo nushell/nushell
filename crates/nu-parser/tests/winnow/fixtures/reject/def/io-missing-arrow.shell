@@ -1,0 +1,11 @@
+Pipeline 0..21
+  Call `def` 0..21
+    String Bare "foo" 4..7
+    Garbage 8..11
+    String Bare "int" 12..15
+    Closure 16..21
+      Body 18..20
+        Pipeline 18..19
+          Int 3 18..19
+Diagnostic 11..11 unclosed delimiter: expected `]` recovered
+Diagnostic 15..15 expected arrow (->) recovered

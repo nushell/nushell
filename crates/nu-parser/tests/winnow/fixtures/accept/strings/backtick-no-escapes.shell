@@ -1,0 +1,3 @@
+Pipeline 0..24
+  ExternalCall 0..24
+    String Backtick "a\\nb \"quoted\" 'single'" 0..24

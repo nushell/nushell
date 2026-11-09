@@ -1,0 +1,3 @@
+Pipeline 0..3
+  Garbage 0..3
+Diagnostic 3..3 expected expression after operator recovered

@@ -1,0 +1,8 @@
+Pipeline 0..22
+  Call `def` 0..22
+    String Bare "foo" 4..7
+    List 8..19
+      String Bare "...a" 9..13
+      String Bare "...b" 14..18
+    Record 20..22
+Diagnostic 8..19 multiple rest params recovered

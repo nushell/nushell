@@ -1,0 +1,6 @@
+Pipeline 0..16
+  Call `where` 0..16
+    Flag --help 6..12
+    Int 1 13..14
+    Int 2 15..16
+Diagnostic 15..16 expected operator recovered

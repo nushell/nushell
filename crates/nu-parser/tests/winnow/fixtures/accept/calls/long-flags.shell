@@ -1,0 +1,4 @@
+Pipeline 0..15
+  Call `ls` 0..15
+    Flag --all 3..8
+    Flag --long 9..15

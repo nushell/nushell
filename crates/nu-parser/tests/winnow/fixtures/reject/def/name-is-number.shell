@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Def `42` 0..12
+    Signature 7..9
+    Body 11..11
+Diagnostic 4..6 command name not supported recovered

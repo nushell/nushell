@@ -1,0 +1,9 @@
+Pipeline 83..119 comments=1
+  Def `f` [Wrapped] 83..119
+    Signature 99..116
+      Param rest `rest` 100..115 : string
+    Body 118..118
+Pipeline 120..126
+  Call `f` 120..126
+    Garbage 122..126
+Diagnostic 125..126 extra tokens after the end of the expression recovered

@@ -1,0 +1,3 @@
+Pipeline 0..12
+  Alias `-` 0..12
+    Call `ls` 10..12

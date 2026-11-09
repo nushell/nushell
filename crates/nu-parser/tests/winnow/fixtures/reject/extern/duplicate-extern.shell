@@ -1,0 +1,6 @@
+Pipeline 0..13
+  Extern `foo` 0..13
+    Signature 11..13
+Pipeline 14..27
+  Extern `foo` 14..27
+    Signature 25..27

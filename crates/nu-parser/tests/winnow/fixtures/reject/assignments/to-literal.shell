@@ -1,0 +1,7 @@
+Pipeline 0..5
+  Assignment = 0..5
+    Int 1 0..1
+    Value 4..5
+      Pipeline 4..5
+        Int 2 4..5
+Diagnostic 0..1 assignment requires a variable recovered

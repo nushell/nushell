@@ -1,0 +1,5 @@
+Pipeline 0..13
+  Def `def` 0..13
+    Signature 8..10
+    Body 12..12
+Diagnostic 4..7 cannot use parser keyword `def` as command name recovered

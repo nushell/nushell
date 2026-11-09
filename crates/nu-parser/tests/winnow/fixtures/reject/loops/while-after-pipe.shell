@@ -1,0 +1,7 @@
+Pipeline 0..20
+  Call `ls` 0..2
+  | 3..4
+  While 5..20
+    Bool false 11..16
+    Body 18..19
+Diagnostic 5..10 `while` is a statement and cannot be used inside a pipeline recovered

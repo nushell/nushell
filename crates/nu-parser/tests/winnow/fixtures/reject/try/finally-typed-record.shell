@@ -1,0 +1,9 @@
+Pipeline 44..65 comments=1
+  Try 44..65
+    Body 49..49
+    Finally 51..58
+      Record 59..65
+        Pair
+          String Bare "a" 60..61
+          Int 1 63..64
+Diagnostic 59..65 expected closure recovered

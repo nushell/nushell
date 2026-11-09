@@ -1,0 +1,9 @@
+Pipeline 0..23
+  Call `def` 0..23
+    String Bare "foo" 4..7
+    List 8..19
+      String Bare "x:" 9..11
+      String Bare "int" 12..15
+      String Bare "=" 16..17
+    Record 20..23
+Diagnostic 17..17 expected default value recovered

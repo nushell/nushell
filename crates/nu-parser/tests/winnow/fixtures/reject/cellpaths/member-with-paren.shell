@@ -1,0 +1,8 @@
+Pipeline 0..10 terminator=10..11
+  let x 0..10
+    Value 8..10
+      Pipeline 8..10
+        Record 8..10
+Pipeline 12..19
+  Garbage 12..19
+Diagnostic 15..19 expected string recovered

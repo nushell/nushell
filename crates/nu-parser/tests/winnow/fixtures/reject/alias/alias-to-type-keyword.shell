@@ -1,0 +1,4 @@
+Pipeline 0..15
+  Alias `ty` 0..15
+    Call `type` 11..15
+Diagnostic 11..15 cannot create an alias to a parser keyword recovered

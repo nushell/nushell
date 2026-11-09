@@ -1,0 +1,8 @@
+Pipeline 0..11
+  Loop 0..11
+    BodyValue
+      Record 5..11
+        Pair
+          String Bare "a" 6..7
+          Int 1 9..10
+Diagnostic 5..11 expected block recovered

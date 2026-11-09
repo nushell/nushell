@@ -1,0 +1,5 @@
+Pipeline 0..14
+  Call `return` 0..14
+    EndOfOptions 7..9
+    Int 1 10..11
+    EndOfOptions 12..14

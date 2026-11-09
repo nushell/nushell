@@ -1,0 +1,3 @@
+Pipeline 0..14
+  Garbage 0..14
+Diagnostic 4..12 unknown operator `contains` recovered

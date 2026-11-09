@@ -1,0 +1,6 @@
+Pipeline 0..16
+  Call `use` 0..7
+    String Bare "std" 4..7
+  | 8..9
+  Call `length` 10..16
+Diagnostic 0..3 `use` is a statement and cannot be used inside a pipeline recovered

@@ -1,0 +1,7 @@
+Pipeline 0..23
+  If 0..23
+    Condition
+      Bool true 3..7
+    ThenValue
+      Garbage 8..23
+Diagnostic 8..23 expected block recovered

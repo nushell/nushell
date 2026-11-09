@@ -1,0 +1,7 @@
+Pipeline 0..18
+  let n 0..18
+    Value 8..18
+      Pipeline 8..18
+        Garbage 8..18
+Diagnostic 17..18 unclosed delimiter: expected `)` recovered
+Diagnostic 17..18 unclosed delimiter: expected `)` recovered

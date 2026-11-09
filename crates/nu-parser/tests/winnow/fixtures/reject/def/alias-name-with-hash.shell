@@ -1,0 +1,4 @@
+Pipeline 0..16
+  Alias `x#y` 0..16
+    Call `ls` 14..16
+Diagnostic 6..11 alias name not supported recovered

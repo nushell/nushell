@@ -1,0 +1,6 @@
+Pipeline 0..20
+  Call `alias` 0..20
+    String Bare "x" 6..7
+    Flag --help 8..14
+    String Bare "extra" 15..20
+Diagnostic 8..14 expected `=` recovered

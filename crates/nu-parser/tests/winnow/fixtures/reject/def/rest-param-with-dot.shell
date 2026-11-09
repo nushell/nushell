@@ -1,0 +1,7 @@
+Pipeline 0..17
+  Call `def` 0..17
+    String Bare "f" 4..5
+    List 6..14
+      String Bare "...a.b" 7..13
+    Record 15..17
+Diagnostic 7..13 expected valid variable name for this rest parameter recovered

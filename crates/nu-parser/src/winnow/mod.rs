@@ -45,6 +45,20 @@ use nu_protocol::{Span, ast::Block, engine::StateWorkingSet};
 pub(crate) use stats::record_classic_pipeline;
 pub use stats::{WinnowStats, winnow_stats};
 
+/// Runs `parse` and returns, with its result, the winnow syntax tree of each statement of the
+/// outermost block the front end read on this thread meanwhile, printed with its diagnostics:
+/// what the lowering got. Blocks it read inside those statements (a module a `use` loads) are
+/// left out. For tests that pin the tree the shell sees.
+pub fn capture_statement_trees<R>(parse: impl FnOnce() -> R) -> (R, Vec<String>) {
+    driver::CAPTURE.with_borrow_mut(|capture| *capture = Some(driver::Capture::default()));
+    let result = parse();
+    let trees = driver::CAPTURE
+        .with_borrow_mut(Option::take)
+        .map(|capture| capture.trees)
+        .unwrap_or_default();
+    (result, trees)
+}
+
 /// Whether the `winnow-parser` experimental option is on.
 #[inline]
 pub(crate) fn enabled() -> bool {

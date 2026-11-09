@@ -1,0 +1,4 @@
+Pipeline 0..16
+  Alias `e` 0..16
+    Call `export` 10..16
+Diagnostic 10..16 cannot create an alias to a parser keyword recovered

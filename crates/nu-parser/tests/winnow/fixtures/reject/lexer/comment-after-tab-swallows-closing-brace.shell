@@ -1,0 +1,10 @@
+Pipeline 0..35
+  Range Inclusive 0..5
+    From
+      Int 1 0..1
+    To
+      Int 10 3..5
+  | 6..7
+  Call `each` 8..35
+    Garbage 13..35
+Diagnostic 35..35 unclosed delimiter: expected `}` recovered

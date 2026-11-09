@@ -1,0 +1,12 @@
+Pipeline 0..33
+  Call `def` 0..33
+    Flag --env 4..16
+      Garbage 10..16
+    String Bare "f" 17..18
+    Garbage 19..26
+    String Bare "int" 27..30
+    Record 31..33
+Diagnostic 12..13 unexpected semicolon in list recovered
+Diagnostic 12..13 unexpected semicolon in list recovered
+Diagnostic 26..26 unclosed delimiter: expected `]` recovered
+Diagnostic 23..24 `a` uses a name that is already taken recovered

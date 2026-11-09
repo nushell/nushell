@@ -1,0 +1,5 @@
+Pipeline 0..7
+  Call `let` 0..7
+    String Bare "x" 4..5
+    String Bare "=" 6..7
+Diagnostic 7..7 expected value after `=` recovered

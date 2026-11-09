@@ -1,0 +1,6 @@
+Pipeline 0..17
+  Alias `x` 0..17
+    Call `ls` 10..17
+      String Bare "o>" 13..15
+      String Bare "y" 16..17
+Diagnostic 13..15 cannot create an alias to a redirection recovered

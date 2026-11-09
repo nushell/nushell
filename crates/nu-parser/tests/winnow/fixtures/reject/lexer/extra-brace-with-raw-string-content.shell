@@ -1,0 +1,12 @@
+Pipeline 0..50
+  Def `f` 0..50
+    Signature 6..8
+    Body 10..49
+      Pipeline 13..48
+        let s 13..48
+          Value 21..48
+            Pipeline 21..48
+              String Raw(1) "first\ntype: text}\nlast" 21..48
+Pipeline 51..52
+  ExternalCall 51..52
+    String Bare "}" 51..52

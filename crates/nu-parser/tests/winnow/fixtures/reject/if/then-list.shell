@@ -1,0 +1,6 @@
+Pipeline 0..11
+  Call `if` 0..11
+    Bool true 3..7
+    List 8..11
+      Int 1 9..10
+Diagnostic 8..11 expected block after the condition recovered

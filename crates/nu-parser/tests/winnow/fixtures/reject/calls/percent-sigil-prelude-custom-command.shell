@@ -1,0 +1,4 @@
+Pipeline 0..4
+  ExternalCall 0..4
+    String Bare "pwd" 1..4
+Diagnostic 1..4 percent sigil requires a built-in command recovered

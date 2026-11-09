@@ -1,0 +1,4 @@
+Pipeline 0..2 terminator=5..6 dangling_pipe=3..4
+  Call `ls` 0..2
+Pipeline 7..10
+  Call `pwd` 7..10

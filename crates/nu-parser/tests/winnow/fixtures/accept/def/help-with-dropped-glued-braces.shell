@@ -1,0 +1,5 @@
+Pipeline 0..22
+  Call `def` 0..22
+    String Bare "foo" 4..7
+    List 8..10
+    Flag --help 16..22

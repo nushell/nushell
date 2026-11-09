@@ -1,0 +1,5 @@
+Pipeline 0..9
+  Call `ls` 0..9
+    String Bare "||" 3..5
+    String Bare "pwd" 6..9
+Diagnostic 3..5 `||` is not Nushell syntax; use `or` instead recovered

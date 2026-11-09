@@ -1,0 +1,4 @@
+Pipeline 0..7
+  Call `type` 0..7
+    String Bare "ls" 5..7
+Diagnostic 5..7 missing `=` in type alias recovered

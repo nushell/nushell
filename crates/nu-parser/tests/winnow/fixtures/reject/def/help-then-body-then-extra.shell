@@ -1,0 +1,8 @@
+Pipeline 0..22
+  Call `def` 0..22
+    String Bare "foo" 4..7
+    Flag --help 8..14
+    List 15..17
+    Record 18..20
+    String Bare "y" 21..22
+Diagnostic 21..22 expected definition body closure { ... } recovered

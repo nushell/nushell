@@ -1,0 +1,4 @@
+Pipeline 0..5
+  ExternalCall 0..5
+    String Double "ls" 1..5
+Diagnostic 1..5 percent sigil requires a built-in command recovered

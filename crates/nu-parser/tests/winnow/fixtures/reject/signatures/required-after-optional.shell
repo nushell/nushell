@@ -1,0 +1,11 @@
+Pipeline 0..26
+  Call `def` 0..26
+    String Bare "foo" 4..7
+    List 8..23
+      String Bare "x:" 9..11
+      String Bare "int" 12..15
+      String Bare "=" 16..17
+      Int 1 18..19
+      String Bare "y" 21..22
+    Record 24..26
+Diagnostic 21..22 required positional parameter `y` after an optional parameter recovered

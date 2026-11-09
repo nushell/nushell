@@ -1,0 +1,4 @@
+Pipeline 0..21
+  Call `overlay hide` 0..21
+    Flag -ek 13..16
+    String Bare "spam" 17..21

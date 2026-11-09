@@ -1,0 +1,9 @@
+Pipeline 0..15
+  Call `def` 0..15
+    String Bare "f" 4..5
+    List 6..12
+      Subexpression 7..11 8..10
+        Pipeline 8..10
+          String Bare "-a" 8..10
+    Record 13..15
+Diagnostic 7..11 short flag alias without a preceding long flag recovered

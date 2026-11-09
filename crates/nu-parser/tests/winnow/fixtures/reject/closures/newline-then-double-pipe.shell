@@ -1,0 +1,8 @@
+Pipeline 0..7
+  Closure 0..7
+    Body 1..6
+      Pipeline 2..6
+        ExternalCall 2..6
+          String Bare "||" 2..4
+          String Bare "1" 5..6
+Diagnostic 2..4 `||` is not Nushell syntax; use `or` instead recovered

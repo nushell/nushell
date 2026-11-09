@@ -1,0 +1,12 @@
+Pipeline 0..31
+  Match 0..31
+    Record 6..12
+      Pair
+        String Bare "a" 7..8
+        Int 1 10..11
+    Arm 15..29
+      Pattern record 15..24
+        Field "a"
+          Pattern $env 19..23
+      Int 1 28..29
+Diagnostic 19..23 `env` used as variable name recovered

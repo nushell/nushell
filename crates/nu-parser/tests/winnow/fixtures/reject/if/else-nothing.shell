@@ -1,0 +1,6 @@
+Pipeline 0..16
+  Call `if` 0..16
+    Bool true 3..7
+    Record 8..11
+    String Bare "else" 12..16
+Diagnostic 16..16 expected block or expression after `else` recovered

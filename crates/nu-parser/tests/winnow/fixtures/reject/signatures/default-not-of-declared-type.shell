@@ -1,0 +1,10 @@
+Pipeline 0..25
+  Call `def` 0..25
+    String Bare "foo" 4..7
+    List 8..22
+      String Bare "x:" 9..11
+      String Bare "int" 12..15
+      String Bare "=" 16..17
+      String Bare "abc" 18..21
+    Record 23..25
+Diagnostic 18..21 expected int recovered

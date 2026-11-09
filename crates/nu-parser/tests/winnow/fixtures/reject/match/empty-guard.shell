@@ -1,0 +1,6 @@
+Pipeline 0..22
+  Match 0..22
+    Int 1 6..7
+    ValueBlock
+      Garbage 8..22
+Diagnostic 15..15 expected expression after `if` in match guard recovered

@@ -1,0 +1,4 @@
+Pipeline 0..20
+  Subexpression 0..20 1..19
+    Pipeline 16..18
+      Call `ls` 16..18

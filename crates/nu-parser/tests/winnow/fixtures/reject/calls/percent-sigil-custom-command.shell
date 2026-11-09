@@ -1,0 +1,10 @@
+Pipeline 0..19
+  Def `foo` 0..19
+    Signature 8..10
+    Body 12..18
+      Pipeline 13..17
+        String Single "ok" 13..17
+Pipeline 20..24
+  ExternalCall 20..24
+    String Bare "foo" 21..24
+Diagnostic 21..24 percent sigil requires a built-in command recovered

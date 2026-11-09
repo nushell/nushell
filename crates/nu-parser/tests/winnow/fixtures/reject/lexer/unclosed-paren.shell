@@ -1,0 +1,4 @@
+Pipeline 0..13
+  Call `print` 0..13
+    Garbage 6..13
+Diagnostic 12..13 unclosed delimiter: expected `)` recovered

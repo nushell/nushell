@@ -1,0 +1,6 @@
+Pipeline 0..15
+  Def `foo` 0..15
+    Signature 8..12
+      Param positional `in` 9..11
+    Body 14..14
+Diagnostic 9..11 `in` used as variable name recovered

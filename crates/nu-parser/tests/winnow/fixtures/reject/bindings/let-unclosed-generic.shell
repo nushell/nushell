@@ -1,0 +1,15 @@
+Pipeline 0..57
+  let a : record<a: int b: record<a: int> 0..57
+    Value 41..57
+      Pipeline 41..57
+        Record 41..57
+          Pair
+            String Bare "a" 42..43
+            Int 1 45..46
+          Pair
+            String Bare "b" 47..48
+            Record 50..56
+              Pair
+                String Bare "a" 51..52
+                Int 1 54..55
+Diagnostic 37..38 unclosed delimiter: expected `>` recovered

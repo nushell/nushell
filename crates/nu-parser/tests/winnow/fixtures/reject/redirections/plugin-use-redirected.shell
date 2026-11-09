@@ -1,0 +1,6 @@
+Pipeline 0..17
+  Call `plugin use` 0..12
+    String Bare "x" 11..12
+  Redirect Out 13..15
+    String Bare "f" 16..17
+Diagnostic 13..15 this statement cannot be redirected recovered

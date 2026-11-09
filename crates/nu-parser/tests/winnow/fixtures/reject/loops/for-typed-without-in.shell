@@ -1,0 +1,5 @@
+Pipeline 0..9
+  Call `for` 0..9
+    String Bare "y:" 4..6
+    String Bare "li" 7..9
+Diagnostic 6..6 expected type recovered

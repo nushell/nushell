@@ -1,0 +1,6 @@
+Pipeline 0..17
+  let a 0..17
+    Value 16..17
+      Pipeline 16..17
+        Int 1 16..17
+Diagnostic 6..8 extra tokens after the end of the expression recovered

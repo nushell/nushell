@@ -1,0 +1,13 @@
+Pipeline 0..37
+  Call `def` 0..37
+    String Bare "q" 4..5
+    Garbage 6..9
+    String Bare "nothing" 10..17
+    Flag -> 18..20
+    String Bare "list<string" 21..32
+    Closure 33..37
+      Body 34..36
+        Pipeline 34..36
+          List 34..36
+Diagnostic 9..9 unclosed delimiter: expected `]` recovered
+Diagnostic 31..32 unclosed delimiter: expected `>` recovered

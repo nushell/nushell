@@ -1,0 +1,8 @@
+Pipeline 0..9
+  Closure 0..9
+    Signature 1..4
+      Param positional `x` 2..3
+    Body 4..8
+      Pipeline 6..8
+        Var $x 6..8
+Diagnostic 4..5 extra tokens after the end of the expression recovered

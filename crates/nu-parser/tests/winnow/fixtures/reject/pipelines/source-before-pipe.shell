@@ -1,0 +1,6 @@
+Pipeline 0..20
+  Call `source` 0..11
+    Nothing 7..11
+  | 12..13
+  Call `length` 14..20
+Diagnostic 0..6 `source` is a statement and cannot be used inside a pipeline recovered

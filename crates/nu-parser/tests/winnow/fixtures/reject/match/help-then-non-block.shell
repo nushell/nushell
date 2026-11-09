@@ -1,0 +1,6 @@
+Pipeline 0..18
+  Call `match` 0..18
+    Int 1 6..7
+    Flag --help 8..14
+    String Bare ":{}" 15..18
+Diagnostic 15..18 expected match block recovered

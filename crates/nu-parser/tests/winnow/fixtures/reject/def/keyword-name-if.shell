@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Def `if` 0..12
+    Signature 7..9
+    Body 11..11
+Diagnostic 4..6 cannot use parser keyword `if` as command name recovered

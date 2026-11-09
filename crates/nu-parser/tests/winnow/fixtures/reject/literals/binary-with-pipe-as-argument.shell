@@ -1,0 +1,4 @@
+Pipeline 0..12
+  Call `echo` 0..12
+    Garbage 5..12
+Diagnostic 9..10 expected binary digits recovered

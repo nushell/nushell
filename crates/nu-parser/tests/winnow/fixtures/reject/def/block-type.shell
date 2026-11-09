@@ -1,0 +1,8 @@
+Pipeline 0..22
+  Call `def` 0..22
+    String Bare "foo" 4..7
+    List 8..18
+      String Bare "x:" 9..11
+      String Bare "block" 12..17
+    Record 19..22
+Diagnostic 12..17 blocks are not supported as first-class values recovered

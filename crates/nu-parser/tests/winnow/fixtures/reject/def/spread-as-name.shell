@@ -1,0 +1,10 @@
+Pipeline 0..19
+  Call `def` 0..19
+    Spread 4..7
+      Record 7..13
+        Pair
+          String Bare "x" 8..9
+          Int 1 11..12
+    List 14..16
+    Record 17..19
+Diagnostic 4..13 command name not supported recovered

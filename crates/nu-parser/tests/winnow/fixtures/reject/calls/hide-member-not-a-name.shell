@@ -1,0 +1,5 @@
+Pipeline 0..13
+  Call `hide` 0..13
+    String Bare "foo" 5..8
+    Nothing 9..13
+Diagnostic 9..13 wrong import pattern structure recovered

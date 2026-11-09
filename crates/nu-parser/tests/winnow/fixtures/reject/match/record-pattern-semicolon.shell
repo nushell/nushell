@@ -1,0 +1,11 @@
+Pipeline 0..34
+  Match 0..34
+    Record 6..12
+      Pair
+        String Bare "a" 7..8
+        Int 1 10..11
+    Arm 15..32
+      Pattern value 15..27
+        Garbage 15..27
+      Int 1 31..32
+Diagnostic 15..27 expected record recovered

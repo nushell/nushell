@@ -1,0 +1,9 @@
+Pipeline 0..17
+  EnvShorthand 0..17
+    Env FOO 0..5
+      String Bare "1" 4..5
+    Call `def` 6..17
+      String Bare "x" 10..11
+      List 12..14
+      Record 15..17
+Diagnostic 6..9 `def` is a statement and cannot be used inside a pipeline recovered

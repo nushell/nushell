@@ -1,0 +1,4 @@
+Pipeline 0..259
+  Call `do` 0..259
+    Closure 3..259
+      Body 4..258

@@ -1,0 +1,7 @@
+Pipeline 0..16
+  Call `def` 0..16
+    String Bare "f" 4..5
+    List 6..13
+      String Bare "--a.b" 7..12
+    Record 14..16
+Diagnostic 7..12 expected valid name for this long flag recovered

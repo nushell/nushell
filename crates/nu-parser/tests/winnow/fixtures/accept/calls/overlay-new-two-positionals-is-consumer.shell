@@ -1,0 +1,4 @@
+Pipeline 0..15
+  Call `overlay new` 0..15
+    String Bare "a" 12..13
+    String Bare "b" 14..15

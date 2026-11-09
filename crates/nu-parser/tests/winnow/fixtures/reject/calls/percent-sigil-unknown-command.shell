@@ -1,0 +1,5 @@
+Pipeline 0..13
+  ExternalCall 0..13
+    String Bare "nu" 1..3
+    String Bare "--version" 4..13
+Diagnostic 1..3 percent sigil requires a built-in command recovered

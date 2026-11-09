@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Call `def` 0..12
+    String Bare "cmd[]" 4..9
+    Record 10..12
+Diagnostic 7..7 no space between name and parameters recovered

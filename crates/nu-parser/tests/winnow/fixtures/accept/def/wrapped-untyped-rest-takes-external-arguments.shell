@@ -1,0 +1,15 @@
+Pipeline 166..210 comments=2
+  Def `f` [Wrapped] 166..210
+    Signature 182..191
+      Param rest `rest` 183..190
+    Body 193..209
+      Pipeline 194..208
+        ExternalCall 194..208
+          String Bare "echo" 195..199
+          Spread 200..203
+            Var $rest 203..208
+Pipeline 211..224
+  Call `f` 211..224
+    Flag -e 213..215
+    String Bare "x$" 216..220
+    String Bare "0b2" 221..224

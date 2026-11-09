@@ -1,0 +1,4 @@
+Pipeline 82..93 comments=1
+  Call `print` 82..93
+    Garbage 88..93
+Diagnostic 88..93 invalid int literal: invalid digits for radix 16 recovered

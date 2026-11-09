@@ -1,0 +1,8 @@
+Pipeline 0..17
+  Call `def` 0..17
+    String Bare "f" 4..5
+    List 6..13
+      Var $a 7..9
+      String Bare "a" 11..12
+    Record 14..17
+Diagnostic 11..12 `a` uses a name that is already taken recovered

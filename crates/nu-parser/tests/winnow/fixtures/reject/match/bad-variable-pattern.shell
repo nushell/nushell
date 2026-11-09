@@ -1,0 +1,8 @@
+Pipeline 0..21
+  Match 0..21
+    Int 1 6..7
+    Arm 10..19
+      Pattern value 10..14
+        Garbage 10..14
+      Int 1 18..19
+Diagnostic 10..14 expected valid variable name recovered

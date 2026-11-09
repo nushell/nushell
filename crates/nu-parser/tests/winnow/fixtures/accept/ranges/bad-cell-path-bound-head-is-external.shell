@@ -1,0 +1,11 @@
+Pipeline 90..104 comments=1
+  let x 90..104
+    Value 98..104
+      Pipeline 98..104
+        Record 98..104
+          Pair
+            String Bare "a" 99..100
+            Int 1 102..103
+Pipeline 105..113
+  ExternalCall 105..113
+    String Bare "..$x.c!!" 105..113

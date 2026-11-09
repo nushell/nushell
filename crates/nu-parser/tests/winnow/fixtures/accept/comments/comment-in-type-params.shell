@@ -1,0 +1,8 @@
+Pipeline 0..69
+  Def `f` 0..69
+    Signature 6..66
+      Param positional `x` 7..30 : list<int # an item
+>
+      Param positional `y` 32..65 : oneof<int # a number
+, string>
+    Body 68..68

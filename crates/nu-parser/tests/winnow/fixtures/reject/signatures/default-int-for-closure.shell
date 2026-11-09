@@ -1,0 +1,10 @@
+Pipeline 0..27
+  Call `def` 0..27
+    String Bare "foo" 4..7
+    List 8..24
+      String Bare "x:" 9..11
+      String Bare "closure" 12..19
+      String Bare "=" 20..21
+      Int 1 22..23
+    Record 25..27
+Diagnostic 22..23 expected closure recovered

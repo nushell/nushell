@@ -1,0 +1,6 @@
+Pipeline 0..10
+  let a 0..10
+    Value 9..10
+      Pipeline 9..10
+        Int 1 9..10
+Diagnostic 6..6 expected type after `:` recovered

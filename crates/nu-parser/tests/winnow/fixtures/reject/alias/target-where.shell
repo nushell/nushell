@@ -1,0 +1,4 @@
+Pipeline 0..15
+  Alias `w` 0..15
+    Call `where` 10..15
+Diagnostic 10..15 cannot create an alias to a parser keyword recovered

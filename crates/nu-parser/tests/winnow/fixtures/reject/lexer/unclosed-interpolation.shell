@@ -1,0 +1,4 @@
+Pipeline 0..11
+  Call `echo` 0..11
+    Garbage 5..11
+Diagnostic 11..11 unclosed delimiter: expected `"` recovered

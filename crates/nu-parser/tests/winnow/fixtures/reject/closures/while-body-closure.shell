@@ -1,0 +1,6 @@
+Pipeline 0..22
+  While 0..22
+    Bool false 6..11
+    BodyValue
+      Garbage 12..22
+Diagnostic 12..22 expected block recovered

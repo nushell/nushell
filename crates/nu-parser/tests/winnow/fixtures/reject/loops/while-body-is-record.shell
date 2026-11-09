@@ -1,0 +1,9 @@
+Pipeline 0..17
+  While 0..17
+    Bool true 6..10
+    BodyValue
+      Record 11..17
+        Pair
+          String Bare "a" 12..13
+          Int 1 15..16
+Diagnostic 11..17 expected block recovered

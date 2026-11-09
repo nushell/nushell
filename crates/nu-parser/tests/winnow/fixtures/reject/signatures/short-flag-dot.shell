@@ -1,0 +1,7 @@
+Pipeline 0..15
+  Call `def` 0..15
+    String Bare "foo" 4..7
+    List 8..12
+      String Bare "-." 9..11
+    Record 13..15
+Diagnostic 9..11 expected valid variable name for this short flag recovered

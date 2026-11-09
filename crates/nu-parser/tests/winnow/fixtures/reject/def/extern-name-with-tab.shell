@@ -1,0 +1,4 @@
+Pipeline 0..16
+  Extern `	git` 0..16
+    Signature 14..16
+Diagnostic 7..13 command name not supported recovered

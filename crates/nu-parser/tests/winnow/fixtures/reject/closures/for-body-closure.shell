@@ -1,0 +1,7 @@
+Pipeline 0..23
+  For $x 0..23
+    List 9..12
+      Int 1 10..11
+    BodyValue
+      Garbage 13..23
+Diagnostic 13..23 expected block recovered

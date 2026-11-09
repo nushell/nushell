@@ -1,0 +1,5 @@
+Pipeline 143..178 comments=2
+  Call `print` 143..178
+    String Bare "5..{ls}" 149..156
+    String Bare "5..{ ls }" 157..166
+    String Bare "5..{...$in}" 167..178

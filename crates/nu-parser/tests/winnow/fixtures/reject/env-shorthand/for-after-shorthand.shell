@@ -1,0 +1,11 @@
+Pipeline 0..21
+  EnvShorthand 0..21
+    Env FOO 0..5
+      String Bare "1" 4..5
+    Call `for` 6..21
+      String Bare "x" 10..11
+      String Bare "in" 12..14
+      List 15..18
+        Int 1 16..17
+      Record 19..21
+Diagnostic 6..9 `for` is a statement and cannot be used inside a pipeline recovered

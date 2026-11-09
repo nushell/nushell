@@ -17,6 +17,7 @@ every tool's flags.
 | `tests/winnow/traceability.rs` | Chapter 11's tables point at things that exist, and every upstream construct has a row | Nushell gains a construct |
 | `tests/winnow/nu_parser_uses.rs` | The front end uses only nu-parser code that reads no source text | You call more nu-parser code from `src/winnow` |
 | `tests/parsing/winnow*.rs` at the repository root | The front end in the shell's tests | You change the lowering |
+| `tests/parsing/winnow_shell_trees.rs` at the repository root | The tree the shell reads for every fixture stays the same (`<name>.shell`) | You change what the parser does with the engine's commands. Regenerate and review |
 | `differential` | The winnow parser's verdict matches nu-parser's on real and mutated input | It finds its own cases. Add a fixture for each |
 | `frontends compare` | The two front ends build the same program | It finds its own cases. Add a test for each |
 
@@ -33,6 +34,10 @@ nu-parser's own tests, and each difference from nu-parser that was closed has on
   `<name>.ast`.
 * A `reject` fixture must fail, and the rendered diagnostics must equal the golden `<name>.err`,
   which pins which error fires.
+* Every fixture also has a `<name>.shell`, from `tests/parsing/winnow_shell_trees.rs` at the
+  repository root: the tree of each statement as the shell's driver hands it to the lowering, with
+  its diagnostics, when the parser asks the test engine which commands exist
+  (`capture_statement_trees`). The parser alone uses its own configuration, so the two can differ.
 
 `tests/winnow/fixtures/README.md` has the rules for adding one, and how-to.md shows how to
 regenerate goldens.

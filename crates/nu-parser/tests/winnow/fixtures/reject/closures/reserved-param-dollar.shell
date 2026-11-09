@@ -1,0 +1,7 @@
+Pipeline 63..74 comments=1
+  Call `do` 63..74
+    Closure 66..74
+      Signature 67..72
+        Param positional `$nu` 68..71
+      Body 73..73
+Diagnostic 68..71 `nu` used as variable name recovered

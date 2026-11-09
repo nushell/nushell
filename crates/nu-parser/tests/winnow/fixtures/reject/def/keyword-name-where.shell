@@ -1,0 +1,7 @@
+Pipeline 0..18
+  Def `where` 0..18
+    Signature 10..12
+    Body 14..17
+      Pipeline 15..16
+        Int 1 15..16
+Diagnostic 4..9 cannot use parser keyword `where` as command name recovered

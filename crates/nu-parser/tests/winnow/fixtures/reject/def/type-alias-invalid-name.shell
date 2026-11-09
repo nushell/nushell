@@ -1,0 +1,3 @@
+Pipeline 0..13
+  TypeAlias `1x` = int 0..13
+Diagnostic 5..7 type alias name not valid recovered

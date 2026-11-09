@@ -1,0 +1,8 @@
+Pipeline 0..29
+  Call `def` 0..29
+    String Bare "foo" 4..7
+    List 8..26
+      String Bare "x:" 9..11
+      String Bare "string@{a: 1}" 12..25
+    Record 27..29
+Diagnostic 19..25 the parameter completer must be a string (the name of a command) or a list recovered

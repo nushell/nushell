@@ -1,0 +1,3 @@
+Pipeline 0..6
+  Garbage 0..6
+Diagnostic 4..5 unexpected token in record value recovered

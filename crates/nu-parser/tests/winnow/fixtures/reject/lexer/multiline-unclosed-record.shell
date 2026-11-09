@@ -1,0 +1,7 @@
+Pipeline 0..24
+  let r 0..24
+    Value 8..24
+      Pipeline 8..24
+        Garbage 8..24
+Diagnostic 23..24 unclosed delimiter: expected `}` recovered
+Diagnostic 23..24 unclosed delimiter: expected `}` recovered

@@ -1,0 +1,4 @@
+Pipeline 0..13
+  Alias `if` 0..13
+    Call `ls` 11..13
+Diagnostic 6..8 cannot use parser keyword `if` as alias name recovered

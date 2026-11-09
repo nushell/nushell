@@ -1,0 +1,5 @@
+Pipeline 0..7
+  ExternalCall 0..7
+    String Bare "o>" 0..2
+    String Bare "file" 3..7
+Diagnostic 0..2 unexpected redirection: nothing to redirect recovered

@@ -1,0 +1,10 @@
+Pipeline 0..25
+  Call `def` 0..25
+    String Bare "foo3" 4..8
+    List 9..18
+      String Bare "-l?:int" 10..17
+    Closure 19..25
+      Body 21..24
+        Pipeline 21..23
+          Var $l 21..23
+Diagnostic 10..13 expected single-character short flag recovered

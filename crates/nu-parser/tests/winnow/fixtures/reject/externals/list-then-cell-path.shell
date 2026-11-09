@@ -1,0 +1,5 @@
+Pipeline 0..10
+  ExternalCall 0..10
+    String Bare "cmd" 1..4
+    Garbage 5..10
+Diagnostic 10..10 unclosed delimiter: expected `]` recovered

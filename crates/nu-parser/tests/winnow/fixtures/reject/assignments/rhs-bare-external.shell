@@ -1,0 +1,13 @@
+Pipeline 0..9 terminator=9..10
+  mut x 0..9
+    Value 8..9
+      Pipeline 8..9
+        Int 1 8..9
+Pipeline 11..19
+  Assignment = 11..19
+    Var $x 11..13
+    Value 16..19
+      Pipeline 16..19
+        ExternalCall 16..19
+          String Bare "git" 16..19
+Diagnostic 16..19 external command calls must be explicit in assignments recovered

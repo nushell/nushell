@@ -1,0 +1,5 @@
+Pipeline 0..33
+  Def `foo` 0..33
+    Signature 8..30
+      Param positional `x` 9..29 : string @"str trim"
+    Body 32..32

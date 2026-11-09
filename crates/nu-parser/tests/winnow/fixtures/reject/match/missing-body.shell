@@ -1,0 +1,6 @@
+Pipeline 0..16
+  Match 0..16
+    Int 1 6..7
+    ValueBlock
+      Garbage 8..16
+Diagnostic 15..15 expected match arm body recovered

@@ -1,0 +1,8 @@
+Pipeline 0..38
+  Def `f` 0..38
+    Signature 6..8
+    Body 10..37
+Pipeline 39..57
+  Call `do` 39..57
+    Closure 42..57
+      Body 44..56

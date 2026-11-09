@@ -1,0 +1,10 @@
+Pipeline 0..72
+  Record 0..72
+    Pair
+      String Bare "a" 1..2
+      String Bare "http://x.y" 4..14
+    Pair
+      String Bare "b" 16..17
+      String Bare "https://api.github.com/search/issues?q=repo:nushell/" 19..71
+Diagnostic 8..9 colon in bare word specifying record value recovered
+Diagnostic 24..25 colon in bare word specifying record value recovered

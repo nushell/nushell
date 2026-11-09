@@ -1,0 +1,6 @@
+Pipeline 0..12
+  Call `hide` 0..7
+    String Bare "ls" 5..7
+  Redirect Out 8..10
+    String Bare "x" 11..12
+Diagnostic 8..10 this statement cannot be redirected recovered

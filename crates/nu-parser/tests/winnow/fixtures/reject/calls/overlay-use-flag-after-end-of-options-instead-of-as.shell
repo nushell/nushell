@@ -1,0 +1,7 @@
+Pipeline 0..23
+  Call `overlay use` 0..23
+    EndOfOptions 12..14
+    Nothing 15..19
+    Flag --x 20..23
+Diagnostic 20..23 expected keyword `as` recovered
+Diagnostic 23..23 missing argument to `as` recovered

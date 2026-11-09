@@ -1,0 +1,20 @@
+Pipeline 0..57
+  Call `def` 0..57
+    String Bare "q" 4..5
+    Garbage 6..9
+    String Bare "record<c:" 10..19
+    String Bare "int" 20..23
+    String Bare "e:" 24..26
+    String Bare "int" 27..30
+    Flag -> 31..33
+    String Bare "record<a:" 34..43
+    String Bare "int>" 44..48
+    Closure 49..57
+      Body 50..56
+        Pipeline 50..56
+          Record 50..56
+            Pair
+              String Bare "a" 51..52
+              Int 1 54..55
+Diagnostic 9..9 unclosed delimiter: expected `]` recovered
+Diagnostic 34..48 expected arrow (->) recovered

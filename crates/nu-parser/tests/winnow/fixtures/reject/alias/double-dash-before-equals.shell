@@ -1,0 +1,7 @@
+Pipeline 0..15
+  Call `alias` 0..15
+    String Bare "x" 6..7
+    EndOfOptions 8..10
+    String Bare "=" 11..12
+    String Bare "ls" 13..15
+Diagnostic 8..10 expected `=` recovered

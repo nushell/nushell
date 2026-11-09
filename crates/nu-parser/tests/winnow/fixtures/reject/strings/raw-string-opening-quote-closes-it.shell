@@ -1,0 +1,3 @@
+Pipeline 135..145 comments=2
+  Garbage 135..145
+Diagnostic 145..145 unclosed delimiter: expected `'` recovered

@@ -1,0 +1,7 @@
+Pipeline 0..17
+  Call `def` 0..17
+    String Bare "foo" 4..7
+    List 8..10
+    String Bare "int" 11..14
+    Record 15..17
+Diagnostic 11..14 expected `:` before the input/output types recovered

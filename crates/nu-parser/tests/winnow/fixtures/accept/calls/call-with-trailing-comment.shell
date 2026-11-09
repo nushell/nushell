@@ -1,0 +1,3 @@
+Pipeline 0..5 comments=1
+  Call `ls` 0..5
+    Flag -l 3..5

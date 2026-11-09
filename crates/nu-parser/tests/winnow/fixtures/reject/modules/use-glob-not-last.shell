@@ -1,0 +1,6 @@
+Pipeline 0..13
+  Use 0..13
+    String Bare "std" 4..7
+    Member * 8..9
+    Member "log" 10..13
+Diagnostic 10..13 a `*` or `[...]` member can only be at the end of an import pattern recovered

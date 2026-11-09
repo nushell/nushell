@@ -1,0 +1,6 @@
+Pipeline 0..15
+  Call `try` 0..15
+    Record 4..6
+    Flag --help 7..13
+    String Bare "x" 14..15
+Diagnostic 14..15 expected `catch` or `finally` recovered

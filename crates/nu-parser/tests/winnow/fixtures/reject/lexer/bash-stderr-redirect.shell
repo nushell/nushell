@@ -1,0 +1,5 @@
+Pipeline 0..14
+  ExternalCall 0..3
+    String Bare "ls" 1..3
+  Redirect Err 4..6
+    String Bare "err.txt" 7..14

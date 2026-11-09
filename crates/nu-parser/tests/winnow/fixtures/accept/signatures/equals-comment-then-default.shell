@@ -1,0 +1,7 @@
+Pipeline 0..21
+  Def `f` 0..21
+    Signature 6..18
+      Param positional `x` 7..17 desc="c"
+        Default
+          String Bare "y" 16..17
+    Body 20..20

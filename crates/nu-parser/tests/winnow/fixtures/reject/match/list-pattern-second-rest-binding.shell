@@ -1,0 +1,11 @@
+Pipeline 0..46
+  Match 0..46
+    List 6..8
+    Arm 11..32
+      Pattern value 11..26
+        Garbage 11..26
+      Var $b 30..32
+    Arm 34..44
+      Pattern _ 34..35
+      Bool false 39..44
+Diagnostic 21..25 `..` can only be used once per list pattern recovered

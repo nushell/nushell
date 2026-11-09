@@ -1,0 +1,7 @@
+Pipeline 0..15
+  Module 0..15
+    String Bare "m" 7..8
+    Body 10..14
+      Pipeline 11..13
+        Call `ls` 11..13
+Diagnostic 11..13 expected keyword `def, const, extern, alias, use, module, export or export-env` recovered

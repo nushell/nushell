@@ -1,0 +1,6 @@
+Pipeline 0..13
+  Call `alias` 0..13
+    EndOfOptions 6..8
+    String Bare "=" 9..10
+    String Bare "ls" 11..13
+Diagnostic 6..8 alias name not supported recovered

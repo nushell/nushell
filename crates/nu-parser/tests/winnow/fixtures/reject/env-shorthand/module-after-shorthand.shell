@@ -1,0 +1,8 @@
+Pipeline 0..17
+  EnvShorthand 0..17
+    Env FOO 0..5
+      String Bare "1" 4..5
+    Call `module` 6..17
+      String Bare "m" 13..14
+      Record 15..17
+Diagnostic 6..12 `module` is a statement and cannot be used inside a pipeline recovered

@@ -1,0 +1,2 @@
+Pipeline 0..27
+  String Raw(1) "first\ntype: text}\nlast" 0..27

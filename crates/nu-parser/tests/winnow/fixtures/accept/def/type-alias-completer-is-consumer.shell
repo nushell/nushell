@@ -1,0 +1,2 @@
+Pipeline 0..31
+  TypeAlias `Color` = string@[red green] 0..31

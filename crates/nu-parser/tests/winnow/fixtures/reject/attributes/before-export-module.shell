@@ -1,0 +1,10 @@
+Pipeline 0..37
+  AttributeBlock 0..37
+    Attribute `example` 0..18
+      String Double "x" 9..12
+      Closure 13..18
+        Body 15..17
+          Pipeline 15..16
+            Int 1 15..16
+    Garbage 19..37
+Diagnostic 19..25 attributes must be followed by a definition recovered

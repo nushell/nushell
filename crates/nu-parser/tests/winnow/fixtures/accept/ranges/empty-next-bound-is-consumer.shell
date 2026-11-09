@@ -1,0 +1,7 @@
+Pipeline 85..97 comments=1
+  Call `print` 85..97
+    Range Inclusive 91..97
+      From
+        Int 1 91..92
+      To
+        Int 5 96..97

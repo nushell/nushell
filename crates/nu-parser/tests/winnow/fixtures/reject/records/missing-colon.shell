@@ -1,0 +1,3 @@
+Pipeline 0..10
+  Garbage 0..10
+Diagnostic 8..8 expected `:` after record key recovered

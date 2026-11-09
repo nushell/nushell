@@ -1,0 +1,4 @@
+Pipeline 0..10
+  Call `alias` 0..10
+    String Bare "ll" 6..8
+    String Bare "=" 9..10

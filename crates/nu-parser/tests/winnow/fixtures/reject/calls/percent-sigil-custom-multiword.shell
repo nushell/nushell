@@ -1,0 +1,9 @@
+Pipeline 0..18
+  Def `my cmd` 0..18
+    Signature 13..15
+    Body 17..17
+Pipeline 19..26
+  ExternalCall 19..26
+    String Bare "my" 20..22
+    String Bare "cmd" 23..26
+Diagnostic 20..22 percent sigil requires a built-in command recovered

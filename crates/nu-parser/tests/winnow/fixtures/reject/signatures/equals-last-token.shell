@@ -1,0 +1,8 @@
+Pipeline 0..14
+  Call `def` 0..14
+    String Bare "f" 4..5
+    List 6..11
+      String Bare "x" 7..8
+      String Bare "=" 9..10
+    Record 12..14
+Diagnostic 10..10 expected default value recovered

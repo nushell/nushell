@@ -1,0 +1,7 @@
+Pipeline 0..14
+  Alias `g` 0..14
+    Call `echo` 10..14
+Pipeline 15..20
+  Call `g` 15..20
+    Garbage 17..20
+Diagnostic 17..20 invalid int literal: invalid digits for radix 2 recovered

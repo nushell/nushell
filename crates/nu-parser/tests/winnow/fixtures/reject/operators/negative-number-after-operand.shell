@@ -1,0 +1,5 @@
+Pipeline 0..6
+  Subexpression 0..6 1..5
+    Pipeline 1..5
+      Garbage 1..5
+Diagnostic 3..5 expected operator recovered

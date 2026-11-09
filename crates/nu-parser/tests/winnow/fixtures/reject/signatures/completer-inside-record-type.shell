@@ -1,0 +1,9 @@
+Pipeline 0..32
+  Call `def` 0..32
+    String Bare "foo" 4..7
+    List 8..29
+      String Bare "x:" 9..11
+      String Bare "record<a@b:" 12..23
+      String Bare "int>" 24..28
+    Record 30..32
+Diagnostic 20..20 unclosed delimiter: expected `>` recovered

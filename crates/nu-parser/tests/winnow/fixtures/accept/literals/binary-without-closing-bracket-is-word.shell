@@ -1,0 +1,3 @@
+Pipeline 0..7
+  ExternalCall 0..7
+    String Bare "0x[13]=" 0..7

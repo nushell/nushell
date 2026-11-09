@@ -1,0 +1,9 @@
+Pipeline 0..19
+  Call `def` 0..19
+    String Bare "q" 4..5
+    Garbage 6..9
+    String Bare "bool" 10..14
+    Garbage 15..19
+Diagnostic 9..9 unclosed delimiter: expected `]` recovered
+Diagnostic 19..19 unclosed delimiter: expected `}` recovered
+Diagnostic 14..14 expected arrow (->) recovered

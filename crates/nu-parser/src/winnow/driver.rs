@@ -39,6 +39,7 @@
 
 use std::{
     cell::RefCell,
+    fmt::Write,
     rc::Rc,
     sync::{
         OnceLock,
@@ -60,10 +61,40 @@ use super::{
 };
 use crate::parse_pipelines::finish_block;
 use crate::winnow::syntax::lex::LexOptions;
+use crate::winnow::syntax::pretty;
 use crate::winnow::syntax::{
     BlockSink, BlockStatements, Definitions, Diagnostic, PredeclaredDef, TypeAliasPredecl,
     ast as w, lex::LexError,
 };
+
+/// What [`super::capture_statement_trees`] collects on its thread: how many blocks deep the
+/// driver is reading statements, and each statement of the outermost block, its tree printed
+/// with its diagnostics.
+#[derive(Default)]
+pub(super) struct Capture {
+    depth: usize,
+    pub(super) trees: Vec<String>,
+}
+
+thread_local! {
+    /// The statements captured on this thread, while [`super::capture_statement_trees`] runs.
+    pub(super) static CAPTURE: RefCell<Option<Capture>> = const { RefCell::new(None) };
+}
+
+/// Runs `read`, which reads a block's statements, one block deeper for the capture.
+fn one_block_deeper<R>(read: impl FnOnce() -> R) -> R {
+    let change = |by: isize| {
+        CAPTURE.with_borrow_mut(|capture| {
+            if let Some(capture) = capture {
+                capture.depth = capture.depth.saturating_add_signed(by);
+            }
+        });
+    };
+    change(1);
+    let result = read();
+    change(-1);
+    result
+}
 
 /// What kind of block is parsed, with what the kind needs.
 pub(super) enum BlockKind {
@@ -140,7 +171,7 @@ pub(super) fn parse_block(
         block_errors,
         caller_lexed,
     };
-    let result = parse_statements(source, local_span, &lookup, &mut driver);
+    let result = one_block_deeper(|| parse_statements(source, local_span, &lookup, &mut driver));
     let Driver {
         pipelines, target, ..
     } = driver;
@@ -713,6 +744,24 @@ impl Driver<'_, '_, '_, '_> {
     /// one [`statement_changes_names`] tells by its words, or a call through an alias of an
     /// overlay command.
     fn take_statement(&mut self, pipeline: &w::Pipeline<'_>, diagnostics: &[Diagnostic]) -> bool {
+        CAPTURE.with_borrow_mut(|capture| {
+            if let Some(capture) = capture.as_mut().filter(|capture| capture.depth == 1) {
+                let mut tree = pretty::dump_pipeline(self.source, pipeline);
+                for diagnostic in diagnostics {
+                    let recovered = if diagnostic.recovered {
+                        " recovered"
+                    } else {
+                        ""
+                    };
+                    let _ = writeln!(
+                        tree,
+                        "Diagnostic {} {}{recovered}",
+                        diagnostic.span, diagnostic.kind
+                    );
+                }
+                capture.trees.push(tree);
+            }
+        });
         let cell = self.working_set;
         let working_set = &mut **cell.borrow_mut();
         let mut lower = Lower::new(working_set, self.source, self.offset);

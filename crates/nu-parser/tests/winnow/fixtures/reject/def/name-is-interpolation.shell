@@ -1,0 +1,7 @@
+Pipeline 0..16
+  Call `def` 0..16
+    Interpolation Double 4..10
+      Text "foo" 6..9
+    List 11..13
+    Record 14..16
+Diagnostic 4..10 expected string recovered
