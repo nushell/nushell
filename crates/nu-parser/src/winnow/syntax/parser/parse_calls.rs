@@ -3,9 +3,11 @@
 //! `parse_calls.rs`).
 
 use std::borrow::Cow;
+use std::cell::Cell;
 
 use nu_protocol::SyntaxShape;
 use winnow::Parser;
+use winnow::combinator::{dispatch, peek};
 use winnow::error::ErrMode;
 
 use crate::parse_calls::shape_allows_negative_number;
@@ -412,115 +414,191 @@ fn parse_call_arguments_with<'a>(
 }
 
 /// The arguments of a call to a command whose parameters the parser knows (nu's
-/// `parse_internal_call`, for the one-item shapes every non-keyword command takes): after `--`
-/// every item is a positional; a long flag that takes a value takes it after `=` or from the
-/// next item, a switch's `=value` is a bool, and in a batch of short flags (`-abc`) the last
-/// may take the next item; an item starting with `-` is flags unless none of its letters is
-/// one and the positional's shape takes a negative number it parses as (`-5` for an `int`);
-/// each positional is read by its parameter's shape, `any` past them. A value nu reads past an
-/// error in is a garbage leaf ([`recover_literal`]). Unknown flags and missing or extra
-/// positionals are the consumer's.
+/// `parse_internal_call`, for the one-item shapes every non-keyword command takes): each
+/// item's text, and what the reader has read before it, decide what kind of argument it is
+/// ([`ShapedArguments::kind`]), and that kind's parser reads it. Unknown flags and missing or
+/// extra positionals are the consumer's.
 fn parse_call_arguments_by_shape<'a>(
     mut tokens: Tokens<'_, 'a>,
     shapes: &CallShapes,
 ) -> ParseResult<Vec<Argument<'a>>> {
-    let working_set = tokens.working_set;
-    let value = |span: Span, shape: &SyntaxShape| {
-        let read = parse_value(working_set, span, ExpectedShape::Declared(shape));
-        recover_literal(working_set, span, read)
+    let reader = ShapedArguments {
+        working_set: tokens.working_set,
+        shapes,
+        positional: Cell::new(0),
+        end_of_options: Cell::new(false),
     };
-    let mut arguments = Vec::new();
-    let mut positional = 0;
-    let mut end_of_options = false;
-    while tokens.peek_token().is_some() {
-        let token = expected("argument", call_item).parse_next(&mut tokens)?;
-        let text = tokens.text(&token);
-        let span = token.span;
-        if !end_of_options && text == "--" {
-            end_of_options = true;
-            arguments.push(Argument::EndOfOptions(span));
-            continue;
+    let argument = dispatch! {
+        peek(expected("argument", call_item)).map(|token: Token| reader.kind(token.span));
+        ArgumentKind::EndOfOptions => |tokens: &mut Tokens<'_, 'a>| reader.end_of_options(tokens),
+        ArgumentKind::LongFlag => |tokens: &mut Tokens<'_, 'a>| reader.long_flag(tokens),
+        ArgumentKind::ShortFlags => |tokens: &mut Tokens<'_, 'a>| reader.short_flags(tokens),
+        ArgumentKind::Spread => |tokens: &mut Tokens<'_, 'a>| reader.spread(tokens),
+        ArgumentKind::Positional => |tokens: &mut Tokens<'_, 'a>| reader.positional(tokens),
+    };
+    repeat_to_end(argument).parse_next(&mut tokens)
+}
+
+/// What kind of argument a call's next item is ([`ShapedArguments::kind`]).
+#[derive(Clone, Copy)]
+enum ArgumentKind {
+    /// `--`: the items after it are positionals.
+    EndOfOptions,
+    /// `--name`, or `--name=value`.
+    LongFlag,
+    /// `-abc`: one or more short flags, the last of which may take the next item.
+    ShortFlags,
+    /// `...$list`.
+    Spread,
+    /// Anything else, read by the next positional parameter's shape.
+    Positional,
+}
+
+/// A call's arguments read by its command's parameters, item by item: which positional comes
+/// next, and whether a `--` has ended the options.
+struct ShapedArguments<'w, 's, 'a> {
+    working_set: &'w WorkingSet<'a>,
+    shapes: &'s CallShapes,
+    /// The index of the next positional parameter.
+    positional: Cell<usize>,
+    /// Whether a `--` ended the options: every item after it is a positional.
+    end_of_options: Cell<bool>,
+}
+
+impl<'a> ShapedArguments<'_, '_, 'a> {
+    /// The kind of argument the item at `span` is: after `--` every item is a positional; an
+    /// item starting with `-` is flags unless none of its letters is one and the positional's
+    /// shape takes a negative number it parses as (`-5` for an `int`).
+    fn kind(&self, span: Span) -> ArgumentKind {
+        let text = self.working_set.get_span_contents(span);
+        let options = !self.end_of_options.get();
+        if options && text == "--" {
+            ArgumentKind::EndOfOptions
+        } else if options && text.starts_with("--") {
+            ArgumentKind::LongFlag
+        } else if options && text.starts_with('-') && text.len() > 1 && !self.negative_number(text)
+        {
+            ArgumentKind::ShortFlags
+        } else if is_spread(text, b"[$({") {
+            ArgumentKind::Spread
+        } else {
+            ArgumentKind::Positional
         }
-        if !end_of_options && text.starts_with("--") {
-            let (name, value_span) = split_long_flag(text, span);
-            let flag = shapes.long_flag(name);
-            let (equals, value) = match (flag.and_then(|flag| flag.value.as_ref()), value_span) {
-                (Some(shape), Some(value_span)) => {
-                    let read = |_: &WorkingSet<'a>, span| value(span, shape);
-                    let read = parse_flag_value(working_set, value_span, read)?;
-                    (Some(equals_before(value_span)), Some(read))
-                }
-                (Some(shape), None) => match call_item.parse_next(&mut tokens) {
-                    Ok(next) => (None, Some(value(next.span, shape)?)),
-                    Err(_) => (None, None),
-                },
-                (None, Some(value_span)) => {
-                    let shape = match flag {
-                        Some(_) => &SyntaxShape::Boolean,
-                        None => &SyntaxShape::Any,
-                    };
-                    let read = |_: &WorkingSet<'a>, span| value(span, shape);
-                    let read = parse_flag_value(working_set, value_span, read)?;
-                    (Some(equals_before(value_span)), Some(read))
-                }
-                (None, None) => (None, None),
-            };
-            arguments.push(Argument::Named(NamedArgument {
-                span: value.as_ref().map_or(span, |value| span.merge(value.span)),
-                name,
-                long: true,
-                equals,
-                value: value.map(Box::new),
-            }));
-            continue;
-        }
-        if !end_of_options && text.starts_with('-') && text.len() > 1 {
-            let letters = &text[1..];
-            let mut found = letters
-                .chars()
-                .filter_map(|letter| shapes.short_flag(letter));
-            let negative_number = found.next().is_none()
-                && shapes
-                    .positional(positional)
-                    .is_some_and(shape_allows_negative_number)
-                && text.parse::<f64>().is_ok();
-            if !negative_number {
-                // Only the last letter takes a value; one before it ends nu's batch there.
-                let last_value = letters.chars().enumerate().find_map(|(index, letter)| {
-                    let shape = shapes.short_flag(letter)?.value.as_ref()?;
-                    Some((index + 1 == letters.chars().count()).then_some(shape))
-                });
-                let value = match last_value.flatten() {
-                    Some(shape) => match call_item.parse_next(&mut tokens) {
-                        Ok(next) => Some(value(next.span, shape)?),
-                        Err(_) => None,
-                    },
-                    None => None,
-                };
-                arguments.push(Argument::Named(NamedArgument {
-                    span: value.as_ref().map_or(span, |value| span.merge(value.span)),
-                    name: letters,
-                    long: false,
-                    equals: None,
-                    value: value.map(Box::new),
-                }));
-                continue;
-            }
-        }
-        if is_spread(text, b"[$({") {
-            let dots = Span::new(span.start, span.start + 3);
-            let value_span = Span::new(span.start + 3, span.end);
-            arguments.push(Argument::Spread {
-                dots,
-                expr: parse_value(working_set, value_span, ExpectedShape::Any)?,
-            });
-            continue;
-        }
-        let shape = shapes.positional(positional).unwrap_or(&SyntaxShape::Any);
-        positional += 1;
-        arguments.push(Argument::Positional(value(span, shape)?));
     }
-    Ok(arguments)
+
+    /// Whether `text`, which starts with `-`, is a negative number for the next positional:
+    /// none of its letters is a flag, and that positional's shape takes a number it parses as.
+    fn negative_number(&self, text: &str) -> bool {
+        !text[1..]
+            .chars()
+            .any(|letter| self.shapes.short_flag(letter).is_some())
+            && self
+                .shapes
+                .positional(self.positional.get())
+                .is_some_and(shape_allows_negative_number)
+            && text.parse::<f64>().is_ok()
+    }
+
+    /// The value at `span`, read with `shape`. A value nu reads past an error in is a garbage
+    /// leaf ([`recover_literal`]).
+    fn value(&self, span: Span, shape: &SyntaxShape) -> ParseResult<Expression<'a>> {
+        let read = parse_value(self.working_set, span, ExpectedShape::Declared(shape));
+        recover_literal(self.working_set, span, read)
+    }
+
+    /// The value of a flag taking `shape` from the next item, if there is one.
+    fn next_value(
+        &self,
+        tokens: &mut Tokens<'_, 'a>,
+        shape: &SyntaxShape,
+    ) -> ParseResult<Option<Expression<'a>>> {
+        match call_item.parse_next(tokens) {
+            Ok(next) => Ok(Some(self.value(next.span, shape)?)),
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// `--`, after which every item is a positional.
+    fn end_of_options(&self, tokens: &mut Tokens<'_, 'a>) -> ParseResult<Argument<'a>> {
+        let token = call_item.parse_next(tokens)?;
+        self.end_of_options.set(true);
+        Ok(Argument::EndOfOptions(token.span))
+    }
+
+    /// A long flag: one that takes a value takes it after `=` or from the next item, and a
+    /// switch's `=value` is a bool.
+    fn long_flag(&self, tokens: &mut Tokens<'_, 'a>) -> ParseResult<Argument<'a>> {
+        let token = call_item.parse_next(tokens)?;
+        let span = token.span;
+        let (name, value_span) = split_long_flag(tokens.text(&token), span);
+        let flag = self.shapes.long_flag(name);
+        let read_after_equals = |value_span: Span, shape: &SyntaxShape| {
+            let read = |_: &WorkingSet<'a>, span| self.value(span, shape);
+            parse_flag_value(self.working_set, value_span, read)
+                .map(|value| (Some(equals_before(value_span)), Some(value)))
+        };
+        let (equals, value) = match (flag.and_then(|flag| flag.value.as_ref()), value_span) {
+            (Some(shape), Some(value_span)) => read_after_equals(value_span, shape)?,
+            (Some(shape), None) => (None, self.next_value(tokens, shape)?),
+            (None, Some(value_span)) => {
+                let shape = match flag {
+                    Some(_) => &SyntaxShape::Boolean,
+                    None => &SyntaxShape::Any,
+                };
+                read_after_equals(value_span, shape)?
+            }
+            (None, None) => (None, None),
+        };
+        Ok(Argument::Named(NamedArgument {
+            span: value.as_ref().map_or(span, |value| span.merge(value.span)),
+            name,
+            long: true,
+            equals,
+            value: value.map(Box::new),
+        }))
+    }
+
+    /// A batch of short flags (`-abc`): only the last letter may take a value, from the next
+    /// item; a letter before it that takes one ends nu's batch there.
+    fn short_flags(&self, tokens: &mut Tokens<'_, 'a>) -> ParseResult<Argument<'a>> {
+        let token = call_item.parse_next(tokens)?;
+        let span = token.span;
+        let letters = &tokens.text(&token)[1..];
+        let last_value = letters.chars().enumerate().find_map(|(index, letter)| {
+            let shape = self.shapes.short_flag(letter)?.value.as_ref()?;
+            Some((index + 1 == letters.chars().count()).then_some(shape))
+        });
+        let value = match last_value.flatten() {
+            Some(shape) => self.next_value(tokens, shape)?,
+            None => None,
+        };
+        Ok(Argument::Named(NamedArgument {
+            span: value.as_ref().map_or(span, |value| span.merge(value.span)),
+            name: letters,
+            long: false,
+            equals: None,
+            value: value.map(Box::new),
+        }))
+    }
+
+    /// `...` and a list, a variable, a subexpression or a record to spread.
+    fn spread(&self, tokens: &mut Tokens<'_, 'a>) -> ParseResult<Argument<'a>> {
+        let span = call_item.parse_next(tokens)?.span;
+        let value_span = Span::new(span.start + 3, span.end);
+        Ok(Argument::Spread {
+            dots: Span::new(span.start, span.start + 3),
+            expr: parse_value(self.working_set, value_span, ExpectedShape::Any)?,
+        })
+    }
+
+    /// A positional, read by its parameter's shape, `any` past them.
+    fn positional(&self, tokens: &mut Tokens<'_, 'a>) -> ParseResult<Argument<'a>> {
+        let span = call_item.parse_next(tokens)?.span;
+        let index = self.positional.get();
+        self.positional.set(index + 1);
+        let shape = self.shapes.positional(index).unwrap_or(&SyntaxShape::Any);
+        Ok(Argument::Positional(self.value(span, shape)?))
+    }
 }
 
 /// One argument of a call, when the parser does not know the command's signature
