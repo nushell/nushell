@@ -5,5 +5,6 @@ Pipeline 0..18
     Body 17..17
 Pipeline 19..27
   Call `f` 19..27
-    Flag -n 21..23
-    String Bare "abc" 24..27
+    Flag -n 21..27
+      Garbage 24..27
+Diagnostic 24..27 expected int recovered

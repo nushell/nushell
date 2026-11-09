@@ -538,9 +538,15 @@ impl<'s> Lower<'_, '_, 's> {
                                 positional_idx,
                             )) =>
                 {
-                    let taken = self.flag(call, flag, arguments.get(index), signature)?;
-                    if taken {
-                        index += 1;
+                    match split_flag_value(flag) {
+                        Some((flag, value)) => {
+                            self.flag(call, &flag, Some(&value), signature)?;
+                        }
+                        None => {
+                            if self.flag(call, flag, arguments.get(index), signature)? {
+                                index += 1;
+                            }
+                        }
                     }
                 }
                 // After `--`, a flag or another `--` is an ordinary positional, and so is
@@ -1837,6 +1843,25 @@ pub(in crate::winnow) fn shorter_head_reading(
         return None;
     };
     lower.ordinary_call(&tree, call, decl_id, input_type).ok()
+}
+
+/// A flag the winnow parser read with the item after it as its value, by the command's
+/// signature (`--width 10`, `-p 2`), as the classic reader meets it: the flag's own item, and
+/// the value as the next argument, which it takes. `None` for any other flag.
+fn split_flag_value<'s>(
+    flag: &w::NamedArgument<'s>,
+) -> Option<(w::NamedArgument<'s>, w::Argument<'s>)> {
+    let value = flag.value.as_ref().filter(|_| flag.equals.is_none())?;
+    let dashes = if flag.long { 2 } else { 1 };
+    let item = WSpan::new(flag.span.start, flag.span.start + dashes + flag.name.len());
+    let alone = w::NamedArgument {
+        span: item,
+        name: flag.name,
+        long: flag.long,
+        equals: None,
+        value: None,
+    };
+    Some((alone, w::Argument::Positional((**value).clone())))
 }
 
 /// Whether `extern --strict` still forwards a flag its signature does not declare (nu's

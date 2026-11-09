@@ -1,15 +1,12 @@
 Pipeline 0..6
   Call `ls` 0..6
-    Garbage 3..6
-Diagnostic 3..6 invalid int literal: invalid digits for radix 2 recovered
+    String Bare "0b2" 3..6
 Pipeline 7..14
   Call `ls` 7..14
-    Garbage 10..14
-Diagnostic 14..14 unclosed delimiter: expected `]` recovered
+    String Bare "[]]*" 10..14
 Pipeline 15..30
   Call `glob` 15..30
-    Garbage 20..30
-Diagnostic 28..30 extra tokens after the end of the expression recovered
+    String Bare "\"[A-Z]*\".." 20..30
 Pipeline 31..53
   Table 31..43
     Columns
@@ -20,9 +17,8 @@ Pipeline 31..53
         Int 1 40..41
   | 44..45
   Call `get` 46..53
-    Garbage 50..53
-Diagnostic 50..53 invalid int literal: invalid digits for radix 2 recovered
+    CellPath 50..53
+      Member "0b2" 50..53
 Pipeline 54..67
   Call `ls` 54..67
-    Garbage 57..67
-Diagnostic 57..67 invalid datetime literal: not a valid date recovered
+    String Bare "2023-02-30" 57..67

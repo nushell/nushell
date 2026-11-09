@@ -9,4 +9,5 @@ Pipeline 0..64 comments=2
       Filesize 1 kB 31..34
   | 54..55
   Call `get` 56..64
-    String Bare "name" 60..64
+    CellPath 60..64
+      Member "name" 60..64

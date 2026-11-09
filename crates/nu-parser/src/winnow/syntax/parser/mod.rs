@@ -9,7 +9,7 @@
 //! | [`parse_pipelines`] | blocks, pipelines, pipeline elements, redirections | `parse_pipelines.rs` |
 //! | [`parse_expressions`] | expressions, builtin dispatch, math, values, lists, records, blocks, closures, match blocks | `parse_expressions.rs` |
 //! | [`parse_calls`] | calls and their arguments, external and `%` calls, attributes, keyword-command signatures | `parse_calls.rs` |
-//! | [`call_shapes`] | a command's parameters as a call reads its arguments (without a lookup) | `Signature` in `parse_internal_call` |
+//! | [`call_shapes`] | a command's parameters as a call reads its arguments | `Signature` in `parse_internal_call` |
 //! | [`parse_keywords`] | parser keywords, and [`parse_keywords::KeywordCall`]: nu's flags of a keyword command | `parse_keywords.rs` |
 //! | [`parse_def`] | `def`, `extern`, `for`, predeclaration | `parse_def.rs` |
 //! | [`parse_bindings`] | `let`, `mut`, `const` | `parse_bindings.rs` |
@@ -63,7 +63,7 @@ use crate::winnow::syntax::error::Diagnostic;
 use crate::winnow::syntax::lex::{LexOptions, Token, TokenContents};
 use crate::winnow::syntax::span::Span;
 
-use call_shapes::CallShapes;
+pub use call_shapes::CallShapes;
 pub use lite_parser::{LiteBlock, LiteBlockCommand, LiteRedirection};
 pub use parse_def::{Definitions, PredeclaredDef, TypeAliasPredecl};
 pub use parse_pipelines::{BlockSink, BlockStatements};

@@ -267,7 +267,7 @@ carry it while staying `Copy`.
 | `has_builtin_decls()`, `find_builtin_decl(name)` | Whether the parse knows which commands exist; whether a built-in of that name exists, visible or not, which is what `%name` may call |
 | `add_predecl(name, kind)`, `declare_signature(name, signature, external)` | Declare a `def` or `extern` before its block is parsed |
 | `add_alias(name, kind)` | Declare an alias once its statement is parsed, with the kind of its target. nu never predeclares one |
-| `call_shapes(name)`, `note_import()` | The parameters a call reads its arguments by when there is no lookup (chapter 05); `note_import` turns the configured ones off after a `use` |
+| `call_shapes(name)`, `note_import()` | The parameters a call reads its arguments by: a `def`'s or `extern`'s of the text, else the lookup's or the configured ones (chapter 05); `note_import` turns the configured ones off after a `use` |
 | `enter_scope()`, `exit_scope()` | Declaration scopes for closures, blocks and subexpressions |
 
 At the end of the parse `into_collected` hands back the comments and ignored text, sorted and

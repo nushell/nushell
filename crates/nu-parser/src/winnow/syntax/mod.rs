@@ -32,8 +32,8 @@ pub mod span;
 
 pub use error::{Diagnostic, ErrorKind, ParseError};
 pub use parser::{
-    BlockSink, CommandLookup, CommandType, DeclKind, LiteBlock, LiteBlockCommand, LiteRedirection,
-    ParseConfig, PredeclaredDef,
+    BlockSink, CallShapes, CommandLookup, CommandType, DeclKind, LiteBlock, LiteBlockCommand,
+    LiteRedirection, ParseConfig, PredeclaredDef,
 };
 // Only the front end (`crate::winnow`) uses these.
 pub(crate) use parser::parse_calls::item_argument;

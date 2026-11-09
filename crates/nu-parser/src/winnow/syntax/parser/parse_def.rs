@@ -335,7 +335,7 @@ fn read_definitions<'a>(
             DeclKind::Declared
         };
         working_set.add_predecl(&name, kind);
-        // The signature item a call reads its arguments by, without a lookup.
+        // The signature item a call reads its arguments by (`WorkingSet::call_shapes`).
         if let Some(signature) = signature_item {
             working_set.declare_signature(&name, signature, found.external);
         }

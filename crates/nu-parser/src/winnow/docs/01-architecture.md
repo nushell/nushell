@@ -43,9 +43,10 @@ Three things follow, and they shape the rest of the design:
 * A nested `[...]`, `{...}` or `(...)` is one item to its parent. It is lexed again, with different
   delimiter rules, when it is parsed.
 * Many meanings depend on a command's signature: whether `--flag` takes the next word, whether
-  `name.0` is a cell path or a string. With an engine attached the tree records what was written and
-  the lowering applies the signature. Alone, the parser reads the signatures of the commands it
-  knows from its table and of the `def`s in the text (`call_shapes.rs`).
+  `name.0` is a cell path or a string. The parser reads a call's arguments by the command's
+  signature when it has one: in the shell the engine's, alone its built-in table's, and either way
+  those of the `def`s in the text (`call_shapes.rs`). In the shell the lowering then checks the call
+  against the real signature.
 
 The winnow parser keeps this recursive item architecture on purpose, because it is what defines the
 language. What differs from nu-parser: the code is written with `winnow` streams and combinators,

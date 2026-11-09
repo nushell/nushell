@@ -5,6 +5,7 @@ Pipeline 0..25
         Call `ls` 12..14
         | 15..16
         Call `get` 17..25
-          String Bare "name" 21..25
+          CellPath 21..25
+            Member "name" 21..25
 Pipeline 26..32
   Var $files 26..32

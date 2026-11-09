@@ -10,6 +10,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::winnow::syntax::ast::Comment;
 use crate::winnow::syntax::error::Diagnostic;
@@ -187,6 +188,12 @@ pub trait CommandLookup {
     fn defers_command_changing_blocks(&self) -> bool {
         false
     }
+    /// The parameters a call to the command `name` reads its arguments by, from its signature:
+    /// those of an engine's commands, whatever defined them. `None` (the default) for a command
+    /// the lookup has none for, whose arguments the parser reads without a signature.
+    fn call_shapes(&self, _name: &str) -> Option<Arc<CallShapes>> {
+        None
+    }
 }
 
 impl<T: CommandLookup + ?Sized> CommandLookup for &T {
@@ -208,6 +215,10 @@ impl<T: CommandLookup + ?Sized> CommandLookup for &T {
 
     fn defers_command_changing_blocks(&self) -> bool {
         (**self).defers_command_changing_blocks()
+    }
+
+    fn call_shapes(&self, name: &str) -> Option<Arc<CallShapes>> {
+        (**self).call_shapes(name)
     }
 }
 
@@ -630,10 +641,6 @@ impl<'a> WorkingSet<'a> {
     /// innermost scope (`external` for an `extern`), which a call to it reads its arguments by
     /// ([`WorkingSet::call_shapes`]).
     pub fn declare_signature(&self, name: &str, signature: Span, external: bool) {
-        // With a lookup no call reads by it.
-        if self.lookup.is_some() {
-            return;
-        }
         if let Some(scope) = self.scopes.borrow_mut().last_mut() {
             scope
                 .signatures
@@ -650,21 +657,24 @@ impl<'a> WorkingSet<'a> {
         }
     }
 
-    /// The parameters a call to `name` reads its arguments by, when the parser has no
-    /// [`CommandLookup`] (with one, the consumer reads each argument by the real signature):
-    /// those of the `def` or `extern` of the innermost scope that declares `name`, parsed the
-    /// first time a call asks, or of a configured command unless an import may have brought in
-    /// another ([`WorkingSet::note_import`]), or those an alias's target leaves. `None` for a
+    /// The parameters a call to `name` reads its arguments by: those of the `def` or `extern`
+    /// of the innermost scope that declares `name`, parsed the first time a call asks, or those
+    /// an alias's target leaves. For any other command, with a [`CommandLookup`], those it gives
+    /// ([`CommandLookup::call_shapes`]), the engine's signature of whatever `name` is there;
+    /// without one, a configured command's unless an import may have brought in another
+    /// ([`WorkingSet::note_import`]). The text's own definitions are answered here on either
+    /// thread of the shell's front end, as their names are, so the thread that parses ahead,
+    /// whose copy of the engine's names lacks them, reads their calls alike. `None` for a
     /// definition whose signature does not parse and a command without a signature.
     pub fn call_shapes(&self, name: &str) -> Option<CommandShapes> {
-        if self.lookup.is_some() {
-            return None;
+        if let Some(lookup) = &self.lookup
+            && self.declared_shapes(name).is_none()
+        {
+            return lookup.call_shapes(name).map(CommandShapes::Shared);
         }
         let AliasShapes { command, given } = self.shapes_of(name)?;
         let shapes = match command {
-            ShapesOf::Configured(name) => {
-                CommandShapes::Configured(self.config.call_shapes(&name)?)
-            }
+            ShapesOf::Configured(name) => CommandShapes::Shared(self.config.call_shapes(&name)?),
             ShapesOf::Defined(span, external) => {
                 CommandShapes::Defined(self.defined_shapes(span, external)?)
             }
@@ -677,32 +687,7 @@ impl<'a> WorkingSet<'a> {
 
     /// Where a call to `name` finds its parameters ([`Self::call_shapes`]).
     fn shapes_of(&self, name: &str) -> Option<AliasShapes> {
-        let declared = {
-            let scopes = self.scopes.borrow();
-            scopes
-                .iter()
-                .rev()
-                .find(|scope| scope.commands.names.contains(name))
-                .map(|scope| {
-                    let alias = scope
-                        .alias_shapes
-                        .iter()
-                        .rev()
-                        .find(|(alias, _)| **alias == *name)
-                        .map(|(_, shapes)| shapes.clone());
-                    alias.or_else(|| {
-                        scope
-                            .signatures
-                            .iter()
-                            .find(|(declared, ..)| **declared == *name)
-                            .map(|&(_, span, external)| AliasShapes {
-                                command: ShapesOf::Defined(span, external),
-                                given: 0,
-                            })
-                    })
-                })
-        };
-        match declared {
+        match self.declared_shapes(name) {
             Some(declared) => declared,
             None if self.scopes.borrow().iter().any(|scope| scope.imports) => None,
             None => self.config.call_shapes(name).map(|_| AliasShapes {
@@ -710,6 +695,35 @@ impl<'a> WorkingSet<'a> {
                 given: 0,
             }),
         }
+    }
+
+    /// Where a call to `name`, declared in a scope of the text, finds its parameters: `None`
+    /// when no scope declares it, `Some(None)` when the one that does has none to give (an
+    /// alias whose target has none, a definition without a signature).
+    fn declared_shapes(&self, name: &str) -> Option<Option<AliasShapes>> {
+        let scopes = self.scopes.borrow();
+        scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.commands.names.contains(name))
+            .map(|scope| {
+                let alias = scope
+                    .alias_shapes
+                    .iter()
+                    .rev()
+                    .find(|(alias, _)| **alias == *name)
+                    .map(|(_, shapes)| shapes.clone());
+                alias.or_else(|| {
+                    scope
+                        .signatures
+                        .iter()
+                        .find(|(declared, ..)| **declared == *name)
+                        .map(|&(_, span, external)| AliasShapes {
+                            command: ShapesOf::Defined(span, external),
+                            given: 0,
+                        })
+                })
+            })
     }
 
     /// The parameters of the `def` or `extern` whose signature is at `span`, parsed the first

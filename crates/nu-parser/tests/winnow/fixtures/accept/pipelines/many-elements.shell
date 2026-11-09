@@ -9,10 +9,12 @@ Pipeline 0..57
       Filesize 1 kB 18..21
   | 22..23
   Call `sort-by` 24..36
-    String Bare "name" 32..36
+    CellPath 32..36
+      Member "name" 32..36
   | 37..38
   Call `get` 39..47
-    String Bare "name" 43..47
+    CellPath 43..47
+      Member "name" 43..47
   | 48..49
   Call `first` 50..57
     Int 3 56..57

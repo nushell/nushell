@@ -6,25 +6,19 @@ Pipeline 0..37
     Body 36..36
 Pipeline 38..44
   Call `f` 38..44
-    Garbage 40..44
-Diagnostic 40..44 invalid int literal: invalid digits for radix 16 recovered
+    String Bare "0xzz" 40..44
 Pipeline 45..61
   Call `f` 45..61
-    Garbage 47..50
-    Flag --y 51..54
-    Garbage 55..61
-Diagnostic 47..50 invalid int literal: invalid digits for radix 2 recovered
-Diagnostic 55..61 invalid binary literal: `z` is not a valid digit for radix 16 recovered
+    String Bare "0b2" 47..50
+    Flag --y 51..61
+      String Bare "0x[zz]" 55..61
 Pipeline 62..83
   Call `f` 62..83
-    Garbage 64..68
+    String Bare "8EiB" 64..68
     Flag --y 69..83
-      Garbage 73..83
-Diagnostic 64..68 invalid filesize literal: too large recovered
-Diagnostic 73..83 invalid datetime literal: not a valid date recovered
+      String Bare "2023-02-30" 73..83
 Pipeline 84..96
   Call `f` 84..96
     String Single "x" 86..89
-    Flag -y 90..92
-    Garbage 93..96
-Diagnostic 93..96 invalid int literal: invalid digits for radix 2 recovered
+    Flag -y 90..96
+      String Bare "0b2" 93..96

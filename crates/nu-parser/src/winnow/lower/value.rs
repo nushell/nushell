@@ -159,8 +159,13 @@ impl<'s> Lower<'_, '_, 's> {
             // parser whatever it spells (`1`), and read from its text. So is a bare word with a
             // `..` the shape `any` takes: nu tries it as a range first, and keeps the error of a
             // bound that reports more than "no number" (`99999999999999999999..a`, `1..a..$nope`).
+            // And so is a word starting with a quote that does not close at its end, which the
+            // winnow parser read as a glob or a path (`"[A-Z]*"..` for `oneof<string, glob>`):
+            // nu's string reader refuses it (`parse_string`).
             (SyntaxShape::Any | SyntaxShape::String, w::Expr::String(string))
                 if !self.bare_wrapped(string)
+                    && !(string.quote == w::Quote::Bare
+                        && self.text(e.span).starts_with(['"', '\'']))
                     && !(matches!(shape, SyntaxShape::Any)
                         && string.quote == w::Quote::Bare
                         && self.text(e.span).contains("..")) =>

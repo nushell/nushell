@@ -545,14 +545,12 @@ ask of each candidate: `find_longest_decl` asks `find_decl`, and the `%` sigil a
 `Argument::Unread` is never read from an item. `parse_module_call` puts it in place of each
 positional after the name.
 
-**With a lookup,** in the shell, every call is read this way, and the lowering assigns arguments by
-the real signature. It gives each multi-item positional its items as `calculate_end_span` does and
-reads them as `parse_multispan_value` does (`lower/call.rs`, `multispan_value`). A row condition or
-math expression of several items it has the parser read again from the items' text (`parse_items`).
-
-**Without a lookup,** a call to a configured command or a `def` or `extern` of the text is read by
-the command's parameters (`parse_call_arguments_by_shape`, nu's `parse_internal_call` for one-item
-shapes; `BUILTIN_SIGNATURES`):
+**By the command's parameters.** A call to a command whose parameters the parser knows is read by
+them (`parse_call_arguments_by_shape`, nu's `parse_internal_call` for one-item shapes). A `def` or
+`extern` of the text has its own signature's, in the shell too. Any other command has, in the
+shell, the engine's signature (`CommandLookup::call_shapes`), unless it is a keyword, an alias, or
+has a parameter no single item holds (a `block`, a row condition, a plugin's custom type), and
+alone, the generated table's (`BUILTIN_SIGNATURES`). A call to any other command is read as above.
 
 * After `--`, every item is a positional.
 * A long flag that takes a value takes it after `=` or from the next item (`NamedArgument::equals`
@@ -564,9 +562,16 @@ shapes; `BUILTIN_SIGNATURES`):
   value with an error nu goes past is a garbage leaf, recovered, so `ls 0b2` is a glob and `f 0b2`
   is an error for an `int` parameter.
 
-Unknown flags and missing or extra positionals stay the consumer's. After a `use`, `overlay use` or
-`source` in a scope (`note_import`), configured commands are read without their signatures: the
-parser loads no module, and an imported command may extend a configured one or shadow it.
+Unknown flags and missing or extra positionals stay the consumer's. Alone, after a `use`, `overlay
+use` or `source` in a scope (`note_import`), configured commands are read without their signatures:
+the parser loads no module, and an imported command may extend a configured one or shadow it.
+
+**In the shell,** the lowering assigns the arguments by the real signature. A flag the parser read
+with the next item as its value it takes as nu's reader meets a flag and the item after it
+(`split_flag_value`). It gives each multi-item positional its items as `calculate_end_span` does
+and reads them as `parse_multispan_value` does (`lower/call.rs`, `multispan_value`). A row
+condition or math expression of several items it has the parser read again from the items' text
+(`parse_items`).
 
 ### Keyword commands that are calls here
 

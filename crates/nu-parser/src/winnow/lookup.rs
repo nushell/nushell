@@ -5,7 +5,7 @@
 //! ahead, and writes every answer down for [`changed_answer`] to check before the statement is
 //! lowered.
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use nu_protocol::{
     DeclId, Signature, SyntaxShape,
@@ -14,7 +14,11 @@ use nu_protocol::{
 };
 
 use crate::parse_calls::find_decl_with_command_type;
-use crate::winnow::syntax::{AliasedKeyword, CommandLookup, DeclKind};
+use crate::winnow::syntax::{AliasedKeyword, CallShapes, CommandLookup, DeclKind};
+
+/// What a lookup worked out about each declaration asked about so far, by declaration id:
+/// a declaration keeps it while a block is parsed.
+type ByDecl<T> = RefCell<Vec<Option<T>>>;
 
 /// Answers the winnow parser's questions about commands from the working set.
 ///
@@ -27,7 +31,9 @@ pub(super) struct EngineLookup<'c, 'w, 'e> {
     /// The kind of each declaration asked about so far, by id: finding it takes the command's
     /// signature, and a declaration keeps its kind while a block is parsed (a predeclaration
     /// and the definition replacing it take external arguments alike).
-    kinds: RefCell<Vec<Option<DeclKind>>>,
+    kinds: ByDecl<DeclKind>,
+    /// The parameters of each declaration asked about so far ([`engine_shapes`]), by id.
+    shapes: ByDecl<Option<Arc<CallShapes>>>,
 }
 
 impl<'c, 'w, 'e> EngineLookup<'c, 'w, 'e> {
@@ -36,6 +42,7 @@ impl<'c, 'w, 'e> EngineLookup<'c, 'w, 'e> {
         Self {
             working_set,
             kinds: RefCell::new(Vec::new()),
+            shapes: RefCell::new(Vec::new()),
         }
     }
 }
@@ -44,9 +51,18 @@ impl CommandLookup for EngineLookup<'_, '_, '_> {
     fn find_decl(&self, name: &str) -> Option<DeclKind> {
         let working_set = self.working_set.borrow();
         let decl_id = working_set.find_decl(name.as_bytes())?;
-        Some(cached_kind(&self.kinds, decl_id, || {
+        Some(cached(&self.kinds, decl_id, || {
             decl_kind(&working_set, decl_id)
         }))
+    }
+
+    /// The parameters of the declaration `name` resolves to ([`engine_shapes`]).
+    fn call_shapes(&self, name: &str) -> Option<Arc<CallShapes>> {
+        let working_set = self.working_set.borrow();
+        let decl_id = working_set.find_decl(name.as_bytes())?;
+        cached(&self.shapes, decl_id, || {
+            engine_shapes(&working_set, decl_id)
+        })
     }
 
     /// Always `true`: the working set keeps no index of first words, so the parser tries the
@@ -67,7 +83,7 @@ impl CommandLookup for EngineLookup<'_, '_, '_> {
         let working_set = self.working_set.borrow();
         let decl_id =
             find_decl_with_command_type(&working_set, name.as_bytes(), CommandType::Builtin)?;
-        Some(cached_kind(&self.kinds, decl_id, || {
+        Some(cached(&self.kinds, decl_id, || {
             decl_kind(&working_set, decl_id)
         }))
     }
@@ -79,23 +95,33 @@ impl CommandLookup for EngineLookup<'_, '_, '_> {
     }
 }
 
-/// The kind of `decl_id` in `kinds` (by declaration id), worked out with `kind` the first time.
-fn cached_kind(
-    kinds: &RefCell<Vec<Option<DeclKind>>>,
-    decl_id: DeclId,
-    kind: impl FnOnce() -> DeclKind,
-) -> DeclKind {
+/// What `known` holds for `decl_id`, worked out with `work_out` the first time.
+fn cached<T: Clone>(known: &ByDecl<T>, decl_id: DeclId, work_out: impl FnOnce() -> T) -> T {
     let index = decl_id.get();
-    if let Some(Some(known)) = kinds.borrow().get(index) {
-        return *known;
+    if let Some(Some(value)) = known.borrow().get(index) {
+        return value.clone();
     }
-    let kind = kind();
-    let mut kinds = kinds.borrow_mut();
-    if kinds.len() <= index {
-        kinds.resize(index + 1, None);
+    let value = work_out();
+    let mut known = known.borrow_mut();
+    if known.len() <= index {
+        known.resize(index + 1, None);
     }
-    kinds[index] = Some(kind);
-    kind
+    known[index] = Some(value.clone());
+    value
+}
+
+/// The parameters a call to `decl_id` reads its arguments by: its signature's, when the parser
+/// reads each of their shapes from one item ([`CallShapes::from_signature`]). A keyword has a
+/// statement parser of its own, and an alias's call is read through its target, as now.
+pub(super) fn engine_shapes(
+    working_set: &StateWorkingSet,
+    decl_id: DeclId,
+) -> Option<Arc<CallShapes>> {
+    let decl = working_set.get_decl(decl_id);
+    if decl.is_keyword() || decl.as_alias().is_some() {
+        return None;
+    }
+    CallShapes::from_signature(&working_set.get_signature_shared(decl_id)).map(Arc::new)
 }
 
 /// The engine's command names as a working set resolves them at one moment, for the thread that
@@ -110,10 +136,12 @@ pub(super) struct NamesSnapshot<'e> {
     /// asked only about names, and about permanent declarations, since the id of a declaration
     /// of the original's delta indexes nothing here (see [`NamesSnapshot::is_permanent`]).
     names: StateWorkingSet<'e>,
-    /// The kinds the original lookup had worked out, by declaration id. A delta declaration not
-    /// among them is taken to be `Declared`, which most are; for one that is not (an imported
-    /// `def --wrapped`), the live working set answers otherwise and [`changed_answer`] says so.
-    kinds: RefCell<Vec<Option<DeclKind>>>,
+    /// The kinds the original lookup had worked out, by declaration id, those of the working
+    /// set's own declarations among them ([`NamesSnapshot::new`]).
+    kinds: ByDecl<DeclKind>,
+    /// The parameters the original lookup had worked out, by declaration id, those of the
+    /// working set's own declarations among them.
+    shapes: ByDecl<Option<Arc<CallShapes>>>,
     /// The bound on the length of the command names the original resolved when the copy was
     /// made ([`longest_name_in`]), which the thread parses with (the winnow parser raises it
     /// for the names it declared itself).
@@ -124,12 +152,24 @@ impl<'e> NamesSnapshot<'e> {
     /// The names `lookup`'s working set resolves now.
     pub(super) fn new(lookup: &EngineLookup<'_, '_, 'e>) -> Self {
         let working_set = lookup.working_set.borrow();
+        // What resolving a call reads of the working set's own declarations (an enclosing
+        // block's definitions, the commands a `use` brought in), which this copy cannot work
+        // out: worked out now, once per declaration and block. The block's own definitions are
+        // declared after the copy is made, and the parser answers for them itself.
+        for index in working_set.permanent_state.num_decls()..working_set.num_decls() {
+            let decl_id = DeclId::new(index);
+            cached(&lookup.kinds, decl_id, || decl_kind(&working_set, decl_id));
+            cached(&lookup.shapes, decl_id, || {
+                engine_shapes(&working_set, decl_id)
+            });
+        }
         let mut names = StateWorkingSet::new(working_set.permanent_state);
         names.delta.scope = working_set.delta.scope.iter().map(names_only).collect();
         names.search_predecls = working_set.search_predecls;
         Self {
             names,
             kinds: RefCell::new(lookup.kinds.borrow().clone()),
+            shapes: RefCell::new(lookup.shapes.borrow().clone()),
             longest_name: longest_name_in(&working_set),
         }
     }
@@ -154,13 +194,15 @@ pub(super) enum Asked {
     Decl(Box<str>, Option<DeclKind>),
     /// `find_builtin_decl(name)` and its answer.
     Builtin(Box<str>, Option<DeclKind>),
+    /// `call_shapes(name)` and its answer.
+    Shapes(Box<str>, Option<Arc<CallShapes>>),
 }
 
 impl CommandLookup for AskedLookup<'_> {
     fn find_decl(&self, name: &str) -> Option<DeclKind> {
         let names = &self.names;
         let kind = names.names.find_decl(name.as_bytes()).map(|decl_id| {
-            cached_kind(&names.kinds, decl_id, || {
+            cached(&names.kinds, decl_id, || {
                 if names.is_permanent(decl_id) {
                     decl_kind(&names.names, decl_id)
                 } else {
@@ -190,7 +232,7 @@ impl CommandLookup for AskedLookup<'_> {
     fn find_builtin_decl(&self, name: &str) -> Option<DeclKind> {
         let names = &self.names;
         let kind = find_decl_with_command_type(&names.names, name.as_bytes(), CommandType::Builtin)
-            .map(|decl_id| cached_kind(&names.kinds, decl_id, || decl_kind(&names.names, decl_id)));
+            .map(|decl_id| cached(&names.kinds, decl_id, || decl_kind(&names.names, decl_id)));
         self.asked
             .borrow_mut()
             .push(Asked::Builtin(Box::from(name), kind));
@@ -200,6 +242,30 @@ impl CommandLookup for AskedLookup<'_> {
     /// As [`EngineLookup`] answers it.
     fn defers_command_changing_blocks(&self) -> bool {
         true
+    }
+
+    /// As [`EngineLookup`] answers it for a declaration of the engine; for one of the working
+    /// set, what the original lookup had worked out, or none.
+    fn call_shapes(&self, name: &str) -> Option<Arc<CallShapes>> {
+        let names = &self.names;
+        let shapes = names.names.find_decl(name.as_bytes()).and_then(|decl_id| {
+            match names.is_permanent(decl_id) {
+                true => cached(&names.shapes, decl_id, || {
+                    engine_shapes(&names.names, decl_id)
+                }),
+                false => names
+                    .shapes
+                    .borrow()
+                    .get(decl_id.get())
+                    .cloned()
+                    .flatten()
+                    .flatten(),
+            }
+        });
+        self.asked
+            .borrow_mut()
+            .push(Asked::Shapes(Box::from(name), shapes.clone()));
+        shapes
     }
 }
 
@@ -237,6 +303,10 @@ pub(super) fn changed_answer(
         Asked::Builtin(name, kind) => {
             let live = lookup.find_builtin_decl(name);
             (live != *kind).then(|| format!("built-in `{name}` is {live:?}, not {kind:?}"))
+        }
+        Asked::Shapes(name, shapes) => {
+            let live = lookup.call_shapes(name);
+            (live != *shapes).then(|| format!("`{name}` has other parameters"))
         }
     })
 }

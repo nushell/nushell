@@ -4,10 +4,10 @@
 //! signatures carry them; a signature the parser reads from text has its types converted
 //! ([`nu_shape`]).
 //!
-//! The parser reads arguments by them only without a [`super::CommandLookup`] (a
-//! [`super::ParseConfig`], whose built-in commands carry their signatures, and the commands
-//! the text defines itself): with a lookup the consumer reads each argument by the real
-//! signature.
+//! Without a [`super::CommandLookup`] the parser reads arguments by the signatures of a
+//! [`super::ParseConfig`]'s built-in commands and of the commands the text defines itself. With
+//! one, by the signatures the lookup gives ([`super::CommandLookup::call_shapes`]): an engine's,
+//! whatever defined the command.
 
 use std::ops::Deref;
 use std::rc::Rc;
@@ -17,12 +17,12 @@ use nu_protocol::SyntaxShape;
 
 use crate::winnow::syntax::ast::{self, Expr, Expression, Parameter, ParameterKind, Signature};
 
-/// The [`CallShapes`] of a command: a configured command's, shared by every parse with its
-/// [`super::ParseConfig`], or those of a command the text defines.
+/// The [`CallShapes`] of a command: a configured command's or a lookup's, shared by every parse
+/// that asks for them, or those of a command the text defines.
 #[derive(Clone, Debug)]
 pub enum CommandShapes {
-    /// A configured command's.
-    Configured(Arc<CallShapes>),
+    /// A configured command's, or one a lookup gave.
+    Shared(Arc<CallShapes>),
     /// A `def`'s or `extern`'s of the text.
     Defined(Rc<CallShapes>),
 }
@@ -32,7 +32,7 @@ impl Deref for CommandShapes {
 
     fn deref(&self) -> &CallShapes {
         match self {
-            Self::Configured(shapes) => shapes,
+            Self::Shared(shapes) => shapes,
             Self::Defined(shapes) => shapes,
         }
     }
@@ -95,6 +95,42 @@ impl CallShapes {
         }
     }
 
+    /// The parameters of an engine's `signature`, if the parser reads a value of each of their
+    /// shapes from one item ([`reads_in_one_item`]). A command that has another (a keyword's
+    /// `block`, a row condition, a plugin's custom type) is read without its signature.
+    pub fn from_signature(signature: &nu_protocol::Signature) -> Option<Self> {
+        let positional: Vec<SyntaxShape> = signature
+            .required_positional
+            .iter()
+            .chain(&signature.optional_positional)
+            .map(|parameter| parameter.shape.clone())
+            .collect();
+        let rest = signature
+            .rest_positional
+            .as_ref()
+            .map(|parameter| parameter.shape.clone());
+        let flags: Vec<FlagShape> = signature
+            .named
+            .iter()
+            .map(|flag| FlagShape {
+                long: flag.long_name().map(Box::from),
+                short: flag.short,
+                value: flag.arg.clone(),
+            })
+            .collect();
+        let flag_values = flags.iter().filter_map(|flag| flag.value.as_ref());
+        positional
+            .iter()
+            .chain(&rest)
+            .chain(flag_values)
+            .all(reads_in_one_item)
+            .then_some(Self {
+                positional,
+                rest,
+                flags,
+            })
+    }
+
     /// The parameters left for a call through an alias whose target gives the first `given`
     /// positional arguments (`alias ll = ls a`).
     pub fn past_positionals(&self, given: usize) -> Self {
@@ -154,6 +190,38 @@ fn default_shape(default: &Expression<'_>) -> SyntaxShape {
         Expr::Record(_) => SyntaxShape::Record(Default::default()),
         Expr::Closure(_) => SyntaxShape::Closure(None),
         _ => SyntaxShape::Any,
+    }
+}
+
+/// Whether the parser reads a value of `shape` from one item: the shapes a type annotation
+/// names, which are those of every non-keyword built-in command's parameters.
+fn reads_in_one_item(shape: &SyntaxShape) -> bool {
+    match shape {
+        SyntaxShape::Any
+        | SyntaxShape::Binary
+        | SyntaxShape::Boolean
+        | SyntaxShape::CellPath
+        | SyntaxShape::Closure(_)
+        | SyntaxShape::DateTime
+        | SyntaxShape::Directory
+        | SyntaxShape::Duration
+        | SyntaxShape::Error
+        | SyntaxShape::ExternalArgument
+        | SyntaxShape::Float
+        | SyntaxShape::Filesize
+        | SyntaxShape::GlobPattern
+        | SyntaxShape::Int
+        | SyntaxShape::Nothing
+        | SyntaxShape::Number
+        | SyntaxShape::Filepath
+        | SyntaxShape::Range
+        | SyntaxShape::String => true,
+        SyntaxShape::List(element) => reads_in_one_item(element),
+        SyntaxShape::Record(columns) | SyntaxShape::Table(columns) => {
+            columns.iter().all(|(_, shape)| reads_in_one_item(shape))
+        }
+        SyntaxShape::OneOf(shapes) => shapes.iter().all(reads_in_one_item),
+        _ => false,
     }
 }
 

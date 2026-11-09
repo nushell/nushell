@@ -14,4 +14,6 @@ Pipeline 0..79 comments=1
         Bool false 37..42
   | 67..68
   Call `get` 69..79
-    String Bare "name.0" 73..79
+    CellPath 73..79
+      Member "name" 73..77
+      Member 0 78..79
