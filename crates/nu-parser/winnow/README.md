@@ -25,10 +25,10 @@ Paths in these documents are relative to `crates/nu-parser`, and commands run th
   semantic reasons (missing modules, type mismatches, signature-dependent
   argument counts). The grammar in [nushell/grammar](https://github.com/nushell/grammar) is a BNF of
   the language as `nu-parser` accepts it, derived from nu-parser's source rule
-  by rule, and [`GRAMMAR.md`](GRAMMAR.md) says where this parser implements each
-  rule; every syntactic disagreement found but one has been closed and pinned as
-  a fixture (section 9 of `GRAMMAR.md` counts them, describes the open one, and
-  lists what remains for a consumer with signatures, declarations or files).
+  by rule. All but five of the syntactic disagreements found have been closed
+  and pinned as fixtures; [`DIFFERENCES.md`](DIFFERENCES.md) counts them,
+  describes the open ones, and lists what remains for a consumer with
+  signatures, declarations or files.
 * **Fast.** Roughly 30–45 MB/s per file and 40 MB/s over a 7 MB corpus of
   real scripts in release mode (single-threaded, including file I/O), with
   zero-copy borrowing of identifiers, bare words and unescaped string bodies.
@@ -205,7 +205,7 @@ IR. This parser is a pure syntactic front end:
 Because the item lexer and the expression grammar are the same, the two
 parsers accept the same programs; the only divergences are semantic checks
 that need declarations, signatures, constant evaluation, types or files
-([`GRAMMAR.md`](GRAMMAR.md), section 9.4, lists them).
+([`DIFFERENCES.md`](DIFFERENCES.md), section 9.4, lists them).
 
 ### Measured against the reference
 
@@ -225,7 +225,7 @@ Nushell scripts in `winnow/tools/scripts/`):
   mutants of seed 1. Other seeds find a few rows that nu-parser reports as
   syntax errors although deciding them needs more than the text (a module's
   contents in `use m f f`, a signature in `skip 0x[01 23 45 67]`, a
-  variable's existence in `..$$ a`; `winnow/GRAMMAR.md` section 9.4), and
+  variable's existence in `..$$ a`; `winnow/DIFFERENCES.md` section 9.4), and
   one open syntactic row, `alias i = if if x y` (section 9.2).
 * **Token classification.** For every standard-library file,
   `winnow/tools/scripts/flatcmp.nu` compares the output of nu's `ast --flatten` with
@@ -351,7 +351,8 @@ with `nu winnow/tools/scripts/verify.nu`; run the benchmarks with
 
 The grammar this parser implements is in [nushell/grammar](https://github.com/nushell/grammar),
 with its railroad diagrams (`grammar.html`) and the corpus that checks it against
-nu-parser. [`GRAMMAR.md`](GRAMMAR.md) maps its rules to this parser's code.
+nu-parser. [Chapter 11](../src/winnow/docs/11-traceability.md) maps nu-parser's syntactic units
+to this parser's code, and [`DIFFERENCES.md`](DIFFERENCES.md) lists where the two parsers differ.
 
 ## License
 

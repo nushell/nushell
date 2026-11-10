@@ -70,7 +70,7 @@ Some fields record what nu makes of an unusual spelling, so the tree says what n
 ## What the tree leaves undecided
 
 nu needs more than the text for these, so the tree records what was written and the lowering
-decides. `winnow/GRAMMAR.md` ("What a consumer adds" and section 9.4) lists them in
+decides. `winnow/DIFFERENCES.md` ("What a consumer adds" and section 9.4) lists them in
 full, and section 9 of the grammar in [nushell/grammar](https://github.com/nushell/grammar) says what nu needs for each.
 
 * The signatures of ordinary commands when a lookup is attached: whether `--flag value` binds the

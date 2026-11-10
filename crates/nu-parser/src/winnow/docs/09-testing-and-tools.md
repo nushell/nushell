@@ -125,8 +125,8 @@ These take seconds. Run them after any change to the lexer or to how an item bec
 
 The grammar is in [nushell/grammar](https://github.com/nushell/grammar), with a corpus that checks it
 against nu-parser. Every rule carries a `; nu:` line naming the nu-parser source that decides
-it. `winnow/GRAMMAR.md` is the audit trail from those rules to this parser: where each one is
-implemented, and in its section 9 the open differences.
+it. Chapter 11 maps nu-parser's syntactic units to this parser's code, and `winnow/DIFFERENCES.md`
+lists what a consumer adds and the open differences.
 
 ## Benchmarks
 

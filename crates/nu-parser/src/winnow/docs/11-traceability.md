@@ -1,6 +1,7 @@
 # 11 Traceability: nu-parser's grammar, item by item
 
-Nushell has no formal grammar. The language is what `nu-parser` accepts. This chapter maps every
+The language is what `nu-parser` accepts, and [nushell/grammar](https://github.com/nushell/grammar)
+writes it down rule by rule. This chapter maps every
 syntactic unit nu-parser defines onto the code, fixtures and tests here, so anyone can check whether
 the parser is complete.
 

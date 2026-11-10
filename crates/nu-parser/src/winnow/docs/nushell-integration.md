@@ -220,7 +220,7 @@ nu_parser::winnow` with the log flags first.
 * `frontends bench [--clean] [--iters N] FILE|DIR...` times both front ends on the same files, and
   the syntax pass alone.
 
-`winnow/GRAMMAR.md` section 9 lists the known differences that remain.
+`winnow/DIFFERENCES.md` section 9 lists the known differences that remain.
 
 ## Speed
 

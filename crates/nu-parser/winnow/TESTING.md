@@ -81,7 +81,7 @@ nu winnow/tools/scripts/verify.nu --save winnow/tools/scripts/verify-history.nuo
 | command table | `nu winnow/tools/scripts/gen-builtin-commands.nu --check` | `src/winnow/syntax/builtin_commands.rs` lists exactly the commands of the harness's engine |
 | fixtures-compare | `nu winnow/tools/scripts/fixtures-compare.nu` | 0 rows where `ours != expected`; rows where only `nu-check` disagrees are semantic (missing files, plugins) and listed with nu-parser's message |
 | differential, originals | `cd winnow/tools/nushell-harness; CARGO_TARGET_DIR=../../../../../target cargo run --release --bin differential -- ../../tests/fixtures ../../tests/corpus ../../../nu-std ../../../../tests ~/src/nu_scripts --snippets ../../tests/corpus/snippets/nu-command-examples.json --snippets ../../tests/corpus/snippets/book.json` | 0 `ours_rejects`, 0 `nu_syntax_rejects`, 0 `panics` |
-| differential, mutants | the same with `--mutants 3 --seed 1` | 0 `ours_rejects`, 0 `nu_syntax_rejects`, 0 `panics` (other seeds find rows of the classes in `winnow/GRAMMAR.md` 9.4; see below) |
+| differential, mutants | the same with `--mutants 3 --seed 1` | 0 `ours_rejects`, 0 `nu_syntax_rejects`, 0 `panics` (other seeds find rows of the classes in `winnow/DIFFERENCES.md` 9.4; see below) |
 | nucheck-compare | `nu winnow/tools/scripts/nucheck-compare.nu ~/src/nu_scripts ../nu-std` | 0 files nu accepts that we reject |
 | flatcmp | `nu -c 'nu winnow/tools/scripts/flatcmp.nu --commands winnow/tools/scripts/std_commands.txt ...(glob ../nu-std/**/*.nu)'` | only the documented differences (`src/winnow/docs/09-testing-and-tools.md`, `flatcmp.nu`) |
 | nufmt-fixtures | `nu winnow/tools/scripts/nufmt-fixtures.nu` | 114 of 130 reference fixtures |
@@ -108,7 +108,7 @@ traced to a parser change or to a Nushell change.
   generated from it, so both parsers know the same commands. With seed 1
   the mutants have no row outside the semantic ones; other seeds (run
   `--seed 2` to `--seed 10`) find a few, each of a class that needs more
-  than the text and is listed in `winnow/GRAMMAR.md` section 9.4: a
+  than the text and is listed in `winnow/DIFFERENCES.md` section 9.4: a
   module's contents (`use m f f`), a built-in command's signature
   (`skip 0x[01 23 45 67]`, `glob "**/*.txt": --follow-symlinks`), a
   variable's existence (`..$$ a`) or a file (`use` of a binary). One
@@ -131,8 +131,8 @@ traced to a parser change or to a Nushell change.
    the matching `#[rstest]` table in `tests/winnow/language.rs`.
 4. Add the fixture pattern to the row of chapter 11 it belongs to.
 5. `nu winnow/tools/scripts/fixtures-compare.nu` to confirm Nushell agrees.
-6. If the rule itself changed, update its row in `winnow/GRAMMAR.md`, and the
-   rule in [nushell/grammar](https://github.com/nushell/grammar) when nu's grammar changed.
+6. If the fixture closes a difference, remove its entry from `winnow/DIFFERENCES.md`. If nu's
+   grammar changed, update the rule in [nushell/grammar](https://github.com/nushell/grammar).
 
 ## Comparing the two front ends inside Nushell
 
