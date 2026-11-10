@@ -524,6 +524,91 @@ fn table_collapse_restructured() -> Result {
         "})
 }
 
+
+#[test]
+fn table_collapse_index_true() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse --index true",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───╮
+            │ # │ a │ b │
+            ├───┼───┼───┤
+            │ 0 │ 1 │ 2 │
+            ├───┼───┼───┤
+            │ 1 │ 3 │ 4 │
+            ╰───┴───┴───╯
+        "})
+}
+#[test]
+fn table_collapse_index_offset() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse --index 5",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───╮
+            │ # │ a │ b │
+            ├───┼───┼───┤
+            │ 5 │ 1 │ 2 │
+            ├───┼───┼───┤
+            │ 6 │ 3 │ 4 │
+            ╰───┴───┴───╯
+        "})
+}
+#[test]
+fn table_collapse_index_false() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse --index false",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ 1 │ 2 │
+            ├───┼───┤
+            │ 3 │ 4 │
+            ╰───┴───╯
+        "})
+}
+#[test]
+fn table_collapse_no_index_flag_no_index_column() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ 1 │ 2 │
+            ├───┼───┤
+            │ 3 │ 4 │
+            ╰───┴───╯
+        "})
+}
 #[test]
 fn table_expand_0() -> Result {
     test()
