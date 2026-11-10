@@ -625,6 +625,19 @@ fn table_collapse_index_column_fills_hash() -> Result {
 }
 
 #[test]
+fn table_collapse_index_null_no_index_column() -> Result {
+    test()
+        .run("def t [--index: any] { $in | table --width=80 --collapse --index $index }; [[a b]; [1 2]] | t")
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ 1 │ 2 │
+            ╰───┴───╯
+        "})
+}
+
+#[test]
 fn table_expand_0() -> Result {
     test()
         .run_with_data(
