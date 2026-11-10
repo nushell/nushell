@@ -35,15 +35,18 @@ impl StructuredOutput {
     /// Whether the output of this call should be decoded.
     ///
     /// That is the case when stdout is piped into an internal command, collected into a value,
-    /// or, unless `pipe_only` is set, shown in the terminal. Output that goes to a file is left
-    /// alone, as is output piped into a command that reads it as text (an external command,
-    /// `run-external` and `print` ask for [`OutDest::PipeRaw`]), into a byte sink (`save`,
-    /// `tee`, `complete` and `ignore` ask for [`OutDest::PipeSeparate`]), or merged with
-    /// stderr (`o+e>|`).
+    /// or, unless `pipe_only` is set, is the result shown in the terminal ([`OutDest::Print`]:
+    /// the last statement at the prompt or of a script, also through a `do` block or custom
+    /// command). A statement whose result is discarded (followed by `;` or a newline, a loop
+    /// body, a hook) gets [`OutDest::Inherit`] and runs as written, so the command prints its
+    /// own text. Output that goes to a file is left alone, as is output piped into a command
+    /// that reads it as text (an external command, `run-external` and `print` ask for
+    /// [`OutDest::PipeRaw`]), into a byte sink (`save`, `tee`, `complete` and `ignore` ask for
+    /// [`OutDest::PipeSeparate`]), or merged with stderr (`o+e>|`).
     fn applies_to(&self, stack: &Stack) -> bool {
         let stdout_applies = match stack.stdout() {
             OutDest::Pipe | OutDest::Value => true,
-            OutDest::Inherit | OutDest::Print => !self.pipe_only,
+            OutDest::Print => !self.pipe_only,
             _ => false,
         };
         stdout_applies && !matches!(stack.stderr(), OutDest::Pipe)
@@ -125,9 +128,8 @@ impl Command for KnownExternal {
             extern_name.extend(structured.args.iter().map(String::as_str));
         }
 
-        // Output bound for the terminal is captured so the decode block can read it.
-        let capture_stdout =
-            structured.is_some() && matches!(stack.stdout(), OutDest::Inherit | OutDest::Print);
+        // Output shown in the terminal is captured so the decode block can read it.
+        let capture_stdout = structured.is_some() && matches!(stack.stdout(), OutDest::Print);
         let output = {
             let mut guard;
             let stack: &mut Stack = if capture_stdout {

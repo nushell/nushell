@@ -99,6 +99,34 @@ fn structured_extern_runs_as_written_into_print() -> Result {
     Ok(())
 }
 
+/// A structured extern whose result is discarded prints its own text, as an unstructured
+/// extern would, instead of being decoded and then dropped.
+#[rstest]
+#[case::semicolon("cococo; print done", "cococo\ndone")]
+#[case::newline("cococo\nprint done", "cococo\ndone")]
+#[case::for_body("for i in 1..2 { cococo }", "cococo\ncococo")]
+#[case::custom_command_statement("def f [] { cococo; 'x' }; f", "cococo\nx")]
+#[case::custom_command_called_as_statement("def f [] { cococo }; f; print done", "cococo\ndone")]
+#[nu_test_support::test]
+#[deps(NU, TESTBIN_COCOCO)]
+fn structured_extern_statement_runs_as_written(
+    #[case] code: &str,
+    #[case] expected: &str,
+) -> Result {
+    let stdout = terminal_output(format!("{STRUCTURED_COCOCO}\n{code}"))?;
+    assert_eq!(stdout.trim(), expected);
+    Ok(())
+}
+
+#[test]
+#[deps(NU, TESTBIN_COCOCO)]
+fn structured_extern_decodes_through_custom_command_to_terminal() -> Result {
+    let stdout = terminal_output(format!("{STRUCTURED_COCOCO}\ndef f [] {{ cococo }}; f"))?;
+    assert!(!stdout.contains("1,2,3"), "{stdout}");
+    assert_contains("2", &stdout);
+    Ok(())
+}
+
 const PIPE_ONLY_COCOCO: &str = r#"
     @structured --pipe-only ["1,2,3"] { str trim | split row "," }
     extern cococo []

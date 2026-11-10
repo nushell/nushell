@@ -49,13 +49,15 @@ impl Command for AttrStructured {
     }
 
     fn extra_description(&self) -> &str {
-        "When the output of the extern is shown in the terminal or used by nushell (piped into an \
-internal command or collected into a variable), the arguments are added right after the \
-command's name and the output is decoded with the block. When the output goes to `print`, a \
-file, `ignore`, `save`, `tee`, `complete` or another external command (`run-external` \
-included), the command runs as written. The same holds when the extern is the last command of \
-a `do` block or a custom command. With `--pipe-only`, output shown in the terminal is not \
-decoded either, so only output nushell uses is. Calling the command with a caret, like \
+        "When the output of the extern is used by nushell (piped into an internal command or \
+collected into a variable) or is the result shown in the terminal (the last statement at the \
+prompt or of a script), the arguments are added right after the command's name and the output \
+is decoded with the block. When the output goes to `print`, a file, `ignore`, `save`, `tee`, \
+`complete` or another external command (`run-external` included), the command runs as \
+written. The same holds when the extern is the last command of a `do` block or a custom \
+command. A statement whose result is discarded, one followed by `;` or a newline, a loop body \
+or a hook, also runs as written, so the command prints its own text. With `--pipe-only`, \
+output shown in the terminal is not decoded either, so only output nushell uses is. Calling the command with a caret, like \
 `^git status`, always runs it as written.
 
 The arguments come before the user's own, so a format flag the user passes can override them \
