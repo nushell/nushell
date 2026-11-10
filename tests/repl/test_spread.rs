@@ -328,7 +328,14 @@ fn spread_null() -> Result {
 
 #[test]
 fn named_flag_null_is_omitted() -> Result {
-    // Null named value uses signature default
+    // A bare null named value uses the signature default
+    let code = "
+        def f [--x: int = 5] { $x }
+        f --x=null
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    // A parenthesized null named value also uses the signature default
     let code = "
         def f [--x: int = 5] { $x }
         f --x=(null)
@@ -378,13 +385,21 @@ fn named_flag_null_is_omitted() -> Result {
 
 #[test]
 fn named_flag_null_passed_when_type_allows_nothing() -> Result {
-    // oneof with nothing: explicit null is bound; omit still uses default
+    // oneof with nothing: a bare explicit null is bound
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=null
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // A parenthesized explicit null is also bound
     let code = "
         def f [--x: oneof<int, nothing> = 5] { $x }
         f --x=(null)
     ";
     test().run(code).expect_value_eq(())?;
 
+    // Omitting the flag still uses its default
     let code = "
         def f [--x: oneof<int, nothing> = 5] { $x }
         f
