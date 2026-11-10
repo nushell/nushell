@@ -152,6 +152,8 @@
                 openssl
                 pkg-config
                 zstd
+                libgit2
+                sqlite
               ]
               ++ (lib.optionals stdenv.hostPlatform.isLinux [
                 python3
@@ -160,7 +162,6 @@
               ++ (lib.optionals stdenv.hostPlatform.isDarwin [
                 zlib
                 nghttp2
-                libgit2
               ])
             );
         in
