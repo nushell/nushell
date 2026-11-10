@@ -122,15 +122,13 @@ fn insert_index(value: &mut Value, opts: &TableOpts<'_>) {
     let index_style = get_index_style(&opts.style_computer);
 
     for (row, item) in vals.to_mut().iter_mut().enumerate() {
-        let index_text =
-            get_table_row_index(item, opts.config, row, opts.index_offset);
-        let styled_index = colorize_text(&index_text, index_style.color_style)
-            .unwrap_or(index_text);
+        let index_text = get_table_row_index(item, opts.config, row, opts.index_offset);
+        let styled_index =
+            colorize_text(&index_text, index_style.color_style).unwrap_or(index_text);
 
         if let Value::Record { val, .. } = item {
             let old_record = std::mem::take(val);
-            let mut new_record =
-                nu_protocol::Record::with_capacity(old_record.len() + 1);
+            let mut new_record = nu_protocol::Record::with_capacity(old_record.len() + 1);
             new_record.push("#", Value::string(styled_index, span));
             for (col, cell) in old_record.into_owned().into_iter() {
                 if col != INDEX_COLUMN_NAME {

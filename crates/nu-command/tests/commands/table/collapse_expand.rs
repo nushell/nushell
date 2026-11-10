@@ -524,7 +524,6 @@ fn table_collapse_restructured() -> Result {
         "})
 }
 
-
 #[test]
 fn table_collapse_index_true() -> Result {
     test()
