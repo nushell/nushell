@@ -140,6 +140,13 @@ impl<'s> Lower<'_, '_, 's> {
             }
             _ => {}
         }
+        // An argument of a command whose arguments are an external's (`def --wrapped`): a plain
+        // word is a glob, as written.
+        if matches!(shape, SyntaxShape::ExternalArgument)
+            && let Some(word) = self.plain_external_word(e)
+        {
+            return Ok(word);
+        }
         // The values the winnow parser read as nu reads them with the shape, taken as they are:
         // the text readers give the same, but every leaf is a common item.
         let (expr, ty) = match (shape, &e.expr) {

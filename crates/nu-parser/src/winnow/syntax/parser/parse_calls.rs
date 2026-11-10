@@ -904,6 +904,16 @@ enum ExternalStringSegment {
     Paren { depth: usize },
 }
 
+/// Whether a word passed to an external command is plain: no raw string, and no quote, backtick
+/// or parenthesis, so nothing in it to split. nu passes such a word as written, as a glob
+/// (`parse_external_string`).
+pub(crate) fn is_plain_external_word(text: &str) -> bool {
+    !text.starts_with("r#")
+        && !text
+            .bytes()
+            .any(|byte| matches!(byte, b'"' | b'\'' | b'(' | b')' | b'`'))
+}
+
 /// A word passed to an external command (nu's `parse_external_string`).
 ///
 /// Following Nushell, the word is split into segments (bare text, quoted
@@ -921,10 +931,7 @@ pub fn parse_external_string<'a>(
     if text.starts_with("r#") {
         return parse_raw_string(working_set, span);
     }
-    if !bytes
-        .iter()
-        .any(|byte| matches!(byte, b'"' | b'\'' | b'(' | b')' | b'`'))
-    {
+    if is_plain_external_word(text) {
         return Ok(Expression::new(
             Expr::String(StringLiteral::bare(text)),
             span,

@@ -16,7 +16,8 @@ use super::{Lower, Lowered, Unlowered, trial::Trial};
 use crate::winnow::syntax::lex::{LexOptions, TokenContents};
 use crate::winnow::syntax::parse_helpers::is_variable;
 use crate::winnow::syntax::{
-    DeclKind, ItemsValue, Span as WSpan, ast as w, parse_headed_call, parse_items,
+    DeclKind, ItemsValue, Span as WSpan, ast as w, is_plain_external_word, parse_headed_call,
+    parse_items,
 };
 use crate::{
     parse_calls::{
@@ -1582,7 +1583,10 @@ impl<'s> Lower<'_, '_, 's> {
         // Any other head is a string or glob, even `[a b]` or `{a}` (`parse_external_string`).
         let head = match self.text(call.head.span).as_bytes().first() {
             Some(b'$' | b'(') => self.expression(&call.head, None)?,
-            _ => self.external_string_text(call.head.span)?,
+            _ => match self.plain_external_word(&call.head) {
+                Some(head) => head,
+                None => self.external_string_text(call.head.span)?,
+            },
         };
         let mut arguments = Vec::with_capacity(call.arguments.len());
         for argument in &call.arguments {
@@ -1624,7 +1628,25 @@ impl<'s> Lower<'_, '_, 's> {
                 // table (`[[a]; [1]]`): read as nu reads an external argument.
                 _ => self.regular_external_arg_text(value.span),
             },
-            _ => self.regular_external_arg_text(value.span),
+            _ => match self.plain_external_word(value) {
+                Some(word) => Ok(word),
+                None => self.regular_external_arg_text(value.span),
+            },
+        }
+    }
+
+    /// An external command's word the winnow parser read as plain ([`is_plain_external_word`]):
+    /// a glob, as written (`parse_external_string`). `None` for any other.
+    pub(super) fn plain_external_word(&mut self, e: &w::Expression<'s>) -> Option<Expression> {
+        match &e.expr {
+            w::Expr::String(string)
+                if string.quote == w::Quote::Bare && is_plain_external_word(self.text(e.span)) =>
+            {
+                let span = self.span(e.span);
+                let glob = Expr::GlobPattern(string.value.to_string(), false);
+                Some(self.node(glob, span, Type::Glob))
+            }
+            _ => None,
         }
     }
 

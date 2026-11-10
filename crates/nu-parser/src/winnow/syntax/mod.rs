@@ -36,7 +36,7 @@ pub use parser::{
     LiteRedirection, ParseConfig, PredeclaredDef,
 };
 // Only the front end (`crate::winnow`) uses these.
-pub(crate) use parser::parse_calls::item_argument;
+pub(crate) use parser::parse_calls::{is_plain_external_word, item_argument};
 pub(crate) use parser::parse_expressions::{is_env_variable_name, is_literal_like_but_range};
 pub(crate) use parser::{
     AliasedKeyword, BlockStatements, Definitions, ItemsValue, TypeAliasPredecl,
