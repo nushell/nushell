@@ -16,9 +16,9 @@ use nu_utils::NuCow;
 
 use super::{Lower, Lowered};
 use crate::parse_signatures::ensure_not_reserved_variable_name;
-use crate::winnow::syntax::Span as WSpan;
 use crate::winnow::syntax::lex::{GroupEnds, LexOptions, Token, TokenContents, lex_recovering};
 use crate::winnow::syntax::parse_helpers::is_variable;
+use crate::winnow::syntax::{Span as WSpan, ast as w};
 
 /// The part of a type before its type parameters: `list` for `list<int>` (nu's `type_name`).
 fn type_name(text: &str) -> &str {
@@ -238,6 +238,67 @@ impl Lower<'_, '_, '_> {
                 SyntaxShape::Any
             }
             _ => self.type_alias_shape(text, span),
+        })
+    }
+
+    /// The shape a type annotation the winnow parser read names, as `parse_shape_name` reads
+    /// its text: a built-in type, a generic one with its parameters, or a type alias looked up
+    /// ([`Self::type_alias_shape`]), which reports one it does not know. A `list` the winnow
+    /// parser read with more than one parameter, which it reads as `list`, is read from its
+    /// text, as that reports it. The annotations the winnow parser refuses (`block`, an unclosed
+    /// `<`, a field name that is no string) never reach the lowering.
+    pub(super) fn annotation_shape(
+        &mut self,
+        annotation: &w::TypeAnnotation<'_>,
+    ) -> Lowered<SyntaxShape> {
+        let span = self.span(annotation.span);
+        let columns = |this: &mut Self, fields: &[w::TypeField<'_>]| {
+            fields
+                .iter()
+                .map(|field| {
+                    Ok((
+                        field.name.item.to_string(),
+                        this.annotation_shape(&field.ty)?,
+                    ))
+                })
+                .collect::<Lowered<Vec<_>>>()
+        };
+        Ok(match &annotation.shape {
+            w::SyntaxShape::Any => SyntaxShape::Any,
+            w::SyntaxShape::Binary => SyntaxShape::Binary,
+            w::SyntaxShape::Boolean => SyntaxShape::Boolean,
+            w::SyntaxShape::CellPath => SyntaxShape::CellPath,
+            w::SyntaxShape::Closure => SyntaxShape::Closure(None),
+            w::SyntaxShape::DateTime => SyntaxShape::DateTime,
+            w::SyntaxShape::Directory => SyntaxShape::Directory,
+            w::SyntaxShape::Duration => SyntaxShape::Duration,
+            w::SyntaxShape::Error => SyntaxShape::Error,
+            w::SyntaxShape::ExternalArgument => SyntaxShape::ExternalArgument,
+            w::SyntaxShape::Float => SyntaxShape::Float,
+            w::SyntaxShape::Filesize => SyntaxShape::Filesize,
+            w::SyntaxShape::GlobPattern => SyntaxShape::GlobPattern,
+            w::SyntaxShape::Int => SyntaxShape::Int,
+            w::SyntaxShape::Nothing => SyntaxShape::Nothing,
+            w::SyntaxShape::Number => SyntaxShape::Number,
+            w::SyntaxShape::Filepath => SyntaxShape::Filepath,
+            w::SyntaxShape::Range => SyntaxShape::Range,
+            w::SyntaxShape::String => SyntaxShape::String,
+            w::SyntaxShape::List(None) if self.text(annotation.span) != "list" => {
+                self.shape_name(self.text(annotation.span), span)?
+            }
+            w::SyntaxShape::List(element) => SyntaxShape::List(Box::new(match element {
+                Some(element) => self.annotation_shape(element)?,
+                None => SyntaxShape::Any,
+            })),
+            w::SyntaxShape::Record(fields) => SyntaxShape::Record(columns(self, fields)?.into()),
+            w::SyntaxShape::Table(fields) => SyntaxShape::Table(columns(self, fields)?.into()),
+            w::SyntaxShape::OneOf(alternatives) => SyntaxShape::OneOf(
+                alternatives
+                    .iter()
+                    .map(|alternative| self.annotation_shape(alternative))
+                    .collect::<Lowered<Vec<_>>>()?,
+            ),
+            w::SyntaxShape::TypeAlias(name) => self.type_alias_shape(name, span),
         })
     }
 

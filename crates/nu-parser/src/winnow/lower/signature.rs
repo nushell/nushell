@@ -263,10 +263,8 @@ impl<'s> Lower<'_, '_, 's> {
 
             let (shape, completion) = match &param.ty {
                 Some(ty) => {
-                    let span = self.span(ty.span);
-                    let text = self.text(ty.span);
                     // An unknown type is `any`, an unknown completer none, each reported.
-                    let shape = self.shape_name(text, span)?;
+                    let shape = self.annotation_shape(ty)?;
                     let completion = match &param.completer {
                         Some(completer) => self.completer_text(completer.span)?,
                         None => None,
