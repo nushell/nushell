@@ -608,6 +608,22 @@ fn table_collapse_no_index_flag_no_index_column() -> Result {
             ╰───┴───╯
         "})
 }
+
+#[test]
+fn table_collapse_index_column_fills_hash() -> Result {
+    test()
+        .run("[[index a]; [x 1] [y 2]] | table --width=80 --collapse --index true")
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ # │ a │
+            ├───┼───┤
+            │ x │ 1 │
+            ├───┼───┤
+            │ y │ 2 │
+            ╰───┴───╯
+        "})
+}
+
 #[test]
 fn table_expand_0() -> Result {
     test()

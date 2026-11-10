@@ -6,6 +6,7 @@ use nu_utils::SharedCow;
 use crate::{
     StringResult, TableOpts, UnstructuredTable,
     common::{INDEX_COLUMN_NAME, get_index_style, load_theme, nu_value_to_string_clean},
+    unstructured_table::is_valid_record,
 };
 
 use super::{get_table_row_index, has_index};
@@ -19,8 +20,8 @@ impl CollapsedTable {
 }
 
 fn collapsed_table(mut value: Value, opts: TableOpts<'_>) -> StringResult {
-    colorize_value(&mut value, opts.config, &opts.style_computer);
     insert_index(&mut value, &opts);
+    colorize_value(&mut value, opts.config, &opts.style_computer);
 
     let mut table = UnstructuredTable::new(value, opts.config);
 
@@ -36,9 +37,13 @@ fn collapsed_table(mut value: Value, opts: TableOpts<'_>) -> StringResult {
 }
 
 fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
+    // todo: Remove recursion?
+
     match value {
         Value::Record { val, .. } => {
             let style = get_index_style(style_computer);
+            // Take ownership of the record and reassign to &mut
+            // We do this to have owned keys through `.into_iter`
             let record = std::mem::take(val);
             *val = SharedCow::new(
                 record
@@ -107,29 +112,17 @@ fn insert_index(value: &mut Value, opts: &TableOpts<'_>) {
         return;
     }
 
-    // Check that all records share the same columns (homogeneous).
-    let homogeneous = vals.iter().all(|v| match v {
-        Value::Record { val, .. } => {
-            val.columns().count() == first_columns.len()
-                && val.columns().zip(first_columns.iter()).all(|(a, b)| a == b)
-        }
-        _ => false,
-    });
-    if !homogeneous {
+    if !is_valid_record(vals) {
         return;
     }
 
-    let index_style = get_index_style(&opts.style_computer);
-
     for (row, item) in vals.to_mut().iter_mut().enumerate() {
         let index_text = get_table_row_index(item, opts.config, row, opts.index_offset);
-        let styled_index =
-            colorize_text(&index_text, index_style.color_style).unwrap_or(index_text);
 
         if let Value::Record { val, .. } = item {
             let old_record = std::mem::take(val);
             let mut new_record = nu_protocol::Record::with_capacity(old_record.len() + 1);
-            new_record.push("#", Value::string(styled_index, span));
+            new_record.push("#", Value::string(index_text, span));
             for (col, cell) in old_record.into_owned().into_iter() {
                 if col != INDEX_COLUMN_NAME {
                     new_record.push(col, cell);
