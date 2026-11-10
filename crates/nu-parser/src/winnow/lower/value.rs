@@ -181,6 +181,10 @@ impl<'s> Lower<'_, '_, 's> {
                 }),
                 Type::CellPath,
             ),
+            // A binary literal, its bytes decoded (`parse_binary`).
+            (SyntaxShape::Any | SyntaxShape::Binary, w::Expr::Binary(binary)) => {
+                (Expr::Binary(binary.bytes.clone()), Type::Binary)
+            }
             // A duration or a filesize, its value as nu stores it (`parse_unit_value`).
             (SyntaxShape::Any | SyntaxShape::Duration, w::Expr::Duration(duration)) => (
                 value_with_unit(
