@@ -970,9 +970,12 @@ pub fn parse_value<'a>(
             ExpectedShape::String => parse_string_value(working_set, span),
             ExpectedShape::MatchArmBody => Err(cut(Diagnostic::expected("block", span))),
             ExpectedShape::Closure => Err(cut(Diagnostic::expected("closure", span))),
-            ExpectedShape::Any => {
-                recover_literal(working_set, span, parse_any_value(working_set, span, text))
-            }
+            ExpectedShape::Any => recover_leaf(
+                working_set,
+                span,
+                &SyntaxShape::Any,
+                parse_any_value(working_set, span, text),
+            ),
             ExpectedShape::Declared(_) => parse_any_value(working_set, span, text),
         },
     }
@@ -1009,6 +1012,28 @@ pub(super) fn recover_literal<'a>(
     span: Span,
     result: ParseResult<Expression<'a>>,
 ) -> ParseResult<Expression<'a>> {
+    recover(working_set, span, None, result)
+}
+
+/// [`recover_literal`] for a value read with `shape`: the error recorded names the garbage leaf
+/// and the shape ([`Diagnostic::at_leaf`]), so a consumer reading the leaf with that shape takes
+/// the error from it, unless the word has a `..`, which nu reads as a range first.
+pub(super) fn recover_leaf<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    shape: &SyntaxShape,
+    result: ParseResult<Expression<'a>>,
+) -> ParseResult<Expression<'a>> {
+    recover(working_set, span, Some(shape), result)
+}
+
+/// [`recover_literal`], the leaf's shape recorded with the error when `shape` is given.
+fn recover<'a>(
+    working_set: &WorkingSet<'a>,
+    span: Span,
+    shape: Option<&SyntaxShape>,
+    result: ParseResult<Expression<'a>>,
+) -> ParseResult<Expression<'a>> {
     match result {
         Err(ErrMode::Cut(ParseFailure::Error(diagnostic)))
             if diagnostic.recovered
@@ -1017,7 +1042,14 @@ pub(super) fn recover_literal<'a>(
                 // where nu's lexer ends the item (`[r#a]` lexes as `[r#` and `a]`).
                 || (span.start <= diagnostic.span.start && diagnostic.span.start <= span.end) =>
         {
-            working_set.error(diagnostic.as_recovered());
+            let diagnostic = diagnostic.as_recovered();
+            // A word with a `..` nu reads as a range first, reporting each bound's error: one
+            // error is not all it reports there, so the leaf is not named.
+            let whole = !has_range_operator(working_set.get_span_contents(span));
+            working_set.error(match shape {
+                Some(shape) if whole => diagnostic.at_leaf(span, shape.clone()),
+                _ => diagnostic,
+            });
             Ok(Expression::new(Expr::Garbage, span))
         }
         other => other,

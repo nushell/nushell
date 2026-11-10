@@ -113,6 +113,10 @@ pub struct Diagnostic {
     /// node where the problem is, which a consumer reads again (a malformed literal, which
     /// nu's leaf parser reads again with nu's error). [`Diagnostic::as_recovered`].
     pub recovered: bool,
+    /// For a value the parser went on past this problem in, the span of the garbage leaf it
+    /// left and the shape it read the value with ([`Diagnostic::at_leaf`]): a consumer that
+    /// reads that leaf with that shape has this problem there, with no need to read it again.
+    pub leaf: Option<(Span, nu_protocol::SyntaxShape)>,
 }
 
 impl Diagnostic {
@@ -124,7 +128,15 @@ impl Diagnostic {
             context: Vec::new(),
             help: None,
             recovered: false,
+            leaf: None,
         }
+    }
+
+    /// The diagnostic of a value read with `shape` that the parser left as the garbage leaf at
+    /// `span` ([`Diagnostic::leaf`]).
+    pub fn at_leaf(mut self, span: Span, shape: nu_protocol::SyntaxShape) -> Self {
+        self.leaf = Some((span, shape));
+        self
     }
 
     /// The diagnostic of a problem the parser went on past ([`Diagnostic::recovered`]).

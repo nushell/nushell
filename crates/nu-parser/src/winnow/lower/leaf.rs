@@ -8,6 +8,8 @@ use std::cell::RefCell;
 
 use std::sync::Arc;
 
+use std::rc::Rc;
+
 use nu_protocol::{
     FilesizeUnit, ParseError, Span, Spanned, SyntaxShape, Type, Unit, VarId,
     ast::{
@@ -58,6 +60,11 @@ impl<'s> Lower<'_, '_, 's> {
         e: &w::Expression<'s>,
         shape: &SyntaxShape,
     ) -> Lowered<Expression> {
+        // An error the winnow parser recorded at this garbage leaf, reading it with this shape.
+        if let Some(error) = self.parser_leaf_error(e.span, shape) {
+            crate::winnow::stats::record_parser_leaf_error();
+            return Ok(self.leaf_error(error));
+        }
         let span = self.span(e.span);
         let text = self.text(e.span);
         Ok(match shape {
@@ -261,6 +268,9 @@ impl<'s> Lower<'_, '_, 's> {
             redirection_spans: Vec::new(),
             caller_lexed: false,
             wrapped_arguments: false,
+            // A tree read again from the text, whose errors were not recorded with the
+            // statement's.
+            leaf_errors: Rc::default(),
         };
         lower.value(&tree, &SyntaxShape::Number, None)
     }

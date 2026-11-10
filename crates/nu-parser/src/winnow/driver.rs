@@ -56,7 +56,7 @@ use nu_protocol::{
 
 use super::{
     lookup::{Asked, AskedLookup, EngineLookup, NamesSnapshot, changed_answer},
-    lower::{BlockErrors, BlockOf, Lower, Predecl, StatementTarget, garbage_pipeline},
+    lower::{BlockErrors, BlockOf, LeafErrors, Lower, Predecl, StatementTarget, garbage_pipeline},
     stats,
 };
 use crate::parse_pipelines::finish_block;
@@ -765,6 +765,9 @@ impl Driver<'_, '_, '_, '_> {
         let cell = self.working_set;
         let working_set = &mut **cell.borrow_mut();
         let mut lower = Lower::new(working_set, self.source, self.offset);
+        if !diagnostics.is_empty() {
+            lower.leaf_errors = Rc::new(LeafErrors::new(diagnostics));
+        }
         let span = lower.statement_span(pipeline);
         let mut target = statement_target(&mut self.target, &self.pipelines, self.span);
         let lite_error = pipeline.lite_error();

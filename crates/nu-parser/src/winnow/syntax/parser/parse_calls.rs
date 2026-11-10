@@ -23,7 +23,7 @@ use crate::winnow::syntax::span::{Span, Spanned};
 use super::WorkingSet;
 use super::call_shapes::CallShapes;
 use super::parse_control_flow::{parse_if, parse_match, parse_try};
-use super::parse_expressions::{ExpectedShape, parse_value, recover_literal};
+use super::parse_expressions::{ExpectedShape, parse_value, recover_leaf, recover_literal};
 use super::parse_helpers::is_spread;
 use super::parse_literals::{parse_raw_string, parse_string, unescape_string};
 use super::parse_module::parse_import_pattern_member;
@@ -500,10 +500,10 @@ impl<'a> ShapedArguments<'_, '_, 'a> {
     }
 
     /// The value at `span`, read with `shape`. A value nu reads past an error in is a garbage
-    /// leaf ([`recover_literal`]).
+    /// leaf, the error recorded with the shape ([`recover_leaf`]).
     fn value(&self, span: Span, shape: &SyntaxShape) -> ParseResult<Expression<'a>> {
         let read = parse_value(self.working_set, span, ExpectedShape::Declared(shape));
-        recover_literal(self.working_set, span, read)
+        recover_leaf(self.working_set, span, shape, read)
     }
 
     /// The value of a flag taking `shape` from the next item, if there is one.

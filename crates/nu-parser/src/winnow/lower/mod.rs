@@ -64,6 +64,7 @@ mod math_items;
 mod module;
 mod pattern_text;
 mod record_text;
+mod recovered;
 mod shape_text;
 mod signature;
 mod signature_text;
@@ -71,6 +72,8 @@ mod source;
 mod statement;
 mod trial;
 mod value;
+
+use std::rc::Rc;
 
 use nu_protocol::{
     DeclId, ParseError, Span, Type,
@@ -84,6 +87,7 @@ use crate::winnow::syntax::Span as WSpan;
 
 pub(super) use call::shorter_head_reading;
 use leaf::head_is_value;
+pub(super) use recovered::LeafErrors;
 pub(super) use signature::Predecl;
 pub(super) use statement::{BlockErrors, BlockOf, StatementTarget, garbage_pipeline};
 
@@ -312,6 +316,9 @@ pub(super) struct Lower<'w, 'e, 's> {
     /// parser read as external arguments (a bare word a string): the lowering reads a bare word
     /// with the parameter's shape from its text ([`Lower::leaf`]).
     pub(super) wrapped_arguments: bool,
+    /// The statement's errors the winnow parser recorded at garbage leaves, with the shape it
+    /// read each with ([`Lower::parser_leaf_error`]).
+    pub(super) leaf_errors: Rc<LeafErrors>,
 }
 
 impl<'w, 'e, 's> Lower<'w, 'e, 's> {
@@ -358,6 +365,7 @@ impl<'w, 'e, 's> Lower<'w, 'e, 's> {
             redirection_spans: Vec::new(),
             caller_lexed: false,
             wrapped_arguments: false,
+            leaf_errors: Rc::default(),
         }
     }
 

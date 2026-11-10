@@ -31,6 +31,7 @@ static AHEAD_RUNS: AtomicU64 = AtomicU64::new(0);
 static AHEAD_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 static RECOVERED_STATEMENTS: AtomicU64 = AtomicU64::new(0);
 static CLASSIC_PIPELINES: AtomicU64 = AtomicU64::new(0);
+static PARSER_LEAF_ERRORS: AtomicU64 = AtomicU64::new(0);
 
 /// What the winnow front end has done in this process so far.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -60,6 +61,9 @@ pub struct WinnowStats {
     /// was on. Its `parse_block` hands every block to the winnow front end, so there should be
     /// none: a tripwire for code that calls the statement parser some other way.
     pub classic_pipelines: u64,
+    /// Errors at garbage leaves the lowering reported from the winnow parser's record of them,
+    /// without reading the leaf's text again.
+    pub parser_leaf_errors: u64,
 }
 
 impl WinnowStats {
@@ -83,7 +87,13 @@ pub fn winnow_stats() -> WinnowStats {
         ahead_fallbacks: AHEAD_FALLBACKS.load(Relaxed),
         recovered_statements: RECOVERED_STATEMENTS.load(Relaxed),
         classic_pipelines: CLASSIC_PIPELINES.load(Relaxed),
+        parser_leaf_errors: PARSER_LEAF_ERRORS.load(Relaxed),
     }
+}
+
+/// Count an error at a garbage leaf the lowering reported from the winnow parser's record.
+pub(super) fn record_parser_leaf_error() {
+    PARSER_LEAF_ERRORS.fetch_add(1, Relaxed);
 }
 
 /// Count a block whose statements the winnow parser parsed.

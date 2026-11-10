@@ -5,6 +5,8 @@
 use std::cell::RefCell;
 
 use nu_engine::DIR_VAR_PARSER_INFO;
+use std::rc::Rc;
+
 use nu_protocol::{
     DeclId, Flag, ParseError, Signature, Span, Spanned, SyntaxShape, Type, TypeSet,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, Keyword},
@@ -1061,6 +1063,9 @@ impl<'s> Lower<'_, '_, 's> {
             redirection_spans: Vec::new(),
             caller_lexed: false,
             wrapped_arguments: false,
+            // A tree read again from the text, whose errors were not recorded with the
+            // statement's.
+            leaf_errors: Rc::default(),
         };
         match value {
             ItemsValue::Math => lower.math(&tree, input_type),

@@ -3,6 +3,8 @@
 
 use std::{cell::RefCell, sync::Arc};
 
+use std::rc::Rc;
+
 use nu_protocol::{
     DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME,
     LAST_VARIABLE_ID, NU_VARIABLE_ID, ParseError, PositionalArg, Signature, Span, SyntaxShape,
@@ -361,6 +363,7 @@ impl<'s> Lower<'_, '_, 's> {
                         let mut lower = Lower {
                             working_set: &mut working_set,
                             redirection_spans: Vec::new(),
+                            leaf_errors: Rc::clone(&self.leaf_errors),
                             ..*self
                         };
                         match shape {
@@ -420,6 +423,7 @@ impl<'s> Lower<'_, '_, 's> {
                         let mut lower = Lower {
                             working_set: &mut working_set,
                             redirection_spans: Vec::new(),
+                            leaf_errors: Rc::clone(&self.leaf_errors),
                             ..*self
                         };
                         lower.match_block(&arms, e.span, input_type)
