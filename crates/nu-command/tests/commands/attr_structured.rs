@@ -72,11 +72,64 @@ fn structured_extern_to_file_runs_as_written() -> Result {
     })
 }
 
+/// Runs `code` in a fresh `nu` and returns what it printed and its exit code.
+fn terminal_run(code: String) -> Result<CompleteResult> {
+    test().run_with_data("let code; nu -n -c $code | complete", code)
+}
+
 /// Runs `code` in a fresh `nu` and returns what it printed to the terminal.
 fn terminal_output(code: String) -> Result<String> {
-    let result: CompleteResult =
-        test().run_with_data("let code; nu -n -c $code | complete", code)?;
-    Ok(result.stdout)
+    Ok(terminal_run(code)?.stdout)
+}
+
+/// `fail` exits with the code it's given and prints nothing.
+const STRUCTURED_FAIL: &str = "
+    @structured [] { str trim }
+    extern fail [code?: int]
+";
+
+/// A failing call's exit-code error follows `display_errors.exit_code`, as for any external,
+/// instead of always showing because the decode wrapped it.
+#[rstest]
+#[case::hidden_by_default("", false)]
+#[case::shown_when_enabled("$env.config.display_errors.exit_code = true", true)]
+#[nu_test_support::test]
+#[deps(NU, TESTBIN_FAIL)]
+fn exit_code_error_follows_display_errors(#[case] config: &str, #[case] shown: bool) -> Result {
+    let result = terminal_run(format!("{config}\n{STRUCTURED_FAIL}\nfail 3"))?;
+    assert_eq!(result.exit_code, 3);
+    assert_eq!(
+        result.stderr.contains("non_zero_exit_code"),
+        shown,
+        "{}",
+        result.stderr
+    );
+    Ok(())
+}
+
+/// `nu` stands in for a command that prints to stdout and exits non-zero. The block recovers
+/// its output with `complete`.
+const RECOVERING_NU: &str = r#"
+    @structured [] { complete | if $in.exit_code == 0 { "ok" } else { $in.stdout | str trim } }
+    extern nu [...args]
+"#;
+
+#[test]
+#[deps(NU)]
+fn decode_recovers_failing_output_at_terminal() -> Result {
+    let stdout = terminal_output(format!("{RECOVERING_NU}\nnu -n -c 'print oops; exit 3'"))?;
+    assert_eq!(stdout.trim(), "oops");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn decode_recovers_failing_output_when_collected() -> Result {
+    test()
+        .run(format!(
+            "{RECOVERING_NU}\nlet x = (nu -n -c 'print oops; exit 3'); $x"
+        ))
+        .expect_value_eq("oops")
 }
 
 #[test]

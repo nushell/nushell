@@ -159,16 +159,20 @@ impl Command for KnownExternal {
         }?;
 
         match structured {
-            // Errors from the decode block also point at the call that ran it.
+            // Errors from the decode block also point at the call that ran it. Exit-status
+            // errors stay bare, so `display_errors` applies to them as to any external.
             Some(structured) => {
                 ClosureEvalOnce::try_new(engine_state, stack, structured.decode.clone(), head_span)?
                     .run_with_input(output)
-                    .map_err(|err| {
-                        EvalBlockWithInputError::wrap(
+                    .map_err(|err| match err {
+                        ShellError::NonZeroExitCode { .. } => err,
+                        #[cfg(unix)]
+                        ShellError::TerminatedBySignal { .. } => err,
+                        err => EvalBlockWithInputError::wrap(
                             err,
                             head_span,
                             EvalBlockWithInputError::CALLER,
-                        )
+                        ),
                     })
             }
             None => Ok(output),

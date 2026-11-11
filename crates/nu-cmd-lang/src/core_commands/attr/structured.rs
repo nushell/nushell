@@ -70,6 +70,12 @@ nothing until the command exits, which holds back watch modes such as `kubectl g
 For one call, use a caret call, like `^pip list --help`. For a command whose terminal output \
 should stay its own, define the extern with `--pipe-only`.
 
+When the command exits with a non-zero code, the error is reported as for any external \
+command, following `display_errors.exit_code`. The block's input fails before the block sees \
+the output, so a block that reads it as text shows nothing from a failing command. To \
+recover, start the block with `complete`, which gives the `stdout` and `exit_code` without \
+failing, and return `$in.stdout` when the exit code isn't 0.
+
 `tee` passes the command's own output on to the commands after it. When an extern has more \
 than one `@structured`, the last one is used.
 
@@ -135,6 +141,13 @@ declared before the extern, but not `mut` variables."
                 example: r#"@structured [-o json] { from json | get items }
     extern "kubectl get" [resource: string, --namespace(-n): string]: nothing -> table
     kubectl get pods | where status.phase != Running"#,
+                result: None,
+            },
+            Example {
+                description: "Show git's own text when `git status` fails, and the changed lines when it succeeds.",
+                example: r#"@structured [--porcelain] { complete | if $in.exit_code == 0 { $in.stdout | lines } else { $in.stdout } }
+    extern "git status" []
+    git status"#,
                 result: None,
             },
             Example {
