@@ -277,7 +277,7 @@ tokio = { version = "1.53.1" }
 toml = "1.1.4"
 toml_edit = "0.25.13"
 kdl = { version = "6.7.1", features = ["v1"] }
-trash = "=5.2.9"
+trash = "=5.3.0"
 typetag = "0.2.21"
 umask = "2.1"
 unicode-segmentation = "1.13"
