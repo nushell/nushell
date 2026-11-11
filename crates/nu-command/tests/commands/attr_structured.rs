@@ -127,6 +127,14 @@ fn structured_extern_decodes_through_custom_command_to_terminal() -> Result {
     Ok(())
 }
 
+#[test]
+#[deps(NU, TESTBIN_COCOCO)]
+fn caret_runs_as_written_to_terminal() -> Result {
+    let stdout = terminal_output(format!("{STRUCTURED_COCOCO}\n^cococo"))?;
+    assert_eq!(stdout.trim(), "cococo");
+    Ok(())
+}
+
 const PIPE_ONLY_COCOCO: &str = r#"
     @structured --pipe-only ["1,2,3"] { str trim | split row "," }
     extern cococo []

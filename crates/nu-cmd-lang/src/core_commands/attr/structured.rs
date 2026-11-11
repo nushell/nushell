@@ -38,7 +38,7 @@ impl Command for AttrStructured {
             )
             .switch(
                 "pipe-only",
-                "Only decode when nushell uses the output; run as written when it goes to the terminal.",
+                "Only decode when nushell uses the output; at the terminal run as written, keeping the command's terminal, help and watch modes.",
                 None,
             )
             .category(Category::Core)
@@ -57,13 +57,21 @@ is decoded with the block. When the output goes to `print`, a file, `ignore`, `s
 written. The same holds when the extern is the last command of a `do` block or a custom \
 command. A statement whose result is discarded, one followed by `;` or a newline, a loop body \
 or a hook, also runs as written, so the command prints its own text. With `--pipe-only`, \
-output shown in the terminal is not decoded either, so only output nushell uses is. Calling the command with a caret, like \
-`^git status`, always runs it as written.
+output shown in the terminal is not decoded either, so only output nushell uses is. Calling \
+the command with a caret, like `^git status`, always runs it as written.
 
-The arguments come before the user's own, so a format flag the user passes can override them \
-and break the decode, as in `kubectl get pods -o wide`. Use a caret call for that. `tee` \
-passes the command's own output on to the commands after it. When an extern has more than \
-one `@structured`, the last one is used.
+Decoding at the terminal has costs. The arguments come before the user's own at the terminal \
+too, so a call they don't fit is decoded as well and comes out mangled: `pip list --help` \
+shows its usage text as a record, and a format flag the user passes, as in \
+`kubectl get pods -o wide`, can override them and break the decode. The command's output is \
+captured instead of going to the terminal, so a command that checks for one leaves out its \
+colors, pager and progress output. A block that collects its input, like `from json`, shows \
+nothing until the command exits, which holds back watch modes such as `kubectl get pods -w`. \
+For one call, use a caret call, like `^pip list --help`. For a command whose terminal output \
+should stay its own, define the extern with `--pipe-only`.
+
+`tee` passes the command's own output on to the commands after it. When an extern has more \
+than one `@structured`, the last one is used.
 
 Like a `def` body, the block can read `$in`, `$env`, constants and the `let` variables \
 declared before the extern, but not `mut` variables."
@@ -130,7 +138,7 @@ declared before the extern, but not `mut` variables."
                 result: None,
             },
             Example {
-                description: "Show `pip list` as a table only when piped, and as pip's own text in the terminal.",
+                description: "Show `pip list` as a table only when piped, keeping pip's own text, `--help` and colors in the terminal.",
                 example: r#"@structured --pipe-only [--format=json] { from json }
     extern "pip list" []
     pip list"#,
