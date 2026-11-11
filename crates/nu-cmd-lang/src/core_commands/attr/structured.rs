@@ -72,9 +72,11 @@ should stay its own, define the extern with `--pipe-only`.
 
 When the command exits with a non-zero code, the error is reported as for any external \
 command, following `display_errors.exit_code`. The block's input fails before the block sees \
-the output, so a block that reads it as text shows nothing from a failing command. To \
-recover, start the block with `complete`, which gives the `stdout` and `exit_code` without \
-failing, and return `$in.stdout` when the exit code isn't 0.
+the output, so a block that reads it as text shows nothing from a failing command. For a \
+command whose output is still useful when it exits non-zero, start the block with `complete`, \
+which gives the `stdout` and `exit_code` without failing. The exit code is then up to the \
+block, and isn't reported. Only stdout reaches the block: a command's stderr goes to the \
+terminal.
 
 `tee` passes the command's own output on to the commands after it. When an extern has more \
 than one `@structured`, the last one is used.
@@ -144,10 +146,10 @@ declared before the extern, but not `mut` variables."
                 result: None,
             },
             Example {
-                description: "Show git's own text when `git status` fails, and the changed lines when it succeeds.",
-                example: r#"@structured [--porcelain] { complete | if $in.exit_code == 0 { $in.stdout | lines } else { $in.stdout } }
-    extern "git status" []
-    git status"#,
+                description: "Get the outdated npm packages, although `npm outdated` exits with 1 when there are any.",
+                example: r#"@structured [--json] { complete | get stdout | from json }
+    extern "npm outdated" []
+    npm outdated | columns"#,
                 result: None,
             },
             Example {

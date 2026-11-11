@@ -72,6 +72,31 @@ fn structured_extern_to_file_runs_as_written() -> Result {
     })
 }
 
+/// A string hook runs a structured extern as written, like a closure hook. The decode block
+/// writes a file, so the test can tell whether it ran.
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn string_hook_runs_as_written() -> Result {
+    Playground::setup("structured_string_hook", |dirs, _sandbox| {
+        let decoded = dirs.test().join("decoded.txt");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run_with_hooks(
+            "
+                @structured [] { save -f decoded.txt }
+                extern cococo []
+                $env.config.hooks.pre_execution = ['cococo']
+            ",
+        )?;
+        let () = tester.run_with_hooks("null")?;
+        assert!(!decoded.exists(), "the hook decoded the output");
+
+        // The same extern does decode when its output is used.
+        let () = tester.run("let x = cococo")?;
+        assert!(decoded.exists());
+        Ok(())
+    })
+}
+
 /// Runs `code` in a fresh `nu` and returns what it printed and its exit code.
 fn terminal_run(code: String) -> Result<CompleteResult> {
     test().run_with_data("let code; nu -n -c $code | complete", code)

@@ -166,8 +166,6 @@ impl Command for KnownExternal {
                     .run_with_input(output)
                     .map_err(|err| match err {
                         ShellError::NonZeroExitCode { .. } => err,
-                        #[cfg(unix)]
-                        ShellError::TerminatedBySignal { .. } => err,
                         err => EvalBlockWithInputError::wrap(
                             err,
                             head_span,
