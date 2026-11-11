@@ -580,12 +580,44 @@ fn commands_from_crlf_source_have_extra_description() -> Result {
         scope commands | where name == foo | get extra_description.0
     ";
 
-    let actual: String = test().run(code.replace('\n', "\r\n"))?;
-    assert_eq!(
-        actual.trim_end_matches('\r'),
-        "To see if I have cool description"
-    );
-    Ok(())
+    test()
+        .run(code.replace('\n', "\r\n"))
+        .expect_value_eq("To see if I have cool description")
+}
+
+#[rstest]
+#[case::alias(
+    "
+        # An alias for ls
+        alias foo = ls
+        scope aliases | where name == foo | get description.0
+    ",
+    "An alias for ls"
+)]
+#[case::module(
+    "
+        # A test module
+        #
+        # With an extra description
+        module spam {}
+        scope modules | where name == spam | get description.0
+    ",
+    "A test module"
+)]
+#[case::module_extra(
+    "
+        # A test module
+        #
+        # With an extra description
+        module spam {}
+        scope modules | where name == spam | get extra_description.0
+    ",
+    "With an extra description"
+)]
+fn doc_comments_from_crlf_source(#[case] code: &str, #[case] expected: &str) -> Result {
+    test()
+        .run(code.replace('\n', "\r\n"))
+        .expect_value_eq(expected)
 }
 
 #[test]
