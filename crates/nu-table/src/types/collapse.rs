@@ -151,6 +151,8 @@ fn prepend_index_column(value: &mut Value, opts: &TableOpts<'_>, indexes: Vec<St
         return;
     };
 
+    let styled_header = colorize_text("#", index_style.color_style).unwrap_or("#".to_string());
+
     for (item, index_text) in vals.to_mut().iter_mut().zip(indexes) {
         let styled_index =
             colorize_text(&index_text, index_style.color_style).unwrap_or(index_text);
@@ -158,7 +160,7 @@ fn prepend_index_column(value: &mut Value, opts: &TableOpts<'_>, indexes: Vec<St
         if let Value::Record { val, .. } = item {
             let old_record = std::mem::take(val);
             let mut new_record = Record::with_capacity(old_record.len() + 1);
-            new_record.push("#", Value::string(styled_index, span));
+            new_record.push(&styled_header, Value::string(styled_index, span));
             for (col, cell) in old_record.into_owned().into_iter() {
                 new_record.push(col, cell);
             }
