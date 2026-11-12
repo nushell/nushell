@@ -56,6 +56,20 @@ pub enum ShellWarning {
         help: Option<String>,
         report_mode: ReportMode,
     },
+    /// The interactive last-result value stopped short because its stream wasn't read to the end,
+    /// which raising `max_last_result_size` wouldn't change.
+    ///
+    /// "May be" because a reader that stops right after the last item can't tell it was the last.
+    /// Reported like [`Self::LastResultTruncated`].
+    #[error("Last result may be incomplete because its stream was not read to the end.")]
+    #[diagnostic(
+        code(nu::shell::last_result_incomplete),
+        help(
+            "`${}.last` holds what was read before the stream stopped. Ctrl-C, an error, or a `display_output` hook that stops reading can end it early.",
+            crate::LAST_RESULT_VAR_NAME
+        )
+    )]
+    LastResultIncomplete,
 }
 
 impl Reportable for ShellWarning {
@@ -65,6 +79,8 @@ impl Reportable for ShellWarning {
             | ShellWarning::LastResultTruncated { report_mode, .. } => *report_mode,
             ShellWarning::InvalidConfig { .. } => ReportMode::FirstUse,
             ShellWarning::BackgroundJobsRunning { .. } => ReportMode::EveryUse,
+            // Once-per-access is handled by a stack flag.
+            ShellWarning::LastResultIncomplete => ReportMode::EveryUse,
         }
     }
 }
@@ -87,6 +103,7 @@ impl Hash for ShellWarning {
             ShellWarning::LastResultTruncated { limit_bytes, .. } => {
                 limit_bytes.hash(state);
             }
+            ShellWarning::LastResultIncomplete => {}
         }
     }
 }
