@@ -225,15 +225,35 @@ fn mkdir_verbose_reports_errors_without_failing() -> Result {
 }
 
 #[test]
-fn verbose_does_not_report_existing_directory_as_created() -> Result {
+fn errors_on_existing_directory() -> Result {
+    Playground::setup("mkdir_errors_on_existing", |dirs, _| {
+        let () = test().cwd(dirs.test()).run("mkdir already_there")?;
+
+        let _ = test()
+            .cwd(dirs.test())
+            .run("mkdir already_there")
+            .expect_error()?;
+        Ok(())
+    })
+}
+
+#[test]
+fn verbose_reports_existing_directory_as_error() -> Result {
     Playground::setup("mkdir_verbose_existing", |dirs, _| {
         let () = test().cwd(dirs.test()).run("mkdir already_there")?;
 
-        let actual: String = test()
+        let created: String = test()
             .cwd(dirs.test())
             .run("mkdir -v already_there | get 0.created | to text")?;
+        assert_eq!("false", created.trim());
 
-        assert_eq!("false", actual.trim());
+        let error: String = test()
+            .cwd(dirs.test())
+            .run("mkdir -v already_there | get 0.error | to text")?;
+        assert!(
+            error.contains("File exists"),
+            "expected `File exists` error, got: {error:?}"
+        );
         Ok(())
     })
 }
@@ -262,6 +282,25 @@ fn verbose_reports_the_expanded_path() -> Result {
         // reported, so it is the absolute path and not the argument as typed.
         let expected = dirs.test().join("foo").join("bar");
         assert_eq!(expected.display().to_string(), actual.trim());
+        Ok(())
+    })
+}
+
+#[test]
+fn errors_on_existing_but_creates_others() -> Result {
+    Playground::setup("mkdir_errors_existing_creates_others", |dirs, _| {
+        // Pre-create one directory
+        let () = test().cwd(dirs.test()).run("mkdir existing_one")?;
+
+        // mkdir with a mix of existing and new dirs should error but still
+        // create the new ones (matching coreutils behavior).
+        let _ = test()
+            .cwd(dirs.test())
+            .run("mkdir new_one existing_one new_two")
+            .expect_error()?;
+
+        assert!(dirs.test().join("new_one").is_dir());
+        assert!(dirs.test().join("new_two").is_dir());
         Ok(())
     })
 }

@@ -70,7 +70,7 @@ impl Command for UMkdir {
             )
             .switch(
                 "fail-if-exists",
-                "Error if a target path already exists instead of treating it as success.",
+                "(deprecated, now the default) Error if a target path already exists.",
                 None,
             )
             .category(Category::FileSystem)
@@ -179,6 +179,29 @@ impl Command for UMkdir {
                 continue;
             }
 
+            // Error when the target directory already exists, matching the
+            // behavior of coreutils `mkdir` (without `-p`).
+            if already_existed {
+                let message = format!("{}: File exists", dir.display());
+                if is_verbose {
+                    verbose_out.push(
+                        record! {
+                            "path" => Value::string(dir.display().to_string(), call.head),
+                            "created" => Value::bool(false, call.head),
+                            "error" => Value::string(message, call.head),
+                        }
+                        .into_value(call.head),
+                    );
+                } else {
+                    err = Some(ShellError::Generic(GenericError::new(
+                        message.clone(),
+                        message,
+                        dir_span,
+                    )));
+                }
+                continue;
+            }
+
             if let Err(error) = mkdir(&dir, &config) {
                 let shell_error = ShellError::Generic(GenericError::new(
                     format!("{error}"),
@@ -202,7 +225,7 @@ impl Command for UMkdir {
                 verbose_out.push(
                     record! {
                         "path" => Value::string(dir.display().to_string(), call.head),
-                        "created" => Value::bool(!already_existed, call.head),
+                        "created" => Value::bool(true, call.head),
                         "error" => Value::nothing(call.head),
                     }
                     .into_value(call.head),
@@ -230,8 +253,8 @@ impl Command for UMkdir {
                 result: None,
             },
             Example {
-                description: "Make a directory, erroring if it already exists.",
-                example: "mkdir --fail-if-exists foo",
+                description: "Make nested directories, creating intermediates as needed.",
+                example: "mkdir foo/bar/baz",
                 result: None,
             },
             Example {
