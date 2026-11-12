@@ -103,7 +103,11 @@ impl SymbolCache {
         match id {
             Id::Declaration(decl_id) => {
                 let decl = working_set.get_decl(decl_id);
-                let span = working_set.get_block(decl.block_id()?).span?;
+                // Known externs have no block, so use their declaration span instead.
+                let span = decl
+                    .block_id()
+                    .and_then(|block_id| working_set.get_block(block_id).span)
+                    .or_else(|| decl.decl_span().filter(|_| decl.is_known_external()))?;
                 // multi-doc working_set, returns None if the Id is in other files
                 if !doc_span.contains(span.start) {
                     return None;
@@ -411,6 +415,14 @@ mod tests {
         serde_json::json!([
             create_symbol("def_foo", 12, 5, 15, 5, 20),
             create_symbol("var_foo", 13, 2, 4, 2, 11)
+        ])
+    )]
+    #[case::externs(
+        "extern.nu",
+        None,
+        serde_json::json!([
+            create_symbol("extern_foo", 12, 0, 0, 0, 26),
+            create_symbol("extern_bar", 12, 2, 0, 2, 34)
         ])
     )]
     #[case::after_update(

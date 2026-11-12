@@ -37,7 +37,7 @@ pub fn empty(
                             .bytes()
                             .next()
                             .transpose()
-                            .map_err(|err| ShellErrorBridge::read_error(err, span))?
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?
                             .is_none();
                         if negate {
                             Ok(Value::bool(!is_empty, head).into_pipeline_data())

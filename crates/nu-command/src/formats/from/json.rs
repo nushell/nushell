@@ -154,7 +154,7 @@ fn read_json_lines(
             }) || line.is_err()
         })
         .map(move |line| {
-            let line = line.map_err(|err| ShellErrorBridge::read_error(err, span))?;
+            let line = line.map_err(|err| ShellErrorBridge::unpack(err, span))?;
             try_str_to_value(&line, span, strict, &iter_signals)
         })
         .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));

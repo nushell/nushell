@@ -118,7 +118,7 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
                     Some(r) => r
                         .bytes()
                         .try_fold(0, |count, byte| byte.map(|_| count + 1))
-                        .map_err(|err| ShellErrorBridge::read_error(err, span))?,
+                        .map_err(|err| ShellErrorBridge::unpack(err, span))?,
                     None => 0,
                 },
                 call.head,

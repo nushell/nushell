@@ -348,7 +348,7 @@ fn first_helper(
                         let mut byte = [0u8];
                         if reader
                             .read(&mut byte)
-                            .map_err(|err| ShellErrorBridge::read_error(err, span))?
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?
                             > 0
                         {
                             Ok(Value::int(byte[0] as i64, head)

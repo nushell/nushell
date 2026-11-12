@@ -356,7 +356,7 @@ fn last_helper(
                     let mut buf = VecDeque::new();
                     loop {
                         let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
-                            .map_err(|err| ShellErrorBridge::read_error(err, span))?;
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?;
                         if buf.len() > rows {
                             buf.drain(..(buf.len() - rows));
                         }

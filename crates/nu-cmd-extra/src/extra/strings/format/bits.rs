@@ -156,7 +156,7 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
                 let mut byte = [0];
                 if reader
                     .read(&mut byte[..])
-                    .map_err(|err| ShellErrorBridge::read_error(err, head))?
+                    .map_err(|err| ShellErrorBridge::unpack(err, head))?
                     > 0
                 {
                     // Format the byte as bits

@@ -138,10 +138,14 @@ impl Command for Do {
                                     .spawn(move || {
                                         let mut buf = Vec::new();
                                         stdout.read_to_end(&mut buf).map_err(|err| {
-                                            IoError::new_internal(
-                                                err,
-                                                "Could not read stdout to end",
-                                            )
+                                            match ShellErrorBridge::try_from(err) {
+                                                Ok(ShellErrorBridge(err)) => err,
+                                                Err(err) => IoError::new_internal(
+                                                    err,
+                                                    "Could not read stdout to end",
+                                                )
+                                                .into(),
+                                            }
                                         })?;
                                         Ok::<_, ShellError>(buf)
                                     })

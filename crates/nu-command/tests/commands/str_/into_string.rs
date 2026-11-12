@@ -22,6 +22,7 @@ fn from_number() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn from_float() -> Result {
     let code = "
         echo 1.5 | into string
@@ -131,6 +132,7 @@ fn from_filesize() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn from_float_correct_trailing_zeros() -> Result {
     let code = "
         1.23000 | into string -d 3
@@ -142,6 +144,7 @@ fn from_float_correct_trailing_zeros() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn from_int_float_correct_trailing_zeros() -> Result {
     let code = "
         1.00000 | into string -d 3
@@ -164,6 +167,7 @@ fn from_int_float_trim_trailing_zeros() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn from_float_rounding() -> Result {
     let code = "
         1.23450 | into string -d 3
@@ -173,6 +177,7 @@ fn from_float_rounding() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn from_float_int_rounding() -> Result {
     let code = "
         1.995 | into string -d 2
@@ -182,6 +187,7 @@ fn from_float_int_rounding() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn from_float_neg_rounding() -> Result {
     let code = "
         -1.23450 | into string -d 3
@@ -191,6 +197,7 @@ fn from_float_neg_rounding() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn from_table() -> Result {
     let code = r#"
         echo '[{"name": "foo", "weight": 32.377}, {"name": "bar", "weight": 15.2}]'
@@ -491,6 +498,7 @@ fn filesize_into_string_group_digits_decimals_above_u16_range_errors() -> Result
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn float_into_string_large_decimals() -> Result {
     let code = "
     1.5 | into string -d 400
@@ -501,6 +509,7 @@ fn float_into_string_large_decimals() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn float_into_string_large_negative_decimals() -> Result {
     let code = "
     -1.5 | into string -d 400
@@ -511,6 +520,7 @@ fn float_into_string_large_negative_decimals() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn float_into_string_precision_overflow() -> Result {
     let code = "
     1e300 | into string -d 10

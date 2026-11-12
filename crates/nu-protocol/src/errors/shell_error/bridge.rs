@@ -17,12 +17,12 @@ use thiserror::Error;
 pub struct ShellErrorBridge(pub ShellError);
 
 impl ShellErrorBridge {
-    /// The [`ShellError`] for `err`, from reading a stream: the one `err` carries in a bridge if it
-    /// does, or else `err` itself as an I/O error at `span`.
+    /// Converts an I/O error from reading a stream into a [`ShellError`]. A [`ShellError`] packed
+    /// in a bridge comes back out as is; anything else becomes an [`IoError`] at `span`.
     ///
     /// Anything that reads a stream should use this instead of [`IoError::new`], which would lose
     /// the error in the bridge, even if that's an `exit`.
-    pub fn read_error(err: std::io::Error, span: Span) -> ShellError {
+    pub fn unpack(err: std::io::Error, span: Span) -> ShellError {
         match Self::try_from(err) {
             Ok(Self(err)) => err,
             Err(err) => IoError::new(err, span, None).into(),

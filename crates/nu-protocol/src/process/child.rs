@@ -471,7 +471,7 @@ impl ChildProcess {
         let bytes = (self.stdout.take())
             .map(collect_bytes)
             .transpose()
-            .map_err(|err| IoError::new(err, self.span, None))?
+            .map_err(|err| ShellErrorBridge::unpack(err, self.span))?
             .unwrap_or_default();
 
         self.check_exit()?;
@@ -480,7 +480,8 @@ impl ChildProcess {
     }
 
     pub fn wait(mut self) -> Result<(), ShellError> {
-        let from_io_error = IoError::factory(self.span, None);
+        let span = self.span;
+        let from_io_error = |err| ShellErrorBridge::unpack(err, span);
         if let Some(stdout) = self.stdout.take() {
             let stderr = self
                 .stderr
@@ -499,7 +500,7 @@ impl ChildProcess {
                 handle
                     .join()
                     .map_err(|e| match e.downcast::<io::Error>() {
-                        Ok(io) => from_io_error(*io).into(),
+                        Ok(io) => from_io_error(*io),
                         Err(err) => ShellError::Generic(GenericError::new(
                             "Unknown error",
                             format!("{err:?}"),
@@ -625,7 +626,7 @@ fn collect_pipes(
     stderr: Option<ChildPipe>,
     span: Span,
 ) -> Result<PipeOutput, ShellError> {
-    let from_io_error = IoError::factory(span, None);
+    let from_io_error = |err| ShellErrorBridge::unpack(err, span);
 
     Ok(match (stdout, stderr) {
         (None, None) => (None, None),
@@ -641,7 +642,7 @@ fn collect_pipes(
             let stderr = stderr
                 .join()
                 .map_err(|e| match e.downcast::<io::Error>() {
-                    Ok(io) => from_io_error(*io).into(),
+                    Ok(io) => from_io_error(*io),
                     Err(err) => ShellError::Generic(GenericError::new(
                         "Unknown error",
                         format!("{err:?}"),

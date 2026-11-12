@@ -153,9 +153,44 @@ pub fn main() -> ExitCode {
 
     match (args.format, args.list) {
         (Format::Pretty, true) => harness.with_formatter(pretty_formatter).list().exit_code(),
-        (Format::Pretty, false) => harness.with_formatter(pretty_formatter).run().exit_code(),
+        (Format::Pretty, false) => {
+            let report = harness.with_formatter(pretty_formatter).run();
+            if args.report_time {
+                print_report_times(&report.outcomes);
+            }
+            report.exit_code()
+        }
         (Format::Terse, true) => harness.with_formatter(terse_formatter).list().exit_code(),
-        (Format::Terse, false) => harness.with_formatter(terse_formatter).run().exit_code(),
+        (Format::Terse, false) => {
+            let report = harness.with_formatter(terse_formatter).run();
+            if args.report_time {
+                print_report_times(&report.outcomes);
+            }
+            report.exit_code()
+        }
+    }
+}
+
+/// Print per-test durations, slowest first, for CI profiling with `--report-time`.
+fn print_report_times<GroupKey, GroupCtx>(
+    outcomes: &kitest::GroupedTestOutcomes<'_, GroupKey, GroupCtx>,
+) {
+    let mut timed: Vec<(&str, std::time::Duration)> = outcomes
+        .iter()
+        .flat_map(|(_, tests, _)| {
+            tests
+                .iter()
+                .map(|(name, outcome)| (*name, outcome.duration))
+        })
+        .collect();
+    timed.sort_by_key(|(_, duration)| std::cmp::Reverse(*duration));
+    eprintln!();
+    eprintln!("slowest tests (--report-time):");
+    for (name, duration) in timed.iter().take(50) {
+        eprintln!("  {:>8.3}s  {name}", duration.as_secs_f64());
+    }
+    if timed.len() > 50 {
+        eprintln!("  ... and {} more", timed.len() - 50);
     }
 }
 
