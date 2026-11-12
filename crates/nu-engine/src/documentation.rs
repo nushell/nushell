@@ -1,8 +1,8 @@
 use crate::eval_ir_call;
 use fancy_regex::{Captures, Regex};
 use nu_protocol::{
-    Alias, Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
-    SyntaxShape, Value,
+    Alias, Category, Config, IntoPipelineData, PipelineData, PositionalArg, Record, Signature,
+    Span, SyntaxShape, Value,
     ast::Expr,
     engine::CommandType,
     engine::{Command, EngineState, Stack},
@@ -20,10 +20,33 @@ use std::{
 const RESET: &str = "\x1b[0m";
 /// ANSI set default color (as set in the terminal)
 const DEFAULT_COLOR: &str = "\x1b[39m";
-/// ANSI set default dimmed
-const DEFAULT_DIMMED: &str = "\x1b[2;39m";
 /// ANSI set default italic
 const DEFAULT_ITALIC: &str = "\x1b[3;39m";
+/// ANSI for snippets with invalid syntax when the `ansi` command isn't available: italic,
+/// underlined and cyan, the default `shape_external` color
+const DEFAULT_CODE_FALLBACK: &str = "\x1b[3;4;36m";
+
+/// The style for code in backticks that isn't highlighted as Nushell: snippets with invalid
+/// syntax, and words that parse as external commands or their arguments. It replaces faint
+/// (SGR 2), which some terminals render nearly invisible.
+///
+/// The style is `attr` in the color of the theme's `shape_external`, which `help` also uses for
+/// flag names. Only the color is taken: a color string, or a style record's `fg`. A record
+/// without `fg` gives no color, so the code keeps the terminal's default color as flag names
+/// do. Cyan, the default `shape_external` color, is used when `shape_external` isn't set.
+fn code_fallback_style(config: &Config, attr: &str, head: Span) -> Value {
+    let fg = match config.color_config.get("shape_external") {
+        Some(Value::Record { val, .. }) => val.get("fg").cloned(),
+        Some(color @ Value::String { .. }) => Some(color.clone()),
+        _ => Some(Value::string("cyan", head)),
+    };
+    let mut style = Record::new();
+    if let Some(fg) = fg {
+        style.push("fg", fg);
+    }
+    style.push("attr", Value::string(attr, head));
+    Value::record(style, head)
+}
 
 pub fn get_full_help(
     command: &dyn Command,
@@ -153,16 +176,14 @@ fn highlight_inline_code(
     // Style externals and external arguments with fallback style,
     // so nu-highlight styles code which is technically valid syntax,
     // but not an internal command is highlighted with the fallback style
-    let code_style = Value::record(
-        record! {
-            "attr" => Value::string("di", head),
-        },
-        head,
-    );
+    let code_style = code_fallback_style(&config, "u", head);
     let color_config = &mut config.color_config;
     color_config.insert("shape_external".into(), code_style.clone());
     color_config.insert("shape_external_resolved".into(), code_style.clone());
     color_config.insert("shape_externalarg".into(), code_style);
+    // nu-highlight treats the end of the snippet as the cursor, so a snippet ending in a bracket
+    // would get the matching-bracket underline, which reads as the fallback style here
+    color_config.remove("shape_matching_brackets");
 
     // Apply config with external argument style
     stack.config = Some(Arc::new(config));
@@ -183,20 +204,21 @@ fn highlight_inline_code(
         });
 
     // Restore original config
-    stack.config = Some(config_old);
+    stack.config = Some(Arc::clone(&config_old));
 
     // Use fallback style if highlight failed/syntax was invalid
-    highlighted.unwrap_or_else(|| highlight_fallback(content))
-}
-
-/// Apply fallback code style
-fn highlight_fallback(text: &str) -> String {
-    format!("{DEFAULT_DIMMED}{DEFAULT_ITALIC}{text}{RESET}")
+    highlighted.unwrap_or_else(|| {
+        let style = code_fallback_style(&config_old, "iu", head);
+        let ansi = ansi_for_color(engine_state, &config_old, &style, head)
+            .unwrap_or_else(|| DEFAULT_CODE_FALLBACK.to_string());
+        format!("{ansi}{content}{RESET}")
+    })
 }
 
 /// Highlight code within backticks
 ///
-/// Will attempt to use nu-highlight, falling back to dimmed and italic on invalid syntax
+/// Will attempt to use nu-highlight, falling back to the italic underlined
+/// [`code_fallback_style`] on invalid syntax
 fn highlight_code<'a>(
     text: &'a str,
     engine_state: &EngineState,
@@ -608,30 +630,38 @@ fn update_ansi_from_config(
     theme_component: &str,
     head: Span,
 ) {
-    let Some(color) = nu_config
+    if let Some(ansi) = nu_config
         .color_config
         .get(theme_component)
-        .and_then(|color| color_value_for_ansi(nu_config, color, head))
-    else {
-        return;
-    };
-    let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) else {
-        return;
-    };
+        .and_then(|color| ansi_for_color(engine_state, nu_config, color, head))
+    {
+        *ansi_code = ansi;
+    }
+}
+
+/// The ANSI escape for a configured color or style record, made by the `ansi` command
+fn ansi_for_color(
+    engine_state: &EngineState,
+    nu_config: &Config,
+    color: &Value,
+    head: Span,
+) -> Option<String> {
+    let color = color_value_for_ansi(nu_config, color, head)?;
+    let decl_id = engine_state.find_decl(b"ansi", &[])?;
 
     // Call ansi command using the color
     let caller_stack = &mut Stack::new().collect_value();
     let mut ansi_call = ir::Call::build(decl_id, head);
     ansi_call.add_positional(caller_stack, head, color);
-    if let Ok(result) = eval_ir_call(
+    let result = eval_ir_call(
         engine_state,
         caller_stack,
         &ansi_call.finish(),
         PipelineData::empty(),
-    ) && let Ok((str, ..)) = result.collect_string_strict(head)
-    {
-        *ansi_code = str;
-    }
+    )
+    .ok()?;
+    let (ansi, ..) = result.collect_string_strict(head).ok()?;
+    Some(ansi)
 }
 
 /// The `ansi` argument for a configured color: a color name, or a style record with its values

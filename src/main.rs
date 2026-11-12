@@ -616,6 +616,8 @@ fn main() -> Result<()> {
                     &mut stack,
                     parsed_nu_cli_args.login_shell.is_some(),
                 );
+                // The server discards this stack and evaluates on new ones.
+                engine_state.clear_runtime_overlays();
             }
             let transport = match mcp_transport_kind {
                 Some("http") => nu_mcp::McpTransport::http(
@@ -679,6 +681,8 @@ fn main() -> Result<()> {
                 if let Err(err) = engine_state.merge_env(&mut config_stack) {
                     report_shell_error(Some(&config_stack), &engine_state, &err);
                 }
+                // This has to follow `merge_env`, which records the stack's overlays again.
+                engine_state.clear_runtime_overlays();
             }
             perf!("dap setup_config", start_time, use_color);
 

@@ -4,8 +4,11 @@ use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::{expand_path_with, is_windows_device_path};
 use nu_protocol::{
     ByteStreamSource, DataSource, DeclId, OutDest, PipelineMetadata, Signals,
-    byte_stream::copy_with_signals, ir, process::ChildPipe, shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    byte_stream::copy_with_signals,
+    ir,
+    process::ChildPipe,
+    shell_error::generic::GenericError,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use std::{
     fs::File,
@@ -712,7 +715,7 @@ fn stream_to_file(
         if let Err(err) = res {
             let _ = file.flush();
             bar.abandoned_msg("# Error while saving #");
-            Err(from_io_error(err).into())
+            Err(ShellErrorBridge::unpack(err, span))
         } else {
             file.flush().map_err(&from_io_error)?;
             Ok(())

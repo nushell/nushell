@@ -998,9 +998,9 @@ checksum = "36f64beae40a84da1b4b26ff2761a5b895c12adc41dc25aaee1c4f2bbfe97a6e"
 
 [[package]]
 name = "bracoxide"
-version = "0.1.8"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daeb5b71668c934a1db0c7b07317a3564f2558c5e9155c70d7d6823c01f2ddcd"
+checksum = "74ca487aa0a5f028c11c19ee0acc2db41e41c71bbf0b0ebdd0ba4354c60c48db"
 
 [[package]]
 name = "brotli"

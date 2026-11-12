@@ -1989,7 +1989,7 @@ fn let_variable_disallows_completer() -> Result {
         .expect_parse_error()?;
     assert_matches!(
         err,
-        ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec"
+        ParseError::LabeledErrorWithHelp { error, .. } if error == "Unexpected custom completer in type spec"
     );
     Ok(())
 }
@@ -2086,7 +2086,7 @@ fn def_with_input_output_broken_3() -> Result {
         .expect_parse_error()?;
     assert_matches!(
         err,
-        ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec"
+        ParseError::LabeledErrorWithHelp { error, .. } if error == "Unexpected custom completer in type spec"
     );
     Ok(())
 }
@@ -2098,7 +2098,7 @@ fn def_with_input_output_broken_4() -> Result {
         .expect_parse_error()?;
     assert_matches!(
         err,
-        ParseError::LabeledError(error, _, _) if error == "Unexpected custom completer in type spec"
+        ParseError::LabeledErrorWithHelp { error, .. } if error == "Unexpected custom completer in type spec"
     );
     Ok(())
 }

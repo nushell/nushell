@@ -67,7 +67,10 @@ jobs:
         with:
           workspaces: ${{ env.working-directory }} -> target
           cache-all-crates: true
-          cache-workspace-crates: true
+          # Workspace crates are recompiled after an exact cache hit anyway (fingerprint
+          # mismatch), while restoring them dominates Cache Rust on Windows (~2.8 GB, ~54s).
+          # Cache dependencies only so restores stay small and useful.
+          cache-workspace-crates: false
 
       - &step_fmt
         name: Fmt
@@ -76,24 +79,17 @@ jobs:
           rustup component add rustfmt
           cargo fmt --all --check
 
-      - &step_check
-        name: Check
-        working-directory: ${{ env.working-directory }}
-        run: >-
-          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          check ${{ env.cargo-options }} 
-          --profile ${{ env.profile }}
-
       - &step_clippy
         name: Clippy
+        env:
+          CARGO_BUILD_WARNINGS: deny
         working-directory: ${{ env.working-directory }}
         run: >-
           rustup component add clippy
 
           cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
           clippy ${{ env.cargo-options }} 
-          --profile ${{ env.profile }} 
-          -- -D warnings
+          --profile ${{ env.profile }}
 
       - &step_build
         name: Build
@@ -204,7 +200,13 @@ jobs:
       - *step_checkout_repo
       - *step_setup_rust_toolchain
       - *step_cache_rust
-      - *step_check
+      - name: Check
+        working-directory: ${{ env.working-directory }}
+        run: >-
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml"
+          check ${{ env.cargo-options }}
+          --profile ${{ env.profile }}
+
       - *step_build
       - *step_assert_clean_repo
 
@@ -228,6 +230,5 @@ jobs:
       - *step_setup_rust_toolchain
       - *step_cache_rust
       - *step_fmt
-      - *step_check
       - *step_clippy
       - *step_assert_clean_repo

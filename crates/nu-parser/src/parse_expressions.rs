@@ -556,7 +556,7 @@ pub fn parse_block_expression(
     let mut output = parse_block(working_set, &output, span, false, false, input_type);
 
     output.span = Some(span);
-    output.scope_bindings = working_set.snapshot_scope_bindings();
+    output.scope_bindings = working_set.snapshot_scope_bindings(span);
 
     if is_closed {
         working_set.exit_scope();
@@ -937,7 +937,7 @@ pub fn parse_closure_expression(
     }
 
     output.span = Some(span);
-    output.scope_bindings = working_set.snapshot_scope_bindings();
+    output.scope_bindings = working_set.snapshot_scope_bindings(span);
 
     if is_closed {
         working_set.exit_scope();
