@@ -2172,6 +2172,21 @@ fn file_completions() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
+/// The parser forgets an overlay activated inside a block, but the stack keeps it and `cd` writes
+/// `PWD` there. File completion must still follow `cd`.
+#[test]
+fn file_completions_follow_cd_after_overlay_in_block() {
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    assert!(support::merge_input(b"if true { overlay new spam }", &mut engine, &mut stack).is_ok());
+    assert!(support::merge_input(b"cd test_a", &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking("ls ", 3);
+
+    match_suggestions(&vec!["myfile"], &suggestions)
+}
+
 #[test]
 fn custom_command_rest_any_args_file_completions() {
     // Create a new engine

@@ -20,6 +20,10 @@ pub use helper::extract_value;
 pub use hinter::HinterConfig;
 pub use history::{HistoryConfig, HistoryFileFormat, HistoryPath};
 pub use hooks::Hooks;
+pub use key_spec::{
+    EditModeName, KeyCodeSpec, KeyModifier, MenuInputMode, MenuLayout, MenuOutputMode,
+    VALID_KEYBINDING_MODES,
+};
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
@@ -42,6 +46,7 @@ mod helper;
 mod hinter;
 mod history;
 mod hooks;
+mod key_spec;
 mod ls;
 mod output;
 mod plugin_gc;
@@ -258,18 +263,34 @@ impl UpdateFromValue for Config {
                 }
 
                 // Stored as written, like any list. Reedline registers the
-                // menus in order, so a later one wins on a name.
-                "menus" => match Vec::<ParsedMenu>::from_value(val.clone()) {
+                // menus in order, so a later one wins on a name. A menu with a
+                // layout, input mode or output mode that can't be read rejects
+                // the whole list and the previous one stays, like for any other
+                // config value.
+                "menus" => match Vec::<ParsedMenu>::from_value(val.clone()).and_then(|menus| {
+                    menus.iter().try_for_each(|menu| menu.validate(self))?;
+                    Ok(menus)
+                }) {
                     Ok(menus) => self.menus = menus,
                     Err(error) => errors.error(error.into()),
                 },
 
-                "keybindings" => match Vec::<ParsedKeybinding>::from_value(val.clone()) {
-                    // Stored as written, like any list. Reedline applies the
-                    // entries in order, so a later one wins on a key.
-                    Ok(keybindings) => self.keybindings = keybindings,
-                    Err(error) => errors.error(error.into()),
-                },
+                // Stored as written, like any list. Reedline applies the
+                // entries in order, so a later one wins on a key. An entry
+                // with a mode, modifier or keycode that can't be read rejects
+                // the whole list and the previous one stays. Its `event` is
+                // read when the prompt is built.
+                "keybindings" => {
+                    match Vec::<ParsedKeybinding>::from_value(val.clone()).and_then(|keybindings| {
+                        keybindings
+                            .iter()
+                            .try_for_each(ParsedKeybinding::validate)?;
+                        Ok(keybindings)
+                    }) {
+                        Ok(keybindings) => self.keybindings = keybindings,
+                        Err(error) => errors.error(error.into()),
+                    }
+                }
 
                 "error_lines" => match val.as_int() {
                     Ok(integer) if integer >= 0 => self.error_lines = integer,
@@ -376,17 +397,7 @@ mod tests {
 
     /// Run one `$env.config.menus = [...]` assignment.
     fn assign_menus(config: &mut Config, old: &Config, menus: Vec<ParsedMenu>) {
-        let value = Value::test_record(record! {
-            "menus" => Value::test_list(
-                menus
-                    .into_iter()
-                    .map(|menu| menu.into_value(Span::test_data()))
-                    .collect(),
-            ),
-        });
-        config
-            .update_from_value(old, &value)
-            .expect("update should succeed");
+        try_assign_menus(config, old, menus).expect("update should succeed");
     }
 
     fn menu_names(config: &Config) -> Vec<String> {
@@ -544,17 +555,7 @@ mod tests {
 
     /// Run one `$env.config.keybindings = [...]` assignment.
     fn assign(config: &mut Config, old: &Config, keybindings: Vec<ParsedKeybinding>) {
-        let value = Value::test_record(record! {
-            "keybindings" => Value::test_list(
-                keybindings
-                    .into_iter()
-                    .map(|kb| kb.into_value(Span::test_data()))
-                    .collect(),
-            ),
-        });
-        config
-            .update_from_value(old, &value)
-            .expect("update should succeed");
+        try_assign(config, old, keybindings).expect("update should succeed");
     }
 
     /// `$env.config.keybindings ++= [...]` is `= ($env.config.keybindings ++ [...])`.
@@ -671,5 +672,214 @@ mod tests {
         );
 
         assert_eq!(count_named(&new, "atuin"), 2);
+    }
+
+    // --- an entry that cannot be read rejects the whole list ---
+
+    /// Run one `$env.config.<field> = [...]` assignment that may be rejected.
+    fn try_assign_list<T: IntoValue>(
+        config: &mut Config,
+        old: &Config,
+        field: &str,
+        items: Vec<T>,
+    ) -> Result<(), ShellError> {
+        let list = Value::test_list(
+            items
+                .into_iter()
+                .map(|item| item.into_value(Span::test_data()))
+                .collect(),
+        );
+        let value = Value::test_record(record! { field => list });
+        config.update_from_value(old, &value).map(drop)
+    }
+
+    /// Run one `$env.config.keybindings = [...]` assignment that may be rejected.
+    fn try_assign(
+        config: &mut Config,
+        old: &Config,
+        keybindings: Vec<ParsedKeybinding>,
+    ) -> Result<(), ShellError> {
+        try_assign_list(config, old, "keybindings", keybindings)
+    }
+
+    /// Run one `$env.config.menus = [...]` assignment that may be rejected.
+    fn try_assign_menus(
+        config: &mut Config,
+        old: &Config,
+        menus: Vec<ParsedMenu>,
+    ) -> Result<(), ShellError> {
+        try_assign_list(config, old, "menus", menus)
+    }
+
+    /// One bad entry among good ones: the list is rejected and the old one stays,
+    /// like `table.mode = "bogus"` keeps the old mode.
+    #[test]
+    fn an_entry_that_cannot_be_read_rejects_the_whole_list() {
+        let old = Config::default();
+        let emacs = Value::test_string("emacs");
+        let faulty = [
+            keybinding(Some("bad_key"), "control", "nonsense", emacs.clone()),
+            keybinding(Some("bad_modifier"), "bogus", "char_t", emacs),
+            keybinding(
+                Some("bad_mode"),
+                "control",
+                "char_t",
+                Value::test_string("bogus"),
+            ),
+            keybinding(
+                Some("bad_char"),
+                "control",
+                "char_ab",
+                Value::test_string("emacs"),
+            ),
+        ];
+
+        for bad in faulty {
+            let name = bad
+                .name
+                .as_ref()
+                .map(|name| name.to_expanded_string("", &old));
+            let mut new = old.clone();
+            let result = try_assign(&mut new, &old, vec![atuin(), bad]);
+
+            assert!(result.is_err(), "{name:?} was accepted");
+            assert_eq!(
+                new.keybindings.len(),
+                old.keybindings.len(),
+                "{name:?} changed the list"
+            );
+            assert_eq!(
+                count_named(&new, "atuin"),
+                0,
+                "{name:?} let a good entry through"
+            );
+        }
+    }
+
+    /// The scenario from a reload: a broken entry is appended, then the fixed
+    /// config appends a good one. Only the good one ends up in the list.
+    #[test]
+    fn a_fixed_entry_appended_after_a_rejected_one_is_accepted() {
+        let old = Config::default();
+        let mut new = old.clone();
+        let broken = || {
+            keybinding(
+                Some("mine"),
+                "control",
+                "nonsense",
+                Value::test_string("emacs"),
+            )
+        };
+        let fixed = || {
+            keybinding(
+                Some("mine"),
+                "control",
+                "char_t",
+                Value::test_string("emacs"),
+            )
+        };
+
+        let mut list = new.keybindings.clone();
+        list.push(broken());
+        assert!(try_assign(&mut new, &old, list).is_err());
+        assert_eq!(new.keybindings.len(), old.keybindings.len());
+
+        let mut list = new.keybindings.clone();
+        list.push(fixed());
+        assert!(try_assign(&mut new, &old, list).is_ok());
+        assert_eq!(count_named(&new, "mine"), 1);
+    }
+
+    /// A rejected list is not a rejected config: other fields in the same
+    /// record are still applied, as for any other value that can't be read.
+    #[test]
+    fn a_rejected_list_does_not_stop_other_fields() {
+        let old = Config::default();
+        let mut new = old.clone();
+        let bad = keybinding(
+            Some("bad"),
+            "control",
+            "nonsense",
+            Value::test_string("emacs"),
+        );
+        let value = Value::test_record(record! {
+            "keybindings" => Value::test_list(vec![bad.into_value(Span::test_data())]),
+            "error_lines" => Value::test_int(old.error_lines + 3),
+        });
+
+        assert!(new.update_from_value(&old, &value).is_err());
+        assert_eq!(new.error_lines, old.error_lines + 3);
+        assert_eq!(new.keybindings.len(), old.keybindings.len());
+    }
+
+    /// An event needs reedline's types to be read, so it is read when the prompt
+    /// is built and not when the list is assigned.
+    #[test]
+    fn an_event_is_not_checked_on_assignment() {
+        let old = Config::default();
+        let mut new = old.clone();
+        let mut entry = atuin();
+        entry.event = Value::test_record(record! { "send" => Value::test_string("bogus") });
+
+        assert!(try_assign(&mut new, &old, vec![entry]).is_ok());
+        assert_eq!(new.keybindings.len(), 1);
+    }
+
+    /// Entries without any mode bind nothing, but the key is checked all the same.
+    #[test]
+    fn an_entry_with_no_mode_still_needs_a_key_that_can_be_read() {
+        let old = Config::default();
+        let no_modes = Value::test_list(vec![]);
+
+        let mut new = old.clone();
+        let readable = keybinding(Some("idle"), "control", "char_t", no_modes.clone());
+        assert!(try_assign(&mut new, &old, vec![readable]).is_ok());
+
+        let mut new = old.clone();
+        let unreadable = keybinding(Some("idle"), "control", "nonsense", no_modes);
+        assert!(try_assign(&mut new, &old, vec![unreadable]).is_err());
+        assert_eq!(new.keybindings.len(), old.keybindings.len());
+    }
+
+    /// A menu whose layout can't be read rejects the whole list too.
+    #[test]
+    fn a_menu_that_cannot_be_read_rejects_the_whole_list() {
+        let old = Config::default();
+
+        let mut grid = old.menus[0].clone();
+        grid.name = Value::test_string("grid_menu");
+        grid.r#type = Value::test_record(record! { "layout" => Value::test_string("grid") });
+        let mut no_layout = grid.clone();
+        no_layout.r#type = Value::test_record(record! {});
+        let mut not_a_record = grid.clone();
+        not_a_record.r#type = Value::test_string("columnar");
+
+        // The modes are read on assignment too, not only the layout.
+        let mut bad_input_mode = old.menus[0].clone();
+        bad_input_mode.input_mode = Some(Value::test_string("bogus"));
+        let mut no_input_mode = old.menus[0].clone();
+        no_input_mode.input_mode = None;
+        no_input_mode.only_buffer_difference = None;
+        let mut bad_flag = no_input_mode.clone();
+        bad_flag.only_buffer_difference = Some(Value::test_int(3));
+        let mut bad_output_mode = old.menus[0].clone();
+        bad_output_mode.output_mode = Some(Value::test_string("bogus"));
+
+        for bad in [
+            grid,
+            no_layout,
+            not_a_record,
+            bad_input_mode,
+            no_input_mode,
+            bad_flag,
+            bad_output_mode,
+        ] {
+            let mut new = old.clone();
+            let good = old.menus[0].clone();
+            let result = try_assign_menus(&mut new, &old, vec![good, bad]);
+
+            assert!(result.is_err());
+            assert_eq!(menu_names(&new), menu_names(&old));
+        }
     }
 }

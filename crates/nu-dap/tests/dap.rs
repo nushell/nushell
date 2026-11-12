@@ -1410,6 +1410,47 @@ fn startup_config_reaches_the_debuggee() -> nu_test_support::Result {
 
 #[test]
 #[deps(NU)]
+fn launch_cwd_survives_an_overlay_command_in_a_config_block() -> nu_test_support::Result {
+    // The overlay stays on the stack that ran the startup files, but the debuggee runs on a new
+    // one, so the launch `cwd` must not be shadowed by the `PWD` that `overlay use` left in it.
+    Playground::setup("nu_dap_config_overlay", |dirs, _| {
+        let config = dirs.test().join("config.nu");
+        std::fs::write(
+            &config,
+            "module spam { export-env { $env.X = 1 } }\nif true { overlay use spam }\n",
+        )?;
+        let env_config = dirs.test().join("env.nu");
+        std::fs::write(&env_config, "")?;
+
+        let project = dirs.test().join("project");
+        std::fs::create_dir(&project)?;
+        std::fs::write(
+            project.join("helper.nu"),
+            "export def foo [] { \"from-helper\" }\n",
+        )?;
+        let script = project.join("uses_helper.nu");
+        std::fs::write(&script, "use ./helper.nu foo\nprint (foo)\n")?;
+
+        let mut d = Dap::spawn_with_args([
+            "--config",
+            &config.to_string_lossy(),
+            "--env-config",
+            &env_config.to_string_lossy(),
+        ]);
+        d.start(
+            &script.to_string_lossy(),
+            json!({ "cwd": project.to_string_lossy() }),
+            &[],
+        );
+
+        let out = d.output_until_terminated();
+        assert!(out.contains("from-helper"), "out: {out}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn hot_restart_reruns_in_the_same_session() {
     let demo = example("demo.nu");
     let mut d = Dap::spawn();

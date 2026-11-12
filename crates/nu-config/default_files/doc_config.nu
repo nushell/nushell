@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.116.2"
+# version = "0.117.0"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -172,6 +172,10 @@ $env.config.edit_mode = "emacs"
 # Default: null
 $env.config.buffer_editor = null
 
+# Arguments support {file}, {line}, and {col} placeholders, e.g. ["hx", "{file}:{line}:{col}"].
+# Positions are one-based; `config nu` and `config env` use line 1, column 1.
+# The file path is appended unless an argument contains {file} or is the exact path.
+#
 # Example: Setting buffer_editor with arguments as a list:
 # $env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 
@@ -234,6 +238,10 @@ $env.config.show_hints = true
 # Any closure error or unsupported return type yields no hint.
 # To use the built-in hinter instead, set hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
+# External commands run detached from the terminal, but can still receive input
+# from a pipeline. Their uncaptured output is discarded. `print` still writes to
+# the screen. `input`, `input list`, `input listen` and `term query` return an
+# error, which yields no hint unless caught.
 # Default: null
 $env.config.hinter.closure = null
 
@@ -743,14 +751,27 @@ $env.config.hooks.command_not_found = null
 # and keycode in the same mode, the last one wins. The `name` is only a label
 # and plays no part in that.
 #
+# The modifier, keycode and mode of every entry are checked when the list is
+# assigned. If one can't be read, the assignment is an error and the list stays
+# as it was, like any other setting that can't be read. Other fields in the same
+# record still apply, but in config.nu the lines after it don't run. The `event`
+# is checked when the prompt is built.
+#
 # To remove a binding you added, assign the list without it:
 # $env.config.keybindings = $env.config.keybindings | where name != my_binding
 # To unbind a key that reedline itself binds, add an entry for it with
 # `event: null`. To tidy up exact repeats, keep the last of each (the fields are
 # compared as written, so `emacs` and `[emacs]` count as different):
 # $env.config.keybindings = $env.config.keybindings | reverse | uniq-by modifier keycode mode | reverse
-# Assign `[]` to clear the whole list. To get the defaults back in a running shell:
-# $env.config.keybindings = (^$nu.current-exe -n -c '$env.config.keybindings | to nuon' | from nuon)
+# Assign `[]` to clear the whole list. To get the defaults back in a running shell
+# (these are the entries nushell adds, not reedline's own base bindings, which
+# `keybindings default` lists):
+# $env.config.keybindings = (config default).keybindings
+# A config that is sourced again, for example by a reload binding, adds its `++=`
+# entries each time. To keep the list from growing, assign the defaults first and
+# append after, so the list is built from the same start every time:
+# $env.config.keybindings = (config default).keybindings
+# $env.config.keybindings ++= [...]
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -848,10 +869,15 @@ $env.config.abbreviations = {}
 # defaults, which also turns off Tab completion. Like any list it is stored as
 # written, and reedline registers the menus in order: when several share a
 # `name`, the last one wins, so `++=` with a default's name overrides that
-# default. To drop the ones a later menu overrides:
+# default. The `type.layout`, `input_mode` (or `only_buffer_difference`) and
+# `output_mode` of every menu are checked when the list is assigned. If one can't
+# be read, the assignment is an error and the list stays as it was. The fields
+# that belong to one layout, such as `columns` or `page_size`, are checked when
+# the prompt is built. To drop the ones a later menu overrides:
 # $env.config.menus = $env.config.menus | uniq-by name --keep-last
-# To get the defaults back in a running shell:
-# $env.config.menus = (^$nu.current-exe -n -c '$env.config.menus | to nuon' | from nuon)
+# To get the defaults back in a running shell, which is also how a config that is
+# sourced again starts from the same list every time:
+# $env.config.menus = (config default).menus
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{
