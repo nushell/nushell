@@ -456,13 +456,35 @@ fn ls_for_one_pattern(
     let no_matches = paths_peek.peek().is_none();
     signals.check(&call_span)?;
     if no_matches {
-        return Err(ShellError::Generic(
-            GenericError::new(
-                format!("No matches found for {:?}", path.item),
-                "Pattern, file or folder not found",
-                p_tag,
+        let pattern = path.item.as_ref();
+        // A string (as opposed to a glob) is taken literally, so `ls '*.rs'` looks for a file
+        // named `*.rs`. Say so instead of making it look like the pattern matched nothing.
+        let (label, help) = if !path.item.is_expand()
+            && nu_glob::is_glob_with_backend(pattern)
+            && nu_glob::Pattern::new(pattern).is_ok()
+        {
+            // Backtick strings have no escapes, so only offer one when the pattern has no backtick.
+            let backticks = if pattern.contains('`') {
+                String::new()
+            } else {
+                format!(" or backticks, as in ls `{pattern}`")
+            };
+            (
+                "File or folder not found",
+                format!(
+                    "Strings are not expanded as glob patterns. If you meant a glob, use \
+                    `into glob`{backticks}"
+                ),
             )
-            .with_help("no matches found"),
+        } else {
+            (
+                "Pattern, file or folder not found",
+                "no matches found".to_string(),
+            )
+        };
+        return Err(ShellError::Generic(
+            GenericError::new(format!("No matches found for '{pattern}'"), label, p_tag)
+                .with_help(help),
         ));
     }
 
