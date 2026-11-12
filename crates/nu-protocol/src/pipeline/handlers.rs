@@ -79,7 +79,9 @@ impl Handlers {
 }
 
 #[inline]
-#[expect(unused, reason = "used in `Debug` impls")]
+// `allow` rather than `expect`: stable rustc ignores the uses in the derived
+// `Debug` impls and reports this as dead code, nightly counts them.
+#[allow(dead_code, reason = "used in `Debug` impls")]
 fn debug_fmt_handlers(handlers: &Mutex<Vec<(usize, Handler)>>) -> impl Display {
     fmt::from_fn(|f| match handlers.try_lock() {
         Err(err) => write!(f, "{err:?}"),
