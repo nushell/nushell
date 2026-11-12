@@ -36,7 +36,7 @@ impl Command for InputListen {
             )
             .switch(
                 "raw",
-                "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags.",
+                "Add a raw_modifiers bit mask to key and mouse events, plus raw_code with the numeric value of the keycode for character keys.",
                 Some('r'),
             )
             .named(
@@ -71,11 +71,14 @@ corresponding record, distinguished by type field:
     { type: resize col: <int> row: <int> }
 ```
 There are 6 `modifier` variants: shift, control, alt, super, hyper, meta.
-There are 4 `key_type` variants:
+There are 5 `key_type` variants:
     f - f1, f2, f3 ... keys
     char - alphanumeric and special symbols (a, A, 1, $ ...)
     media - dedicated media keys (play, pause, tracknext ...)
-    other - keys not falling under previous categories (up, down, backspace, enter ...)"
+    modifier - modifier keys such as left/right shift, control and alt
+    other - keys not falling under previous categories (up, down, backspace, enter ...)
+With --raw, key and mouse events also include a `raw_modifiers` bit mask, and
+character keys additionally include `raw_code` with the numeric value of the keycode."
     }
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
