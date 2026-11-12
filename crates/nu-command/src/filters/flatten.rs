@@ -151,13 +151,19 @@ fn flatten(
 
 enum TableInside {
     // handle for a column which contains a single list(but not list of records)
-    // it contains (column, span, values in the column, column index).
+    // it contains (column, span, values in the column, column index in the
+    // output record).
     Entries(String, Vec<Value>, usize),
     // handle for a column which contains a table, we can flatten the inner column to outer level
     // `records` is the nested/inner table to flatten to the outer level
     // `parent_column_name` is handled for conflicting column name, the nested table may contains columns which has the same name
     // to outer level, for that case, the output column name should be f"{parent_column_name}_{inner_column_name}".
-    // `parent_column_index` is the column index in original table.
+    // `parent_column_index` is the index of the column in the output record,
+    // i.e. how many output columns precede it. It must not be the column's
+    // index in the input record: an earlier nested record can expand into
+    // zero or several output columns, so the input index can point past the
+    // end of the output record (silently dropping the column) or into the
+    // middle of the expanded fields (wrong column order).
     FlattenedRows {
         records: Vec<Record>,
         parent_column_name: String,
@@ -223,7 +229,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
-            for (column_index, (column, value)) in val.into_iter().enumerate() {
+            for (column, value) in val.into_iter() {
                 let column_requested = columns.iter().find(|c| c.to_column_name() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
                 let span = value.span();
@@ -276,7 +282,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 inner_table = Some(TableInside::FlattenedRows {
                                     records,
                                     parent_column_name: column,
-                                    parent_column_index: column_index,
+                                    parent_column_index: out.len(),
                                 });
                             } else if let Some(previous) =
                                 out.insert(column.clone(), Value::list_shared(vals, span))
@@ -295,7 +301,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 inner_table = Some(TableInside::Entries(
                                     r.clone(),
                                     vals.into_owned(),
-                                    column_index,
+                                    out.len(),
                                 ));
                             } else if let Some(previous) =
                                 out.insert(column.clone(), Value::list_shared(vals, span))
@@ -304,11 +310,8 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 return vec![error];
                             }
                         } else {
-                            inner_table = Some(TableInside::Entries(
-                                column,
-                                vals.into_owned(),
-                                column_index,
-                            ));
+                            inner_table =
+                                Some(TableInside::Entries(column, vals.into_owned(), out.len()));
                         }
                     }
                     _ => {
