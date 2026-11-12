@@ -207,7 +207,11 @@ impl EventTypeFilter {
     }
 
     fn from_value(value: Value, head: Span) -> Result<EventTypeFilter, ShellError> {
+        let list_span = value.span();
         if let Value::List { vals, .. } = value {
+            if vals.is_empty() {
+                return Err(Self::empty_types_error(head, list_span));
+            }
             let mut filter = Self::none();
             for event_type in vals {
                 let span = event_type.span();
@@ -245,6 +249,15 @@ impl EventTypeFilter {
             input: "value originates from here".into(),
             msg_span: head,
             input_span: value.span(),
+        }
+    }
+
+    fn empty_types_error(head: Span, list_span: Span) -> ShellError {
+        ShellError::UnsupportedInput {
+            msg: "--types expects at least one event type".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: list_span,
         }
     }
 
@@ -496,5 +509,62 @@ fn create_resize_event(
         Some(Value::record(record, head))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn types_list(vals: Vec<Value>) -> Value {
+        Value::list(vals, Span::test_data())
+    }
+
+    #[test]
+    fn empty_event_types_list_is_rejected() {
+        let head = Span::test_data();
+        let err = match EventTypeFilter::from_value(types_list(vec![]), head) {
+            Ok(_) => panic!("--types [] cannot produce an event and must not hang"),
+            Err(err) => err,
+        };
+        match err {
+            ShellError::UnsupportedInput { ref msg, .. } => {
+                assert!(msg.contains("at least one event type"), "{msg}");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn valid_event_types_lists_keep_their_behavior() {
+        let head = Span::test_data();
+        let filter = EventTypeFilter::from_value(
+            types_list(vec![
+                Value::string("key", head),
+                Value::string("focus", head),
+            ]),
+            head,
+        )
+        .expect("valid list");
+        assert!(filter.listen_key && filter.listen_focus);
+        assert!(!filter.listen_mouse && !filter.listen_paste && !filter.listen_resize);
+
+        let duplicate = EventTypeFilter::from_value(
+            types_list(vec![Value::string("key", head), Value::string("key", head)]),
+            head,
+        )
+        .expect("duplicate entries remain idempotent");
+        assert!(duplicate.listen_key && !duplicate.listen_focus);
+    }
+
+    #[test]
+    fn existing_types_validation_is_preserved() {
+        let head = Span::test_data();
+        assert!(
+            EventTypeFilter::from_value(types_list(vec![Value::string("bogus", head)]), head)
+                .is_err()
+        );
+        assert!(EventTypeFilter::from_value(Value::string("key", head), head).is_err());
+        assert!(EventTypeFilter::from_value(types_list(vec![Value::int(1, head)]), head).is_err());
     }
 }
