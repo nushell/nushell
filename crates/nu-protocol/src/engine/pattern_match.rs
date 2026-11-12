@@ -1,6 +1,6 @@
 use crate::{
     Span, Value, VarId,
-    ast::{Expr, MatchPattern, Pattern, RangeInclusion},
+    ast::{MatchPattern, Pattern},
 };
 
 pub trait Matcher {
@@ -89,119 +89,8 @@ impl Matcher for Pattern {
                 }
                 _ => false,
             },
-            Pattern::Expression(pattern_value) => {
-                // TODO: Fill this out with the rest of them
-                match &pattern_value.expr {
-                    Expr::Nothing => {
-                        matches!(value, Value::Nothing { .. })
-                    }
-                    Expr::Int(x) => {
-                        if let Value::Int { val, .. } = &value {
-                            x == val
-                        } else {
-                            false
-                        }
-                    }
-                    Expr::Float(x) => {
-                        if let Value::Float { val, .. } = &value {
-                            x == val
-                        } else {
-                            false
-                        }
-                    }
-                    Expr::Binary(x) => {
-                        if let Value::Binary { val, .. } = &value {
-                            x.as_slice() == val.as_slice()
-                        } else {
-                            false
-                        }
-                    }
-                    Expr::Bool(x) => {
-                        if let Value::Bool { val, .. } = &value {
-                            x == val
-                        } else {
-                            false
-                        }
-                    }
-                    Expr::String(x) | Expr::RawString(x) => {
-                        if let Value::String { val, .. } = &value {
-                            x == val
-                        } else {
-                            false
-                        }
-                    }
-                    Expr::DateTime(x) => {
-                        if let Value::Date { val, .. } = &value {
-                            x == val
-                        } else {
-                            false
-                        }
-                    }
-                    Expr::ValueWithUnit(val) => {
-                        let span = val.unit.span;
-
-                        if let Expr::Int(size) = val.expr.expr {
-                            match &val.unit.item.build_value(size, span) {
-                                Ok(v) => v == value,
-                                _ => false,
-                            }
-                        } else {
-                            false
-                        }
-                    }
-                    Expr::Range(range) => {
-                        // TODO: Add support for floats
-
-                        let start = if let Some(start) = &range.from {
-                            match &start.expr {
-                                Expr::Int(start) => *start,
-                                _ => return false,
-                            }
-                        } else {
-                            0
-                        };
-
-                        let end = if let Some(end) = &range.to {
-                            match &end.expr {
-                                Expr::Int(end) => *end,
-                                _ => return false,
-                            }
-                        } else {
-                            i64::MAX
-                        };
-
-                        let step = if let Some(step) = &range.next {
-                            match &step.expr {
-                                Expr::Int(step) => *step - start,
-                                _ => return false,
-                            }
-                        } else if end < start {
-                            -1
-                        } else {
-                            1
-                        };
-
-                        let (start, end) = if end < start {
-                            (end, start)
-                        } else {
-                            (start, end)
-                        };
-
-                        if let Value::Int { val, .. } = &value {
-                            if matches!(range.operator.inclusion, RangeInclusion::RightExclusive) {
-                                *val >= start && *val < end && ((*val - start) % step) == 0
-                            } else {
-                                *val >= start && *val <= end && ((*val - start) % step) == 0
-                            }
-                        } else {
-                            false
-                        }
-                    }
-                    _ => false,
-                }
-            }
             Pattern::Value(pattern_value) => match pattern_value {
-                // Ranges match by containment (same as `Pattern::Expression` + `Expr::Range`).
+                // Ranges match by containment.
                 Value::Range { val, .. } => val.contains(value),
                 _ => value == pattern_value,
             },

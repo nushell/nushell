@@ -260,7 +260,6 @@ impl Traverse for MatchPattern {
             |pattern: &'a MatchPattern| pattern.flat_map(working_set, f, results);
 
         match &self.pattern {
-            Pattern::Expression(expr) => expr.flat_map(working_set, f, results),
             Pattern::List(patterns) | Pattern::Or(patterns) => {
                 for pattern in patterns {
                     recur_pattern(pattern);
@@ -286,7 +285,6 @@ impl Traverse for MatchPattern {
         let recur = |expr: &'a Expression| expr.find_map(working_set, f);
         let recur_pattern = |pattern: &'a MatchPattern| pattern.find_map(working_set, f);
         match &self.pattern {
-            Pattern::Expression(expr) => recur(expr),
             Pattern::List(patterns) | Pattern::Or(patterns) => {
                 patterns.iter().find_map(recur_pattern)
             }

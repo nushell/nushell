@@ -14,7 +14,7 @@ use nu_protocol::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
         StateWorkingSet, TryHandler, env_var_eq,
     },
-    ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
+    ir::{Call, CallBuilder, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     shell_error::{
         eval_block_with_input::EvalBlockWithInputError, generic::GenericError, io::IoError,
     },
@@ -1608,16 +1608,30 @@ fn eval_call<D: DebugContext>(
 }
 
 /// Evaluate a call to a command the way compiled code calls it. The call's arguments must be the
-/// last ones on `stack`, which is where [`CallBuilder`](nu_protocol::ir::CallBuilder) puts them.
+/// last ones on `stack`, which is where [`CallBuilder`] puts them.
 ///
 /// The input is type checked and record spreads become flags. A custom command binds its
 /// parameters and runs its block; any other command goes through
 /// [`Command::run`](nu_protocol::engine::Command::run). Use this rather than calling `run` on a
 /// command found by name, like a `from <ext>` converter, because it may be a custom command.
 ///
-/// Call [`Call::leave`] afterwards to reset the argument stack, whether or not the command
-/// consumed the arguments.
+/// This takes the builder so that a caller can't forget to clean up: the call's arguments are off
+/// the stack when this returns, whatever the result. A caller that builds a call and then doesn't
+/// run it removes them with [`Call::leave`].
 pub fn eval_ir_call(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: CallBuilder,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let call = call.finish();
+    let result = eval_finished_call(engine_state, stack, &call, input);
+    call.leave(stack);
+    result
+}
+
+/// The checks and the run of [`eval_ir_call`], which cleans up after any return from here.
+fn eval_finished_call(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -2509,7 +2523,6 @@ mod tests {
         let mut stack = Stack::new();
         let mut call = Call::build(DeclId::new(0), Span::test_data());
         call.add_positional(&mut stack, Span::test_data(), Value::test_int(1));
-        let call = call.finish();
         // Another call's argument now sits above this call's.
         Call::build(DeclId::new(0), Span::test_data()).add_positional(
             &mut stack,
@@ -2517,7 +2530,7 @@ mod tests {
             Value::test_int(2),
         );
 
-        let result = eval_ir_call(&engine_state, &mut stack, &call, PipelineData::empty());
+        let result = eval_ir_call(&engine_state, &mut stack, call, PipelineData::empty());
         assert!(matches!(result, Err(ShellError::IrEvalError { .. })));
     }
 
@@ -2525,14 +2538,33 @@ mod tests {
     fn eval_ir_call_stops_when_interrupted() {
         let mut engine_state = EngineState::new();
         engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
-        let call = Call::build(DeclId::new(0), Span::test_data()).finish();
 
         let result = eval_ir_call(
             &engine_state,
             &mut Stack::new(),
-            &call,
+            Call::build(DeclId::new(0), Span::test_data()),
             PipelineData::empty(),
         );
         assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+    }
+
+    #[test]
+    fn eval_ir_call_removes_only_its_own_arguments_when_it_stops_early() {
+        let mut engine_state = EngineState::new();
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
+        let mut stack = Stack::new();
+        // An argument of a call that's still being built, which has to survive.
+        Call::build(DeclId::new(0), Span::test_data()).add_positional(
+            &mut stack,
+            Span::test_data(),
+            Value::test_int(1),
+        );
+        let mut call = Call::build(DeclId::new(0), Span::test_data());
+        call.add_positional(&mut stack, Span::test_data(), Value::test_int(2));
+
+        let result = eval_ir_call(&engine_state, &mut stack, call, PipelineData::empty());
+
+        assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+        assert_eq!(stack.arguments.get_base(), 1);
     }
 }

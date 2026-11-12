@@ -116,6 +116,7 @@ mod sort_by;
 mod source_env;
 mod split_column;
 mod split_row;
+mod start;
 mod stor;
 mod str_;
 mod stream_errors;

@@ -561,8 +561,8 @@ fn write_pipeline_data(
         // Invoke the `table` command.
         let output = match engine_state.table_decl_id {
             Some(decl_id) => {
-                let call = ir::Call::build(decl_id, Span::unknown()).finish();
-                eval_ir_call(&engine_state, &mut stack, &call, data)?
+                let call = ir::Call::build(decl_id, Span::unknown());
+                eval_ir_call(&engine_state, &mut stack, call, data)?
             }
             None => data,
         };
