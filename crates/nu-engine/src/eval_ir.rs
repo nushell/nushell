@@ -2344,6 +2344,7 @@ fn drain(
                 }
             }
         }
+        PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error),
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
 

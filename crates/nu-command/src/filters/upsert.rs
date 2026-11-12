@@ -213,7 +213,11 @@ fn upsert_recursive(
                 }
 
                 let value = if path.is_empty() {
-                    let value = stream.next().unwrap_or(Value::nothing(head_span));
+                    // Replacing an item that holds an error would lose the error.
+                    let value = stream
+                        .next()
+                        .unwrap_or(Value::nothing(head_span))
+                        .unwrap_error()?;
                     if let Value::Closure { val, .. } = replacement {
                         ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?
                             .run_with_value(value)?
