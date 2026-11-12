@@ -45,15 +45,7 @@ impl Command for InputListen {
                 "How long to wait for input before returning.",
                 Some('o')
             )
-            .input_output_types(vec![(
-                Type::Nothing,
-                Type::Record(vec![
-                    ("type".to_string(), Type::String),
-                    ("key_type".to_string(), Type::String),
-                    ("code".to_string(), Type::String),
-                    ("modifiers".to_string(), Type::list(Type::String)),
-                ].into()),
-            )])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
     fn description(&self) -> &str {
@@ -496,5 +488,69 @@ fn create_resize_event(
         Some(Value::record(record, head))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyEvent;
+    use nu_protocol::CompareTypes;
+
+    fn declared_output_type() -> Type {
+        InputListen
+            .signature()
+            .get_output_type(Some(&Type::Nothing))
+            .expect("input listen declares an output type")
+    }
+
+    fn event_values(head: Span) -> Vec<(&'static str, Value)> {
+        let filter = EventTypeFilter::all();
+        let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
+        let mouse = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 1,
+            row: 2,
+            modifiers: KeyModifiers::NONE,
+        };
+
+        vec![
+            (
+                "focus",
+                create_focus_event(head, &filter, FocusEventType::Gained).unwrap(),
+            ),
+            ("key", create_key_event(head, &filter, &key, false).unwrap()),
+            (
+                "key with raw",
+                create_key_event(head, &filter, &key, true).unwrap(),
+            ),
+            (
+                "mouse",
+                create_mouse_event(head, &filter, &mouse, false).unwrap(),
+            ),
+            (
+                "mouse with raw",
+                create_mouse_event(head, &filter, &mouse, true).unwrap(),
+            ),
+            (
+                "paste",
+                create_paste_event(head, &filter, "pasted").unwrap(),
+            ),
+            (
+                "resize",
+                create_resize_event(head, &filter, 80, 24).unwrap(),
+            ),
+        ]
+    }
+
+    #[test]
+    fn output_type_accepts_every_event_kind() {
+        let output_ty = declared_output_type();
+        for (name, value) in event_values(Span::test_data()) {
+            assert!(
+                value.is_assignable_to(&output_ty),
+                "`input listen` output type {output_ty} rejects {name} event {value:?}"
+            );
+        }
     }
 }
