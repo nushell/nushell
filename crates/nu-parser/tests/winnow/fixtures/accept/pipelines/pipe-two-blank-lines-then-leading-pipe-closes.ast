@@ -1,0 +1,9 @@
+Block 0..21
+  Pipeline 0..7 dangling_pipe=8..9
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+  Pipeline 12..20
+    | 12..13
+    Call `length` 14..20

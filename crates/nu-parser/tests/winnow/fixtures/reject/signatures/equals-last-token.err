@@ -1,0 +1,6 @@
+error: expected default value
+  --> reject/signatures/equals-last-token.nu:1:11
+  |
+1 | def f [x =] {}
+  |           ^
+  = while parsing signature

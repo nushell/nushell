@@ -1,0 +1,4 @@
+Pipeline 0..12
+  Call `echo` 0..12
+    Garbage 5..12
+Diagnostic 5..12 invalid duration literal: value must be a number recovered

@@ -1,0 +1,3 @@
+Pipeline 0..15
+  Call `echo` 0..15
+    String Double "é" 5..15

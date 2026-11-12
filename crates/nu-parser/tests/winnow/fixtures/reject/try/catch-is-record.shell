@@ -1,0 +1,9 @@
+Pipeline 0..21
+  Try 0..21
+    Body 5..5
+    Catch 7..12
+      Record 13..21
+        Pair
+          String Bare "a" 15..16
+          Int 1 18..19
+Diagnostic 13..21 expected closure recovered

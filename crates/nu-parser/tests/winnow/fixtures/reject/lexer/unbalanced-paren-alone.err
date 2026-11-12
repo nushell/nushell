@@ -1,0 +1,5 @@
+error: unbalanced delimiter: found `)` without a matching `(`
+  --> reject/lexer/unbalanced-paren-alone.nu:1:1
+  |
+1 | )
+  | ^

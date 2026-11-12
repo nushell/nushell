@@ -1,0 +1,9 @@
+Pipeline 0..17
+  Call `def` 0..17
+    String Bare "q" 4..5
+    Garbage 6..9
+    String Bare "int" 10..13
+    Garbage 14..17
+Diagnostic 9..9 unclosed delimiter: expected `]` recovered
+Diagnostic 16..17 unbalanced delimiter: found `}` without a matching `{` recovered
+Diagnostic 13..13 expected arrow (->) recovered

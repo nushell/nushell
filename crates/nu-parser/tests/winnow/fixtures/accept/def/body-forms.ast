@@ -1,0 +1,55 @@
+Block 0..143
+  Pipeline 0..14
+    Def `a` 0..14
+      Signature 6..8
+      Body 10..13
+        Pipeline 11..12
+          Int 1 11..12
+  Pipeline 15..31
+    Def `b` 15..31
+      Signature 21..23
+      Body 25..30
+        Pipeline 28..29
+          Int 1 28..29
+  Pipeline 32..49
+    Def `c` 32..49
+      Signature 38..40
+      Body 42..48
+        Pipeline 43..44 terminator=44..45
+          Int 1 43..44
+        Pipeline 46..47
+          Int 2 46..47
+  Pipeline 50..79
+    Def `d` 50..79
+      Signature 56..58
+      Body 60..78
+        Pipeline 63..72
+          let x 63..72
+            Value 71..72
+              Pipeline 71..72
+                Int 1 71..72
+        Pipeline 75..77
+          Var $x 75..77
+  Pipeline 80..104
+    Def `e` 80..104
+      Signature 86..88
+      Body 90..103
+        Pipeline 91..102
+          Call `ls` 91..93
+          | 94..95
+          Call `length` 96..102
+  Pipeline 105..142
+    Def `f` 105..142
+      Signature 111..113
+      Body 115..141
+        Pipeline 116..140
+          If 116..140
+            Condition
+              Bool true 119..123
+            Then 125..128
+              Pipeline 126..127
+                Int 1 126..127
+            Else 130..134
+              BlockExpr 135..140 136..139
+                Pipeline 137..138
+                  Int 2 137..138

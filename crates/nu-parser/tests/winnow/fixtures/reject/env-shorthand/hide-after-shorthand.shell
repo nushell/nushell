@@ -1,0 +1,7 @@
+Pipeline 0..13
+  EnvShorthand 0..13
+    Env FOO 0..5
+      String Bare "1" 4..5
+    Call `hide` 6..13
+      String Bare "ls" 11..13
+Diagnostic 6..10 `hide` is a statement and cannot be used inside a pipeline recovered

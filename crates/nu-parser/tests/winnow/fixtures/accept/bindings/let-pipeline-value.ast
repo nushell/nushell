@@ -1,0 +1,24 @@
+Block 0..64
+  Pipeline 0..27
+    let x 0..27
+      Value 8..27
+        Pipeline 8..27
+          BinaryOp + 8..13
+            Int 1 8..9
+            Int 1 12..13
+          | 14..15
+          Call `into string` 16..27
+  Pipeline 28..47
+    let y 28..47
+      Value 36..47
+        Pipeline 36..47
+          Call `ls` 36..38
+          | 39..40
+          Call `length` 41..47
+  Pipeline 48..63
+    let z 48..63
+      Value 56..63
+        Pipeline 56..63
+          Int 3 56..57
+          | 58..59
+          Var $in 60..63

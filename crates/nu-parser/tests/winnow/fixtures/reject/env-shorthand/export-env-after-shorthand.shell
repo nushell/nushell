@@ -1,0 +1,7 @@
+Pipeline 0..19
+  EnvShorthand 0..19
+    Env FOO 0..5
+      String Bare "1" 4..5
+    Call `export-env` 6..19
+      Record 17..19
+Diagnostic 6..16 `export-env` is a statement and cannot be used inside a pipeline recovered

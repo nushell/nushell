@@ -1,0 +1,24 @@
+Pipeline 0..6
+  Call `ls` 0..6
+    String Bare "0b2" 3..6
+Pipeline 7..14
+  Call `ls` 7..14
+    String Bare "[]]*" 10..14
+Pipeline 15..30
+  Call `glob` 15..30
+    String Bare "\"[A-Z]*\".." 20..30
+Pipeline 31..53
+  Table 31..43
+    Columns
+      List 32..37
+        String Bare "0b2" 33..36
+    Row
+      List 39..42
+        Int 1 40..41
+  | 44..45
+  Call `get` 46..53
+    CellPath 50..53
+      Member "0b2" 50..53
+Pipeline 54..67
+  Call `ls` 54..67
+    String Bare "2023-02-30" 57..67

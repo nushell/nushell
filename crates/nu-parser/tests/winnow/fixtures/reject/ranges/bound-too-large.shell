@@ -1,0 +1,6 @@
+Pipeline 0..31
+  let r 0..31
+    Value 8..31
+      Pipeline 8..31
+        Garbage 8..31
+Diagnostic 11..31 invalid int literal: number too large (add `.0` for a float) recovered

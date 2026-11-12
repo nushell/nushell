@@ -1,0 +1,22 @@
+Block 0..57
+  Pipeline 0..56
+    Table 0..37
+      Columns
+        List 1..7
+          String Bare "a" 2..3
+          String Bare "b" 5..6
+      Row
+        List 9..22
+          Bool true 10..14
+          Bool false 16..21
+      Row
+        List 24..36
+          Bool true 25..29
+          Bool true 31..35
+    | 38..39
+    Where 40..47
+      FullCellPath implicit-head 46..47
+        Var $it 46..46
+        Member "a" 46..47
+    | 48..49
+    Call `length` 50..56

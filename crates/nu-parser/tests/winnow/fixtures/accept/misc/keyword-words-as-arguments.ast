@@ -1,0 +1,30 @@
+Block 0..147
+  Pipeline 0..146
+    Call `echo` 0..146
+      String Bare "if" 5..7
+      String Bare "else" 8..12
+      String Bare "match" 13..18
+      String Bare "for" 19..22
+      String Bare "while" 23..28
+      String Bare "loop" 29..33
+      String Bare "try" 34..37
+      String Bare "catch" 38..43
+      String Bare "finally" 44..51
+      String Bare "return" 52..58
+      String Bare "break" 59..64
+      String Bare "continue" 65..73
+      String Bare "def" 74..77
+      String Bare "let" 78..81
+      String Bare "mut" 82..85
+      String Bare "const" 86..91
+      String Bare "use" 92..95
+      String Bare "export" 96..102
+      String Bare "module" 103..109
+      String Bare "alias" 110..115
+      String Bare "extern" 116..122
+      String Bare "where" 123..128
+      String Bare "in" 129..131
+      String Bare "not" 132..135
+      String Bare "and" 136..139
+      String Bare "or" 140..142
+      String Bare "xor" 143..146

@@ -1,0 +1,20 @@
+Block 0..30
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 5 8..9
+  Pipeline 10..20
+    List 10..20
+      Minus 11..14
+        Var $x 12..14
+      Minus 15..19
+        Subexpression 16..19 17..18
+          Pipeline 17..18
+            Int 1 17..18
+  Pipeline 21..29
+    Record 21..29
+      Pair
+        String Bare "a" 22..23
+        Minus 25..28
+          Var $x 26..28

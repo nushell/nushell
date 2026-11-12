@@ -1,0 +1,8 @@
+Block 0..30
+  Pipeline 0..29
+    List 0..29
+      String Bare "INF" 1..4
+      String Bare "NAN" 5..8
+      String Bare "Infinity" 9..17
+      String Bare "i_n_f" 18..23
+      String Bare "n_an" 24..28

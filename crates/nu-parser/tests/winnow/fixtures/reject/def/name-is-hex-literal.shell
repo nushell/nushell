@@ -1,0 +1,5 @@
+Pipeline 0..14
+  Def `0x10` 0..14
+    Signature 9..11
+    Body 13..13
+Diagnostic 4..8 command name not supported recovered

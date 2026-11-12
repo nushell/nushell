@@ -1,0 +1,8 @@
+Pipeline 0..62
+  Def `g` [Wrapped] 0..62
+    Signature 16..59
+      Param rest `args` 42..57 : string
+    Body 61..61
+Pipeline 63..66
+  Call `g` 63..66
+    String Bare "5" 65..66

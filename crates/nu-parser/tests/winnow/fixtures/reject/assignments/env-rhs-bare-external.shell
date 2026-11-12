@@ -1,0 +1,10 @@
+Pipeline 0..14
+  Assignment = 0..14
+    FullCellPath 0..8
+      Var $env 0..4
+      Member "FOO" 5..8
+    Value 11..14
+      Pipeline 11..14
+        ExternalCall 11..14
+          String Bare "bar" 11..14
+Diagnostic 11..14 external command calls must be explicit in assignments recovered

@@ -1,0 +1,4 @@
+Pipeline 0..2 comments=1
+  Call `ls` 0..2
+Pipeline 8..10
+  Call `ls` 8..10

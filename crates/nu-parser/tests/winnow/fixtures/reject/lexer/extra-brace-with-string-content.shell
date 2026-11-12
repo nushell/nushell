@@ -1,0 +1,12 @@
+Pipeline 0..66
+  Def `f` 0..66
+    Signature 6..8
+    Body 10..65
+      Pipeline 13..64
+        let s 13..64
+          Value 21..64
+            Pipeline 21..64
+              String Single "first\nif this is just string content\nlast" 21..64
+Pipeline 67..68
+  ExternalCall 67..68
+    String Bare "}" 67..68

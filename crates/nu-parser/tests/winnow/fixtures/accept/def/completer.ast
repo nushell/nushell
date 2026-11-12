@@ -1,0 +1,16 @@
+Block 0..80
+  Pipeline 0..21
+    Def `comp` 0..21
+      Signature 9..11
+      Body 13..20
+        Pipeline 14..19
+          List 14..19
+            String Bare "a" 15..16
+            String Bare "b" 17..18
+  Pipeline 22..79
+    Def `foo` 22..79
+      Signature 30..75
+        Param positional `x` 31..45 : string @comp
+        Param flag --flag `flag` 47..66 : string @comp
+        Param positional `y@comp` 68..74
+      Body 77..78

@@ -129,14 +129,25 @@ pub fn reject_parser_keyword_name(
 ///
 /// A call is looked up by its words joined with single spaces, so a name with any other
 /// whitespace could never be called (#15539). A name that the call site reads as a value is
-/// shadowed by that value, so it could never be called either.
-pub fn is_uncallable_name(working_set: &mut StateWorkingSet, name: &str, name_span: Span) -> bool {
+/// shadowed by that value, so it could never be called either: `head_is_value` tells, by the
+/// reading of literals of the front end that parsed the name.
+pub fn is_uncallable_name(
+    working_set: &mut StateWorkingSet,
+    name: &str,
+    name_span: Span,
+    head_is_value: HeadIsValue,
+) -> bool {
     name.contains('#')
         || name.contains('^')
         || name.contains('%')
         || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
-        || is_shadowed_by_a_value(working_set, name, name_span)
+        || head_is_value(working_set, name, name_span)
 }
+
+/// Whether the call site would read the first word of the command or alias name `name`, written
+/// at `name_span`, as a value instead of looking it up as a command. Each front end answers with
+/// its own reading of literals: this crate's parser with `is_shadowed_by_a_value`.
+pub type HeadIsValue = fn(&mut StateWorkingSet<'_>, &str, Span) -> bool;
 
 /// Whether the call site would read the name as a value instead of looking it up as a command.
 ///
@@ -146,7 +157,11 @@ pub fn is_uncallable_name(working_set: &mut StateWorkingSet, name: &str, name_sp
 ///
 /// The name is checked as it is written: a name written between quotes or backticks carries
 /// those marks in the source, and they are not part of the token the call site would read.
-fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name: &str, name_span: Span) -> bool {
+pub(crate) fn is_shadowed_by_a_value(
+    working_set: &mut StateWorkingSet,
+    name: &str,
+    name_span: Span,
+) -> bool {
     // The registered name is the written name with escapes decoded. When the two are the same,
     // the source span shows the head word the call site would read; when they differ (a name
     // written with escapes), the decoded head word is read in a working set of its own.

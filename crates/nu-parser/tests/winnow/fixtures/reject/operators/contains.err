@@ -1,0 +1,6 @@
+error: unknown operator `contains`
+  --> reject/operators/contains.nu:1:5
+  |
+1 | [1] contains 1
+  |     ^^^^^^^^
+  = help: use `has` to test membership

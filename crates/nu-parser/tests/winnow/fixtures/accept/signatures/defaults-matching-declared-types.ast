@@ -1,0 +1,114 @@
+Block 0..557
+  Pipeline 0..556
+    Def `foo` 0..556
+      Signature 8..553
+        Param positional `a` 12..25 : number
+          Default
+            Int 1 24..25
+        Param positional `b` 28..41 : string
+          Default
+            String Bare "1" 40..41
+        Param positional `c` 44..59 : string
+          Default
+            String Bare "1.5" 56..59
+        Param positional `d` 62..74 : float
+          Default
+            Float 1 73..74
+        Param positional `e` 77..95 : list<int>
+          Default
+            List 92..95
+              Int 1 93..94
+        Param positional `f` 98..116 : record
+          Default
+            Record 110..116
+              Pair
+                String Bare "a" 111..112
+                Int 1 114..115
+        Param positional `g` 119..133 : bool
+          Default
+            Bool true 129..133
+        Param positional `h` 136..154 : duration
+          Default
+            Duration 1 sec 150..154
+        Param positional `i` 157..174 : filesize
+          Default
+            Filesize 1 kB 171..174
+        Param positional `j` 177..201 : datetime
+          Default
+            DateTime 2024-01-01 191..201
+        Param positional `k` 204..219 : range
+          Default
+            Range Inclusive 215..219
+              From
+                Int 1 215..216
+              To
+                Int 2 218..219
+        Param positional `l` 222..240 : cell-path
+          Default
+            CellPath 237..240
+              Member "a" 239..240
+        Param positional `m` 243..261 : binary
+          Default
+            Binary radix=16 [255] 255..261
+        Param positional `n` 264..278 : glob
+          Default
+            String Bare "*.rs" 274..278
+        Param positional `o` 281..294 : path
+          Default
+            String Bare "a/b" 291..294
+        Param positional `p` 297..314 : nothing
+          Default
+            Nothing 310..314
+        Param positional `q` 317..336 : external_arg
+          Default
+            String Bare "1" 335..336
+        Param positional `r` 339..350 : any
+          Default
+            String Bare "ls" 348..350
+        Param positional `s` 353..367 : string
+          Default
+            String Bare "ls" 365..367
+        Param positional `t` 370..391 : table
+          Default
+            Table 381..391
+              Columns
+                List 382..385
+                  String Bare "a" 383..384
+              Row
+                List 387..390
+                  Int 1 388..389
+        Param positional `u` 394..410 : string
+          Default
+            Interpolation Double 406..410
+              Text "a" 408..409
+        Param positional `v` 413..428 : string
+          Default
+            Subexpression 425..428 426..427
+              Pipeline 426..427
+                Int 1 426..427
+        Param positional `w` 431..442 : int
+          Default
+            Int -1 440..442
+        Param positional `x` 445..459 : string
+          Default
+            String Bare "-1" 457..459
+        Param positional `y` 462..478 : int
+          Default
+            Subexpression 471..478 472..477
+              Pipeline 472..477
+                BinaryOp + 472..477
+                  Int 1 472..473
+                  Int 1 476..477
+        Param positional `z` 481..506 : oneof<int, string>
+          Default
+            Int 1 505..506
+        Param flag --f1 `f1` 509..517
+          Default
+            Int 1 516..517
+        Param flag --f2 `f2` 520..536 : string
+          Default
+            String Bare "1" 535..536
+        Param flag --f3 -y `f3` 539..551
+          Default
+            Int 1 550..551
+      Body 555..555

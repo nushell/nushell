@@ -1,0 +1,33 @@
+Block 0..102
+  Pipeline 0..22
+    let file 0..22
+      Value 11..22
+        Pipeline 11..22
+          String Single "/dev/null" 11..22
+  Pipeline 23..35
+    ExternalCall 23..26
+      String Bare "ls" 24..26
+    Redirect Out 27..29
+      Var $file 30..35
+  Pipeline 36..64
+    ExternalCall 36..39
+      String Bare "ls" 37..39
+    Redirect Out 40..42
+      Subexpression 43..64 44..63
+        Pipeline 44..63
+          Var $file 44..49
+          | 50..51
+          Call `path expand` 52..63
+  Pipeline 65..82
+    ExternalCall 65..68
+      String Bare "ls" 66..68
+    Redirect Out 69..71
+      Interpolation Double 72..82
+        Subexpression 74..81 75..80
+          Pipeline 75..80
+            Var $file 75..80
+  Pipeline 83..101
+    ExternalCall 83..86
+      String Bare "ls" 84..86
+    Redirect Out 87..89
+      String Double "/dev/null" 90..101

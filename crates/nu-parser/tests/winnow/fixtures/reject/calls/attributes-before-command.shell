@@ -1,0 +1,6 @@
+Pipeline 0..13
+  AttributeBlock 0..13
+    Attribute `example` 0..10
+      String Bare "x" 9..10
+    Garbage 11..13
+Diagnostic 11..13 attributes must be followed by a definition recovered

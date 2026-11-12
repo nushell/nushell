@@ -1,0 +1,12 @@
+Pipeline 0..30
+  AttributeBlock 0..30
+    Attribute `search-terms` 0..30
+      String Bare "hello" 14..19
+      String Bare "salutation" 20..30
+    Garbage 30..30
+Diagnostic 30..30 attributes must be followed by a definition recovered
+Pipeline 42..62 comments=1
+  Def `greet` 42..62
+    Signature 52..58
+      Param positional `name` 53..57
+    Body 60..61

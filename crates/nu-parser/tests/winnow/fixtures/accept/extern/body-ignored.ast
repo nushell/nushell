@@ -1,0 +1,6 @@
+Block 0..17
+  Pipeline 0..16
+    Extern `foo` 0..16
+      Signature 11..13
+Ignored (1)
+  14..16 "{}"

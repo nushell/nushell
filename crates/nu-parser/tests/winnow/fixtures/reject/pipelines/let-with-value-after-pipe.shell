@@ -1,0 +1,9 @@
+Pipeline 0..14
+  Call `ls` 0..2
+  | 3..4
+  Assignment = 5..14
+    let x 5..10
+    Value 13..14
+      Pipeline 13..14
+        Int 1 13..14
+Diagnostic 5..10 assignment requires a variable recovered

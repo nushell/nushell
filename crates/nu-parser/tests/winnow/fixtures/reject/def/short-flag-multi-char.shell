@@ -1,0 +1,7 @@
+Pipeline 0..14
+  Call `def` 0..14
+    String Bare "f" 4..5
+    List 6..11
+      String Bare "-ab" 7..10
+    Record 12..14
+Diagnostic 7..10 expected single-character short flag recovered

@@ -1,0 +1,17 @@
+Block 0..59
+  Pipeline 0..18
+    Def `ls` 0..18
+      Signature 7..9
+      Body 11..17
+        Pipeline 12..16
+          String Single "hi" 12..16
+  Pipeline 19..31
+    Call `%ls` 19..22
+    | 23..24
+    Call `length` 25..31
+  Pipeline 32..47
+    Alias `cd` 32..47
+      Call `echo` 43..47
+  Pipeline 48..58
+    Call `%cd` 48..58
+      Flag --help 52..58

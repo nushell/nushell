@@ -1,0 +1,7 @@
+Pipeline 0..16
+  Def `run` 0..16
+    Signature 8..10
+    Body 12..15
+      Pipeline 13..14
+        Int 1 13..14
+Diagnostic 4..7 cannot use parser keyword `run` as command name recovered

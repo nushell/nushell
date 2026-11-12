@@ -1,0 +1,2 @@
+Pipeline 0..14
+  String Single "a\\nb\\u{41}\\(" 0..14

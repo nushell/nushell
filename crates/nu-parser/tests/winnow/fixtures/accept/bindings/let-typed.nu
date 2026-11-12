@@ -1,0 +1,11 @@
+let a: int = 1
+let b: string = 'qwe'
+let c: nothing = null
+let d: list<string> = []
+let e: record<a: int b: int> = {a: 1 b: 1}
+let f: table<a: int b: int> = [[a b]; [1 2] [3 4]]
+let g: record<a: record<name: string> b: int> = {a: {name: bob} b: 1}
+let h: record<c: record<a: int b: int> e: int> = {c: {a: 1 b: 2} e: 1}
+let i: list<any> = [1 a]
+let j: oneof<int, string> = 1
+let k: any = 1

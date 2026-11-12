@@ -1,0 +1,6 @@
+Pipeline 0..13
+  Call `ls` 0..2
+  | 3..4
+  Call `hide` 5..13
+    String Bare "foo" 10..13
+Diagnostic 5..9 `hide` is a statement and cannot be used inside a pipeline recovered

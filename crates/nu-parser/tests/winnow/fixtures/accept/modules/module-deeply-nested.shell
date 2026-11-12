@@ -1,0 +1,4 @@
+Pipeline 0..179
+  Module 0..179
+    String Bare "foo" 7..10
+    Body 12..178

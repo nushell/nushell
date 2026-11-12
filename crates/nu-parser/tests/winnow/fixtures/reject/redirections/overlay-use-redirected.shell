@@ -1,0 +1,6 @@
+Pipeline 0..21
+  Call `overlay use` 0..16
+    Nothing 12..16
+  Redirect Out 17..19
+    String Bare "x" 20..21
+Diagnostic 17..19 this statement cannot be redirected recovered

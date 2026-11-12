@@ -1,0 +1,7 @@
+Pipeline 0..6
+  Assignment = 0..6
+    Call `ls` 0..2
+    Value 5..6
+      Pipeline 5..6
+        Int 1 5..6
+Diagnostic 0..2 assignment requires a variable recovered

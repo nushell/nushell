@@ -1,0 +1,3 @@
+Pipeline 0..8
+  Garbage 0..8
+Diagnostic 3..5 `||` is not Nushell syntax; use `or` instead recovered

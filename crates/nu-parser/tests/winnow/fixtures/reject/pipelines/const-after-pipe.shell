@@ -1,0 +1,11 @@
+Pipeline 0..16
+  Call `ls` 0..2
+  | 3..4
+  Assignment = 5..16
+    Call `const` 5..12
+      String Bare "x" 11..12
+    Value 15..16
+      Pipeline 15..16
+        Int 1 15..16
+Diagnostic 5..10 `const` is a statement and cannot be used inside a pipeline recovered
+Diagnostic 5..12 assignment requires a variable recovered

@@ -1,0 +1,4 @@
+Pipeline 0..10
+  Call `export` 0..10
+    String Bare "foo" 7..10
+Diagnostic 7..10 `export foo` is not a valid export recovered

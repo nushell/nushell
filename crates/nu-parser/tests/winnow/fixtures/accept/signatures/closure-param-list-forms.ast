@@ -1,0 +1,61 @@
+Block 0..110
+  Pipeline 0..109
+    List 0..109
+      Closure 1..7
+        Signature 2..4
+        Body 5..6
+          Pipeline 5..6
+            Int 1 5..6
+      Closure 8..15
+        Signature 9..12
+          Param positional `a` 10..11
+        Body 13..14
+          Pipeline 13..14
+            Int 1 13..14
+      Closure 16..25
+        Signature 17..22
+          Param positional `a` 18..19
+          Param positional `b` 20..21
+        Body 23..24
+          Pipeline 23..24
+            Int 1 23..24
+      Closure 26..36
+        Signature 27..33
+          Param positional `a` 28..29
+          Param positional `b` 31..32
+        Body 34..35
+          Pipeline 34..35
+            Int 1 34..35
+      Closure 37..60
+        Signature 38..57
+          Param positional `a` 39..45 : int
+          Param positional `b` 47..56 : string
+        Body 58..59
+          Pipeline 58..59
+            Int 1 58..59
+      Closure 61..72
+        Signature 62..69
+          Param positional `a` 63..68
+            Default
+              Int 1 67..68
+        Body 70..71
+          Pipeline 70..71
+            Int 1 70..71
+      Closure 73..86
+        Signature 74..83
+          Param rest `rest` 75..82
+        Body 84..85
+          Pipeline 84..85
+            Int 1 84..85
+      Closure 87..95
+        Signature 88..92
+          Param optional `a` 89..91
+        Body 93..94
+          Pipeline 93..94
+            Int 1 93..94
+      Closure 96..108
+        Signature 97..105
+          Param flag --flag `flag` 98..104
+        Body 106..107
+          Pipeline 106..107
+            Int 1 106..107

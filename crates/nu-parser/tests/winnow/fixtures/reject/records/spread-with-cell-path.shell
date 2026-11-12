@@ -1,0 +1,9 @@
+Pipeline 0..10
+  let r 0..10
+    Value 8..10
+      Pipeline 8..10
+        Record 8..10
+Pipeline 11..25
+  Call `echo` 11..25
+    Garbage 16..25
+Diagnostic 25..25 unclosed delimiter: expected `}` recovered

@@ -1,0 +1,9 @@
+Block 0..31
+  Pipeline 0..23
+    Def `0xdump` 0..23
+      Signature 11..13
+      Body 15..22
+        Pipeline 16..21
+          String Double "ran" 16..21
+  Pipeline 24..30
+    Call `0xdump` 24..30

@@ -1,0 +1,8 @@
+Block 0..20
+  Pipeline 0..19
+    Def `f` 0..19
+      Signature 6..16
+        Param positional `x` 7..8 desc="c"
+      Body 18..18
+Comments (1)
+  11..14 "# c"

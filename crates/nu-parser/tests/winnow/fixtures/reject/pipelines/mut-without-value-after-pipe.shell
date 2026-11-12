@@ -1,0 +1,6 @@
+Pipeline 0..10
+  Call `ls` 0..2
+  | 3..4
+  Call `mut` 5..10
+    String Bare "x" 9..10
+Diagnostic 5..8 `mut` is a statement and cannot be used inside a pipeline recovered

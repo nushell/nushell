@@ -1,0 +1,7 @@
+Block 0..23
+  Pipeline 0..17
+    String Double " x " 0..5
+    | 6..7
+    Call `%str trim` 8..17
+  Pipeline 18..22
+    Call `%str` 18..22

@@ -1,0 +1,10 @@
+Pipeline 0..14
+  If 0..14
+    Condition
+      Bool true 3..7
+    ThenValue
+      Record 8..14
+        Pair
+          String Bare "a" 9..10
+          Int 1 12..13
+Diagnostic 8..14 expected block after the condition recovered

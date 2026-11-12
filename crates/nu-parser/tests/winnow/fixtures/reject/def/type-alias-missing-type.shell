@@ -1,0 +1,3 @@
+Pipeline 0..8
+  TypeAlias `T` =  0..8
+Diagnostic 8..8 expected type after `=` recovered

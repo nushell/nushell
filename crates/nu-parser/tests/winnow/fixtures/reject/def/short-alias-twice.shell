@@ -1,0 +1,14 @@
+Pipeline 0..23
+  Call `def` 0..23
+    String Bare "f" 4..5
+    List 6..20
+      Interpolation Bare 7..14
+        Text "--a" 7..10
+        Subexpression 10..14 11..13
+          Pipeline 11..13
+            String Bare "-a" 11..13
+      Subexpression 15..19 16..18
+        Pipeline 16..18
+          String Bare "-b" 16..18
+    Record 21..23
+Diagnostic 15..19 this flag already has a short form recovered

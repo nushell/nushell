@@ -1,0 +1,12 @@
+Pipeline 0..41
+  mut a 0..41
+    Value 30..41
+      Pipeline 30..41
+        Record 30..41
+          Pair
+            String Bare "a" 31..32
+            Int 1 34..35
+          Pair
+            String Bare "b" 36..37
+            Int 1 39..40
+Diagnostic 6..15 extra tokens after the end of the expression recovered

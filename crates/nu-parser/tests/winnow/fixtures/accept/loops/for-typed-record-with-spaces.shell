@@ -1,0 +1,4 @@
+Pipeline 0..41
+  For $x : record<a: int, b: string> 0..41
+    List 36..38
+    Body 40..40

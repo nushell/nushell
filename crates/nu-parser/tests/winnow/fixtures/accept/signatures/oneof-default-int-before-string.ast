@@ -1,0 +1,10 @@
+Block 0..41
+  Pipeline 0..40
+    Def `f` 0..40
+      Signature 6..33
+        Param positional `x` 7..32 : oneof<string, int>
+          Default
+            Int 5 31..32
+      Body 35..39
+        Pipeline 36..38
+          Var $x 36..38

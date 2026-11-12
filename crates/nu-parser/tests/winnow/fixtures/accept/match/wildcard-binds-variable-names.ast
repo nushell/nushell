@@ -1,0 +1,8 @@
+Block 0..33
+  Pipeline 0..32
+    Match 0..32
+      String Double "...$foo" 6..15
+      Arm 18..30
+        Pattern value 18..25
+          String Bare "...$foo" 18..25
+        Int 5 29..30

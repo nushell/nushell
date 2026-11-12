@@ -1,0 +1,6 @@
+Pipeline 0..11
+  ExternalCall 0..11
+    String Bare "if" 1..3
+    String Bare "true" 4..8
+    Record 9..11
+Diagnostic 1..3 percent sigil requires a built-in command recovered

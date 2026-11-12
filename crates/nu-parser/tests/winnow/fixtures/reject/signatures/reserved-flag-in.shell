@@ -1,0 +1,6 @@
+Pipeline 0..17
+  Def `foo` 0..17
+    Signature 8..14
+      Param flag --in `in` 9..13
+    Body 16..16
+Diagnostic 11..13 `in` used as variable name recovered

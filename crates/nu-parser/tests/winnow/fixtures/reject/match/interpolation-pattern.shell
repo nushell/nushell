@@ -1,0 +1,9 @@
+Pipeline 0..24
+  Match 0..24
+    Int 1 6..7
+    Arm 10..22
+      Pattern value 10..17
+        Garbage 10..17
+      ExternalCall 21..22
+        String Bare "n" 21..22
+Diagnostic 10..17 expected valid variable name recovered

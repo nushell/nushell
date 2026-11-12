@@ -1,0 +1,3 @@
+Pipeline 0..4
+  Garbage 0..4
+Diagnostic 1..3 invalid string literal: unrecognized escape sequence `\q` recovered

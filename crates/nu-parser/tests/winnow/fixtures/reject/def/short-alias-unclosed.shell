@@ -1,0 +1,7 @@
+Pipeline 0..17
+  Call `def` 0..17
+    String Bare "f" 4..5
+    Garbage 6..14
+    Record 15..17
+Diagnostic 13..14 unbalanced delimiter: found `]` without a matching `(` recovered
+Diagnostic 12..13 unclosed delimiter: expected `)` recovered

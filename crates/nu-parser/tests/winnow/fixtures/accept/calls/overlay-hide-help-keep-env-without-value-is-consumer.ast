@@ -1,0 +1,5 @@
+Block 0..31
+  Pipeline 0..30
+    Call `overlay hide` 0..30
+      Flag --help 13..19
+      Flag --keep-env 20..30

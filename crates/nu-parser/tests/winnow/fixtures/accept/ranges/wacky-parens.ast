@@ -1,0 +1,77 @@
+Block 0..109
+  Pipeline 0..108
+    List 0..108
+      Range Inclusive 1..18
+        From
+          Int 0 1..2
+        To
+          Subexpression 4..18 5..17
+            Pipeline 5..17
+              Range Inclusive 5..9
+                From
+                  Int 1 5..6
+                To
+                  Int 2 8..9
+              | 10..11
+              Call `first` 12..17
+      Range RightExclusive 19..37
+        From
+          Int 0 19..20
+        To
+          Subexpression 23..37 24..36
+            Pipeline 24..36
+              Range Inclusive 24..28
+                From
+                  Int 1 24..25
+                To
+                  Int 2 27..28
+              | 29..30
+              Call `first` 31..36
+      Range Inclusive 38..56
+        From
+          Int 0 38..39
+        To
+          Subexpression 42..56 43..55
+            Pipeline 43..55
+              Range Inclusive 43..47
+                From
+                  Int 1 43..44
+                To
+                  Int 2 46..47
+              | 48..49
+              Call `first` 50..55
+      Range Inclusive 57..73
+        To
+          Subexpression 59..73 60..72
+            Pipeline 60..72
+              Range Inclusive 60..64
+                From
+                  Int 1 60..61
+                To
+                  Int 2 63..64
+              | 65..66
+              Call `first` 67..72
+      Range Inclusive 74..84
+        From
+          Int 1 74..75
+        Next
+          Subexpression 77..80 78..79
+            Pipeline 78..79
+              Int 5 78..79
+        To
+          Int 10 82..84
+      Range Inclusive 85..107
+        From
+          Int 1 85..86
+        Next
+          Subexpression 88..103 89..102
+            Pipeline 89..102
+              Range Inclusive 89..94
+                From
+                  Int 5 89..90
+                To
+                  Int 10 92..94
+              | 95..96
+              Call `first` 97..102
+        To
+          Int 10 105..107

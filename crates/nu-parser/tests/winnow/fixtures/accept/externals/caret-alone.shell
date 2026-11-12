@@ -1,0 +1,3 @@
+Pipeline 0..1
+  ExternalCall 0..1
+    String Bare "" 1..1

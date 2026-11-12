@@ -1,0 +1,8 @@
+Pipeline 0..18
+  Call `for` 0..18
+    String Bare "x.y" 4..7
+    String Bare "in" 8..10
+    List 11..14
+      Int 1 12..13
+    Record 15..18
+Diagnostic 4..7 expected valid variable name recovered

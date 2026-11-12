@@ -1,0 +1,3 @@
+Pipeline 0..12
+  Call `return` 0..12
+    Flag --foo 7..12

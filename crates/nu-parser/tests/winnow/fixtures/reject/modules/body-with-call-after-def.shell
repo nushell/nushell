@@ -1,0 +1,11 @@
+Pipeline 0..27
+  Module 0..27
+    String Bare "m" 7..8
+    Body 10..26
+      Pipeline 11..22 terminator=22..23
+        Def `f` 11..22
+          Signature 17..19
+          Body 21..21
+      Pipeline 24..25
+        Call `f` 24..25
+Diagnostic 24..25 expected keyword `def, const, extern, alias, use, module, export or export-env` recovered

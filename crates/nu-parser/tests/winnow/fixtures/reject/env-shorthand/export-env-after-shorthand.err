@@ -1,0 +1,6 @@
+error: `export-env` is a statement and cannot be used inside a pipeline
+  --> reject/env-shorthand/export-env-after-shorthand.nu:1:7
+  |
+1 | FOO=1 export-env {}
+  |       ^^^^^^^^^^
+  = help: declarations and the module, source, overlay and plugin commands are statements of their own

@@ -1,0 +1,6 @@
+Pipeline 0..10
+  Call `let` 0..10
+    String Bare "=" 4..5
+    String Bare "if" 6..8
+    Garbage 9..10
+Diagnostic 9..10 expected valid variable name recovered

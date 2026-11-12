@@ -1,0 +1,3 @@
+Pipeline 0..6
+  Garbage 0..6
+Diagnostic 1..5 invalid string literal: incomplete hex escape '\xHH', expected 2 hex digits recovered

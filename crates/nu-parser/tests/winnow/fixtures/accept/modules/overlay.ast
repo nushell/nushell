@@ -1,0 +1,24 @@
+Block 0..131
+  Pipeline 0..36
+    Call `overlay use` 0..36
+      String Bare "./foo.nu" 12..20
+      String Bare "as" 21..23
+      String Bare "bar" 24..27
+      Flag --prefix 28..36
+  Pipeline 37..56
+    Call `overlay use` 37..56
+      String Bare "std/log" 49..56
+  Pipeline 57..70
+    Call `overlay new` 57..70
+      String Bare "x" 69..70
+  Pipeline 71..85
+    Call `overlay hide` 71..85
+      String Bare "x" 84..85
+  Pipeline 86..98
+    Call `overlay list` 86..98
+  Pipeline 99..130
+    Call `overlay hide` 99..130
+      Flag --keep-env 112..122
+      List 123..128
+        String Bare "PWD" 124..127
+      String Bare "x" 129..130

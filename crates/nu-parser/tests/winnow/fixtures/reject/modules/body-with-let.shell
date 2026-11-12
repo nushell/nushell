@@ -1,0 +1,10 @@
+Pipeline 0..22
+  Module 0..22
+    String Bare "m" 7..8
+    Body 10..21
+      Pipeline 11..20
+        let x 11..20
+          Value 19..20
+            Pipeline 19..20
+              Int 1 19..20
+Diagnostic 11..20 expected keyword `def, const, extern, alias, use, module, export or export-env` recovered

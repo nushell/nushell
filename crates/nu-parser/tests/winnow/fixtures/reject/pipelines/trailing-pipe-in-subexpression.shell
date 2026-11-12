@@ -1,0 +1,5 @@
+Pipeline 0..6
+  Subexpression 0..6 1..5
+    Pipeline 1..3 dangling_pipe=4..5
+      Call `ls` 1..3
+Diagnostic 4..5 unexpected end of input, expected command after `|` recovered

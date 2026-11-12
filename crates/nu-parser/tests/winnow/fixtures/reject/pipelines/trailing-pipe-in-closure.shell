@@ -1,0 +1,7 @@
+Pipeline 0..11
+  Call `do` 0..11
+    Closure 3..11
+      Body 5..10
+        Pipeline 5..7 dangling_pipe=8..9
+          Call `ls` 5..7
+Diagnostic 8..9 unexpected end of input, expected command after `|` recovered

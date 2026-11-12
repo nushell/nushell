@@ -1,0 +1,6 @@
+Pipeline 0..21
+  Alias `x` 0..21
+    Call `ls` 10..21
+      String Bare "|" 13..14
+      String Bare "length" 15..21
+Diagnostic 13..14 cannot create an alias to a pipeline recovered

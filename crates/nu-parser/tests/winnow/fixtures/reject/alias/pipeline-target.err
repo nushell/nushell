@@ -1,0 +1,6 @@
+error: cannot create an alias to a pipeline
+  --> reject/alias/pipeline-target.nu:1:15
+  |
+1 | alias ll = ls | length
+  |               ^
+  = help: an alias names one command call; use `def` for a pipeline

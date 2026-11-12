@@ -1,0 +1,24 @@
+Pipeline 0..50
+  List 0..7
+    Int 1 1..2
+    Int 2 3..4
+    Int 3 5..6
+  | 8..9
+  Call `for` 10..33
+    String Bare "x" 14..15
+    String Bare "in" 16..18
+    Var $in 19..22
+    Closure 23..33
+      Body 25..32
+        Pipeline 25..31
+          BinaryOp + 25..31
+            Var $x 25..27
+            Int 1 30..31
+  | 34..35
+  BinaryOp ++ 36..50
+    Var $in 36..39
+    List 43..50
+      Int 5 44..45
+      Int 6 46..47
+      Int 7 48..49
+Diagnostic 10..13 `for` is a statement and cannot be used inside a pipeline recovered

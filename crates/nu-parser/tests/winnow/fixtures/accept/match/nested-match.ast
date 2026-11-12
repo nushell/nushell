@@ -1,0 +1,30 @@
+Block 0..78
+  Pipeline 0..77
+    Match 0..77
+      Int 1 6..7
+      Arm 12..45
+        Pattern value 12..13
+          Int 1 12..13
+        Subexpression 17..45 18..44
+          Pipeline 18..44
+            Match 18..44
+              Int 2 24..25
+              Arm 28..34
+                Pattern value 28..29
+                  Int 2 28..29
+                ExternalCall 33..34
+                  String Bare "a" 33..34
+              Arm 36..42
+                Pattern _ 36..37
+                ExternalCall 41..42
+                  String Bare "b" 41..42
+      Arm 48..75
+        Pattern _ 48..49
+        BlockExpr 53..75 54..74
+          Pipeline 55..73
+            Match 55..73
+              Int 3 61..62
+              Arm 65..71
+                Pattern _ 65..66
+                ExternalCall 70..71
+                  String Bare "c" 70..71

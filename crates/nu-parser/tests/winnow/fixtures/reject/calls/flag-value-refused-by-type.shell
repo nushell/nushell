@@ -1,0 +1,10 @@
+Pipeline 0..18
+  Def `f` 0..18
+    Signature 6..15
+      Param flag -n `n` 7..14 : int
+    Body 17..17
+Pipeline 19..27
+  Call `f` 19..27
+    Flag -n 21..27
+      Garbage 24..27
+Diagnostic 24..27 expected int recovered

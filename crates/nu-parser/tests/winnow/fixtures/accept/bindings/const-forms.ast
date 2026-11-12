@@ -1,0 +1,45 @@
+Block 0..115
+  Pipeline 0..21
+    const VERSION 0..21
+      Value 16..21
+        Pipeline 16..21
+          String Double "1.0" 16..21
+  Pipeline 22..38
+    const N : int 22..38
+      Value 37..38
+        Pipeline 37..38
+          Int 3 37..38
+  Pipeline 39..56
+    const L 39..56
+      Value 49..56
+        Pipeline 49..56
+          List 49..56
+            Int 1 50..51
+            Int 2 52..53
+            Int 3 54..55
+  Pipeline 57..79
+    const R 57..79
+      Value 67..79
+        Pipeline 67..79
+          Record 67..79
+            Pair
+              String Bare "a" 68..69
+              Subexpression 71..78 72..77
+                Pipeline 72..77
+                  BinaryOp + 72..77
+                    Int 1 72..73
+                    Int 1 76..77
+  Pipeline 80..114
+    const c 80..114
+      Value 90..114
+        Pipeline 90..114
+          If 90..114
+            Condition
+              Bool true 93..97
+            Then 99..102
+              Pipeline 100..101
+                Int 1 100..101
+            Else 104..108
+              BlockExpr 109..114 110..113
+                Pipeline 111..112
+                  Int 2 111..112

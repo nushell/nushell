@@ -1,0 +1,8 @@
+Block 0..23
+  Pipeline 0..22
+    List 0..22
+      String Bare "a" 1..2
+      String Bare "b" 3..4
+      String Bare "c" 5..6
+      String Bare "foo-bar" 7..14
+      String Bare "./path" 15..21

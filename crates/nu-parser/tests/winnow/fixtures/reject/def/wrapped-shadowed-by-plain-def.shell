@@ -1,0 +1,18 @@
+Pipeline 76..104 comments=1
+  Def `f` [Wrapped] 76..104
+    Signature 92..101
+      Param rest `rest` 93..100
+    Body 103..103
+Pipeline 105..138
+  Call `do` 105..138
+    Closure 108..138
+      Body 110..137
+        Pipeline 110..128 terminator=128..129
+          Def `f` 110..128
+            Signature 116..125
+              Param rest `rest` 117..124
+            Body 127..127
+        Pipeline 130..136
+          Call `f` 130..136
+            Garbage 132..136
+Diagnostic 135..136 extra tokens after the end of the expression recovered

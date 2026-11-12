@@ -1,0 +1,41 @@
+Block 0..80
+  Pipeline 0..9
+    let x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..79
+    If 10..79
+      Condition
+        BinaryOp > 13..19
+          Var $x 13..15
+          Int 1 18..19
+      Then 21..24
+        Pipeline 22..23
+          ExternalCall 22..23
+            String Bare "a" 22..23
+      Else 26..30
+        If 31..79
+          Condition
+            BinaryOp > 34..40
+              Var $x 34..36
+              Int 0 39..40
+          Then 42..45
+            Pipeline 43..44
+              ExternalCall 43..44
+                String Bare "b" 43..44
+          Else 47..51
+            If 52..79
+              Condition
+                BinaryOp > 55..62
+                  Var $x 55..57
+                  Int -1 60..62
+              Then 64..67
+                Pipeline 65..66
+                  ExternalCall 65..66
+                    String Bare "c" 65..66
+              Else 69..73
+                BlockExpr 74..79 75..78
+                  Pipeline 76..77
+                    ExternalCall 76..77
+                      String Bare "d" 76..77

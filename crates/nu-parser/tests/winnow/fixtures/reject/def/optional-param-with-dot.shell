@@ -1,0 +1,7 @@
+Pipeline 0..15
+  Call `def` 0..15
+    String Bare "f" 4..5
+    List 6..12
+      String Bare "a.b?" 7..11
+    Record 13..15
+Diagnostic 7..11 expected valid variable name for this optional parameter recovered

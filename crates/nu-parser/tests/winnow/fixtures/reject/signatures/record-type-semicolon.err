@@ -1,0 +1,14 @@
+error: unexpected semicolon in list
+  --> reject/signatures/record-type-semicolon.nu:1:26
+  |
+1 | def foo [x: record<a: int;>] {}
+  |                          ^
+  = help: use commas or whitespace to separate list items
+
+error: annotation key not string
+  --> reject/signatures/record-type-semicolon.nu:1:26
+  |
+1 | def foo [x: record<a: int;>] {}
+  |                          ^
+  = while parsing signature
+  = help: a field name must be a string

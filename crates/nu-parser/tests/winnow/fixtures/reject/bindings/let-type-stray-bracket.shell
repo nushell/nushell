@@ -1,0 +1,6 @@
+Pipeline 0..38
+  let x : record<a: int, b]: string> 0..38
+    Value 36..38
+      Pipeline 36..38
+        Record 36..38
+Diagnostic 23..24 unbalanced delimiter: found `]` without a matching `<` recovered

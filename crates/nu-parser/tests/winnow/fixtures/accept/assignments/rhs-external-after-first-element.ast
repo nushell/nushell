@@ -1,0 +1,12 @@
+Block 0..19
+  Pipeline 0..18
+    Assignment = 0..18
+      FullCellPath 0..8
+        Var $env 0..4
+        Member "FOO" 5..8
+      Value 11..18
+        Pipeline 11..18
+          Int 1 11..12
+          | 13..14
+          ExternalCall 15..18
+            String Bare "git" 15..18

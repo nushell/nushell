@@ -1,0 +1,7 @@
+Block 0..9
+  Pipeline 0..8
+    List 0..8
+      String Bare "a" 1..2
+Ignored (2)
+  3..5 "o>"
+  6..7 "b"

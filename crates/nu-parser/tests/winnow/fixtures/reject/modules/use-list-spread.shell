@@ -1,0 +1,11 @@
+Pipeline 0..13
+  let l 0..13
+    Value 8..13
+      Pipeline 8..13
+        List 8..13
+          String Bare "log" 9..12
+Pipeline 14..29
+  Use 14..29
+    String Bare "std" 18..21
+    Members [] 22..29
+Diagnostic 23..26 cannot spread in an import pattern recovered

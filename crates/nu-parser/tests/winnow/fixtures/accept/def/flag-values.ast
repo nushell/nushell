@@ -1,0 +1,52 @@
+Block 0..224
+  Pipeline 0..22
+    Def `a` [Env] 0..22
+      FlagValue Env 4..14
+        Bool true 10..14
+      Signature 17..19
+      Body 21..21
+  Pipeline 23..68
+    Def `b` [Env, Wrapped] 23..68
+      FlagValue Env 27..38
+        Bool false 33..38
+      FlagValue Wrapped 39..53
+        Bool true 49..53
+      Signature 56..65
+        Param rest `rest` 57..64
+      Body 67..67
+  Pipeline 69..108
+    Def `c` [Wrapped] 69..108
+      FlagValue Wrapped 75..90
+        Bool false 85..90
+      Signature 91..105
+        Param rest `rest` 92..104 : int
+      Body 107..107
+  Pipeline 109..135
+    Def `d` [Env] 109..135
+      FlagValue Env 113..127
+        Subexpression 119..127 120..126
+          Pipeline 120..126
+            BinaryOp == 120..126
+              Int 1 120..121
+              Int 1 125..126
+      Signature 130..132
+      Body 134..134
+  Pipeline 136..153
+    const off 136..153
+      Value 148..153
+        Pipeline 148..153
+          Bool false 148..153
+  Pipeline 154..192
+    Def `e` [Wrapped] 154..192
+      FlagValue Wrapped 158..172
+        Var $off 168..172
+      Signature 175..189
+        Param rest `rest` 176..188 : int
+      Body 191..191
+  Pipeline 193..223
+    Def `f` [Wrapped] 193..223
+      FlagValue Wrapped 197..212
+        Bool false 207..212
+      Signature 215..220
+        Param flag --x `x` 216..219
+      Body 222..222

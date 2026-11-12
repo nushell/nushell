@@ -1,0 +1,11 @@
+Block 0..28
+  Pipeline 0..27 comments=2
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 19..20
+    Call `length` 21..27
+Comments (2)
+  10..13 "# c"
+  15..18 "# d"

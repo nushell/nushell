@@ -1,0 +1,5 @@
+error: unexpected redirection: nothing to redirect
+  --> reject/redirections/nothing-to-redirect-append.nu:1:1
+  |
+1 | e>> file
+  | ^^^

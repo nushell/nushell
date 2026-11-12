@@ -1,0 +1,7 @@
+Pipeline 0..43
+  Match 0..43
+    Int 1 6..7
+    ValueBlock
+      Garbage 8..43
+Diagnostic 20..20 expected expression recovered
+Diagnostic 23..41 expected `=>` recovered

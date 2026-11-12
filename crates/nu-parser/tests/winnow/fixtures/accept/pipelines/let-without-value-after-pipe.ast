@@ -1,0 +1,5 @@
+Block 0..11
+  Pipeline 0..10
+    Call `ls` 0..2
+    | 3..4
+    let x 5..10

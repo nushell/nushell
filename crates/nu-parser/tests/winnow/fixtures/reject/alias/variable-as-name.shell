@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Alias `$x` 0..12
+    ExternalCall 11..12
+      String Bare "a" 11..12
+Diagnostic 6..8 alias name not supported recovered

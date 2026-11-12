@@ -1,0 +1,9 @@
+Block 0..24
+  Pipeline 0..23
+    Call `if` 0..8
+      List 3..8
+        Int 1 4..5
+        Int 2 6..7
+    | 9..10
+    Call `is-empty` 11..23
+      Record 20..23

@@ -1,0 +1,16 @@
+Pipeline 0..30
+  Assignment = 0..21
+    ExternalCall 0..15
+      String Bare "@search-terms" 0..13
+      String Bare "a" 14..15
+    Value 18..21
+      Pipeline 18..19
+        ExternalCall 18..19
+          String Bare "b" 18..19
+      Pipeline 20..21
+        ExternalCall 20..21
+          String Bare "d" 20..21
+  | 22..23
+  Call `length` 24..30
+Diagnostic 0..15 assignment requires a variable recovered
+Diagnostic 18..19 external command calls must be explicit in assignments recovered

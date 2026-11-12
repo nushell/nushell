@@ -1,0 +1,25 @@
+Block 0..72
+  Pipeline 0..15
+    ExternalCall 0..3
+      String Bare "ls" 1..3
+    Redirect OutErrPipe 4..9
+    | 4..9
+    Call `lines` 10..15
+  Pipeline 16..35
+    ExternalCall 16..19
+      String Bare "ls" 17..19
+    Redirect OutErrPipe 20..29
+    | 20..29
+    Call `lines` 30..35
+  Pipeline 36..51
+    ExternalCall 36..39
+      String Bare "ls" 37..39
+    Redirect OutErrPipe 40..45
+    | 40..45
+    Call `lines` 46..51
+  Pipeline 52..71
+    ExternalCall 52..55
+      String Bare "ls" 53..55
+    Redirect OutErrPipe 56..65
+    | 56..65
+    Call `lines` 66..71

@@ -1,0 +1,6 @@
+Pipeline 53..65 comments=1
+  Match 53..65
+    Int 1 59..60
+    ValueBlock
+      Garbage 61..65
+Diagnostic 65..65 unclosed delimiter: expected `}` recovered

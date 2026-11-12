@@ -1,0 +1,4 @@
+Pipeline 0..13
+  Call `hide` 0..13
+    String Bare "ls" 5..7
+    Flag --foo 8..13

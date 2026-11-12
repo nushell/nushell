@@ -1,0 +1,18 @@
+Block 0..46
+  Pipeline 0..45
+    Try 0..45
+      Body 5..10
+        Pipeline 8..9
+          Int 1 8..9
+      Catch 12..17
+        Closure 18..29
+          Signature 20..23
+            Param positional `e` 21..22
+          Body 23..28
+            Pipeline 26..27
+              Int 2 26..27
+      Finally 30..37
+        Closure 38..45
+          Body 39..44
+            Pipeline 42..43
+              Int 3 42..43

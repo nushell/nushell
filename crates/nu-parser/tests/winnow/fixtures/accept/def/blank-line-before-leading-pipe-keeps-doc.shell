@@ -1,0 +1,5 @@
+Pipeline 7..20 comments=1
+  | 7..8
+  Def `k` 9..20
+    Signature 15..17
+    Body 19..19

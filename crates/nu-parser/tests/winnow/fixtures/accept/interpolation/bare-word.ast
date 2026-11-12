@@ -1,0 +1,17 @@
+Block 0..27
+  Pipeline 0..26
+    BinaryOp ++ 0..26
+      String Double "" 0..2
+      Interpolation Bare 6..26
+        Text "foo" 6..9
+        Subexpression 9..16 10..15
+          Pipeline 10..15
+            BinaryOp + 10..15
+              Int 1 10..11
+              Int 3 14..15
+        Text "bar" 16..19
+        Subexpression 19..26 20..25
+          Pipeline 20..25
+            BinaryOp - 20..25
+              Int 7 20..21
+              Int 5 24..25

@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `>`
+  --> reject/signatures/completer-inside-record-type.nu:1:21
+  |
+1 | def foo [x: record<a@b: int>] {}
+  |                     ^
+  = note: opened at 1:19
+  = while parsing signature

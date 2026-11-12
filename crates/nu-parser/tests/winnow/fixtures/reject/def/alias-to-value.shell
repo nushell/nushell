@@ -1,0 +1,4 @@
+Pipeline 0..11
+  Alias `a` 0..11
+    Garbage 10..11
+Diagnostic 10..11 cannot create an alias to an expression recovered

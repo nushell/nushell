@@ -1,0 +1,5 @@
+Pipeline 0..28
+  Call `echo` 0..28
+    String Single ".#testing" 5..16
+    String Double "#tag" 17..23
+    String Backtick "#x" 24..28

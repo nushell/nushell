@@ -1,0 +1,5 @@
+Pipeline 0..9
+  Call `def` 0..9
+    List 4..6
+    Record 7..9
+Diagnostic 4..4 no space between name and parameters recovered

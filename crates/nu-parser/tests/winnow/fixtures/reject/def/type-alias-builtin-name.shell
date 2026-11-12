@@ -1,0 +1,3 @@
+Pipeline 0..17
+  TypeAlias `int` = string 0..17
+Diagnostic 5..8 `int` is a built-in type recovered

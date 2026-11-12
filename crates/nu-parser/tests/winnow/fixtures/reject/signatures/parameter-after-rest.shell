@@ -1,0 +1,8 @@
+Pipeline 0..19
+  Call `def` 0..19
+    String Bare "f" 4..5
+    List 6..15
+      String Bare "...r" 7..11
+      String Bare "a" 13..14
+    Record 16..19
+Diagnostic 13..14 parameter `a` after the rest parameter recovered

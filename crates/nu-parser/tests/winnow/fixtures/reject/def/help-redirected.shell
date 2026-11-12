@@ -1,0 +1,6 @@
+Pipeline 66..81 comments=1
+  Call `def` 66..76
+    Flag --help 70..76
+  Redirect Out 77..79
+    String Bare "f" 80..81
+Diagnostic 77..79 this statement cannot be redirected recovered

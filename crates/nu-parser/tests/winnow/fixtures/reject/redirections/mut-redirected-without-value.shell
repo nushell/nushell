@@ -1,0 +1,6 @@
+Pipeline 83..93 comments=1
+  Call `mut` 83..93
+    String Bare "x" 87..88
+    String Bare "o>" 89..91
+    String Bare "f" 92..93
+Diagnostic 89..91 expected `=` recovered

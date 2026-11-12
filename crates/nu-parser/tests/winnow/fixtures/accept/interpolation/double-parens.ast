@@ -1,0 +1,13 @@
+Block 0..24
+  Pipeline 0..11
+    let foo 0..11
+      Value 10..11
+        Pipeline 10..11
+          Int 1 10..11
+  Pipeline 12..23
+    Interpolation Double 12..23
+      Subexpression 14..22 15..21
+        Pipeline 15..21
+          Subexpression 15..21 16..20
+            Pipeline 16..20
+              Var $foo 16..20

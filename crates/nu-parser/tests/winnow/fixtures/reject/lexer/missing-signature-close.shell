@@ -1,0 +1,6 @@
+Pipeline 0..62
+  Call `def` 0..62
+    String Bare "prepend-if-not-in" 4..21
+    Garbage 22..62
+Diagnostic 41..42 unclosed delimiter: expected `]` recovered
+Diagnostic 62..62 unclosed delimiter: expected `]` recovered

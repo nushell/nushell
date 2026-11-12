@@ -1,0 +1,7 @@
+Pipeline 0..9
+  let a 0..9
+    Value 8..9
+      Pipeline 8..9
+        ExternalCall 8..9
+          String Bare "}" 8..9
+Diagnostic 8..9 unbalanced delimiter: found `}` without a matching `{` recovered

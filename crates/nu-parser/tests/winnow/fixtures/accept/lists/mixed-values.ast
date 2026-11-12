@@ -1,0 +1,38 @@
+Block 0..91
+  Pipeline 0..90
+    List 0..90
+      Int 1 1..2
+      String Double "two" 3..8
+      Bool true 9..13
+      Nothing 14..18
+      Filesize 1 kB 19..22
+      Duration 2 sec 23..27
+      DateTime 2024-01-02 28..38
+      Binary radix=16 [255] 39..45
+      Range Inclusive 46..50
+        From
+          Int 1 46..47
+        To
+          Int 3 49..50
+      FullCellPath 51..59
+        Var $env 51..55
+        Member "PWD" 56..59
+      Subexpression 60..67 61..66
+        Pipeline 61..66
+          BinaryOp + 61..66
+            Int 1 61..62
+            Int 1 65..66
+      Record 68..74
+        Pair
+          String Bare "a" 69..70
+          Int 1 72..73
+      Closure 75..81
+        Signature 76..78
+        Body 79..80
+          Pipeline 79..80
+            Int 1 79..80
+      Interpolation Double 82..89
+        Text "x" 84..85
+        Subexpression 85..88 86..87
+          Pipeline 86..87
+            Int 1 86..87

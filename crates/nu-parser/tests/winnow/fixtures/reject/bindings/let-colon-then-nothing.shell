@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Call `const` 0..12
+    String Bare "x:" 6..8
+    String Bare "int" 9..12
+Diagnostic 12..12 missing required positional argument recovered

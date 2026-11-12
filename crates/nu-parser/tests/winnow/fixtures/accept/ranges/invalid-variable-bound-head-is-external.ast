@@ -1,0 +1,13 @@
+Block 0..30
+  Pipeline 0..9
+    let s 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 10..29
+    Subexpression 10..29 11..28
+      Pipeline 11..28
+        ExternalCall 11..17
+          String Bare "1..$s=" 11..17
+        | 18..19
+        Call `math sum` 20..28

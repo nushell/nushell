@@ -1,0 +1,8 @@
+Pipeline 0..18
+  Call `def` 0..18
+    String Bare "f" 4..5
+    List 6..14
+      String Bare "-x" 7..9
+      String Bare "-x" 11..13
+    Record 15..18
+Diagnostic 11..13 `-x` uses a name that is already taken recovered

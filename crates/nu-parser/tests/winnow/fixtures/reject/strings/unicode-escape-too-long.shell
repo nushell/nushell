@@ -1,0 +1,3 @@
+Pipeline 0..61
+  Garbage 0..61
+Diagnostic 8..59 invalid string literal: invalid unicode escape '\u{000000000000000000000000000000000000000000000037}', must be 1-6 hex digits, max codepoint 0x10FFFF recovered

@@ -1,0 +1,14 @@
+Block 0..52
+  Pipeline 0..33
+    Call `overlay list` 0..12
+    | 13..14
+    Where 15..33
+      BinaryOp == 21..33
+        FullCellPath implicit-head 21..25
+          Var $it 21..21
+          Member "name" 21..25
+        String Bare "spam" 29..33
+  Pipeline 34..51
+    Call `ls` 34..36
+    | 37..38
+    Call `overlay list` 39..51

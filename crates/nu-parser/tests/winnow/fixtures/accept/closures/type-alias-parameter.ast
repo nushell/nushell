@@ -1,0 +1,10 @@
+Block 0..26
+  Pipeline 0..12
+    TypeAlias `T` = int 0..12
+  Pipeline 13..25
+    Closure 13..25
+      Signature 14..20
+        Param positional `x` 15..19 : T
+      Body 21..24
+        Pipeline 21..23
+          Var $x 21..23

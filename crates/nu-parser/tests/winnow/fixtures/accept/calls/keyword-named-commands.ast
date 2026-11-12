@@ -1,0 +1,18 @@
+Block 0..87
+  Pipeline 0..12
+    Call `hide-env` 0..12
+      String Bare "FOO" 9..12
+  Pipeline 13..25
+    Call `overlay list` 13..25
+  Pipeline 26..39
+    Call `overlay new` 26..39
+      String Bare "x" 38..39
+  Pipeline 40..54
+    Call `overlay hide` 40..54
+      String Bare "x" 53..54
+  Pipeline 55..66
+    Call `plugin list` 55..66
+  Pipeline 67..86
+    Call `run-external` 67..86
+      String Bare "echo" 80..84
+      String Bare "a" 85..86

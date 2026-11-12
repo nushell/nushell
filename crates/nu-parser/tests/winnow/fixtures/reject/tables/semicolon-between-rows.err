@@ -1,0 +1,6 @@
+error: table item not list
+  --> reject/tables/semicolon-between-rows.nu:1:15
+  |
+1 | [[a b]; [1 2] ; [3 4]]
+  |               ^
+  = help: all table items must be lists

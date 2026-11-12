@@ -1,0 +1,6 @@
+Block 0..17
+  Pipeline 0..16
+    Call `loop` 0..16
+      Flag --help 5..11
+      Record 12..14
+      String Bare "y" 15..16

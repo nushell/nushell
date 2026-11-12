@@ -1,0 +1,10 @@
+Block 0..97
+  Pipeline 81..96 comments=1
+    Call `print` 81..96
+      Range Inclusive 87..96
+        From
+          Int 5 87..88
+        To
+          String Raw(1) "a" 90..96
+Comments (1)
+  0..80 "# A raw string bound: nu parses the range and its type check refuses the string."

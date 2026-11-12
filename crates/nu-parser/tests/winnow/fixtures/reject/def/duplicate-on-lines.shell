@@ -1,0 +1,8 @@
+Pipeline 0..13
+  Def `foo` 0..13
+    Signature 8..10
+    Body 12..12
+Pipeline 14..27
+  Def `foo` 14..27
+    Signature 22..24
+    Body 26..26

@@ -1,0 +1,18 @@
+Block 0..31
+  Pipeline 0..30
+    Match 0..30
+      List 6..9
+        Int 1 7..8
+      Arm 12..28
+        Pattern list 12..23
+          Pattern value 13..14
+            String Bare "a" 13..14
+          Pattern value 15..16
+            String Bare "=" 15..16
+          Pattern value 17..18
+            String Bare "b" 17..18
+          Pattern value 19..20
+            String Bare "|" 19..20
+          Pattern value 21..22
+            String Bare "c" 21..22
+        Int 1 27..28

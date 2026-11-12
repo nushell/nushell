@@ -1,0 +1,5 @@
+error: expected `=`
+  --> reject/redirections/mut-redirected-without-value.nu:2:7
+  |
+2 | mut x o> f
+  |       ^^

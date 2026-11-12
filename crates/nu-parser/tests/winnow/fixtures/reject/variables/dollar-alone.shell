@@ -1,0 +1,4 @@
+Pipeline 0..3
+  Garbage 0..3
+Diagnostic 0..1 expected valid variable name recovered
+Diagnostic 2..3 expected operator recovered

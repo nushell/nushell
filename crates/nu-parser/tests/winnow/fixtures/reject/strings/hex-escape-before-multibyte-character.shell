@@ -1,0 +1,3 @@
+Pipeline 61..68 comments=1
+  Garbage 61..68
+Diagnostic 62..67 invalid string literal: incomplete hex escape '\xHH', expected 2 hex digits recovered

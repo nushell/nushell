@@ -1,0 +1,22 @@
+Block 0..36
+  Pipeline 0..25
+    let r 0..25
+      Value 8..25
+        Pipeline 8..25
+          Record 8..25
+            Pair
+              String Bare "f" 9..10
+              Closure 12..24
+                Signature 13..16
+                  Param positional `x` 14..15
+                Body 17..23
+                  Pipeline 17..23
+                    BinaryOp * 17..23
+                      Var $x 17..19
+                      Int 2 22..23
+  Pipeline 26..35
+    Call `do` 26..35
+      FullCellPath 29..33
+        Var $r 29..31
+        Member "f" 32..33
+      Int 4 34..35

@@ -1,0 +1,6 @@
+Pipeline 0..22
+  Call `overlay new` 0..13
+    String Bare "a" 12..13
+  | 14..15
+  Call `length` 16..22
+Diagnostic 0..7 `overlay` is a statement and cannot be used inside a pipeline recovered

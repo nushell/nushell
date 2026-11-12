@@ -1,0 +1,7 @@
+Pipeline 0..12
+  let -- 0..12
+    Value 11..12
+      Pipeline 11..12
+        Int 1 11..12
+Diagnostic 4..6 expected valid variable name recovered
+Diagnostic 7..8 extra tokens after the end of the expression recovered

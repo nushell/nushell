@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Call `if` 0..12
+    Flag --help 3..9
+    String Bare "if" 10..12
+Diagnostic 12..12 expected expression recovered

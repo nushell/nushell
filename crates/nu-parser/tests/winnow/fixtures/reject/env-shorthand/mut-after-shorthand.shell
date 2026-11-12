@@ -1,0 +1,7 @@
+Pipeline 0..11
+  EnvShorthand 0..11
+    Env FOO 0..5
+      String Bare "1" 4..5
+    Call `mut` 6..11
+      String Bare "x" 10..11
+Diagnostic 6..9 `mut` is a statement and cannot be used inside a pipeline recovered

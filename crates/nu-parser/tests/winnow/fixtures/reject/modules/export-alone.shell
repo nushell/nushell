@@ -1,0 +1,3 @@
+Pipeline 0..6
+  Call `export` 0..6
+Diagnostic 6..6 expected `def`, `extern`, `alias`, `type`, `use`, `module` or `const` after `export` recovered

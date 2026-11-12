@@ -1,0 +1,16 @@
+Block 0..36
+  Pipeline 0..35
+    Try 0..35
+      Body 5..8
+        Pipeline 6..7
+          Int 1 6..7
+      Finally 10..17
+        Closure 18..23
+          Body 20..22
+            Pipeline 20..21
+              Int 2 20..21
+      Catch 24..29
+        Closure 30..35
+          Body 32..34
+            Pipeline 32..33
+              Int 3 32..33

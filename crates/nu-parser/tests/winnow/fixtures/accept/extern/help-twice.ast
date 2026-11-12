@@ -1,0 +1,6 @@
+Block 0..25
+  Pipeline 0..24
+    Call `extern` 0..24
+      String Bare "foo" 7..10
+      Flag --help 11..17
+      Flag --help 18..24

@@ -1,0 +1,6 @@
+error: external command calls must be explicit in assignments
+  --> reject/assignments/env-rhs-bare-external.nu:1:12
+  |
+1 | $env.FOO = bar
+  |            ^^^
+  = help: `bar` is not a known command; write `^bar` to run it and capture its output, or quote the string

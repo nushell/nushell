@@ -1,0 +1,7 @@
+Pipeline 0..12
+  Call `def` 0..12
+    String Bare "q" 4..5
+    List 6..8
+    Garbage 9..12
+Diagnostic 11..12 unbalanced delimiter: found `}` without a matching `{` recovered
+Diagnostic 9..12 expected definition body closure { ... } recovered

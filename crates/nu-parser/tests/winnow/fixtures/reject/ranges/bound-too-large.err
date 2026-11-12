@@ -1,0 +1,5 @@
+error: invalid int literal: number too large (add `.0` for a float)
+  --> reject/ranges/bound-too-large.nu:1:12
+  |
+1 | let r = 1..99999999999999999999
+  |            ^^^^^^^^^^^^^^^^^^^^

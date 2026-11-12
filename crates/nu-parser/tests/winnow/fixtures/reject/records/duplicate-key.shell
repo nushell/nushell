@@ -1,0 +1,3 @@
+Pipeline 0..12
+  Garbage 0..12
+Diagnostic 7..8 record field or table column `a` is defined twice recovered

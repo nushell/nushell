@@ -1,0 +1,329 @@
+//! The `winnow-parser` front end must parse what the classic parser parses, the same way.
+//!
+//! Most of that is checked by comparing both front ends over whole corpora (the `frontends`
+//! harness in `crates/nu-parser/winnow/tools/nushell-harness`). The tests here pin cases the
+//! corpora do not reach. The ones about parsing ahead need a long block (`AHEAD_MIN_BYTES` in
+//! `crates/nu-parser/src/winnow/driver.rs`) and a second thread: on a machine that runs one
+//! thread at a time they pass without exercising it.
+
+use nu_protocol::{
+    ParseError,
+    ast::{Expr, Expression},
+    engine::StateWorkingSet,
+};
+use nu_test_support::{fs::Stub, playground::Playground, prelude::*};
+use rstest::rstest;
+
+/// `count` statements that each build a closure, about 45 bytes apiece: enough of them make a
+/// block long enough to be parsed ahead.
+fn filler(count: usize) -> String {
+    (1..=count)
+        .map(|i| format!("    let x{i} = [1 2 3] | each {{|it| $it + {i} }}\n"))
+        .collect()
+}
+
+/// When the thread parsing ahead resolved a name differently from the live working set (here
+/// it takes the imported `def --wrapped` for an ordinary command), the winnow parser parses the
+/// rest of the block again from that statement, with the live names, not the classic parser.
+/// In a `{ ... }` block it parses up to the closing brace, not through it.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn fallback_inside_a_long_block_stops_at_its_brace() -> Result {
+    Playground::setup("winnow_fallback_inside_a_long_block", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::FileWithContent(
+            "w.nu",
+            "export def --wrapped wr [...rest] { $rest | length }",
+        )]);
+        let code = format!(
+            "do {{\n    use w.nu wr\n    let a = (wr --foo bar)\n{}    $a\n}}",
+            filler(100)
+        );
+        let mut tester = test().cwd(dirs.test());
+        let before = nu_parser::winnow_stats();
+        tester.run(code).expect_value_eq(2)?;
+        let after = nu_parser::winnow_stats();
+        assert_eq!(
+            after.unread_statements(),
+            before.unread_statements(),
+            "a statement was not read"
+        );
+        Ok(())
+    })
+}
+
+/// A UTF-8 byte-order mark at the start of a file is skipped, and a second one is not.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn byte_order_mark_starts_a_file_not_its_code() -> Result {
+    // Long enough to be parsed ahead too: the mark must not reach the worker's lexer either.
+    for code in [
+        "\u{feff}def f [] { 1 }\nf".to_string(),
+        format!("\u{feff}{}", filler(100)),
+    ] {
+        let engine_state = test().engine_state;
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        nu_parser::parse(&mut working_set, Some("bom.nu"), code.as_bytes(), false);
+        assert_eq!(working_set.parse_errors, [], "{code}");
+    }
+    // The second mark starts the first word: a command of that name is external, no error.
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(
+        &mut working_set,
+        Some("bom.nu"),
+        "\u{feff}\u{feff}1".as_bytes(),
+        false,
+    );
+    assert!(matches!(
+        block.pipelines[0].elements[0].expr.expr,
+        Expr::ExternalCall(..)
+    ));
+    // At the start of a block that is no whole file it is no mark, but the first word's start.
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = "module m {\u{feff}export def f [] {}}";
+    nu_parser::parse(&mut working_set, Some("bom.nu"), code.as_bytes(), false);
+    assert!(
+        matches!(
+            working_set.parse_errors.first(),
+            Some(ParseError::ExpectedKeyword(..))
+        ),
+        "{:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
+/// A module file's mark is skipped too, and the comments right after it still document the module.
+#[test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn byte_order_mark_starts_a_module_file() -> Result {
+    Playground::setup("winnow_byte_order_mark_module", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::FileWithContent(
+            "bomdoc.nu",
+            "\u{feff}# The docs.\n\nexport def main [] { 'hi' }\n",
+        )]);
+        let code = "use bomdoc.nu\n[(bomdoc) (scope modules | where name == bomdoc | get description.0)] | to nuon";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(r#"[hi, "The docs."]"#)
+    })
+}
+
+/// A block whose own `def` has a longer name than any command declared before is still parsed
+/// ahead: the thread parsing ahead knows the block's definitions.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn long_definition_name_keeps_parsing_ahead() -> Result {
+    let name = "a".repeat(300);
+    let code = format!("def {name} [] {{ 1 }}\n{}{name}", filler(100));
+    let before = nu_parser::winnow_stats();
+    test().run(code).expect_value_eq(1)?;
+    let after = nu_parser::winnow_stats();
+    assert_eq!(after.ahead_fallbacks, before.ahead_fallbacks);
+    if std::thread::available_parallelism().is_ok_and(|cpus| cpus.get() > 1) {
+        assert!(
+            after.ahead_runs > before.ahead_runs,
+            "the block was not parsed ahead"
+        );
+    }
+    Ok(())
+}
+
+/// In a glob position, `$"..."` is a glob only when it has a `(` (a subexpression to
+/// interpolate), as in the classic parser's `parse_dollar_expr`; otherwise it is a string.
+#[rstest]
+#[case::without_subexpression(r#"ls $"foo""#, false)]
+#[case::with_subexpression(r#"ls $"(1)""#, true)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn dollar_string_in_a_glob_position(#[case] code: &str, #[case] glob: bool) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert_eq!(working_set.parse_errors, []);
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("`{code}` is not a call");
+    };
+    let argument: Option<&Expression> = call.positional_iter().next();
+    let expected = if glob {
+        "GlobInterpolation"
+    } else {
+        "StringInterpolation"
+    };
+    match argument.map(|argument| &argument.expr) {
+        Some(Expr::GlobInterpolation(..)) if glob => Ok(()),
+        Some(Expr::StringInterpolation(..)) if !glob => Ok(()),
+        other => panic!("`{code}`: expected {expected}, got {other:?}"),
+    }
+}
+
+/// A call to an `extern --strict` command with a flag its signature does not declare is an
+/// unknown flag, as in the classic parser (`parse_internal_call`); `--help`, a count like `-10`
+/// and a flag spelled at run time still reach the command. The extern comes from a module so
+/// that the call is in a block of its own, which the winnow parser lowers.
+#[rstest]
+#[case::unknown_long("foo --baz", true)]
+#[case::unknown_short("foo -x", true)]
+#[case::known("foo --bar -b", false)]
+#[case::count("foo -10", false)]
+#[case::help("foo --help", false)]
+#[case::runtime_flag("let x = 'y'; foo --$x", false)]
+#[case::after_end_of_options("foo -- --baz", false)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn strict_extern_rejects_undeclared_flags(#[case] call: &str, #[case] rejected: bool) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = format!(
+        "module m {{ export extern --strict foo [--bar(-b), ...rest] }}\nuse m foo\n{call}"
+    );
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let unknown_flag = working_set
+        .parse_errors
+        .iter()
+        .any(|error| matches!(error, ParseError::UnknownFlag(..)));
+    assert_eq!(
+        unknown_flag, rejected,
+        "`{call}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
+/// A flag of `extern` written with a value is set when the value is true: `finish_extern`
+/// evaluates it as a constant, so an `extern --strict=false` passes undeclared flags on.
+#[rstest]
+#[case::value_true("--strict=true", true)]
+#[case::value_false("--strict=false", false)]
+#[case::constant("--strict=(1 == 1)", true)]
+#[case::first_counts("--strict=false --strict", false)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn strict_extern_flag_value_decides(#[case] flags: &str, #[case] rejected: bool) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code =
+        format!("module m {{ export extern {flags} foo [--bar, ...rest] }}\nuse m foo\nfoo --baz");
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    let unknown_flag = working_set
+        .parse_errors
+        .iter()
+        .any(|error| matches!(error, ParseError::UnknownFlag(..)));
+    assert_eq!(
+        unknown_flag, rejected,
+        "`{flags}`: {:?}",
+        working_set.parse_errors
+    );
+    Ok(())
+}
+
+/// A flag of `def` written with a value is set when the value is true, as `finish_def`
+/// evaluates it: `def --env=false` is a command that does not keep its environment changes.
+#[rstest]
+#[case::without_value("--env", true)]
+#[case::value_true("--env=true", true)]
+#[case::value_false("--env=false", false)]
+#[case::constant("--env=(1 == 1)", true)]
+#[case::false_constant("--env=(1 == 2)", false)]
+#[case::first_counts("--env=false --env", false)]
+#[nu_test_support::test]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn def_flag_value_decides(#[case] flags: &str, #[case] keeps_env: bool) -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let code = format!("def {flags} f [] {{ $env.Z = 1 }}");
+    nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "`{code}`: {:?}",
+        working_set.parse_errors
+    );
+    let decl_id = working_set.find_decl(b"f").expect("`f` is declared");
+    let block_id = working_set
+        .get_decl(decl_id)
+        .block_id()
+        .expect("`f` has a body");
+    assert_eq!(
+        working_set.get_block(block_id).redirect_env,
+        keeps_env,
+        "`{code}`"
+    );
+    Ok(())
+}
+
+/// Statements whose nested blocks nu-parser's value parsers read: a range's bound, a list item,
+/// a flag's value, a closure argument, an interpolation in an external word.
+const NESTED_BLOCK_CODE: [&str; 5] = [
+    "let n = 3; 0..($n - 1) | each {|i| $i }",
+    "[(1 + 1) {|| 2 }]",
+    "ls --threads=(true)",
+    "^echo $\"a(1 + 1)\"",
+    "^echo foo(1 + 1)",
+];
+
+/// With the option on, nu-parser's statement parser parses nothing: the blocks its value
+/// parsers read are parsed and lowered by the winnow front end (nu-parser's `parse_block`
+/// hands them over), and no statement is handed to nu-parser.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn option_on_parses_no_statement_with_nu_parser() -> Result {
+    let engine_state = test().engine_state;
+    for code in NESTED_BLOCK_CODE {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let before = nu_parser::winnow_stats();
+        nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+        let after = nu_parser::winnow_stats();
+        assert_eq!(
+            after.classic_pipelines, before.classic_pipelines,
+            "`{code}`"
+        );
+        assert_eq!(
+            after.unread_statements(),
+            before.unread_statements(),
+            "`{code}`"
+        );
+    }
+    Ok(())
+}
+
+/// Text that is not UTF-8 is an error at its first byte that is not (NonUtf8) over a garbage
+/// block: the winnow parser reads only UTF-8, and nothing goes to nu-parser.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER)]
+fn non_utf8_text_is_an_error() -> Result {
+    let engine_state = test().engine_state;
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let before = nu_parser::winnow_stats();
+    let block = nu_parser::parse(&mut working_set, None, b"ls\n0\xffB", false);
+    let after = nu_parser::winnow_stats();
+    assert_eq!(after.classic_pipelines, before.classic_pipelines);
+    assert!(after.unread_blocks > before.unread_blocks);
+    let [error] = working_set.parse_errors.as_slice() else {
+        panic!("one error expected: {:?}", working_set.parse_errors);
+    };
+    assert!(matches!(error, ParseError::NonUtf8(_)), "{error:?}");
+    assert_eq!(working_set.get_span_contents(error.span()), b"\xff");
+    assert_eq!(block.pipelines.len(), 1);
+    Ok(())
+}
+
+/// With the option off, the winnow front end runs nothing.
+#[test]
+#[serial]
+#[exp(nu_experimental::WINNOW_PARSER = false)]
+fn option_off_runs_no_winnow_code() -> Result {
+    let engine_state = test().engine_state;
+    for code in NESTED_BLOCK_CODE {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let before = nu_parser::winnow_stats();
+        nu_parser::parse(&mut working_set, None, code.as_bytes(), false);
+        assert_eq!(nu_parser::winnow_stats(), before, "`{code}`");
+    }
+    Ok(())
+}

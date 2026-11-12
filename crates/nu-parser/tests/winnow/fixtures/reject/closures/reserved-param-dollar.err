@@ -1,0 +1,6 @@
+error: `nu` used as variable name
+  --> reject/closures/reserved-param-dollar.nu:2:6
+  |
+2 | do {|$nu| }
+  |      ^^^
+  = help: `$nu` is a built-in variable and cannot be declared

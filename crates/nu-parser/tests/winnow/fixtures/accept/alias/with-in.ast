@@ -1,0 +1,11 @@
+Block 0..27
+  Pipeline 0..20
+    Alias `e` 0..20
+      Call `echo` 10..20
+        Subexpression 15..20 16..19
+          Pipeline 16..19
+            Var $in 16..19
+  Pipeline 21..26
+    Int 1 21..22
+    | 23..24
+    Call `e` 25..26

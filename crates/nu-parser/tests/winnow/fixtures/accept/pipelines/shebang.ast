@@ -1,0 +1,7 @@
+Block 0..30
+  Pipeline 18..29 comments=1
+    Call `ls` 18..20
+    | 21..22
+    Call `length` 23..29
+Comments (1)
+  0..17 "#!/usr/bin/env nu"

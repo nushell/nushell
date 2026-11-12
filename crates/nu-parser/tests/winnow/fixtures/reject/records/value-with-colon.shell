@@ -1,0 +1,6 @@
+Pipeline 0..10
+  Record 0..10
+    Pair
+      String Bare "a" 2..3
+      String Bare "x:y" 5..8
+Diagnostic 6..7 colon in bare word specifying record value recovered

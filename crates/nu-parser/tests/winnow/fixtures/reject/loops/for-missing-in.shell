@@ -1,0 +1,7 @@
+Pipeline 0..13
+  Call `for` 0..13
+    String Bare "x" 4..5
+    List 6..9
+      Int 1 7..8
+    Record 10..13
+Diagnostic 6..9 expected keyword `in` recovered

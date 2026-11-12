@@ -1,0 +1,8 @@
+Block 0..56
+  Pipeline 0..32
+    Alias `attr test` 0..32
+      Call `attr example` 20..32
+  Pipeline 33..55
+    Alias `ls all` 33..55
+      Call `ls` 50..55
+        Flag -a 53..55

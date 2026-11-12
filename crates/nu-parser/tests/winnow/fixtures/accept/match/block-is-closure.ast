@@ -1,0 +1,11 @@
+Block 0..16
+  Pipeline 0..15
+    Match 0..15
+      Int 1 6..7
+      ValueBlock
+        Closure 8..15
+          Signature 9..12
+            Param positional `x` 10..11
+          Body 13..14
+            Pipeline 13..14
+              Int 1 13..14

@@ -1,0 +1,7 @@
+Block 0..17
+  Pipeline 0..16
+    DynamicCall 0..16
+      Subexpression 2..10 3..9
+        Pipeline 3..9
+          String Single "echo" 3..9
+      String Bare "hello" 11..16

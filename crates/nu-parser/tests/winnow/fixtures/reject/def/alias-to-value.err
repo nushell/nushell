@@ -1,0 +1,6 @@
+error: cannot create an alias to an expression
+  --> reject/def/alias-to-value.nu:1:11
+  |
+1 | alias a = 1
+  |           ^
+  = help: an alias names a command and its arguments, such as `alias ll = ls -l`

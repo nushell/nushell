@@ -1,0 +1,7 @@
+Pipeline 0..16
+  Call `def` 0..16
+    String Bare "foo" 4..7
+    List 8..12
+      String Bare "x:" 9..11
+    Record 13..16
+Diagnostic 11..11 expected type recovered

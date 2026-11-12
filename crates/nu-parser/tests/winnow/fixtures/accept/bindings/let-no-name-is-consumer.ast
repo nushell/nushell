@@ -1,0 +1,5 @@
+Block 0..8
+  Pipeline 0..7
+    Call `let` 0..7
+      String Bare "=" 4..5
+      Int 1 6..7

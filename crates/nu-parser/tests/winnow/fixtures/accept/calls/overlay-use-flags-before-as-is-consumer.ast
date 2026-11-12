@@ -1,0 +1,8 @@
+Block 0..31
+  Pipeline 0..30
+    Call `overlay use` 0..30
+      Int -1 12..14
+      Nothing 15..19
+      Flag --foo 20..25
+      String Bare "as" 26..28
+      String Bare "x" 29..30

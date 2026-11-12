@@ -1,0 +1,8 @@
+Block 0..26
+  Pipeline 0..25
+    Call `try` 0..25
+      Record 4..6
+      Flag --help 7..13
+      String Bare "catch" 14..19
+      Record 20..22
+      EndOfOptions 23..25

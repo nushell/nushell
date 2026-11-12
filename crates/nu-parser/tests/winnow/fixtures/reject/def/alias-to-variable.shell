@@ -1,0 +1,9 @@
+Pipeline 0..9
+  let x 0..9
+    Value 8..9
+      Pipeline 8..9
+        Int 1 8..9
+Pipeline 10..22
+  Alias `a` 10..22
+    Garbage 20..22
+Diagnostic 20..22 cannot create an alias to an expression recovered

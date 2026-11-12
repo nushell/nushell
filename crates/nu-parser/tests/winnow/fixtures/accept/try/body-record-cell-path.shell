@@ -1,0 +1,9 @@
+Pipeline 63..75 comments=1
+  Try 63..75
+    BodyValue
+      FullCellPath 67..75
+        Record 67..73
+          Pair
+            String Bare "a" 68..69
+            Int 1 71..72
+        Member "a" 74..75

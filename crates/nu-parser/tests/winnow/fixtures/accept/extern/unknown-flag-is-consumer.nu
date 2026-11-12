@@ -1,0 +1,1 @@
+extern --wrapped foo [...rest]

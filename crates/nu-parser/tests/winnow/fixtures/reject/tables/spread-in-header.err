@@ -1,0 +1,5 @@
+error: cannot spread in a table row
+  --> reject/tables/spread-in-header.nu:1:3
+  |
+1 | [[...[a]]; [1]]
+  |   ^^^

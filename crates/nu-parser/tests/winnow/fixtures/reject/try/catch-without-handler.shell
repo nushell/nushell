@@ -1,0 +1,8 @@
+Pipeline 0..15
+  Call `try` 0..15
+    Closure 4..9
+      Body 6..8
+        Pipeline 6..7
+          Int 1 6..7
+    String Bare "catch" 10..15
+Diagnostic 15..15 expected closure recovered

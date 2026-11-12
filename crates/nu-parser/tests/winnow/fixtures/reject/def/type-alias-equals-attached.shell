@@ -1,0 +1,4 @@
+Pipeline 0..10
+  Call `type` 0..10
+    String Bare "T=int" 5..10
+Diagnostic 5..10 `=` must stand alone recovered

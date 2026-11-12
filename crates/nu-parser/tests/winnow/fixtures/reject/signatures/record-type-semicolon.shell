@@ -1,0 +1,7 @@
+Pipeline 0..31
+  Call `def` 0..31
+    String Bare "foo" 4..7
+    Garbage 8..28
+    Record 29..31
+Diagnostic 25..26 unexpected semicolon in list recovered
+Diagnostic 25..26 annotation key not string recovered

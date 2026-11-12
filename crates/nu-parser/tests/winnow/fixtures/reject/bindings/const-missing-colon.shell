@@ -1,0 +1,6 @@
+Pipeline 0..20
+  const a 0..20
+    Value 17..20
+      Pipeline 17..20
+        String Single "x" 17..20
+Diagnostic 8..14 extra tokens after the end of the expression recovered

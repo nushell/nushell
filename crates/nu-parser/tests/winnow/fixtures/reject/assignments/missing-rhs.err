@@ -1,0 +1,5 @@
+error: expected right hand side of assignment
+  --> reject/assignments/missing-rhs.nu:2:5
+  |
+2 | $x =
+  |     ^

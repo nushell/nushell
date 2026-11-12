@@ -1,0 +1,6 @@
+Pipeline 0..16
+  let $foo-bar 0..16
+    Value 15..16
+      Pipeline 15..16
+        Int 4 15..16
+Diagnostic 4..12 expected valid variable name recovered

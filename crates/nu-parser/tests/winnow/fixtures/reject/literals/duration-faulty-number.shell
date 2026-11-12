@@ -1,0 +1,4 @@
+Pipeline 0..10
+  Call `sleep` 0..10
+    Garbage 6..10
+Diagnostic 6..10 invalid duration literal: value must be a number recovered

@@ -1,0 +1,28 @@
+Block 0..224
+  Pipeline 0..23
+    Def `completer` 0..23
+      Signature 14..16
+      Body 18..22
+        Pipeline 19..21
+          List 19..21
+  Pipeline 24..223
+    Def `my cmd` [Env, Wrapped] 24..223
+      Signature 53..214
+        Param positional `a` 57..63 : int desc="the a"
+        Param positional `name` 75..97 : string @completer
+        Param optional `b` 100..116 : string
+          Default
+            String Double "x" 113..116
+        Param flag --flag -f `flag` 119..138 : int
+          Default
+            Int 3 137..138
+        Param flag -s `s` 141..143
+        Param flag --long -l `long` 146..157
+        Param rest `rest` 160..175 : string
+        IoType int -> string
+        IoType nothing -> nothing
+      Body 216..222
+        Pipeline 219..221
+          Var $a 219..221
+Comments (1)
+  65..72 "# the a"

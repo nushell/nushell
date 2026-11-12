@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/before-export-alias-in-module.nu:3:3
+  |
+3 |   export alias y = ls
+  |   ^^^^^^
+  = help: only `def`, `extern`, `export def` and `export extern` take attributes

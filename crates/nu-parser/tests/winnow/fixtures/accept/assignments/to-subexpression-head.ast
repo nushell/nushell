@@ -1,0 +1,9 @@
+Block 0..8
+  Pipeline 0..7
+    Assignment = 0..7
+      Subexpression 0..3 1..2
+        Pipeline 1..2
+          Int 1 1..2
+      Value 6..7
+        Pipeline 6..7
+          Int 2 6..7

@@ -1,0 +1,6 @@
+error: `a` uses a name that is already taken
+  --> reject/signatures/duplicate-parameter-with-dollar.nu:1:12
+  |
+1 | def f [$a, a] { }
+  |            ^
+  = help: it is first used at byte 7

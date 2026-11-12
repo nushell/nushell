@@ -1,0 +1,3 @@
+Pipeline 0..11
+  Call `where` 0..11
+    Flag --foo 6..11

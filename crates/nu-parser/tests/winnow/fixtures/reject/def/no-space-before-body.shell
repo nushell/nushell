@@ -1,0 +1,6 @@
+Pipeline 0..12
+  Call `def` 0..12
+    String Bare "foo" 4..7
+    Garbage 8..12
+Diagnostic 12..12 unclosed delimiter: expected `]` recovered
+Diagnostic 12..12 unclosed delimiter: expected `]` recovered

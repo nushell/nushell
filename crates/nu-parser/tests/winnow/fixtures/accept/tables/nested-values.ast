@@ -1,0 +1,28 @@
+Block 0..42
+  Pipeline 0..41
+    Table 0..41
+      Columns
+        List 1..6
+          String Bare "a" 2..3
+          String Bare "b" 4..5
+      Row
+        List 8..22
+          Record 9..15
+            Pair
+              String Bare "x" 10..11
+              Int 1 13..14
+          List 16..21
+            Int 1 17..18
+            Int 2 19..20
+      Row
+        List 23..40
+          Subexpression 24..31 25..30
+            Pipeline 25..30
+              BinaryOp + 25..30
+                Int 1 25..26
+                Int 1 29..30
+          Interpolation Double 32..39
+            Text "s" 34..35
+            Subexpression 35..38 36..37
+              Pipeline 36..37
+                Int 1 36..37

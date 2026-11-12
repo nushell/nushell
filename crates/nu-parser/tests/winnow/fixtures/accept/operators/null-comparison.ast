@@ -1,0 +1,13 @@
+Block 0..26
+  Pipeline 0..25
+    List 0..25
+      Subexpression 1..12 2..11
+        Pipeline 2..11
+          BinaryOp == 2..11
+            Int 2 2..3
+            Nothing 7..11
+      Subexpression 13..24 14..23
+        Pipeline 14..23
+          BinaryOp != 14..23
+            Int 2 14..15
+            Nothing 19..23

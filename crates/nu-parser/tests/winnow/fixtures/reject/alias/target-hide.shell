@@ -1,0 +1,4 @@
+Pipeline 0..14
+  Alias `x` 0..14
+    Call `hide` 10..14
+Diagnostic 10..14 cannot create an alias to a parser keyword recovered

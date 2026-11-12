@@ -1,0 +1,12 @@
+Pipeline 0..24
+  Call `def` 0..24
+    String Bare "foo" 4..7
+    Garbage 8..11
+    String Bare "int" 12..15
+    Flag -> 16..18
+    Closure 19..24
+      Body 21..23
+        Pipeline 21..22
+          Int 3 21..22
+Diagnostic 11..11 unclosed delimiter: expected `]` recovered
+Diagnostic 18..18 expected output type recovered

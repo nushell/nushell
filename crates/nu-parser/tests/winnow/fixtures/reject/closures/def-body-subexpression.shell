@@ -1,0 +1,9 @@
+Pipeline 0..17
+  Call `def` 0..17
+    String Bare "a" 4..5
+    List 6..8
+    Subexpression 9..17 10..16
+      Pipeline 10..16
+        Call `echo` 10..16
+          Int 4 15..16
+Diagnostic 9..17 expected definition body closure { ... } recovered

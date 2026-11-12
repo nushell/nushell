@@ -1,0 +1,9 @@
+Block 0..25
+  Pipeline 0..24
+    Export 0..24
+      Def `foo` 7..24
+        Signature 15..17
+        BodyParams
+          Signature 19..22
+            Param positional `x` 20..21
+        Body 23..23

@@ -1,0 +1,5 @@
+Pipeline 92..99 comments=1
+  Call `let` 92..99
+    String Bare "x" 96..97
+    String Bare "y" 98..99
+Diagnostic 98..99 expected `=` recovered

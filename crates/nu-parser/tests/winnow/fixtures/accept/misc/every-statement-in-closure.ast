@@ -1,0 +1,85 @@
+Block 0..260
+  Pipeline 0..259
+    Call `do` 0..259
+      Closure 3..259
+        Body 4..258
+          Pipeline 7..16
+            let a 7..16
+              Value 15..16
+                Pipeline 15..16
+                  Int 1 15..16
+          Pipeline 19..28
+            mut b 19..28
+              Value 27..28
+                Pipeline 27..28
+                  Int 2 27..28
+          Pipeline 31..42
+            const c 31..42
+              Value 41..42
+                Pipeline 41..42
+                  Int 3 41..42
+          Pipeline 45..57
+            Def `f` 45..57
+              Signature 51..53
+              Body 55..56
+          Pipeline 60..71
+            Alias `g` 60..71
+              Call `f` 70..71
+          Pipeline 74..86
+            Module 74..86
+              String Bare "m" 81..82
+              Body 84..85
+          Pipeline 89..94
+            Use 89..94
+              String Bare "m" 93..94
+          Pipeline 97..113
+            For $x 97..113
+              List 106..109
+                Int 1 107..108
+              Body 111..112
+          Pipeline 116..131
+            While 116..131
+              Bool false 122..127
+              Body 129..130
+          Pipeline 134..148
+            Loop 134..148 140..147
+              Pipeline 141..146
+                Break 141..146
+          Pipeline 151..171
+            If 151..171
+              Condition
+                Bool true 154..158
+              Then 160..161
+              Else 163..167
+                BlockExpr 168..171 169..170
+          Pipeline 174..192
+            Match 174..192
+              Int 1 180..181
+              Arm 184..190
+                Pattern _ 184..185
+                Int 1 189..190
+          Pipeline 195..212
+            Try 195..212
+              Body 200..201
+              Catch 203..208
+                Closure 209..212
+                  Body 211..211
+          Pipeline 215..221
+            Assignment = 215..221
+              Var $b 215..217
+              Value 220..221
+                Pipeline 220..221
+                  Int 4 220..221
+          Pipeline 224..231
+            ExternalCall 224..231
+              String Bare "echo" 225..229
+              String Bare "x" 230..231
+          Pipeline 234..246
+            EnvShorthand 234..246
+              Env FOO 234..239
+                String Bare "1" 238..239
+              Call `echo` 240..246
+                String Bare "y" 245..246
+          Pipeline 249..257
+            Return 249..257
+              Int 1 256..257

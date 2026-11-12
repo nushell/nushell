@@ -1,0 +1,20 @@
+Block 0..66
+  Pipeline 0..38
+    Def `foo bar` 0..38
+      Signature 14..21
+        Param positional `$x` 15..17
+        Param positional `$y` 18..20
+      Body 23..37
+        Pipeline 24..36
+          BinaryOp + 24..36
+            BinaryOp + 24..31
+              Var $x 24..26
+              Var $y 29..31
+            Int 10 34..36
+  Pipeline 39..59
+    Alias `f` 39..59
+      Call `foo bar` 49..59
+        Int 33 57..59
+  Pipeline 60..65
+    Call `f` 60..65
+      Int 100 62..65

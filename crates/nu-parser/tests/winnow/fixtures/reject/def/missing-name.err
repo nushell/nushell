@@ -1,0 +1,6 @@
+error: no space between name and parameters
+  --> reject/def/missing-name.nu:1:5
+  |
+1 | def [] {}
+  |     ^
+  = help: consider adding a space between the command's name and its parameters

@@ -1,0 +1,7 @@
+Pipeline 0..21
+  Call `module` 0..12
+    String Bare "m" 7..8
+    Record 9..12
+  | 13..14
+  Call `length` 15..21
+Diagnostic 0..6 `module` is a statement and cannot be used inside a pipeline recovered

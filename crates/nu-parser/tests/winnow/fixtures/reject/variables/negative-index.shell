@@ -1,0 +1,9 @@
+Pipeline 0..11
+  let x 0..11
+    Value 8..11
+      Pipeline 8..11
+        List 8..11
+          Int 1 9..10
+Pipeline 12..17
+  Garbage 12..17
+Diagnostic 15..17 invalid cell path literal: negative index is not supported recovered

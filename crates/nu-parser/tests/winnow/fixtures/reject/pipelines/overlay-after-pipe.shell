@@ -1,0 +1,6 @@
+Pipeline 0..21
+  Call `ls` 0..2
+  | 3..4
+  Call `overlay use` 5..21
+    String Bare "spam" 17..21
+Diagnostic 5..12 `overlay` is a statement and cannot be used inside a pipeline recovered

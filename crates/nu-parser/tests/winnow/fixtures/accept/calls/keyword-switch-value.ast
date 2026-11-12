@@ -1,0 +1,17 @@
+Block 0..80
+  Pipeline 0..14
+    Module 0..14
+      String Bare "spam" 7..11
+      Body 13..13
+  Pipeline 15..46
+    Call `overlay use` 15..46
+      Flag --prefix 27..41
+        Bool false 36..41
+      String Bare "spam" 42..46
+  Pipeline 47..79
+    Call `overlay use` 47..79
+      Flag --reload 59..74
+        Subexpression 68..74 69..73
+          Pipeline 69..73
+            Bool true 69..73
+      String Bare "spam" 75..79

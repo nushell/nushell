@@ -1,0 +1,10 @@
+Pipeline 0..9
+  mut x 0..9
+    Value 8..9
+      Pipeline 8..9
+        Int 1 8..9
+Pipeline 10..14
+  Assignment = 10..14
+    Var $x 10..12
+    Value 14..14
+Diagnostic 14..14 expected right hand side of assignment recovered

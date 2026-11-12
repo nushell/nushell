@@ -1,0 +1,7 @@
+Block 0..31
+  Pipeline 0..30
+    ExternalCall 0..30
+      String Bare "gh" 1..3
+      String Bare "api" 4..7
+      String Bare "-f" 8..10
+      String Bare "query=q($x) { y }" 11..30

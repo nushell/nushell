@@ -1,0 +1,4 @@
+Pipeline 0..13
+  Call `try` 0..13
+    Record 4..6
+    Flag --help 7..13

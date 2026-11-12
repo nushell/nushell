@@ -1,0 +1,10 @@
+Pipeline 0..25
+  Call `def` 0..25
+    String Bare "foo" 4..7
+    List 8..22
+      String Bare "x:" 9..11
+      String Bare "error" 12..17
+      String Bare "=" 18..19
+      Int 1 20..21
+    Record 23..25
+Diagnostic 20..21 expected error recovered

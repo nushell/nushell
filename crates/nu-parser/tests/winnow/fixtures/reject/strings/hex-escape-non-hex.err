@@ -1,0 +1,5 @@
+error: invalid string literal: incomplete hex escape '\xHH', expected 2 hex digits
+  --> reject/strings/hex-escape-non-hex.nu:1:2
+  |
+1 | "\xzz"
+  |  ^^^^

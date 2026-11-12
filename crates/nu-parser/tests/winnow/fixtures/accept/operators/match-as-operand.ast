@@ -1,0 +1,13 @@
+Block 0..31
+  Pipeline 0..30
+    BinaryOp + 0..30
+      Int 1 0..1
+      Match 4..30
+        Int 2 10..11
+        Arm 14..20
+          Pattern value 14..15
+            Int 2 14..15
+          Int 3 19..20
+        Arm 22..28
+          Pattern _ 22..23
+          Int 4 27..28

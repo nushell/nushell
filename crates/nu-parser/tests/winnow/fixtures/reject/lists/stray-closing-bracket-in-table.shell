@@ -1,0 +1,3 @@
+Pipeline 0..11
+  Garbage 0..11
+Diagnostic 9..10 unbalanced delimiter: found `]` without a matching `[` recovered

@@ -1,0 +1,4 @@
+Pipeline 0..23
+  Alias `plugin use` 0..23
+    Call `ls` 21..23
+Diagnostic 6..18 cannot use parser keyword `plugin use` as alias name recovered

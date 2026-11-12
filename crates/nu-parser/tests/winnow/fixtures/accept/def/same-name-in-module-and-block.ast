@@ -1,0 +1,14 @@
+Block 0..48
+  Pipeline 0..33
+    Module 0..33
+      String Bare "a" 7..8
+      Body 10..32
+        Pipeline 11..31
+          Export 11..31
+            Def `foo` 18..31
+              Signature 26..28
+              Body 30..30
+  Pipeline 34..47
+    Def `foo` 34..47
+      Signature 42..44
+      Body 46..46

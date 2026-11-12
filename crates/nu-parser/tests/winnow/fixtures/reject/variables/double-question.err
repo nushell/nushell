@@ -1,0 +1,5 @@
+error: expected `.` or `!`
+  --> reject/variables/double-question.nu:2:6
+  |
+2 | $x.a??
+  |      ^

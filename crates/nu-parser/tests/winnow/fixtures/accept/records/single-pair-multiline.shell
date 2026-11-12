@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Record 0..12
+    Pair
+      String Bare "a" 4..5
+      Int 1 9..10

@@ -1,0 +1,4 @@
+(
+  ls # files
+  | length # count
+)

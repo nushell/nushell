@@ -1,0 +1,5 @@
+error: invalid duration literal: too large
+  --> reject/literals/duration-too-large.nu:1:1
+  |
+1 | 9223372036854775808ns
+  | ^^^^^^^^^^^^^^^^^^^^^

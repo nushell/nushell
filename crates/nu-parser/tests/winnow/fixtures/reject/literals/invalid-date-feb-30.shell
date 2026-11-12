@@ -1,0 +1,4 @@
+Pipeline 0..15
+  Call `echo` 0..15
+    Garbage 5..15
+Diagnostic 5..15 invalid datetime literal: not a valid date recovered

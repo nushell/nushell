@@ -1,0 +1,8 @@
+Block 0..13
+  Pipeline 0..12
+    Match 0..12
+      Int 1 6..7
+      ValueBlock
+        Closure 8..12
+          Signature 9..11
+          Body 11..11

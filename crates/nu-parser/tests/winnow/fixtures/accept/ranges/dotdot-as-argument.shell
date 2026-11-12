@@ -1,0 +1,3 @@
+Pipeline 0..8
+  Call `cd` 0..8
+    String Bare "../.." 3..8

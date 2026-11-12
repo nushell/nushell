@@ -1,0 +1,5 @@
+Pipeline 0..11
+  Call `def` 0..11
+    String Bare "foo" 4..7
+    Record 8..11
+Diagnostic 8..11 expected signature like `[param: type]` recovered

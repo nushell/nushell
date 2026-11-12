@@ -1,0 +1,12 @@
+Block 0..36
+  Pipeline 0..35
+    Record 0..35
+      Pair
+        String Bare "name" 1..5
+        String Bare "bob" 7..10
+      Pair
+        String Bare "path" 12..16
+        String Bare "./a/b" 18..23
+      Pair
+        String Bare "flag" 25..29
+        String Bare "--x" 31..34

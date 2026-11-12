@@ -1,0 +1,7 @@
+error: unclosed delimiter: expected `|`
+  --> reject/closures/unclosed-params.nu:1:8
+  |
+1 | {|x $x }
+  |        ^
+  = note: opened at 1:2
+  = while parsing closure parameters

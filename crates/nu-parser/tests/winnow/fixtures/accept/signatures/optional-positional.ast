@@ -1,0 +1,7 @@
+Block 0..24
+  Pipeline 0..23
+    Def `f` 0..23
+      Signature 6..19
+        Param optional `a` 7..14 : int
+        Param optional `b` 16..18
+      Body 21..22

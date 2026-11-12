@@ -1,0 +1,3 @@
+Pipeline 0..11
+  Call `loop` 0..11
+    Flag --help 5..11

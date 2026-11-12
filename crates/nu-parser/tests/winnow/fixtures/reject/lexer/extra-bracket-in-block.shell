@@ -1,0 +1,13 @@
+Pipeline 0..41
+  Call `def` 0..41
+    String Bare "f" 4..5
+    List 6..8
+    Garbage 9..41
+Diagnostic 41..41 unclosed delimiter: expected `}` recovered
+Diagnostic 41..41 unclosed delimiter: expected `}` recovered
+Pipeline 44..45
+  ExternalCall 44..45
+    String Bare "}" 44..45
+Pipeline 46..47
+  ExternalCall 46..47
+    String Bare "}" 46..47

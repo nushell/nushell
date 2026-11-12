@@ -1,0 +1,41 @@
+Block 0..154
+  Pipeline 0..153
+    Module 0..153
+      String Bare "m" 7..8
+      Body 10..152
+        Pipeline 13..34
+          Export 13..34
+            Def `f` 20..34
+              Signature 26..28
+              Body 30..33
+                Pipeline 31..32
+                  Int 2 31..32
+        Pipeline 37..55
+          Export 37..55
+            const c 44..55
+              Value 54..55
+                Pipeline 54..55
+                  Int 1 54..55
+        Pipeline 58..83
+          ExportEnv 58..83 70..82
+            Pipeline 71..81
+              Assignment = 71..81
+                FullCellPath 71..77
+                  Var $env 71..75
+                  Member "A" 76..77
+                Value 80..81
+                  Pipeline 80..81
+                    Int 1 80..81
+        Pipeline 86..104
+          Export 86..104
+            Alias `g` 93..104
+              Call `f` 103..104
+        Pipeline 107..130
+          Export 107..130
+            Module 114..130
+              String Bare "inner" 121..126
+              Body 128..129
+        Pipeline 133..151
+          Export 133..151
+            Extern `e` 140..151
+              Signature 149..151

@@ -1,0 +1,25 @@
+Block 0..70
+  Pipeline 0..40
+    Def `f` 0..40
+      Signature 6..25
+        Param flag --x `x` 7..15 : int
+        Param rest `rest` 17..24
+      Body 27..39
+        Pipeline 28..38
+          List 28..38
+            Var $x 29..31
+            Var $rest 32..37
+  Pipeline 41..69
+    Call `f` 41..69
+      Spread 43..46
+        Record 46..52
+          Pair
+            String Bare "x" 47..48
+            Int 1 50..51
+      Spread 53..56
+        Record 56..69
+          Pair
+            String Bare "rest" 57..61
+            List 63..68
+              String Bare "a" 64..65
+              String Bare "b" 66..67

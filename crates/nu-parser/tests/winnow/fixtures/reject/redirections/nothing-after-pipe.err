@@ -1,0 +1,5 @@
+error: unexpected redirection: nothing to redirect
+  --> reject/redirections/nothing-after-pipe.nu:1:6
+  |
+1 | ls | o> file
+  |      ^^

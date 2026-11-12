@@ -1,0 +1,4 @@
+Block 0..10
+  Pipeline 0..9
+    Call `alias` 0..9
+      Flag -hx 6..9

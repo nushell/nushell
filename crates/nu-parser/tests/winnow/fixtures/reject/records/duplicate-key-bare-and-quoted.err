@@ -1,0 +1,6 @@
+error: record field or table column `a` is defined twice
+  --> reject/records/duplicate-key-bare-and-quoted.nu:1:8
+  |
+1 | {a: 1, "a": 2}
+  |        ^^^
+  = help: it is first defined at byte 1

@@ -1,0 +1,4 @@
+Pipeline 0..10
+  List 0..10
+    String Bare "a" 1..2
+    String Bare "c" 8..9

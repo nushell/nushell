@@ -1,0 +1,5 @@
+Pipeline 0..16
+  Alias `i` 0..16
+    Call `if` 10..16
+      String Bare "not" 13..16
+Diagnostic 16..16 expected expression recovered

@@ -1,0 +1,7 @@
+Pipeline 0..12
+  Call `ls` 0..2
+  | 3..4
+  ExternalCall 5..12
+    String Bare "o>" 5..7
+    String Bare "file" 8..12
+Diagnostic 5..7 unexpected redirection: nothing to redirect recovered

@@ -1,0 +1,6 @@
+error: alias name not supported
+  --> reject/alias/double-dash-name-alone.nu:1:7
+  |
+1 | alias -- = ls
+  |       ^^
+  = help: a bare alias name cannot start with `-`; quote it

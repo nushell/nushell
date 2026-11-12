@@ -1,0 +1,3 @@
+Pipeline 0..8
+  Garbage 0..8
+Diagnostic 1..4 invalid string literal: incomplete unicode escape '\u{...}', missing closing '}' recovered

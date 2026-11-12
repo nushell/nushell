@@ -8,7 +8,7 @@ use crate::{
     parser::{ArgumentParsingLevel, CallKind, ParsedInternalCall, parse_internal_call},
 };
 use nu_protocol::{
-    ParseError, Span, SyntaxShape, Type, TypeAlias, TypeAliasId,
+    DeclId, ParseError, Span, Spanned, SyntaxShape, Type, TypeAlias, TypeAliasId,
     ast::{Call, Expr, Expression, Keyword, Pipeline},
     engine::StateWorkingSet,
 };
@@ -91,6 +91,71 @@ pub fn parse_type_alias(
         );
     }
 
+    if let Some(error) = type_alias_layout_error(working_set, head, rest_spans) {
+        working_set.error(error);
+        return (garbage_pipeline(working_set, spans), None);
+    }
+    let (name_span, equals_span, type_spans) = (rest_spans[0], rest_spans[1], &rest_spans[2..]);
+    let Some(name) = type_alias_name(working_set, name_span) else {
+        return (garbage_pipeline(working_set, &[call_span]), None);
+    };
+    // A generic type such as `record<a: int, b: string>` is split into several spans at its
+    // spaces; it is read again as one type.
+    let type_ = (!type_spans.is_empty()).then(|| {
+        let type_span = Span::concat(type_spans);
+        (type_span, type_alias_type(working_set, type_span))
+    });
+    finish_type_alias(
+        working_set,
+        decl_id,
+        head,
+        call_span,
+        name,
+        equals_span,
+        type_,
+    )
+}
+
+/// A type alias's type at `type_span`, read from its text as one annotation, as a `let`'s is
+/// (`parse_var_with_opt_type`): `any` when it doesn't parse, which is reported.
+fn type_alias_type(working_set: &mut StateWorkingSet, type_span: Span) -> SyntaxShape {
+    let type_bytes = working_set.get_span_contents(type_span).to_vec();
+    let (tokens, error) = lex_signature(&type_bytes, type_span.start, &[], b",", true);
+
+    let parsed = match (error, tokens.as_slice()) {
+        (Some(error), _) => {
+            working_set.error(error);
+            None
+        }
+        (None, [token]) => {
+            let bytes = working_set.get_span_contents(token.span).to_vec();
+            let starting_error_count = working_set.parse_errors.len();
+            let parsed = parse_shape_name(working_set, &bytes, token.span);
+            (working_set.parse_errors.len() == starting_error_count).then_some(parsed)
+        }
+        (None, [_, extra, ..]) => {
+            working_set.error(ParseError::ExtraTokens(Span::new(
+                extra.span.start,
+                type_span.end,
+            )));
+            None
+        }
+        (None, []) => {
+            working_set.error(ParseError::MissingType(type_span));
+            None
+        }
+    };
+    parsed.unwrap_or(SyntaxShape::Any)
+}
+
+/// The error of a type alias whose items after the keyword at `head` (`type` or `export type`),
+/// `rest_spans`, are not `name = ...`: no name, a `=` first, one item (`T=int`, `ls`) or a second
+/// item that is no `=`. `parse_type_alias` reports it and gives garbage over the statement.
+pub(crate) fn type_alias_layout_error(
+    working_set: &StateWorkingSet,
+    head: Span,
+    rest_spans: &[Span],
+) -> Option<ParseError> {
     let keyword = String::from_utf8_lossy(working_set.get_span_contents(head)).into_owned();
     // `type ls` is how Bash and cmd.exe look up a command, so a bare `type` without `=` also
     // points to `which`.
@@ -110,7 +175,7 @@ pub fn parse_type_alias(
             span: name_span,
         }
     };
-    let layout_error = match rest_spans {
+    match rest_spans {
         [] => Some(ParseError::MissingPositional(
             "name".into(),
             Span::point(head.end),
@@ -138,61 +203,56 @@ pub fn parse_type_alias(
             Some(missing_equals(*name))
         }
         _ => None,
-    };
-    if let Some(error) = layout_error {
-        working_set.error(error);
-        return (garbage_pipeline(working_set, spans), None);
     }
-    let (name_span, equals_span, type_spans) = (rest_spans[0], rest_spans[1], &rest_spans[2..]);
+}
 
+/// The name of a type alias at `name_span`, if it can be one: not a built-in type's, and a valid
+/// name ([`is_valid_type_alias_name`]). Otherwise reports why and returns `None`; the statement
+/// is then garbage, and defines no alias.
+pub(crate) fn type_alias_name(
+    working_set: &mut StateWorkingSet,
+    name_span: Span,
+) -> Option<Spanned<Vec<u8>>> {
     let name = working_set.get_span_contents(name_span).to_vec();
     if BUILTIN_TYPE_NAMES.contains(&name.as_slice()) {
         working_set.error(ParseError::TypeAliasShadowsBuiltin(
             String::from_utf8_lossy(&name).into_owned(),
             name_span,
         ));
-        return (garbage_pipeline(working_set, spans), None);
+        return None;
     }
     if !is_valid_type_alias_name(&name) {
         working_set.error(ParseError::TypeAliasNameNotValid(name_span));
-        return (garbage_pipeline(working_set, spans), None);
+        return None;
     }
+    Some(Spanned {
+        item: name,
+        span: name_span,
+    })
+}
 
-    let (type_span, shape) = if type_spans.is_empty() {
+/// The rest of `parse_type_alias` once the statement's layout is known and its name checked
+/// ([`type_alias_name`]): `type name = type`, `head` the span of `type` (or `export type`),
+/// `call_span` the whole statement's, and `type_` the span of the type after the `=`, if there
+/// is one, with the shape the front end read from it (`any` if it doesn't parse). Defines the
+/// alias and gives the call to the `type` keyword `decl_id`.
+pub(crate) fn finish_type_alias(
+    working_set: &mut StateWorkingSet,
+    decl_id: DeclId,
+    head: Span,
+    call_span: Span,
+    name: Spanned<Vec<u8>>,
+    equals_span: Span,
+    type_: Option<(Span, SyntaxShape)>,
+) -> (Pipeline, Option<(Vec<u8>, TypeAliasId)>) {
+    let Spanned {
+        item: name,
+        span: name_span,
+    } = name;
+    let (type_span, shape) = type_.unwrap_or_else(|| {
         working_set.error(ParseError::MissingType(equals_span));
         (Span::point(equals_span.end), SyntaxShape::Any)
-    } else {
-        // A generic type such as `record<a: int, b: string>` is split into several spans at its
-        // spaces. Join them and read them again as one type, as a `let` annotation does.
-        let type_span = Span::concat(type_spans);
-        let type_bytes = working_set.get_span_contents(type_span).to_vec();
-        let (tokens, error) = lex_signature(&type_bytes, type_span.start, &[], b",", true);
-
-        let parsed = match (error, tokens.as_slice()) {
-            (Some(error), _) => {
-                working_set.error(error);
-                None
-            }
-            (None, [token]) => {
-                let bytes = working_set.get_span_contents(token.span).to_vec();
-                let starting_error_count = working_set.parse_errors.len();
-                let parsed = parse_shape_name(working_set, &bytes, token.span);
-                (working_set.parse_errors.len() == starting_error_count).then_some(parsed)
-            }
-            (None, [_, extra, ..]) => {
-                working_set.error(ParseError::ExtraTokens(Span::new(
-                    extra.span.start,
-                    type_span.end,
-                )));
-                None
-            }
-            (None, []) => {
-                working_set.error(ParseError::MissingType(type_span));
-                None
-            }
-        };
-        (type_span, parsed.unwrap_or(SyntaxShape::Any))
-    };
+    });
 
     let type_alias_id = working_set.add_type_alias(TypeAlias {
         name: String::from_utf8_lossy(&name).into_owned(),

@@ -1,0 +1,6 @@
+Pipeline 0..18
+  Def `foo` 0..18
+    Signature 8..15
+      Param flag --env `env` 9..14
+    Body 17..17
+Diagnostic 11..14 `env` used as variable name recovered

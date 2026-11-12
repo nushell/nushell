@@ -1,0 +1,4 @@
+Pipeline 0..14
+  Call `ls` 0..2
+  | 3..4
+  let files 5..14

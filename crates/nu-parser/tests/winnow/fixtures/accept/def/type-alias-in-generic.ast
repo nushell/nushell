@@ -1,0 +1,12 @@
+Block 0..87
+  Pipeline 0..27
+    TypeAlias `Point` = record<x: int> 0..27
+  Pipeline 28..54
+    TypeAlias `Polygon` = list<Point> 28..54
+  Pipeline 55..86
+    Def `f` 55..86
+      Signature 61..76
+        Param positional `poly` 62..75 : Polygon
+      Body 78..85
+        Pipeline 79..84
+          Var $poly 79..84

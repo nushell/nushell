@@ -1,0 +1,12 @@
+Pipeline 0..34
+  Def `f` 0..34
+    Signature 6..8
+    Body 10..33
+      Pipeline 13..24
+        Call `while` 13..24
+          Var $true 19..24
+      Pipeline 29..30
+        Int 1 29..30
+Pipeline 35..36
+  ExternalCall 35..36
+    String Bare "}" 35..36

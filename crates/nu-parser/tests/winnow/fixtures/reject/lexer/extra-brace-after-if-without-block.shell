@@ -1,0 +1,22 @@
+Pipeline 0..61
+  Def `f` 0..61
+    Signature 6..8
+    Body 10..60
+      Pipeline 13..57
+        Call `each` 13..57
+          Closure 18..57
+            Signature 19..22
+              Param positional `r` 20..21
+            Body 22..56
+              Pipeline 27..42
+                Call `if` 27..42
+                  Var $x 30..32
+                  String Bare "!=" 33..35
+                  String Bare "string" 36..42
+              Pipeline 49..51
+                Var $r 49..51
+Diagnostic 35..35 expected expression after operator recovered
+Diagnostic 36..42 expected block after the condition recovered
+Pipeline 62..63
+  ExternalCall 62..63
+    String Bare "}" 62..63

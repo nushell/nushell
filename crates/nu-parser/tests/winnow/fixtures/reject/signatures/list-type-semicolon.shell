@@ -1,0 +1,6 @@
+Pipeline 0..24
+  Def `f` 0..24
+    Signature 6..21
+      Param positional `x` 7..20 : list<int;>
+    Body 23..23
+Diagnostic 15..19 expected a single type parameter recovered

@@ -1,0 +1,10 @@
+Block 0..22
+  Pipeline 0..21
+    Call `ls` 0..2
+    | 3..4
+    Where 5..21
+      BinaryOp > 11..21
+        FullCellPath implicit-head 11..15
+          Var $it 11..11
+          Member "size" 11..15
+        Filesize 1 kB 18..21

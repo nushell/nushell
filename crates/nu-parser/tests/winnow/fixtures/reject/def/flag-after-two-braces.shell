@@ -1,0 +1,8 @@
+Pipeline 135..157 comments=2
+  Call `def` 135..157
+    String Bare "foo" 139..142
+    List 143..145
+    Record 146..148
+    Record 149..151
+    Flag --env 152..157
+Diagnostic 146..148 expected `:` before the input/output types recovered

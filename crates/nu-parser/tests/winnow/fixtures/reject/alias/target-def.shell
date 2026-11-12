@@ -1,0 +1,4 @@
+Pipeline 0..13
+  Alias `d` 0..13
+    Call `def` 10..13
+Diagnostic 10..13 cannot create an alias to a parser keyword recovered

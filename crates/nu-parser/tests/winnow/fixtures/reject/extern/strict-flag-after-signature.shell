@@ -1,0 +1,7 @@
+Pipeline 0..27
+  Call `extern` 0..27
+    String Bare "foo" 7..10
+    List 11..18
+      String Bare "--bar" 12..17
+    Flag --strict 19..27
+Diagnostic 19..27 expected `:` before the input/output types recovered

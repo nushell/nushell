@@ -1,0 +1,5 @@
+Pipeline 0..25
+  Def `set u^p` [Env] 0..25
+    Signature 20..22
+    Body 24..24
+Diagnostic 10..19 command name not supported recovered

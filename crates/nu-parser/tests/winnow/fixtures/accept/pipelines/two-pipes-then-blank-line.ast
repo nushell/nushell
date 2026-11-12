@@ -1,0 +1,6 @@
+Block 0..11
+  Pipeline 0..2 dangling_pipe=3..4
+    Call `ls` 0..2
+  Pipeline 5..10
+    | 5..6
+    Call `ls` 8..10

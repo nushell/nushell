@@ -1,0 +1,9 @@
+Pipeline 0..30
+  Call `def` 0..30
+    String Bare "foo" 4..7
+    List 8..27
+      String Bare "x:" 9..11
+      String Bare "record<=:" 12..21
+      String Bare "int>" 22..26
+    Record 28..30
+Diagnostic 19..20 annotation key not string recovered

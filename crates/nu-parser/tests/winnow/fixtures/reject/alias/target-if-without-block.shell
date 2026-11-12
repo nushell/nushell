@@ -1,0 +1,6 @@
+Pipeline 0..16
+  Alias `i` 0..16
+    Call `if` 10..16
+      String Bare "x" 13..14
+      String Bare "y" 15..16
+Diagnostic 15..16 expected block after the condition recovered

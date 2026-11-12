@@ -1,0 +1,18 @@
+Pipeline 0..12
+  let a 0..12
+    Value 8..12
+      Pipeline 8..12
+        Bool true 8..12
+Pipeline 13..25
+  let b 13..25
+    Value 21..25
+      Pipeline 21..25
+        Bool true 21..25
+Pipeline 26..35
+  Call `if` 26..35
+    Var $a 29..31
+    String Bare "and" 32..35
+Diagnostic 32..35 expected block after the condition recovered
+Pipeline 37..43
+  Garbage 37..43
+Diagnostic 40..43 expected operator recovered

@@ -1,0 +1,4 @@
+Pipeline 0..8
+  BinaryOp + 0..8
+    Float 0.5 0..2
+    Float -0.5 5..8

@@ -1,0 +1,3 @@
+Pipeline 0..22
+  Alias `x` 0..22
+    Call `attr example` 10..22

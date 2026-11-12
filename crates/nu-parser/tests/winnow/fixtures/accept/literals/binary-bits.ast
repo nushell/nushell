@@ -1,0 +1,5 @@
+Block 0..23
+  Pipeline 0..22
+    List 0..22
+      Binary radix=2 [168] 1..14
+      Binary radix=2 [2] 15..21

@@ -1,0 +1,24 @@
+Block 0..68
+  Pipeline 0..67
+    ExternalCall 0..67
+      String Bare "echo" 1..5
+      Interpolation Bare 6..35
+        Text "foo" 6..9
+        Subexpression 9..35 10..34
+          Pipeline 11..33
+            Subexpression 11..18 12..17
+              Pipeline 12..17
+                String Single "bar" 12..17
+            | 19..20
+            BinaryOp ++ 21..33
+              Var $in 21..24
+              String Single "baz" 28..33
+      Interpolation Bare 36..55
+        Text "foo" 36..39
+        Subexpression 39..48 40..47
+          Pipeline 41..46
+            String Single "bar" 41..46
+        Subexpression 48..55 49..54
+          Pipeline 49..54
+            String Single "baz" 49..54
+      String Double ")('foo')(" 56..67

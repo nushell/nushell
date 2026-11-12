@@ -1,0 +1,6 @@
+Block 0..36
+  Pipeline 0..35
+    Def `foo` 0..35
+      Signature 8..32
+        Param positional `x` 9..31 : oneof<int,, string>
+      Body 34..34

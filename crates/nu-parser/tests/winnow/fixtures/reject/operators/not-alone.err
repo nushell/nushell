@@ -1,0 +1,5 @@
+error: expected expression
+  --> reject/operators/not-alone.nu:1:4
+  |
+1 | not
+  |    ^

@@ -1,0 +1,13 @@
+Block 0..96
+  Pipeline 81..95 comments=1
+    let y 81..95
+      Value 89..95
+        Pipeline 89..95
+          Range Inclusive 89..95
+            From
+              Int 1 89..90
+            To
+              CellPath 92..95
+                Member "a" 94..95
+Comments (1)
+  0..80 "# A cell-path literal bound makes a range; that it is no number is a type check."

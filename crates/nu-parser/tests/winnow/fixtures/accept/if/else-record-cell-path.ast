@@ -1,0 +1,15 @@
+Block 0..99
+  Pipeline 74..98 comments=1
+    If 74..98
+      Condition
+        Bool true 77..81
+      Then 83..83
+      Else 85..89
+        FullCellPath 90..98
+          Record 90..96
+            Pair
+              String Bare "b" 91..92
+              Int 2 94..95
+          Member "b" 97..98
+Comments (1)
+  0..73 "# The `else` branch falls back to an expression: a cell path on a record."

@@ -1,0 +1,5 @@
+error: invalid filesize literal: too large
+  --> reject/literals/filesize-too-large.nu:1:1
+  |
+1 | 8EiB
+  | ^^^^

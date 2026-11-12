@@ -1,0 +1,6 @@
+error: cannot create an alias to a pipeline
+  --> reject/pipelines/alias-with-pipe-word.nu:1:14
+  |
+1 | alias x = ls | length
+  |              ^
+  = help: an alias names one command call; use `def` for a pipeline

@@ -1,0 +1,13 @@
+Block 0..37
+  Pipeline 0..36
+    Assignment = 0..36
+      FullCellPath 0..8
+        Var $env 0..4
+        Member "FOO" 5..8
+      Value 11..36
+        Pipeline 11..36
+          ExternalCall 11..23
+            String Bare "echo" 12..16
+            String Bare "cococo" 17..23
+          Redirect Out 24..26
+            String Bare "/dev/null" 27..36

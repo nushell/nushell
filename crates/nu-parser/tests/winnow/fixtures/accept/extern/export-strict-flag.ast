@@ -1,0 +1,6 @@
+Block 0..35
+  Pipeline 0..34
+    Export 0..34
+      Extern `foo` [Strict] 7..34
+        Signature 27..34
+          Param flag --bar `bar` 28..33

@@ -1,0 +1,5 @@
+Pipeline 0..12
+  Call `extern` 0..12
+    String Bare "-" 7..8
+    String Bare "foo" 9..12
+Diagnostic 9..12 expected signature like `[param: type]` recovered

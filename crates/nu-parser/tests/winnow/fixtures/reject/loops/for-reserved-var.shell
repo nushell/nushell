@@ -1,0 +1,5 @@
+Pipeline 0..15
+  For $nu 0..15
+    List 10..12
+    Body 14..14
+Diagnostic 4..6 `nu` used as variable name recovered

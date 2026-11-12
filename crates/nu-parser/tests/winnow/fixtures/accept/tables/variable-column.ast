@@ -1,0 +1,32 @@
+Block 0..117
+  Pipeline 0..27
+    let column_name 0..27
+      Value 18..27
+        Pipeline 18..27
+          String Single "column0" 18..27
+  Pipeline 28..101
+    let tbl 28..101
+      Value 38..101
+        Pipeline 38..101
+          Table 38..101
+            Columns
+              List 39..63
+                Var $column_name 41..53
+                String Bare "column1" 54..61
+            Row
+              List 65..76
+                String Bare "foo" 67..70
+                String Bare "bar" 71..74
+            Row
+              List 77..88
+                String Bare "baz" 79..82
+                String Bare "car" 83..86
+            Row
+              List 89..100
+                String Bare "far" 91..94
+                String Bare "fit" 95..98
+  Pipeline 102..116
+    FullCellPath 102..116
+      Var $tbl 102..106
+      Member "column0" 107..114
+      Member 0 115..116

@@ -1,0 +1,4 @@
+Pipeline 0..15
+  Extern `a%b` 0..15
+    Signature 13..15
+Diagnostic 7..12 command name not supported recovered

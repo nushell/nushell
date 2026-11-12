@@ -1,0 +1,2 @@
+" x " | %str trim
+%str

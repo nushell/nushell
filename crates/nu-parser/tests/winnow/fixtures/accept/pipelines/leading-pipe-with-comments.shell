@@ -1,0 +1,13 @@
+Pipeline 0..64 comments=2
+  Call `ls` 0..2
+  | 16..17
+  Where 18..34
+    BinaryOp > 24..34
+      FullCellPath implicit-head 24..28
+        Var $it 24..24
+        Member "size" 24..28
+      Filesize 1 kB 31..34
+  | 54..55
+  Call `get` 56..64
+    CellPath 60..64
+      Member "name" 60..64

@@ -1,0 +1,3 @@
+Pipeline 0..7
+  Garbage 0..7
+Diagnostic 0..7 invalid binary literal: `777` does not fit in a byte recovered

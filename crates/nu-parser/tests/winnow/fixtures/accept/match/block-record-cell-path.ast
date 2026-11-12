@@ -1,0 +1,13 @@
+Block 0..80
+  Pipeline 63..79 comments=1
+    Match 63..79
+      Int 1 69..70
+      ValueBlock
+        FullCellPath 71..79
+          Record 71..77
+            Pair
+              String Bare "a" 72..73
+              Int 1 75..76
+          Member "a" 78..79
+Comments (1)
+  0..62 "# nu reads `{a: 1}.a` as a cell path before it looks for arms."

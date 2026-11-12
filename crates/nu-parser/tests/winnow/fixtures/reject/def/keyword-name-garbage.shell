@@ -1,0 +1,14 @@
+Pipeline 0..15
+  Call `def` 0..15
+    String Bare "def" 4..7
+    Interpolation Bare 8..15
+      Subexpression 8..14 9..13
+        Pipeline 9..13
+          ExternalCall 9..11
+            String Bare "=a" 9..11
+          | 11..12
+          ExternalCall 12..13
+            String Bare "s" 12..13
+      Text ">" 14..15
+Diagnostic 4..7 cannot use parser keyword `def` as command name recovered
+Diagnostic 15..15 unclosed delimiter: expected `)` recovered

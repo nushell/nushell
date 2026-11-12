@@ -1,0 +1,6 @@
+Pipeline 0..11
+  let env 0..11
+    Value 10..11
+      Pipeline 10..11
+        Int 1 10..11
+Diagnostic 4..7 `env` used as variable name recovered

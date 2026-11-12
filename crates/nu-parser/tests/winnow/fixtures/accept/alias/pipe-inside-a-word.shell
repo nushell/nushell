@@ -1,0 +1,9 @@
+Pipeline 0..28
+  Alias `x` 0..28
+    Call `echo` 10..28
+      String Single "a|b" 15..20
+      Subexpression 21..28 22..27
+        Pipeline 22..27
+          Int 1 22..23
+          | 24..25
+          Int 2 26..27

@@ -1,0 +1,13 @@
+Pipeline 0..17
+  Call `ls` 0..2
+  | 3..4
+  Assignment = 5..17
+    Call `type` 5..11
+      String Bare "T" 10..11
+    Value 14..17
+      Pipeline 14..17
+        ExternalCall 14..17
+          String Bare "int" 14..17
+Diagnostic 5..9 `type` is a statement and cannot be used inside a pipeline recovered
+Diagnostic 5..11 assignment requires a variable recovered
+Diagnostic 14..17 external command calls must be explicit in assignments recovered

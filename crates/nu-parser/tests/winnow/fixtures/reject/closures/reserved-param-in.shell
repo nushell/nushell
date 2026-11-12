@@ -1,0 +1,7 @@
+Pipeline 0..10
+  Call `do` 0..10
+    Closure 3..10
+      Signature 4..8
+        Param positional `in` 5..7
+      Body 9..9
+Diagnostic 5..7 `in` used as variable name recovered

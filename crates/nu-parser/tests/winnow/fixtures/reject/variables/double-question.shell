@@ -1,0 +1,11 @@
+Pipeline 0..14
+  let x 0..14
+    Value 8..14
+      Pipeline 8..14
+        Record 8..14
+          Pair
+            String Bare "a" 9..10
+            Int 1 12..13
+Pipeline 15..21
+  Garbage 15..21
+Diagnostic 20..21 expected `.` or `!` recovered

@@ -1,0 +1,9 @@
+Pipeline 0..17
+  Def `f` 0..17
+    Signature 6..14
+      Param positional `x` 7..13 : int
+    Body 16..16
+Pipeline 18..23
+  Call `f` 18..23
+    Garbage 20..23
+Diagnostic 20..23 invalid int literal: invalid digits for radix 2 recovered

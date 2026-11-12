@@ -1,0 +1,15 @@
+Block 0..22
+  Pipeline 0..9 terminator=9..10
+    mut x 0..9
+      Value 8..9
+        Pipeline 8..9
+          Int 1 8..9
+  Pipeline 11..21
+    Assignment = 11..21
+      Var $x 11..13
+      Value 16..21
+        Pipeline 16..21
+          Subexpression 16..21 17..20
+            Pipeline 17..20
+              ExternalCall 17..20
+                String Bare "git" 17..20

@@ -1,0 +1,6 @@
+Pipeline 0..18
+  Call `overlay use` 0..18
+    Nothing 12..16
+    String Bare "x" 17..18
+Diagnostic 17..18 expected keyword `as` recovered
+Diagnostic 18..18 missing argument to `as` recovered

@@ -1,0 +1,5 @@
+Pipeline 0..7
+  BinaryOp + 0..7
+    Int 0 0..1
+    Garbage 4..7
+Diagnostic 4..7 invalid int literal: invalid digits for radix 2 recovered

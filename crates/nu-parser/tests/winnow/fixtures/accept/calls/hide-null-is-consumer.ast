@@ -1,0 +1,4 @@
+Block 0..10
+  Pipeline 0..9
+    Call `hide` 0..9
+      Nothing 5..9

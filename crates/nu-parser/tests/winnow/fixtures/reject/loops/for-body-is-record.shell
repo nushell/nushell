@@ -1,0 +1,9 @@
+Pipeline 0..18
+  For $x 0..18
+    List 9..11
+    BodyValue
+      Record 12..18
+        Pair
+          String Bare "a" 13..14
+          Int 1 16..17
+Diagnostic 12..18 expected block recovered

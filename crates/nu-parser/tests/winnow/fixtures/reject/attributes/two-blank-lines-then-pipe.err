@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/attributes/two-blank-lines-then-pipe.nu:1:17
+  |
+1 | @example "a" {1}
+  |                 ^
+  = help: put a `def` or `extern` on the line after the attributes

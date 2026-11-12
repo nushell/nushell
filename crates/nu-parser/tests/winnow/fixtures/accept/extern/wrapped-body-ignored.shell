@@ -1,0 +1,4 @@
+Pipeline 0..38
+  Extern `foo` 0..38
+    Signature 11..20
+      Param rest `args` 12..19

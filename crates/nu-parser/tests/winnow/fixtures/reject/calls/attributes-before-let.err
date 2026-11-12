@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/calls/attributes-before-let.nu:2:1
+  |
+2 | let y = 1
+  | ^^^
+  = help: only `def`, `extern`, `export def` and `export extern` take attributes

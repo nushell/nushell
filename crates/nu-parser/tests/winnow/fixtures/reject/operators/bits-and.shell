@@ -1,0 +1,3 @@
+Pipeline 0..12
+  Garbage 0..12
+Diagnostic 2..10 unknown operator `bits-and` recovered

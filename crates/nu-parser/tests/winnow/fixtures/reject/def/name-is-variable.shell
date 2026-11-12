@@ -1,0 +1,6 @@
+Pipeline 0..12
+  Call `def` 0..12
+    Var $x 4..6
+    List 7..9
+    Record 10..12
+Diagnostic 4..6 expected string recovered

@@ -1,0 +1,4 @@
+Block 0..13
+  Pipeline 0..12
+    Call `alias` 0..12
+      Flag --help 6..12

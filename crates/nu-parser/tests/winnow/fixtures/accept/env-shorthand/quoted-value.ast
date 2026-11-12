@@ -1,0 +1,11 @@
+Block 0..32
+  Pipeline 0..31
+    EnvShorthand 0..31
+      Env FOO 0..9
+        String Double "a b" 4..9
+      Env BAR 10..17
+        String Single "c" 14..17
+      Call `echo` 18..31
+        FullCellPath 23..31
+          Var $env 23..27
+          Member "FOO" 28..31

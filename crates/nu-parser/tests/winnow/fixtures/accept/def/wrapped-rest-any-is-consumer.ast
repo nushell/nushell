@@ -1,0 +1,6 @@
+Block 0..36
+  Pipeline 0..35
+    Def `foo` [Wrapped] 0..35
+      Signature 18..32
+        Param rest `rest` 19..31 : any
+      Body 34..34

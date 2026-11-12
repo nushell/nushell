@@ -1,0 +1,10 @@
+Pipeline 0..24
+  Call `def` 0..24
+    String Bare "foo" 4..7
+    List 8..21
+      String Bare "x:" 9..11
+      String Bare "bool" 12..16
+      String Bare "=" 17..18
+      Int 1 19..20
+    Record 22..24
+Diagnostic 19..20 expected bool recovered

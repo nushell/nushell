@@ -1,0 +1,7 @@
+Block 0..21
+  Pipeline 0..20
+    Call `def` 0..20
+      String Bare "foo" 4..7
+      Flag --help 8..14
+      List 15..17
+      Record 18..20

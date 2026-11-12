@@ -1,0 +1,4 @@
+Pipeline 0..10
+  Use 0..10
+    Nothing 4..8
+    Member "a" 9..10

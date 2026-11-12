@@ -1,0 +1,7 @@
+Pipeline 0..12
+  Use 0..12
+    String Bare "std" 4..7
+    Member (ignored) 8..12
+      Interpolation Double 8..12
+        Text "x" 10..11
+Diagnostic 8..12 wrong import pattern structure recovered

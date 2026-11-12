@@ -1,0 +1,5 @@
+Pipeline 0..10
+  List 0..10
+    String Double "" 1..3
+    String Single "" 4..6
+    String Backtick "" 7..9

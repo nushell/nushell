@@ -1,0 +1,9 @@
+Pipeline 0..16
+  Def `f` 0..16
+    Signature 6..8
+    Body 10..15
+      Pipeline 13..14
+        Int 1 13..14
+Pipeline 17..18
+  ExternalCall 17..18
+    String Bare "}" 17..18

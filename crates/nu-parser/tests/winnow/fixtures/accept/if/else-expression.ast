@@ -1,0 +1,34 @@
+Block 0..98
+  Pipeline 0..28
+    If 0..28
+      Condition
+        Bool false 3..8
+      Then 10..11
+      Else 13..17
+        Subexpression 18..28 19..27
+          Pipeline 19..27
+            Call `print` 19..27
+              String Bare "no" 25..27
+  Pipeline 29..48
+    If 29..48
+      Condition
+        Bool false 32..37
+      Then 39..40
+      Else 42..46
+        Int 5 47..48
+  Pipeline 49..70
+    If 49..70
+      Condition
+        Bool false 52..57
+      Then 59..60
+      Else 62..66
+        String Double "s" 67..70
+  Pipeline 71..97
+    If 71..97
+      Condition
+        Bool false 74..79
+      Then 81..82
+      Else 84..88
+        FullCellPath 89..97
+          Var $env 89..93
+          Member "PWD" 94..97

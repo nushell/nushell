@@ -1,0 +1,4 @@
+Pipeline 0..8
+  Call `echo` 0..8
+    Garbage 5..8
+Diagnostic 5..8 invalid int literal: invalid digits for radix 2 recovered

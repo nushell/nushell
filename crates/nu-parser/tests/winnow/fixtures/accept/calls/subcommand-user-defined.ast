@@ -1,0 +1,13 @@
+Block 0..43
+  Pipeline 0..13
+    Def `foo` 0..13
+      Signature 8..10
+      Body 12..12
+  Pipeline 14..34
+    Def `foo bar` 14..34
+      Signature 28..30
+      Body 32..33
+        Pipeline 32..33
+          Int 3 32..33
+  Pipeline 35..42
+    Call `foo bar` 35..42

@@ -1,0 +1,10 @@
+Pipeline 0..28
+  Call `def` 0..28
+    String Bare "foo" 4..7
+    List 8..25
+      String Bare "x:" 9..11
+      String Bare "filesize" 12..20
+      String Bare "=" 21..22
+      Int 1 23..24
+    Record 26..28
+Diagnostic 23..24 expected filesize with valid units recovered

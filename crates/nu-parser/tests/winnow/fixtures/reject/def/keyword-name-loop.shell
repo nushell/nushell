@@ -1,0 +1,8 @@
+Pipeline 0..19
+  Def `loop` 0..19
+    Signature 9..12
+      Param positional `x` 10..11
+    Body 14..18
+      Pipeline 15..17
+        Var $x 15..17
+Diagnostic 4..8 cannot use parser keyword `loop` as command name recovered

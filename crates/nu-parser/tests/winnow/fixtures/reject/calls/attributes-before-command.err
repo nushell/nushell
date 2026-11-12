@@ -1,0 +1,6 @@
+error: attributes must be followed by a definition
+  --> reject/calls/attributes-before-command.nu:2:1
+  |
+2 | ls
+  | ^^
+  = help: only `def`, `extern`, `export def` and `export extern` take attributes

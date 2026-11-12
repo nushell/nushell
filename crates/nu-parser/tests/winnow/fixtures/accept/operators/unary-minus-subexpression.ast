@@ -1,0 +1,8 @@
+Block 0..9
+  Pipeline 0..8
+    Minus 0..8
+      Subexpression 1..8 2..7
+        Pipeline 2..7
+          BinaryOp + 2..7
+            Int 2 2..3
+            Int 3 6..7

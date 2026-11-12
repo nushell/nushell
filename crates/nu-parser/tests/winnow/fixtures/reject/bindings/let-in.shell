@@ -1,0 +1,6 @@
+Pipeline 0..10
+  let in 0..10
+    Value 9..10
+      Pipeline 9..10
+        Int 1 9..10
+Diagnostic 4..6 `in` used as variable name recovered

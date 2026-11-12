@@ -1,0 +1,6 @@
+error: expected closure
+  --> reject/try/finally-typed-record.nu:2:16
+  |
+2 | try {} finally {a: 1}
+  |                ^^^^^^
+  = help: found a record

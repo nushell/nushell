@@ -1,0 +1,6 @@
+error: expected valid variable name
+  --> reject/variables/name-with-dash.nu:1:1
+  |
+1 | $foo-bar
+  | ^^^^^^^^
+  = help: variable names may not contain `.[({+-*^%/=!<>&|`

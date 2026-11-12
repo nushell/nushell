@@ -1,0 +1,4 @@
+Pipeline 0..14
+  Call `echo` 0..14
+    Garbage 5..14
+Diagnostic 5..14 invalid int literal: invalid digits for radix 16 recovered

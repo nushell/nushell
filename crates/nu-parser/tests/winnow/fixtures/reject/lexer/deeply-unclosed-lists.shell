@@ -1,0 +1,3 @@
+Pipeline 0..29
+  Garbage 0..29
+Diagnostic 28..29 unclosed delimiter: expected `]` recovered

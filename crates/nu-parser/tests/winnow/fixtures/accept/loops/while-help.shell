@@ -1,0 +1,3 @@
+Pipeline 0..12
+  Call `while` 0..12
+    Flag --help 6..12

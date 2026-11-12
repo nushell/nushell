@@ -1,0 +1,25 @@
+Block 0..61
+  Pipeline 0..60
+    List 0..7
+      Int 1 1..2
+      Int 2 3..4
+      Int 3 5..6
+    | 8..9
+    Call `each` 10..26
+      Closure 15..26
+        Body 17..25
+          Pipeline 17..24
+            BinaryOp * 17..24
+              Var $in 17..20
+              Int 2 23..24
+    | 27..28
+    Call `reduce` 29..60
+      Closure 36..60
+        Signature 38..47
+          Param positional `it` 39..41
+          Param positional `acc` 43..46
+        Body 48..59
+          Pipeline 48..58
+            BinaryOp + 48..58
+              Var $it 48..51
+              Var $acc 54..58

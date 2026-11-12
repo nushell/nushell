@@ -1,0 +1,8 @@
+Block 0..26
+  Pipeline 0..25
+    Extern `e` 0..25
+      Signature 9..25
+        Param positional `a` 10..11
+        Param positional `a` 13..14
+        Param flag --x `x` 16..19
+        Param flag --x `x` 21..24

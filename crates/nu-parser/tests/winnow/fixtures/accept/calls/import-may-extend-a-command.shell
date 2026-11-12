@@ -1,0 +1,25 @@
+Pipeline 0..20
+  Use 0..20
+    String Bare "std-rfc/tables" 4..18
+    Member * 19..20
+Pipeline 21..70
+  Table 21..39
+    Columns
+      List 22..29
+        String Bare "a" 23..24
+        String Bare "b" 25..26
+        String Bare "c" 27..28
+    Row
+      List 31..38
+        Int 1 32..33
+        Int 2 34..35
+        Int 3 36..37
+  | 40..41
+  Call `select column-slices` 42..70
+    Range Inclusive 63..70
+      From
+        Int 0 63..64
+      Next
+        Int 2 66..67
+      To
+        Int 5 69..70

@@ -1,0 +1,8 @@
+Pipeline 0..21
+  Call `def` 0..12
+    String Bare "f" 4..5
+    List 6..8
+    Record 9..12
+  | 13..14
+  Call `length` 15..21
+Diagnostic 0..3 `def` is a statement and cannot be used inside a pipeline recovered

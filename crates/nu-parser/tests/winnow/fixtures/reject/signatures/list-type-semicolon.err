@@ -1,0 +1,5 @@
+error: expected a single type parameter
+  --> reject/signatures/list-type-semicolon.nu:1:16
+  |
+1 | def f [x: list<int;>] {}
+  |                ^^^^

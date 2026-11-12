@@ -1,0 +1,6 @@
+Block 0..12
+  Pipeline 0..11
+    Call `def` 0..11
+      String Bare "-" 4..5
+      List 6..8
+      Record 9..11

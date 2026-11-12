@@ -1,0 +1,7 @@
+Pipeline 0..12
+  Call `for` 0..12
+    String Bare "x" 4..5
+    String Bare "in" 6..8
+    List 9..12
+      Int 1 10..11
+Diagnostic 6..8 missing argument to `in` recovered

@@ -1,0 +1,5 @@
+Pipeline 0..10
+  Call `ls` 0..10
+    Flag --flag 3..10
+      Garbage 10..10
+Diagnostic 10..10 expected value after `=` recovered

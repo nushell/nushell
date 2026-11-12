@@ -1,0 +1,4 @@
+Pipeline 0..28
+  Call `plugin use` 0..28
+    Flag --plugin-config 11..26
+    String Bare "x" 27..28

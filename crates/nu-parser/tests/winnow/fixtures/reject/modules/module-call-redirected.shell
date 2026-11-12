@@ -1,0 +1,8 @@
+Pipeline 75..97 comments=1
+  Call `module` 75..92
+    String Bare "x" 82..83
+    Flag --foo 84..89
+    Unread 90..92
+  Redirect Out 93..95
+    String Bare "f" 96..97
+Diagnostic 93..95 this statement cannot be redirected recovered

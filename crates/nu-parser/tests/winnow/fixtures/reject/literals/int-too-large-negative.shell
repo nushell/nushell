@@ -1,0 +1,3 @@
+Pipeline 0..20
+  Garbage 0..20
+Diagnostic 0..20 invalid int literal: number too large (add `.0` for a float) recovered

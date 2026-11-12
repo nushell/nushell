@@ -1,0 +1,5 @@
+error: invalid int literal: invalid digits for radix 2
+  --> reject/calls/word-refused-by-parameter-type.nu:2:3
+  |
+2 | f 0b2
+  |   ^^^

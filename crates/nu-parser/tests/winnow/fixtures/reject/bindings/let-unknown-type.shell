@@ -1,0 +1,6 @@
+Pipeline 0..28
+  let a : list<string asd> 0..28
+    Value 26..28
+      Pipeline 26..28
+        List 26..28
+Diagnostic 12..22 expected a single type parameter recovered

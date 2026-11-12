@@ -1,0 +1,10 @@
+Block 0..36
+  Pipeline 0..35
+    Closure 0..35
+      Signature 1..30
+        Param positional `x` 2..8 : int
+        Param optional `y` 10..20 : string
+        Param rest `rest` 22..29
+      Body 31..34
+        Pipeline 31..33
+          Var $x 31..33

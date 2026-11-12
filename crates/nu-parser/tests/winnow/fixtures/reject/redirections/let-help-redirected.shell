@@ -1,0 +1,7 @@
+Pipeline 80..97 comments=1
+  Call `let` 80..97
+    String Bare "x" 84..85
+    Flag --help 86..92
+    String Bare "o>" 93..95
+    String Bare "f" 96..97
+Diagnostic 93..95 expected `=` recovered

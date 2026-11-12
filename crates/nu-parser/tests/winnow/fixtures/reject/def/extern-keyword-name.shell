@@ -1,0 +1,4 @@
+Pipeline 0..17
+  Extern `while` 0..17
+    Signature 15..17
+Diagnostic 7..14 cannot use parser keyword `while` as command name recovered

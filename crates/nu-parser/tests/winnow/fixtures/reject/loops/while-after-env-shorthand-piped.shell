@@ -1,0 +1,10 @@
+Pipeline 0..30
+  EnvShorthand 0..21
+    Env FOO 0..5
+      String Bare "1" 4..5
+    While 6..21
+      Bool false 12..17
+      Body 19..20
+  | 22..23
+  Call `ignore` 24..30
+Diagnostic 6..11 `while` is a statement and cannot be used inside a pipeline recovered

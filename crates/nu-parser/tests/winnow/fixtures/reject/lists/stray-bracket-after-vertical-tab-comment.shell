@@ -1,0 +1,3 @@
+Pipeline 289..301 comments=4
+  Garbage 289..301
+Diagnostic 296..297 unbalanced delimiter: found `]` without a matching `[` recovered

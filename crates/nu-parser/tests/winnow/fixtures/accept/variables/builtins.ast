@@ -1,0 +1,14 @@
+Block 0..42
+  Pipeline 0..41
+    List 0..41
+      FullCellPath 1..9
+        Var $env 1..5
+        Member "PWD" 6..9
+      FullCellPath 10..23
+        Var $nu 10..13
+        Member "home-path" 14..23
+      Subexpression 24..40 25..39
+        Pipeline 25..39
+          Var $in 25..28
+          | 29..30
+          Call `describe` 31..39

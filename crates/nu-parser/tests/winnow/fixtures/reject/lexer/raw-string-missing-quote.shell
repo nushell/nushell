@@ -1,0 +1,4 @@
+Pipeline 0..5
+  Garbage 0..5
+Diagnostic 2..2 unclosed delimiter: expected `'` recovered
+Diagnostic 2..5 expected operator recovered

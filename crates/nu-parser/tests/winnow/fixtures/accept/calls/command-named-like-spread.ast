@@ -1,0 +1,11 @@
+Block 0..27
+  Pipeline 0..18
+    Def `...` 0..18
+      Signature 8..11
+        Param positional `x` 9..10
+      Body 13..17
+        Pipeline 14..16
+          Var $x 14..16
+  Pipeline 19..26
+    Call `...` 19..26
+      String Bare "..." 23..26

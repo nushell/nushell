@@ -1,0 +1,5 @@
+error: expected `.`, `?` or `!`
+  --> reject/ranges/string-bound.nu:1:6
+  |
+1 | (0).."a"
+  |      ^^^

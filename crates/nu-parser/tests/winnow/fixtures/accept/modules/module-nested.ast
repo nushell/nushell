@@ -1,0 +1,18 @@
+Block 0..59
+  Pipeline 0..58
+    Module 0..58
+      String Bare "a" 7..8
+      Body 10..57
+        Pipeline 11..56
+          Module 11..56
+            String Bare "b" 18..19
+            Body 21..55
+              Pipeline 22..54
+                Module 22..54
+                  String Bare "c" 29..30
+                  Body 32..53
+                    Pipeline 33..52
+                      Export 33..52
+                        Def `f` 40..52
+                          Signature 46..48
+                          Body 50..51

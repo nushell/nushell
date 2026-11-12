@@ -1,0 +1,4 @@
+Pipeline 0..13
+  Call `ls` 0..2
+  | 3..4
+  Call `length` 7..13

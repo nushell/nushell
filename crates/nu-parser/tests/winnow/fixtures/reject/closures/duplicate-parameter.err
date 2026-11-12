@@ -1,0 +1,6 @@
+error: `a` uses a name that is already taken
+  --> reject/closures/duplicate-parameter.nu:1:6
+  |
+1 | {|a, a| $a }
+  |      ^
+  = help: it is first used at byte 2

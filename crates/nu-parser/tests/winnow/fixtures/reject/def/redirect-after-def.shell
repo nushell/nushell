@@ -1,0 +1,7 @@
+Pipeline 0..17
+  Def `f` 0..12
+    Signature 6..8
+    Body 10..11
+  Redirect Out 13..15
+    String Bare "x" 16..17
+Diagnostic 13..15 this statement cannot be redirected recovered

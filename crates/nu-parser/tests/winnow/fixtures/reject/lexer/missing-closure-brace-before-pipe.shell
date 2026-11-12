@@ -1,0 +1,7 @@
+Pipeline 0..77
+  Call `def` 0..77
+    String Bare "f" 4..5
+    List 6..8
+    Garbage 9..77
+Diagnostic 77..77 unclosed delimiter: expected `}` recovered
+Diagnostic 77..77 unclosed delimiter: expected `}` recovered

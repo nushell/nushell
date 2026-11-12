@@ -1,0 +1,5 @@
+error: this statement cannot be redirected
+  --> reject/redirections/run-redirected.nu:1:10
+  |
+1 | run null o> f
+  |          ^^

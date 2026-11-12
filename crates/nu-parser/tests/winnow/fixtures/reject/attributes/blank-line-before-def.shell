@@ -1,0 +1,9 @@
+Pipeline 0..11
+  AttributeBlock 0..11
+    Attribute `deprecated` 0..11
+    Garbage 11..11
+Diagnostic 11..11 attributes must be followed by a definition recovered
+Pipeline 13..25
+  Def `f` 13..25
+    Signature 19..21
+    Body 23..24

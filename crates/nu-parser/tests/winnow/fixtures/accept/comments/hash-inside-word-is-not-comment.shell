@@ -1,0 +1,3 @@
+Pipeline 0..17
+  Call `echo` 0..17
+    String Bare "test#testing" 5..17

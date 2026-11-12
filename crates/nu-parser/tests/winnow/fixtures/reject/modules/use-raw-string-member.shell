@@ -1,0 +1,6 @@
+Pipeline 0..16
+  Use 0..16
+    String Bare "std" 4..7
+    Member (ignored) 8..16
+      String Raw(1) "log" 8..16
+Diagnostic 8..16 wrong import pattern structure recovered

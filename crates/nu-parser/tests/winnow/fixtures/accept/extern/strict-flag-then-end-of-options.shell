@@ -1,0 +1,4 @@
+Pipeline 0..30
+  Extern `foo` [Strict] 0..30
+    Signature 23..30
+      Param flag --bar `bar` 24..29
