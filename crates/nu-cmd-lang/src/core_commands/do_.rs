@@ -1,16 +1,46 @@
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
-#[cfg(feature = "os")]
-use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, OutDest,
+    ByteStream, ByteStreamSource,
     engine::Closure,
     shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
+#[cfg(feature = "os")]
+use nu_protocol::{
+    OutDest,
+    process::{ChildPipe, ChildProcess},
+};
 
 use std::{
-    io::{Cursor, Read},
+    io::{BufRead, Cursor, Read},
     thread,
 };
+
+/// A stream that reads like `stream`, for `do --ignore-errors`, but ends where reading it fails
+/// instead of failing. Only an `exit` still comes through, since that isn't an error.
+fn ending_at_read_error(stream: ByteStream) -> ByteStream {
+    let (span, signals, type_) = (stream.span(), stream.signals().clone(), stream.type_());
+    let known_size = stream.known_size();
+    let mut reader = stream.reader();
+
+    ByteStream::from_fn(span, signals, type_, move |buffer| {
+        let Some(reader) = &mut reader else {
+            return Ok(false);
+        };
+        match reader.fill_buf() {
+            Ok(bytes) => {
+                let len = bytes.len();
+                buffer.extend_from_slice(bytes);
+                reader.consume(len);
+                Ok(len > 0)
+            }
+            Err(err) => match ShellErrorBridge::try_from(err) {
+                Ok(ShellErrorBridge(err)) if err.is_exit() => Err(err),
+                _ => Ok(false),
+            },
+        }
+    })
+    .with_known_size(known_size)
+}
 
 #[derive(Clone)]
 pub struct Do;
@@ -170,29 +200,34 @@ impl Command for Do {
                     Err(stream) => Ok(PipelineData::byte_stream(stream, metadata)),
                 }
             }
-            Ok(PipelineData::ByteStream(mut stream, metadata))
-                if ignore_all_errors
-                    && !matches!(
-                        caller_stack.stdout(),
-                        OutDest::Pipe | OutDest::PipeRaw | OutDest::PipeSeparate | OutDest::Value
-                    ) =>
-            {
+            Ok(PipelineData::ByteStream(mut stream, metadata)) if ignore_all_errors => {
                 #[cfg(feature = "os")]
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.ignore_error(true);
+                    child.ignore_stdin_errors();
+                    if !matches!(
+                        caller_stack.stdout(),
+                        OutDest::Pipe | OutDest::PipeRaw | OutDest::PipeSeparate | OutDest::Value
+                    ) {
+                        child.ignore_error(true);
+                    }
+                }
+                if matches!(stream.source(), ByteStreamSource::Read(_)) {
+                    stream = ending_at_read_error(stream);
                 }
                 Ok(PipelineData::byte_stream(stream, metadata))
+            }
+            // `exit` isn't an error, so `--ignore-errors` doesn't apply to it.
+            Err(err @ ShellError::Exit { .. }) => Err(err),
+            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) if error.is_exit() => {
+                Err(*error)
             }
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
                 Ok(PipelineData::empty())
             }
             Ok(PipelineData::ListStream(stream, metadata)) if ignore_all_errors => {
-                let stream = stream.map(move |value| {
-                    if let Value::Error { .. } = value {
-                        Value::nothing(head)
-                    } else {
-                        value
-                    }
+                let stream = stream.map(move |value| match &value {
+                    Value::Error { error, .. } if !error.is_exit() => Value::nothing(head),
+                    _ => value,
                 });
                 Ok(PipelineData::list_stream(stream, metadata))
             }

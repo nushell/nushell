@@ -1,11 +1,18 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value};
+use nu_protocol::{
+    ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value,
+    shell_error::bridge::ShellErrorBridge,
+};
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
-    ShellError::DelimiterError {
-        msg: err.to_string(),
-        span,
+    let msg = err.to_string();
+    // An error from the stream being read has nothing to do with the delimited data.
+    if let csv::ErrorKind::Io(err) = err.into_kind()
+        && let Ok(ShellErrorBridge(err)) = ShellErrorBridge::try_from(err)
+    {
+        return err;
     }
+    ShellError::DelimiterError { msg, span }
 }
 
 fn from_delimited_stream(

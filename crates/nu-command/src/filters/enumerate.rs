@@ -57,6 +57,11 @@ impl Command for Enumerate {
             .into_iter()
             .enumerate()
             .map(move |(idx, x)| {
+                // An error stays a stream item: nothing would notice it inside a record.
+                if x.is_error() {
+                    return x;
+                }
+
                 Value::record(
                     record! {
                         "index" => Value::int(idx as i64, head),
