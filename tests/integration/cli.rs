@@ -710,6 +710,51 @@ fn mcp_flag_runs_when_enabled() -> TestResult {
     Ok(())
 }
 
+#[cfg(feature = "mcp")]
+#[test]
+fn mcp_startup_files_receive_converted_path() -> TestResult {
+    for startup_file in ["env.nu", "config.nu"] {
+        let config_home = tempfile::tempdir()?;
+        let kept_path = config_home.path().join("keep");
+        let excluded_path = config_home.path().join("mcp-path-excluded");
+        let output_path = config_home.path().join("path.json");
+        std::fs::write(config_home.path().join("env.nu"), "")?;
+        std::fs::write(config_home.path().join("config.nu"), "")?;
+        std::fs::write(
+            config_home.path().join(startup_file),
+            r#"
+                $env.PATH = $env.PATH | where $it !~ "mcp-path-excluded"
+                $env.PATH | to json | save --force $env.MCP_PATH_OUTPUT
+                ^$nu.current-exe --no-config-file --no-std-lib -c "'startup output'"
+            "#,
+        )?;
+
+        let output = assert_cmd::Command::new(cargo_bin!())
+            .args(["--no-std-lib", "--mcp", "--config-home"])
+            .arg(config_home.path())
+            .env("PATH", std::env::join_paths([&kept_path, &excluded_path])?)
+            .env("MCP_PATH_OUTPUT", &output_path)
+            .timeout(std::time::Duration::from_secs(30))
+            .output()?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(output.status.success(), "{startup_file}: {stderr}");
+        assert!(
+            output.stdout.is_empty(),
+            "{startup_file} leaked startup output: {:?}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        assert!(
+            output_path.exists(),
+            "{startup_file} did not finish: {stderr}"
+        );
+        let path: serde_json::Value = serde_json::from_slice(&std::fs::read(output_path)?)?;
+        assert_eq!(path, serde_json::json!([kept_path]), "{startup_file}");
+    }
+
+    Ok(())
+}
+
 #[test]
 fn plugin_flags_accept_paths_when_enabled() -> TestResult {
     #[cfg(feature = "plugin")]

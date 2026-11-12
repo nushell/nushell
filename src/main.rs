@@ -591,6 +591,11 @@ fn main() -> Result<()> {
         #[cfg(feature = "mcp")]
         RunMode::Mcp => {
             start_time = nu_utils::time::Instant::now();
+            // Preserve the converted environment before MCP creates fresh configuration and
+            // evaluation stacks, including when configuration files are disabled.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
             let mcp_transport_kind = parsed_nu_cli_args
                 .mcp_transport
                 .as_ref()
