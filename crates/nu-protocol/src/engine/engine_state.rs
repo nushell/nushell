@@ -486,6 +486,13 @@ impl EngineState {
             }
         }
 
+        // The same goes for a module that a reload dropped.
+        for module_id in &first.hidden_modules {
+            for (_, overlay) in &mut scope.overlays {
+                overlay.modules.retain(|_, bound| *bound != *module_id);
+            }
+        }
+
         // Overlays the delta added are in `scope` now, so their ids can be looked up
         let mut activated_ids = Self::translate_overlay_ids(scope, &first);
 

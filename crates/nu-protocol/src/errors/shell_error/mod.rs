@@ -1508,6 +1508,11 @@ impl ShellError {
         matches!(self, Self::Interrupted { .. })
     }
 
+    /// Whether this is `exit` asking to end the script, rather than something that went wrong.
+    pub fn is_exit(&self) -> bool {
+        matches!(self, Self::Exit { .. })
+    }
+
     pub fn exit_code(&self) -> Option<i32> {
         // `Return` is deprecated but still a valid variant to match on here.
         #[allow(deprecated)]
