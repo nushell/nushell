@@ -954,9 +954,12 @@ impl<'a> StateWorkingSet<'a> {
     /// matching `exit_scope` (which discards that frame). Call sites:
     /// `parse_block_expression`, `parse_closure_expression`, and scoped `parse_block`.
     /// Keep those three call sites explicit so a new scoped construct is forced to opt in.
-    pub fn snapshot_scope_bindings(&self) -> Option<Arc<ScopeBindings>> {
+    pub fn snapshot_scope_bindings(&self, span: Span) -> Option<Arc<ScopeBindings>> {
         let frame = self.delta.last_scope_frame();
-        let mut bindings = ScopeBindings::default();
+        let mut bindings = ScopeBindings {
+            span: Some(span),
+            ..Default::default()
+        };
         let mut removed_overlays = vec![];
 
         for overlay in frame.active_overlays(&mut removed_overlays) {
