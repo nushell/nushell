@@ -179,7 +179,7 @@ fn first_helper(
     // pipe, and sqlite lazy queries can still run. For "take nothing" we only produce an empty
     // value: empty binary (and clear pipeline `content_type` for binary) or an empty list, with
     // other metadata unchanged.
-    if rows == 0 {
+    if rows == 0 && !strict_mode {
         return match input {
             PipelineData::Value(val, _) if matches!(&val, Value::Binary { .. }) => Ok(
                 Value::binary(Vec::new(), val.span()).into_pipeline_data_with_metadata(
@@ -217,6 +217,8 @@ fn first_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
+                    } else if strict_mode && vals.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
                     } else {
                         let value = if rows >= vals.len() {
                             Value::list_shared(vals, span)
@@ -240,6 +242,8 @@ fn first_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(binary_meta))
                         }
+                    } else if strict_mode && val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
                     } else {
                         let mut val = val.into_owned();
                         val.truncate(rows);
@@ -257,6 +261,24 @@ fn first_helper(
                             // There are no values, so return nothing instead of an error so
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
+                        }
+                    } else if strict_mode {
+                        if let Some(first) = iter.next() {
+                            if rows == 0 {
+                                Ok(Value::list(Vec::new(), head)
+                                    .into_pipeline_data_with_metadata(input_meta))
+                            } else {
+                                Ok(std::iter::once(first)
+                                    .chain(iter)
+                                    .take(rows)
+                                    .into_pipeline_data_with_metadata(
+                                        span,
+                                        signals.clone(),
+                                        input_meta,
+                                    ))
+                            }
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
                         Ok(iter.take(rows).into_pipeline_data_with_metadata(
@@ -297,6 +319,25 @@ fn first_helper(
                                     msg: "Expected list from query plan".into(),
                                 })
                             }
+                        } else if strict_mode {
+                            let query_rows = rows.max(1);
+                            let plan = plan.with_limit(query_rows as i64);
+                            let result = plan.execute(head)?;
+                            let value = result.into_value(head)?;
+                            if let Value::List { ref vals, .. } = value {
+                                if vals.is_empty() {
+                                    Err(ShellError::AccessEmptyContent { span: head })
+                                } else if rows == 0 {
+                                    Ok(Value::list(Vec::new(), head)
+                                        .into_pipeline_data_with_metadata(input_meta))
+                                } else {
+                                    Ok(value.into_pipeline_data_with_metadata(input_meta))
+                                }
+                            } else {
+                                Err(ShellError::NushellFailed {
+                                    msg: "Expected list from query plan".into(),
+                                })
+                            }
                         } else {
                             // For multiple, limit rows
                             let plan = plan.with_limit(rows as i64);
@@ -319,7 +360,7 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(stream, _) => {
+        PipelineData::ListStream(mut stream, _) => {
             if return_single_element {
                 if let Some(v) = stream.into_iter().next() {
                     Ok(v.unwrap_error()?
@@ -330,6 +371,21 @@ fn first_helper(
                     // There are no values, so return nothing instead of an error so
                     // that users can pipe this through 'default' if they want to.
                     Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
+                }
+            } else if strict_mode {
+                if let Some(first) = stream.next_value() {
+                    if rows == 0 {
+                        Ok(Value::list(Vec::new(), head)
+                            .into_pipeline_data_with_metadata(input_meta))
+                    } else {
+                        Ok(PipelineData::list_stream(
+                            stream
+                                .modify(move |iter| std::iter::once(first).chain(iter).take(rows)),
+                            input_meta,
+                        ))
+                    }
+                } else {
+                    Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
                 Ok(PipelineData::list_stream(
@@ -356,6 +412,30 @@ fn first_helper(
                         } else {
                             Err(ShellError::AccessEmptyContent { span: head })
                         }
+                    } else if strict_mode {
+                        let mut byte = [0u8];
+                        if reader
+                            .read(&mut byte)
+                            .map_err(|err| IoError::new(err, span, None))?
+                            > 0
+                        {
+                            if rows == 0 {
+                                Ok(Value::binary(Vec::new(), span)
+                                    .into_pipeline_data_with_metadata(metadata))
+                            } else {
+                                Ok(PipelineData::byte_stream(
+                                    ByteStream::read(
+                                        std::io::Cursor::new(byte).chain(reader).take(rows as u64),
+                                        head,
+                                        Signals::empty(),
+                                        ByteStreamType::Binary,
+                                    ),
+                                    metadata,
+                                ))
+                            }
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        }
                     } else {
                         // Just take 'rows' bytes off the stream, mimicking the binary behavior
                         Ok(PipelineData::byte_stream(
@@ -368,6 +448,8 @@ fn first_helper(
                             metadata,
                         ))
                     }
+                } else if strict_mode {
+                    Err(ShellError::AccessEmptyContent { span: head })
                 } else {
                     Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                 }
