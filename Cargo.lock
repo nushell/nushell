@@ -4905,7 +4905,7 @@ dependencies = [
  "oem_cp",
  "open",
  "os_pipe",
- "parse_datetime",
+ "parse_datetime 0.17.0",
  "pathdiff",
  "percent-encoding",
  "pretty_assertions",
@@ -6146,6 +6146,17 @@ name = "parse_datetime"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "503fd4c8b0685e5eb32a8276533611f63e3b44768e9e8724e73f6852c2542f82"
+dependencies = [
+ "jiff",
+ "num-traits",
+ "winnow 1.0.4",
+]
+
+[[package]]
+name = "parse_datetime"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb51967a779ef73b125a243688e53e4bb2474f91cae72734ee5051e857fb2645"
 dependencies = [
  "jiff",
  "num-traits",
@@ -9994,7 +10005,7 @@ dependencies = [
  "fluent",
  "jiff",
  "libc",
- "parse_datetime",
+ "parse_datetime 0.16.0",
  "rustix 1.1.4",
  "thiserror 2.0.20",
  "uucore",
