@@ -7,7 +7,7 @@ use crate::{
     Token, TokenContents,
     lex::lex_signature,
     parse_helpers::{SPREAD_OPERATOR, earlier_use, garbage, is_variable},
-    parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
+    parse_shape_specs::{completer_position, parse_completer, parse_shape_name, parse_type},
     type_check::type_compatible,
 };
 use log::trace;
@@ -1032,9 +1032,7 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::Type => {
                             if let Some(last) = args.last_mut() {
-                                let (syntax_shape, completer) = contents
-                                    .iter()
-                                    .position(|b| *b == b'@')
+                                let (syntax_shape, completer) = completer_position(&contents)
                                     .and_then(|idx| {
                                         let (shape, completer) = contents.split_at_checked(idx)?;
                                         let (shape_span, completer_span) = span.split_at(idx)?;
