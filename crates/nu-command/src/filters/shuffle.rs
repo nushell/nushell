@@ -30,7 +30,7 @@ impl Command for Shuffle {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.take_metadata();
-        let mut values = input.into_iter_strict(call.head)?.collect::<Vec<_>>();
+        let mut values = input.into_iter_strict(call.head)?.collect_values()?;
         values.shuffle(&mut rng());
         let iter = values.into_iter();
         Ok(iter.into_pipeline_data_with_metadata(
