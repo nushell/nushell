@@ -3,7 +3,7 @@ use crate::{
     parse_helpers::{
         PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, extract_spread_record, garbage,
     },
-    parse_source::find_dirs_var,
+    parse_source::{add_script_arguments, find_dirs_var},
     type_check::type_compatible,
 };
 use log::trace;
@@ -13,7 +13,7 @@ use nu_protocol::{
     SyntaxShape, Type, TypeSet,
     ast::*,
     did_you_mean,
-    engine::{CommandType, StateWorkingSet},
+    engine::{CommandType, StateWorkingSet, longest_decl_name},
 };
 use std::str;
 
@@ -119,7 +119,29 @@ fn parse_unknown_arg(
         .map(|arg| arg.shape.clone())
         .unwrap_or(SyntaxShape::Any);
 
+    // The argument goes to another program, which reads a leading `-` as a flag, so `-$x` and
+    // `-(expr)` stay the strings they spell, as they do for `^cmd`, instead of negating.
+    let shape = match (shape, working_set.get_span_contents(span)) {
+        (SyntaxShape::Any, [b'-', b'$' | b'(', ..]) => SyntaxShape::String,
+        (shape, _) => shape,
+    };
+
     crate::parser::parse_value(working_set, span, &shape, None)
+}
+
+/// Whether `extern --strict` still forwards a flag its signature doesn't declare. `--help`
+/// reaches every command, a flag spelled at run time (`-$x`, `--(expr)`) can't be checked when
+/// parsing, and `-10` (as in `git log -10`) is a count rather than a cluster of short flags.
+fn strict_extern_forwards(word: &[u8]) -> bool {
+    match word {
+        [b'-', b'-', b'$' | b'(', ..] | [b'-', b'$' | b'(', ..] => true,
+        [b'-', b'-', flag @ ..] => flag
+            .split(|byte| *byte == b'=')
+            .next()
+            .is_some_and(|name| name == b"help"),
+        [b'-', count @ ..] => !count.is_empty() && count.iter().all(u8::is_ascii_digit),
+        _ => false,
+    }
 }
 
 fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -440,11 +462,15 @@ fn ensure_flag_arg_type(
 
 /// Result of attempting to parse a long flag.
 ///
-/// This tri-state enum indicates whether a long flag was found, no flag was found,
-/// or the end-of-options delimiter `--` was found (which stops all flag parsing).
+/// This enum indicates whether a declared long flag was found, an undeclared one was found,
+/// no flag was found, or the end-of-options delimiter `--` was found (which stops all flag
+/// parsing).
 enum LongFlagParseResult {
     /// A long flag was successfully parsed: (flag_name, value_expression)
     FoundFlag(Spanned<String>, Option<Expression>),
+    /// A long flag the signature doesn't declare. Its `UnknownFlag` error is already reported,
+    /// and commands that pass unknown arguments through drop it to forward the word instead.
+    UnknownFlag(Spanned<String>),
     /// No long flag found at this position
     NoFlag,
     /// End-of-options delimiter `--` found; stop flag parsing
@@ -555,13 +581,10 @@ fn parse_long_flag(
                     suggestion,
                 ));
                 // Move `long_name`; the clone was already consumed above.
-                LongFlagParseResult::FoundFlag(
-                    Spanned {
-                        item: long_name,
-                        span: arg_span,
-                    },
-                    None,
-                )
+                LongFlagParseResult::UnknownFlag(Spanned {
+                    item: long_name,
+                    span: arg_span,
+                })
             }
         } else {
             working_set.error(ParseError::NonUtf8(arg_span));
@@ -717,6 +740,22 @@ fn calculate_end_span(
     }
 }
 
+/// Check if a syntax shape accepts nearly any bare word without error. `string`, `path` and
+/// `directory` take `5` or `5sec` as a string, `glob` and `external_arg` as a glob, `cell-path`
+/// takes `5` as `$.5`, and `any` falls back to a string. `parse_oneof` tries these shapes last.
+fn accepts_any_bareword(shape: &SyntaxShape) -> bool {
+    matches!(
+        shape,
+        SyntaxShape::String
+            | SyntaxShape::Filepath
+            | SyntaxShape::Directory
+            | SyntaxShape::GlobPattern
+            | SyntaxShape::CellPath
+            | SyntaxShape::ExternalArgument
+            | SyntaxShape::Any
+    )
+}
+
 pub(crate) fn parse_oneof(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -728,10 +767,35 @@ pub(crate) fn parse_oneof(
     let starting_spans_idx = *spans_idx;
     let mut best_guess = None;
     let mut best_guess_errors = Vec::new();
+    let mut best_guess_warnings = Vec::new();
+    let mut best_guess_scopes = Vec::new();
     let mut max_first_error_offset = 0;
     let mut propagate_error = false;
-    for shape in possible_shapes {
+    // The first shape that parses without error wins. Shapes that accept any bare word go
+    // last (keeping their declared order among themselves), the same way `SyntaxShape::Any`
+    // tries `String` last, so `oneof<string, list<string>>` parses `[a b]` as a list and
+    // `oneof<string, int>` parses `5` as an int.
+    // `parse_value` handles a value starting with `$`, `(` or `{` (variable, subexpression,
+    // interpolation, record, closure) by its first byte under nearly every shape, so no shape
+    // claims it the way `string` claims `5`. Such a value keeps the declared order, which still
+    // decides the few cases where the shape matters: `oneof<glob, list<glob>>` takes
+    // `$"*.($ext)"` as a glob, and `oneof<any, closure>` takes `{...$r}` as a record.
+    let defer_barewords = !matches!(
+        working_set
+            .get_span_contents(spans[starting_spans_idx])
+            .first(),
+        Some(b'$' | b'(' | b'{')
+    );
+    let deferred = |shape: &SyntaxShape| defer_barewords && accepts_any_bareword(shape);
+    let ordered_shapes = possible_shapes
+        .iter()
+        .filter(|shape| !deferred(shape))
+        .chain(possible_shapes.iter().filter(|shape| deferred(shape)));
+    let starting_scope_count = working_set.delta.scope.len();
+    for shape in ordered_shapes {
         let starting_error_count = working_set.parse_errors.len();
+        let starting_warning_count = working_set.parse_warnings.len();
+        let starting_compile_error_count = working_set.compile_errors.len();
         *spans_idx = starting_spans_idx;
         let value = match multispan {
             true => parse_multispan_value(working_set, spans, spans_idx, shape, input_type),
@@ -743,6 +807,13 @@ pub(crate) fn parse_oneof(
         let Some(first_error_offset) = new_errors.iter().map(|e| e.span().start).min() else {
             return value;
         };
+
+        // A closure with no closing `}` leaves its scope open. Take this attempt's open scopes
+        // off the stack, so the next shape doesn't resolve names through them and later
+        // definitions don't land in them. Only the best guess's go back, below, because
+        // completions inside the unfinished closure need them.
+        let scopes = &mut working_set.delta.scope;
+        let open_scopes = scopes.split_off(starting_scope_count.min(scopes.len()));
 
         if first_error_offset > max_first_error_offset {
             // while trying the possible shapes, ignore Expected type errors
@@ -761,14 +832,28 @@ pub(crate) fn parse_oneof(
             best_guess = Some(value);
             best_guess_errors.clear();
             best_guess_errors.extend_from_slice(new_errors);
+            best_guess_warnings.clear();
+            best_guess_warnings
+                .extend_from_slice(&working_set.parse_warnings[starting_warning_count..]);
+            best_guess_scopes = open_scopes;
         }
+        // Discard this attempt's errors, warnings and compile errors. A later shape parses the
+        // same code again, or the attempt's closures go unused, so keeping them would report
+        // duplicate or spurious problems. If every shape fails, the best guess's errors and
+        // warnings are restored below.
         working_set.parse_errors.truncate(starting_error_count);
+        working_set.parse_warnings.truncate(starting_warning_count);
+        working_set
+            .compile_errors
+            .truncate(starting_compile_error_count);
     }
 
     // if best_guess results in new errors further than current span, then accept it
     // or propagate_error is marked as true for it
     if max_first_error_offset > spans[starting_spans_idx].start || propagate_error {
         working_set.parse_errors.extend(best_guess_errors);
+        working_set.parse_warnings.extend(best_guess_warnings);
+        working_set.delta.scope.extend(best_guess_scopes);
         best_guess.expect("best_guess should not be None here!")
     } else {
         working_set.error(ParseError::ExpectedWithStringMsg(
@@ -993,12 +1078,8 @@ pub fn parse_internal_call(
     // see https://github.com/nushell/nushell/pull/14922
     // Incorrect behavior this may cause will be handled by
     // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
-    let output = signature
-        .get_output_type(
-            input_type
-                .map(|ty| ty.clone().union(Type::Nothing))
-                .as_ref(),
-        )
+    let output = working_set
+        .call_output_type(decl_id, &signature, input_type)
         .unwrap_or(Type::Error);
 
     // This is necessary for some keywords to have proper expression types.
@@ -1064,6 +1145,14 @@ pub fn parse_internal_call(
 
     let mut end_of_options = false;
 
+    // Commands that pass unknown arguments through (extern, def --wrapped, exec, etc.) forward
+    // a flag the signature doesn't declare to the program instead of reporting it.
+    // `extern --strict` reports it, except for the words `strict_extern_forwards` accepts.
+    let forwards_unknown_flag = |word: &[u8]| {
+        signature.allows_unknown_args
+            && (!signature.rejects_unknown_flags || strict_extern_forwards(word))
+    };
+
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
 
@@ -1090,18 +1179,21 @@ pub fn parse_internal_call(
                     continue;
                 }
                 LongFlagParseResult::FoundFlag(long_name, arg) => {
-                    // We found a long flag, like --bar
-                    if working_set.parse_errors[starting_error_count..]
-                        .iter()
-                        .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                        && signature.allows_unknown_args
-                    {
+                    // We found a long flag, like --bar. Errors in its value (an unknown flag
+                    // in `--bar (ls --baz)`) stay reported.
+                    call.add_named((long_name, None, arg));
+
+                    spans_idx += 1;
+                    continue;
+                }
+                LongFlagParseResult::UnknownFlag(long_name) => {
+                    if forwards_unknown_flag(working_set.get_span_contents(arg_span)) {
                         working_set.parse_errors.truncate(starting_error_count);
                         let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
                         call.add_unknown(arg);
                     } else {
-                        call.add_named((long_name, None, arg));
+                        call.add_named((long_name, None, None));
                     }
 
                     spans_idx += 1;
@@ -1130,7 +1222,7 @@ pub fn parse_internal_call(
                 if working_set.parse_errors[starting_error_count..]
                     .iter()
                     .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                    && signature.allows_unknown_args
+                    && forwards_unknown_flag(working_set.get_span_contents(arg_span))
                 {
                     working_set.parse_errors.truncate(starting_error_count);
                     let arg = parse_unknown_arg(working_set, arg_span, &signature);
@@ -1508,13 +1600,18 @@ pub fn parse_internal_call(
             // ```nu
             // loop { try { } catch {|e| break } }
             // ```
-            // Thus, we discard the compilation error here
+            // Thus, we discard the compilation error here, but only the clause's own: when the
+            // clause's closure compiled, the error comes from a closure or `def` body nested in
+            // it, which is compiled on its own and really is outside any loop.
             if let SyntaxShape::OneOf(ref shapes) = positional.shape {
                 for one_shape in shapes {
                     if let SyntaxShape::Keyword(keyword, ..) = one_shape
                         && keyword == b"catch"
                         && let [nu_protocol::CompileError::NotInALoop { .. }] =
                             &working_set.compile_errors[compile_error_count..]
+                        && let Expr::Keyword(clause) = &arg.expr
+                        && let Expr::Closure(block_id) = clause.expr.expr
+                        && working_set.get_block(block_id).ir_block.is_none()
                     {
                         working_set.compile_errors.truncate(compile_error_count);
                     }
@@ -1658,26 +1755,9 @@ pub fn parse_call(
             // Store the head expression for the IR compiler to pick up.
             call.set_parser_info(PERCENT_FORCED_BUILTIN_PARSER_INFO.to_string(), head_expr);
 
-            // Mirror the dynamic external-call path by preserving `...expr` as an explicit spread
-            // argument so runtime dispatch can forward it without flattening first.
-            for arg_span in resolution_spans.iter().skip(head_idx + 1) {
-                let contents = working_set.get_span_contents(*arg_span);
-                if let Some(Spanned { span: arg_span, .. }) =
-                    extract_spread_list(contents.into_spanned(*arg_span))
-                {
-                    let spread_expr = crate::parser::parse_value(
-                        working_set,
-                        arg_span,
-                        &SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                        None,
-                    );
-                    call.arguments.push(Argument::Spread(spread_expr));
-                } else {
-                    let arg_expr =
-                        crate::parser::parse_value(working_set, *arg_span, &SyntaxShape::Any, None);
-                    call.arguments.push(Argument::Positional(arg_expr));
-                }
-            }
+            // The builtin is only known at runtime, so parse its arguments the way `run` parses a
+            // script's: without a signature, for `run-internal` to bind to the builtin's.
+            add_script_arguments(working_set, &mut call, &resolution_spans[head_idx + 1..]);
 
             return Expression::new(
                 working_set,
@@ -1901,26 +1981,34 @@ pub fn find_longest_decl_with_prefix(
 ) {
     let cmd_start = 0;
 
-    // Find the longest group of words that could form a command. The candidate with all the
-    // words is built once; shorter candidates are its prefixes, so they are obtained by
-    // truncating at the recorded word boundaries instead of rebuilding the name each time.
-    let name_len = prefix.len()
-        + spans
-            .iter()
-            .map(|span| span.end.saturating_sub(span.start) + 1)
-            .sum::<usize>();
-    let mut name = Vec::with_capacity(name_len);
+    // Find the longest group of words that could form a command. The longest candidate is built
+    // once; shorter candidates are its prefixes, so they are obtained by truncating at the
+    // recorded word boundaries instead of rebuilding the name each time. A candidate longer than
+    // every declared name cannot match, so the longest candidate built is the longest one within
+    // that bound (but always the first word). Otherwise a call like `each { ... }` would copy the
+    // whole closure into a name only to have every lookup reject it. The buffer is sized for the
+    // call's own words, up to the bound, which one long name anywhere in the process can make large.
+    let bound = longest_decl_name();
+    let words_len = spans
+        .iter()
+        .map(|span| span.end.saturating_sub(span.start) + 1)
+        .sum::<usize>();
+    let mut name = Vec::with_capacity(prefix.len() + words_len.min(bound + 1));
     name.extend(prefix);
     let mut word_ends = Vec::with_capacity(spans.len());
     for word_span in spans {
         let name_part = working_set.get_span_contents(*word_span);
-        if !name.is_empty() {
+        let separator = usize::from(!name.is_empty());
+        if !word_ends.is_empty() && name.len() + separator + name_part.len() > bound {
+            break;
+        }
+        if separator == 1 {
             name.push(b' ');
         }
         name.extend(name_part);
         word_ends.push(name.len());
     }
-    let mut pos = spans.len();
+    let mut pos = word_ends.len();
 
     let mut maybe_decl_id = working_set.find_decl(&name);
 
@@ -1980,8 +2068,7 @@ pub fn parse_shorter_head_reading(
     head: Span,
     input_type: Option<&Type>,
 ) -> Option<Expression> {
-    let contents = working_set.get_span_contents(head).to_vec();
-    let (tokens, _) = crate::lex::lex(&contents, head.start, &[], &[], true);
+    let (tokens, _) = crate::lex_once::lex_span(working_set, head, &[], &[], true);
     let spans: Vec<Span> = tokens.into_iter().map(|token| token.span).collect();
 
     // Only multi-word heads have a shorter reading.

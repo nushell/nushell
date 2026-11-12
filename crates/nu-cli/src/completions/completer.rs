@@ -18,8 +18,8 @@ use nu_protocol::{
 };
 use nu_utils::time::Instant;
 use reedline::{
-    Completer as ReedlineCompleter, CompletionOrigin, CompletionResult, CompletionStatus, Partial,
-    Suggestion, Suggestions,
+    Completer as ReedlineCompleter, CompletionOrigin, CompletionResult, CompletionStatus,
+    Suggestions,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
@@ -209,9 +209,17 @@ fn trailing_gap_element<'a>(
         .then_some(expression)
 }
 
-/// The span a command-name completion replaces.
-fn command_name_span(head: Span, element: Span) -> Span {
-    Span::new(head.start, head.end.max(element.end))
+/// The span a command-name completion replaces. A parsed file may have arguments after the
+/// cursor; those are not part of the command name. Keep the wider interactive span for an
+/// unfinished multiword command, where the parser may read its last word as an argument.
+fn command_name_span(head: Span, element: Span, cursor: usize) -> Span {
+    if cursor < head.start {
+        Span::point(cursor)
+    } else if element.end > cursor {
+        head
+    } else {
+        Span::new(head.start, head.end.max(element.end))
+    }
 }
 
 /// Whether the token starts a flag; in-progress flags parse as positionals.
@@ -247,7 +255,9 @@ fn is_operator_lhs(expr: &Expr) -> bool {
         | Expr::Nothing
         | Expr::Subexpression(_)
         | Expr::Block(_)
-        | Expr::Closure(_) => true,
+        | Expr::Closure(_)
+        // `-$x` is one operand that binds tighter than every operator, like `-5`.
+        | Expr::UnaryMinus(_) => true,
         Expr::AttributeBlock(_)
         | Expr::VarDecl(_)
         | Expr::Call(_)
@@ -275,6 +285,24 @@ fn find_flag(signature: &Signature, flag: FlagRef<'_>) -> Option<Flag> {
         FlagRef::Long(n) => signature.get_long_flag(n),
         FlagRef::Short(s) => s.chars().next().and_then(|c| signature.get_short_flag(c)),
     }
+}
+
+/// The [`FlagRef`] of a last-argument flag still awaiting its value.
+pub(crate) fn pending_flag_value<'a>(
+    call: &'a Call,
+    working_set: &StateWorkingSet,
+) -> Option<FlagRef<'a>> {
+    let Argument::Named((name, short, None)) = call.arguments.last()? else {
+        return None;
+    };
+
+    let flag_ref = FlagRef::from_named(name, short.as_ref());
+    let signature = working_set.get_decl(call.decl_id).signature();
+
+    find_flag(&signature, flag_ref)?
+        .arg
+        .is_some()
+        .then_some(flag_ref)
 }
 
 /// Positional arguments before `before_index`.
@@ -640,6 +668,15 @@ impl NarrowingCache {
                     })
                     .max_by_key(|&(cursor, ..)| cursor)?;
 
+                // Files replace `r` while subcommands replace `foo r`. Narrowing one span's
+                // token would drop the other group, and Tab would insert a prefix of what is
+                // left. So a mixed answer gives no fallback, and every keystroke in this token
+                // is pending until the fresh answer arrives. Tab inserts nothing meanwhile,
+                // and an open menu keeps showing its last answer.
+                if suggestions.iter().any(|suggestion| suggestion.span != span) {
+                    return None;
+                }
+
                 let token = query.typed().get(span.start..)?;
                 Some((Arc::clone(suggestions), span, token))
             })
@@ -650,13 +687,9 @@ impl NarrowingCache {
         // Keep the producer's ranking: re-sorting a stale list makes the menu flip between keystrokes.
         let mut matcher = NuMatcher::new(search_token, options, false);
 
-        base_suggestions
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.span == ref_span)
-            .for_each(|(i, s)| {
-                matcher.add(s.display_value(), i);
-            });
+        base_suggestions.iter().enumerate().for_each(|(i, s)| {
+            matcher.add(s.display_value(), i);
+        });
 
         let updated_span = reedline::Span::new(ref_span.start, query.cursor());
 
@@ -724,6 +757,10 @@ fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Optio
         SiteKind::Positional { sig_positional, .. } => signature
             .get_positional(*sig_positional)
             .and_then(|positional| positional.completion.clone()),
+        // Dispatch also runs the positional completer here for `def --wrapped`.
+        SiteKind::FlagName { sig_positional, .. } if signature.allows_unknown_args => signature
+            .get_positional(*sig_positional)
+            .and_then(|positional| positional.completion.clone()),
         _ => None,
     };
     if let Some(Completion::Command(decl_id)) = argument_completer {
@@ -780,8 +817,13 @@ pub(crate) fn closure_is_interactive(working_set: &StateWorkingSet, closure: &Cl
 pub(crate) enum SiteKind<'a> {
     /// A command head; `node` is the whole call (for `^`/`%` sigils).
     Command { node: Option<&'a Expression> },
-    /// A flag name being typed (`--`, `-x`).
-    FlagName(CallSite<'a>),
+    /// A flag name being typed (`--`, `-x`). `sig_positional` and `arg_slot` are the
+    /// positional the token binds to instead when the command is `def --wrapped`.
+    FlagName {
+        site: CallSite<'a>,
+        sig_positional: usize,
+        arg_slot: usize,
+    },
     /// The value of a flag; `flag` keeps long/short identity.
     FlagValue {
         site: CallSite<'a>,
@@ -839,9 +881,9 @@ impl<'a> SiteKind<'a> {
     fn element(&self) -> Option<&'a Expression> {
         match *self {
             Self::Command { node } => node,
-            Self::FlagName(site) | Self::FlagValue { site, .. } | Self::Positional { site, .. } => {
-                Some(site.element)
-            }
+            Self::FlagName { site, .. }
+            | Self::FlagValue { site, .. }
+            | Self::Positional { site, .. } => Some(site.element),
             Self::ExternalArg { call, .. } => Some(call),
             _ => None,
         }
@@ -850,9 +892,9 @@ impl<'a> SiteKind<'a> {
     /// The call this kind completes arguments for, if any.
     fn call_site(&self) -> Option<CallSite<'a>> {
         match *self {
-            Self::FlagName(site) | Self::FlagValue { site, .. } | Self::Positional { site, .. } => {
-                Some(site)
-            }
+            Self::FlagName { site, .. }
+            | Self::FlagValue { site, .. }
+            | Self::Positional { site, .. } => Some(site),
             _ => None,
         }
     }
@@ -944,7 +986,7 @@ pub(crate) struct CompletionSite<'a> {
 }
 
 impl<'a> CompletionSite<'a> {
-    /// Site at cursor; asserts span contains cursor.
+    /// Site whose replacement span contains the cursor.
     fn at(cursor: usize, kind: SiteKind<'a>, span: Span) -> Self {
         debug_assert!(
             touches(span, cursor),
@@ -1201,11 +1243,12 @@ impl<'engine> CompletionEngine<'engine> {
             return Vec::new();
         };
 
+        let cursor = contents.floor_char_boundary(position.min(contents.len()));
         self.fetch_completions_by_block(
             block,
             &working_set,
             Buffer {
-                text: contents.get(..position).unwrap_or(contents),
+                text: &contents[..cursor],
                 offset: file_span.start,
             },
             contents,
@@ -1312,6 +1355,15 @@ impl<'engine> CompletionEngine<'engine> {
 
         match &site.kind {
             SiteKind::Command { node } => {
+                // A cursor before a leading `^`/`%` is outside the command name.
+                // Inserting a name there would put it in front of the sigil.
+                if node.is_some_and(|node| match &node.expr {
+                    Expr::Call(call) => site.cursor < call.head.start,
+                    Expr::ExternalCall(head, _) => site.cursor < head.span.start,
+                    _ => false,
+                }) {
+                    return Fetched::default();
+                }
                 let completions = self.command_completion_helper(
                     working_set,
                     buffer,
@@ -1326,7 +1378,9 @@ impl<'engine> CompletionEngine<'engine> {
                 }
             }
 
-            SiteKind::FlagName(_) | SiteKind::FlagValue { .. } | SiteKind::Positional { .. } => {
+            SiteKind::FlagName { .. }
+            | SiteKind::FlagValue { .. }
+            | SiteKind::Positional { .. } => {
                 self.dispatch_call_completion_site(site, working_set, buffer, &completion_context)
             }
 
@@ -1433,7 +1487,7 @@ impl<'engine> CompletionEngine<'engine> {
     ) -> Fetched {
         // Only call-bound kinds carry a call; anything else is an error here.
         let call = match &site.kind {
-            SiteKind::FlagName(site)
+            SiteKind::FlagName { site, .. }
             | SiteKind::FlagValue { site, .. }
             | SiteKind::Positional { site, .. } => site.call,
             _ => return Fetched::default(),
@@ -1464,9 +1518,34 @@ impl<'engine> CompletionEngine<'engine> {
         };
 
         let mut results = match &site.kind {
-            SiteKind::FlagName(_) => {
-                self.complete_flag_names(call.decl_id, completion_context, &signature)
-            }
+            SiteKind::FlagName {
+                sig_positional,
+                arg_slot,
+                ..
+            } => match signature
+                .get_positional(*sig_positional)
+                .filter(|positional| {
+                    signature.allows_unknown_args && positional.completion.is_some()
+                }) {
+                // `def --wrapped` binds an unknown `--x` to a positional, so its declared
+                // completer answers next to the flags (#19097); it already falls back to
+                // the command-wide one. An undeclared one would only list files.
+                Some(positional) => {
+                    let mut flags = FlagCompletion {
+                        decl_id: call.decl_id,
+                    }
+                    .fetch(completion_context);
+                    flags.merge(argument_value(
+                        self,
+                        ArgType::Positional(*sig_positional),
+                        positional.completion.clone(),
+                        *arg_slot,
+                        Some(positional.shape.clone()),
+                    ));
+                    flags
+                }
+                None => self.complete_flag_names(call.decl_id, completion_context, &signature),
+            },
             SiteKind::FlagValue { flag, arg_slot, .. } => {
                 let resolved = find_flag(&signature, *flag);
                 argument_value(
@@ -1672,7 +1751,7 @@ impl<'engine> CompletionEngine<'engine> {
             return CompletionSite::at(
                 absolute_position,
                 SiteKind::command(expression),
-                command_name_span(head.span, expression.span),
+                command_name_span(head.span, expression.span, absolute_position),
             );
         }
 
@@ -1707,7 +1786,7 @@ impl<'engine> CompletionEngine<'engine> {
             return CompletionSite::at(
                 absolute_position,
                 SiteKind::command(site.element),
-                command_name_span(site.call.head, site.element.span),
+                command_name_span(site.call.head, site.element.span, absolute_position),
             );
         }
         Self::argument_touching(site, absolute_position, working_set)
@@ -1763,7 +1842,7 @@ impl<'engine> CompletionEngine<'engine> {
 
         let point = Span::point(absolute_position);
 
-        if let Some(flag_ref) = Self::pending_flag_value(call, working_set) {
+        if let Some(flag_ref) = pending_flag_value(call, working_set) {
             // `arg_slot` past the last argument: no node exists yet; `ArgValueCompletion` reads `None`.
             CompletionSite::at(
                 absolute_position,
@@ -1774,18 +1853,30 @@ impl<'engine> CompletionEngine<'engine> {
                 },
                 point,
             )
-        } else if token_is_flag {
-            CompletionSite::at(absolute_position, SiteKind::FlagName(site), trailing_token)
         } else {
-            CompletionSite::at(
-                absolute_position,
-                SiteKind::Positional {
-                    site,
-                    sig_positional: count_positionals(call, call.arguments.len()),
-                    arg_slot: call.arguments.len(),
-                },
-                point,
-            )
+            let sig_positional = count_positionals(call, call.arguments.len());
+            let arg_slot = call.arguments.len();
+            if token_is_flag {
+                CompletionSite::at(
+                    absolute_position,
+                    SiteKind::FlagName {
+                        site,
+                        sig_positional,
+                        arg_slot,
+                    },
+                    trailing_token,
+                )
+            } else {
+                CompletionSite::at(
+                    absolute_position,
+                    SiteKind::Positional {
+                        site,
+                        sig_positional,
+                        arg_slot,
+                    },
+                    point,
+                )
+            }
         }
     }
 
@@ -1837,24 +1928,6 @@ impl<'engine> CompletionEngine<'engine> {
         })
     }
 
-    /// The [`FlagRef`] of a last-argument flag still awaiting its value.
-    fn pending_flag_value<'a>(
-        call: &'a Call,
-        working_set: &StateWorkingSet,
-    ) -> Option<FlagRef<'a>> {
-        let Argument::Named((name, short, None)) = call.arguments.last()? else {
-            return None;
-        };
-
-        let flag_ref = FlagRef::from_named(name, short.as_ref());
-        let signature = working_set.get_decl(call.decl_id).signature();
-
-        find_flag(&signature, flag_ref)?
-            .arg
-            .is_some()
-            .then_some(flag_ref)
-    }
-
     fn resolve_argument_site<'a>(
         site: CallSite<'a>,
         argument: &'a Argument,
@@ -1862,7 +1935,12 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
-        let flag_name = SiteKind::FlagName(site);
+        let sig_positional = count_positionals(site.call, argument_index);
+        let flag_name = SiteKind::FlagName {
+            site,
+            sig_positional,
+            arg_slot: argument_index,
+        };
 
         let (kind, span) = match argument {
             Argument::Named((name, short, optional_value)) => {
@@ -1890,7 +1968,7 @@ impl<'engine> CompletionEngine<'engine> {
                 } else {
                     SiteKind::Positional {
                         site,
-                        sig_positional: count_positionals(site.call, argument_index),
+                        sig_positional,
                         arg_slot: argument_index,
                     }
                 };
@@ -2038,7 +2116,8 @@ impl<'engine> CompletionEngine<'engine> {
         signature: &Signature,
     ) -> Fetched {
         let mut results = FlagCompletion { decl_id }.fetch(context);
-        results.merge(self.command_wide_completion_helper(signature, context));
+        // A command-wide completer, such as an external one, often lists the declared flags too.
+        results.merge_new(self.command_wide_completion_helper(signature, context));
         results
     }
 
@@ -2060,7 +2139,10 @@ impl<'engine> CompletionEngine<'engine> {
         span: Span,
         mut command_completion: CommandCompletion,
     ) -> Fetched {
-        let prefix = working_set.get_span_contents(span);
+        // Replace the whole token, including an untyped suffix in a parsed file,
+        // but match only the text before the cursor (also for sudo/doas arguments).
+        let prefix_span = Span::new(span.start, span.end.min(buffer.absolute_cursor()));
+        let prefix = working_set.get_span_contents(prefix_span);
         let ctx = self.context(working_set, buffer, span, prefix);
         command_completion.fetch(&ctx)
     }
@@ -2296,43 +2378,8 @@ impl NuCompleter {
     }
 }
 
-/// Byte length of the longest prefix `a` and `b` share. Always a char boundary in both.
-fn common_prefix_len(a: &str, b: &str) -> usize {
-    a.char_indices()
-        .zip(b.chars())
-        .find_map(|((index, x), y)| (x != y).then_some(index))
-        .unwrap_or_else(|| a.len().min(b.len()))
-}
-
-fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
-    let span = suggestions.first()?.span;
-
-    let mut matching_values = suggestions
-        .iter()
-        .filter(|suggestion| suggestion.span == span)
-        .map(|suggestion| suggestion.value.as_str());
-
-    // Slice a window into the first value rather than allocating a `String`; runs every
-    // keystroke.
-    let first = matching_values.next()?;
-    let shared_len = matching_values.try_fold(first.len(), |shared, value| {
-        let common = common_prefix_len(first.get(..shared)?, value);
-        (common > 0).then_some(common)
-    })?;
-    let shared_prefix = first.get(..shared_len)?;
-
-    let entered = line.get(span.start..span.end)?;
-    let extends = shared_prefix != entered
-        && shared_prefix
-            .to_lowercase()
-            .starts_with(&entered.to_lowercase());
-
-    extends.then_some(Partial {
-        span,
-        insert: shared_prefix.to_string(),
-    })
-}
-
+// No `with_partial` on the results: reedline derives Tab's shared prefix itself, lining
+// up suggestions that replace different spans.
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
         let query = CompletionQuery::new(line, pos);
@@ -2340,25 +2387,25 @@ impl ReedlineCompleter for NuCompleter {
 
         if let Some(suggestions) = self.fresh_for(&query) {
             self.settle_pending(&query);
-            let partial = partial_of(line, &suggestions);
-            return CompletionResult::fresh(suggestions).with_partial(partial);
+            return CompletionResult::fresh(suggestions);
         }
 
         // Interactive completers run on UI thread to own terminal.
         let engine = CompletionEngine::isolated(&self.engine_state, Arc::clone(&self.stack), false);
         if engine.interactive_completer_at(line, pos) {
             let (suggestions, _cacheable) = engine.suggestions_for(&query);
-            self.latest = Some(Completed {
+            // An empty answer is a cancelled picker. Kept, it would answer the next
+            // Tab on this line instead of relaunching the picker; the menu abandons
+            // on it at once, so nothing asks again within this activation.
+            self.latest = (!suggestions.is_empty()).then(|| Completed {
                 query,
                 suggestions: suggestions.clone(),
                 cacheable: false,
             });
-            let partial = partial_of(line, &suggestions);
-            return CompletionResult::fresh(suggestions).with_partial(partial);
+            return CompletionResult::fresh(suggestions);
         }
 
         let fallback = self.stale_fallback(&query);
-        let partial = partial_of(line, &fallback);
 
         let worker = self.worker.get_or_insert_with(|| {
             Self::spawn_worker(Arc::clone(&self.engine_state), Arc::clone(&self.stack))
@@ -2375,7 +2422,6 @@ impl ReedlineCompleter for NuCompleter {
         }
 
         CompletionResult::stale_or_pending(fallback, CompletionOrigin::new(line, pos))
-            .with_partial(partial)
     }
 
     fn poll_completion(&mut self) -> CompletionStatus {
@@ -2901,6 +2947,40 @@ mod completer_tests {
             next_prompt.complete("ls | c", 6).is_pending(),
             "entries from another environment must not answer"
         );
+    }
+
+    /// `foo r` + Tab, then `e` + Tab: the stale fallback narrows the cached `foo r` answer.
+    /// With a file in it as well, no fallback is given, so Tab can't insert `foo reb` and
+    /// drop `README.md` before the fresh answer arrives.
+    #[rstest::rstest]
+    #[case::file_and_subcommands(&[("README.md", 4), ("foo rebase", 0), ("foo rebuild", 0)], &[])]
+    #[case::subcommands_only(&[("foo rebase", 0), ("foo rebuild", 0)], &["foo rebase", "foo rebuild"])]
+    fn narrowed_fallback_needs_one_span(
+        #[case] cached: &[(&str, usize)],
+        #[case] expected: &[&str],
+    ) {
+        let environment = CacheEnv(0);
+        let cache = NarrowingCache::default();
+        cache.store(
+            CompletionQuery::new("foo r", 5),
+            environment,
+            cached
+                .iter()
+                .map(|&(value, start)| reedline::Suggestion {
+                    value: value.into(),
+                    span: reedline::Span::new(start, 5),
+                    ..Default::default()
+                })
+                .collect(),
+        );
+
+        let fallback = cache.narrowed_fallback(
+            &CompletionQuery::new("foo re", 6),
+            environment,
+            &CompletionOptions::default(),
+        );
+        let values: Vec<_> = fallback.iter().map(|s| s.value.as_str()).collect();
+        assert_eq!(values, expected);
     }
 
     /// Any `$env.config` assignment, including ones that are not completion

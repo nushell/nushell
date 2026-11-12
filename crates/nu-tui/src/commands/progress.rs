@@ -17,7 +17,7 @@ impl Command for TuiProgress {
     fn extra_description(&self) -> &str {
         "The bar shows `--value`, or otherwise reads its data: a number, a `{value, total}` record's `value`, or the last number in a list, so a streamed counter drives it live. Values above 1 are read out of `--total` (default 100).\n\
          \n\
-         With `--from` and a closure the bar follows another widget's highlighted row: `tui progress --from table-0 {|row| $row.pct }`."
+         With a closure the bar follows the highlighted row of a table, tree, or select instead, e.g. `tui progress --from table-0 {|row| $row.pct }`. It follows the one named by `--from`, else the focused one, else the nearest, which may be on another tab page. A closure with no table, tree, or select to follow is an error when the TUI starts. `--value` and `--data` cannot be combined with `--from` or a closure."
     }
 
     fn signature(&self) -> Signature {
@@ -27,7 +27,7 @@ impl Command for TuiProgress {
                 .optional(
                     "source",
                     SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                    "Closure over the --from row that yields the value.",
+                    "Closure over the highlighted row of --from, or of the nearest table, tree, or select, that yields the value.",
                 )
                 .named(
                     "value",
@@ -74,7 +74,7 @@ impl Command for TuiProgress {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let source = call.opt(engine_state, stack, 0)?;
-        let value = call.get_flag::<f64>(engine_state, stack, "value")?;
+        let value = call.get_flag::<Spanned<f64>>(engine_state, stack, "value")?;
         let total = call.get_flag::<f64>(engine_state, stack, "total")?;
         let label = call.get_flag(engine_state, stack, "label")?;
         with_app(call, input, |app| {
@@ -84,12 +84,14 @@ impl Command for TuiProgress {
                 call,
                 app,
                 WidgetKind::Progress(ProgressWidget {
-                    value,
+                    value: value.map(|value| value.item),
                     total,
                     label,
                 }),
                 Vec::new(),
                 source,
+                // `--value` is what the bar shows, so a source would never appear.
+                value.map(|value| ("--value", value.span)),
             )
         })
     }

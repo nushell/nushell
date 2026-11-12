@@ -116,8 +116,6 @@ returned_record! {
         case_sensitive: Option<bool>,
         match_description: Option<bool>,
         completion_algorithm: Option<String>,
-        /// Deprecated; use the substring match algorithm.
-        positional: Option<bool>,
     }
 }
 
@@ -289,24 +287,11 @@ impl CompleterOutput {
             self.options.match_description = match_description;
         }
 
-        if options.positional.is_some() {
-            log::warn!(
-                "Use of the positional option is deprecated. Use the substring match algorithm instead."
-            );
-        }
-
         if let Some(algorithm) = options
             .completion_algorithm
             .and_then(|algorithm| MatchAlgorithm::try_from(algorithm).ok())
         {
             self.options.match_algorithm = algorithm;
-        }
-
-        if let Some(positional) = options.positional
-            && !positional
-            && self.options.match_algorithm == MatchAlgorithm::Prefix
-        {
-            self.options.match_algorithm = MatchAlgorithm::Substring;
         }
     }
 

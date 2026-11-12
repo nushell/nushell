@@ -25,18 +25,6 @@ pub enum CallImpl<'a> {
 }
 
 impl Call<'_> {
-    /// Returns a new AST call with the given span. This is often used by commands that need an
-    /// empty call to pass to a command. It's not easily possible to add anything to this.
-    pub fn new(span: Span) -> Self {
-        // this is using the boxed variant, which isn't so efficient... but this is only temporary
-        // anyway.
-        Call {
-            head: span,
-            decl_id: DeclId::new(0),
-            inner: CallImpl::AstBox(Box::new(ast::Call::new(span))),
-        }
-    }
-
     /// Convert the `Call` from any lifetime into `'static`, by cloning the data within onto the
     /// heap.
     pub fn to_owned(&self) -> Call<'static> {
@@ -183,18 +171,6 @@ impl Call<'_> {
             }
             CallImpl::IrRef(call) => by_ir(call, stack, starting_pos),
             CallImpl::IrBox(call) => by_ir(call, stack, starting_pos),
-        }
-    }
-
-    /// Get the original AST expression for a positional argument.
-    ///
-    /// Under IR this is usually `None`: argument AST is not retained for builtins.
-    pub fn positional_nth<'a>(&'a self, stack: &'a Stack, index: usize) -> Option<&'a Expression> {
-        match &self.inner {
-            CallImpl::AstRef(call) => call.positional_iter().nth(index),
-            CallImpl::AstBox(call) => call.positional_iter().nth(index),
-            CallImpl::IrRef(call) => call.positional_ast(stack, index).map(|arc| arc.as_ref()),
-            CallImpl::IrBox(call) => call.positional_ast(stack, index).map(|arc| arc.as_ref()),
         }
     }
 }

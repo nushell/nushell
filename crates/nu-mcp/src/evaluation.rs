@@ -16,7 +16,7 @@ use tokio::sync::{Mutex, oneshot};
 use tokio_util::sync::CancellationToken;
 
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
-const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
+const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kib
 
 /// Formats a miette Diagnostic error as NUON text plus a JSON mirror for MCP.
 ///
@@ -221,10 +221,21 @@ const DEFAULT_PROMOTE_AFTER: Duration = Duration::from_secs(120);
 /// The evaluator maintains a `$history` list that stores all command outputs.
 /// Each evaluation can access previous outputs via `$history.0`, `$history.1`, etc.
 /// History is stored as a ring buffer with a configurable limit (default: 100 entries) via
-/// `NU_MCP_HISTORY_LIMIT` env var. When the limit is reached, oldest entries are evicted.
+/// `NU_MCP_HISTORY_LIMIT` env var. When the limit is reached, oldest entries are evicted;
+/// indices don't shift, and an evicted index reads as `null`.
 /// Large outputs are truncated in the response but stored in full in history.
+///
+/// # Concurrency
+///
+/// Evaluations run one at a time, like lines typed into a REPL: a call made while another
+/// is running waits until that one commits its state or is promoted to a background job.
+/// Otherwise two calls would fork the same state, and the one that finished last would
+/// overwrite the other's history entry and variables.
 pub struct Evaluator {
     state: Mutex<EvalState>,
+    /// Held from fork to commit, so that evaluations don't overlap. `state` is only
+    /// locked briefly, so `list_commands` and `command_help` don't wait for an evaluation.
+    eval_lock: Mutex<()>,
 }
 
 /// The mutable evaluation state that persists across evaluations.
@@ -284,6 +295,7 @@ impl Evaluator {
                 stack: Stack::new().capture_all(),
                 history,
             }),
+            eval_lock: Mutex::new(()),
         }
     }
 
@@ -306,6 +318,10 @@ impl Evaluator {
         nu_source: &str,
         ct: CancellationToken,
     ) -> Result<EvalOutput, rmcp::ErrorData> {
+        // Released when this call returns: after the commit below, or once the
+        // evaluation is promoted to a background job (whose state is never committed).
+        let _eval_guard = self.eval_lock.lock().await;
+
         let (forked_state, interrupt, promote_after) = {
             let state = self.state.lock().await;
             let timeout = promote_timeout(&state.engine_state, &state.stack);
@@ -398,19 +414,14 @@ impl Evaluator {
 
     pub async fn command_help(&self, command_name: &str) -> Result<String, String> {
         let state = self.state.lock().await;
+        let engine_state = &state.engine_state;
 
-        let signature = state
-            .engine_state
-            .get_signatures_and_declids(false)
-            .into_iter()
-            .find_map(|(sig, _)| {
-                if sig.name == command_name {
-                    Some(sig)
-                } else {
-                    None
-                }
-            })
-            .ok_or_else(|| format!("command `{}` not found", command_name))?;
+        // Resolve the name the way the parser does, so the help describes the command that
+        // calling `command_name` runs.
+        let decl_id = engine_state
+            .find_decl(command_name.as_bytes(), &[])
+            .ok_or_else(|| format!("command `{command_name}` not found"))?;
+        let signature = engine_state.get_signature_in_scope(command_name.to_owned(), decl_id);
 
         Ok(format_command_help(&signature))
     }
@@ -526,7 +537,8 @@ fn promote_to_background_job(
 ) -> Result<EvalOutput, rmcp::ErrorData> {
     let signals = Signals::new(interrupt);
     let (sender, _receiver) = mpsc::channel();
-    let thread_job = ThreadJob::new(signals, Some(description), sender);
+    let auto_kill = false;
+    let thread_job = ThreadJob::new(signals, Some(description), auto_kill, sender);
 
     let job_id = match jobs.lock() {
         Ok(mut jobs) => jobs.add_job(Job::Thread(thread_job)),
@@ -723,7 +735,7 @@ fn promote_timeout(engine_state: &EngineState, stack: &Stack) -> Duration {
 
 /// Returns the output limit in bytes.
 ///
-/// Defaults to 10kb. Can be overridden via `NU_MCP_OUTPUT_LIMIT` env var.
+/// Defaults to 10kib. Can be overridden via `NU_MCP_OUTPUT_LIMIT` env var.
 /// Set to `0` to disable truncation entirely.
 fn output_limit(engine_state: &EngineState, stack: &Stack) -> Option<usize> {
     let limit = stack
@@ -1273,6 +1285,188 @@ mod tests {
         );
     }
 
+    /// An evaluator with a documented `foo bar`, an alias `fb` of it, and a module command that
+    /// is called as `spam baz` but declared as `baz`.
+    async fn evaluator_with_alias_and_module_command() -> Evaluator {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        let result = evaluator
+            .eval_async(
+                "# Runs bar\ndef \"foo bar\" [] {}\nalias fb = foo bar\nmodule spam { export def baz [] {} }\nuse spam",
+                CancellationToken::new(),
+            )
+            .await;
+        assert_tool_success(&result);
+        evaluator
+    }
+
+    /// The usages in `list_commands` output, whose lines are `<usage> - <description>`. A command
+    /// without parameters has its name as its usage.
+    fn listed_usages(listed: &str) -> Vec<&str> {
+        listed
+            .lines()
+            .filter_map(|line| line.split_once(" - "))
+            .map(|(usage, _)| usage.trim())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn list_commands_shows_names_in_scope() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+
+        // The alias is listed as `fb`, not as a second `foo bar`.
+        let listed = evaluator
+            .list_available_commands(Some("foo bar".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["fb", "foo bar"], "got:\n{listed}");
+
+        let listed = evaluator
+            .list_available_commands(Some("baz".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["spam baz"], "got:\n{listed}");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn commands_hidden_from_a_later_overlay_are_not_offered()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+        // Separate calls, the way a client sends them. `fb` belongs to overlay `zero`, so hiding
+        // it while `x` is active records the hide in `x`.
+        for source in ["overlay new x", "hide fb"] {
+            assert_tool_success(&evaluator.eval_async(source, CancellationToken::new()).await);
+        }
+
+        let listed = evaluator
+            .list_available_commands(Some("foo bar".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["foo bar"], "got:\n{listed}");
+        assert!(evaluator.command_help("fb").await.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn commands_are_described_by_the_command_a_name_runs()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        // Overlay `x` shadows `foo`, and hiding it from overlay `y` makes `foo` run `zero`'s
+        // `foo` again.
+        for source in [
+            "# zero foo\ndef foo [] {}",
+            "overlay new x",
+            "# x foo\ndef foo [--xflag] {}",
+            "overlay new y",
+            "hide foo",
+        ] {
+            assert_tool_success(&evaluator.eval_async(source, CancellationToken::new()).await);
+        }
+
+        let help = evaluator.command_help("foo").await?;
+        assert!(help.contains("Description: zero foo"), "got:\n{help}");
+        assert!(!help.contains("--xflag"), "got:\n{help}");
+
+        let listed = evaluator
+            .list_available_commands(Some("zero foo".into()))
+            .await?;
+        assert_eq!(listed_usages(&listed), ["foo"], "got:\n{listed}");
+        // `x`'s `foo` can't be called by any name, so it isn't listed.
+        assert!(
+            evaluator
+                .list_available_commands(Some("x foo".into()))
+                .await
+                .is_err()
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn commands_imported_again_after_hide_are_offered()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        // `hide foo` hides the command in overlay `zero`, and `use spam` in overlay `x` makes it
+        // callable again, both as `spam foo` and as `foo`.
+        for source in [
+            "module spam {\n# Runs spam foo\nexport def foo [] {}\n}",
+            "use spam foo",
+            "hide foo",
+            "overlay new x",
+            "use spam",
+        ] {
+            assert_tool_success(&evaluator.eval_async(source, CancellationToken::new()).await);
+        }
+
+        let help = evaluator.command_help("foo").await?;
+        assert!(help.contains("Description: Runs spam foo"), "got:\n{help}");
+
+        let listed = evaluator
+            .list_available_commands(Some("Runs spam foo".into()))
+            .await?;
+        assert_eq!(
+            listed_usages(&listed),
+            ["foo", "spam foo"],
+            "got:\n{listed}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aliases_omit_positionals_they_pass() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        // `fb` passes `x`, so a call to it starts at `y`. `fbr` passes more positionals than
+        // `foo bar` has, so only `...rest` is left.
+        let result = evaluator
+            .eval_async(
+                "def \"foo bar\" [x: int, y?: int, ...rest: int] {}\nalias fb = foo bar 1\nalias fbr = foo bar 1 2 3",
+                CancellationToken::new(),
+            )
+            .await;
+        assert_tool_success(&result);
+
+        let help = evaluator.command_help("fb").await?;
+        assert!(help.contains("Usage: fb (y) ...(rest)"), "got:\n{help}");
+        assert!(help.contains("  [y]:"), "got:\n{help}");
+        assert!(!help.contains("  x:"), "got:\n{help}");
+
+        let listed = evaluator
+            .list_available_commands(Some("alias for `foo bar".into()))
+            .await?;
+        assert_eq!(
+            listed_usages(&listed),
+            ["fb (y) ...(rest)", "fbr ...(rest)"],
+            "got:\n{listed}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn command_help_finds_commands_by_names_in_scope()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = evaluator_with_alias_and_module_command().await;
+
+        let help = evaluator.command_help("fb").await?;
+        assert!(help.starts_with("Command: fb\n"), "got:\n{help}");
+        assert!(
+            help.contains("Description: Alias for `foo bar`"),
+            "got:\n{help}"
+        );
+
+        // `fb` sorts before `foo bar`, so an alias carrying the wrapped name would answer here.
+        let help = evaluator.command_help("foo bar").await?;
+        assert!(help.contains("Description: Runs bar"), "got:\n{help}");
+
+        let help = evaluator.command_help("spam baz").await?;
+        assert!(help.starts_with("Command: spam baz\n"), "got:\n{help}");
+
+        // `baz` is the declared name, but the command can't be called by it.
+        assert!(evaluator.command_help("baz").await.is_err());
+
+        Ok(())
+    }
+
     #[cfg(unix)]
     #[test]
     fn test_failing_external_command_returns_captured_output()
@@ -1389,36 +1583,98 @@ mod tests {
         let engine_state = nu_cmd_lang::create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
-        // Set a small history limit
+        // Set a small history limit (the env var set counts as entry 0)
         evaluator.eval("$env.NU_MCP_HISTORY_LIMIT = 3")?;
 
-        // Add items to history (the env var set above counts as first)
-        // After limit=3 is set: history=[{set_result}]
-        evaluator.eval("'second'")?; // history=[{set}, {second}]
-        evaluator.eval("'third'")?; // history=[{set}, {second}, {third}] - at limit
-        evaluator.eval("'fourth'")?; // evict oldest -> history=[{second}, {third}, {fourth}]
-        evaluator.eval("'fifth'")?; // evict oldest -> history=[{third}, {fourth}, {fifth}]
-
-        // At this point, before checking $history:
-        // history = [{third}, {fourth}, {fifth}]
-        // $history.0 should be "third"
-        let result = evaluator.eval("$history.0")?;
+        evaluator.eval("'second'")?; // 1
+        evaluator.eval("'third'")?; // 2 - at limit
+        evaluator.eval("'fourth'")?; // 3, evicts 0
+        let result = evaluator.eval("'fifth'")?; // 4, evicts 1
         assert!(
-            result.contains("third"),
-            "Oldest entry should be 'third' after eviction, got: {result}"
+            result.contains("history_index:4") || result.contains("history_index: 4"),
+            "Indices should keep increasing after eviction, got: {result}"
         );
 
-        // After the above query, history was:
-        // evict oldest -> [{fourth}, {fifth}]
-        // append result -> [{fourth}, {fifth}, {result_of_query}]
-        // So now $history.1 = "fifth"
-        let result = evaluator.eval("$history.1")?;
+        // Indices don't shift (entry 2 is still "third"), and evicted entries read as null
+        let result = evaluator.eval("$history == [null, null, third, fourth, fifth]")?;
         assert!(
-            result.contains("fifth"),
-            "Entry at index 1 should be 'fifth', got: {result}"
+            result.contains("output:true"),
+            "Entries should keep their indices after eviction, got: {result}"
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_history_lowering_limit_trims_to_new_limit() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        evaluator.eval("'a'")?; // 0
+        evaluator.eval("'b'")?; // 1
+        evaluator.eval("'c'")?; // 2
+        // Entry 3 is the assignment's empty output; storing it under the new limit evicts 0 and 1
+        evaluator.eval("$env.NU_MCP_HISTORY_LIMIT = 2")?;
+
+        let result = evaluator.eval("$history == [null, null, c, []]")?; // 4, evicts 2
+        assert!(
+            result.contains("output:true"),
+            "History should be trimmed to the new limit, got: {result}"
+        );
+
+        // A limit of 0 still keeps the newest entry
+        evaluator.eval("$env.NU_MCP_HISTORY_LIMIT = 0; 'd'")?; // 5
+        let result = evaluator.eval("$history == [null, null, null, null, null, d]")?;
+        assert!(
+            result.contains("output:true"),
+            "A limit of 0 should keep only the newest entry, got: {result}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_evaluations_run_one_at_a_time() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        // If both calls forked the same state, both would report history_index 0, and the
+        // one that committed last would drop the other's history entry and env change
+        let (first, second) = tokio::join!(
+            evaluator.eval_async("$env.A = 1; 'first'", CancellationToken::new()),
+            evaluator.eval_async("$env.B = 2; 'second'", CancellationToken::new()),
+        );
+        let history_index = |result: &CallToolResult| {
+            result
+                .structured_content
+                .as_ref()
+                .and_then(|value| value.get("history_index"))
+                .and_then(|value| value.as_u64())
+        };
+        // Either call may run first; what matters is that each gets its own index
+        let mut indices = [history_index(&first), history_index(&second)];
+        indices.sort();
+        assert_eq!(
+            indices,
+            [Some(0), Some(1)],
+            "each call should get its own index"
+        );
+
+        let result = evaluator
+            .eval_async(
+                "$env.A == 1 and $env.B == 2 and ($history == [first, second] or $history == [second, first])",
+                CancellationToken::new(),
+            )
+            .await;
+        assert_tool_success(&result);
+        let output = result
+            .structured_content
+            .and_then(|value| value.get("output").cloned());
+        assert_eq!(
+            output,
+            Some(json!(true)),
+            "Both calls' env changes and history entries should be kept"
+        );
     }
 
     #[tokio::test]

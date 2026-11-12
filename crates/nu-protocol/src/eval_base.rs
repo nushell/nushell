@@ -87,21 +87,24 @@ pub trait Eval {
             }
             Expr::Record(items) => {
                 let mut record = Record::new();
-                let mut col_names = HashMap::new();
+                let mut col_names: HashMap<String, (Span, bool)> = HashMap::new();
                 for item in items {
                     match item {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
                             let col_name = Self::eval::<D>(state, mut_state, col)?.coerce_into_string()?;
                             let col_span = col.span(&state);
-                            if let Some(orig_span) = col_names.get(&col_name) {
+                            if let Some(&(orig_span, from_spread)) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
                                     second_use: col_span,
-                                    first_use: *orig_span,
+                                    first_use: orig_span,
+                                    help: from_spread.then(|| {
+                                        ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()
+                                    }),
                                 });
                             } else {
-                                col_names.insert(col_name.clone(), col_span);
+                                col_names.insert(col_name.clone(), (col_span, false));
                                 record.push(col_name, Self::eval::<D>(state, mut_state, val)?);
                             }
                         }
@@ -110,14 +113,17 @@ pub trait Eval {
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
                                     for (col_name, val) in inner_val.into_owned() {
-                                        if let Some(orig_span) = col_names.get(&col_name) {
+                                        if let Some(&(orig_span, _)) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
                                                 second_use: inner_span,
-                                                first_use: *orig_span,
+                                                first_use: orig_span,
+                                                help: Some(
+                                                    ShellError::RECORD_SPREAD_DUPLICATE_HELP.into(),
+                                                ),
                                             });
                                         } else {
-                                            col_names.insert(col_name.clone(), inner_span);
+                                            col_names.insert(col_name.clone(), (inner_span, true));
                                             record.push(col_name, val);
                                         }
                                     }
@@ -147,6 +153,7 @@ pub trait Eval {
                             col_name: header,
                             second_use: expr_span,
                             first_use,
+                            help: None,
                         });
                     } else {
                         output_headers.push(header);
@@ -222,6 +229,11 @@ pub trait Eval {
                     }),
                 }
             }
+            Expr::UnaryMinus(operand) => {
+                // Negation is multiplication by -1, as in the IR compiler.
+                let value = Self::eval::<D>(state, mut_state, operand)?;
+                value.mul(expr_span, &Value::int(-1, expr_span), expr_span)
+            }
             Expr::BinaryOp(lhs, op, rhs) => {
                 let op_span = op.span(&state);
                 let op = eval_operator(op)?;
@@ -285,6 +297,14 @@ pub trait Eval {
                             Comparison::NotStartsWith => lhs.not_starts_with(op_span, &rhs, expr_span),
                             Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr_span),
                             Comparison::NotEndsWith => lhs.not_ends_with(op_span, &rhs, expr_span),
+                            Comparison::OlderThan => {
+                                Self::check_point_in_time(state, &rhs, expr_span)?;
+                                lhs.older_than(op_span, &rhs, expr_span)
+                            }
+                            Comparison::NewerThan => {
+                                Self::check_point_in_time(state, &rhs, expr_span)?;
+                                lhs.newer_than(op_span, &rhs, expr_span)
+                            }
                             Comparison::RegexMatch => {
                                 Self::regex_match(state, op_span, &lhs, &rhs, false, expr_span)
                             }
@@ -392,6 +412,25 @@ pub trait Eval {
         invert: bool,
         expr_span: Span,
     ) -> Result<Value, ShellError>;
+
+    /// Checks that this evaluator can compare against `rhs` with `older-than` or `newer-than`.
+    ///
+    /// A duration on the right is counted back from the current time. Const evaluation runs
+    /// while the script is parsed, so it can't read the clock and refuses a duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - The evaluated right operand
+    /// * `expr_span` - Span of the whole comparison, used in errors
+    ///
+    /// # Errors
+    ///
+    /// Returns `ShellError::NotAConstant` when const evaluation meets a duration.
+    fn check_point_in_time(
+        state: Self::State<'_>,
+        rhs: &Value,
+        expr_span: Span,
+    ) -> Result<(), ShellError>;
 
     #[allow(clippy::too_many_arguments)]
     fn eval_assignment<D: DebugContext>(

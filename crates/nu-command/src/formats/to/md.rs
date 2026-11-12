@@ -1,4 +1,3 @@
-use indexmap::IndexMap;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, ast::PathMember};
@@ -260,14 +259,33 @@ fn to_md(
         return Ok(Value::string(result, head).into_pipeline_data_with_metadata(metadata));
     }
 
-    // For tables/records, use the grouping logic
-    let input = Value::list(values, head).into_pipeline_data();
-    let (grouped_input, single_list) = group_by(input, head, config);
-    if options.per_element || single_list {
+    // With --per-element each run of rows with the same shape gets its own
+    // table. Otherwise everything goes in one table, so the rows keep their
+    // input order even when some of them are missing columns.
+    if options.per_element || values.len() == 1 {
+        let groups = if options.per_element {
+            group_by(values, config)
+        } else {
+            vec![values]
+        };
         return Ok(Value::string(
-            grouped_input
+            groups
                 .into_iter()
-                .scan(0usize, |list_idx, val| {
+                .scan(0usize, |list_idx, mut group| {
+                    if group.len() > 1 {
+                        return Some(format!(
+                            "{}\n\n",
+                            table(
+                                Value::list(group, head).into_pipeline_data(),
+                                options.pretty,
+                                &options.center,
+                                options.escape_md,
+                                options.escape_html,
+                                config
+                            )
+                        ));
+                    }
+                    let val = group.pop().unwrap_or_else(|| Value::nothing(head));
                     Some(match &val {
                         Value::List { .. } => {
                             format!(
@@ -332,7 +350,7 @@ fn to_md(
     }
     Ok(Value::string(
         table(
-            grouped_input,
+            Value::list(values, head).into_pipeline_data(),
             options.pretty,
             &options.center,
             options.escape_md,
@@ -365,7 +383,17 @@ fn format_list_item(
 
 fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -> String {
     let mut output = String::with_capacity(input.len());
-    for ch in input.chars() {
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        // A line break would end the table row, so write it as an HTML break instead
+        if for_table && matches!(ch, '\r' | '\n') {
+            if ch == '\r' && chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+            output.push_str("<br>");
+            continue;
+        }
+
         let must_escape = match ch {
             '\\' => true,
             '|' if for_table => true,
@@ -483,17 +511,14 @@ fn table(
         .collect::<Vec<Value>>();
     let mut headers = merge_descriptors(&vec_of_values);
 
-    let mut empty_header_index = 0;
+    // Put an empty column name where it sits in its own record. Every column
+    // before it in that record is already in `headers`, so the index fits.
     for value in &vec_of_values {
-        if let Value::Record { val, .. } = value {
-            for column in val.columns() {
-                if column.is_empty() && !headers.contains(&String::new()) {
-                    headers.insert(empty_header_index, String::new());
-                    empty_header_index += 1;
-                    break;
-                }
-                empty_header_index += 1;
-            }
+        if let Value::Record { val, .. } = value
+            && !headers.contains(&String::new())
+            && let Some(index) = val.columns().position(|column| column.is_empty())
+        {
+            headers.insert(index, String::new());
         }
     }
 
@@ -536,7 +561,7 @@ fn table(
             }
             p => {
                 let value_string =
-                    v_htmlescape::escape_fmt(&p.to_abbreviated_string(config)).to_string();
+                    escape_value(p.to_abbreviated_string(config), escape_md, true, true);
                 escaped_row.push(value_string);
             }
         }
@@ -550,6 +575,7 @@ fn table(
         String::from("")
     } else {
         get_output_string(
+            &headers,
             &escaped_headers,
             &escaped_rows,
             &column_widths,
@@ -561,40 +587,35 @@ fn table(
     }
 }
 
-pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineData, bool) {
-    let mut lists = IndexMap::new();
-    let mut single_list = false;
+#[derive(PartialEq)]
+enum GroupKey {
+    Columns(Vec<String>),
+    Value(String),
+}
+
+/// Splits the values into runs of consecutive values with the same shape,
+/// so the output keeps the input order.
+fn group_by(values: Vec<Value>, config: &Config) -> Vec<Vec<Value>> {
+    let mut groups: Vec<Vec<Value>> = Vec::new();
+    let mut last_key = None;
     for val in values {
-        if let Value::Record {
-            val: ref record, ..
-        } = val
-        {
-            lists
-                .entry(record.columns().map(|c| c.as_str()).collect::<String>())
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
-                .or_insert_with(|| vec![val.clone()]);
-        } else {
-            lists
-                .entry(val.to_expanded_string(",", config))
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
-                .or_insert_with(|| vec![val.clone()]);
+        let key = match &val {
+            Value::Record { val: record, .. } => {
+                GroupKey::Columns(record.columns().cloned().collect())
+            }
+            other => GroupKey::Value(other.to_expanded_string(",", config)),
+        };
+        match groups.last_mut() {
+            Some(group) if last_key.as_ref() == Some(&key) => group.push(val),
+            _ => groups.push(vec![val]),
         }
+        last_key = Some(key);
     }
-    let mut output = vec![];
-    for (_, mut value) in lists {
-        if value.len() == 1 {
-            output.push(value.pop().unwrap_or_else(|| Value::nothing(head)))
-        } else {
-            output.push(Value::list(value.to_vec(), head))
-        }
-    }
-    if output.len() == 1 {
-        single_list = true;
-    }
-    (Value::list(output, head).into_pipeline_data(), single_list)
+    groups
 }
 
 fn get_output_string(
+    column_names: &[String],
     headers: &[String],
     rows: &[Vec<String>],
     column_widths: &[usize],
@@ -622,7 +643,7 @@ fn get_output_string(
         for i in 0..headers.len() {
             output_string.push(' ');
             if pretty {
-                if center.is_some() && to_center.contains(&headers[i]) {
+                if center.is_some() && to_center.contains(&column_names[i]) {
                     output_string.push_str(&get_centered_string(
                         headers[i].clone(),
                         column_widths[i],
@@ -645,7 +666,7 @@ fn get_output_string(
         output_string.push_str("\n|");
 
         for i in 0..headers.len() {
-            let centered_column = center.is_some() && to_center.contains(&headers[i]);
+            let centered_column = center.is_some() && to_center.contains(&column_names[i]);
             let border_char = if centered_column { ':' } else { ' ' };
             if pretty {
                 output_string.push(border_char);
@@ -678,7 +699,7 @@ fn get_output_string(
             }
 
             if pretty && column_widths.get(i).is_some() {
-                if center.is_some() && to_center.contains(&headers[i]) {
+                if center.is_some() && to_center.contains(&column_names[i]) {
                     output_string.push_str(&get_centered_string(
                         row[i].clone(),
                         column_widths[i],
@@ -980,7 +1001,7 @@ mod tests {
         // Without pretty
         assert_eq!(
             table(
-                value.clone().into_pipeline_data(),
+                value.into_pipeline_data(),
                 false,
                 &center,
                 false,
@@ -1307,6 +1328,121 @@ mod tests {
             | \_ref\_value | RefObject\<SampleTableRef \| null\> |
             | onChange     | \(val: string\) =\> void\\          |
             "#)
+        );
+    }
+
+    #[test]
+    fn test_line_breaks_in_table_cells() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "a" => Value::test_string("line 1\nline 2"),
+                "b" => Value::test_string("crlf 1\r\ncrlf 2"),
+            }),
+            Value::test_record(record! {
+                "a" => Value::test_string("x"),
+                "b" => Value::test_string("y"),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                false,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
+            one("
+            | a | b |
+            | --- | --- |
+            | line 1<br>line 2 | crlf 1<br>crlf 2 |
+            | x | y |
+            ")
+        );
+    }
+
+    #[test]
+    fn test_line_breaks_in_non_record_rows() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "a" => Value::test_int(1),
+            }),
+            Value::test_string("x\ny|z"),
+        ]);
+
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                false,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
+            one("
+            | a |
+            | --- |
+            | 1 |
+            | x<br>y\\|z |
+            ")
+        );
+    }
+
+    #[test]
+    fn test_center_columns_with_escaped_names() {
+        let value = Value::test_list(vec![Value::test_record(record! {
+            "a\nb" => Value::test_int(1),
+            "c_d" => Value::test_int(2),
+            "e/f" => Value::test_int(3),
+            "g" => Value::test_int(4),
+        })]);
+
+        let center: Option<Vec<CellPath>> = Some(
+            ["a\nb", "c_d", "e/f"]
+                .into_iter()
+                .map(|name| CellPath {
+                    members: vec![PathMember::test_string(name, false, Casing::Sensitive)],
+                })
+                .collect(),
+        );
+
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                false,
+                &center,
+                false,
+                false,
+                &Config::default()
+            ),
+            one("
+            | a<br>b | c_d | e&#x2f;f | g |
+            |:---:|:---:|:---:| --- |
+            | 1 | 2 | 3 | 4 |
+            ")
+        );
+
+        // With --escape-md
+        let value = Value::test_list(vec![Value::test_record(record! {
+            "a\nb" => Value::test_int(1),
+            "c_d" => Value::test_int(2),
+            "g" => Value::test_int(4),
+        })]);
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                false,
+                &center,
+                true,
+                false,
+                &Config::default()
+            ),
+            one("
+            | a<br>b | c\\_d | g |
+            |:---:|:---:| --- |
+            | 1 | 2 | 4 |
+            ")
         );
     }
 

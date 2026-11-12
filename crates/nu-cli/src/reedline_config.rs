@@ -1,12 +1,14 @@
 use crate::{
     NuHelpCompleter,
-    menus::{MenuLine, NuMenuCompleter, SourcedMenu},
+    menus::{MenuLine, NuMenuCompleter, SourceMode, SourcedMenu},
 };
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_protocol::{
-    Config, EditBindings, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type, Value,
+    Config, EditBindings, EditModeName, KeyCodeSpec, KeyModifier, MenuInputMode, MenuLayout,
+    MenuOutputMode, ParsedKeybinding, ParsedMenu, Record, ShellError, Span, Type,
+    VALID_KEYBINDING_MODES, Value,
     engine::{Closure, EngineState, Stack},
     extract_value,
 };
@@ -15,9 +17,9 @@ use reedline::{
     EditCommandDiscriminants, FindStop, Granularity, IdeMenu, InputMode, Keybindings, ListMenu,
     Menu, MenuBuilder, MotionTarget, OutputMode, PromptEditMode, PromptEditModeDiscriminants,
     PromptHelixMode, PromptViMode, Reedline, ReedlineEvent, ReedlineEventDiscriminants,
-    ReedlineMenu, TextObject, TextObjectScope, TextObjectType, TraversalDirection, WordEdge,
-    WordKind, default_emacs_keybindings, default_vi_insert_keybindings,
-    default_vi_normal_keybindings, default_vi_visual_keybindings,
+    ReedlineMenu, TextObject, TextObjectBracket, TextObjectQuote, TextObjectScope, TextObjectType,
+    TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings, default_vi_visual_keybindings,
 };
 use reedline::{
     default_helix_insert_keybindings, default_helix_normal_keybindings,
@@ -54,27 +56,14 @@ fn add_menu(
     stack: &Stack,
     config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
-    let span = menu.r#type.span();
-    if let Value::Record { val, .. } = &menu.r#type {
-        let layout = extract_value("layout", val, span)?.to_expanded_string("", &config);
-
-        match layout.as_str() {
-            "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, &config),
-            "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
-            "ide" => add_ide_menu(line_editor, menu, engine_state, stack, config),
-            "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
-            str => Err(ShellError::InvalidValue {
-                valid: "'columnar', 'list', 'ide', or 'description'".into(),
-                actual: format!("'{str}'"),
-                span,
-            }),
+    // `nu-protocol` reads the layout, and checks it when the list is assigned.
+    match menu.layout(&config)? {
+        MenuLayout::Columnar => add_columnar_menu(line_editor, menu, engine_state, stack, &config),
+        MenuLayout::List => add_list_menu(line_editor, menu, engine_state, stack, config),
+        MenuLayout::Ide => add_ide_menu(line_editor, menu, engine_state, stack, config),
+        MenuLayout::Description => {
+            add_description_menu(line_editor, menu, engine_state, stack, config)
         }
-    } else {
-        Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::record(),
-            actual: menu.r#type.get_type(),
-            span,
-        })
     }
 }
 
@@ -111,40 +100,6 @@ fn set_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
     menu
 }
 
-fn parse_input_mode(value: &Value, config: &Config) -> Result<InputMode, ShellError> {
-    match value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "diff" => Ok(InputMode::Diff),
-        "cursor_prefix" => Ok(InputMode::CursorPrefix),
-        "full_buffer" => Ok(InputMode::FullBuffer),
-        other => Err(ShellError::InvalidValue {
-            valid: "'diff', 'cursor_prefix', or 'full_buffer'".into(),
-            actual: format!("'{other}'"),
-            span: value.span(),
-        }),
-    }
-}
-
-fn parse_output_mode(value: &Value, config: &Config) -> Result<OutputMode, ShellError> {
-    match value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "suggested_span" => Ok(OutputMode::SuggestedSpan),
-        "full_buffer" => Ok(OutputMode::FullBuffer),
-        "extend_to_end" => Ok(OutputMode::ExtendToEnd),
-        other => Err(ShellError::InvalidValue {
-            valid: "'suggested_span', 'full_buffer', or 'extend_to_end'".into(),
-            actual: format!("'{other}'"),
-            span: value.span(),
-        }),
-    }
-}
-
 fn parse_description_position(
     value: &Value,
     config: &Config,
@@ -171,7 +126,7 @@ fn menu_with_source<M: Menu + 'static>(
     span: Span,
     stack: &Stack,
     engine_state: Arc<EngineState>,
-    input_mode: InputMode,
+    mode: SourceMode,
 ) -> ReedlineMenu {
     let line = MenuLine::default();
     let completer = NuMenuCompleter::new(
@@ -179,12 +134,12 @@ fn menu_with_source<M: Menu + 'static>(
         span,
         stack.captures_to_stack(source.captures.clone()),
         engine_state,
-        input_mode,
+        mode,
         line.clone(),
     );
 
     ReedlineMenu::WithCompleter {
-        menu: Box::new(SourcedMenu::new(menu, line)),
+        menu: Box::new(SourcedMenu::new(menu, line, mode)),
         completer: Box::new(completer),
     }
 }
@@ -192,35 +147,25 @@ fn menu_with_source<M: Menu + 'static>(
 /// Resolve the menu's effective reedline `InputMode` from the optional
 /// `input_mode` and legacy `only_buffer_difference` fields. The result drives
 /// both the reedline menu and `NuMenuCompleter`'s span math, so it must be
-/// resolved exactly once, here.
+/// resolved exactly once, here. `nu-protocol` reads the fields, and checks them
+/// when the list is assigned.
 fn resolve_input_mode(menu: &ParsedMenu, config: &Config) -> Result<InputMode, ShellError> {
-    match (&menu.input_mode, &menu.only_buffer_difference) {
-        (Some(input_mode), _) => parse_input_mode(input_mode, config),
-        (None, Some(only_buffer_difference)) => {
-            if only_buffer_difference.as_bool()? {
-                Ok(InputMode::Diff)
-            } else {
-                Ok(InputMode::CursorPrefix)
-            }
-        }
-        (None, None) => Err(ShellError::MissingRequiredColumn {
-            column: "input_mode (or only_buffer_difference)",
-            span: menu.name.span(),
-        }),
-    }
+    Ok(match menu.input_mode(config)? {
+        MenuInputMode::Diff => InputMode::Diff,
+        MenuInputMode::CursorPrefix => InputMode::CursorPrefix,
+        MenuInputMode::FullBuffer => InputMode::FullBuffer,
+    })
 }
 
 /// Apply the optional reedline #1071 `output_mode`. Unset preserves
 /// reedline's default (`suggested_span`).
-fn apply_output_mode<M: MenuBuilder>(
-    mut menu: M,
-    parsed: &ParsedMenu,
-    config: &Config,
-) -> Result<M, ShellError> {
-    if let Some(value) = &parsed.output_mode {
-        menu = menu.with_output_mode(parse_output_mode(value, config)?);
+fn apply_output_mode<M: MenuBuilder>(menu: M, output_mode: Option<MenuOutputMode>) -> M {
+    match output_mode {
+        Some(MenuOutputMode::SuggestedSpan) => menu.with_output_mode(OutputMode::SuggestedSpan),
+        Some(MenuOutputMode::FullBuffer) => menu.with_output_mode(OutputMode::FullBuffer),
+        Some(MenuOutputMode::ExtendToEnd) => menu.with_output_mode(OutputMode::ExtendToEnd),
+        None => menu,
     }
-    Ok(menu)
 }
 
 // Adds a columnar menu to the editor engine
@@ -285,7 +230,7 @@ pub(crate) fn add_columnar_menu(
 
     let input_mode = resolve_input_mode(menu, config)?;
     columnar_menu = columnar_menu.with_input_mode(input_mode);
-    columnar_menu = apply_output_mode(columnar_menu, menu, config)?;
+    columnar_menu = apply_output_mode(columnar_menu, menu.output_mode(config)?);
 
     let completer = if let Some(closure) = &menu.source {
         menu_with_source(
@@ -294,7 +239,7 @@ pub(crate) fn add_columnar_menu(
             span,
             stack,
             engine_state,
-            input_mode,
+            SourceMode::of(&input_mode),
         )
     } else {
         ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(columnar_menu)))
@@ -338,11 +283,16 @@ pub(crate) fn add_list_menu(
     list_menu = list_menu.with_marker(&marker);
 
     let input_mode = resolve_input_mode(menu, &config)?;
+    let output_mode = menu.output_mode(&config)?;
     list_menu = list_menu.with_input_mode(input_mode);
-    list_menu = apply_output_mode(list_menu, menu, &config)?;
+    list_menu = apply_output_mode(list_menu, output_mode);
 
     let completer = if let Some(closure) = &menu.source {
-        menu_with_source(list_menu, closure, span, stack, engine_state, input_mode)
+        let mode = SourceMode::List {
+            input_mode,
+            suggested_span: matches!(output_mode, None | Some(MenuOutputMode::SuggestedSpan)),
+        };
+        menu_with_source(list_menu, closure, span, stack, engine_state, mode)
     } else {
         ReedlineMenu::HistoryMenu(Box::new(list_menu))
     };
@@ -504,10 +454,17 @@ pub(crate) fn add_ide_menu(
 
     let input_mode = resolve_input_mode(menu, &config)?;
     ide_menu = ide_menu.with_input_mode(input_mode);
-    ide_menu = apply_output_mode(ide_menu, menu, &config)?;
+    ide_menu = apply_output_mode(ide_menu, menu.output_mode(&config)?);
 
     let completer = if let Some(closure) = &menu.source {
-        menu_with_source(ide_menu, closure, span, stack, engine_state, input_mode)
+        menu_with_source(
+            ide_menu,
+            closure,
+            span,
+            stack,
+            engine_state,
+            SourceMode::of(&input_mode),
+        )
     } else {
         ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(ide_menu)))
     };
@@ -576,7 +533,7 @@ pub(crate) fn add_description_menu(
 
     let input_mode = resolve_input_mode(menu, &config)?;
     description_menu = description_menu.with_input_mode(input_mode);
-    description_menu = apply_output_mode(description_menu, menu, &config)?;
+    description_menu = apply_output_mode(description_menu, menu.output_mode(&config)?);
 
     let completer = if let Some(closure) = &menu.source {
         menu_with_source(
@@ -585,7 +542,7 @@ pub(crate) fn add_description_menu(
             span,
             stack,
             engine_state,
-            input_mode,
+            SourceMode::of(&input_mode),
         )
     } else {
         let menu_completer = NuHelpCompleter::new(engine_state, config);
@@ -624,6 +581,95 @@ struct KeybindingTables {
     helix_select: Keybindings,
 }
 
+impl KeybindingTables {
+    /// The table reedline keeps for `mode`.
+    fn table_mut(&mut self, mode: EditModeName) -> &mut Keybindings {
+        match mode {
+            EditModeName::Emacs => &mut self.emacs,
+            EditModeName::ViInsert => &mut self.vi_insert,
+            EditModeName::ViNormal => &mut self.vi_normal,
+            EditModeName::ViVisual => &mut self.vi_visual,
+            EditModeName::HelixInsert => &mut self.helix_insert,
+            EditModeName::HelixNormal => &mut self.helix_normal,
+            EditModeName::HelixSelect => &mut self.helix_select,
+        }
+    }
+}
+
+/// The modifiers of a keybinding as crossterm's, which reedline uses.
+fn crossterm_modifiers(modifiers: &[KeyModifier]) -> KeyModifiers {
+    modifiers
+        .iter()
+        .fold(KeyModifiers::NONE, |modifiers, modifier| {
+            modifiers
+                | match modifier {
+                    KeyModifier::Control => KeyModifiers::CONTROL,
+                    KeyModifier::Shift => KeyModifiers::SHIFT,
+                    KeyModifier::Alt => KeyModifiers::ALT,
+                    KeyModifier::Super => KeyModifiers::SUPER,
+                    KeyModifier::Hyper => KeyModifiers::HYPER,
+                    KeyModifier::Meta => KeyModifiers::META,
+                }
+        })
+}
+
+/// The key of a keybinding as crossterm's, which reedline uses.
+fn crossterm_key_code(code: KeyCodeSpec) -> KeyCode {
+    match code {
+        KeyCodeSpec::Backspace => KeyCode::Backspace,
+        KeyCodeSpec::Enter => KeyCode::Enter,
+        KeyCodeSpec::Down => KeyCode::Down,
+        KeyCodeSpec::Up => KeyCode::Up,
+        KeyCodeSpec::Left => KeyCode::Left,
+        KeyCodeSpec::Right => KeyCode::Right,
+        KeyCodeSpec::Home => KeyCode::Home,
+        KeyCodeSpec::End => KeyCode::End,
+        KeyCodeSpec::PageUp => KeyCode::PageUp,
+        KeyCodeSpec::PageDown => KeyCode::PageDown,
+        KeyCodeSpec::Tab => KeyCode::Tab,
+        KeyCodeSpec::BackTab => KeyCode::BackTab,
+        KeyCodeSpec::Delete => KeyCode::Delete,
+        KeyCodeSpec::Insert => KeyCode::Insert,
+        KeyCodeSpec::F(number) => KeyCode::F(number),
+        KeyCodeSpec::Char(char) => KeyCode::Char(char),
+        KeyCodeSpec::Null => KeyCode::Null,
+        KeyCodeSpec::Esc => KeyCode::Esc,
+    }
+}
+
+/// Writes a `$env.config.keybindings` entry into the table of each mode it names.
+///
+/// The key and the modes are read by `nu-protocol`, which also checks them when
+/// the list is assigned. The `event` can only be read here, with reedline's types.
+fn add_keybinding(
+    keybinding: &ParsedKeybinding,
+    config: &Config,
+    tables: &mut KeybindingTables,
+) -> Result<(), ShellError> {
+    let modes = keybinding.modes()?;
+    // An entry without a mode binds nothing, so its event is not read. Its key
+    // was still checked when the list was assigned.
+    if modes.is_empty() {
+        return Ok(());
+    }
+
+    let modifier = crossterm_modifiers(&keybinding.modifiers()?);
+    let keycode = crossterm_key_code(keybinding.key_code()?);
+    let event = parse_event(&keybinding.event, config)?;
+
+    for mode in modes {
+        let table = tables.table_mut(mode);
+        match &event {
+            Some(event) => table.add_binding(modifier, keycode, event.clone()),
+            None => {
+                table.remove_binding(modifier, keycode);
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, ShellError> {
     let parsed_keybindings = &config.keybindings;
 
@@ -640,7 +686,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     };
 
     for keybinding in parsed_keybindings {
-        add_keybinding(&keybinding.mode, keybinding, config, &mut tables)?
+        add_keybinding(keybinding, config, &mut tables)?
     }
 
     match config.edit_mode {
@@ -658,53 +704,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     }
 }
 
-const VALID_KEYBINDING_MODES: &str = "'emacs', 'vi_insert', 'vi_normal', 'vi_visual', 'helix_insert', 'helix_normal', or 'helix_select'";
-
-fn add_keybinding(
-    mode: &Value,
-    keybinding: &ParsedKeybinding,
-    config: &Config,
-    tables: &mut KeybindingTables,
-) -> Result<(), ShellError> {
-    use PromptEditModeDiscriminants as PEMD;
-    let span = mode.span();
-    match &mode {
-        // When updating this implementation, also update `display_edit_mode` function
-        Value::String { val, .. } => match PEMD::from_str(val) {
-            Ok(PEMD::Emacs) => add_parsed_keybinding(&mut tables.emacs, keybinding, config),
-            Ok(PEMD::ViInsert) => add_parsed_keybinding(&mut tables.vi_insert, keybinding, config),
-            Ok(PEMD::ViNormal) => add_parsed_keybinding(&mut tables.vi_normal, keybinding, config),
-            Ok(PEMD::ViVisual) => add_parsed_keybinding(&mut tables.vi_visual, keybinding, config),
-            Ok(PEMD::HelixInsert) => {
-                add_parsed_keybinding(&mut tables.helix_insert, keybinding, config)
-            }
-            Ok(PEMD::HelixNormal) => {
-                add_parsed_keybinding(&mut tables.helix_normal, keybinding, config)
-            }
-            Ok(PEMD::HelixSelect) => {
-                add_parsed_keybinding(&mut tables.helix_select, keybinding, config)
-            }
-            Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
-                valid: VALID_KEYBINDING_MODES.into(),
-                actual: format!("'{val}'"),
-                span,
-            }),
-        },
-        Value::List { vals, .. } => {
-            for inner_mode in vals {
-                add_keybinding(inner_mode, keybinding, config, tables)?
-            }
-
-            Ok(())
-        }
-        v => Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::custom("string or list<string>"),
-            actual: v.get_type(),
-            span: v.span(),
-        }),
-    }
-}
-
 // This is displayed in `keybindings list` command
 pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<String> {
     match mode {
@@ -717,121 +716,6 @@ pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<Str
         PromptEditModeDiscriminants::HelixSelect => Some("helix_select".into()),
         PromptEditModeDiscriminants::Default | PromptEditModeDiscriminants::Custom => None,
     }
-}
-
-fn add_parsed_keybinding(
-    keybindings: &mut Keybindings,
-    keybinding: &ParsedKeybinding,
-    config: &Config,
-) -> Result<(), ShellError> {
-    let Ok(modifier_str) = keybinding.modifier.as_str() else {
-        return Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::String,
-            actual: keybinding.modifier.get_type(),
-            span: keybinding.modifier.span(),
-        });
-    };
-
-    let mut modifier = KeyModifiers::NONE;
-    if !str::eq_ignore_ascii_case(modifier_str, "none") {
-        for part in modifier_str.split('_') {
-            match part.to_ascii_lowercase().as_str() {
-                "control" => modifier |= KeyModifiers::CONTROL,
-                "shift" => modifier |= KeyModifiers::SHIFT,
-                "alt" => modifier |= KeyModifiers::ALT,
-                "super" => modifier |= KeyModifiers::SUPER,
-                "hyper" => modifier |= KeyModifiers::HYPER,
-                "meta" => modifier |= KeyModifiers::META,
-                _ => {
-                    return Err(ShellError::InvalidValue {
-                        valid: "'control', 'shift', 'alt', 'super', 'hyper', 'meta', or 'none'"
-                            .into(),
-                        actual: format!("'{part}'"),
-                        span: keybinding.modifier.span(),
-                    });
-                }
-            }
-        }
-    }
-
-    let Ok(keycode) = keybinding.keycode.as_str() else {
-        return Err(ShellError::RuntimeTypeMismatch {
-            expected: Type::String,
-            actual: keybinding.keycode.get_type(),
-            span: keybinding.keycode.span(),
-        });
-    };
-
-    let keycode_lower = keycode.to_ascii_lowercase();
-
-    let keycode = if let Some(rest) = keycode_lower.strip_prefix("char_") {
-        let error = |valid: &str, actual: &str| ShellError::InvalidValue {
-            valid: valid.into(),
-            actual: actual.into(),
-            span: keybinding.keycode.span(),
-        };
-
-        let mut char_iter = rest.chars();
-        let char = match (char_iter.next(), char_iter.next()) {
-            (Some(char), None) => char,
-            (Some('u'), Some(_)) => {
-                // This will never panic as we know there are at least two symbols
-                let Ok(code_point) = u32::from_str_radix(&rest[1..], 16) else {
-                    return Err(error("a valid hex code", keycode));
-                };
-
-                char::from_u32(code_point).ok_or(error("a valid Unicode code point", keycode))?
-            }
-            _ => return Err(error("'char_<char>' or 'char_u<hex code>'", keycode)),
-        };
-
-        KeyCode::Char(char)
-    } else {
-        match keycode_lower.as_str() {
-            "backspace" => KeyCode::Backspace,
-            "enter" => KeyCode::Enter,
-            "space" => KeyCode::Char(' '),
-            "down" => KeyCode::Down,
-            "up" => KeyCode::Up,
-            "left" => KeyCode::Left,
-            "right" => KeyCode::Right,
-            "home" => KeyCode::Home,
-            "end" => KeyCode::End,
-            "pageup" => KeyCode::PageUp,
-            "pagedown" => KeyCode::PageDown,
-            "tab" => KeyCode::Tab,
-            "backtab" => KeyCode::BackTab,
-            "delete" => KeyCode::Delete,
-            "insert" => KeyCode::Insert,
-            c if c.starts_with('f') => c[1..]
-                .parse()
-                .ok()
-                .filter(|num| (1..=35).contains(num))
-                .map(KeyCode::F)
-                .ok_or(ShellError::InvalidValue {
-                    valid: "'f1', 'f2', ..., or 'f35'".into(),
-                    actual: format!("'{keycode}'"),
-                    span: keybinding.keycode.span(),
-                })?,
-            "null" => KeyCode::Null,
-            "esc" | "escape" => KeyCode::Esc,
-            _ => {
-                return Err(ShellError::InvalidValue {
-                    valid: "a crossterm KeyCode".into(),
-                    actual: format!("'{keycode}'"),
-                    span: keybinding.keycode.span(),
-                });
-            }
-        }
-    };
-
-    if let Some(event) = parse_event(&keybinding.event, config)? {
-        keybindings.add_binding(modifier, keycode, event);
-    } else {
-        keybindings.remove_binding(modifier, keycode);
-    }
-
-    Ok(())
 }
 
 enum EventType<'config> {
@@ -955,6 +839,8 @@ fn event_from_record(
         Ok(RED::ToStart) => ReedlineEvent::ToStart,
         Ok(RED::ToEnd) => ReedlineEvent::ToEnd,
         Ok(RED::NextHistory) => ReedlineEvent::NextHistory,
+        Ok(RED::FirstHistory) => ReedlineEvent::FirstHistory,
+        Ok(RED::LeaveHistory) => ReedlineEvent::LeaveHistory,
         Ok(RED::SearchHistory) => ReedlineEvent::SearchHistory,
         Ok(RED::Menu) => {
             let menu = extract_value("name", record, span)?;
@@ -1091,6 +977,8 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Right => "Right",
         RED::Left => "Left",
         RED::NextHistory => "NextHistory",
+        RED::FirstHistory => "FirstHistory",
+        RED::LeaveHistory => "LeaveHistory",
         RED::SearchHistory => "SearchHistory",
         RED::Multiple => "event: { send: list<event> }",
         RED::UntilFound => "event: { until: list<event> }",
@@ -1119,6 +1007,9 @@ fn edit_from_record(
     span: Span,
 ) -> Result<EditCommand, ShellError> {
     use EditCommandDiscriminants as ECD;
+    if let Some(edit) = legacy_pair_edit(name, record, span)? {
+        return Ok(edit);
+    }
     // When updating this implementation, also update `display_edit_command` function
     let edit = match ECD::from_str(name) {
         Ok(ECD::MoveToStart) => EditCommand::MoveToStart {
@@ -1191,7 +1082,8 @@ fn edit_from_record(
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
         },
-        Ok(ECD::MoveWordRightEnd) => EditCommand::MoveWordRightEnd {
+        // Deprecated in reedline as the same move as `MoveWordRight`.
+        Ok(ECD::MoveWordRightEnd) => EditCommand::MoveWordRight {
             select: extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
@@ -1278,6 +1170,7 @@ fn edit_from_record(
         Ok(ECD::UppercaseWord) => EditCommand::UppercaseWord,
         Ok(ECD::LowercaseWord) => EditCommand::LowercaseWord,
         Ok(ECD::CapitalizeChar) => EditCommand::CapitalizeChar,
+        Ok(ECD::CapitalizeWord) => EditCommand::CapitalizeWord,
         Ok(ECD::SwitchcaseChar) => EditCommand::SwitchcaseChar,
         Ok(ECD::SwapWords) => EditCommand::SwapWords,
         Ok(ECD::SwapGraphemes) => EditCommand::SwapGraphemes,
@@ -1389,34 +1282,6 @@ fn edit_from_record(
         Ok(ECD::CopySelectionSystem) => EditCommand::CopySelectionSystem,
         #[cfg(feature = "system-clipboard")]
         Ok(ECD::PasteSystem) => EditCommand::PasteSystem,
-        Ok(ECD::CutInsidePair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CutInsidePair { left, right }
-        }
-        Ok(ECD::CopyInsidePair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CopyInsidePair { left, right }
-        }
-        Ok(ECD::CutAroundPair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CutAroundPair { left, right }
-        }
-        Ok(ECD::CopyAroundPair) => {
-            let value = extract_value("left", record, span)?;
-            let left = extract_char(value)?;
-            let value = extract_value("right", record, span)?;
-            let right = extract_char(value)?;
-            EditCommand::CopyAroundPair { left, right }
-        }
         Ok(ECD::CopyTextObject) => EditCommand::CopyTextObject {
             text_object: parse_text_object(record, config, span)?,
         },
@@ -1451,6 +1316,19 @@ fn edit_from_record(
                 .ok()
                 .and_then(|count| usize::try_from(count).ok())
                 .unwrap_or(1),
+        },
+        Ok(ECD::SelectTextObject) => {
+            EditCommand::SelectTextObject(parse_text_object(record, config, span)?)
+        }
+        Ok(ECD::AddTextObject) => EditCommand::AddTextObject {
+            text_object: parse_pair_type("object_type", record, config, span)?,
+        },
+        Ok(ECD::RemoveTextObject) => EditCommand::RemoveTextObject {
+            text_object: parse_pair_type("object_type", record, config, span)?,
+        },
+        Ok(ECD::ReplaceTextObject) => EditCommand::ReplaceTextObject {
+            old: parse_pair_type("old", record, config, span)?,
+            new: parse_pair_type("new", record, config, span)?,
         },
         // `EditCommand::ReplaceChars` - Internal hack not sanely implementable as a
         // standalone binding
@@ -1527,6 +1405,7 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::LowercaseWord => "LowercaseWord",
         ECD::SwitchcaseChar => "SwitchcaseChar",
         ECD::CapitalizeChar => "CapitalizeChar",
+        ECD::CapitalizeWord => "CapitalizeWord",
         ECD::SwapWords => "SwapWords",
         ECD::SwapGraphemes => "SwapGraphemes",
         ECD::Undo => "Undo",
@@ -1573,12 +1452,12 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CopySelectionSystem => "CopySelectionSystem",
         #[cfg(feature = "system-clipboard")]
         ECD::PasteSystem => "PasteSystem",
-        ECD::CutInsidePair => "CutInsidePair left: <char>, right <char>",
-        ECD::CopyInsidePair => "CopyInsidePair left: <char>, right <char>",
-        ECD::CutAroundPair => "CutAroundPair left: <char>, right <char>",
-        ECD::CopyAroundPair => "CopyAroundPair left: <char>, right <char>",
-        ECD::CutTextObject => "CutTextObject scope: <string>, object_type: <string>",
-        ECD::CopyTextObject => "CopyTextObject scope: <string>, object_type: <string>",
+        ECD::CutTextObject => {
+            "CutTextObject scope: <string>, object_type: <string | record>, check_next?: <bool>"
+        }
+        ECD::CopyTextObject => {
+            "CopyTextObject scope: <string>, object_type: <string | record>, check_next?: <bool>"
+        }
         ECD::Move => {
             "Move motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
         }
@@ -1602,6 +1481,14 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         }
         ECD::CollapseSelection => "CollapseSelection direction: <string>",
         ECD::PasteAtSelectionEdge => "PasteAtSelectionEdge direction: <string>, count?: <int>",
+        ECD::SelectTextObject => {
+            "SelectTextObject scope: <string>, object_type: <string | record>, check_next?: <bool>"
+        }
+        ECD::AddTextObject => "AddTextObject object_type: <string | record>",
+        ECD::RemoveTextObject => "RemoveTextObject object_type: <string | record>",
+        ECD::ReplaceTextObject => {
+            "ReplaceTextObject old: <string | record>, new: <string | record>"
+        }
         ECD::ReplaceChars => return None,
     })
 }
@@ -1644,22 +1531,116 @@ fn parse_text_object(
         },
     )?;
 
-    let object_type = extract_enum_field(
-        "object_type",
-        record,
-        config,
-        span,
-        "'word', 'bigword', 'brackets', or 'quote'",
-        |name| match name {
-            "word" => Some(TextObjectType::Word),
-            "bigword" => Some(TextObjectType::BigWord),
-            "brackets" | "bracket" => Some(TextObjectType::Brackets),
-            "quote" | "quotes" => Some(TextObjectType::Quote),
-            _ => None,
-        },
-    )?;
+    let object_type = parse_object_type("object_type", record, config, span)?;
 
-    Ok(TextObject { scope, object_type })
+    // With the cursor outside any match, act on the next one unless told
+    // otherwise, as these commands did before reedline made it optional.
+    let check_next = extract_value("check_next", record, span)
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true);
+
+    Ok(TextObject {
+        scope,
+        object_type,
+        check_next,
+    })
+}
+
+const OBJECT_TYPES: &str = "'word', 'bigword', 'brackets', 'quotes', 'parentheses', \
+    'square_brackets', 'curly_brackets', 'angle_brackets', 'single_quotes', 'double_quotes', \
+    'backticks', or a record { left: <char>, right: <char> }";
+
+/// A text object type by name. `brackets` and `quotes` match any of their kind,
+/// the others one pair.
+fn object_type_by_name(name: &str) -> Option<TextObjectType> {
+    use TextObjectBracket as B;
+    use TextObjectQuote as Q;
+    Some(match name {
+        "word" => TextObjectType::Word,
+        "bigword" => TextObjectType::BigWord,
+        "brackets" | "bracket" => TextObjectType::Brackets(B::All),
+        "quotes" | "quote" => TextObjectType::Quotes(Q::All),
+        "parentheses" | "parenthesis" => TextObjectType::Brackets(B::Parenthesis),
+        "square_brackets" | "square_bracket" => TextObjectType::Brackets(B::SquareBracket),
+        "curly_brackets" | "curly_bracket" => TextObjectType::Brackets(B::CurlyBracket),
+        "angle_brackets" | "angle_bracket" => TextObjectType::Brackets(B::AngleBracket),
+        "single_quotes" | "single_quote" => TextObjectType::Quotes(Q::SingleQuote),
+        "double_quotes" | "double_quote" => TextObjectType::Quotes(Q::DoubleQuote),
+        "backticks" | "backtick" => TextObjectType::Quotes(Q::Tick),
+        _ => return None,
+    })
+}
+
+/// Read a text object type from `field`: one of the names above, or a
+/// `{ left: <char>, right: <char> }` record for any other pair.
+fn parse_object_type(
+    field: &'static str,
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<TextObjectType, ShellError> {
+    let value = extract_value(field, record, span)?;
+    if let Ok(pair) = value.as_record() {
+        let left = extract_char(extract_value("left", pair, value.span())?)?;
+        let right = extract_char(extract_value("right", pair, value.span())?)?;
+        return Ok(TextObjectType::Pair { left, right });
+    }
+    let name = value.to_expanded_string("", config).to_ascii_lowercase();
+    object_type_by_name(&name).ok_or_else(|| ShellError::InvalidValue {
+        valid: OBJECT_TYPES.into(),
+        actual: format!("'{name}'"),
+        span: value.span(),
+    })
+}
+
+/// Like [`parse_object_type`], for the commands that insert or remove the
+/// pair itself and so need exactly one: not a word, nor a whole kind.
+fn parse_pair_type(
+    field: &'static str,
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<TextObjectType, ShellError> {
+    let object_type = parse_object_type(field, record, config, span)?;
+    if object_type.to_chars().is_none() {
+        let value = extract_value(field, record, span)?;
+        return Err(ShellError::InvalidValue {
+            valid: "a single pair, such as 'parentheses' or { left: <char>, right: <char> }".into(),
+            actual: format!("'{}'", value.to_expanded_string("", config)),
+            span: value.span(),
+        });
+    }
+    Ok(object_type)
+}
+
+/// `CutInsidePair`, `CopyInsidePair`, `CutAroundPair` and `CopyAroundPair`
+/// left reedline for the text object commands (nushell/reedline#1188). They
+/// still parse, onto the text object over their `left`/`right` pair, so
+/// existing configs keep working.
+fn legacy_pair_edit(
+    name: &str,
+    record: &Record,
+    span: Span,
+) -> Result<Option<EditCommand>, ShellError> {
+    let (cut, scope) = match name.to_ascii_lowercase().as_str() {
+        "cutinsidepair" => (true, TextObjectScope::Inner),
+        "copyinsidepair" => (false, TextObjectScope::Inner),
+        "cutaroundpair" => (true, TextObjectScope::Around),
+        "copyaroundpair" => (false, TextObjectScope::Around),
+        _ => return Ok(None),
+    };
+    let left = extract_char(extract_value("left", record, span)?)?;
+    let right = extract_char(extract_value("right", record, span)?)?;
+    let text_object = TextObject {
+        scope,
+        object_type: TextObjectType::Pair { left, right },
+        check_next: true,
+    };
+    Ok(Some(if cut {
+        EditCommand::CutTextObject { text_object }
+    } else {
+        EditCommand::CopyTextObject { text_object }
+    }))
 }
 
 /// Read a lowercased string field from `record` and map it to an enum value,
@@ -1905,18 +1886,148 @@ mod test {
         );
     }
 
+    // The pair commands left reedline (nushell/reedline#1188); configs that
+    // still use them get the text object command that does the same.
     #[test]
-    fn test_parse_input_mode() {
+    fn test_edit_legacy_pair_commands_map_to_text_objects() {
         let config = Config::default();
-        assert!(matches!(
-            parse_input_mode(&Value::test_string("full_buffer"), &config),
-            Ok(InputMode::FullBuffer)
-        ));
-        assert!(matches!(
-            parse_input_mode(&Value::test_string("diff"), &config),
-            Ok(InputMode::Diff)
-        ));
-        assert!(parse_input_mode(&Value::test_string("nope"), &config).is_err());
+        let pair = |name: &str| {
+            Value::test_record(record! {
+                "edit" => Value::test_string(name),
+                "left" => Value::test_string("("),
+                "right" => Value::test_string(")"),
+            })
+        };
+        let text_object = |scope| TextObject {
+            scope,
+            object_type: TextObjectType::Pair {
+                left: '(',
+                right: ')',
+            },
+            check_next: true,
+        };
+
+        assert_eq!(
+            parse_event(&pair("CutInsidePair"), &config).unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CutTextObject {
+                text_object: text_object(TextObjectScope::Inner)
+            }]))
+        );
+        assert_eq!(
+            parse_event(&pair("copyaroundpair"), &config).unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CopyTextObject {
+                text_object: text_object(TextObjectScope::Around)
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_edit_text_object_brackets() {
+        let event = Value::test_record(record! {
+            "edit" => Value::test_string("CutTextObject"),
+            "scope" => Value::test_string("inner"),
+            "object_type" => Value::test_string("brackets"),
+        });
+        let config = Config::default();
+
+        assert_eq!(
+            parse_event(&event, &config).unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CutTextObject {
+                text_object: TextObject {
+                    scope: TextObjectScope::Inner,
+                    object_type: TextObjectType::Brackets(TextObjectBracket::All),
+                    check_next: true,
+                }
+            }]))
+        );
+    }
+
+    fn parse_edit(fields: Record) -> Result<Option<ReedlineEvent>, ShellError> {
+        parse_event(&Value::test_record(fields), &Config::default())
+    }
+
+    #[test]
+    fn test_edit_text_object_named_pair_and_check_next() {
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("CutTextObject"),
+                "scope" => Value::test_string("around"),
+                "object_type" => Value::test_string("parentheses"),
+                "check_next" => Value::test_bool(false),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::CutTextObject {
+                text_object: TextObject {
+                    scope: TextObjectScope::Around,
+                    object_type: TextObjectType::Brackets(TextObjectBracket::Parenthesis),
+                    check_next: false,
+                }
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_edit_text_object_custom_pair() {
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("SelectTextObject"),
+                "scope" => Value::test_string("inner"),
+                "object_type" => Value::test_record(record! {
+                    "left" => Value::test_string("|"),
+                    "right" => Value::test_string("|"),
+                }),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::SelectTextObject(
+                TextObject {
+                    scope: TextObjectScope::Inner,
+                    object_type: TextObjectType::Pair {
+                        left: '|',
+                        right: '|',
+                    },
+                    check_next: true,
+                }
+            )]))
+        );
+    }
+
+    #[test]
+    fn test_edit_add_and_replace_text_object() {
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("AddTextObject"),
+                "object_type" => Value::test_string("double_quotes"),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::AddTextObject {
+                text_object: TextObjectType::Quotes(TextObjectQuote::DoubleQuote),
+            }]))
+        );
+        assert_eq!(
+            parse_edit(record! {
+                "edit" => Value::test_string("ReplaceTextObject"),
+                "old" => Value::test_string("parentheses"),
+                "new" => Value::test_string("square_brackets"),
+            })
+            .unwrap(),
+            Some(ReedlineEvent::Edit(vec![EditCommand::ReplaceTextObject {
+                old: TextObjectType::Brackets(TextObjectBracket::Parenthesis),
+                new: TextObjectType::Brackets(TextObjectBracket::SquareBracket),
+            }]))
+        );
+    }
+
+    // Adding or removing needs one pair to insert or delete; a whole kind
+    // would silently do nothing, so it is refused at config time.
+    #[test]
+    fn test_edit_remove_text_object_needs_a_single_pair() {
+        assert!(
+            parse_edit(record! {
+                "edit" => Value::test_string("RemoveTextObject"),
+                "object_type" => Value::test_string("brackets"),
+            })
+            .is_err()
+        );
     }
 
     fn test_menu(input_mode: Option<Value>, only_buffer_difference: Option<Value>) -> ParsedMenu {
@@ -1972,20 +2083,6 @@ mod test {
             resolve_input_mode(&test_menu(None, None), &config),
             Err(ShellError::MissingRequiredColumn { .. })
         ));
-    }
-
-    #[test]
-    fn test_parse_output_mode() {
-        let config = Config::default();
-        assert!(matches!(
-            parse_output_mode(&Value::test_string("extend_to_end"), &config),
-            Ok(OutputMode::ExtendToEnd)
-        ));
-        assert!(matches!(
-            parse_output_mode(&Value::test_string("suggested_span"), &config),
-            Ok(OutputMode::SuggestedSpan)
-        ));
-        assert!(parse_output_mode(&Value::test_string("nope"), &config).is_err());
     }
 
     #[test]
@@ -2384,5 +2481,179 @@ mod test {
             ),
             "the visual table should keep reedline's extending arrow defaults"
         );
+    }
+
+    /// A binding with no name, since a name plays no part in what a key does.
+    fn unnamed(keycode: &str, mode: Value, event: Value) -> ParsedKeybinding {
+        ParsedKeybinding {
+            name: None,
+            modifier: Value::test_string("none"),
+            keycode: Value::test_string(keycode),
+            event,
+            mode,
+        }
+    }
+
+    fn send(event: &str) -> Value {
+        Value::test_record(record! { "send" => Value::test_string(event) })
+    }
+
+    fn config_with(edit_mode: EditBindings, keybindings: Vec<ParsedKeybinding>) -> Config {
+        Config {
+            edit_mode,
+            keybindings,
+            ..Config::default()
+        }
+    }
+
+    /// `create_keybindings` built tables for another edit mode than asked for.
+    fn wrong_mode(expected: &str) -> ShellError {
+        ShellError::NushellFailed {
+            msg: format!("`edit_mode: {expected}` should produce {expected} keybindings"),
+        }
+    }
+
+    /// The emacs table `create_keybindings` builds from `keybindings`.
+    fn emacs_table(keybindings: Vec<ParsedKeybinding>) -> Result<Keybindings, ShellError> {
+        let config = config_with(EditBindings::Emacs, keybindings);
+        match create_keybindings(&config)? {
+            KeybindingsMode::Emacs(table) => Ok(table),
+            _ => Err(wrong_mode("emacs")),
+        }
+    }
+
+    /// The insert table `create_keybindings` builds from `keybindings` in vi mode.
+    fn vi_insert_table(keybindings: Vec<ParsedKeybinding>) -> Result<Keybindings, ShellError> {
+        let config = config_with(EditBindings::Vi, keybindings);
+        match create_keybindings(&config)? {
+            KeybindingsMode::Vi {
+                insert_keybindings, ..
+            } => Ok(insert_keybindings),
+            _ => Err(wrong_mode("vi")),
+        }
+    }
+
+    /// The entries are applied in order, so the last one on a key wins.
+    #[test]
+    fn the_last_entry_on_a_key_wins() -> Result<(), ShellError> {
+        let emacs = Value::test_string("emacs");
+        let table = emacs_table(vec![
+            unnamed("f20", emacs.clone(), send("enter")),
+            unnamed("f20", emacs, send("clearscreen")),
+        ])?;
+
+        assert_eq!(
+            table.find_binding(KeyModifiers::NONE, KeyCode::F(20)),
+            Some(ReedlineEvent::ClearScreen),
+        );
+        Ok(())
+    }
+
+    /// A `null` event removes whatever is on the key, including a binding that
+    /// comes from reedline's own base map rather than from the list.
+    #[test]
+    fn a_null_event_unbinds_a_reedline_base_binding() -> Result<(), ShellError> {
+        let base = default_emacs_keybindings();
+        assert!(
+            base.find_binding(KeyModifiers::CONTROL, KeyCode::Char('a'))
+                .is_some(),
+            "the test needs a base binding to remove"
+        );
+
+        let mut unbind = unnamed("char_a", Value::test_string("emacs"), Value::test_nothing());
+        unbind.modifier = Value::test_string("control");
+        let table = emacs_table(vec![unbind])?;
+
+        assert_eq!(
+            table.find_binding(KeyModifiers::CONTROL, KeyCode::Char('a')),
+            None
+        );
+        Ok(())
+    }
+
+    /// Each mode of an entry is its own spot. A later entry for fewer modes
+    /// wins only in those, and the earlier one keeps the rest.
+    #[test]
+    fn a_later_entry_for_fewer_modes_leaves_the_other_modes_alone() -> Result<(), ShellError> {
+        let wide = unnamed(
+            "f20",
+            Value::test_list(vec![
+                Value::test_string("emacs"),
+                Value::test_string("vi_insert"),
+            ]),
+            send("enter"),
+        );
+        let narrow = unnamed("f20", Value::test_string("emacs"), send("clearscreen"));
+        let list = vec![wide, narrow];
+
+        assert_eq!(
+            emacs_table(list.clone())?.find_binding(KeyModifiers::NONE, KeyCode::F(20)),
+            Some(ReedlineEvent::ClearScreen),
+        );
+        assert_eq!(
+            vi_insert_table(list)?.find_binding(KeyModifiers::NONE, KeyCode::F(20)),
+            Some(ReedlineEvent::Enter),
+        );
+        Ok(())
+    }
+
+    /// The entries are applied in one pass, so one that cannot be read fails
+    /// the whole list. Assigning a list with such a key is rejected before it
+    /// gets here, so this is the backstop for a config that did not go through
+    /// an assignment.
+    #[test]
+    fn an_unreadable_key_fails_the_whole_list() {
+        let emacs = Value::test_string("emacs");
+        let config = config_with(
+            EditBindings::Emacs,
+            vec![
+                unnamed("f20", emacs.clone(), send("enter")),
+                unnamed("not_a_key", emacs, send("enter")),
+            ],
+        );
+
+        assert!(create_keybindings(&config).is_err());
+    }
+
+    /// An event needs reedline's types, so it is read here and not when the list
+    /// is assigned. One that cannot be read fails the whole list, and the way out
+    /// is to filter it from the list.
+    #[test]
+    fn an_unreadable_event_fails_the_whole_list() {
+        let emacs = Value::test_string("emacs");
+        let config = config_with(
+            EditBindings::Emacs,
+            vec![
+                unnamed("f20", emacs.clone(), send("enter")),
+                unnamed("f21", emacs, send("bogus")),
+            ],
+        );
+
+        assert!(create_keybindings(&config).is_err());
+    }
+
+    /// A keybinding's `mode` and the `SwitchMode` event name the edit modes of
+    /// reedline's `PromptEditModeDiscriminants`, and read them alike. This fails
+    /// if reedline adds a mode that one of them doesn't know.
+    #[test]
+    fn every_edit_mode_is_read_alike_for_a_keybinding_and_for_switch_mode() {
+        use strum::IntoEnumIterator;
+
+        for mode in PromptEditModeDiscriminants::iter() {
+            let shown = display_edit_mode(mode);
+            for name in shown.iter().cloned().chain([format!("{mode:?}")]) {
+                let for_keybinding =
+                    unnamed("enter", Value::test_string(&name), Value::test_nothing()).modes();
+                let for_switch_mode = switch_mode_target(&Value::test_string(&name));
+
+                assert_eq!(
+                    for_keybinding.is_ok(),
+                    for_switch_mode.is_ok(),
+                    "{name} is read differently"
+                );
+                // Only a mode with a name of its own can be bound in or switched to.
+                assert_eq!(for_keybinding.is_ok(), shown.is_some(), "{name}");
+            }
+        }
     }
 }

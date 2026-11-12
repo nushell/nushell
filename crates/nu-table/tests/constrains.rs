@@ -1,9 +1,9 @@
 mod common;
 
 use nu_protocol::TrimStrategy;
-use nu_table::{NuTable, TableTheme as theme};
+use nu_table::{NuTable, TableTheme as theme, string_width};
 
-use common::{TestCase, cell, create_row, test_table};
+use common::{TestCase, bordered_width, cell, create_row, create_table, split_cells, test_table};
 
 use tabled::grid::records::vec_records::Text;
 
@@ -110,7 +110,7 @@ fn termwidth_too_small_single_column() {
 
 #[test]
 fn wrap_test() {
-    for test in 0..15 {
+    for test in 0..14 {
         test_trim(&[(test, None)], TrimStrategy::wrap(false));
     }
 
@@ -141,13 +141,12 @@ fn wrap_test() {
         (
             29,
             Some(
-                "┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n\
-                 ┃ 123 45678 ┃ qweqw e ┃ ... ┃\n\
-                 ┃           ┃ qwe     ┃     ┃\n\
-                 ┣━━━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┗━━━━━━━━━━━┻━━━━━━━━━┻━━━━━┛",
+                "┏━━━━━━━━━━━┳━━━━━┓\n\
+                 ┃ 123 45678 ┃ ... ┃\n\
+                 ┣━━━━━━━━━━━╋━━━━━┫\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┗━━━━━━━━━━━┻━━━━━┛",
             ),
         ),
         (
@@ -169,20 +168,19 @@ fn wrap_test() {
         (
             15,
             Some(
-                "┏━━━━━━━━━━━━┓\n\
-                 ┃ 0 2 4 6 8  ┃\n\
-                 ┃ 0 2 4 6 8  ┃\n\
-                 ┃ 0          ┃\n\
-                 ┗━━━━━━━━━━━━┛",
+                "┏━━━━━━━━━━━━━┓\n\
+                 ┃ 0 2 4 6 8 0 ┃\n\
+                 ┃  2 4 6 8 0  ┃\n\
+                 ┗━━━━━━━━━━━━━┛",
             ),
         ),
         (
             21,
             Some(
-                "┏━━━━━━━━━━━━━━━━━━┓\n\
-                 ┃ 0 2 4 6 8 0 2 4  ┃\n\
-                 ┃ 6 8 0            ┃\n\
-                 ┗━━━━━━━━━━━━━━━━━━┛",
+                "┏━━━━━━━━━━━━━━━━━━━┓\n\
+                 ┃ 0 2 4 6 8 0 2 4 6 ┃\n\
+                 ┃  8 0              ┃\n\
+                 ┗━━━━━━━━━━━━━━━━━━━┛",
             ),
         ),
         (
@@ -199,7 +197,7 @@ fn wrap_test() {
 
 #[test]
 fn wrap_keep_words_test() {
-    for test in 0..15 {
+    for test in 0..14 {
         test_trim(&[(test, None)], TrimStrategy::wrap(true));
     }
 
@@ -242,13 +240,12 @@ fn wrap_keep_words_test() {
         (
             29,
             Some(
-                "┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n\
-                 ┃ 123 45678 ┃ qweqw   ┃ ... ┃\n\
-                 ┃           ┃ eqwe    ┃     ┃\n\
-                 ┣━━━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┗━━━━━━━━━━━┻━━━━━━━━━┻━━━━━┛",
+                "┏━━━━━━━━━━━┳━━━━━┓\n\
+                 ┃ 123 45678 ┃ ... ┃\n\
+                 ┣━━━━━━━━━━━╋━━━━━┫\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┗━━━━━━━━━━━┻━━━━━┛",
             ),
         ),
         (
@@ -270,7 +267,7 @@ fn wrap_keep_words_test() {
 
 #[test]
 fn truncate_test() {
-    for test in 0..15 {
+    for test in 0..14 {
         test_trim(&[(test, None)], TrimStrategy::wrap(true));
     }
 
@@ -300,12 +297,12 @@ fn truncate_test() {
         (
             29,
             Some(
-                "┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n\
-                 ┃ 123 45678 ┃ qweqw e ┃ ... ┃\n\
-                 ┣━━━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┗━━━━━━━━━━━┻━━━━━━━━━┻━━━━━┛",
+                "┏━━━━━━━━━━━┳━━━━━┓\n\
+                 ┃ 123 45678 ┃ ... ┃\n\
+                 ┣━━━━━━━━━━━╋━━━━━┫\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┗━━━━━━━━━━━┻━━━━━┛",
             ),
         ),
         (
@@ -326,7 +323,7 @@ fn truncate_test() {
 
 #[test]
 fn truncate_with_suffix_test() {
-    for test in 0..15 {
+    for test in 0..14 {
         test_trim(&[(test, None)], TrimStrategy::wrap(true));
     }
 
@@ -356,12 +353,12 @@ fn truncate_with_suffix_test() {
         (
             29,
             Some(
-                "┏━━━━━━━━━━━┳━━━━━━━━━┳━━━━━┓\n\
-                 ┃ 123 45678 ┃ qweq... ┃ ... ┃\n\
-                 ┣━━━━━━━━━━━╋━━━━━━━━━╋━━━━━┫\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┃ 0         ┃ 1       ┃ ... ┃\n\
-                 ┗━━━━━━━━━━━┻━━━━━━━━━┻━━━━━┛",
+                "┏━━━━━━━━━━━┳━━━━━┓\n\
+                 ┃ 123 45678 ┃ ... ┃\n\
+                 ┣━━━━━━━━━━━╋━━━━━┫\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┃ 0         ┃ ... ┃\n\
+                 ┗━━━━━━━━━━━┻━━━━━┛",
             ),
         ),
         (
@@ -415,39 +412,39 @@ fn width_control_test_0() {
         ),
         (
             119,
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━┓\n\
-             ┃ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx... ┃ ... ┃\n\
-             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━┫\n\
-             ┃ yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy... ┃ ... ┃\n\
-             ┃ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz... ┃ ... ┃\n\
-             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━┛",
+            "┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━┓\n\
+             ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ ... ┃\n\
+             ┣━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━┫\n\
+             ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ ... ┃\n\
+             ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ ... ┃\n\
+             ┗━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━┛",
         ),
         (
             120,
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━┓\n\
-             ┃ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx... ┃ ... ┃\n\
-             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━┫\n\
-             ┃ yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy... ┃ ... ┃\n\
-             ┃ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz... ┃ ... ┃\n\
-             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━┛",
+            "┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━┓\n\
+             ┃ xxxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ ... ┃\n\
+             ┣━━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━┫\n\
+             ┃ yyyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ ... ┃\n\
+             ┃ zzzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ ... ┃\n\
+             ┗━━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━┛",
         ),
         (
             121,
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━┓\n\
-             ┃ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx... ┃ ... ┃\n\
-             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━┫\n\
-             ┃ yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy... ┃ ... ┃\n\
-             ┃ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz... ┃ ... ┃\n\
-             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━┛",
+            "┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━┓\n\
+             ┃ xxxxxxxxx... ┃ xxxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ xxxxxxxx... ┃ ... ┃\n\
+             ┣━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━┫\n\
+             ┃ yyyyyyyyy... ┃ yyyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ yyyyyyyy... ┃ ... ┃\n\
+             ┃ zzzzzzzzz... ┃ zzzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ zzzzzzzz... ┃ ... ┃\n\
+             ┗━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━┛",
         ),
         (
             150,
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━┓\n\
-             ┃ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ┃ xxxxxxxxxxxxxxxxxxxxx... ┃ ... ┃\n\
-             ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━┫\n\
-             ┃ yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy ┃ yyyyyyyyyyyyyyyyyyyyy... ┃ ... ┃\n\
-             ┃ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz ┃ zzzzzzzzzzzzzzzzzzzzz... ┃ ... ┃\n\
-             ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━┛",
+            "┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━┓\n\
+             ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ xxxxxxx... ┃ ... ┃\n\
+             ┣━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━┫\n\
+             ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ yyyyyyy... ┃ ... ┃\n\
+             ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ zzzzzzz... ┃ ... ┃\n\
+             ┗━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━┛",
         ),
         (
             usize::MAX,
@@ -548,7 +545,7 @@ fn left_side_priority_keeps_context_columns() {
 }
 
 #[test]
-fn forced_mode_keeps_primary_priority_dominant() {
+fn priority_column_keeps_a_third_of_the_width() {
     let headers = vec![
         cell("c0"),
         cell("c1"),
@@ -574,7 +571,7 @@ fn forced_mode_keeps_primary_priority_dominant() {
     let mut table = NuTable::new(3, 8);
     table.set_theme(theme::heavy());
     table.set_structure(false, true, false);
-    table.set_width_priority_columns(&[6, 2]);
+    table.set_width_priority_columns(&[2]);
     table.set_row(0, headers);
     table.set_row(1, row.clone());
     table.set_row(2, row);
@@ -582,12 +579,59 @@ fn forced_mode_keeps_primary_priority_dominant() {
     let rendered = table.draw(121).expect("table renders");
     let widths = parse_heavy_header_column_widths(&rendered);
 
-    assert!(rendered.contains("..."));
-    assert_eq!(widths.len(), 8);
-    assert!(
-        widths[6] > widths[2],
-        "expected primary priority column to stay wider than secondary; rendered table:\n{rendered}"
-    );
+    let header_cells = parse_heavy_header_cells(&rendered);
+
+    // All 8 columns fit at their floors, but then c2 would get less than a
+    // third of the width: the columns to its right hide until it does, and
+    // every other visible column sits at its floor (10 characters plus padding).
+    assert!(widths[2] >= 121 / 3, "{rendered}");
+    assert_eq!(header_cells.last().map(String::as_str), Some("..."));
+    assert!(!header_cells.iter().any(|cell| cell == "c6"), "{rendered}");
+    for (col, &width) in widths[..widths.len() - 1].iter().enumerate() {
+        if col != 2 {
+            assert_eq!(width, 12, "column {col} is not at its floor:\n{rendered}");
+        }
+    }
+}
+
+#[test]
+fn priority_marking_never_hides_the_column() {
+    let headers: Vec<Text<String>> = (0..8).map(|i| cell(&format!("c{i}"))).collect();
+    let row: Vec<Text<String>> = (0..8)
+        .map(|i| cell(&format!("value_{i}_abcdefghijklmnopqrstuvwxyz0123456789")))
+        .collect();
+    let table = |priorities: &[usize]| {
+        let mut table = NuTable::new(3, 8);
+        table.set_theme(theme::heavy());
+        table.set_structure(false, true, false);
+        table.set_width_priority_columns(priorities);
+        table.set_row(0, headers.clone());
+        table.set_row(1, row.clone());
+        table.set_row(2, row.clone());
+        table.draw(121).expect("table renders")
+    };
+
+    // Unmarked, c6 shows. Marked with c2, both want a third of the width, which
+    // they cannot both have; hiding c6 would make room, but marking never hides.
+    let unmarked = parse_heavy_header_cells(&table(&[]));
+    assert!(unmarked.iter().any(|cell| cell == "c6"), "{unmarked:?}");
+
+    let rendered = table(&[6, 2]);
+    let header_cells = parse_heavy_header_cells(&rendered);
+    let widths = parse_heavy_header_column_widths(&rendered);
+    assert!(header_cells.iter().any(|cell| cell == "c6"), "{rendered}");
+    assert!(header_cells.iter().any(|cell| cell == "c2"), "{rendered}");
+    // The priority columns share what the others leave at their floors.
+    for (col, &width) in widths[..widths.len() - 1].iter().enumerate() {
+        if col == 2 || col == 6 {
+            assert!(
+                width > 12,
+                "priority column {col} is at its floor:\n{rendered}"
+            );
+        } else {
+            assert_eq!(width, 12, "column {col} is not at its floor:\n{rendered}");
+        }
+    }
 }
 
 #[test]
@@ -621,7 +665,6 @@ fn secondary_priority_changes_width_distribution() {
     let secondary_widths = parse_heavy_header_column_widths(&secondary_rendered);
 
     assert!(secondary_rendered.contains("..."));
-    assert_eq!(primary_widths.len(), secondary_widths.len());
     assert!(
         secondary_widths[2] > primary_widths[2],
         "expected secondary priority column width to grow; primary-only: {primary_widths:?}, with-secondary: {secondary_widths:?}"
@@ -646,13 +689,13 @@ fn left_priority_uses_full_width_when_constrained() {
 
     let rendered = table.draw(121).expect("table renders");
     let widths = parse_heavy_header_column_widths(&rendered);
-    let rendered_width = header_columns_to_total_width(&widths);
+    let rendered_width = bordered_width(&widths);
 
     assert_eq!(rendered_width, 121);
 }
 
 #[test]
-fn right_priority_compacts_columns_to_its_right_when_partial() {
+fn priority_column_past_the_cut_is_hidden() {
     let headers: Vec<Text<String>> = (0..14).map(|i| cell(&format!("c{i}"))).collect();
 
     let row: Vec<Text<String>> = (0..14)
@@ -662,8 +705,8 @@ fn right_priority_compacts_columns_to_its_right_when_partial() {
     let mut table = NuTable::new(3, 14);
     table.set_theme(theme::heavy());
     table.set_structure(false, true, false);
-    // c7 is on the right side of the initial visible range at this width.
-    table.set_width_priority_columns(&[7, 3]);
+    // c12 is past the columns that fit at their floors at this width.
+    table.set_width_priority_columns(&[12, 3]);
     table.set_row(0, headers);
     table.set_row(1, row.clone());
     table.set_row(2, row);
@@ -671,18 +714,19 @@ fn right_priority_compacts_columns_to_its_right_when_partial() {
     let rendered = table.draw(121).expect("table renders");
     let header_cells = parse_heavy_header_cells(&rendered);
 
+    let widths = parse_heavy_header_column_widths(&rendered);
+
+    // c3 keeps a third of the width. Columns are hidden from the right, and
+    // c12 is past the cut, so it is hidden even though it is a priority.
+    assert!(widths[3] >= 121 / 3, "{rendered}");
     assert!(
-        header_cells.iter().any(|cell| cell == "c7"),
-        "expected c7 to remain visible; header cells: {header_cells:?}\n{rendered}"
-    );
-    assert!(
-        !header_cells.iter().any(|cell| cell == "c8"),
-        "expected c8 to be removed; header cells: {header_cells:?}\n{rendered}"
+        !header_cells.iter().any(|cell| cell == "c12"),
+        "expected c12 to be hidden; header cells: {header_cells:?}\n{rendered}"
     );
 }
 
 #[test]
-fn single_left_priority_drops_trailing_columns_for_wider_values() {
+fn priority_column_takes_the_room_other_columns_give_up() {
     let headers: Vec<Text<String>> = (0..13).map(|i| cell(&format!("c{i}"))).collect();
 
     let priority_value =
@@ -714,12 +758,65 @@ fn single_left_priority_drops_trailing_columns_for_wider_values() {
 
     let rendered = table.draw(140).expect("table renders");
     let header_cells = parse_heavy_header_cells(&rendered);
+    let widths = parse_heavy_header_column_widths(&rendered);
 
-    assert!(rendered.contains(priority_value));
+    // The priority column keeps at least a third of the width: the last
+    // columns are hidden for it, and the others give up all they can (at most
+    // 10 characters plus padding stay).
+    assert!(widths[1] >= 140 / 3, "{rendered}");
+    assert_eq!(header_cells.last().map(String::as_str), Some("..."));
     assert!(
-        !header_cells.iter().any(|cell| cell == "c11"),
-        "expected trailing columns to be dropped first; header cells: {header_cells:?}\n{rendered}"
+        widths
+            .iter()
+            .enumerate()
+            .all(|(col, &width)| col == 1 || width <= 12)
     );
+}
+
+#[test]
+fn unbounded_width_keeps_natural_widths() {
+    // `explore` draws its tables with `usize::MAX` as the width.
+    let data = vec![create_row(3); 2];
+    let unbounded = create_table(data.clone(), TestCase::new(usize::MAX).header());
+    let fitting = create_table(data, TestCase::new(100).header());
+    assert_eq!(unbounded, fitting);
+}
+
+#[test]
+fn trailing_column_fits_when_wider_than_the_column_it_replaces() {
+    // The `...` column (3 + padding) takes the place of the last fitted
+    // column. One-letter columns are narrower than that, which used to make
+    // the table one or two columns wider than the terminal.
+    let header = ["#", "name", "a", "description", "b", "notes", "c", "extra"];
+    let row = [
+        "0",
+        "a long name",
+        "x",
+        "a longer description",
+        "y",
+        "notes",
+        "z",
+        "more",
+    ];
+    let data = vec![header.map(cell).to_vec(), row.map(cell).to_vec()];
+
+    for hos in [false, true] {
+        for width in 10..=80 {
+            let mut table = NuTable::from(data.clone());
+            table.set_theme(theme::rounded());
+            table.set_structure(true, true, false);
+            table.set_trim(TrimStrategy::wrap(true));
+            table.set_border_header(hos);
+            let Some(rendered) = table.draw(width) else {
+                continue;
+            };
+
+            assert!(
+                rendered.lines().all(|line| string_width(line) <= width),
+                "wider than {width} (header_on_separator: {hos}):\n{rendered}"
+            );
+        }
+    }
 }
 
 fn parse_heavy_header_column_widths(rendered: &str) -> Vec<usize> {
@@ -728,10 +825,9 @@ fn parse_heavy_header_column_widths(rendered: &str) -> Vec<usize> {
         .nth(1)
         .expect("table header line is present");
 
-    let cells: Vec<&str> = header_line.split('┃').collect();
-    cells[1..cells.len() - 1]
-        .iter()
-        .map(|cell| cell.chars().count())
+    split_cells(header_line, '┃')
+        .into_iter()
+        .map(string_width)
         .collect()
 }
 
@@ -812,17 +908,10 @@ fn parse_heavy_header_cells(rendered: &str) -> Vec<String> {
         .nth(1)
         .expect("table header line is present");
 
-    let cells: Vec<&str> = header_line.split('┃').collect();
-    cells[1..cells.len() - 1]
-        .iter()
+    split_cells(header_line, '┃')
+        .into_iter()
         .map(|cell| cell.trim().to_string())
         .collect()
-}
-
-fn header_columns_to_total_width(widths: &[usize]) -> usize {
-    // For heavy theme with outer borders and vertical separators, total width is:
-    // sum(column widths) + number of separators (columns + 1).
-    widths.iter().sum::<usize>() + widths.len() + 1
 }
 
 fn test_width(data: Vec<Vec<Text<String>>>, tests: &[(usize, &str)]) {

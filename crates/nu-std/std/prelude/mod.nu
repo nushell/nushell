@@ -9,12 +9,19 @@ export def banner [
 ] {
 let foreground = $env.config.color_config?.banner_foreground? | default "attr_normal"
 let highlight1 = $env.config.color_config?.banner_highlight1? | default "green"
-let highlight2 = $env.config.color_config?.banner_highlight2? | default "purple"
-let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
-let ver = (version)
 let startup_time = $"(ansi $highlight1)(ansi attr_bold)Startup Time: (ansi reset)(ansi $foreground)($nu.startup-time)(ansi reset)"
 
-let welcome = $"(ansi $highlight1)     __  ,(ansi reset)
+# The REPL prints the welcome message before the startup hooks run and the startup time right
+# before the first prompt, once it is final. `--short` skips the welcome message, whose `version`
+# and `datetime-diff` calls cost far more than the startup time line.
+let banner_msg = if $short {
+    $"($startup_time)(char eol)"
+} else {
+    let highlight2 = $env.config.color_config?.banner_highlight2? | default "purple"
+    let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
+    let ver = (version)
+
+    let welcome = $"(ansi $highlight1)     __  ,(ansi reset)
 (ansi $highlight1) .--\(\)°'.' (ansi reset)(ansi $foreground)Welcome to (ansi $highlight1)Nushell(ansi reset)(ansi $foreground),(ansi reset)
 (ansi $highlight1)'|, . ,'   (ansi reset)(ansi $foreground)based on the (ansi $highlight1)nu(ansi reset)(ansi $foreground) language,(ansi reset)
 (ansi $highlight1) !_-\(_\\    (ansi reset)(ansi $foreground)where all data is structured!
@@ -30,14 +37,11 @@ let welcome = $"(ansi $highlight1)     __  ,(ansi reset)
 (ansi $foreground)(pretty-print-duration $dt)
 "
 
-# The REPL prints the welcome message before the startup hooks run and the startup time right
-# before the first prompt, once it is final.
-let banner_msg = if $short {
-    $"($startup_time)(char eol)"
-} else if $no_startup_time {
-    $welcome
-} else {
-    $"($welcome)(char eol)($startup_time)(ansi reset)(char eol)"
+    if $no_startup_time {
+        $welcome
+    } else {
+        $"($welcome)(char eol)($startup_time)(ansi reset)(char eol)"
+    }
 }
 
 match (config use-colors) {

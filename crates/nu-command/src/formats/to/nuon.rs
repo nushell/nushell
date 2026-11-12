@@ -72,7 +72,22 @@ impl Command for ToNuon {
         let list_of_records = call.has_flag(engine_state, stack, "list-of-records")?;
         let no_commas = call.has_flag(engine_state, stack, "no-commas")?;
         let pretty = call.has_flag(engine_state, stack, "pretty")?;
-        let style = if call.has_flag(engine_state, stack, "raw")? {
+        // `--raw` drops the space after the comma and `--no-commas` drops the comma, so the
+        // two compose by subtraction into no separator at all: `[1 2 3]` is written `[123]`
+        // and reads back as one integer, and a table loses its column boundaries. The
+        // written form is still valid nuon, so nothing downstream can detect the loss.
+        // Rejecting the pair costs nothing, because emitting a space instead would produce
+        // output the same size as `--raw` alone.
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        if raw && no_commas {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "this with".into(),
+                left_span: call.get_flag_span(stack, "raw").unwrap_or(call.head),
+                right_message: "`--no-commas` drops the separator `--raw` keeps, so the pair writes no separator at all".into(),
+                right_span: call.get_flag_span(stack, "no-commas").unwrap_or(call.head),
+            });
+        }
+        let style = if raw {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
             nuon::ToStyle::Tabs(t)

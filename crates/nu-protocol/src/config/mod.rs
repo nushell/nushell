@@ -1,11 +1,10 @@
 //! Module containing the internal representation of user configuration
 
-use crate::config::reedline::{KeyIdentity, name_of};
+use crate::FromValue;
 use crate::{self as nu_protocol, Filesize};
-use crate::{ConfigWarning, FromValue};
 use helper::*;
 use prelude::*;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 pub use ansi_coloring::UseAnsiColoring;
 pub use clip::ClipConfig;
@@ -21,12 +20,17 @@ pub use helper::extract_value;
 pub use hinter::HinterConfig;
 pub use history::{HistoryConfig, HistoryFileFormat, HistoryPath};
 pub use hooks::Hooks;
+pub use key_spec::{
+    EditModeName, KeyCodeSpec, KeyModifier, MenuInputMode, MenuLayout, MenuOutputMode,
+    VALID_KEYBINDING_MODES,
+};
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
+pub use status_line::StatusLineConfig;
 pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
 
 mod ansi_coloring;
@@ -42,6 +46,7 @@ mod helper;
 mod hinter;
 mod history;
 mod hooks;
+mod key_spec;
 mod ls;
 mod output;
 mod plugin_gc;
@@ -49,6 +54,7 @@ mod prelude;
 mod reedline;
 mod rm;
 mod shell_integration;
+mod status_line;
 mod table;
 
 #[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
@@ -66,6 +72,7 @@ pub struct Config {
     pub edit_mode: EditBindings,
     pub show_hints: bool,
     pub hinter: HinterConfig,
+    pub status_line: StatusLineConfig,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
     pub abbreviations: HashMap<String, String>,
@@ -142,6 +149,7 @@ impl Default for Config {
             edit_mode: EditBindings::default(),
             show_hints: true,
             hinter: HinterConfig::default(),
+            status_line: StatusLineConfig::default(),
 
             shell_integration: ShellIntegrationConfig::default(),
 
@@ -197,7 +205,10 @@ impl UpdateFromValue for Config {
                 "table" => self.table.update(val, current_path, errors),
                 "filesize" => self.filesize.update(val, current_path, errors),
                 "explore" => self.explore.update(val, current_path, errors),
-                "tui" => self.tui.update(val, current_path, errors),
+                "tui" => {
+                    self.tui.update(val, current_path, errors);
+                    check_tui_border_type(&mut self.tui, current_path, errors);
+                }
                 "color_config" => self.color_config.update(val, current_path, errors),
                 "clip" => self.clip.update(val, current_path, errors),
                 "footer_mode" => self.footer_mode.update(val, current_path, errors),
@@ -206,6 +217,7 @@ impl UpdateFromValue for Config {
                 "edit_mode" => self.edit_mode.update(val, current_path, errors),
                 "show_hints" => self.show_hints.update(val, current_path, errors),
                 "hinter" => self.hinter.update(val, current_path, errors),
+                "status_line" => self.status_line.update(val, current_path, errors),
                 "shell_integration" => self.shell_integration.update(val, current_path, errors),
                 "show_banner" => self.show_banner.update(val, current_path, errors),
                 "display_errors" => self.display_errors.update(val, current_path, errors),
@@ -250,29 +262,35 @@ impl UpdateFromValue for Config {
                     self.max_last_result_size.update(val, current_path, errors)
                 }
 
-                "menus" => match Vec::<ParsedMenu>::from_value(val.clone()) {
-                    Ok(menus) => {
-                        for menu in menus {
-                            let target_name = menu.name.to_expanded_string("", self);
+                // Stored as written, like any list. Reedline registers the
+                // menus in order, so a later one wins on a name. A menu with a
+                // layout, input mode or output mode that can't be read rejects
+                // the whole list and the previous one stays, like for any other
+                // config value.
+                "menus" => match Vec::<ParsedMenu>::from_value(val.clone()).and_then(|menus| {
+                    menus.iter().try_for_each(|menu| menu.validate(self))?;
+                    Ok(menus)
+                }) {
+                    Ok(menus) => self.menus = menus,
+                    Err(error) => errors.error(error.into()),
+                },
 
-                            let found_index = self.menus.iter().position(|existing_menu| {
-                                existing_menu.name.to_expanded_string("", self) == target_name
-                            });
-
-                            if let Some(index) = found_index {
-                                self.menus[index] = menu;
-                            } else {
-                                self.menus.push(menu);
-                            }
-                        }
+                // Stored as written, like any list. Reedline applies the
+                // entries in order, so a later one wins on a key. An entry
+                // with a mode, modifier or keycode that can't be read rejects
+                // the whole list and the previous one stays. Its `event` is
+                // read when the prompt is built.
+                "keybindings" => {
+                    match Vec::<ParsedKeybinding>::from_value(val.clone()).and_then(|keybindings| {
+                        keybindings
+                            .iter()
+                            .try_for_each(ParsedKeybinding::validate)?;
+                        Ok(keybindings)
+                    }) {
+                        Ok(keybindings) => self.keybindings = keybindings,
+                        Err(error) => errors.error(error.into()),
                     }
-                    Err(error) => errors.error(error.into()),
-                },
-
-                "keybindings" => match Vec::<ParsedKeybinding>::from_value(val.clone()) {
-                    Ok(keybindings) => self.merge_keybindings(keybindings, val.span(), errors),
-                    Err(error) => errors.error(error.into()),
-                },
+                }
 
                 "error_lines" => match val.as_int() {
                     Ok(integer) if integer >= 0 => self.error_lines = integer,
@@ -292,6 +310,34 @@ impl UpdateFromValue for Config {
             }
         }
     }
+}
+
+/// `$env.config.tui` is a free-form map of colors, except `border_type`,
+/// which must name a tui border (see [`TableMode::from_tui_border`]). A bad
+/// value is reported here, where it is set, and the previous one is kept,
+/// like a typed field that fails to update.
+fn check_tui_border_type(
+    tui: &mut HashMap<String, Value>,
+    path: &mut ConfigPath,
+    errors: &mut ConfigErrors,
+) {
+    const KEY: &str = "border_type";
+    let Some(value) = tui.get(KEY) else {
+        return;
+    };
+    let path = &mut path.push(KEY);
+    match value.as_str() {
+        Ok(name) if TableMode::from_tui_border(name).is_some() => return,
+        Ok(_) => {
+            let names = TableMode::tui_border_names().collect::<Vec<_>>().join(", ");
+            errors.invalid_value(path, format!("one of {names}"), value);
+        }
+        Err(_) => errors.type_mismatch(path, Type::String, value),
+    }
+    match errors.config().tui.get(KEY).cloned() {
+        Some(old) => tui.insert(KEY.into(), old),
+        None => tui.remove(KEY),
+    };
 }
 
 impl UpdateFromValue for Filesize {
@@ -343,177 +389,145 @@ impl Config {
 
         errors.check()
     }
-
-    fn merge_keybindings(
-        &mut self,
-        incoming: Vec<ParsedKeybinding>,
-        span: Span,
-        errors: &mut ConfigErrors,
-    ) {
-        if incoming.is_empty() {
-            self.keybindings.clear();
-            return;
-        }
-
-        let mut shared_names = BTreeSet::new();
-        let identities = incoming.into_iter().map(|kb| {
-            let name = name_of(&kb);
-            let id = KeyIdentity::of(&kb);
-            (kb, name, id)
-        });
-
-        // Snapshot of existing identities, kept in lockstep with the list.
-        // `claimed` marks entries already spoken for by this assignment, so a
-        // second incoming binding with the same name starts a new entry
-        // instead of re-keying its sibling.
-        struct Existing {
-            name: Option<String>,
-            id: KeyIdentity,
-            claimed: bool,
-        }
-        let mut ex_kbs: Vec<Existing> = self
-            .keybindings
-            .iter()
-            .map(|ex| Existing {
-                name: name_of(ex),
-                id: KeyIdentity::of(ex),
-                claimed: false,
-            })
-            .collect();
-
-        for (kb, name, id) in identities {
-            // The same binding (name and key): replace, claimed or not, so a
-            // re-sourced config stays idempotent and event updates land.
-            if let Some(i) = ex_kbs.iter().position(|ex| ex.name == name && ex.id == id) {
-                ex_kbs[i].claimed = true;
-                self.keybindings[i] = kb;
-                continue;
-            }
-
-            // A named binding with a new key re-keys the unclaimed entry of
-            // that name in place, keeping its position in the list.
-            if name.is_some()
-                && let Some(i) = ex_kbs.iter().position(|ex| ex.name == name && !ex.claimed)
-            {
-                ex_kbs[i].id = id;
-                ex_kbs[i].claimed = true;
-                self.keybindings[i] = kb;
-                continue;
-            }
-
-            // A new binding. If its name is already taken (necessarily by a
-            // claimed entry), both stay active; say so once.
-            if let Some(name) = &name
-                && ex_kbs.iter().any(|ex| ex.name.as_ref() == Some(name))
-            {
-                shared_names.insert(name.clone());
-            }
-            ex_kbs.push(Existing {
-                name,
-                id,
-                claimed: true,
-            });
-            self.keybindings.push(kb);
-        }
-        if !shared_names.is_empty() {
-            errors.warn(ConfigWarning::SharedKeybindingName {
-                names: shared_names.into_iter().collect::<Vec<_>>().join(", "),
-                span,
-            });
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// A record-valued config field is a full-record replace on assignment (e.g.
-    /// `$env.config.keybindings = [...]`), but `update_from_value` must still merge
-    /// named defaults into place rather than silently dropping ones the caller
-    /// didn't mention.
-    #[test]
-    fn reassigning_a_named_list_field_keeps_unmentioned_defaults() {
-        let old = Config::default();
-        let mut new = old.clone();
-
-        let mut extra_menu = old.menus[0].clone();
-        extra_menu.name = Value::test_string("added_menu");
-        let mut extra_keybinding = old.keybindings[0].clone();
-        extra_keybinding.name = Some(Value::test_string("added_binding"));
-
-        let value = Value::test_record(record! {
-            "menus" => Value::test_list(vec![extra_menu.into_value(Span::test_data())]),
-            "keybindings" => Value::test_list(vec![extra_keybinding.into_value(Span::test_data())]),
-        });
-        new.update_from_value(&old, &value)
-            .expect("update should succeed");
-
-        for default_menu in &old.menus {
-            let name = default_menu.name.to_expanded_string("", &old);
-            assert!(
-                new.menus
-                    .iter()
-                    .any(|m| m.name.to_expanded_string("", &new) == name),
-                "default menu {name:?} was lost after reassigning `menus`"
-            );
-        }
-        for default_keybinding in &old.keybindings {
-            let Some(name) = default_keybinding
-                .name
-                .as_ref()
-                .map(|n| n.to_expanded_string("", &old))
-            else {
-                continue;
-            };
-            assert!(
-                new.keybindings.iter().any(|k| k
-                    .name
-                    .as_ref()
-                    .is_some_and(|n| n.to_expanded_string("", &new) == name)),
-                "default keybinding {name:?} was lost after reassigning `keybindings`"
-            );
-        }
+    /// Run one `$env.config.menus = [...]` assignment.
+    fn assign_menus(config: &mut Config, old: &Config, menus: Vec<ParsedMenu>) {
+        try_assign_menus(config, old, menus).expect("update should succeed");
     }
 
-    /// Guards the unnamed case: with no `name` to merge on, every reassignment
-    /// used to append another copy.
+    fn menu_names(config: &Config) -> Vec<String> {
+        config
+            .menus
+            .iter()
+            .map(|menu| menu.name.to_expanded_string("", config))
+            .collect()
+    }
+
+    /// `=` replaces the whole list, defaults included.
     #[test]
-    fn reassigning_an_unnamed_keybinding_does_not_duplicate_it() {
+    fn assigning_menus_replaces_the_list() {
         let old = Config::default();
         let mut new = old.clone();
 
-        let mut unnamed = old.keybindings[0].clone();
-        unnamed.name = None;
-        unnamed.modifier = Value::test_string("alt");
-        unnamed.keycode = Value::test_string("char_j");
-        new.keybindings.push(unnamed);
+        let mut extra = old.menus[0].clone();
+        extra.name = Value::test_string("added_menu");
+        assign_menus(&mut new, &old, vec![extra]);
 
-        let expected = new.keybindings.len();
+        assert_eq!(menu_names(&new), ["added_menu"]);
+    }
 
-        // Feed the list back through `update_from_value` the way re-sourcing a
-        // config (or any `$env.config.keybindings = ...`) does.
-        for _ in 0..2 {
-            let value = Value::test_record(record! {
-                "keybindings" => Value::test_list(
-                    new.keybindings
-                        .iter()
-                        .map(|keybinding| keybinding.clone().into_value(Span::test_data()))
-                        .collect(),
-                ),
-            });
-            new.update_from_value(&old, &value)
-                .expect("update should succeed");
-        }
+    /// `++=` keeps the defaults and adds the new menu after them.
+    #[test]
+    fn appending_a_menu_keeps_the_defaults() {
+        let old = Config::default();
+        let mut new = old.clone();
 
+        let mut extra = old.menus[0].clone();
+        extra.name = Value::test_string("added_menu");
+        let mut menus = new.menus.clone();
+        menus.push(extra);
+        assign_menus(&mut new, &old, menus);
+
+        let mut expected = menu_names(&old);
+        expected.push("added_menu".into());
+        assert_eq!(menu_names(&new), expected);
+    }
+
+    /// The list is stored as written, so two menus with one name both stay and
+    /// keep their order. Reedline registers them in that order and the last
+    /// one wins, which is what makes `++=` with a default's name override it.
+    #[test]
+    fn menus_are_stored_as_written() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let mut custom = old.menus[0].clone();
+        custom.marker = Value::test_string("custom> ");
+        let mut menus = new.menus.clone();
+        menus.push(custom);
+        assign_menus(&mut new, &old, menus);
+
+        let name = old.menus[0].name.to_expanded_string("", &old);
+        let same_name = |config: &Config| {
+            menu_names(config)
+                .iter()
+                .filter(|menu| **menu == name)
+                .count()
+        };
+        assert_eq!(same_name(&new), 2);
+        let last = new.menus.last().expect("menus are not empty");
+        assert_eq!(last.marker, Value::test_string("custom> "));
+    }
+
+    /// Assigning an empty list clears every menu.
+    #[test]
+    fn assigning_an_empty_list_clears_the_menus() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        assign_menus(&mut new, &old, vec![]);
+        assert!(new.menus.is_empty(), "`= []` should reset the list");
+    }
+
+    /// `tui.border_type` is checked where it is set: a name that is not a tui
+    /// border is an error and the previous border stays.
+    #[test]
+    fn tui_border_type_rejects_non_borders_and_keeps_the_old_one() {
+        let old = Config::default();
+        let tui = |border_type: Value| {
+            Value::test_record(record! {
+                "tui" => Value::test_record(record! { "border_type" => border_type }),
+            })
+        };
+
+        let mut new = old.clone();
+        new.update_from_value(&old, &tui(Value::test_string("Double")))
+            .expect("a table theme name is a border");
         assert_eq!(
-            new.keybindings.len(),
-            expected,
-            "reassigning `keybindings` duplicated the unnamed binding"
+            new.tui.get("border_type"),
+            Some(&Value::test_string("Double"))
         );
+
+        for bad in [
+            Value::test_string("none"),
+            Value::test_string("default"),
+            Value::test_string("wavy"),
+            Value::test_int(1),
+        ] {
+            let mut new = old.clone();
+            let err = new
+                .update_from_value(&old, &tui(bad.clone()))
+                .expect_err("not a tui border");
+            assert!(
+                format!("{err:?}").contains("$env.config.tui.border_type"),
+                "{bad:?}: {err:?}"
+            );
+            assert_eq!(new.tui.get("border_type"), old.tui.get("border_type"));
+        }
     }
 
-    // --- merge semantics: replace on same name+key, append+warn on shared name ---
+    /// `TableMode::NAMES` feeds `table --theme` and `tui --border`
+    /// completions, so it must hold every name `from_str` accepts: the ones
+    /// its error lists, plus `default`.
+    #[test]
+    fn table_mode_names_match_from_str() {
+        for name in TableMode::NAMES {
+            assert!(name.parse::<TableMode>().is_ok(), "{name}");
+        }
+        let listed = "wavy".parse::<TableMode>().expect_err("not a table mode");
+        let listed: Vec<&str> = listed.split('\'').skip(1).step_by(2).collect();
+        for name in &listed {
+            assert!(TableMode::NAMES.contains(name), "{name} is not in NAMES");
+        }
+        assert_eq!(listed.len() + 1, TableMode::NAMES.len());
+    }
+
+    // --- keybindings: a plain list, applied in order by reedline ---
 
     fn keybinding(
         name: Option<&str>,
@@ -530,23 +544,25 @@ mod tests {
         }
     }
 
-    /// Run one `$env.config.keybindings = [...]` assignment; returns the warning.
-    fn assign(
-        config: &mut Config,
-        old: &Config,
-        keybindings: Vec<ParsedKeybinding>,
-    ) -> Option<ShellWarning> {
-        let value = Value::test_record(record! {
-            "keybindings" => Value::test_list(
-                keybindings
-                    .into_iter()
-                    .map(|kb| kb.into_value(Span::test_data()))
-                    .collect(),
-            ),
-        });
-        config
-            .update_from_value(old, &value)
-            .expect("update should succeed")
+    fn atuin() -> ParsedKeybinding {
+        keybinding(
+            Some("atuin"),
+            "control",
+            "char_r",
+            Value::test_string("emacs"),
+        )
+    }
+
+    /// Run one `$env.config.keybindings = [...]` assignment.
+    fn assign(config: &mut Config, old: &Config, keybindings: Vec<ParsedKeybinding>) {
+        try_assign(config, old, keybindings).expect("update should succeed");
+    }
+
+    /// `$env.config.keybindings ++= [...]` is `= ($env.config.keybindings ++ [...])`.
+    fn append(config: &mut Config, old: &Config, keybindings: Vec<ParsedKeybinding>) {
+        let mut list = config.keybindings.clone();
+        list.extend(keybindings);
+        assign(config, old, list);
     }
 
     fn count_named(config: &Config, name: &str) -> usize {
@@ -561,248 +577,56 @@ mod tests {
             .count()
     }
 
-    /// The atuin regression (nushell/nushell#18848): two bindings sharing a name
-    /// on different keys must both survive, with one warning.
+    /// `=` replaces the whole list, defaults included.
     #[test]
-    fn a_shared_name_on_different_keys_keeps_both_bindings_and_warns() {
+    fn assigning_keybindings_replaces_the_list() {
         let old = Config::default();
         let mut new = old.clone();
 
-        let warning = assign(
-            &mut new,
-            &old,
-            vec![
-                keybinding(
-                    Some("atuin"),
-                    "control",
-                    "char_r",
-                    Value::test_string("emacs"),
-                ),
-                keybinding(Some("atuin"), "none", "up", Value::test_string("emacs")),
-            ],
-        );
-
-        assert_eq!(
-            count_named(&new, "atuin"),
-            2,
-            "one of the bindings was dropped"
-        );
-        assert!(warning.is_some(), "sharing a name should warn");
-    }
-
-    /// Re-sourcing the exact same binding is idempotent and silent.
-    #[test]
-    fn reassigning_the_same_binding_replaces_it_without_warning() {
-        let old = Config::default();
-        let mut new = old.clone();
-
-        let atuin = || {
-            keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_string("emacs"),
-            )
-        };
         assign(&mut new, &old, vec![atuin()]);
-        let len = new.keybindings.len();
 
-        let warning = assign(&mut new, &old, vec![atuin()]);
-        assert_eq!(
-            new.keybindings.len(),
-            len,
-            "re-sourcing duplicated the binding"
-        );
-        assert!(
-            warning.is_none(),
-            "an identical re-assignment must not warn"
-        );
+        assert_eq!(new.keybindings.len(), 1);
+        assert_eq!(count_named(&new, "atuin"), 1);
     }
 
-    /// Same name and key with a new event is the update case: replaced in place.
+    /// `++=` keeps the defaults and adds the new binding after them.
     #[test]
-    fn a_new_event_on_the_same_key_replaces_the_binding() {
+    fn appending_keeps_the_defaults() {
         let old = Config::default();
         let mut new = old.clone();
 
-        assign(
-            &mut new,
-            &old,
-            vec![keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_string("emacs"),
-            )],
-        );
+        append(&mut new, &old, vec![atuin()]);
+
+        assert_eq!(new.keybindings.len(), old.keybindings.len() + 1);
+        assert_eq!(count_named(&new, "atuin"), 1);
+        assert_eq!(count_named(&new, "history_menu"), 1);
+    }
+
+    /// Filtering a binding out of the list unbinds it.
+    #[test]
+    fn assigning_a_filtered_list_drops_the_binding() {
+        let old = Config::default();
+        let mut new = old.clone();
+        append(&mut new, &old, vec![atuin()]);
         let len = new.keybindings.len();
 
-        let mut updated = keybinding(
-            Some("atuin"),
-            "control",
-            "char_r",
-            Value::test_string("emacs"),
-        );
-        updated.event = Value::test_string("marker");
-        assign(&mut new, &old, vec![updated]);
-
-        assert_eq!(new.keybindings.len(), len);
-        let event = new
+        let kept = new
             .keybindings
             .iter()
-            .rev()
-            .find(|kb| {
+            .filter(|kb| {
                 kb.name
                     .as_ref()
-                    .is_some_and(|n| n.to_expanded_string("", &new) == "atuin")
+                    .is_none_or(|n| n.to_expanded_string("", &new) != "atuin")
             })
-            .map(|kb| kb.event.clone());
-        assert_eq!(
-            event,
-            Some(Value::test_string("marker")),
-            "event was not updated"
-        );
+            .cloned()
+            .collect();
+        assign(&mut new, &old, kept);
+
+        assert_eq!(count_named(&new, "atuin"), 0);
+        assert_eq!(new.keybindings.len(), len - 1);
     }
 
-    /// `emacs` and `[emacs]` spell the same key, so the second assignment replaces.
-    #[test]
-    fn a_bare_mode_and_its_singleton_list_merge_into_one_binding() {
-        let old = Config::default();
-        let mut new = old.clone();
-
-        assign(
-            &mut new,
-            &old,
-            vec![keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_string("emacs"),
-            )],
-        );
-        let warning = assign(
-            &mut new,
-            &old,
-            vec![keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_list(vec![Value::test_string("emacs")]),
-            )],
-        );
-
-        assert_eq!(
-            count_named(&new, "atuin"),
-            1,
-            "the mode spellings did not merge"
-        );
-        assert!(warning.is_none());
-    }
-
-    /// The same new binding twice in one assignment collapses to one entry
-    /// (guards the identity snapshot staying in sync with the list).
-    #[test]
-    fn the_same_binding_twice_in_one_assignment_is_stored_once() {
-        let old = Config::default();
-        let mut new = old.clone();
-
-        let atuin = || {
-            keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_string("emacs"),
-            )
-        };
-        assign(&mut new, &old, vec![atuin(), atuin()]);
-
-        assert_eq!(count_named(&new, "atuin"), 1, "the duplicate was appended");
-    }
-
-    /// Re-keying by name: assigning a named binding with a new key replaces the
-    /// existing binding of that name in place, keeping its list position
-    /// (`$env.config.keybindings.0.keycode = ...` depends on this).
-    #[test]
-    fn a_named_binding_with_a_new_key_replaces_in_place() {
-        let old = Config::default();
-        let mut new = old.clone();
-
-        assign(
-            &mut new,
-            &old,
-            vec![keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_string("emacs"),
-            )],
-        );
-        let len = new.keybindings.len();
-        let index = new
-            .keybindings
-            .iter()
-            .position(|kb| {
-                kb.name
-                    .as_ref()
-                    .is_some_and(|n| n.to_expanded_string("", &new) == "atuin")
-            })
-            .expect("binding was added");
-
-        let warning = assign(
-            &mut new,
-            &old,
-            vec![keybinding(
-                Some("atuin"),
-                "none",
-                "up",
-                Value::test_string("emacs"),
-            )],
-        );
-
-        assert_eq!(new.keybindings.len(), len, "re-keying must not append");
-        assert_eq!(
-            new.keybindings[index].keycode,
-            Value::test_string("up"),
-            "the binding was not re-keyed in place"
-        );
-        assert!(warning.is_none(), "re-keying a lone name must not warn");
-    }
-
-    /// A changed mode set is a re-key too, not a sibling binding.
-    #[test]
-    fn a_named_binding_with_a_changed_mode_replaces_instead_of_appending() {
-        let old = Config::default();
-        let mut new = old.clone();
-
-        assign(
-            &mut new,
-            &old,
-            vec![keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_string("emacs"),
-            )],
-        );
-        let warning = assign(
-            &mut new,
-            &old,
-            vec![keybinding(
-                Some("atuin"),
-                "control",
-                "char_r",
-                Value::test_list(vec![
-                    Value::test_string("vi_normal"),
-                    Value::test_string("vi_insert"),
-                ]),
-            )],
-        );
-
-        assert_eq!(count_named(&new, "atuin"), 1, "the mode change appended");
-        assert!(warning.is_none());
-    }
-
-    /// Assigning an empty list is the reset escape hatch.
+    /// Assigning an empty list clears every binding.
     #[test]
     fn assigning_an_empty_list_clears_the_keybindings() {
         let old = Config::default();
@@ -810,5 +634,252 @@ mod tests {
 
         assign(&mut new, &old, vec![]);
         assert!(new.keybindings.is_empty(), "`= []` should reset the list");
+    }
+
+    /// The list is stored as written, so entries that bind the same key stay
+    /// and keep their order. Reedline applies them in that order, thus the
+    /// last one wins.
+    #[test]
+    fn the_list_is_stored_as_written() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let mut first = atuin();
+        first.event = Value::test_string("first");
+        let mut second = atuin();
+        second.event = Value::test_string("second");
+        assign(&mut new, &old, vec![first, second]);
+
+        assert_eq!(new.keybindings.len(), 2);
+        assert_eq!(new.keybindings[0].event, Value::test_string("first"));
+        assert_eq!(new.keybindings[1].event, Value::test_string("second"));
+    }
+
+    /// The atuin case (nushell/nushell#18848): one name on two keys is two
+    /// bindings.
+    #[test]
+    fn a_shared_name_on_different_keys_keeps_both_bindings() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        append(
+            &mut new,
+            &old,
+            vec![
+                atuin(),
+                keybinding(Some("atuin"), "none", "up", Value::test_string("emacs")),
+            ],
+        );
+
+        assert_eq!(count_named(&new, "atuin"), 2);
+    }
+
+    // --- an entry that cannot be read rejects the whole list ---
+
+    /// Run one `$env.config.<field> = [...]` assignment that may be rejected.
+    fn try_assign_list<T: IntoValue>(
+        config: &mut Config,
+        old: &Config,
+        field: &str,
+        items: Vec<T>,
+    ) -> Result<(), ShellError> {
+        let list = Value::test_list(
+            items
+                .into_iter()
+                .map(|item| item.into_value(Span::test_data()))
+                .collect(),
+        );
+        let value = Value::test_record(record! { field => list });
+        config.update_from_value(old, &value).map(drop)
+    }
+
+    /// Run one `$env.config.keybindings = [...]` assignment that may be rejected.
+    fn try_assign(
+        config: &mut Config,
+        old: &Config,
+        keybindings: Vec<ParsedKeybinding>,
+    ) -> Result<(), ShellError> {
+        try_assign_list(config, old, "keybindings", keybindings)
+    }
+
+    /// Run one `$env.config.menus = [...]` assignment that may be rejected.
+    fn try_assign_menus(
+        config: &mut Config,
+        old: &Config,
+        menus: Vec<ParsedMenu>,
+    ) -> Result<(), ShellError> {
+        try_assign_list(config, old, "menus", menus)
+    }
+
+    /// One bad entry among good ones: the list is rejected and the old one stays,
+    /// like `table.mode = "bogus"` keeps the old mode.
+    #[test]
+    fn an_entry_that_cannot_be_read_rejects_the_whole_list() {
+        let old = Config::default();
+        let emacs = Value::test_string("emacs");
+        let faulty = [
+            keybinding(Some("bad_key"), "control", "nonsense", emacs.clone()),
+            keybinding(Some("bad_modifier"), "bogus", "char_t", emacs),
+            keybinding(
+                Some("bad_mode"),
+                "control",
+                "char_t",
+                Value::test_string("bogus"),
+            ),
+            keybinding(
+                Some("bad_char"),
+                "control",
+                "char_ab",
+                Value::test_string("emacs"),
+            ),
+        ];
+
+        for bad in faulty {
+            let name = bad
+                .name
+                .as_ref()
+                .map(|name| name.to_expanded_string("", &old));
+            let mut new = old.clone();
+            let result = try_assign(&mut new, &old, vec![atuin(), bad]);
+
+            assert!(result.is_err(), "{name:?} was accepted");
+            assert_eq!(
+                new.keybindings.len(),
+                old.keybindings.len(),
+                "{name:?} changed the list"
+            );
+            assert_eq!(
+                count_named(&new, "atuin"),
+                0,
+                "{name:?} let a good entry through"
+            );
+        }
+    }
+
+    /// The scenario from a reload: a broken entry is appended, then the fixed
+    /// config appends a good one. Only the good one ends up in the list.
+    #[test]
+    fn a_fixed_entry_appended_after_a_rejected_one_is_accepted() {
+        let old = Config::default();
+        let mut new = old.clone();
+        let broken = || {
+            keybinding(
+                Some("mine"),
+                "control",
+                "nonsense",
+                Value::test_string("emacs"),
+            )
+        };
+        let fixed = || {
+            keybinding(
+                Some("mine"),
+                "control",
+                "char_t",
+                Value::test_string("emacs"),
+            )
+        };
+
+        let mut list = new.keybindings.clone();
+        list.push(broken());
+        assert!(try_assign(&mut new, &old, list).is_err());
+        assert_eq!(new.keybindings.len(), old.keybindings.len());
+
+        let mut list = new.keybindings.clone();
+        list.push(fixed());
+        assert!(try_assign(&mut new, &old, list).is_ok());
+        assert_eq!(count_named(&new, "mine"), 1);
+    }
+
+    /// A rejected list is not a rejected config: other fields in the same
+    /// record are still applied, as for any other value that can't be read.
+    #[test]
+    fn a_rejected_list_does_not_stop_other_fields() {
+        let old = Config::default();
+        let mut new = old.clone();
+        let bad = keybinding(
+            Some("bad"),
+            "control",
+            "nonsense",
+            Value::test_string("emacs"),
+        );
+        let value = Value::test_record(record! {
+            "keybindings" => Value::test_list(vec![bad.into_value(Span::test_data())]),
+            "error_lines" => Value::test_int(old.error_lines + 3),
+        });
+
+        assert!(new.update_from_value(&old, &value).is_err());
+        assert_eq!(new.error_lines, old.error_lines + 3);
+        assert_eq!(new.keybindings.len(), old.keybindings.len());
+    }
+
+    /// An event needs reedline's types to be read, so it is read when the prompt
+    /// is built and not when the list is assigned.
+    #[test]
+    fn an_event_is_not_checked_on_assignment() {
+        let old = Config::default();
+        let mut new = old.clone();
+        let mut entry = atuin();
+        entry.event = Value::test_record(record! { "send" => Value::test_string("bogus") });
+
+        assert!(try_assign(&mut new, &old, vec![entry]).is_ok());
+        assert_eq!(new.keybindings.len(), 1);
+    }
+
+    /// Entries without any mode bind nothing, but the key is checked all the same.
+    #[test]
+    fn an_entry_with_no_mode_still_needs_a_key_that_can_be_read() {
+        let old = Config::default();
+        let no_modes = Value::test_list(vec![]);
+
+        let mut new = old.clone();
+        let readable = keybinding(Some("idle"), "control", "char_t", no_modes.clone());
+        assert!(try_assign(&mut new, &old, vec![readable]).is_ok());
+
+        let mut new = old.clone();
+        let unreadable = keybinding(Some("idle"), "control", "nonsense", no_modes);
+        assert!(try_assign(&mut new, &old, vec![unreadable]).is_err());
+        assert_eq!(new.keybindings.len(), old.keybindings.len());
+    }
+
+    /// A menu whose layout can't be read rejects the whole list too.
+    #[test]
+    fn a_menu_that_cannot_be_read_rejects_the_whole_list() {
+        let old = Config::default();
+
+        let mut grid = old.menus[0].clone();
+        grid.name = Value::test_string("grid_menu");
+        grid.r#type = Value::test_record(record! { "layout" => Value::test_string("grid") });
+        let mut no_layout = grid.clone();
+        no_layout.r#type = Value::test_record(record! {});
+        let mut not_a_record = grid.clone();
+        not_a_record.r#type = Value::test_string("columnar");
+
+        // The modes are read on assignment too, not only the layout.
+        let mut bad_input_mode = old.menus[0].clone();
+        bad_input_mode.input_mode = Some(Value::test_string("bogus"));
+        let mut no_input_mode = old.menus[0].clone();
+        no_input_mode.input_mode = None;
+        no_input_mode.only_buffer_difference = None;
+        let mut bad_flag = no_input_mode.clone();
+        bad_flag.only_buffer_difference = Some(Value::test_int(3));
+        let mut bad_output_mode = old.menus[0].clone();
+        bad_output_mode.output_mode = Some(Value::test_string("bogus"));
+
+        for bad in [
+            grid,
+            no_layout,
+            not_a_record,
+            bad_input_mode,
+            no_input_mode,
+            bad_flag,
+            bad_output_mode,
+        ] {
+            let mut new = old.clone();
+            let good = old.menus[0].clone();
+            let result = try_assign_menus(&mut new, &old, vec![good, bad]);
+
+            assert!(result.is_err());
+            assert_eq!(menu_names(&new), menu_names(&old));
+        }
     }
 }

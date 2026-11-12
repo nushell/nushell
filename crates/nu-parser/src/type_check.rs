@@ -21,7 +21,7 @@ fn type_error(
             op_span,
             lhs_span: lhs.span,
             rhs_span: rhs.span,
-            help: None,
+            help: op.incompatible_types_help(&lhs.ty, &rhs.ty),
         },
         (true, false) => ParseError::OperatorUnsupportedType {
             op: op.as_str(),
@@ -297,6 +297,26 @@ fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     operator_check(op, Type::Bool, lhs, rhs)
 }
 
+/// The result type of `older-than` and `newer-than`: a datetime on the left, and a datetime or a
+/// duration (counted back from now) on the right. `nothing` passes through, as it does for `<`.
+///
+/// An `any` operand doesn't excuse the other one: `where modified older-than '2wk'` has an `any`
+/// column on the left, and the quoted duration on the right is still an error. Where the other
+/// operand fits, an `any` makes the result `bool`, as it does for `<`.
+fn point_in_time_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+        Some(match (lhs, rhs) {
+            (Type::Date, Type::Date | Type::Duration) => Type::Bool,
+            (Type::Custom(a), _) | (Type::Any, Type::Custom(a)) => custom_comparison_type(a),
+            (Type::Any, Type::Date | Type::Duration | Type::Nothing | Type::Any)
+            | (Type::Date | Type::Nothing, Type::Any) => Type::Bool,
+            (Type::Nothing, _) | (_, Type::Nothing) => Type::Nothing,
+            _ => return None,
+        })
+    }
+    operator_check(op, None, lhs, rhs)
+}
+
 fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
@@ -310,10 +330,25 @@ fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
     operator_check(op, None, lhs, rhs)
 }
 
+/// The type of `-x` for an operand of type `ty`, or `None` if values of that type can't be
+/// negated. Negation multiplies by -1, so it is typed like that multiplication.
+pub fn negation_type(ty: &Type) -> Option<Type> {
+    math::multiply(ty, &Type::Int)
+}
+
 fn in_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    /// Whether a value of type `t` can be equal to an element of type `u`. Ints and floats
+    /// compare by value at runtime (`1 == 1.0`), so they are compatible here too.
+    fn element_compatible(t: &Type, u: &Type) -> bool {
+        match u {
+            Type::OneOf(members) => members.iter().any(|u| element_compatible(t, u)),
+            u => type_compatible(t, u) || number_types(t, u).is_some(),
+        }
+    }
+
     fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
         Some(match (lhs, rhs) {
-            (t, Type::List(u)) if type_compatible(t, u) => Type::Bool,
+            (t, Type::List(u)) if element_compatible(t, u) => Type::Bool,
             (Type::Int | Type::Float | Type::Number, Type::Range) => Type::Bool,
             (Type::String, Type::String) => Type::Bool,
             (Type::String, Type::Record(_)) => Type::Bool,
@@ -557,6 +592,17 @@ pub fn math_result_type(
                 type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
             }
         },
+        Operator::Comparison(Comparison::OlderThan | Comparison::NewerThan) => {
+            match point_in_time_cmp_op(&lhs.ty, &rhs.ty) {
+                Some(ty) => (ty, None),
+                None => {
+                    *op = Expression::garbage(working_set, op.span);
+                    type_error(operator, op.span, lhs, rhs, |ty| {
+                        matches!(ty, Type::Date | Type::Duration)
+                    })
+                }
+            }
+        }
         Operator::Comparison(Comparison::In | Comparison::NotIn) => match in_op(&lhs.ty, &rhs.ty) {
             Some(ty) => (ty, None),
             None => {
@@ -716,11 +762,8 @@ pub fn check_pipeline_type(
             continue;
         }
 
-        let signature = working_set.get_decl_signature_shared(call.decl_id);
-
-        let output_type = signature
-            // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
-            .get_output_type(Some(&input_type));
+        // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
+        let output_type = working_set.decl_output_type(call.decl_id, Some(&input_type));
 
         if let Some(output_type) = output_type {
             input_type = output_type;
@@ -742,7 +785,9 @@ pub fn check_pipeline_type(
 
         output_errors.push(ParseError::InputMismatch(types_string, call.head));
 
-        input_type = signature.get_output_type(None).unwrap_or(Type::Any);
+        input_type = working_set
+            .decl_output_type(call.decl_id, None)
+            .unwrap_or(Type::Any);
     }
 
     if output_errors.is_empty() {

@@ -30,7 +30,7 @@ impl Command for StorUpdate {
             .named(
                 "update-record",
                 SyntaxShape::record(),
-                "A record of column names and column values to update in the specified table.",
+                "A record of column names and column values to update in the specified table. Takes precedence over pipeline input.",
                 Some('u'),
             )
             .named(
@@ -111,45 +111,30 @@ fn handle(
     update_record: Option<Record>,
     input: PipelineData,
 ) -> Result<Record, ShellError> {
+    // The flag wins over the input: the first statement of a block receives the block's
+    // input implicitly, so `each {|r| stor update -t t -u $r }` gets both.
+    if let Some(record) = update_record {
+        return Ok(record);
+    }
+
     match input {
-        PipelineData::Empty => update_record.ok_or_else(|| ShellError::MissingParameter {
+        PipelineData::Empty => Err(ShellError::MissingParameter {
             param_name: "requires a record".into(),
             span,
         }),
-        PipelineData::Value(value, ..) => {
-            // Since input is being used, check if the data record parameter is used too
-            if update_record.is_some() {
-                return Err(ShellError::Generic(GenericError::new(
-                    "Pipeline and Flag both being used",
-                    "Use either pipeline input or '--update-record' parameter",
-                    span,
-                )));
-            }
-            match value {
-                Value::Record { val, .. } => Ok(val.into_owned()),
-                val => Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "record".into(),
-                    wrong_type: val.get_type().to_string(),
-                    dst_span: span,
-                    src_span: val.span(),
-                }),
-            }
-        }
-        _ => {
-            if update_record.is_some() {
-                return Err(ShellError::Generic(GenericError::new(
-                    "Pipeline and Flag both being used",
-                    "Use either pipeline input or '--update-record' parameter",
-                    span,
-                )));
-            }
-            Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "record".into(),
-                wrong_type: "".into(),
-                dst_span: span,
-                src_span: span,
-            })
-        }
+        PipelineData::Value(Value::Record { val, .. }, ..) => Ok(val.into_owned()),
+        PipelineData::Value(val, ..) => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "record".into(),
+            wrong_type: val.get_type().to_string(),
+            dst_span: span,
+            src_span: val.span(),
+        }),
+        _ => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "record".into(),
+            wrong_type: "".into(),
+            dst_span: span,
+            src_span: span,
+        }),
     }
 }
 

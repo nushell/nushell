@@ -245,6 +245,13 @@ fn flatten_expression_into(
             ));
             flatten_expression_into(working_set, not, output);
         }
+        Expr::UnaryMinus(operand) => {
+            output.push((
+                Span::new(expr.span.start, expr.span.start + 1),
+                FlatShape::Operator,
+            ));
+            flatten_expression_into(working_set, operand, output);
+        }
         Expr::Collect(_, expr) => {
             flatten_expression_into(working_set, expr, output);
         }

@@ -129,10 +129,8 @@ groups as its argument. It must return a string that will be used as a replaceme
     ) -> Result<PipelineData, ShellError> {
         let find: Spanned<String> = call.req(engine_state, stack, 0)?;
         let replace = match call.req(engine_state, stack, 1)? {
-            Value::Closure {
-                val, internal_span, ..
-            } => Ok(ReplacementValue::Closure(Box::new(
-                ClosureEval::new(engine_state, stack, *val).into_spanned(internal_span),
+            Value::Closure { val, .. } => Ok(ReplacementValue::Closure(Box::new(
+                ClosureEval::try_new(engine_state, stack, *val, call.head)?.into_spanned(call.head),
             ))),
             Value::String {
                 val, internal_span, ..

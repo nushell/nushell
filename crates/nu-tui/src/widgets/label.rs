@@ -22,7 +22,9 @@ pub enum Slot {
 impl Slot {
     pub fn as_str(self) -> &'static str {
         match self {
-            Slot::Title => "title",
+            // Named after `--titlebar`; a bordered widget's `--title` is a
+            // different thing.
+            Slot::Title => "titlebar",
             Slot::Content => "content",
             Slot::Status => "status",
         }

@@ -19,12 +19,17 @@ pub(crate) fn compile_if(
     // Pseudocode:
     //
     //        %io_reg <- <condition>
-    //        not %io_reg
-    //        branch-if %io_reg, FALSE
+    //        collect %io_reg
+    //        branch-if %io_reg, TRUE
+    //        jump FALSE
     // TRUE:  ...<true_block>...
     //        jump END
     // FALSE: ...<else_expr>... OR drop %io_reg
     // END:
+    //
+    // Branching on the condition itself, as `while` does, makes a non-bool condition the same
+    // "expected bool" type mismatch in both keywords. Collecting it first runs a stream to its
+    // end, so a failing command in the condition reports its own error.
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "if".into(),
         span: call.head,
@@ -41,31 +46,27 @@ pub(crate) fn compile_if(
     let false_label = builder.label(None);
     let end_label = builder.label(None);
 
-    let not_condition_reg = {
-        // Compile the condition first
-        let condition_reg = builder.next_register()?;
-        compile_expression(
-            working_set,
-            builder,
-            condition,
-            RedirectModes::value(condition.span),
-            None,
-            condition_reg,
-        )?;
+    // Compile the condition first
+    let condition_reg = builder.next_register()?;
+    compile_expression(
+        working_set,
+        builder,
+        condition,
+        RedirectModes::value(condition.span),
+        None,
+        condition_reg,
+    )?;
 
-        // Negate the condition - we basically only want to jump if the condition is false
-        builder.push(
-            Instruction::Not {
-                src_dst: condition_reg,
-            }
-            .into_spanned(call.head),
-        )?;
-
-        condition_reg
-    };
-
-    // Set up a branch if the condition is false.
-    builder.branch_if(not_condition_reg, false_label, call.head)?;
+    // Branch to the true case, and jump to the false case otherwise.
+    builder.push(
+        Instruction::Collect {
+            src_dst: condition_reg,
+        }
+        .into_spanned(condition.span),
+    )?;
+    builder.branch_if(condition_reg, true_label, call.head)?;
+    builder.add_comment("if true");
+    builder.jump(false_label, call.head)?;
     builder.add_comment("if false");
 
     // Compile the true case
@@ -448,7 +449,8 @@ pub(crate) fn compile_try(
     //       try-collect %io_reg                     // `finally`
     //       begin-finally                           // `finally`
     // FINALLY:                                      // `finally`; unwinding jumps here as well
-    //       clone %result_reg, %io_reg
+    //       move %result_reg, %io_reg
+    //       clone %io_reg, %result_reg
     //       store-variable $finally_var, %io_reg    // `finally` with a parameter (via a clone)
     //       %io_reg <- <...finally block...> <- %io_reg
     //       move %io_reg, %result_reg
@@ -462,6 +464,10 @@ pub(crate) fn compile_try(
     //       call "do", %io_reg
     //
     // where %closure_reg was evaluated before the handlers were pushed.
+    //
+    // `try-collect` leaves an external whose stderr has its own pipe (the next command is
+    // `complete`, `ignore`, `save` or `tee`) as a stream. %result_reg keeps that stream, so the
+    // next command still gets its stderr, and `clone` gives `finally` its stdout as a value.
     //
     // At runtime, `begin-finally` swaps the `finally` handler for a "running" marker, and
     // `end-finally` pops that marker. When control unwinds into the `finally` block instead (an
@@ -708,11 +714,26 @@ pub(crate) fn compile_try(
         // Only the running marker of this `finally` is on the handler stack while it runs.
         builder.begin_try(1);
 
-        // Preserve the value produced by `try`/`catch`: `finally` can observe it
+        // Preserve the value produced by `try`/`catch`: `finally` can observe a copy of it
         // but its own pipeline result should not replace the overall `try` expression result.
-        let preserved_result_reg = builder.clone_reg(io_reg, call.head)?;
+        // The original is kept rather than the copy, so a passed-on external keeps its stderr.
+        let preserved_result_reg = builder.next_register()?;
+        builder.push(
+            Instruction::Move {
+                dst: preserved_result_reg,
+                src: io_reg,
+            }
+            .into_spanned(call.head),
+        )?;
+        builder.push(
+            Instruction::Clone {
+                dst: io_reg,
+                src: preserved_result_reg,
+            }
+            .into_spanned(call.head),
+        )?;
         if let Some(var_id) = finally_part.var_id {
-            let value_reg = builder.clone_reg(io_reg, call.head)?;
+            let value_reg = builder.clone_reg(preserved_result_reg, call.head)?;
             builder.push(
                 Instruction::StoreVariable {
                     var_id,
@@ -894,6 +915,8 @@ pub(crate) fn compile_while(
         io_reg,
     )?;
 
+    // Collect the condition first, as `if` does, so a failing command in it reports its own error.
+    builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(cond_arg.span))?;
     builder.branch_if(io_reg, true_label, call.head)?;
     builder.add_comment("while");
     builder.jump(loop_.break_label, call.head)?;
@@ -952,11 +975,6 @@ pub(crate) fn compile_for(
         keyword: "for".into(),
         span: call.head,
     };
-
-    if call.get_named_arg("numbered").is_some() {
-        // This is deprecated and we don't support it.
-        return Err(invalid());
-    }
 
     let (var_decl_arg, in_arg, block_arg) = Some(call.positional_iter())
         .and_then(|mut iter| Some((iter.next()?, iter.next()?, iter.next()?)))

@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, nu_highlight_string};
 
 #[derive(Clone)]
 pub struct Tutor;
@@ -302,8 +302,9 @@ tutor echo
 
 fn echo_tutor() -> &'static str {
     r#"
-The `echo` command in Nushell is a powerful tool for not only seeing values,
-but also for creating new ones.
+The `echo` command returns the values you give it. Most of the time you
+don't need it: a value on its own, like `"Hello"`, does the same thing as
+`echo "Hello"`.
 ```
 echo "Hello"
 ```
@@ -318,7 +319,7 @@ example, `echo` will create the values from 1 to 10 as a list.
 echo 1 2 3 4 5
 ```
 You can also create lists of values by passing `echo` multiple arguments.
-This can be helpful if you want to later processes these values.
+This can be helpful if you want to process these values later.
 
 The `echo` command can pair well with the `each` command which can run
 code on each row, or item, of input.
@@ -441,8 +442,8 @@ if $score >= 90 {
 }
 ```
 
-The `if` command returns a nushell value, so it can be store in a variable or
-use in a pipeline:
+The `if` command returns a nushell value, so it can be stored in a variable or
+used in a pipeline:
 ```
 let result = if 10 > 5 { "yes" } else { "no" }
 $result
@@ -720,26 +721,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
             code_mode = false;
 
             //TODO: support no-color mode
-            if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
-                let decl = engine_state.get_decl(highlighter);
-                let result = decl.run(
-                    engine_state,
-                    stack,
-                    &Call::new(span),
-                    Value::string(item, span).into_pipeline_data(),
-                );
-
-                if let Ok(value) = result.and_then(|data| data.into_value(span)) {
-                    match value.coerce_into_string() {
-                        Ok(s) => {
-                            build.push_str(&s);
-                        }
-                        _ => {
-                            build.push_str(item);
-                        }
-                    }
-                }
-            }
+            build.push_str(&nu_highlight_string(item, engine_state, stack, span));
         } else {
             code_mode = true;
             build.push_str(item);
@@ -756,5 +738,13 @@ mod tests {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(Tutor)
+    }
+
+    #[test]
+    fn display_keeps_code_without_nu_highlight() -> nu_test_support::Result {
+        let span = Span::test_data();
+        let shown = display("run `ls` now", &EngineState::new(), &mut Stack::new(), span);
+        assert_eq!(shown.into_value(span)?.into_string()?, "run ls now");
+        Ok(())
     }
 }

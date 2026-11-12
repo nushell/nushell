@@ -1,4 +1,4 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, scope::ScopeData};
 use nu_protocol::{
     Config, DeclId, PipelineMetadata, Span, VarId,
     ast::{Expr, Expression, Traverse},
@@ -47,8 +47,8 @@ built on a large module can pull in a lot of output.
 A constant is rebuilt the same way, as `const <name> = <value>`, because only
 the name is recorded with a source span. So the value is the one the command
 actually reads: an expression such as `path self` shows up already resolved,
-and an explicit type annotation is lost. `$nu` and the record bound by `use
-<module>` are left out — neither is written as a `const` anywhere."
+and an explicit type annotation is lost. `$nu` and the record bound by
+`use <module>` are left out — neither is written as a `const` anywhere."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -146,7 +146,11 @@ and an explicit type annotation is lost. `$nu` and the record bound by `use
             }
 
             Value::String { val, .. } => {
-                if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
+                // Why: the engine state only knows the global scope. Looking through the stack's
+                // scope first also finds commands, aliases and modules defined in the running
+                // block, like inside a closure.
+                let scope = ScopeData::new(engine_state, stack);
+                if let Some(decl_id) = scope.find_decl(val.as_bytes(), call.head) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
 
@@ -235,7 +239,7 @@ and an explicit type annotation is lost. `$nu` and the record bound by `use
                             arg_span,
                         )))
                     }
-                } else if let Some(module_id) = engine_state.find_module(val.as_bytes(), &[]) {
+                } else if let Some(module_id) = scope.find_module(val.as_bytes(), call.head) {
                     // arg is a module
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {
@@ -264,7 +268,7 @@ and an explicit type annotation is lost. `$nu` and the record bound by `use
             }
             value => {
                 if let Ok(closure) = value.as_closure() {
-                    let block = engine_state.get_block(closure.block_id);
+                    let block = engine_state.get_closure_block(closure, call.head)?;
 
                     if let Some(span) = block.span {
                         let contents = engine_state.get_span_contents(span);

@@ -19,8 +19,8 @@ impl Command for Where {
 A condition can be either a "row condition" or a closure. A row condition is a special short-hand syntax to makes accessing fields easier.
 Each element of the input can be accessed through the `$it` variable.
 
-On the left hand side of a row condition, any field name is automatically expanded to use `$it`.
-For example, `where type == dir` is equivalent to `where $it.type == dir`. This expansion does not happen when passing a subexpression or closure to `where`.
+In a row condition, a field name on the left of an operator, or on either side of `and`, `or` and `xor`, is automatically expanded to use `$it`.
+For example, `where type == dir` is equivalent to `where $it.type == dir`, and `where a and not b` to `where $it.a and not $it.b`. The right side of a comparison stays a value, so `dir` above is a string. This expansion does not happen when passing a subexpression or closure to `where`.
 
 When using a closure, the element is passed as an argument and as pipeline input (`$in`) to the closure. Unlike row conditions, the `$it` variable isn't available inside closures.
 
@@ -64,7 +64,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
         let metadata = input.take_metadata();
         Ok(input
@@ -107,7 +107,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
             },
             Example {
                 description: "List all files that were modified in the last two weeks.",
-                example: "ls | where modified >= (date now) - 2wk",
+                example: "ls | where modified newer-than 2wk",
                 result: None,
             },
             Example {

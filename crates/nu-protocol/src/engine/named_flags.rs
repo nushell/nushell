@@ -127,7 +127,6 @@ pub fn expand_flag_record(
                 short: short_slice,
                 span: spread_span,
                 val,
-                ast: None,
             });
         }
     }
@@ -137,6 +136,15 @@ pub fn expand_flag_record(
 /// Whether this signature can accept a list rest spread.
 pub fn can_rest_spread(signature: &Signature) -> bool {
     signature.rest_positional.is_some() || signature.allows_unknown_args
+}
+
+/// Error when a list is spread into a command that has no rest parameter to receive it.
+pub fn list_spread_without_rest_error(spread_span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "Cannot spread a list into this command",
+        "This command has no ...rest parameter to receive a list spread. Use a record to spread named flags, e.g. ...{flag: value}",
+        spread_span,
+    ))
 }
 
 /// Error when a list (or null rest-mode) is spread while required positionals remain unbound.
@@ -166,7 +174,6 @@ pub fn normalize_engine_arguments(
                 short,
                 span,
                 val: Value::Nothing { .. },
-                ast,
             } => {
                 let accepts = find_signature_flag(signature, &data[name], &data[short])
                     .is_some_and(flag_type_accepts_nothing);
@@ -177,7 +184,6 @@ pub fn normalize_engine_arguments(
                         short,
                         span,
                         val: Value::nothing(span),
-                        ast,
                     });
                 }
                 // else: null → omit
@@ -185,7 +191,6 @@ pub fn normalize_engine_arguments(
             Argument::Spread {
                 vals,
                 span: spread_span,
-                ast,
             } => match vals {
                 Value::Record { val, .. } => {
                     expanded.extend(expand_flag_record(
@@ -196,23 +201,17 @@ pub fn normalize_engine_arguments(
                 }
                 Value::List { .. } => {
                     if !can_rest_spread(signature) {
-                        return Err(ShellError::Generic(GenericError::new(
-                            "Cannot spread a list into this command",
-                            "This command has no ...rest parameter to receive a list spread. Use a record to spread named flags, e.g. ...{flag: value}",
-                            spread_span,
-                        )));
+                        return Err(list_spread_without_rest_error(spread_span));
                     }
                     expanded.push(Argument::Spread {
                         vals,
                         span: spread_span,
-                        ast,
                     });
                 }
                 Value::Nothing { .. } | Value::Error { .. } => {
                     expanded.push(Argument::Spread {
                         vals,
                         span: spread_span,
-                        ast,
                     });
                 }
                 other => {

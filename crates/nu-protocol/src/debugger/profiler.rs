@@ -357,6 +357,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Subexpression(_) => "subexpression".to_string(),
         Expr::Table(_) => "table".to_string(),
         Expr::UnaryNot(_) => "unary not".to_string(),
+        Expr::UnaryMinus(_) => "unary minus".to_string(),
         Expr::ValueWithUnit(_) => "value with unit".to_string(),
         Expr::Var(_) => "var".to_string(),
         Expr::VarDecl(_) => "var decl".to_string(),

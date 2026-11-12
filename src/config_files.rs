@@ -6,6 +6,7 @@ use nu_cli::{
     report_startup_file_not_found,
 };
 use nu_config::ConfigFileKind;
+use nu_engine::exit::kill_jobs_and_exit;
 use nu_protocol::{
     Config, PipelineData, Spanned,
     engine::{EngineState, Stack},
@@ -99,7 +100,7 @@ pub(crate) fn read_config_file(
             let startup = StartupLoadContext::new(startup_kind, config_path.clone());
             report_startup_file_not_found(engine_state, &display_path, span, Some(&startup));
             if strict_mode {
-                std::process::exit(1);
+                kill_jobs_and_exit(engine_state, 1);
             }
         }
         return;

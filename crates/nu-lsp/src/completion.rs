@@ -426,7 +426,17 @@ mod tests {
             "kind": 2
         },
     ]))]
-    #[case::command_basic("command.nu", (0, 6), None, serde_json::json!([
+    #[case::command_prefix_ignores_untyped_argument("command.nu", (0, 6), None, serde_json::json!([
+        { "label": "config", "detail": "Edit nushell configuration files.", "kind": 3 },
+        {
+            "label": "config default",
+            "detail": "Show the default configuration.",
+            "textEdit": { "range": { "start": { "line": 0, "character": 0 }, "end": { "line": 0, "character": 6 } },
+                "newText": "config default "
+            }
+        }
+    ]))]
+    #[case::command_multiword_prefix("command.nu", (0, 8), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 },
         {
             "label": "config nu",

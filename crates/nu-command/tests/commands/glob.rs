@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use rstest::rstest;
@@ -39,7 +39,10 @@ fn nonempty_glob_lists_matching_paths() -> Result {
     })
 }
 
+// wax also lists the start directory for `**/*`; dc-glob doesn't copy that, so this test pins the
+// legacy backend and `glob_subdirs_dc_glob` covers dc-glob.
 #[test]
+#[exp(nu_experimental::DC_GLOB = false)]
 fn glob_subdirs() -> Result {
     Playground::setup("glob_subdirs", |dirs, sandbox| {
         sandbox.with_files(&[
@@ -58,6 +61,30 @@ fn glob_subdirs() -> Result {
             .cwd(dirs.test())
             .run("glob '**/*' | length")
             .expect_value_eq(8)
+    })
+}
+
+/// `**/*` lists the six files and the `children` directory, but not the start directory.
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_subdirs_dc_glob() -> Result {
+    Playground::setup("glob_subdirs_dc_glob", |dirs, sandbox| {
+        sandbox.with_files(&[
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jttxt"),
+            EmptyFile("andres.txt"),
+        ]);
+        sandbox.mkdir("children");
+        sandbox.within("children").with_files(&[
+            EmptyFile("timothy.txt"),
+            EmptyFile("tiffany.txt"),
+            EmptyFile("trish.txt"),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run("glob '**/*' | length")
+            .expect_value_eq(7)
     })
 }
 
@@ -117,7 +144,6 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
 #[rstest]
 #[case(".", "'*z'", &["ablez", "baker", "charliez"], &["ablez", "charliez"], "simple glob")]
 #[case(".", "'qqq'", &["ablez", "baker", "charliez"], &[], "glob matches none")]
-#[case("foo/bar", r"'*[\]}]*'", &["foo/bar/ab}le", "foo/bar/baker", "foo/bar/cha]rlie"], &["foo/bar/ab}le", "foo/bar/cha]rlie"], "glob has quoted metachars")]
 #[case("foo/bar", "'../*'", &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/bar/../able", "foo/bar/../bar", "foo/bar/../charlie"], "glob matches files in parent")]
 #[case("foo", "'./{a,b}*'", &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/able", "foo/bar"], "glob with leading ./ matches peer files")]
 fn glob_files_in_parent(
@@ -166,6 +192,51 @@ fn glob_files_in_parent(
     });
 }
 
+/// wax lets `\` escape a class member. With dc-glob, `glob` follows nu-glob, where `[]}]` does
+/// that instead (see `glob_dc_glob_class_escape_and_dot_cwd`).
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn glob_wax_class_escape() -> Result {
+    Playground::setup("glob_wax_class_escape", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.within("foo/bar").with_files(&[
+            EmptyFile("ab}le"),
+            EmptyFile("baker"),
+            EmptyFile("cha]rlie"),
+        ]);
+
+        test()
+            .cwd(dirs.test().join("foo/bar"))
+            .run(r"glob '*[\]}]*' | path basename | sort")
+            .expect_value_eq(["ab}le", "cha]rlie"])
+    })
+}
+
+/// As with nu-glob, a `]` right after `[` is a class member, and a cwd ending in `.` doesn't put
+/// `/./` in the matches.
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_class_escape_and_dot_cwd() -> Result {
+    Playground::setup("glob_dc_escape_dot_cwd", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.within("foo/bar").with_files(&[
+            EmptyFile("ab}le"),
+            EmptyFile("baker"),
+            EmptyFile("cha]rlie"),
+        ]);
+
+        test()
+            .cwd(dirs.test().join("foo/bar"))
+            .run("glob '*[]}]*' | path basename | sort")
+            .expect_value_eq(["ab}le", "cha]rlie"])?;
+
+        test()
+            .cwd(dirs.test().join("foo/bar/."))
+            .run("glob 'b*' | each { str contains $'(char psep).(char psep)' }")
+            .expect_value_eq([false])
+    })
+}
+
 #[test]
 fn glob_follow_symlinks() -> Result {
     Playground::setup("glob_follow_symlinks", |dirs, sandbox| {
@@ -195,6 +266,53 @@ fn glob_follow_symlinks() -> Result {
 
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_explicit_relative_paths() -> Result {
+    Playground::setup("glob_dc_explicit_relative_paths", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("root.txt")]);
+        sandbox.within("a").with_files(&[EmptyFile("parent.txt")]);
+        sandbox.within("a/b").with_files(&[EmptyFile("local.txt")]);
+        sandbox
+            .within("a/b/deep")
+            .with_files(&[EmptyFile("nested.txt")]);
+        sandbox
+            .within("a/sibling")
+            .with_files(&[EmptyFile("sibling.txt")]);
+
+        for (pattern, expected) in [
+            (".", "[$cwd]"),
+            ("..", "[$parent]"),
+            ("./*.txt", "[($cwd | path join local.txt)]"),
+            ("../*.txt", "[($parent | path join parent.txt)]"),
+            ("../../*.txt", "[($root | path join root.txt)]"),
+            // As with nu-glob: the directories below the prefix.
+            (
+                "../**",
+                "[$cwd ($cwd | path join deep) ($parent | path join sibling)]",
+            ),
+            (
+                "../**/*.txt",
+                "[($parent | path join parent.txt) ($cwd | path join local.txt) ($cwd | path join deep/nested.txt) ($parent | path join sibling/sibling.txt)]",
+            ),
+        ] {
+            test()
+                .cwd(dirs.test().join("a/b"))
+                .run(format!(
+                    "let cwd = (pwd | path expand); \
+                     let parent = ($cwd | path dirname); \
+                     let root = ($parent | path dirname); \
+                     let expected = ({expected} | each {{ path expand }} | sort); \
+                     (glob '{pattern}' | each {{ path expand }} | sort) == $expected"
+                ))
+                .expect_value_eq(true)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_supports_depth_and_exclude() -> Result {
     Playground::setup("glob_dc_depth_exclude", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("three.txt"), EmptyFile("four.txt")]);
@@ -209,13 +327,33 @@ fn glob_dc_glob_supports_depth_and_exclude() -> Result {
     Ok(())
 }
 
+/// With dc-glob, `--exclude` takes `{a,b}` alternatives, as the pattern does.
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_exclude_braces() -> Result {
+    Playground::setup("glob_dc_exclude_braces", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a.rs")]);
+        sandbox.within("src").with_files(&[EmptyFile("x.rs")]);
+        sandbox.within("tests").with_files(&[EmptyFile("y.rs")]);
+        sandbox.within("docs").with_files(&[EmptyFile("z.rs")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("glob '**/*.rs' --exclude ['{src,tests}/**'] | path relative-to (pwd) | sort")
+            .expect_value_eq([
+                "a.rs".to_string(),
+                format!("docs{}z.rs", std::path::MAIN_SEPARATOR),
+            ])
+    })
+}
+
 /// Regression tests for https://github.com/nushell/nushell/issues/18600
 ///
-/// With dc-glob:
-/// - bare `**` lists directories (including the start dir), not files
+/// With dc-glob, `glob` follows nu-glob's rules:
+/// - bare `**` lists the directories below the start dir, not the start dir or files
 /// - `**/*` lists files and dirs under the start, **not** the start itself
 /// - extra `/*` segments enforce a minimum path depth
-/// - `foo/**` includes the prefix directory itself (directories only)
+/// - `foo/**` lists the directories below `foo`
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_recursive_depth_semantics() -> Result {
@@ -269,43 +407,44 @@ fn glob_dc_glob_recursive_depth_semantics() -> Result {
             .expect_value_eq(true)
             .expect("**/*/*/* should only match depth >= 3 paths");
 
-        // bare ** → directories only (start + 1 + 1/2 + 1/2/3 + foo + foo/bar)
+        // bare ** → the directories below the start: 1, 1/2, 1/2/3, foo, foo/bar
         let code = "
             let root = (pwd | path expand)
             let paths = (glob '**' | each { path expand } | sort)
             (
-                ($paths | length) == 6
-                and ($paths | any {|p| $p == $root })
+                ($paths | length) == 5
+                and not ($paths | any {|p| $p == $root })
                 and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
                 and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
                 and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
                 and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
                 and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                and not ($paths | any {|p| $p | str ends-with 'file.txt'})
-                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
             )
         ";
         test()
             .cwd(dirs.test())
             .run(code)
             .expect_value_eq(true)
-            .expect("bare ** should list start + nested dirs only, not files");
+            .expect("bare ** should list the directories below the start");
 
-        // foo/** includes foo itself and foo/bar, not files
-        let code = "
-            let paths = (glob 'foo/**' | each { path expand } | sort)
-            (
-                ($paths | length) == 2
-                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
-                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
-                and not ($paths | any {|p| $p | str ends-with 'sibling.txt'})
-            )
-        ";
+        // foo/** lists the directories below foo, not foo or its files
         test()
             .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(true)
-            .expect("foo/** should include foo and nested dirs, not files");
+            .run("glob 'foo/**' | path relative-to (pwd)")
+            .expect_value_eq([format!("foo{}bar", std::path::MAIN_SEPARATOR)])
+            .expect("foo/** should list the directories below foo");
+
+        // `*/**` lists the directories below `1` and `foo`, not them: `*` has to match a whole
+        // component.
+        test()
+            .cwd(dirs.test())
+            .run("glob '*/**' | path relative-to (pwd) | sort")
+            .expect_value_eq([
+                format!("1{}2", std::path::MAIN_SEPARATOR),
+                format!("1{0}2{0}3", std::path::MAIN_SEPARATOR),
+                format!("foo{}bar", std::path::MAIN_SEPARATOR),
+            ])
+            .expect("*/** should list the directories below the top-level ones");
     });
 
     Ok(())
@@ -514,4 +653,160 @@ fn glob_dc_glob_literal_prefix_wildcard_absolute() -> Result {
     });
 
     Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ignore_case_depth_counts_from_the_same_place() -> Result {
+    Playground::setup("glob_dc_ignore_case_depth", |dirs, sandbox| {
+        std::fs::create_dir_all(dirs.test().join("docs")).expect("can not create docs");
+        sandbox.with_files(&[FileWithContent("docs/note.md", "")]);
+
+        // With `-i` the traversal starts at the base directory and leaves the
+        // literal `docs` to the matcher, so `--depth` has to count from the
+        // same place either way. A `..` after the literal is the exception:
+        // the parent has to be resolved by the filesystem, so the literal goes
+        // into the traversal start directory together with it.
+        for pattern in [
+            "glob 'docs/*.md' | length",
+            "glob -i 'docs/*.md' | length",
+            "glob 'docs/../docs/*.md' | length",
+            "glob -i 'docs/../docs/*.md' | length",
+        ] {
+            test()
+                .cwd(dirs.test())
+                .run(pattern)
+                .expect_value_eq(1)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+
+        for pattern in [
+            "glob -d 1 'docs/*.md' | length",
+            "glob -i -d 1 'docs/*.md' | length",
+            "glob -d 1 'docs/../docs/*.md' | length",
+            "glob -i -d 1 'docs/../docs/*.md' | length",
+        ] {
+            test()
+                .cwd(dirs.test())
+                .run(pattern)
+                .expect_value_eq(1)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ignore_case_keeps_parent_components() -> Result {
+    Playground::setup("glob_dc_ignore_case_parent", |dirs, sandbox| {
+        std::fs::create_dir_all(dirs.test().join("docs/deep")).expect("can not create docs/deep");
+        sandbox.with_files(&[
+            FileWithContent("docs/note.md", ""),
+            FileWithContent("docs/deep/x.md", ""),
+        ]);
+
+        // A `..` after a literal component has to be resolved by the
+        // filesystem. With `-i` the literal used to be left to the matcher,
+        // so the traversal started above the `..` and never reached the
+        // parent: the pattern matched nothing.
+        for pattern in [
+            "glob 'docs/../docs/*.md' | length",
+            "glob -i 'docs/../docs/*.md' | length",
+            "glob 'docs/deep/../*.md' | length",
+            "glob -i 'docs/deep/../*.md' | length",
+        ] {
+            test()
+                .cwd(dirs.test())
+                .run(pattern)
+                .expect_value_eq(1)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_current_directory_has_no_trailing_separator() -> Result {
+    Playground::setup("glob_dc_current_directory", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("root.txt")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("(glob '.' | first) == (pwd)")
+            .expect_value_eq(true)
+            .expect("`glob .` should return the current directory without a trailing separator");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ignore_case_matches_literal_file() -> Result {
+    Playground::setup("glob_dc_ignore_case", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("README.md")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("glob -i readme.md | path basename | first")
+            .expect_value_eq("README.md")
+            .expect("`glob -i` should match a literal path that differs only in case");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_missing_path_returns_empty_list() -> Result {
+    Playground::setup("glob_dc_missing_path", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("root.txt")]);
+
+        for pattern in ["missing/x.txt", "missing/*.txt"] {
+            test()
+                .cwd(dirs.test())
+                .run(format!("glob '{pattern}' | length"))
+                .expect_value_eq(0)
+                .unwrap_or_else(|err| panic!("{pattern}: {err:?}"));
+        }
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn glob_matches_hidden_names_legacy_glob() -> Result {
+    check_glob_matches_hidden_names()
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_matches_hidden_names_dc_glob() -> Result {
+    check_glob_matches_hidden_names()
+}
+
+/// `glob` has no hidden-name rule: `*` and `**` match names that start with `.`, on both glob
+/// backends. It's the way to list every path, hidden ones included, where `rm`, `cp`, `mv` and
+/// `du` skip them without `--all`.
+fn check_glob_matches_hidden_names() -> Result {
+    Playground::setup("glob_matches_hidden_names", |dirs, sandbox| {
+        sandbox
+            .with_files(&[EmptyFile(".top"), EmptyFile("x")])
+            .within(".e")
+            .with_files(&[EmptyFile("y")]);
+
+        let names = |pattern: &str| -> Result<Vec<String>> {
+            test().cwd(dirs.test()).run(format!(
+                "glob '{pattern}' | each {{ path basename }} | sort"
+            ))
+        };
+        assert_eq!(names("*")?, [".e", ".top", "x"]);
+        assert_eq!(names("**/y")?, ["y"]);
+        Ok(())
+    })
 }

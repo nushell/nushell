@@ -77,7 +77,7 @@ impl Command for SkipUntil {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
         let metadata = input.take_metadata();
         Ok(input

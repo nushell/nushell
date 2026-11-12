@@ -1,7 +1,7 @@
 use nu_protocol::{
     CompileError, IntoSpanned, RegId, Span, Spanned,
     ast::Pattern,
-    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal, ScopeRegion},
+    ir::{DataSlice, Instruction, IrBlock, Literal, ScopeRegion},
 };
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.
@@ -21,8 +21,12 @@ pub(crate) struct BlockBuilder {
     /// an index actually set.
     pub(crate) labels: Vec<Option<usize>>,
     pub(crate) data: Vec<u8>,
-    pub(crate) ast: Vec<Option<IrAstRef>>,
-    pub(crate) comments: Vec<String>,
+    /// The comments of the instructions that have one, as (instruction index, comment) pairs.
+    /// Only the last instruction pushed ever gets one, so the indices increase. Few instructions
+    /// have one, so this is only expanded to one entry per instruction by [`finish()`].
+    ///
+    /// [`finish()`]: Self::finish
+    pub(crate) comments: Vec<(usize, String)>,
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
     pub(crate) context_stack: ContextStack,
@@ -39,7 +43,6 @@ impl BlockBuilder {
             spans: vec![],
             labels: vec![],
             data: vec![],
-            ast: vec![],
             comments: vec![],
             register_allocation_state: vec![true],
             file_count: 0,
@@ -237,7 +240,7 @@ impl BlockBuilder {
                 path,
                 append: _,
             } => allocate(&[*path], &[]),
-            Instruction::WriteFile { file_num: _, src } => allocate(&[*src], &[]),
+            Instruction::WriteFile { file_num: _, src } => allocate(&[*src], &[*src]),
             Instruction::CloseFile { file_num: _ } => Ok(()),
             Instruction::Call {
                 decl_id: _,
@@ -324,22 +327,25 @@ impl BlockBuilder {
 
         self.instructions.push(instruction.item);
         self.spans.push(instruction.span);
-        self.ast.push(None);
-        self.comments.push(String::new());
         Ok(())
     }
 
-    /// Set the AST of the last instruction. Separate method because it's rarely used.
-    pub(crate) fn set_last_ast(&mut self, ast_ref: Option<IrAstRef>) {
-        *self.ast.last_mut().expect("no last instruction") = ast_ref;
+    /// The index of the last instruction.
+    fn last_index(&self) -> usize {
+        self.instructions
+            .len()
+            .checked_sub(1)
+            .expect("no last instruction")
     }
 
     /// Add a comment to the last instruction.
-    pub(crate) fn add_comment(&mut self, comment: impl std::fmt::Display) {
-        add_comment(
-            self.comments.last_mut().expect("no last instruction"),
-            comment,
-        )
+    pub(crate) fn add_comment(&mut self, comment: &str) {
+        let index = self.last_index();
+        // An entry for the last instruction can only be the last entry.
+        match self.comments.last_mut() {
+            Some((last, text)) if *last == index => add_comment(text, comment, None, ""),
+            _ => self.comments.push((index, comment.to_string())),
+        }
     }
 
     /// Load a register with a literal.
@@ -572,13 +578,17 @@ impl BlockBuilder {
 
     /// Consume the builder and produce the final [`IrBlock`].
     pub(crate) fn finish(mut self) -> Result<IrBlock, CompileError> {
+        // One comment per instruction (empty for most). The comments added while building come
+        // first, then the label and branch comments below.
+        let mut comments = vec![String::new(); self.instructions.len()];
+        for (index, comment) in self.comments {
+            comments[index] = comment;
+        }
+
         // Add comments to label targets
         for (index, label_target) in self.labels.iter().enumerate() {
             if let Some(label_target) = label_target {
-                add_comment(
-                    &mut self.comments[*label_target],
-                    format_args!("label({index})"),
-                );
+                add_comment(&mut comments[*label_target], "label(", Some(index), ")");
             }
         }
 
@@ -594,10 +604,7 @@ impl BlockBuilder {
                     },
                 )?;
                 // Add a comment to the target index that we come from here
-                add_comment(
-                    &mut self.comments[target_index],
-                    format_args!("from({index}:)"),
-                );
+                add_comment(&mut comments[target_index], "from(", Some(index), ":)");
                 instruction.set_branch_target(target_index).map_err(|_| {
                     CompileError::SetBranchTargetOfNonBranchInstruction {
                         instruction: format!("{instruction:?}"),
@@ -611,8 +618,7 @@ impl BlockBuilder {
             instructions: self.instructions,
             spans: self.spans,
             data: self.data.into(),
-            ast: self.ast,
-            comments: self.comments.into_iter().map(|s| s.into()).collect(),
+            comments: comments.into_iter().map(String::into_boxed_str).collect(),
             register_count: self
                 .register_allocation_state
                 .len()
@@ -704,14 +710,45 @@ impl ContextStack {
     }
 }
 
-/// Add a new comment to an existing one
-fn add_comment(comment: &mut String, new_comment: impl std::fmt::Display) {
-    use std::fmt::Write;
-    write!(
-        comment,
-        "{}{}",
-        if comment.is_empty() { "" } else { ", " },
-        new_comment
-    )
-    .expect("formatting failed");
+/// Add a new comment to an existing one, separated by `, `: `prefix`, then `number` in decimal if
+/// there is one, then `suffix`. Builds the text directly rather than through `core::fmt`, as this
+/// runs for every label and branch of every compiled block.
+fn add_comment(comment: &mut String, prefix: &str, number: Option<usize>, suffix: &str) {
+    // The decimal digits of `number`, right-aligned in `digits`.
+    let mut digits = [0; 20];
+    let mut start = digits.len();
+    if let Some(mut number) = number {
+        loop {
+            start -= 1;
+            digits[start] = b'0' + (number % 10) as u8;
+            number /= 10;
+            if number == 0 {
+                break;
+            }
+        }
+    }
+    let digits = &digits[start..];
+
+    let separator = if comment.is_empty() { "" } else { ", " };
+    comment.reserve_exact(separator.len() + prefix.len() + digits.len() + suffix.len());
+    comment.push_str(separator);
+    comment.push_str(prefix);
+    comment.extend(digits.iter().map(|&digit| char::from(digit)));
+    comment.push_str(suffix);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::add_comment;
+
+    #[test]
+    fn add_comment_writes_what_format_writes() {
+        for number in [0, 7, 9, 10, 99, 100, 12345, usize::MAX] {
+            let mut comment = String::new();
+            add_comment(&mut comment, "label(", Some(number), ")");
+            add_comment(&mut comment, "from(", Some(number), ":)");
+            add_comment(&mut comment, "end if", None, "");
+            assert_eq!(comment, format!("label({number}), from({number}:), end if"));
+        }
+    }
 }

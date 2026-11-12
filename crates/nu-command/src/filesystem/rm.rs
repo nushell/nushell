@@ -70,7 +70,7 @@ impl Command for Rm {
                 "Ask user to confirm action only once.",
                 Some('I'),
             )
-            .switch("all", "Remove hidden files if '*' is provided.", Some('a'))
+            .switch("all", "Let glob patterns match hidden names (those starting with '.') at any depth.", Some('a'))
             .category(Category::FileSystem)
     }
 
@@ -311,11 +311,11 @@ fn rm(
             glob_options,
             engine_state.signals().clone(),
         ) {
-            Ok(files) => {
+            Ok((prefix, files)) => {
                 let mut target_exists = false;
                 let mut saw_glob_error = false;
 
-                for file in files.1 {
+                for file in files {
                     match file {
                         Ok(f) => {
                             // It is not appropriate to try and remove the
@@ -327,6 +327,12 @@ fn rm(
                                 name.rsplit(std::path::is_separator).next(),
                                 Some("." | "..")
                             ) {
+                                continue;
+                            }
+
+                            // Nor the directory a glob starts from: dc-glob's `**` matches it,
+                            // and removing it would take its hidden files along.
+                            if prefix.as_deref() == Some(f.as_path()) {
                                 continue;
                             }
 

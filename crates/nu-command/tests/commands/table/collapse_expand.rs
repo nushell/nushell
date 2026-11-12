@@ -316,7 +316,7 @@ fn table_collapse_hearts() -> Result {
 fn table_collapse_does_wrapping_for_long_strings() -> Result {
     test()
         .run("
-            [[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]]
+            [[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111.0]]
             | table --width=80 --collapse
         ")
         .expect_value_eq(indoc! {"
@@ -327,6 +327,313 @@ fn table_collapse_does_wrapping_for_long_strings() -> Result {
             │ 179149313814687359833671239329 │
             │ 01313323321729744896.00        │
             ╰────────────────────────────────╯
+        "})
+}
+
+#[test]
+fn table_collapse_aligns_rows_with_nested_lists() -> Result {
+    test()
+        .run("[[a b]; [1 [2 2]] [3 [4 4]]] | table --width=80 --collapse")
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ 1 │ 2 │
+            │   ├───┤
+            │   │ 2 │
+            ├───┼───┤
+            │ 3 │ 4 │
+            │   ├───┤
+            │   │ 4 │
+            ╰───┴───╯
+        "})
+}
+
+#[test]
+fn table_collapse_aligns_nested_tables() -> Result {
+    test()
+        .run(r#"[[a b c]; [[1 12345 1] [["444444" "hello\nworld"]; [3 4]] 1] [5 [6 7] 2]] | table --width=80 --collapse"#)
+        .expect_value_eq(indoc! {"
+            ╭───────┬────────────────┬───╮
+            │ a     │ b              │ c │
+            ├───────┼────────┬───────┼───┤
+            │ 1     │ 444444 │ hello │ 1 │
+            ├───────┤        │ world │   │
+            │ 12345 ├────────┼───────┤   │
+            ├───────┤ 3      │ 4     │   │
+            │ 1     │        │       │   │
+            ├───────┼────────┴───────┼───┤
+            │ 5     │ 6              │ 2 │
+            │       ├────────────────┤   │
+            │       │ 7              │   │
+            ╰───────┴────────────────┴───╯
+        "})
+}
+
+#[test]
+fn table_collapse_aligns_multiline_values() -> Result {
+    test()
+        .run(r#"[[a b]; ["x\ny\nz" 1] [2 "p\nq"]] | table --width=80 --collapse"#)
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ x │ 1 │
+            │ y │   │
+            │ z │   │
+            ├───┼───┤
+            │ 2 │ p │
+            │   │ q │
+            ╰───┴───╯
+        "})
+}
+
+#[test]
+fn table_collapse_aligns_wrapped_values() -> Result {
+    test()
+        .run(r#"[[a b c]; [1 x "some longer text"] [2 y 3]] | table --width=24 --collapse"#)
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬──────────────╮
+            │ a │ b │ c            │
+            ├───┼───┼──────────────┤
+            │ 1 │ x │ some longer  │
+            │   │   │ text         │
+            ├───┼───┼──────────────┤
+            │ 2 │ y │ 3            │
+            ╰───┴───┴──────────────╯
+        "})
+}
+
+#[test]
+fn table_collapse_aligns_truncated_tables() -> Result {
+    test()
+        .run("[[a b c d]; [1 [2 2] 3 4] [5 [6 6 6] 7 8]] | table --width=15 --collapse")
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬─────╮
+            │ a │ b │ ... │
+            ├───┼───┤     │
+            │ 1 │ 2 │     │
+            │   ├───┤     │
+            │   │ 2 │     │
+            ├───┼───┤     │
+            │ 5 │ 6 │     │
+            │   ├───┤     │
+            │   │ 6 │     │
+            │   ├───┤     │
+            │   │ 6 │     │
+            ╰───┴───┴─────╯
+        "})
+}
+
+#[test]
+fn table_collapse_aligns_multiline_record_keys() -> Result {
+    test()
+        .run(r#"{"aa\nb": 1, ccc: 2} | table --width=80 --collapse"#)
+        .expect_value_eq(indoc! {"
+            ╭─────┬───╮
+            │ aa  │ 1 │
+            │ b   │   │
+            ├─────┼───┤
+            │ ccc │ 2 │
+            ╰─────┴───╯"})
+}
+
+#[test]
+fn table_collapse_none_aligns_nested_tables() -> Result {
+    test()
+        .run(r#"$env.config.table.mode = "none"; [[a b]; [x [[c d]; [1 "ab\ncd"]]]] | table --width=80 --collapse"#)
+        .expect_value_eq(indoc! {"
+            \x20a  b     
+            \x20x  c  d  
+            \x20   1  ab 
+            \x20      cd 
+        "})
+}
+
+#[test]
+fn table_collapse_padding_aligns_nested_tables() -> Result {
+    test()
+        .run(r#"$env.config.table.padding = {left: 2, right: 2}; [[a b]; [[1 12345] [["2" "hello\nworld"]; [3 4]]] [5 [6 7]]] | table --width=80 --collapse"#)
+        .expect_value_eq(indoc! {"
+            ╭─────────┬───────────────╮
+            │  a      │  b            │
+            ├─────────┼─────┬─────────┤
+            │  1      │  2  │  hello  │
+            ├─────────┤     │  world  │
+            │  12345  ├─────┼─────────┤
+            │         │  3  │  4      │
+            ├─────────┼─────┴─────────┤
+            │  5      │  6            │
+            │         ├───────────────┤
+            │         │  7            │
+            ╰─────────┴───────────────╯
+        "})
+}
+
+#[test]
+fn table_collapse_truncation_fits_width_around_empty_list() -> Result {
+    test()
+        .run("[[a b c]; [x {kkkkkkkk: []} y]] | table --width=13 --collapse")
+        .expect_value_eq(indoc! {"
+            ╭───┬─────╮
+            │ a │ ... │
+            ├───┤     │
+            │ x │     │
+            ╰───┴─────╯
+        "})
+}
+
+#[test]
+fn table_collapse_truncation_counts_padding() -> Result {
+    test()
+        .run("$env.config.table.padding = {left: 2, right: 2}; [[a b c]; [1 2 3]] | table --width=16 --collapse")
+        .expect_value_eq(indoc! {"
+            ╭─────┬───────╮
+            │  a  │  ...  │
+            ├─────┤       │
+            │  1  │       │
+            ╰─────┴───────╯
+        "})
+}
+
+#[test]
+fn table_collapse_padding_zero_keeps_empty_cells() -> Result {
+    test()
+        .run(r#"$env.config.table.padding = {left: 0, right: 0}; [[u v]; [{e: ""} x]] | table --width=80 --collapse"#)
+        .expect_value_eq(indoc! {"
+            ╭───┬─╮
+            │u  │v│
+            ├─┬─┼─┤
+            │e│ │x│
+            ╰─┴─┴─╯
+        "})
+}
+
+#[test]
+fn table_collapse_restructured() -> Result {
+    test()
+        .run(r#"$env.config.table.mode = "restructured"; [[a b]; [1 2] [3 4]] | table --width=80 --collapse"#)
+        .expect_value_eq(indoc! {"
+            ======
+            \x20a  b 
+            ======
+            \x201  2 
+            ======
+            \x203  4 
+            ======
+        "})
+}
+
+#[test]
+fn table_collapse_index_true() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse --index true",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───╮
+            │ # │ a │ b │
+            ├───┼───┼───┤
+            │ 0 │ 1 │ 2 │
+            ├───┼───┼───┤
+            │ 1 │ 3 │ 4 │
+            ╰───┴───┴───╯
+        "})
+}
+#[test]
+fn table_collapse_index_offset() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse --index 5",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───┬───╮
+            │ # │ a │ b │
+            ├───┼───┼───┤
+            │ 5 │ 1 │ 2 │
+            ├───┼───┼───┤
+            │ 6 │ 3 │ 4 │
+            ╰───┴───┴───╯
+        "})
+}
+#[test]
+fn table_collapse_index_false() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse --index false",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ 1 │ 2 │
+            ├───┼───┤
+            │ 3 │ 4 │
+            ╰───┴───╯
+        "})
+}
+#[test]
+fn table_collapse_no_index_flag_no_index_column() -> Result {
+    test()
+        .run_with_data(
+            "table --width=80 --collapse",
+            test_table![
+                ["a", "b"];
+                [1, 2],
+                [3, 4],
+            ],
+        )
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ 1 │ 2 │
+            ├───┼───┤
+            │ 3 │ 4 │
+            ╰───┴───╯
+        "})
+}
+
+#[test]
+fn table_collapse_index_column_fills_hash() -> Result {
+    test()
+        .run("[[index a]; [x 1] [y 2]] | table --width=80 --collapse --index true")
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ # │ a │
+            ├───┼───┤
+            │ x │ 1 │
+            ├───┼───┤
+            │ y │ 2 │
+            ╰───┴───╯
+        "})
+}
+
+#[test]
+fn table_collapse_index_null_no_index_column() -> Result {
+    test()
+        .run("def t [--index: any] { $in | table --width=80 --collapse --index $index }; [[a b]; [1 2]] | t")
+        .expect_value_eq(indoc! {"
+            ╭───┬───╮
+            │ a │ b │
+            ├───┼───┤
+            │ 1 │ 2 │
+            ╰───┴───╯
         "})
 }
 
@@ -391,16 +698,16 @@ fn table_expand_exceed_overlap_0() -> Result {
             ],
         )
         .expect_value_eq(indoc! {"
-            ╭──────┬───────────────────────────────────────────────────┬─────┬─────────────╮
-            │    # │                         a                         │  b  │      c      │
-            ├──────┼───────────────────────────────────────────────────┼─────┼─────────────┤
-            │    0 │ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    │   2 │           3 │
-            │    1 │                                                 4 │   5 │ ╭───┬───╮   │
-            │      │                                                   │     │ │ 0 │ 1 │   │
-            │      │                                                   │     │ │ 1 │ 2 │   │
-            │      │                                                   │     │ │ 2 │ 3 │   │
-            │      │                                                   │     │ ╰───┴───╯   │
-            ╰──────┴───────────────────────────────────────────────────┴─────┴─────────────╯
+            ╭───┬────────────────────────────────────────────────────┬──────┬──────────────╮
+            │ # │                         a                          │  b   │      c       │
+            ├───┼────────────────────────────────────────────────────┼──────┼──────────────┤
+            │ 0 │ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx     │    2 │            3 │
+            │ 1 │                                                  4 │    5 │ ╭───┬───╮    │
+            │   │                                                    │      │ │ 0 │ 1 │    │
+            │   │                                                    │      │ │ 1 │ 2 │    │
+            │   │                                                    │      │ │ 2 │ 3 │    │
+            │   │                                                    │      │ ╰───┴───╯    │
+            ╰───┴────────────────────────────────────────────────────┴──────┴──────────────╯
         "})
 }
 

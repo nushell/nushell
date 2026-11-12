@@ -2,8 +2,7 @@
 use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
-    casing::Casing, shell_error::generic::GenericError,
+    PipelineIterator, ast::PathMember, casing::Casing, shell_error::generic::GenericError,
 };
 use std::collections::BTreeSet;
 
@@ -37,11 +36,6 @@ impl Command for Select {
                 "ignore-case",
                 "Make all cell path members case insensitive.",
                 None,
-            )
-            .switch(
-                "ignore-errors",
-                "Ignore missing data (make all cell path members optional) (deprecated).",
-                Some('i'),
             )
             .rest(
                 "rest",
@@ -120,8 +114,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                 }
             }
         }
-        let optional = call.has_flag(engine_state, stack, "optional")?
-            || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let optional = call.has_flag(engine_state, stack, "optional")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
         let span = call.head;
 
@@ -138,19 +131,6 @@ produce a table, a list will produce a list, and a record will produce a record.
         }
 
         select(engine_state, span, new_columns, input)
-    }
-
-    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        vec![DeprecationEntry {
-            ty: DeprecationType::Flag("ignore-errors".into()),
-            report_mode: ReportMode::FirstUse,
-            since: Some("0.106.0".into()),
-            expected_removal: None,
-            help: Some(
-                "This flag has been renamed to `--optional (-o)` to better reflect its behavior."
-                    .into(),
-            ),
-        }]
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -231,7 +211,7 @@ fn select(
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: BTreeSet<usize> = BTreeSet::new();
 
-    let mut new_columns = vec![];
+    let mut new_columns: Vec<CellPath> = vec![];
 
     for column in columns {
         let CellPath { ref members } = column;
@@ -247,7 +227,7 @@ fn select(
                 unique_rows.insert(*val);
             }
             _ => {
-                if !new_columns.contains(&column) {
+                if !new_columns.iter().any(|c| c.eq_ignore_casing(&column)) {
                     new_columns.push(column)
                 }
             }

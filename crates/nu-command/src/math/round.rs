@@ -229,8 +229,8 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
 
     match precision {
         Some(precision_number) => Value::float(
-            (float_val * ((10_f64).powf(precision_number as f64))).round()
-                / (10_f64).powf(precision_number as f64),
+            (float_val * ((10_f64).powi(precision_number as i32))).round()
+                / (10_f64).powi(precision_number as i32),
             span,
         ),
         None => Value::int(float_val.round() as i64, span),

@@ -115,6 +115,29 @@ fn def_keyword_name_does_not_panic_on_subsequent_parse() -> Result {
     Ok(())
 }
 
+/// `def --help` only shows the help of `def`. It defines nothing, so the name isn't a command
+/// afterwards (a call to it used to reach the predeclaration `def` makes, and panic).
+#[rstest]
+#[case::flag_first("def --help foo [] { 1 }; foo")]
+#[case::flag_last("def foo [] { 1 } --help; foo")]
+#[case::in_module(
+    "module m { export def --help foo [] { 1 }; export def bar [] { foo } }; use m bar; bar"
+)]
+fn def_help_defines_nothing(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::external_command")
+}
+
+/// A call parsed before `def --help` declined to define its name still resolves to the name's
+/// predeclaration; running that is an error, not a panic.
+#[test]
+fn running_a_predeclaration_is_an_error() -> Result {
+    test()
+        .run("def bar [] { foo }; def --help foo [] { 1 }; bar")
+        .expect_error_code_eq("nu::shell::nushell_failed_spanned")
+}
+
 #[test]
 fn export_def_fails_with_keyword_name() -> Result {
     let err = test()
@@ -187,6 +210,18 @@ fn def_default_value_should_restrict_implicit_type(#[case] code: &str) -> Result
     test()
         .run(code)
         .expect_error_code_eq("nu::parser::parse_mismatch")
+}
+
+#[test]
+fn def_with_built_in_custom_value_types() -> Result {
+    // `semver` is a custom type declared by built-in commands (e.g. `semver bump`) rather than by
+    // a plugin, so it should resolve in signatures without any plugin loaded
+    test()
+        .run(
+            "def f [v: semver]: semver -> semver { $v }
+             '1.0.0' | into semver | f ('1.2.3' | into semver) | to text",
+        )
+        .expect_value_eq("1.2.3")
 }
 
 #[test]
@@ -396,4 +431,88 @@ fn recursive_func_should_compile(#[case] first_code: &str, #[case] recursive_cod
     let (): () = test().run(recursive_code)?;
 
     Ok(())
+}
+
+#[rstest]
+#[case::oneof("oneof<string@baz>", "string@baz")]
+#[case::oneof_with_more_types("oneof<string@baz, int>", "string@baz")]
+#[case::list("list<string@baz>", "string@baz")]
+#[case::nested_oneof("oneof<list<string>@baz>", "list<string>@baz")]
+#[case::nested_list("list<list<string>@baz>", "list<string>@baz")]
+#[case::nested_record("record<a: list<string>@baz>", "list<string>@baz")]
+#[case::quoted_key_with_gt("record<\"x>y\": string@baz>", "string@baz")]
+fn completer_inside_generic_type_is_reported(#[case] ty: &str, #[case] at: &str) -> Result {
+    // https://github.com/nushell/nushell/issues/16773
+    let code = format!("def baz [] {{ [] }}; def foo [bar: {ty}] {{ $bar }}");
+    let mut tester = test();
+    let base = tester.engine_state.next_span_start();
+    let err = tester.run(&code).expect_parse_error()?;
+    let ParseError::LabeledErrorWithHelp {
+        error, label, span, ..
+    } = err
+    else {
+        panic!("expected a LabeledErrorWithHelp, got {err:?}");
+    };
+    assert_eq!(error, "Unexpected custom completer in type spec");
+    assert_eq!(
+        label,
+        "Type specifications do not support custom completers"
+    );
+    assert_eq!(&code[span.start - base..span.end - base], at);
+    Ok(())
+}
+
+#[rstest]
+#[case::quoted_key("recrod<\"a@b\": string>")]
+#[case::comment("recrod<\n  a: string # see @x\n>")]
+fn at_inside_unknown_type_reports_unknown_type(#[case] ty: &str) -> Result {
+    let code = format!("def foo [bar: {ty}] {{ $bar }}");
+    let err = test().run(code).expect_parse_error()?;
+    assert!(
+        matches!(err, ParseError::UnknownType(_)),
+        "expected UnknownType, got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn at_inside_type_alias_params_reports_alias_error() -> Result {
+    let code = r#"type T = string; def foo [bar: T<"a@b">] { $bar }"#;
+    let err = test().run(code).expect_parse_error()?;
+    assert!(
+        matches!(err, ParseError::TypeAliasWithParams(..)),
+        "expected TypeAliasWithParams, got {err:?}"
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::oneof("oneof<string, int>@baz", "1", "1")]
+#[case::list("list<string>@baz", "[x]", "[x]")]
+#[case::record("record<a: string>@baz", "{a: x}", "{a: x}")]
+#[case::quoted_key("record<\"a<b\": string>@baz", "{\"a<b\": x}", "{a<b: x}")]
+#[case::comment(
+    "record<\n  retries: int # must be <= 10\n>@baz",
+    "{retries: 1}",
+    "{retries: 1}"
+)]
+#[case::at_in_quoted_key("record<\"a@b\": string>", "{\"a@b\": x}", "{a@b: x}")]
+fn completer_after_generic_type_is_accepted(
+    #[case] ty: &str,
+    #[case] arg: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = format!("def baz [] {{ [] }}; def foo [bar: {ty}] {{ $bar | to nuon }}; foo {arg}");
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn completer_after_generic_type_is_attached() -> Result {
+    let code = "
+        def baz [] { [] }
+        def foo [bar: oneof<string, int>@baz] {}
+        scope commands | where name == foo | get 0.signatures | values | flatten
+        | where parameter_name == bar | get 0.completion
+    ";
+    test().run(code).expect_value_eq("baz")
 }

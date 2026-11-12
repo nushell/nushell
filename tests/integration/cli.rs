@@ -629,6 +629,59 @@ fn ide_ast_flag_runs() -> TestResult {
 }
 
 #[test]
+fn ide_complete_out_of_range_locations() -> TestResult {
+    let script_path = unique_temp_script_path("ide_complete_bounds");
+    std::fs::write(&script_path, "ä")?;
+
+    for location in ["-1", "1", "99"] {
+        let mut cmd = Command::new(cargo_bin!());
+        let output = cmd
+            .args([
+                "--no-config-file",
+                "--no-std-lib",
+                "--ide-complete",
+                location,
+                script_path.to_str().unwrap(),
+            ])
+            .output()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(output.status.success());
+        let json: serde_json::Value = serde_json::from_str(&stdout)?;
+        assert!(json["completions"].is_array());
+        assert!(!stderr.contains("panicked"));
+    }
+
+    let _ = std::fs::remove_file(&script_path);
+    Ok(())
+}
+
+#[test]
+fn ide_complete_escapes_suggestion_values() -> TestResult {
+    let script_path = unique_temp_script_path("ide_complete_json");
+    let script = "def comp [] { ['a\\b' 'a\"b' \"a\\nb\"] }; def cmd [x: string@comp] {}; cmd a";
+    std::fs::write(&script_path, script)?;
+    let output = Command::new(cargo_bin!())
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--ide-complete",
+            &script.len().to_string(),
+        ])
+        .arg(&script_path)
+        .output()?;
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(
+        json["completions"],
+        serde_json::json!(["a\nb", "a\"b", "a\\b"])
+    );
+    let _ = std::fs::remove_file(script_path);
+    Ok(())
+}
+
+#[test]
 fn lsp_flag_accepts_run() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
@@ -654,6 +707,157 @@ fn mcp_flag_runs_when_enabled() -> TestResult {
         assert!(output.status.success());
     }
 
+    Ok(())
+}
+
+/// Runs `nu <flag>` in `<root>/start` with `config` as its `config.nu` and an empty `env.nu`,
+/// writes `session` to its stdin, closes it and returns stdout once the server exits.
+///
+/// For servers, which run the startup files on a stack they then discard. Closing stdin is what
+/// ends the server, so this waits for it to exit, not for a reply: a missing or reworded reply
+/// fails the caller's assertions.
+#[cfg(any(feature = "lsp", feature = "mcp"))]
+fn run_server_session(
+    flag: &str,
+    root: &std::path::Path,
+    config: &str,
+    session: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let (config_path, env_path) = (root.join("config.nu"), root.join("env.nu"));
+    std::fs::write(&config_path, config)?;
+    std::fs::write(&env_path, "")?;
+
+    let mut child = Command::new(cargo_bin!())
+        .arg("--no-std-lib")
+        .arg("--config")
+        .arg(config_path)
+        .arg("--env-config")
+        .arg(env_path)
+        .arg(flag)
+        .current_dir(root.join("start"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    // The handle is dropped at the end of this statement, which closes stdin.
+    child
+        .stdin
+        .take()
+        .ok_or("stdin is piped")?
+        .write_all(session.as_bytes())?;
+
+    Ok(String::from_utf8(child.wait_with_output()?.stdout)?)
+}
+
+/// The server sets `PWD` to the open file's directory. An overlay command in a block of
+/// `config.nu` must not change which overlay it reads that back from, because the stack that ran
+/// the command is gone.
+#[cfg(feature = "lsp")]
+#[rstest::rstest]
+#[case::overlay_use("if true { overlay use spam }")]
+#[case::overlay_hide("overlay use spam\nif true { overlay hide spam }")]
+fn lsp_completes_from_open_file_dir_after_overlay_command_in_config_block(
+    #[case] overlay_command: &str,
+) -> TestResult {
+    use nu_test_support::assertions::{assert_contains, assert_contains_not};
+    use serde_json::json;
+
+    let root = tempfile::tempdir()?;
+    std::fs::create_dir(root.path().join("start"))?;
+    std::fs::create_dir(root.path().join("proj"))?;
+    std::fs::write(root.path().join("start/in_start.txt"), "")?;
+    std::fs::write(root.path().join("proj/in_proj.txt"), "")?;
+
+    let script = root.path().join("proj/script.nu");
+    let script = script.to_string_lossy().replace('\\', "/");
+    let slash = if script.starts_with('/') { "" } else { "/" };
+    let uri = format!("file://{slash}{script}");
+    let text_document = json!({ "uri": uri, "languageId": "nushell", "version": 1, "text": "ls " });
+    let session: String = [
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
+        json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} }),
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": { "textDocument": text_document },
+        }),
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/completion",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": 0, "character": 3 },
+            },
+        }),
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "shutdown" }),
+        json!({ "jsonrpc": "2.0", "method": "exit" }),
+    ]
+    .iter()
+    .map(|message| {
+        let body = message.to_string();
+        format!("Content-Length: {}\r\n\r\n{body}", body.len())
+    })
+    .collect();
+
+    let config = format!("module spam {{ export-env {{ $env.X = 1 }} }}\n{overlay_command}\n");
+    let stdout = run_server_session("--lsp", root.path(), &config, &session)?;
+
+    assert_contains("in_proj.txt", &stdout);
+    assert_contains_not("in_start.txt", &stdout);
+    Ok(())
+}
+
+/// The parser and the stack the server evaluates on have to agree on the directory. The `cd` in
+/// `config.nu` lands in `spam`, which that stack doesn't have, so both stay in the start directory.
+#[cfg(feature = "mcp")]
+#[test]
+fn mcp_parser_agrees_with_stack_after_overlay_command_in_config_block() -> TestResult {
+    use nu_test_support::assertions::{assert_contains, assert_contains_not};
+    use serde_json::json;
+
+    let root = tempfile::tempdir()?;
+    for (dir, name) in [("start", "from-start"), ("proj", "from-proj")] {
+        std::fs::create_dir(root.path().join(dir))?;
+        std::fs::write(
+            root.path().join(dir).join("helper.nu"),
+            format!("export def foo [] {{ '{name}' }}\n"),
+        )?;
+    }
+
+    let session: String = [
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": { "name": "test", "version": "1" },
+            },
+        }),
+        json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": { "name": "evaluate", "arguments": { "input": "use ./helper.nu foo; foo" } },
+        }),
+    ]
+    .iter()
+    .map(|message| format!("{message}\n"))
+    .collect();
+
+    let config =
+        "module spam { export-env { $env.X = 1 } }\nif true { overlay use spam }\ncd ../proj\n";
+    // `rmcp` gives a call still running when stdin closes 5 seconds to send its response.
+    let stdout = run_server_session("--mcp", root.path(), config, &session)?;
+
+    assert_contains("from-start", &stdout);
+    assert_contains_not("from-proj", &stdout);
     Ok(())
 }
 

@@ -20,4 +20,10 @@ bench = false
 nu-plugin.workspace = true
 nu-protocol.workspace = true
 
-git2 = "0.21.0"
+# Build libgit2 in. A system libgit2, such as Homebrew's, loads openssl, libssh2 and llhttp every
+# time the plugin starts (about 10ms on macOS). Packagers who want the shared library can build
+# with LIBGIT2_NO_VENDOR=1.
+git2 = { version = "0.21.0", features = ["vendored-libgit2"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

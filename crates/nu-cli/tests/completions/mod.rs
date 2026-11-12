@@ -1,3 +1,4 @@
+mod regressions;
 pub mod support;
 
 use std::{
@@ -683,6 +684,12 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     vec!["-B".into()],
     2
 )]
+#[case::type_alias_parameter_completer(
+    "def animals [] { [cat dog eel] }; type Animal = string; def adopt [animal: Animal@animals] {}",
+    "adopt ", None,
+    vec!["cat".into(), "dog".into(), "eel".into()],
+    0
+)]
 fn command_argument_completions(
     #[case] command: &str,
     #[case] input: &str,
@@ -1054,6 +1061,36 @@ fn interactive_completer_on_a_shorter_head_argument_runs_inline() {
         matches!(result, CompletionResult::Fresh { .. }),
         "an @interactive completer on a shorter-head argument must run inline, got {result:?}"
     );
+}
+
+/// A cancelled picker answers empty; the next Tab on the same line must run it again
+/// rather than reuse that answer. A non-empty answer is still reused for the repeated
+/// asks of one keystroke.
+#[test]
+fn interactive_completer_reruns_after_an_empty_answer() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let marker = dir.path().join("asked");
+    let command = format!(
+        "@interactive\n\
+         def comp [] {{ if ('{m}' | path exists) {{ [alpha] }} else {{ touch '{m}'; [] }} }}\n\
+         def my-command [arg: string@comp] {{}}",
+        m = marker.display()
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "my-command ";
+    let first = completer.complete(line, line.len());
+    assert!(first.suggestions().is_empty(), "got {first:?}");
+
+    let second = completer.complete(line, line.len());
+    match_suggestions(&vec!["alpha"], second.suggestions());
+
+    // Without the marker a rerun would answer empty again, so `alpha` is the kept answer.
+    std::fs::remove_file(&marker).expect("remove marker");
+    let third = completer.complete(line, line.len());
+    match_suggestions(&vec!["alpha"], third.suggestions());
 }
 
 /// Detection sees through aliases as execution does: an alias of an `@interactive`
@@ -1745,6 +1782,61 @@ fn command_wide_completion_external() {
     match_suggestions(&expected, &suggestions);
 }
 
+#[test]
+fn extern_external_argument_rest_completion() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // `generate completions` attaches positional completions this way, keeping how the arguments parse.
+    let setup = /* lang=nu */ r#"
+        def "nu-complete tool remotes" [] { [{value: origin} {value: upstream}] }
+
+        @complete external
+        extern "tool push" [...args: external_arg@"nu-complete tool remotes"]
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "tool push up";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["upstream"], &suggestions);
+}
+
+#[test]
+fn command_wide_completion_sees_every_word_of_an_extern() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // A cobra tool's completer passes these words, minus the tool's name, to `<tool> __complete`.
+    // The extern's name comes as one word.
+    let setup = /* lang=nu */ r#"
+        def "nu-complete tool" [place: record] { [{value: ($place.command | to nuon)}] }
+
+        @complete "nu-complete tool"
+        extern "tool issue list" [--state: string]
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "tool issue list --state ";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec![r#"["tool issue list", --state, ""]"#], &suggestions);
+}
+
+#[test]
+fn command_wide_completion_external_skips_declared_flags() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // Carapace and other external completers list the flags the signature declares too.
+    let setup = /* lang=nu */ r#"
+        $env.config.completions.external.completer = {|buffer| [--short --porcelain] }
+
+        @complete external
+        extern "gs" [--short(-s)]
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "gs --";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec!["--short", "--porcelain"], &suggestions);
+}
+
 #[rstest]
 // https://github.com/nushell/nushell/issues/18007
 #[case::explicit_return("return")]
@@ -1914,6 +2006,56 @@ fn command_wide_completion_flag_completion() {
     assert_eq!(span.end, input_for_flag_value.len());
 }
 
+/// A `def --wrapped` rest parameter receives unknown `--x` tokens, so its completer
+/// answers for them next to the declared flags (#19097).
+#[test]
+fn wrapped_rest_completer_completes_flag_tokens() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        def "nu-complete what" [] { ["aaa", "--bbb"] }
+        def --wrapped what [--verbose, ...args: string@"nu-complete what"] {}
+        what --"#;
+
+    let suggestions = completer.complete_blocking(sample, sample.len());
+    match_suggestions(&vec!["--verbose", "--bbb"], &suggestions);
+
+    let span = suggestions[1].span;
+    assert_eq!(span.start, sample.len() - 2);
+    assert_eq!(span.end, sample.len());
+
+    // Past a leading positional, and with the flag partly typed.
+    let partial = format!("{} aaa --b", sample.trim_end_matches(" --"));
+    let suggestions = completer.complete_blocking(&partial, partial.len());
+    match_suggestions(&vec!["--bbb"], &suggestions);
+}
+
+/// A wrapped `--x` token binds to the rest parameter, so it follows the positional chain:
+/// the rest completer overrides `@complete` unless it declines (`null`) or contributes
+/// (`fallback: true`).
+#[rstest]
+#[case::answers("[aaa --bbb]", vec!["--bbb"])]
+#[case::contributes("{completions: [aaa --bbb], fallback: true}", vec!["--bbb", "--wide"])]
+#[case::declines("null", vec!["--wide"])]
+fn wrapped_rest_completer_chains_to_command_wide_on_flag_tokens(
+    #[case] rest_output: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let mut completer = custom_completer();
+
+    let sample = format!(
+        r#"
+        def "nu-complete rest" [] {{ {rest_output} }}
+        def "nu-complete wide" [] {{ ["--wide"] }}
+        @complete "nu-complete wide"
+        def --wrapped both [...args: string@"nu-complete rest"] {{}}
+        both --"#
+    );
+
+    let suggestions = completer.complete_blocking(&sample, sample.len());
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn file_completions() {
     // Create a new engine
@@ -2028,6 +2170,21 @@ fn file_completions() {
 
     // Match the results
     match_suggestions(&expected_paths, &suggestions)
+}
+
+/// The parser forgets an overlay activated inside a block, but the stack keeps it and `cd` writes
+/// `PWD` there. File completion must still follow `cd`.
+#[test]
+fn file_completions_follow_cd_after_overlay_in_block() {
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    assert!(support::merge_input(b"if true { overlay new spam }", &mut engine, &mut stack).is_ok());
+    assert!(support::merge_input(b"cd test_a", &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking("ls ", 3);
+
+    match_suggestions(&vec!["myfile"], &suggestions)
 }
 
 #[test]
@@ -3999,6 +4156,9 @@ fn operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete_blocking("1 bit-s", 7);
     let expected: Vec<_> = vec!["bit-shl", "bit-shr"];
     match_suggestions(&expected, &suggestions);
+    // A negated int takes the operators of an int.
+    let suggestions = custom_completer.complete_blocking("-(1) ", 5);
+    assert_eq!(20, suggestions.len());
 
     let suggestions = custom_completer.complete_blocking("'str' ", 6);
     // == != > < >= <= in not-in
@@ -4033,7 +4193,11 @@ fn operator_completions(mut custom_completer: NuCompleter) {
 
     let suggestions = custom_completer.complete_blocking("(date now) ", 11);
     // == != > < >= <= in not-in
-    assert_eq!(8, suggestions.len());
+    // older-than newer-than
+    assert_eq!(10, suggestions.len());
+    let suggestions = custom_completer.complete_blocking("(date now) o", 12);
+    let expected: Vec<_> = vec!["older-than"];
+    match_suggestions(&expected, &suggestions);
     let suggestions = custom_completer.complete_blocking("(date now) <", 12);
     let expected: Vec<_> = vec!["<", "<="];
     match_suggestions(&expected, &suggestions);
@@ -4090,17 +4254,19 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
     match_suggestions(&expected, &suggestions);
 
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo ", 25);
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo =", 26);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
 
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo ", 25);
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = date now; $foo =", 26);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
@@ -4131,9 +4297,12 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
 
     // all operators for type any
     let suggestions = custom_completer.complete_blocking("ls | where name ", 16);
-    assert_eq!(32, suggestions.len());
+    assert_eq!(34, suggestions.len());
     let expected: Vec<_> = vec!["starts-with"];
     let suggestions = custom_completer.complete_blocking("ls | where name starts", 22);
+    match_suggestions(&expected, &suggestions);
+    let expected: Vec<_> = vec!["older-than"];
+    let suggestions = custom_completer.complete_blocking("ls | where modified old", 23);
     match_suggestions(&expected, &suggestions);
 }
 
@@ -4164,8 +4333,9 @@ fn cellpath_assignment_operator_completions() {
     let completion_str = "$foo.foo.1 ";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let completion_str = "$foo.foo.1 =";
     let suggestions = completer.complete_blocking(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["=", "=="];
@@ -4209,8 +4379,9 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
 
     let suggestions = custom_completer.complete_blocking("mut foo = [(date now)]; $foo.0 ", 31);
     // == != > < >= <= in not-in
+    // older-than newer-than
     // =
-    assert_eq!(9, suggestions.len());
+    assert_eq!(11, suggestions.len());
     let suggestions = custom_completer.complete_blocking("mut foo = [(date now)]; $foo.0 =", 32);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
@@ -4390,7 +4561,7 @@ fn legacy_zoxide_style_parameter_completer_receives_context_and_pos() {
 }
 
 /// Legacy compat: a command-wide completer declaring `[spans]` receives the flattened
-/// tokens, plus `""` for a trailing empty slot.
+/// tokens of the command being completed, plus `""` for a trailing empty slot.
 #[test]
 fn legacy_command_wide_completer_receives_spans() {
     let mut completer = custom_completer();
@@ -4436,4 +4607,15 @@ fn legacy_fzf_style_external_completer_receives_spans() {
     // Trailing empty slot is visible, exactly as before.
     let suggestions = run_external_completion("{|spans| $spans}", "gh alias ");
     match_suggestions(&vec!["gh", "alias", ""], &suggestions);
+}
+
+/// `place.command` names the call the cursor is in, after pipes, closures, and `;` (#19016).
+#[rstest]
+#[case::after_a_pipe("ls | cargo bld")]
+#[case::in_a_subexpression("echo (cargo bld")]
+#[case::in_a_closure("do { cargo bld")]
+#[case::after_a_semicolon("ls; cargo bld")]
+fn external_completer_place_command_is_the_command_being_completed(#[case] input: &str) {
+    let suggestions = run_external_completion("{|place| $place.command}", input);
+    match_suggestions(&vec!["cargo", "bld"], &suggestions);
 }

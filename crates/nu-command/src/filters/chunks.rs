@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, shell_error::io::IoError};
+use nu_protocol::{
+    ListStream,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
+};
 use std::{
     io::{BufRead, Cursor, ErrorKind},
     num::NonZeroUsize,
@@ -194,7 +197,7 @@ pub fn chunks(
                     };
                     let value_stream = chunk_read.map(move |chunk| match chunk {
                         Ok(chunk) => Value::binary(chunk, span),
-                        Err(e) => Value::error(from_io_error(e).into(), span),
+                        Err(e) => Value::error(ShellErrorBridge::unpack(e, span), span),
                     });
                     value_stream.into_pipeline_data_with_metadata(
                         span,
@@ -230,9 +233,11 @@ impl<I: Iterator<Item = Value>> Iterator for ChunksIter<I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let first = self.iter.next()?;
-        let mut chunk = Vec::with_capacity(self.size); // delay allocation to optimize for empty iter
-        chunk.push(first);
-        chunk.extend((&mut self.iter).take(self.size - 1));
+        // `self.size` comes straight from the user and can be far larger than the input, so don't
+        // reserve it. The chain has an exact size hint for list input, so `collect` allocates once.
+        let chunk: Vec<_> = std::iter::once(first)
+            .chain((&mut self.iter).take(self.size - 1))
+            .collect();
         Some(Value::list(chunk, self.span))
     }
 }
@@ -246,7 +251,9 @@ impl<R: BufRead> Iterator for ChunkRead<R> {
     type Item = Result<Vec<u8>, std::io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut buf = Vec::with_capacity(self.size.get());
+        // The chunk size is user supplied and can be much larger than the data, so let the buffer
+        // grow with what is actually read instead of reserving the full size up front.
+        let mut buf = Vec::new();
         while buf.len() < self.size.get() {
             let available = match self.reader.fill_buf() {
                 Ok([]) if buf.is_empty() => return None,

@@ -150,7 +150,7 @@ fn insert_recursive(
             if let Value::Closure { val, .. } = replacement {
                 insert_single_value_by_closure(
                     &mut value,
-                    ClosureEvalOnce::new(engine_state, stack, *val),
+                    ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                     head_span,
                     cell_paths,
                     false,
@@ -189,9 +189,10 @@ fn insert_recursive(
                         let value = stream.next();
                         let end_of_stream = value.is_none();
                         let value = value.unwrap_or(Value::nothing(head_span));
-                        let new_value = ClosureEvalOnce::new(engine_state, stack, *val)
-                            .run_with_value(value.clone())?
-                            .into_value(head_span)?;
+                        let new_value =
+                            ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?
+                                .run_with_value(value.clone())?
+                                .into_value(head_span)?;
 
                         pre_elems.push(new_value);
                         if !end_of_stream {
@@ -204,7 +205,7 @@ fn insert_recursive(
                     if let Value::Closure { val, .. } = replacement {
                         insert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, *val),
+                            ClosureEvalOnce::try_new(engine_state, stack, *val, head_span)?,
                             head_span,
                             path,
                             true,
@@ -240,7 +241,7 @@ fn insert_recursive(
                     &new_cell_paths,
                 )
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, *val);
+                let mut closure = ClosureEval::try_new(engine_state, stack, *val, head_span)?;
                 let cell_paths = cell_paths.to_vec();
                 let stream = stream.map(move |mut value| {
                     let err =

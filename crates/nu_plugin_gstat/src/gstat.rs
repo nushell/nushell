@@ -86,12 +86,15 @@ impl GStat {
             return Ok(self.create_empty_git_status(span));
         };
 
+        // Name the repo after its working directory. The git dir's parent only works for a plain
+        // checkout: a linked worktree's git dir is `.git/worktrees/<name>` and a submodule's is
+        // `.git/modules/<name>`. A bare repo has no working directory, so use the git dir itself.
         let repo_name = repo
-            .path()
-            .parent()
-            .and_then(|p| p.file_name())
+            .workdir()
+            .unwrap_or_else(|| repo.path())
+            .file_name()
             .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "".to_string());
+            .unwrap_or_default();
 
         let tag = calculate_tag
             .then(|| nearest_tag(&repo))
@@ -110,21 +113,21 @@ impl GStat {
 
         Ok(Value::record(
             record! {
-                "idx_added_staged" => Value::int(stats.idx_added_staged as i64, span),
-                "idx_modified_staged" => Value::int(stats.idx_modified_staged as i64, span),
-                "idx_deleted_staged" => Value::int(stats.idx_deleted_staged as i64, span),
-                "idx_renamed" => Value::int(stats.idx_renamed as i64, span),
-                "idx_type_changed" => Value::int(stats.idx_type_changed as i64, span),
-                "wt_untracked" => Value::int(stats.wt_untracked as i64, span),
-                "wt_modified" => Value::int(stats.wt_modified as i64, span),
-                "wt_deleted" => Value::int(stats.wt_deleted as i64, span),
-                "wt_type_changed" => Value::int(stats.wt_type_changed as i64, span),
-                "wt_renamed" => Value::int(stats.wt_renamed as i64, span),
-                "ignored" => Value::int(stats.ignored as i64, span),
-                "conflicts" => Value::int(stats.conflicts as i64, span),
-                "ahead" => Value::int(stats.ahead as i64, span),
-                "behind" => Value::int(stats.behind as i64, span),
-                "stashes" => Value::int(stats.stashes as i64, span),
+                "idx_added_staged" => Value::int(stats.idx_added_staged, span),
+                "idx_modified_staged" => Value::int(stats.idx_modified_staged, span),
+                "idx_deleted_staged" => Value::int(stats.idx_deleted_staged, span),
+                "idx_renamed" => Value::int(stats.idx_renamed, span),
+                "idx_type_changed" => Value::int(stats.idx_type_changed, span),
+                "wt_untracked" => Value::int(stats.wt_untracked, span),
+                "wt_modified" => Value::int(stats.wt_modified, span),
+                "wt_deleted" => Value::int(stats.wt_deleted, span),
+                "wt_type_changed" => Value::int(stats.wt_type_changed, span),
+                "wt_renamed" => Value::int(stats.wt_renamed, span),
+                "ignored" => Value::int(stats.ignored, span),
+                "conflicts" => Value::int(stats.conflicts, span),
+                "ahead" => Value::int(stats.ahead, span),
+                "behind" => Value::int(stats.behind, span),
+                "stashes" => Value::int(stats.stashes, span),
                 "repo_name" => Value::string(repo_name, span),
                 "tag" => Value::string(tag, span),
                 "branch" => Value::string(stats.branch, span),
@@ -165,41 +168,47 @@ impl GStat {
 }
 
 /// Stats which the interpreter uses to populate the gist expression
+///
+/// The counts from the status list (`idx_*`, `wt_*`, `ignored` and `conflicts`) are -1 when
+/// libgit2 cannot compute the status, for example for a split or sparse index or a bare
+/// repository, so that an unknown status never reads as a clean tree.
 #[derive(Debug, PartialEq, Eq, Default, Clone)]
 pub struct Stats {
     /// Number of files to be added
-    pub idx_added_staged: u16,
+    pub idx_added_staged: i64,
     /// Number of staged changes to files
-    pub idx_modified_staged: u16,
+    pub idx_modified_staged: i64,
     /// Number of staged deletions
-    pub idx_deleted_staged: u16,
+    pub idx_deleted_staged: i64,
     /// Number of renamed files
-    pub idx_renamed: u16,
+    pub idx_renamed: i64,
     /// Index file type change
-    pub idx_type_changed: u16,
+    pub idx_type_changed: i64,
 
     /// Number of untracked files which are new to the repository
-    pub wt_untracked: u16,
+    pub wt_untracked: i64,
     /// Number of modified files which have not yet been staged
-    pub wt_modified: u16,
+    pub wt_modified: i64,
     /// Number of deleted files
-    pub wt_deleted: u16,
+    pub wt_deleted: i64,
     /// Working tree file type change
-    pub wt_type_changed: u16,
-    /// Working tree renamed
-    pub wt_renamed: u16,
+    pub wt_type_changed: i64,
+    /// Number of unstaged renames: a deleted tracked file paired with a similar untracked file,
+    /// which are then not counted in `wt_deleted` and `wt_untracked`. A renamed file that was
+    /// also edited counts in `wt_modified` too.
+    pub wt_renamed: i64,
 
-    // Ignored files
-    pub ignored: u16,
+    /// Number of ignored entries; an ignored directory counts once, without walking into it
+    pub ignored: i64,
     /// Number of unresolved conflicts in the repository
-    pub conflicts: u16,
+    pub conflicts: i64,
 
     /// Number of commits ahead of the upstream branch
-    pub ahead: u16,
+    pub ahead: i64,
     /// Number of commits behind the upstream branch
-    pub behind: u16,
+    pub behind: i64,
     /// Number of stashes on the current branch
-    pub stashes: u16,
+    pub stashes: i64,
     /// The branch name or other stats of the HEAD pointer
     pub branch: String,
     /// The of the upstream branch
@@ -222,9 +231,16 @@ impl Stats {
 
         opts.include_untracked(true)
             .recurse_untracked_dirs(true)
-            .renames_head_to_index(true);
+            .include_ignored(true)
+            .renames_head_to_index(true)
+            .renames_index_to_workdir(true);
 
-        if let Ok(statuses) = repo.statuses(Some(&mut opts)) {
+        // Rename detection reads untracked files, and one unreadable file fails the whole list.
+        // Retry without it so the other counts survive.
+        if let Ok(statuses) = repo.statuses(Some(&mut opts)).or_else(|_| {
+            opts.renames_index_to_workdir(false);
+            repo.statuses(Some(&mut opts))
+        }) {
             for status in statuses.iter() {
                 let flags = status.status();
 
@@ -267,6 +283,26 @@ impl Stats {
                     st.conflicts += 1;
                 }
             }
+        } else {
+            // libgit2 cannot read every index (split or sparse indexes, a damaged file), and a
+            // bare repository has no working tree. Report the counts as unknown instead of as a
+            // clean tree.
+            for count in [
+                &mut st.idx_added_staged,
+                &mut st.idx_modified_staged,
+                &mut st.idx_deleted_staged,
+                &mut st.idx_renamed,
+                &mut st.idx_type_changed,
+                &mut st.wt_untracked,
+                &mut st.wt_modified,
+                &mut st.wt_deleted,
+                &mut st.wt_type_changed,
+                &mut st.wt_renamed,
+                &mut st.ignored,
+                &mut st.conflicts,
+            ] {
+                *count = -1;
+            }
         }
 
         let _ = repo.stash_foreach(|_, &_, &_| {
@@ -281,6 +317,7 @@ impl Stats {
     ///
     /// If in detached head, grab the first few characters of the commit ID if possible, otherwise
     /// simply provide HEAD as the branch name.  This is to mimic the behaviour of `git status`.
+    /// A branch with no commits yet is named after the branch `HEAD` points to.
     fn read_branch(&mut self, repo: &Repository) {
         self.branch = match repo.head() {
             Ok(head) => {
@@ -307,9 +344,19 @@ impl Stats {
                     "HEAD".to_string()
                 }
             }
-            Err(ref err) if err.code() == git2::ErrorCode::BareRepo => "master".to_string(),
-            Err(_) if repo.is_empty().unwrap_or(false) => "master".to_string(),
-            Err(_) => "HEAD".to_string(),
+            // `HEAD` names a branch that doesn't exist yet, as in a new repository. Read the name
+            // from `HEAD` itself rather than assuming `master`, since `init.defaultBranch` or
+            // `git init --initial-branch` can pick any name.
+            Err(_) => repo
+                .find_reference("HEAD")
+                .ok()
+                .and_then(|head| {
+                    head.symbolic_target()
+                        .ok()
+                        .flatten()
+                        .map(|target| target.trim_start_matches("refs/heads/").to_string())
+                })
+                .unwrap_or_else(|| "HEAD".to_string()),
         };
     }
 
@@ -341,8 +388,8 @@ impl Stats {
         if let (Some(local), Some(upstream)) = (local.get().target(), upstream.get().target())
             && let Ok((ahead, behind)) = repo.graph_ahead_behind(local, upstream)
         {
-            self.ahead = ahead as u16;
-            self.behind = behind as u16;
+            self.ahead = ahead as i64;
+            self.behind = behind as i64;
         }
     }
 }
@@ -363,8 +410,6 @@ impl Stats {
 //     }
 // }
 
-/// Check the bits of a flag against the value to see if they are set
-#[inline]
 /// The closest tag reachable from `HEAD`, formatted like `git describe --tags`: the tag itself
 /// when `HEAD` is tagged, otherwise `<tag>-<commits since the tag>-g<abbreviated hash>`.
 ///
@@ -409,9 +454,134 @@ fn nearest_tag(repo: &Repository) -> Option<String> {
     ))
 }
 
+/// Check the bits of a flag against the value to see if they are set
+#[inline]
 fn check<B>(val: B, flag: B) -> bool
 where
     B: BitAnd<Output = B> + PartialEq + Copy,
 {
     val & flag == flag
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use git2::{IndexAddOption, RepositoryInitOptions, Signature};
+    use nu_protocol::Record;
+    use std::fs;
+
+    /// Creates a repository in `dir` whose `HEAD` is `branch`, and commits `files` if there are any.
+    fn init_repo(dir: &Path, branch: &str, files: &[(&str, &str)]) -> Repository {
+        let repo =
+            Repository::init_opts(dir, RepositoryInitOptions::new().initial_head(branch)).unwrap();
+        if !files.is_empty() {
+            for (name, contents) in files {
+                fs::write(dir.join(name), contents).unwrap();
+            }
+            let mut index = repo.index().unwrap();
+            index.add_all(["*"], IndexAddOption::DEFAULT, None).unwrap();
+            index.write().unwrap();
+            let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+            let signature = Signature::now("gstat", "gstat@example.com").unwrap();
+            repo.commit(Some("HEAD"), &signature, &signature, "init", &tree, &[])
+                .unwrap();
+        }
+        repo
+    }
+
+    fn gstat(dir: &Path) -> Record {
+        let span = Span::test_data();
+        GStat::new()
+            .gstat(
+                &Value::nothing(span),
+                dir.to_str().unwrap(),
+                None,
+                false,
+                span,
+            )
+            .unwrap()
+            .into_record()
+            .unwrap()
+    }
+
+    fn int(record: &Record, column: &str) -> i64 {
+        record.get(column).unwrap().as_int().unwrap()
+    }
+
+    fn string<'a>(record: &'a Record, column: &str) -> &'a str {
+        record.get(column).unwrap().as_str().unwrap()
+    }
+
+    #[test]
+    fn counts_ignored_entries_and_unstaged_renames() {
+        let dir = tempfile::tempdir().unwrap();
+        let contents = "enough text for rename detection to compare\n".repeat(10);
+        init_repo(
+            dir.path(),
+            "main",
+            &[(".gitignore", "*.log\n"), ("before.txt", &contents)],
+        );
+        fs::rename(dir.path().join("before.txt"), dir.path().join("after.txt")).unwrap();
+        fs::write(dir.path().join("build.log"), "").unwrap();
+
+        let record = gstat(dir.path());
+        assert_eq!(int(&record, "wt_renamed"), 1);
+        assert_eq!(int(&record, "wt_deleted"), 0);
+        assert_eq!(int(&record, "wt_untracked"), 0);
+        assert_eq!(int(&record, "ignored"), 1);
+    }
+
+    #[test]
+    fn unreadable_index_reports_unknown_counts() {
+        let dir = tempfile::tempdir().unwrap();
+        init_repo(dir.path(), "main", &[("a.txt", "a\n")]);
+        // An index header that promises one entry and then ends.
+        fs::write(dir.path().join(".git/index"), b"DIRC\0\0\0\x02\0\0\0\x01").unwrap();
+
+        let record = gstat(dir.path());
+        assert_eq!(int(&record, "idx_added_staged"), -1);
+        assert_eq!(int(&record, "wt_modified"), -1);
+        assert_eq!(int(&record, "conflicts"), -1);
+        assert_eq!(string(&record, "branch"), "main");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_untracked_file_keeps_the_counts() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let contents = "enough text for rename detection to compare\n".repeat(10);
+        init_repo(dir.path(), "main", &[("before.txt", &contents)]);
+        fs::remove_file(dir.path().join("before.txt")).unwrap();
+        let unreadable = dir.path().join("after.txt");
+        fs::write(&unreadable, &contents).unwrap();
+        fs::set_permissions(&unreadable, fs::Permissions::from_mode(0o000)).unwrap();
+        fs::write(dir.path().join("other.txt"), "other\n").unwrap();
+
+        let record = gstat(dir.path());
+        // Rename detection can't read `after.txt` (unless the tests run as root, which can), so
+        // the move shows up either as a rename or as a deletion plus an untracked file.
+        assert_eq!(int(&record, "wt_deleted") + int(&record, "wt_renamed"), 1);
+        assert_eq!(int(&record, "wt_untracked") + int(&record, "wt_renamed"), 2);
+    }
+
+    #[test]
+    fn unborn_branch_is_named_by_head() {
+        let dir = tempfile::tempdir().unwrap();
+        init_repo(dir.path(), "trunk", &[]);
+        assert_eq!(string(&gstat(dir.path()), "branch"), "trunk");
+    }
+
+    #[test]
+    fn linked_worktree_is_named_after_its_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let main = dir.path().join("main_checkout");
+        let linked = dir.path().join("linked_checkout");
+        let repo = init_repo(&main, "main", &[("a.txt", "a\n")]);
+        repo.worktree("linked", &linked, None).unwrap();
+
+        assert_eq!(string(&gstat(&main), "repo_name"), "main_checkout");
+        assert_eq!(string(&gstat(&linked), "repo_name"), "linked_checkout");
+    }
 }

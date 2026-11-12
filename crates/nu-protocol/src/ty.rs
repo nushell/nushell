@@ -216,7 +216,7 @@ impl Type {
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
-            Type::Custom(_) => SyntaxShape::Any,
+            Type::Custom(name) => SyntaxShape::Custom(name.clone()),
             Type::Glob => SyntaxShape::GlobPattern,
         }
     }

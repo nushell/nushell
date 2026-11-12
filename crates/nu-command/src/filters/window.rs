@@ -137,6 +137,9 @@ impl Command for Window {
 struct WindowOverlapIter<I: Iterator<Item = Value>> {
     iter: I,
     window: Vec<Value>,
+    // The window size lives here and not in `window.capacity()`, because `window` is not
+    // allocated up front: the size is user supplied and can be far larger than the input.
+    size: usize,
     stride: usize,
     remainder: bool,
     span: Span,
@@ -152,7 +155,9 @@ impl<I: Iterator<Item = Value>> WindowOverlapIter<I> {
     ) -> Self {
         Self {
             iter: iter.into_iter(),
-            window: Vec::with_capacity(size.into()),
+            // Don't reserve `size`: it comes from the user and can be much larger than the input.
+            window: Vec::new(),
+            size: size.into(),
             stride: stride.into(),
             remainder,
             span,
@@ -165,16 +170,14 @@ impl<I: Iterator<Item = Value>> Iterator for WindowOverlapIter<I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let len = if self.window.is_empty() {
-            self.window.capacity()
+            self.size
         } else {
             self.stride
         };
 
         self.window.extend((&mut self.iter).take(len));
 
-        if self.window.len() == self.window.capacity()
-            || (self.remainder && !self.window.is_empty())
-        {
+        if self.window.len() == self.size || (self.remainder && !self.window.is_empty()) {
             let mut next = Vec::with_capacity(self.window.len());
             next.extend(self.window.iter().skip(self.stride).cloned());
             let window = std::mem::replace(&mut self.window, next);
@@ -218,12 +221,12 @@ impl<I: Iterator<Item = Value>> Iterator for WindowGapIter<I> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut window = Vec::with_capacity(self.size);
-        window.extend(
-            (&mut self.iter)
-                .skip(if self.first { 0 } else { self.skip })
-                .take(self.size),
-        );
+        // `self.size` is user supplied and can be far larger than the input, so don't reserve it.
+        // `Take` passes the size hint of the input through, so `collect` allocates once.
+        let window: Vec<_> = (&mut self.iter)
+            .skip(if self.first { 0 } else { self.skip })
+            .take(self.size)
+            .collect();
 
         self.first = false;
 

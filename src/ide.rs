@@ -641,21 +641,12 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
         });
 
     if let Ok(location) = location.as_int() {
-        let results = completer.complete_blocking(
-            &String::from_utf8_lossy(&file)[..location as usize],
-            location as usize,
-        );
-        print!("{{\"completions\": [");
-        let mut first = true;
-        for result in results.iter() {
-            if !first {
-                print!(", ")
-            } else {
-                first = false;
-            }
-            print!("\"{}\"", result.value,)
-        }
-        println!("]}}");
+        let contents = String::from_utf8_lossy(&file);
+        let location = (location.max(0) as usize).min(contents.len());
+        let location = contents.floor_char_boundary(location);
+        let results = completer.complete_blocking(&contents[..location], location);
+        let values: Vec<_> = results.iter().map(|result| &result.value).collect();
+        println!("{}", json!({ "completions": values }));
     }
 }
 

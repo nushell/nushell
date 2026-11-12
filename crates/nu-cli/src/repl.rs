@@ -11,6 +11,7 @@ use crate::{
     hints::ExternalHinter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
+    status_line::{NuStatusLine, StatusStyles},
     syntax_highlight::NoOpHighlighter,
     util::{eval_source, evaluate_source},
 };
@@ -35,6 +36,7 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
+use percent_encoding::{CONTROLS, utf8_percent_encode};
 use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -43,6 +45,7 @@ use reedline::{
     HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
     SemanticPromptMarkers, Vi,
 };
+use std::ffi::OsStr;
 use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
@@ -54,6 +57,7 @@ use std::{
     time::Duration,
 };
 use sysinfo::System;
+use url::Url;
 
 fn semantic_markers_from_config(
     config: &Config,
@@ -105,7 +109,6 @@ pub fn evaluate_repl(
     stack: Stack,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
-    entire_start_time: Instant,
 ) -> Result<()> {
     // throughout this code, we hold this stack uniquely.
     // During the main REPL loop, we hand ownership of this value to an Arc,
@@ -185,10 +188,9 @@ pub fn evaluate_repl(
         );
     }
 
-    // Provisional `$nu.startup-time`, so the hooks and prompt closures that run before the first
-    // prompt can already read it. The final value is stored right before the first prompt is
-    // drawn: see `finish_startup`.
-    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+    // Refresh `$nu`, so the hooks and prompt closures that run before the first prompt see the
+    // startup time so far. The final value is stored right before the first prompt is drawn: see
+    // `finish_startup`.
     engine_state.generate_nu_constant();
 
     // The banner is defined by the standard library. Its welcome message goes out now, before
@@ -209,10 +211,7 @@ pub fn evaluate_repl(
             false,
         );
     }
-    let mut first_prompt = Some(FirstPrompt {
-        entire_start_time,
-        banner,
-    });
+    let mut first_prompt = Some(FirstPrompt { banner });
 
     kitty_protocol_healthcheck(engine_state);
 
@@ -366,8 +365,6 @@ struct LoopContext<'a> {
 
 /// Work deferred until the REPL is about to draw its first prompt.
 struct FirstPrompt {
-    /// When the process started (see `main`).
-    entire_start_time: Instant,
     /// Which banner to show; `None` when the standard library (which defines it) is not loaded.
     banner: BannerKind,
 }
@@ -384,12 +381,9 @@ fn finish_startup(
     first_prompt: FirstPrompt,
     use_color: bool,
 ) {
-    let startup_time = first_prompt.entire_start_time.elapsed();
-    engine_state.set_startup_time(startup_time.as_nanos() as i64);
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    engine_state.generate_nu_constant();
+    let startup_time = engine_state.finish_startup();
     perf!(
-        "startup (process start to first prompt)",
+        "startup (main to first prompt)",
         elapsed: startup_time,
         use_color
     );
@@ -436,6 +430,12 @@ fn run_command(ctx: RunContext) -> Reedline {
         shell_integration,
         entry_num,
     } = ctx;
+
+    // Prompt or line editor evaluation may have been interrupted since this REPL iteration
+    // started. Do not carry that interruption into the new command or its pre-execution hooks.
+    if engine_state.signals().interrupted() {
+        engine_state.reset_signals();
+    }
 
     let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
         #[cfg(feature = "sqlite")]
@@ -593,6 +593,42 @@ fn run_command(ctx: RunContext) -> Reedline {
     line_editor
 }
 
+/// Check whether `cmd` exists in the current directory or in `$env.PATH`
+fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
+    let paths = nu_engine::env::path_str(engine_state, stack, Span::unknown()).ok();
+    let cmd_os = OsStr::new(cmd);
+    let paths_os = paths.as_deref().map(OsStr::new);
+    if let Ok(cwd) = engine_state.cwd(Some(stack)) {
+        which::which_in(cmd_os, paths_os, cwd).is_ok()
+    } else {
+        which::which_in_global(cmd_os, paths_os)
+            .ok()
+            .and_then(|mut i| i.next())
+            .is_some()
+    }
+}
+
+/// Evaluate the normal prompt, then recover before preparing the transient prompt.
+fn prepare_prompt(
+    config: &Config,
+    engine_state: &mut EngineState,
+    stack: &Arc<Stack>,
+) -> Box<dyn reedline::Prompt> {
+    prompt_update::update_prompt(config, engine_state, &mut Stack::with_parent(stack.clone()));
+
+    // Prompt errors have already been reported. Start the transient prompt and line editor
+    // callbacks without carrying over the prompt's interruption.
+    if engine_state.signals().interrupted() {
+        engine_state.reset_signals();
+    }
+
+    prompt_update::make_transient_prompt(
+        config,
+        engine_state,
+        &mut Stack::with_parent(stack.clone()),
+    )
+}
+
 /// Perform one iteration of the REPL loop
 /// Result is bool: continue loop, current reedline
 #[inline]
@@ -627,6 +663,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = Instant::now();
+
+    // Keep the pushes made for this prompt even if they land before `update_prompt` installs the
+    // new baseline; `PromptState::begin_update` says which pushes count.
+    let first_job = engine_state
+        .jobs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .next_id();
+    engine_state.prompt_state.begin_update(first_job);
 
     // Juhan said to do this :)
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
@@ -677,16 +722,18 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .get_env_var("TERM_PROGRAM")
         .and_then(|v| v.as_str().ok())
         == Some("vscode");
+    let highlighter = NuHighlighter::new(
+        engine_reference.clone(),
+        // STACK-REFERENCE 1
+        stack_arc.clone(),
+    );
+    let parse_cache = highlighter.parse_cache();
     let mut line_editor = line_editor
         .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
         .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-        .with_highlighter(Box::new(NuHighlighter::new(
-            engine_reference.clone(),
-            // STACK-REFERENCE 1
-            stack_arc.clone(),
-        )))
+        .with_highlighter(Box::new(highlighter))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
@@ -733,10 +780,21 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor = line_editor.with_visual_selection_cursor_style(
         style_computer.compute("selection_cursor", &Value::nothing(Span::unknown())),
     );
+    // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+    // No meaningful span — this is a synthetic null value for style computation.
+    let hint_style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+    line_editor = if config.status_line.enable {
+        line_editor.with_status_line(Box::new(NuStatusLine::new(
+            engine_reference.clone(),
+            parse_cache,
+            config.status_line,
+            StatusStyles::from_config(&config, &style_computer, hint_style),
+        )))
+    } else {
+        line_editor.disable_status_line()
+    };
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
-        // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-        // No meaningful span — this is a synthetic null value for style computation.
-        let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+        let style = hint_style;
         if let Some(closure) = config.hinter.closure.as_ref() {
             line_editor.with_hinter(Box::new(ExternalHinter::new(
                 engine_reference.clone(),
@@ -767,7 +825,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // No call span available in the REPL loop for editor lookup
     let buffer_editor = get_editor(engine_state, &stack_arc, Span::unknown());
 
-    line_editor = if let Ok((cmd, args)) = buffer_editor {
+    line_editor = if let Ok((cmd, args)) = buffer_editor
+        && editor_is_resolved(engine_state, &stack_arc, &cmd)
+    {
         let mut command = std::process::Command::new(cmd);
         let envs = env_to_strings(engine_state, &stack_arc).unwrap_or_else(|e| {
             warn!("Couldn't convert environment variable values to strings: {e}");
@@ -804,18 +864,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     let config = &engine_state.get_config().clone();
-    // Re-evaluate the prompt into the shared `prompt_state`; this also resets any
-    // segment a background job pushed during the previous cycle.
-    prompt_update::update_prompt(
-        config,
-        engine_state,
-        &mut Stack::with_parent(stack_arc.clone()),
-    );
-    let transient_prompt = prompt_update::make_transient_prompt(
-        config,
-        engine_state,
-        &mut Stack::with_parent(stack_arc.clone()),
-    );
+    // Re-evaluate the prompt into the shared `prompt_state`, replacing the segments pushed for
+    // the previous prompt but not the pushes `begin_update` above kept.
+    let transient_prompt = prepare_prompt(config, engine_state, &stack_arc);
 
     perf!("update_prompt", start_time, use_color);
 
@@ -887,7 +938,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 entry_num,
             });
         }
-        Ok(Signal::CtrlC) => {
+        Ok(Signal::CtrlC(_)) => {
             // `Reedline` clears the line content. New prompt is shown
             run_finaliziation_ansi_sequence(
                 &stack,
@@ -961,7 +1012,7 @@ fn prepare_history_metadata(
     if !s.is_empty() && line_editor.has_last_command_context() {
         let result = line_editor
             .update_last_command_context(&|mut c| {
-                c.start_timestamp = Some(chrono::Utc::now());
+                c.start_timestamp = Some(reedline::HistoryTimestamp::now());
                 c.hostname = hostname.map(str::to_string);
                 c.cwd = engine_state
                     .cwd(None)
@@ -1040,7 +1091,8 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let path = nu_path::expand_path_with(&orig, &cwd, true);
+    let target = nu_path::resolve_drive_relative(Path::new(&orig), Path::new(&cwd));
+    let path = nu_path::expand_path_with(&target, &cwd, true);
     if (engine_state.get_config().auto_cd_implicit || looks_like_path(&orig))
         && path.is_dir()
         && tokens.0.len() == 1
@@ -1253,25 +1305,14 @@ fn run_shell_integration_osc7(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
+    if let Ok(path) = engine_state.cwd(Some(stack)) {
         let start_time = Instant::now();
 
-        let path = if cfg!(windows) {
-            path.replace('\\', "/")
-        } else {
-            path
-        };
-
         // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
-        run_ansi_sequence(&format!(
-            "\x1b]7;file://{}{}{}\x1b\\",
-            percent_encoding::utf8_percent_encode(
-                hostname.unwrap_or("localhost"),
-                percent_encoding::CONTROLS
-            ),
-            if path.starts_with('/') { "" } else { "/" },
-            percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-        ));
+        match osc7_sequence(hostname, path.as_std_path()) {
+            Some(sequence) => run_ansi_sequence(&sequence),
+            None => warn!("Could not construct OSC 7 URL for {}", path.display()),
+        }
 
         perf!(
             "communicate path to terminal with osc7",
@@ -1279,6 +1320,21 @@ fn run_shell_integration_osc7(
             use_color
         );
     }
+}
+
+/// Format an OSC 7 sequence from a native filesystem path.
+fn osc7_sequence(hostname: Option<&str>, path: &Path) -> Option<String> {
+    let url = Url::from_file_path(path).ok()?;
+
+    // Keep UNC servers, but don't use set_host for the shell's hostname:
+    // URL host parsing rewrites numeric names such as "123" into IPv4 addresses.
+    let hostname = url.host_str().or(hostname).unwrap_or("localhost");
+    Some(format!(
+        "\x1b]7;file://{}{}\x1b\\",
+        utf8_percent_encode(hostname, CONTROLS),
+        // Some terminals split OSC parameters on semicolons before parsing the URL.
+        url.path().replace(';', "%3B")
+    ))
 }
 
 fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
@@ -1512,7 +1568,7 @@ fn update_line_editor_history(
             match SqliteBackedHistory::with_file(
                 history_path.clone(),
                 history_session_id,
-                Some(chrono::Utc::now()),
+                Some(reedline::HistoryTimestamp::now()),
             ) {
                 Ok(h) => Some(Box::new(h)),
                 Err(err) => {
@@ -1704,6 +1760,99 @@ fn looks_like_path(orig: &str) -> bool {
 }
 
 #[cfg(test)]
+mod osc7_tests {
+    use super::osc7_sequence;
+    use std::path::Path;
+
+    #[test]
+    fn osc7_percent_encodes_filename_characters() {
+        let (root, url_path) = if cfg!(windows) {
+            ("C:/tmp", "/C:/tmp")
+        } else {
+            ("/tmp", "/tmp")
+        };
+        for (name, encoded) in [
+            ("nu#test", "nu%23test"),
+            ("question?mark", "question%3Fmark"),
+            ("a;b", "a%3Bb"),
+            ("literal%3B", "literal%253B"),
+            ("literal %20 directory", "literal%20%2520%20directory"),
+            ("é", "%C3%A9"),
+            ("\x07\x1b\n", "%07%1B%0A"),
+            (
+                "path with spaces #100% café",
+                "path%20with%20spaces%20%23100%25%20caf%C3%A9",
+            ),
+        ] {
+            let path = Path::new(root).join(name);
+            let sequence = osc7_sequence(Some("host"), &path).unwrap();
+            assert_eq!(
+                sequence,
+                format!("\x1b]7;file://host{url_path}/{encoded}\x1b\\"),
+                "filename: {name:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn osc7_preserves_hostname_and_path() {
+        let (path, url_path) = if cfg!(windows) {
+            ("C:/tmp/a-b_c.d~e", "/C:/tmp/a-b_c.d~e")
+        } else {
+            ("/tmp/a-b_c.d~e", "/tmp/a-b_c.d~e")
+        };
+        for (hostname, authority) in [
+            (None, "localhost"),
+            (Some("host"), "host"),
+            (Some("HOST"), "HOST"),
+            (Some("123"), "123"),
+            (Some("host\n"), "host%0A"),
+        ] {
+            let sequence = osc7_sequence(hostname, Path::new(path)).unwrap();
+            assert_eq!(
+                sequence,
+                format!("\x1b]7;file://{authority}{url_path}\x1b\\")
+            );
+        }
+    }
+
+    #[test]
+    fn osc7_rejects_relative_paths() {
+        assert!(osc7_sequence(None, Path::new("relative/path")).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn osc7_preserves_unix_backslashes() {
+        let sequence = osc7_sequence(Some("host"), Path::new("/tmp/a\\b")).unwrap();
+        assert_eq!(sequence, "\x1b]7;file://host/tmp/a%5Cb\x1b\\");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn osc7_handles_windows_prefixes() {
+        for (path, expected) in [
+            (r"C:\Users\name#test", "file://host/C:/Users/name%23test"),
+            (
+                r"\\?\C:\Users\name#test",
+                "file://host/C:/Users/name%23test",
+            ),
+            (
+                r"\\server\share\name#test",
+                "file://server/share/name%23test",
+            ),
+            (
+                r"\\?\UNC\server\share\name#test",
+                "file://server/share/name%23test",
+            ),
+        ] {
+            let sequence = osc7_sequence(Some("host"), Path::new(path)).unwrap();
+            assert_eq!(sequence, format!("\x1b]7;{expected}\x1b\\"));
+        }
+    }
+}
+
+#[cfg(test)]
 mod semantic_marker_tests {
     use super::semantic_markers_from_config;
     use nu_protocol::Config;
@@ -1767,6 +1916,78 @@ fn trailing_slash_looks_like_path() {
 #[test]
 fn trailing_slash_looks_like_path() {
     assert!(looks_like_path("foo/"))
+}
+
+#[test]
+fn command_after_interrupted_prompt_runs_hooks_and_command() -> nu_test_support::Result {
+    use nu_protocol::engine::PromptContents;
+    use nu_test_support::TestResultExt;
+
+    let mut tester = nu_test_support::test();
+    // `match` polls interruption signals; plain assignments do not.
+    let () = tester.run(
+        r#"
+        def interrupted-completion [] { match 1 { 1 => ["completion"] } }
+        def complete-me [arg: string@interrupted-completion] { $arg }
+        $env.hook_ran = false
+        $env.command_ran = false
+        $env.PROMPT_COMMAND = { match 1 { 1 => "prompt" } }
+        $env.TRANSIENT_PROMPT_COMMAND = { match 1 { 1 => "transient" } }
+        $env.config.hooks.pre_execution = [{||
+            $env.hook_ran = (match 1 { 1 => true })
+        }]
+        $env.config.shell_integration = {
+            osc2: false, osc7: false, osc8: false, osc9_9: false,
+            osc133: false, osc633: false, reset_application_mode: false
+        }
+        "#,
+    )?;
+    tester.engine_state.merge_env(&mut tester.stack)?;
+    let signals = nu_protocol::Signals::new(Arc::default());
+    tester.engine_state.set_signals(signals.clone());
+    // Seed old contents so skipping prompt evaluation also fails the assertion.
+    tester
+        .engine_state
+        .prompt_state
+        .set_contents(PromptContents {
+            left: Some("previous prompt".into()),
+            ..Default::default()
+        });
+    signals.trigger();
+
+    let config = tester.engine_state.get_config().clone();
+    let stack = Arc::new(tester.stack.clone());
+    let transient_prompt = prepare_prompt(&config, &mut tester.engine_state, &stack);
+    assert!(tester.engine_state.prompt_state.contents().left.is_none());
+    assert_eq!(transient_prompt.render_prompt_left(), "transient");
+
+    let completion_line = "complete-me ";
+    let completions = NuCompleter::new(Arc::new(tester.engine_state.clone()), stack)
+        .complete_blocking(completion_line, completion_line.len());
+    assert_eq!(
+        completions
+            .iter()
+            .map(|suggestion| suggestion.value.as_str())
+            .collect::<Vec<_>>(),
+        ["completion"]
+    );
+
+    // An interruption during line editing must not reach the submitted command either.
+    signals.trigger();
+    run_command(RunContext {
+        engine_state: &mut tester.engine_state,
+        stack: &mut tester.stack,
+        line_editor: Reedline::create(),
+        command: "$env.command_ran = (match 1 { 1 => true })".into(),
+        hostname: None,
+        use_color: false,
+        shell_integration: &config.shell_integration,
+        entry_num: &mut 0,
+    });
+
+    tester
+        .run("$env.hook_ran and $env.command_ran")
+        .expect_value_eq(true)
 }
 
 #[test]
@@ -1890,6 +2111,23 @@ mod test_auto_cd {
         let input = if cfg!(windows) { r"C:\" } else { "/" };
         let root = AbsolutePath::try_new(input).unwrap();
         check(tempdir, input, root);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn auto_cd_bare_drive_on_current_drive() {
+        let tempdir = tempdir().unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let dir = tempdir.join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let Some(std::path::Component::Prefix(drive)) = tempdir.as_std_path().components().next()
+        else {
+            panic!("{tempdir:?} has no drive prefix")
+        };
+        let drive = drive.as_os_str().to_string_lossy();
+        check(&dir, &drive, &dir);
+        check(tempdir, &format!("{drive}foo"), &dir);
     }
 
     #[test]

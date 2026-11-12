@@ -10,10 +10,13 @@ const DEFAULT_HISTORY_LIMIT: usize = 100;
 /// Ring buffer for storing command output history.
 ///
 /// Maintains a fixed-size buffer of values that can be accessed via the `$history` variable.
-/// When the buffer is full, oldest entries are evicted to make room for new ones.
+/// When the buffer is full, oldest entries are evicted to make room for new ones. Indices never
+/// shift: an entry keeps the index it was stored at, and an evicted index reads as `null`.
 #[derive(Clone)]
 pub struct History {
     buffer: VecDeque<Value>,
+    /// Number of entries evicted so far, which is also the index of the oldest held entry.
+    evicted: usize,
     var_id: Option<VarId>,
 }
 
@@ -23,6 +26,7 @@ impl History {
         let var_id = register_history_variable(engine_state);
         Self {
             buffer: VecDeque::new(),
+            evicted: 0,
             var_id,
         }
     }
@@ -32,23 +36,30 @@ impl History {
         self.var_id
     }
 
-    /// Pushes a value to the history, evicting the oldest entry if at capacity.
+    /// Pushes a value to the history, evicting the oldest entries until it fits the limit.
     ///
-    /// Returns the index at which the value was stored.
+    /// The new value is always kept, even with a limit of 0, because the response that
+    /// reports a truncated output points at it. Returns the index at which the value was
+    /// stored; indices keep increasing across evictions.
     pub fn push(&mut self, value: Value, engine_state: &EngineState, stack: &Stack) -> usize {
-        let limit = history_limit(engine_state, stack);
-        if self.buffer.len() >= limit {
+        let limit = history_limit(engine_state, stack).max(1);
+        while self.buffer.len() >= limit {
             self.buffer.pop_front();
+            self.evicted += 1;
         }
-        let index = self.buffer.len();
         self.buffer.push_back(value);
-        index
+        self.evicted + self.buffer.len() - 1
     }
 
     /// Creates a `Value::list` containing all history entries for use in evaluation.
+    ///
+    /// Evicted entries are `null` placeholders so that `$history.<index>` keeps pointing at
+    /// the entry stored at that index.
     pub fn as_value(&self) -> Value {
-        let list: Vec<Value> = self.buffer.iter().cloned().collect();
         // No source span available -- history is a runtime-constructed value
+        let list: Vec<Value> = std::iter::repeat_n(Value::nothing(Span::unknown()), self.evicted)
+            .chain(self.buffer.iter().cloned())
+            .collect();
         Value::list(list, Span::unknown())
     }
 }

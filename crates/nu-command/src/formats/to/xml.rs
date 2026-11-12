@@ -99,6 +99,11 @@ Additionally any field which is: empty record, empty list or null, can be omitte
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
+        if let Some(indent) = indent
+            && indent.item < 0
+        {
+            return Err(ShellError::NeedsPositiveValue { span: indent.span });
+        }
         let partial_escape = call.has_flag(engine_state, stack, "partial-escape")?;
         let self_closed = call.has_flag(engine_state, stack, "self-closed")?;
 

@@ -90,6 +90,17 @@ impl Fetched {
         self.suggestions.extend(other.suggestions);
     }
 
+    /// [`Fetched::merge`], but without the suggestions whose value this outcome already has.
+    pub(crate) fn merge_new(&mut self, mut other: Fetched) {
+        other.suggestions.retain(|new| {
+            !self
+                .suggestions
+                .iter()
+                .any(|known| known.suggestion.value == new.suggestion.value)
+        });
+        self.merge(other);
+    }
+
     /// Merge one source's outcome and report whether it answered.
     pub(crate) fn absorb(&mut self, attempt: Fetched) -> bool {
         let answered = attempt.answered();

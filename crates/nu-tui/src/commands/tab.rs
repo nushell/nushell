@@ -64,6 +64,7 @@ impl Command for TuiTab {
                 WidgetKind::Tab(TabWidget { title }),
                 children,
                 None,
+                None,
             )
         })
     }

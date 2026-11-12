@@ -9,7 +9,7 @@ use crate::completions::{
     completer::{closure_is_interactive, decl_is_interactive},
 };
 pub use input::DeclaredInputs;
-pub(crate) use input::{completer_input, legacy_context, legacy_pos, legacy_spans};
+pub(crate) use input::{command_tokens, completer_input, legacy_context, legacy_pos};
 use nu_engine::compile;
 use nu_protocol::{
     BlockId, DeclId, PipelineData, ReportMode, ShellError, ShellWarning, Signature, Span, Value,
@@ -28,20 +28,23 @@ use std::{
 };
 
 thread_local! {
-    static COMPLETION_PANIC_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static COMPLETION_SOURCE_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// Whether the current thread is evaluating a completion source. The main panic hook uses this
-/// to avoid printing a panic that completion already converted into a `ShellError`.
-pub fn completion_panic_is_active() -> bool {
-    COMPLETION_PANIC_ACTIVE.with(std::cell::Cell::get)
+/// Whether the current thread is evaluating a completion source, or the status line's const
+/// preview. The main panic hook uses this to avoid printing a panic that completion already
+/// converted into a `ShellError`, or that the preview drops, and [`flush_completion_warnings`]
+/// to hold its output while a menu may be drawing.
+pub fn completion_source_is_active() -> bool {
+    COMPLETION_SOURCE_ACTIVE.with(std::cell::Cell::get)
 }
 
-/// Catch a completion-source panic while marking it for the process panic hook.
+/// Catch a panic of a completion source or the status line preview while marking it for the
+/// process panic hook.
 pub(crate) fn catch_completion_panic<T>(
     f: impl FnOnce() -> T,
 ) -> Result<T, Box<dyn std::any::Any + Send>> {
-    COMPLETION_PANIC_ACTIVE.with(|active| {
+    COMPLETION_SOURCE_ACTIVE.with(|active| {
         let previous = active.replace(true);
         let result = catch_unwind(AssertUnwindSafe(f));
         active.set(previous);
@@ -103,7 +106,8 @@ impl LegacyInputKind {
                  `$place.cursor` replaces its position"
             }
             Self::Command => {
-                "use `[buffer]`; split or parse `$buffer` if the old token list is needed"
+                "use `[place]` and read `$place.command` for the token list of the command \
+                 being completed, or `[buffer]` for the whole line"
             }
             Self::Menu => "use `[buffer, place]`; `$place.cursor` replaces the old position",
         }
@@ -168,7 +172,7 @@ impl LegacyInputs {
     pub(crate) fn command(ctx: &Context, block: &Block) -> Self {
         Self::when_needed(LegacyInputKind::Command, block, ctx.span, || {
             // Command-wide and external completers historically received only `$spans`.
-            [legacy_spans(ctx), Value::nothing(ctx.span)]
+            [command_tokens(ctx), Value::nothing(ctx.span)]
         })
     }
 
@@ -235,8 +239,13 @@ fn queue(warning: ShellWarning) {
 
 /// Print the deprecations completion raised, now that printing is safe: the REPL calls this
 /// once the line editor hands back the line, and `commandline complete` when it returns.
-/// Each is still shown only once a session, through [`ReportMode::FirstUse`].
+/// A completion source calling the latter keeps them queued, since printing would land
+/// on the menu being drawn, and the REPL flush picks them up. Each is still shown only
+/// once a session, through [`ReportMode::FirstUse`].
 pub fn flush_completion_warnings(engine_state: &EngineState, stack: &Stack) {
+    if completion_source_is_active() {
+        return;
+    }
     // Taken, not printed under the lock: a background completion may be queueing into it.
     let pending = match PENDING.lock() {
         Ok(mut pending) => std::mem::take(&mut *pending),
@@ -250,10 +259,8 @@ pub fn flush_completion_warnings(engine_state: &EngineState, stack: &Stack) {
 
 /// Bind declared positional names to matching fields in the input record.
 ///
-/// A non-`token`/`place`/`buffer` name in either of the first two slots receives its old
-/// positional value through [`LegacyInputs`] instead of `nothing`. This keeps scripts such as
-/// fzf's `{|spans|}` and zoxide's `[context, pos]` working while they migrate. Other unknown
-/// inputs still receive `nothing` with a diagnostic.
+/// A name outside [`INPUT_FIELDS`] in the first two slots keeps its old positional value
+/// via [`LegacyInputs`]; other unknown inputs receive `nothing` with a diagnostic.
 pub(crate) fn bind_declared_inputs(
     stack: &mut Stack,
     signature: &Signature,

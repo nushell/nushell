@@ -28,3 +28,21 @@ fn stddev_duration_keeps_unit() -> Result {
         .run("[1sec 3sec] | math stddev")
         .expect_value_eq(expected)
 }
+
+#[test]
+fn stddev_large_close_values() -> Result {
+    // Regression: the single-pass formula produced a negative variance here,
+    // so the square root was `NaN`.
+    test()
+        .run("[506250000.0 506250001.0] | math stddev")
+        .expect_value_eq(0.5)
+}
+
+#[test]
+fn stddev_sample_table_cell_path() -> Result {
+    // Sample stddev of [1 3] is sqrt(2); a per-row reduction would see one
+    // value per row and fail the two-value minimum for `--sample`.
+    test()
+        .run("[[a]; [1] [3]] | math stddev --sample a | get a")
+        .expect_value_eq(std::f64::consts::SQRT_2)
+}

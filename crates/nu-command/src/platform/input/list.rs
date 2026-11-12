@@ -903,10 +903,8 @@ impl InputList {
                     .map(|v| v.to_expanded_string(", ", config))
                     .unwrap_or_else(|_| value.to_expanded_string(", ", config)),
                 DisplayMode::Closure(closure) => {
-                    let mut closure_eval =
-                        ClosureEval::new(engine_state, stack, Closure::clone(closure));
-                    closure_eval
-                        .run_with_value(value.clone())
+                    ClosureEval::try_new(engine_state, stack, Closure::clone(closure), span)
+                        .and_then(|mut closure_eval| closure_eval.run_with_value(value.clone()))
                         .and_then(|data| data.into_value(span))
                         .map(|v| v.to_expanded_string(", ", config))
                         .unwrap_or_else(|_| value.to_expanded_string(", ", config))

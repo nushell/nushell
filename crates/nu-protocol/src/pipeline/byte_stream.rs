@@ -616,10 +616,7 @@ impl ByteStream {
                         Ok(0) => break,
                         Ok(n) => buf.extend_from_slice(&chunk[..n]),
                         Err(e) if e.kind() == ErrorKind::Interrupted => continue,
-                        Err(e) => match ShellErrorBridge::try_from(e) {
-                            Ok(ShellErrorBridge(e)) => return Err(e),
-                            Err(e) => return Err(ShellError::Io(from_io_error(e))),
-                        },
+                        Err(e) => return Err(ShellErrorBridge::unpack(e, span)),
                     }
                 }
                 Ok(buf)
@@ -754,6 +751,50 @@ impl ByteStream {
             }
         }
         Ok(())
+    }
+
+    /// The process of an external whose stderr has its own pipe, which happens when the next
+    /// command reads stdout and stderr apart (`complete`, `ignore`, `save`, `tee`).
+    #[cfg(feature = "os")]
+    pub fn child_with_separate_stderr(&mut self) -> Option<&mut ChildProcess> {
+        match &mut self.stream {
+            ByteStreamSource::Child(child) if child.stderr.is_some() => Some(child),
+            _ => None,
+        }
+    }
+
+    /// For an external whose stderr has its own pipe, a copy of the stream without the stderr,
+    /// reading the same stdout from memory (see [`ChildProcess::copy_stdout`]). The stream itself
+    /// still reads the same. `None` for any other stream.
+    #[cfg(feature = "os")]
+    pub fn copy_stdout(&mut self) -> Result<Option<Self>, ShellError> {
+        let (span, signals, type_) = (self.span, self.signals.clone(), self.type_);
+        let Some(child) = self.child_with_separate_stderr() else {
+            return Ok(None);
+        };
+        let copy = ByteStreamSource::Child(Box::new(child.copy_stdout()?));
+        Ok(Some(Self::new(copy, span, signals, type_)))
+    }
+
+    /// Write the stream to `dest` like [`write_to`](Self::write_to), unless it's an external
+    /// whose stderr has its own pipe, meaning the next command reads stdout and stderr apart.
+    /// Then only stdout is written, and the stream comes back with the process and its stderr.
+    #[cfg(feature = "os")]
+    pub fn write_stdout_to(mut self, dest: impl Write) -> Result<Option<Self>, ShellError> {
+        let ByteStreamSource::Child(child) = &mut self.stream else {
+            return self.write_to(dest).map(|()| None);
+        };
+        if child.stderr.is_none() {
+            return self.write_to(dest).map(|()| None);
+        }
+        if child.stdout.is_some() {
+            // Read both pipes first, so the child can't block on stderr while stdout is written.
+            child.buffer_pipes()?;
+            if let Some(stdout) = child.stdout.take() {
+                copy_with_signals(stdout, dest, self.span, &self.signals)?;
+            }
+        }
+        Ok(Some(self))
     }
 }
 
@@ -904,7 +945,7 @@ impl Iterator for Lines {
                     trim_end_newline(&mut string);
                     Some(Ok(string))
                 }
-                Err(err) => Some(Err(IoError::new(err, self.span, None).into())),
+                Err(err) => Some(Err(ShellErrorBridge::unpack(err, self.span))),
             }
         }
     }
@@ -943,11 +984,12 @@ impl Iterator for SplitRead {
             return None;
         }
         self.internal.next().map(|r| {
-            r.map_err(|err| {
-                ShellError::Io(IoError::new_internal(
+            r.map_err(|err| match ShellErrorBridge::try_from(err) {
+                Ok(ShellErrorBridge(err)) => err,
+                Err(err) => ShellError::Io(IoError::new_internal(
                     err,
                     "Could not get next value for SplitRead",
-                ))
+                )),
             })
         })
     }
@@ -984,10 +1026,8 @@ impl Chunks {
     }
 
     fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, ShellError)> {
-        let from_io_error = |err: std::io::Error| match ShellErrorBridge::try_from(err) {
-            Ok(err) => err.0,
-            Err(err) => IoError::new(err, self.span, None).into(),
-        };
+        let span = self.span;
+        let from_io_error = |err: std::io::Error| ShellErrorBridge::unpack(err, span);
 
         // Get some data from the reader
         let buf = self
@@ -1069,7 +1109,7 @@ impl Iterator for Chunks {
                         Ok(buf) => buf,
                         Err(err) => {
                             self.error = true;
-                            return Some(Err(ShellError::Io(IoError::new(err, self.span, None))));
+                            return Some(Err(ShellErrorBridge::unpack(err, self.span)));
                         }
                     };
                     if !buf.is_empty() {
@@ -1197,10 +1237,7 @@ pub fn copy_with_signals(
             }
             Err(err) => {
                 let _ = writer.flush();
-                match ShellErrorBridge::try_from(err) {
-                    Ok(ShellErrorBridge(shell_error)) => Err(shell_error),
-                    Err(err) => Err(from_io_error(err).into()),
-                }
+                Err(ShellErrorBridge::unpack(err, span))
             }
         }
     } else {
@@ -1237,10 +1274,7 @@ fn generic_copy(
             Ok(0) => break,
             Ok(n) => n,
             Err(e) if e.kind() == ErrorKind::Interrupted => continue,
-            Err(e) => match ShellErrorBridge::try_from(e) {
-                Ok(ShellErrorBridge(e)) => return Err(e),
-                Err(e) => return Err(from_io_error(e).into()),
-            },
+            Err(e) => return Err(ShellErrorBridge::unpack(e, span)),
         };
         len += n;
         writer.write_all(&buf[..n]).map_err(&from_io_error)?;

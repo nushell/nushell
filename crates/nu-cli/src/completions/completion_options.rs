@@ -127,6 +127,16 @@ impl<T> NuMatcher<'_, T> {
     fn matches_aux(&mut self, orig_haystack: &str, item: Option<T>) -> Option<Vec<usize>> {
         let haystack = orig_haystack.trim_start_matches(QUOTES);
         let offset = orig_haystack.len() - haystack.len();
+        // A combining mark can share a displayed grapheme with a stripped quote.
+        let offset = if offset == 0 || orig_haystack.is_ascii() {
+            offset
+        } else {
+            orig_haystack
+                .grapheme_indices(true)
+                .take_while(|(start, _)| *start <= offset)
+                .count()
+                .saturating_sub(1)
+        };
         let haystack = haystack.trim_end_matches(QUOTES);
         match &mut self.state {
             State::Unscored(matches) => {
@@ -147,11 +157,38 @@ impl<T> NuMatcher<'_, T> {
                     _ => unreachable!("Only prefix and substring algorithms don't use score"),
                 };
                 match_start.map(|byte_start| {
-                    let grapheme_start = haystack_folded[0..byte_start].graphemes(true).count();
-                    // TODO this doesn't account for lowercasing changing the length of the haystack
-                    let grapheme_len = self.needle.graphemes(true).count();
+                    let byte_end = byte_start + self.needle.len();
                     let match_indices: Vec<usize> =
-                        (offset + grapheme_start..offset + grapheme_start + grapheme_len).collect();
+                        if haystack.is_ascii() && !haystack.contains('\r') {
+                            (offset + byte_start..offset + byte_end).collect()
+                        } else {
+                            // Folding can expand a displayed grapheme (`ß` becomes `ss`). Map
+                            // overlapping folded byte ranges back to the original graphemes.
+                            let mut indices = Vec::new();
+                            let mut end = 0;
+                            for (index, grapheme) in haystack.graphemes(true).enumerate() {
+                                if end >= byte_end {
+                                    break;
+                                }
+                                // Reuse the folded text when the byte length is unchanged,
+                                // including expansions such as `ß` -> `ss`. Only folds that
+                                // change byte length need another allocation (`İ` -> `i̇`).
+                                let same_folded_byte_len = self.options.case_sensitive
+                                    || grapheme.is_ascii()
+                                    || haystack_folded
+                                        .get(end..end + grapheme.len())
+                                        .is_some_and(|folded| grapheme.eq_ignore_case(folded));
+                                end += if same_folded_byte_len {
+                                    grapheme.len()
+                                } else {
+                                    grapheme.to_folded_case().len()
+                                };
+                                if byte_start < end {
+                                    indices.push(offset + index);
+                                }
+                            }
+                            indices
+                        };
                     if let Some(item) = item {
                         matches.push(UnscoredMatch {
                             item,
@@ -168,7 +205,15 @@ impl<T> NuMatcher<'_, T> {
                 matches,
             } => {
                 let mut haystack_buf = Vec::new();
-                let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
+                // nucleo 0.3's constructor can incorrectly reuse UTF-8 bytes when every
+                // grapheme starts with ASCII, such as `e` followed by a combining accent.
+                // CRLF is also a single grapheme, despite containing two ASCII bytes.
+                let haystack_utf32 = if haystack.is_ascii() && !haystack.contains('\r') {
+                    Utf32Str::Ascii(haystack.as_bytes())
+                } else {
+                    haystack_buf.extend(nucleo_matcher::chars::graphemes(haystack));
+                    Utf32Str::Unicode(&haystack_buf)
+                };
                 let mut indices = Vec::new();
                 let score = atom.indices(haystack_utf32, matcher, &mut indices)?;
                 let indices: Vec<usize> = indices
@@ -404,5 +449,51 @@ mod test {
             )],
             matcher.results()
         );
+    }
+
+    #[rstest]
+    #[case(MatchAlgorithm::Prefix, false, "STRASSE", "Straße", vec![0, 1, 2, 3, 4, 5])]
+    #[case(MatchAlgorithm::Prefix, false, "ss", "ß", vec![0])]
+    #[case(MatchAlgorithm::Substring, false, "e", "Straße", vec![5])]
+    #[case(MatchAlgorithm::Substring, false, "x", "ßx", vec![1])]
+    #[case(MatchAlgorithm::Substring, false, "s", "ßx", vec![0])]
+    #[case(MatchAlgorithm::Substring, false, "ss", "\"ßx\"", vec![1])]
+    #[case(MatchAlgorithm::Substring, true, "\u{301}", "e\u{301}x", vec![0])]
+    #[case(MatchAlgorithm::Substring, true, "\u{301}", "\"\u{301}x\"", vec![0])]
+    #[case(MatchAlgorithm::Substring, true, "x", "\"\u{301}x\"", vec![1])]
+    #[case(MatchAlgorithm::Prefix, false, "i", "İx", vec![0])]
+    #[case(MatchAlgorithm::Substring, false, "x", "İx", vec![1])]
+    #[case(MatchAlgorithm::Substring, false, "", "ßx", vec![])]
+    #[case(MatchAlgorithm::Fuzzy, false, "z", "e\u{301}z", vec![1])]
+    #[case(MatchAlgorithm::Fuzzy, true, "z", "\"e\u{301}z\"", vec![2])]
+    #[case(MatchAlgorithm::Fuzzy, true, "x", "\"\u{301}x\"", vec![1])]
+    #[case(MatchAlgorithm::Substring, true, "b", "a\r\nb", vec![2])]
+    #[case(MatchAlgorithm::Substring, false, "B", "\"a\r\nb\"", vec![3])]
+    #[case(MatchAlgorithm::Prefix, true, "a\r\nb", "a\r\nb", vec![0, 1, 2])]
+    #[case(MatchAlgorithm::Prefix, false, "A\r\nB", "'a\r\nb'", vec![1, 2, 3])]
+    #[case(MatchAlgorithm::Fuzzy, false, "b", "a\r\nb", vec![2])]
+    #[case(MatchAlgorithm::Fuzzy, true, "b", "\"a\r\nb\"", vec![3])]
+    #[case(MatchAlgorithm::Substring, false, "ffi", "aﬃb", vec![1])]
+    #[case(MatchAlgorithm::Substring, false, "b", "aﬃb", vec![2])]
+    #[case(MatchAlgorithm::Substring, false, "x", "Kx", vec![1])]
+    #[case(MatchAlgorithm::Prefix, false, "k", "Kx", vec![0])]
+    #[case(MatchAlgorithm::Substring, false, "x", "ΐx", vec![1])]
+    #[case(MatchAlgorithm::Prefix, false, "ι", "ΐx", vec![0])]
+    fn match_indices_follow_original_graphemes(
+        #[case] match_algorithm: MatchAlgorithm,
+        #[case] case_sensitive: bool,
+        #[case] needle: &str,
+        #[case] haystack: &str,
+        #[case] expected: Vec<usize>,
+    ) {
+        let options = CompletionOptions {
+            match_algorithm,
+            case_sensitive,
+            ..Default::default()
+        };
+        let mut matcher = NuMatcher::new(needle, &options, true);
+        assert_eq!(matcher.check_match(haystack), Some(expected.clone()));
+        assert!(matcher.add(haystack, haystack));
+        assert_eq!(matcher.results(), vec![(haystack, expected)]);
     }
 }

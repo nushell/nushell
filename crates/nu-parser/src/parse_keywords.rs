@@ -1,4 +1,7 @@
-use crate::{lite_parser::LiteCommand, parser::parse_call};
+use crate::{
+    lite_parser::LiteCommand, parse_expressions::is_literal_like, parse_helpers::trim_quotes,
+    parser::parse_call,
+};
 use nu_protocol::{
     DeclId, ParseError, Span, Type,
     ast::{Expr, Expression, Pipeline},
@@ -23,6 +26,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"def",
     b"extern",
     b"module",
+    b"type",
     b"use",
     b"export",
     b"export alias",
@@ -30,6 +34,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"export def",
     b"export extern",
     b"export module",
+    b"export type",
     b"export use",
     b"for",
     b"loop",
@@ -119,6 +124,71 @@ pub fn reject_parser_keyword_name(
     }
 }
 
+/// Whether a command or alias with this name could never be called, so it is rejected where
+/// it is defined.
+///
+/// A call is looked up by its words joined with single spaces, so a name with any other
+/// whitespace could never be called (#15539). A name that the call site reads as a value is
+/// shadowed by that value, so it could never be called either.
+pub fn is_uncallable_name(working_set: &mut StateWorkingSet, name: &str, name_span: Span) -> bool {
+    name.contains('#')
+        || name.contains('^')
+        || name.contains('%')
+        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
+        || is_shadowed_by_a_value(working_set, name, name_span)
+}
+
+/// Whether the call site would read the name as a value instead of looking it up as a command.
+///
+/// The call site reads the head word of a call, so it is the first word of the name that is
+/// shadowed by a value. A name whose later words are values is still callable, because the call
+/// site never looks at them.
+///
+/// The name is checked as it is written: a name written between quotes or backticks carries
+/// those marks in the source, and they are not part of the token the call site would read.
+fn is_shadowed_by_a_value(working_set: &mut StateWorkingSet, name: &str, name_span: Span) -> bool {
+    // The registered name is the written name with escapes decoded. When the two are the same,
+    // the source span shows the head word the call site would read; when they differ (a name
+    // written with escapes), the decoded head word is read in a working set of its own.
+    let head_span = {
+        let bytes = working_set.get_span_contents(name_span);
+        let inner = trim_quotes(bytes);
+        let inner_offset = usize::from(inner.len() != bytes.len());
+        if inner == name.as_bytes() {
+            let head_len = inner
+                .iter()
+                .position(|byte| *byte == b' ')
+                .unwrap_or(inner.len());
+            Some(Span::new(
+                name_span.start + inner_offset,
+                name_span.start + inner_offset + head_len,
+            ))
+        } else {
+            None
+        }
+    };
+
+    match head_span {
+        Some(span) => {
+            // A range bound such as `(ls)` is parsed as a subexpression, which adds a block.
+            // The check must not leave that block in the state it checks.
+            let blocks = working_set.delta.blocks.len();
+            let shadowed = is_literal_like(working_set, span);
+            working_set.delta.blocks.truncate(blocks);
+            shadowed
+        }
+        None => {
+            // The head word has to be read from the decoded name, so it is read in a working
+            // set of its own: the check must not leave a file in the state it checks.
+            let head = name.split(' ').next().unwrap_or(name);
+            let mut scratch = StateWorkingSet::new(working_set.permanent_state);
+            let file_id = scratch.add_file("command name", head.as_bytes());
+            let span = scratch.get_span_for_file(file_id);
+            is_literal_like(&mut scratch, span)
+        }
+    }
+}
+
 /// Find a keyword declaration by name, ignoring any non-keyword decls that may
 /// have shadowed it in normal name lookup.
 ///
@@ -198,6 +268,7 @@ pub use crate::parse_source::{
 };
 #[cfg(feature = "plugin")]
 pub use crate::parse_source::{PLUGIN_DIRS_VAR, parse_plugin_use};
+pub use crate::parse_type_alias::parse_type_alias;
 
 #[cfg(test)]
 mod tests {
@@ -210,6 +281,7 @@ mod tests {
         assert!(is_parser_keyword(b"if")); // aliasable
         assert!(is_parser_keyword(b"overlay")); // aliasable
         assert!(is_parser_keyword(b"where"));
+        assert!(is_parser_keyword(b"type"));
     }
 
     #[test]

@@ -16,7 +16,7 @@ export def --env "path add" [
     ...paths: any  # the paths to add to $env.PATH.
 ]: [nothing -> nothing, nothing -> list<path>] {
     ignore # discard the input, otherwise the `metadata` call below would fail
-    let span = (metadata $paths).span
+    let span = (%metadata $paths).span
     let paths = $paths | flatten
 
     if ($paths | is-empty) or ($paths | length) == 0 {
@@ -30,7 +30,7 @@ export def --env "path add" [
         if ($path | describe -d).type not-in ['string', 'record'] {
             error make {msg: 'Invalid input', label: {
                 text: 'Path must be a string or record',
-                span: (metadata $path).span
+                span: (%metadata $path).span
             }}
         }
     }

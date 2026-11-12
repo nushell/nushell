@@ -90,9 +90,9 @@ fn configure_stream_size() -> Result {
 fn metadata_path_columns_single() -> Result {
     let expected = indoc! {"
         \u{1b}[39m╭───┬──────╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mname\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m │ \u{1b}[1;32mname\u{1b}[0m │
         \u{1b}[39m├───┼──────┤\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m  \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m │ \u{1b}[38;5;81msrc\u{1b}[0m  │
         \u{1b}[39m╰───┴──────╯\u{1b}[0m
     "};
     test()
@@ -114,9 +114,9 @@ fn metadata_path_columns_single() -> Result {
 fn metadata_path_columns_multiple() -> Result {
     let expected = indoc! {"
         \u{1b}[39m╭───┬─────┬─────────╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mdir\u{1b}[0m \u{1b}[39m│\u{1b}[0m  \u{1b}[1;32mfile\u{1b}[0m   \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m │ \u{1b}[1;32mdir\u{1b}[0m │  \u{1b}[1;32mfile\u{1b}[0m   │
         \u{1b}[39m├───┼─────┼─────────┤\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;48mmain.rs\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m │ \u{1b}[38;5;81msrc\u{1b}[0m │ \u{1b}[38;5;48mmain.rs\u{1b}[0m │
         \u{1b}[39m╰───┴─────┴─────────╯\u{1b}[0m
     "};
     test()
@@ -138,9 +138,9 @@ fn metadata_path_columns_multiple() -> Result {
 fn metadata_path_columns_multiple_with_icons() -> Result {
     let expected = indoc! {"
         \u{1b}[39m╭───┬────────┬────────────╮\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m  \u{1b}[1;32mdir\u{1b}[0m   \u{1b}[39m│\u{1b}[0m    \u{1b}[1;32mfile\u{1b}[0m    \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m │  \u{1b}[1;32mdir\u{1b}[0m   │    \u{1b}[1;32mfile\u{1b}[0m    │
         \u{1b}[39m├───┼────────┼────────────┤\u{1b}[0m
-        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;2;126;142;168m\u{f115}\u{1b}[0m  \u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;2;222;165;132m\u{e68b}\u{1b}[0m  \u{1b}[38;5;48mmain.rs\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m
+        \u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m │ \u{1b}[38;2;126;142;168m\u{f115}\u{1b}[0m  \u{1b}[38;5;81msrc\u{1b}[0m │ \u{1b}[38;2;222;165;132m\u{e68b}\u{1b}[0m  \u{1b}[38;5;48mmain.rs\u{1b}[0m │
         \u{1b}[39m╰───┴────────┴────────────╯\u{1b}[0m
     "};
     test()

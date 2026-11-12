@@ -156,7 +156,15 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body) {
+            // Clear pipe redirections, as `run_hook` does for closure hooks, so the hook's
+            // output goes where a statement's would.
+            let result = eval_block::<WithoutDebug>(
+                engine_state,
+                &mut stack.push_redirection(None, None),
+                &block,
+                input,
+            );
+            match result.map(|p| p.body) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -327,7 +335,7 @@ fn run_hook(
     arguments: Vec<(String, Value)>,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let block = engine_state.get_block(closure.block_id);
+    let block = engine_state.get_closure_block(closure, span)?;
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
 

@@ -6,6 +6,7 @@
 
 use super::{BlockKind, OpenFrame};
 use nu_protocol::{ParseError, Span};
+use std::borrow::Cow;
 
 pub(super) fn closing_delimiter_str(block: BlockKind) -> &'static str {
     match block {
@@ -177,7 +178,7 @@ fn trim_ascii_end(bytes: &[u8]) -> &[u8] {
 pub(super) fn unclosed_from_open(
     input: &[u8],
     span_offset: usize,
-    delimiter: &'static str,
+    delimiter: impl Into<Cow<'static, str>>,
     open_span: Span,
     end_span: Span,
 ) -> ParseError {

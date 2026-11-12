@@ -49,7 +49,37 @@ impl Command for First {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        first_helper(engine_state, stack, call, input)
+        let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let strict_mode = call.has_flag(engine_state, stack, "strict")?;
+        first_helper(
+            rows_val,
+            strict_mode,
+            engine_state.signals(),
+            call.head,
+            input,
+        )
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let rows_val: Option<Value> = call.opt_const(working_set, stack, 0)?;
+        let strict_mode = call.has_flag_const(working_set, stack, "strict")?;
+        first_helper(
+            rows_val,
+            strict_mode,
+            working_set.permanent().signals(),
+            call.head,
+            input,
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -86,18 +116,17 @@ impl Command for First {
     }
 }
 
+/// Body of `first`, shared by `run` and `run_const`: the first `rows_val` items of `input`, or the first item when `rows_val` is `None`.
 fn first_helper(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    rows_val: Option<Value>,
+    strict_mode: bool,
+    signals: &Signals,
+    head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
     let is_filesize = rows_val
         .as_ref()
         .is_some_and(|v| matches!(v, Value::Filesize { .. }));
-    let strict_mode = call.has_flag(engine_state, stack, "strict")?;
 
     let rows: Option<usize> = match rows_val {
         Some(v) => {
@@ -232,7 +261,7 @@ fn first_helper(
                     } else {
                         Ok(iter.take(rows).into_pipeline_data_with_metadata(
                             span,
-                            engine_state.signals().clone(),
+                            signals.clone(),
                             input_meta,
                         ))
                     }
@@ -353,8 +382,8 @@ fn first_helper(
         PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, binary or range".into(),
             wrong_type: "null".into(),
-            dst_span: call.head,
-            src_span: call.head,
+            dst_span: head,
+            src_span: head,
         }),
     }
 }

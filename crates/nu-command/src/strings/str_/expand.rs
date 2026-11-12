@@ -1,5 +1,6 @@
+use bracoxide::{ExpansionError, expand_with};
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::generic::GenericError;
+use nu_protocol::{Signals, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct StrExpand;
@@ -219,6 +220,7 @@ fn run(
     if let PipelineData::Empty = input {
         return Err(ShellError::PipelineEmpty { dst_span: span });
     }
+    let signals = engine_state.signals().clone();
     input.map(
         move |v| {
             let value_span = v.span();
@@ -226,7 +228,7 @@ fn run(
             match v.coerce_into_string() {
                 Ok(s) => {
                     let contents = if is_path { s.replace('\\', "\\\\") } else { s };
-                    str_expand(&contents, span, value_span)
+                    str_expand(&contents, span, value_span, &signals)
                 }
                 Err(_) => Value::error(
                     ShellError::OnlySupportsThisInputType {
@@ -243,9 +245,11 @@ fn run(
     )
 }
 
-fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
+/// Expands the brace pattern `contents` into a list of strings. The expansion
+/// stops with `ShellError::Interrupted` once `signals` is interrupted, since a
+/// short pattern such as `{1..4000000000}` can make billions of strings.
+fn str_expand(contents: &str, span: Span, value_span: Span, signals: &Signals) -> Value {
     use bracoxide::{
-        expand,
         parser::{ParsingError, parse},
         tokenizer::{TokenizationError, tokenize},
     };
@@ -253,20 +257,33 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
         Ok(tokens) => {
             match parse(&tokens) {
                 Ok(node) => {
-                    match expand(&node) {
+                    match expand_with(&node, &mut || signals.interrupted()) {
                         Ok(possibilities) => {
-                            Value::list(possibilities.iter().map(|e| Value::string(e,span)).collect::<Vec<Value>>(), span)
+                            Value::list(possibilities.into_iter().map(|e| Value::string(e, span)).collect(), span)
                         },
                         Err(e) => match e {
-                            bracoxide::ExpansionError::NumConversionFailed(s) => Value::error(
+                            ExpansionError::Interrupted => {
+                                Value::error(ShellError::Interrupted { span }, span)
+                            }
+                            ExpansionError::NumConversionFailed(s) => Value::error(
                                 ShellError::Generic(
                                     GenericError::new(
                                         "Number Conversion Failed",
                                         format!("Number conversion failed at {s}."),
                                         value_span,
                                     )
-                                    .with_help("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits."),
+                                    .with_help(format!("Range limits must be whole numbers from 0 to {}. Range format is `{{M..N}}`, where M and N are the starting and ending limits.", usize::MAX)),
                                 ),
+                                span,
+                            ),
+                            // `ExpansionError` is `#[non_exhaustive]`, so a later
+                            // bracoxide may add errors that this match doesn't name.
+                            other => Value::error(
+                                ShellError::Generic(GenericError::new(
+                                    "Expansion Failed",
+                                    other.to_string(),
+                                    value_span,
+                                )),
                                 span,
                             ),
                         },
@@ -301,8 +318,8 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                         ),
                         ParsingError::RangeEndLimitExpected(s) => ShellError::Generic(
                             GenericError::new(
-                                "Range Start Expected",
-                                format!("Range start limit is missing, expected at {s}."),
+                                "Range End Expected",
+                                format!("Range end limit is missing, expected at {s}."),
                                 value_span,
                             )
                             .with_help("In brace syntax, Range is defined like `{X..Y}`, where X and Y are a number. X is the start, Y is the end. Please see the examples, for more information."),
@@ -405,11 +422,17 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Arc, atomic::AtomicBool};
 
     #[test]
     fn test_zero_padding_actual_zero() {
         assert_eq!(
-            str_expand("{0..10}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{0..10}",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("0"), Span::test_data(),),
@@ -428,7 +451,12 @@ mod tests {
             )
         );
         assert_eq!(
-            str_expand("{00..10}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{00..10}",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("00"), Span::test_data(),),
@@ -451,7 +479,12 @@ mod tests {
     #[test]
     fn test_double_dots_outside_curly() {
         assert_eq!(
-            str_expand("..{a,b}..", Span::test_data(), Span::test_data()),
+            str_expand(
+                "..{a,b}..",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("..a.."), Span::test_data(),),
@@ -465,7 +498,12 @@ mod tests {
     #[test]
     fn test_outer_single_item() {
         assert_eq!(
-            str_expand("{W{x,y}}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{W{x,y}}",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("Wx"), Span::test_data(),),
@@ -479,7 +517,12 @@ mod tests {
     #[test]
     fn dots() {
         assert_eq!(
-            str_expand("{a.b.c,d}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{a.b.c,d}",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("a.b.c"), Span::test_data(),),
@@ -489,7 +532,12 @@ mod tests {
             )
         );
         assert_eq!(
-            str_expand("{1.2.3,a}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{1.2.3,a}",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("1.2.3"), Span::test_data(),),
@@ -499,7 +547,12 @@ mod tests {
             )
         );
         assert_eq!(
-            str_expand("{a-1.2,b}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "{a-1.2,b}",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("a-1.2"), Span::test_data(),),
@@ -513,7 +566,12 @@ mod tests {
     #[test]
     fn test_numbers_proceeding_escape_char_not_ignored() {
         assert_eq!(
-            str_expand("1\\\\{a,b}", Span::test_data(), Span::test_data()),
+            str_expand(
+                "1\\\\{a,b}",
+                Span::test_data(),
+                Span::test_data(),
+                &Signals::empty()
+            ),
             Value::list(
                 vec![
                     Value::string(String::from("1\\a"), Span::test_data(),),
@@ -522,6 +580,73 @@ mod tests {
                 Span::test_data(),
             )
         );
+    }
+
+    /// An interrupt stops the expansion, even of a pattern that would finish at once.
+    #[test]
+    fn interrupted_expansion_is_an_error() {
+        let signals = Signals::new(Arc::new(AtomicBool::new(true)));
+        let value = str_expand("{1..3}", Span::test_data(), Span::test_data(), &signals);
+        assert!(
+            matches!(&value, Value::Error { error, .. } if matches!(**error, ShellError::Interrupted { .. })),
+            "expected an interrupted error, got {value:?}"
+        );
+    }
+
+    /// A range limit too large for a `usize` is a "Number Conversion Failed" error.
+    #[test]
+    fn overflowing_range_is_an_error() {
+        let value = str_expand(
+            "{1..99999999999999999999999}",
+            Span::test_data(),
+            Span::test_data(),
+            &Signals::empty(),
+        );
+        assert!(
+            matches!(&value, Value::Error { error, .. } if matches!(&**error, ShellError::Generic(e) if e.error == "Number Conversion Failed")),
+            "expected a number conversion error, got {value:?}"
+        );
+    }
+
+    /// A range with no end limit names the end, not the start.
+    #[test]
+    fn missing_range_end_is_an_error() {
+        let value = str_expand(
+            "{1..}",
+            Span::test_data(),
+            Span::test_data(),
+            &Signals::empty(),
+        );
+        assert!(
+            matches!(&value, Value::Error { error, .. } if matches!(&**error, ShellError::Generic(e) if e.error == "Range End Expected")),
+            "expected a range end error, got {value:?}"
+        );
+    }
+
+    /// `expand_with` checks `should_stop` while it counts through a range and
+    /// while it joins the parts of a brace expansion, so neither runs to the end.
+    #[test]
+    fn expand_with_stops_while_expanding() {
+        use bracoxide::{parser::parse, tokenizer::tokenize};
+
+        let range = bracoxide::parser::Node::Range {
+            from: Arc::new("1".into()),
+            to: Arc::new("100000".into()),
+            start: 0,
+            end: 0,
+        };
+        // The two ranges and the inner join take 3,000 checks; the outer join
+        // would then make a million strings.
+        let joined = parse(&tokenize("{1..1000}{1..1000}").expect("pattern tokenizes"))
+            .expect("pattern parses");
+        for node in [range, joined] {
+            let mut checks = 0;
+            let expanded = expand_with(&node, &mut || {
+                checks += 1;
+                checks > 5000
+            });
+            assert_eq!(expanded, Err(ExpansionError::Interrupted), "{node:?}");
+        }
     }
 
     #[test]

@@ -2,7 +2,9 @@ use nu_engine::{ClosureEvalOnce, command_prelude::*};
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
+    ByteStream, ByteStreamSource, OutDest,
+    engine::Closure,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 
 use std::{
@@ -65,9 +67,14 @@ impl Command for Do {
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
         let result = if has_env {
-            ClosureEvalOnce::new_env_preserve_out_dest(engine_state, caller_stack, closure)
+            ClosureEvalOnce::try_new_env_preserve_out_dest(
+                engine_state,
+                caller_stack,
+                closure,
+                head,
+            )?
         } else {
-            ClosureEvalOnce::new_preserve_out_dest(engine_state, caller_stack, closure)
+            ClosureEvalOnce::try_new_preserve_out_dest(engine_state, caller_stack, closure, head)?
         }
         .add_args(rest)?
         .run_with_input(input);
@@ -101,10 +108,14 @@ impl Command for Do {
                                     .spawn(move || {
                                         let mut buf = Vec::new();
                                         stdout.read_to_end(&mut buf).map_err(|err| {
-                                            IoError::new_internal(
-                                                err,
-                                                "Could not read stdout to end",
-                                            )
+                                            match ShellErrorBridge::try_from(err) {
+                                                Ok(ShellErrorBridge(err)) => err,
+                                                Err(err) => IoError::new_internal(
+                                                    err,
+                                                    "Could not read stdout to end",
+                                                )
+                                                .into(),
+                                            }
                                         })?;
                                         Ok::<_, ShellError>(buf)
                                     })
@@ -163,7 +174,7 @@ impl Command for Do {
                 if ignore_all_errors
                     && !matches!(
                         caller_stack.stdout(),
-                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+                        OutDest::Pipe | OutDest::PipeRaw | OutDest::PipeSeparate | OutDest::Value
                     ) =>
             {
                 #[cfg(feature = "os")]

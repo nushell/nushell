@@ -131,3 +131,10 @@ fn to_xml_self_closed() -> Result {
         .run(code)
         .expect_value_eq(r#"<root><a/><b e="r"/><c t="y"/></root>"#)
 }
+
+#[test]
+fn to_xml_negative_indentation() -> Result {
+    test()
+        .run("{tag: a} | to xml --indent -1")
+        .expect_error_code_eq("nu::shell::needs_positive_value")
+}

@@ -240,10 +240,9 @@ fn floor_div_mod_overflow() -> Result {
     let outcome = test().run(&code).expect_shell_error()?;
     assert!(matches!(outcome, ShellError::OperatorOverflow { .. }));
 
+    // Any number mod -1 is 0, even when the matching division overflows.
     let code = format!("{} mod -1", i64::MIN);
-    let outcome = test().run(&code).expect_shell_error()?;
-    assert!(matches!(outcome, ShellError::OperatorOverflow { .. }));
-    Ok(())
+    test().run(&code).expect_value_eq(0)
 }
 
 #[test]

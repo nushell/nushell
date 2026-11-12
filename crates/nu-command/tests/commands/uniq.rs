@@ -174,6 +174,45 @@ fn table() -> Result {
 }
 
 #[test]
+fn keep_last_alone_rarely_changes_output() -> Result {
+    // Without --ignore-case, duplicates are already identical values, so keeping
+    // the last one looks the same as keeping the first.
+    test()
+        .run("[1, 2, 1] | uniq --keep-last")
+        .expect_value_eq([1, 2])
+}
+
+#[test]
+fn keep_last_keeps_position_of_first_occurrence() -> Result {
+    test()
+        .run("['a' 'B' 'A'] | uniq --ignore-case --keep-last")
+        .expect_value_eq(["A", "B"])
+}
+
+#[test]
+fn keep_last_with_count() -> Result {
+    let code = "['a' 'B' 'A'] | uniq --ignore-case --keep-last --count | to nuon";
+    test()
+        .run(code)
+        .expect_value_eq("[[value, count]; [A, 2], [B, 1]]")
+}
+
+#[test]
+fn keep_last_with_repeated() -> Result {
+    test()
+        .run("['a' 'B' 'A'] | uniq --ignore-case --keep-last --repeated")
+        .expect_value_eq(["A"])
+}
+
+#[test]
+fn keep_last_preserves_position_with_differing_key_order() -> Result {
+    // `expect_value_eq` sorts record columns before comparing, which would hide a
+    // regression here, so compare the column order itself instead.
+    let code = "[{a: 1, b: 2}, {b: 2, a: 1}] | uniq --keep-last | get 0 | columns";
+    test().run(code).expect_value_eq(["b", "a"])
+}
+
+#[test]
 fn table_with_ignore_case() -> Result {
     let code = "
         [

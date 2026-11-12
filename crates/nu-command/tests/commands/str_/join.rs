@@ -20,13 +20,13 @@ fn test_2() -> Result {
 
 #[test]
 fn test_stream() -> Result {
-    let code = "[a b c d] | filter {true} | str join .";
+    let code = "[a b c d] | where {true} | str join .";
     test().run(code).expect_value_eq("a.b.c.d")
 }
 
 #[test]
 fn test_stream_type() -> Result {
-    let code = "[a b c d] | filter {true} | str join . | describe -n";
+    let code = "[a b c d] | where {true} | str join . | describe -n";
     test().run(code).expect_value_eq("string (stream)")
 }
 

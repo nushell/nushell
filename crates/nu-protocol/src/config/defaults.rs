@@ -65,6 +65,8 @@ pub fn default_color_config() -> HashMap<String, Value> {
         ("semver-range", str("cyan_bold")),
         ("block", str("default")),
         ("hints", str("dark_gray")),
+        // `status_line` has no default: unset, the status line takes the `hints` style.
+        ("status_line_error", str("red")),
         (
             "search_result",
             rec(record! {
@@ -321,6 +323,7 @@ pub fn default_tui() -> HashMap<String, Value> {
         ),
         ("border", rec(record! { "fg" => str("dark_gray") })),
         ("border_focused", rec(record! { "fg" => str("cyan") })),
+        ("border_type", str("single")),
         ("selected", rec(record! { "attr" => str("r") })),
         (
             "header",
@@ -341,6 +344,8 @@ pub fn default_tui() -> HashMap<String, Value> {
             "button",
             rec(record! { "fg" => str("white"), "bg" => str("blue") }),
         ),
+        ("surface", rec(record! { "bg" => str("default") })),
+        ("backdrop", rec(record! { "bg" => str("default") })),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))

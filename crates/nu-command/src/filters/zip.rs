@@ -103,7 +103,8 @@ impl Command for Zip {
         let metadata = input.take_metadata();
         let other = if let Value::Closure { val, .. } = other {
             // If a closure was provided, evaluate it and consume its stream output
-            ClosureEvalOnce::new(engine_state, stack, *val).run_with_input(PipelineData::empty())?
+            ClosureEvalOnce::try_new(engine_state, stack, *val, head)?
+                .run_with_input(PipelineData::empty())?
         } else {
             other.into_pipeline_data()
         };

@@ -23,8 +23,6 @@ pub struct SplitterHandle {
     pub direction: SplitDir,
     /// Full region being split (not just the 1-cell handle).
     pub split_area: Rect,
-    /// Offset of that child's start from the split's origin, along the axis.
-    pub child_start: u16,
 }
 
 /// Mutable layout outputs, borrowed disjointly from the session so the
@@ -274,19 +272,10 @@ fn layout_split(
     sizes: &[crate::widget::Size],
     area: Rect,
 ) {
-    let layout_dir = match direction {
-        SplitDir::Horizontal => Direction::Horizontal,
-        SplitDir::Vertical => Direction::Vertical,
-    };
-    let constraints: Vec<Constraint> = sizes.iter().map(|s| s.to_constraint()).collect();
     // A split of fixed-height leaves (a button row, a form line) is not
     // resizable: no gap and no handle between its children.
     let fixed = fixed_height(w).is_some();
-    let (segments, spacers) = Layout::default()
-        .direction(layout_dir)
-        .constraints(constraints)
-        .spacing(if fixed { 0 } else { 1 })
-        .split_with_spacers(area);
+    let (segments, spacers) = direction.layout(sizes, !fixed).split_with_spacers(area);
     for (child, rect) in w.children.iter().zip(segments.iter()) {
         assign_node(ctx, child, *rect);
     }
@@ -303,20 +292,12 @@ fn layout_split(
         if spacer.width == 0 || spacer.height == 0 {
             continue;
         }
-        let child_start = segments
-            .get(index)
-            .map(|r| match direction {
-                SplitDir::Horizontal => r.x.saturating_sub(area.x),
-                SplitDir::Vertical => r.y.saturating_sub(area.y),
-            })
-            .unwrap_or(0);
         ctx.handles.push(SplitterHandle {
             id: w.id.clone(),
             index,
             area: *spacer,
             direction,
             split_area: area,
-            child_start,
         });
     }
 }
