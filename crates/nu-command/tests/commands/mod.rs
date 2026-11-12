@@ -118,6 +118,7 @@ mod split_column;
 mod split_row;
 mod stor;
 mod str_;
+mod stream_errors;
 mod table;
 mod take;
 mod tee;
