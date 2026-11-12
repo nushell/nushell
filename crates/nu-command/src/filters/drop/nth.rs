@@ -228,7 +228,9 @@ impl Iterator for DropNthIterator {
                 if self.current == *row {
                     self.rows.pop_front();
                     self.current += 1;
-                    let _ = self.input.next();
+                    if let Some(dropped @ Value::Error { .. }) = self.input.next() {
+                        return Some(dropped);
+                    }
                     continue;
                 } else {
                     self.current += 1;

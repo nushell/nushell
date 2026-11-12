@@ -1,5 +1,6 @@
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
+use crate::filters::utils::skip_keeping_errors;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -163,9 +164,7 @@ impl Command for Skip {
             }
             mut input => {
                 let metadata = input.take_metadata();
-                Ok(input
-                    .into_iter_strict(call.head)?
-                    .skip(n)
+                Ok(skip_keeping_errors(input.into_iter_strict(call.head)?, n)
                     .into_pipeline_data_with_metadata(
                         input_span,
                         engine_state.signals().clone(),
