@@ -1,9 +1,6 @@
+use bracoxide::{ExpansionError, expand_with};
 use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, shell_error::generic::GenericError};
-
-// Stand-in for `bracoxide::{ExpansionError, expand_with}` until a bracoxide release
-// has them: see the BEGIN comment above `mod brace_expansion` for the swap.
-use brace_expansion::{ExpansionError, expand_with};
 
 #[derive(Clone)]
 pub struct StrExpand;
@@ -262,7 +259,7 @@ fn str_expand(contents: &str, span: Span, value_span: Span, signals: &Signals) -
                 Ok(node) => {
                     match expand_with(&node, &mut || signals.interrupted()) {
                         Ok(possibilities) => {
-                            Value::list(possibilities.iter().map(|e| Value::string(e,span)).collect::<Vec<Value>>(), span)
+                            Value::list(possibilities.into_iter().map(|e| Value::string(e, span)).collect(), span)
                         },
                         Err(e) => match e {
                             ExpansionError::Interrupted => {
@@ -275,8 +272,18 @@ fn str_expand(contents: &str, span: Span, value_span: Span, signals: &Signals) -
                                         format!("Number conversion failed at {s}."),
                                         value_span,
                                     )
-                                    .with_help("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits."),
+                                    .with_help(format!("Range limits must be whole numbers from 0 to {}. Range format is `{{M..N}}`, where M and N are the starting and ending limits.", usize::MAX)),
                                 ),
+                                span,
+                            ),
+                            // `ExpansionError` is `#[non_exhaustive]`, so a later
+                            // bracoxide may add errors that this match doesn't name.
+                            other => Value::error(
+                                ShellError::Generic(GenericError::new(
+                                    "Expansion Failed",
+                                    other.to_string(),
+                                    value_span,
+                                )),
                                 span,
                             ),
                         },
@@ -311,8 +318,8 @@ fn str_expand(contents: &str, span: Span, value_span: Span, signals: &Signals) -
                         ),
                         ParsingError::RangeEndLimitExpected(s) => ShellError::Generic(
                             GenericError::new(
-                                "Range Start Expected",
-                                format!("Range start limit is missing, expected at {s}."),
+                                "Range End Expected",
+                                format!("Range end limit is missing, expected at {s}."),
                                 value_span,
                             )
                             .with_help("In brace syntax, Range is defined like `{X..Y}`, where X and Y are a number. X is the start, Y is the end. Please see the examples, for more information."),
@@ -411,112 +418,6 @@ fn str_expand(contents: &str, span: Span, value_span: Span, signals: &Signals) -
         },
     }
 }
-
-// ==== BEGIN stand-in for `bracoxide::expand_with` ===============================
-//
-// bracoxide 0.1.8's `expand` never checks for an interrupt, so Ctrl+C can't stop
-// `'{1..4000000000}' | str expand`. atahabaki/bracoxide#15 adds `expand_with` and
-// `ExpansionError::Interrupted` upstream. This module copies that change on top of
-// bracoxide 0.1.8's public `parser::Node`, so nushell has it before a release.
-//
-// To swap in the upstream version once nushell depends on a bracoxide release that
-// has `expand_with`:
-// 1. Delete everything from this BEGIN line to the END line below.
-// 2. At the top of this file, change `use brace_expansion::{ExpansionError, expand_with}`
-//    to `use bracoxide::{ExpansionError, expand_with}`. The tests pick it up through
-//    `use super::*`, so `expand_with_stops_while_expanding` then tests bracoxide's.
-// 3. Upstream marks `ExpansionError` `#[non_exhaustive]`, so add a `_` arm to the
-//    match on it in `str_expand`, such as a `GenericError` with `e.to_string()`.
-// 4. Delete the `stand_in_matches_bracoxide_expand` test, which compares this copy
-//    with bracoxide's own `expand`.
-mod brace_expansion {
-    use bracoxide::parser::Node;
-
-    /// Why an expansion failed: bracoxide's `ExpansionError` plus `Interrupted`.
-    #[derive(Debug, PartialEq)]
-    pub(super) enum ExpansionError {
-        /// A range limit isn't a number that fits in a `usize`.
-        NumConversionFailed(String),
-        /// `should_stop` returned `true`.
-        Interrupted,
-    }
-
-    /// Expands `node` like `bracoxide::expand`, but calls `should_stop` before
-    /// making each string, the parts it joins included, and returns
-    /// `ExpansionError::Interrupted` as soon as it returns `true`.
-    pub(super) fn expand_with(
-        node: &Node,
-        should_stop: &mut dyn FnMut() -> bool,
-    ) -> Result<Vec<String>, ExpansionError> {
-        match node {
-            Node::Text { message, .. } => {
-                stop_if(should_stop)?;
-                Ok(vec![message.as_ref().to_owned()])
-            }
-            Node::BraceExpansion {
-                prefix,
-                inside,
-                postfix,
-                ..
-            } => {
-                let mut expand_part = |part: &Option<Box<Node>>| match part {
-                    Some(part) => expand_with(part, should_stop),
-                    None => Ok(vec![String::new()]),
-                };
-                let prefixes = expand_part(prefix)?;
-                let insides = expand_part(inside)?;
-                let postfixes = expand_part(postfix)?;
-                let mut inner = vec![];
-                for prefix in &prefixes {
-                    for inside in &insides {
-                        for postfix in &postfixes {
-                            stop_if(should_stop)?;
-                            inner.push(format!("{prefix}{inside}{postfix}"));
-                        }
-                    }
-                }
-                Ok(inner)
-            }
-            Node::Collection { items, .. } => {
-                let mut inner = vec![];
-                for item in items {
-                    inner.extend(expand_with(item, should_stop)?);
-                }
-                Ok(inner)
-            }
-            Node::Range { from, to, .. } => {
-                // A limit with a leading zero pads every number to the longer limit.
-                let zero_pad = if (from.starts_with('0') && from.len() > 1) || to.starts_with('0') {
-                    from.len().max(to.len())
-                } else {
-                    0
-                };
-                let parse_limit = |limit: &str| {
-                    limit
-                        .parse::<usize>()
-                        .map_err(|_| ExpansionError::NumConversionFailed(limit.to_owned()))
-                };
-                let (from, to) = (parse_limit(from)?, parse_limit(to)?);
-                let mut inner = vec![];
-                for i in from..=to {
-                    stop_if(should_stop)?;
-                    inner.push(format!("{i:0>zero_pad$}"));
-                }
-                Ok(inner)
-            }
-        }
-    }
-
-    /// `ExpansionError::Interrupted` when `should_stop` returns `true`.
-    fn stop_if(should_stop: &mut dyn FnMut() -> bool) -> Result<(), ExpansionError> {
-        if should_stop() {
-            Err(ExpansionError::Interrupted)
-        } else {
-            Ok(())
-        }
-    }
-}
-// ==== END stand-in for `bracoxide::expand_with` =================================
 
 #[cfg(test)]
 mod tests {
@@ -692,6 +593,36 @@ mod tests {
         );
     }
 
+    /// A range limit too large for a `usize` is a "Number Conversion Failed" error.
+    #[test]
+    fn overflowing_range_is_an_error() {
+        let value = str_expand(
+            "{1..99999999999999999999999}",
+            Span::test_data(),
+            Span::test_data(),
+            &Signals::empty(),
+        );
+        assert!(
+            matches!(&value, Value::Error { error, .. } if matches!(&**error, ShellError::Generic(e) if e.error == "Number Conversion Failed")),
+            "expected a number conversion error, got {value:?}"
+        );
+    }
+
+    /// A range with no end limit names the end, not the start.
+    #[test]
+    fn missing_range_end_is_an_error() {
+        let value = str_expand(
+            "{1..}",
+            Span::test_data(),
+            Span::test_data(),
+            &Signals::empty(),
+        );
+        assert!(
+            matches!(&value, Value::Error { error, .. } if matches!(&**error, ShellError::Generic(e) if e.error == "Range End Expected")),
+            "expected a range end error, got {value:?}"
+        );
+    }
+
     /// `expand_with` checks `should_stop` while it counts through a range and
     /// while it joins the parts of a brace expansion, so neither runs to the end.
     #[test]
@@ -715,45 +646,6 @@ mod tests {
                 checks > 5000
             });
             assert_eq!(expanded, Err(ExpansionError::Interrupted), "{node:?}");
-        }
-    }
-
-    /// The stand-in expands like bracoxide's own `expand`. Delete this test with
-    /// the `brace_expansion` module.
-    #[test]
-    fn stand_in_matches_bracoxide_expand() {
-        use bracoxide::{parser::parse, tokenizer::tokenize};
-
-        for pattern in [
-            "{3..5}",
-            "A{B\\,,C}",
-            "Welcome\\, {home,mon ami}!",
-            "A{B\\\\,C}",
-            "{apple,banana,cherry}",
-            "A{b,c}D{e,f}G",
-            "A{,B,C}",
-            "A{B,C,}",
-            "A{B,,C}",
-            "A{B{1,3},C{2,5}}D",
-            "A{08..10}B{11..013}C",
-            "{0..10}",
-            "{00..10}",
-            "{0..0}",
-            "{10..1}",
-            "..{a,b}..",
-            "{W{x,y}}",
-            "{a.b.c,d}",
-            "1\\\\{a,b}",
-            "{1..99999999999999999999999}",
-        ] {
-            let node =
-                parse(&tokenize(pattern).expect("pattern tokenizes")).expect("pattern parses");
-            let upstream = bracoxide::expand(&node).map_err(|error| match error {
-                bracoxide::ExpansionError::NumConversionFailed(s) => {
-                    ExpansionError::NumConversionFailed(s)
-                }
-            });
-            assert_eq!(expand_with(&node, &mut || false), upstream, "{pattern}");
         }
     }
 

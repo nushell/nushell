@@ -122,6 +122,103 @@ fn url_join_with_same_query_and_params() -> Result {
 }
 
 #[test]
+fn url_join_with_params_before_same_query() -> Result {
+    let code = r#"
+            {
+                "scheme": "http",
+                "host": "localhost",
+                "params": {
+                    "par_1": "aaa",
+                    "par_2": "bbb"
+                },
+                "query": "par_1=aaa&par_2=bbb",
+            } | url join
+        "#;
+
+    test()
+        .run(code)
+        .expect_value_eq("http://localhost?par_1=aaa&par_2=bbb")
+}
+
+#[test]
+fn url_join_with_encoded_query_and_params() -> Result {
+    let code = r#"
+            {
+                "scheme": "http",
+                "host": "localhost",
+                "query": "name=a%20b&x=%28y%29",
+                "params": {
+                    "name": "a b",
+                    "x": "(y)"
+                },
+            } | url join
+        "#;
+
+    test()
+        .run(code)
+        .expect_value_eq("http://localhost?name=a%20b&x=%28y%29")
+}
+
+#[rstest::rstest]
+// https://github.com/nushell/nushell/issues/12352
+#[case::encoded_space("https://example.com/search?q=a%20b&lang=en")]
+#[case::quote_in_other_scheme("git+ssh://h/r?ref='v1'")]
+#[case::quote_and_encoded_space("foo://h/p?q=a%20b&r='c'")]
+fn url_parse_then_join_keeps_encoded_query(#[case] url: &str) -> Result {
+    test()
+        .run(format!(r#""{url}" | url parse | url join"#))
+        .expect_value_eq(url)
+}
+
+#[test]
+fn url_join_with_params_before_encoded_query() -> Result {
+    let code = r#"{scheme: http, host: h, params: {a: "b c"}, query: "a=b%20c"} | url join"#;
+
+    test().run(code).expect_value_eq("http://h?a=b%20c")
+}
+
+#[rstest::rstest]
+#[case::query_first(r#"{scheme: http, host: h, query: "?a=1", params: {"?a": "1"}}"#)]
+#[case::params_first(r#"{scheme: http, host: h, params: {"?a": "1"}, query: "?a=1"}"#)]
+fn url_join_with_question_mark_in_query_ignores_field_order(#[case] record: &str) -> Result {
+    test()
+        .run(format!("{record} | url join"))
+        .expect_value_eq("http://h??a=1")
+}
+
+#[test]
+fn url_join_mismatch_shows_question_mark_of_query() -> Result {
+    let code = r#"{scheme: http, host: h, params: {a: "1"}, query: "?a=1"} | url join"#;
+    let err = test().run(code).expect_error()?;
+    match err {
+        ShellError::IncompatibleParameters {
+            left_message,
+            right_message,
+            ..
+        } => {
+            assert_eq!(left_message, "Mismatch, query param is: ??a=1");
+            assert_eq!(right_message, "instead query string from params is: ?a=1");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest::rstest]
+#[case::plus_is_not_a_space(r#"{scheme: http, host: h, params: {a: " "}, query: "a=%2B"}"#)]
+#[case::raw_hash_query_first(r#"{scheme: http, host: h, query: "a=1#x", params: {a: "1#x"}}"#)]
+#[case::raw_hash_params_first(r#"{scheme: http, host: h, params: {a: "1#x"}, query: "a=1#x"}"#)]
+#[case::raw_newline(r#"{scheme: http, host: h, query: "a=1\nb", params: {a: "1\nb"}}"#)]
+#[case::question_mark_key(r#"{scheme: http, host: h, params: {a: "1"}, query: "?a=1"}"#)]
+fn url_join_with_query_that_reads_differently_from_params(#[case] record: &str) -> Result {
+    let err = test().run(format!("{record} | url join")).expect_error()?;
+    match err {
+        ShellError::IncompatibleParameters { .. } => Ok(()),
+        err => Err(err.into()),
+    }
+}
+
+#[test]
 fn url_join_with_different_query_and_params() -> Result {
     let code = r#"
             {
@@ -178,7 +275,7 @@ fn url_join_with_different_query_and_params() -> Result {
         } => {
             assert_eq!(
                 left_message,
-                "Mismatch, query param is: par_1=aaa&par_2=bbb"
+                "Mismatch, query param is: ?par_1=aaa&par_2=bbb"
             );
             assert_eq!(
                 right_message,

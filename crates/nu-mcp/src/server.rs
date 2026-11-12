@@ -31,9 +31,9 @@ impl NushellMcpServer {
     }
 
     #[tool(
-        description = r#"List available Nushell native commands, one per line as `<call signature> - <description>`.
+        description = "List available Nushell native commands, one per line as `<call signature> - <description>`.
 Without `find`, every command in scope is returned (hundreds of lines). With `find`, only commands whose name, description, or search terms contain that string (case-insensitive) are returned; when nothing matches, the tool returns an error.
-Use command_help for one command's flags and parameters."#
+Use command_help for one command's flags and parameters."
     )]
     async fn list_commands(
         &self,

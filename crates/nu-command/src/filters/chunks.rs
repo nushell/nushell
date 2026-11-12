@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, shell_error::io::IoError};
+use nu_protocol::{
+    ListStream,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
+};
 use std::{
     io::{BufRead, Cursor, ErrorKind},
     num::NonZeroUsize,
@@ -194,7 +197,7 @@ pub fn chunks(
                     };
                     let value_stream = chunk_read.map(move |chunk| match chunk {
                         Ok(chunk) => Value::binary(chunk, span),
-                        Err(e) => Value::error(from_io_error(e).into(), span),
+                        Err(e) => Value::error(ShellErrorBridge::unpack(e, span), span),
                     });
                     value_stream.into_pipeline_data_with_metadata(
                         span,

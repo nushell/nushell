@@ -166,7 +166,7 @@ fn completer_on_the_right_is_an_error() -> Result {
         .run("type Color = string@[red green blue]")
         .expect_parse_error()?;
     assert!(
-        matches!(&err, ParseError::LabeledError(msg, ..) if msg == "Unexpected custom completer in type spec"),
+        matches!(&err, ParseError::LabeledErrorWithHelp { error, .. } if error == "Unexpected custom completer in type spec"),
         "unexpected error: {err:?}"
     );
     Ok(())

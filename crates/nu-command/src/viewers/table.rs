@@ -244,6 +244,7 @@ struct TableConfig {
     theme: TableMode,
     abbreviation: Option<usize>,
     index: Option<usize>,
+    index_explicit: bool,
     use_ansi_coloring: bool,
     icons: bool,
     hex_styles: HexStyles,
@@ -271,6 +272,7 @@ struct CLIArgs {
     expand_flatten_separator: Option<String>,
     collapse: bool,
     index: Option<usize>,
+    index_explicit: bool,
     use_ansi_coloring: bool,
     icons: bool,
 }
@@ -284,6 +286,7 @@ fn parse_table_config(
         abbreviation,
         theme,
         index,
+        index_explicit,
         use_ansi_coloring,
         icons,
         ..
@@ -299,6 +302,7 @@ fn parse_table_config(
         theme,
         abbreviation,
         index,
+        index_explicit,
         use_ansi_coloring,
         icons,
         hex_styles,
@@ -335,6 +339,9 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
     let icons = call.has_flag(state, stack, "icons")?;
+    let index_explicit = call
+        .get_flag::<Value>(state, stack, "index")?
+        .is_some_and(|v| !matches!(v, Value::Nothing { .. }));
 
     let use_ansi_coloring = stack.get_config(state).use_ansi_coloring.get(state);
 
@@ -348,6 +355,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         expand_flatten_separator,
         width,
         index,
+        index_explicit,
         use_ansi_coloring,
         icons,
     })
@@ -1324,6 +1332,7 @@ fn create_table_opts<'a>(
         theme,
         offset,
         index,
+        table_cfg.index_explicit,
         table_cfg.width_priority_columns.clone(),
     )
 }

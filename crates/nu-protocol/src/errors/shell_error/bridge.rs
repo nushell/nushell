@@ -1,6 +1,7 @@
-use super::ShellError;
 #[cfg(test)]
 use super::generic::GenericError;
+use super::{ShellError, io::IoError};
+use crate::Span;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -14,6 +15,17 @@ use thiserror::Error;
 #[derive(Debug, Clone, PartialEq, Error, Serialize, Deserialize)]
 #[error("{0}")]
 pub struct ShellErrorBridge(pub ShellError);
+
+impl ShellErrorBridge {
+    /// Converts an I/O error from reading a stream into a [`ShellError`]. A [`ShellError`] packed
+    /// in a bridge comes back out as is; anything else becomes an [`IoError`] at `span`.
+    pub fn unpack(err: std::io::Error, span: Span) -> ShellError {
+        match Self::try_from(err) {
+            Ok(Self(err)) => err,
+            Err(err) => IoError::new(err, span, None).into(),
+        }
+    }
+}
 
 impl TryFrom<std::io::Error> for ShellErrorBridge {
     type Error = std::io::Error;

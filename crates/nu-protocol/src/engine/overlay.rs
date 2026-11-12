@@ -165,6 +165,9 @@ pub struct ScopeBindings {
     pub decls: HashMap<Vec<u8>, DeclId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
+    /// The span of the block these names were defined in, if they come from one. Only code
+    /// inside that span can call them.
+    pub span: Option<Span>,
 }
 
 impl ScopeBindings {
