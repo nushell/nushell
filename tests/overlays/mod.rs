@@ -729,6 +729,58 @@ fn overlay_reactivate_with_module_name_should_change_pwd() -> Result {
     Ok(())
 }
 
+/// The parser drops an overlay command's effect when the enclosing block ends, but the stack keeps
+/// it. `cd` writes `PWD` through the stack's overlays and the parser reads it through its own, so
+/// the two must still agree. `spam.nu` only exists in `samples`, so a stale `PWD` fails to parse.
+/// `run_with_hooks` merges the stack into the engine like the REPL does, and `run` doesn't.
+#[rstest]
+#[case::use_in_if(["if true { overlay use foo }"])]
+#[case::use_in_try(["try { overlay use foo }"])]
+#[case::use_in_for(["for _ in [1] { overlay use foo }"])]
+#[case::use_in_match(["match 1 { 1 => { overlay use foo } }"])]
+#[case::new_in_if(["if true { overlay new bar }"])]
+#[case::hide_in_if(["overlay use foo", "if true { overlay hide foo }"])]
+fn overlay_command_in_block_parser_follows_cd<const C: usize>(
+    #[case] commands: [&str; C],
+) -> Result {
+    let mut tester = test().cwd("tests/overlays");
+
+    let () = tester.run(r#"module foo { export-env { $env.FOO = "foo" } }"#)?;
+    let () = tester.run_multiple(commands)?;
+    let () = tester.run("cd samples")?;
+    let () = tester.run_with_hooks("use ./spam.nu foo")?;
+
+    tester.run("foo").expect_value_eq("foo")
+}
+
+/// Variables set after an overlay command in a block land in the overlay only the stack still has.
+/// The parser reads `NU_LIB_DIRS` from the engine, so it must look there too.
+#[test]
+fn overlay_new_in_block_parser_reads_env_set_after_it() -> Result {
+    let mut tester = test().cwd("tests/overlays");
+
+    let () = tester.run("if true { overlay new bar }")?;
+    let () = tester.run(r#"$env.NU_LIB_DIRS = [($env.PWD | path join "samples")]"#)?;
+    let () = tester.run_with_hooks("use spam.nu foo")?;
+
+    tester.run("foo").expect_value_eq("foo")
+}
+
+/// When the parser and the stack agree, hiding an overlay still goes back to the directory it was
+/// activated in.
+#[test]
+fn overlay_hide_after_merge_restores_pwd() -> Result {
+    let mut tester = test().cwd("tests/overlays");
+
+    let () = tester.run_with_hooks("overlay new foo")?;
+    let () = tester.run_with_hooks("cd samples")?;
+    let () = tester.run_with_hooks("overlay hide foo")?;
+
+    tester
+        .run_with_hooks("$env.PWD | path basename")
+        .expect_value_eq("overlays")
+}
+
 #[test]
 fn overlay_wrong_rename_type() -> Result {
     let commands = ["module spam {}", "overlay use spam as { echo foo }"];
