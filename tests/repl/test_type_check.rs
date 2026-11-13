@@ -283,6 +283,85 @@ fn for_loop_incorrect_type_raises_error() -> Result {
     Ok(())
 }
 
+/// A runtime type error for a record or list names the fields and items that fail, and leaves
+/// out the ones that match, such as an empty list for `list<string>` (#19501).
+#[rstest]
+#[case::missing_field_beside_empty_lists(
+    r#"
+    type Cfg = record<a: int, b: int, c: list<int>, d: list<string>, e: list<string>, f: list<string>, g: int, h: int>
+    let x: Cfg = ('{"a": 1, "b": 3, "c": [], "d": [], "e": [], "f": [], "g": 3}' | from json)
+    "#,
+    "nu::shell::type_mismatch",
+    Some("missing field `h: int`")
+)]
+#[case::nested_field(
+    r#"let x: record<config: record<chapter: int>> = ('{"config": {"chapter": "one"}}' | from json)"#,
+    "nu::shell::type_mismatch",
+    Some("field `config.chapter`: expected int, got string")
+)]
+#[case::table_row(
+    r#"let t: table<name: string, size: int> = ('[{"name": "a", "size": 1}, {"name": "b"}]' | from json)"#,
+    "nu::shell::type_mismatch",
+    Some("missing field `1.size: int`")
+)]
+// The path starts at the assigned value, as the error's label does.
+#[case::cell_path_assignment(
+    r#"
+    mut x: record<a: record<b: int>> = {a: {b: 1}}
+    $x.a = ('{"b": "s"}' | from json)
+    "#,
+    "nu::shell::type_mismatch",
+    Some("field `b`: expected int, got string")
+)]
+#[case::scalar_has_no_help(
+    r#"let x: int = ('"a"' | from json)"#,
+    "nu::shell::type_mismatch",
+    None
+)]
+#[case::command_parameter(
+    r#"
+    def f [x: record<a: int, b: string, tags: list<string>>] { $x }
+    f ('{"a": "1", "tags": ["x", 3]}' | from json)
+    "#,
+    "nu::shell::cant_convert",
+    Some(
+        "field `a`: expected int, got string\nmissing field `b: string`\nitem `tags.1`: expected string, got int"
+    )
+)]
+#[case::closure_parameter(
+    r#"
+    let c = {|x: record<a: string>| $x }
+    [('{"a": 1}' | from json)] | each $c
+    "#,
+    "nu::shell::cant_convert",
+    Some("field `a`: expected string, got int")
+)]
+#[case::spread_flag(
+    r#"
+    def f [--cfg: record<a: int>] { $cfg }
+    let r = ('{"cfg": {"a": "x"}}' | from json)
+    f ...$r
+    "#,
+    "nu::shell::cant_convert",
+    Some(
+        "spread field `cfg` does not match the type of `--cfg`\nfield `a`: expected int, got string"
+    )
+)]
+#[nu_test_support::test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn runtime_mismatch_names_failing_fields(
+    #[case] code: &str,
+    #[case] error_code: &str,
+    #[case] help: Option<&str>,
+) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_eq!(err.code().unwrap().to_string(), error_code);
+    assert_eq!(err.help().map(|help| help.to_string()).as_deref(), help);
+
+    Ok(())
+}
+
 #[test]
 fn transpose_into_load_env() -> TestResult {
     run_test(

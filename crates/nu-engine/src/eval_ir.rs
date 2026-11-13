@@ -2020,7 +2020,7 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
             to_type: ty.to_string(),
             from_type: val.get_type().to_string(),
             span: val.span(),
-            help: None,
+            help: val.explain_type_mismatch(ty),
         }),
     }
 }
@@ -2052,6 +2052,10 @@ fn check_assignment_type(
                 format!("expected {expected}, got {actual}"),
                 assignment_span,
             );
+
+            if let Some(help) = val.explain_type_mismatch(target_ty) {
+                err = err.with_help(help);
+            }
 
             Err(ShellError::LabeledError(err.into()))
         }
