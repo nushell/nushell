@@ -36,7 +36,7 @@ impl Command for InputListen {
             )
             .switch(
                 "raw",
-                "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags.",
+                "Add raw_code field with numeric value of keycode and raw_modifiers with bit mask flags.",
                 Some('r'),
             )
             .named(
@@ -45,15 +45,9 @@ impl Command for InputListen {
                 "How long to wait for input before returning.",
                 Some('o')
             )
-            .input_output_types(vec![(
-                Type::Nothing,
-                Type::Record(vec![
-                    ("type".to_string(), Type::String),
-                    ("key_type".to_string(), Type::String),
-                    ("code".to_string(), Type::String),
-                    ("modifiers".to_string(), Type::list(Type::String)),
-                ].into()),
-            )])
+            // Each event type has its own fields (see `extra_description`), so the output is
+            // any record. A key-only record type fails `let x = input listen` on other events.
+            .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
     fn description(&self) -> &str {
@@ -70,12 +64,18 @@ corresponding record, distinguished by type field:
     { type: paste content: <string> }
     { type: resize col: <int> row: <int> }
 ```
+With --raw, key and mouse records also get `raw_modifiers: <int>` (the modifier bit mask),
+and key records for char keys get `raw_code: <int>` (the character's code point).
 There are 6 `modifier` variants: shift, control, alt, super, hyper, meta.
-There are 4 `key_type` variants:
+There are 5 `key_type` variants:
     f - f1, f2, f3 ... keys
     char - alphanumeric and special symbols (a, A, 1, $ ...)
     media - dedicated media keys (play, pause, tracknext ...)
-    other - keys not falling under previous categories (up, down, backspace, enter ...)"
+    modifier - a modifier key on its own (leftshift, rightalt ...), on terminals that report these
+    other - keys not falling under previous categories (up, down, backspace, enter ...)
+Some terminals send a focus event whenever focus reporting is turned on, so `input listen`
+returns `{type: focus event: gained}` right away. To wait for other events instead, leave
+focus out of --types, for example `input listen --types [key mouse paste resize]`."
     }
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
@@ -98,6 +98,9 @@ There are 4 `key_type` variants:
         let config = stack.get_config(engine_state);
 
         let _raw_mode = RawModeGuard::acquire(stack, head)?;
+        // Turns off what is turned on below when dropped, on every return path. Declared after
+        // `_raw_mode` so it drops first, while the terminal is still in raw mode.
+        let mut console_state = DeferredConsoleRestore::default();
 
         if config.use_kitty_protocol {
             if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
@@ -123,9 +126,10 @@ There are 4 `key_type` variants:
                     crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
                 )
             );
+            console_state.pop_keyboard_enhancement = true;
         }
 
-        let console_state = event_type_filter.enable_events(head)?;
+        event_type_filter.enable_events(&mut console_state, head)?;
         let start = Instant::now();
         let mut remaining_time = timeout;
 
@@ -146,14 +150,6 @@ There are 4 `key_type` variants:
             })?;
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
-                if config.use_kitty_protocol {
-                    let _ = execute!(
-                        std::io::stdout(),
-                        crossterm::event::PopKeyboardEnhancementFlags
-                    );
-                }
-
-                console_state.restore();
                 return Ok(event.into_pipeline_data());
             }
 
@@ -176,7 +172,8 @@ fn get_event_type_filter(
     Ok(event_type_filter)
 }
 
-#[derive(Clone)]
+/// Which event types to listen for. The default listens for none.
+#[derive(Default)]
 struct EventTypeFilter {
     listen_focus: bool,
     listen_key: bool,
@@ -186,16 +183,6 @@ struct EventTypeFilter {
 }
 
 impl EventTypeFilter {
-    fn none() -> EventTypeFilter {
-        EventTypeFilter {
-            listen_focus: false,
-            listen_key: false,
-            listen_mouse: false,
-            listen_paste: false,
-            listen_resize: false,
-        }
-    }
-
     fn all() -> EventTypeFilter {
         EventTypeFilter {
             listen_focus: true,
@@ -208,7 +195,7 @@ impl EventTypeFilter {
 
     fn from_value(value: Value, head: Span) -> Result<EventTypeFilter, ShellError> {
         if let Value::List { vals, .. } = value {
-            let mut filter = Self::none();
+            let mut filter = Self::default();
             for event_type in vals {
                 let span = event_type.span();
                 if let Value::String { val, .. } = event_type {
@@ -248,39 +235,54 @@ impl EventTypeFilter {
         }
     }
 
-    /// Enable capturing of all events allowed by this filter.
-    /// Call [`DeferredConsoleRestore::restore`] when done capturing events to restore
-    /// console state
-    fn enable_events(&self, span: Span) -> Result<DeferredConsoleRestore, ShellError> {
+    /// Enable capturing of all events allowed by this filter. Each mode is recorded in
+    /// `console_state` once it is on, so a failure part way through still turns off the
+    /// modes enabled before it.
+    fn enable_events(
+        &self,
+        console_state: &mut DeferredConsoleRestore,
+        span: Span,
+    ) -> Result<(), ShellError> {
         if self.listen_mouse {
             crossterm::execute!(stdout(), EnableMouseCapture)
                 .map_err(|err| IoError::new(err, span, None))?;
+            console_state.setup_event_types.listen_mouse = true;
         }
 
         if self.listen_paste {
             crossterm::execute!(stdout(), EnableBracketedPaste)
                 .map_err(|err| IoError::new(err, span, None))?;
+            console_state.setup_event_types.listen_paste = true;
         }
 
         if self.listen_focus {
             crossterm::execute!(stdout(), crossterm::event::EnableFocusChange)
                 .map_err(|err| IoError::new(err, span, None))?;
+            console_state.setup_event_types.listen_focus = true;
         }
 
-        Ok(DeferredConsoleRestore {
-            setup_event_types: self.clone(),
-        })
+        Ok(())
     }
 }
 
-/// Promise to disable all event capturing previously enabled by [`EventTypeFilter::enable_events`]
+/// Guard that restores the console when dropped: it pops the kitty keyboard flags pushed in
+/// [`InputListen::run`] and disables the event capturing turned on by
+/// [`EventTypeFilter::enable_events`]. Dropping it covers every exit path, timeouts and
+/// errors included.
+#[derive(Default)]
 struct DeferredConsoleRestore {
+    /// The event types whose capturing is currently on.
     setup_event_types: EventTypeFilter,
+    /// Set once the kitty keyboard enhancement flags were pushed.
+    pop_keyboard_enhancement: bool,
 }
 
-impl DeferredConsoleRestore {
-    /// Disable all event capturing flags set up by [`EventTypeFilter::enable_events`]
-    fn restore(self) {
+impl Drop for DeferredConsoleRestore {
+    fn drop(&mut self) {
+        if self.pop_keyboard_enhancement {
+            let _ = execute!(stdout(), crossterm::event::PopKeyboardEnhancementFlags);
+        }
+
         if self.setup_event_types.listen_mouse {
             let _ = crossterm::execute!(stdout(), DisableMouseCapture);
         }
@@ -496,5 +498,38 @@ fn create_resize_event(
         Some(Value::record(record, head))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{Event, KeyEvent};
+    use nu_protocol::CompareTypes;
+    use rstest::rstest;
+
+    /// `let x = input listen` checks the event against the declared output type at runtime,
+    /// so every event kind must fit it, with and without `--raw`.
+    #[rstest]
+    #[case::focus_gained(Event::FocusGained)]
+    #[case::focus_lost(Event::FocusLost)]
+    #[case::key(Event::Key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL)))]
+    #[case::mouse(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::Moved,
+        column: 1,
+        row: 2,
+        modifiers: KeyModifiers::NONE,
+    }))]
+    #[case::paste(Event::Paste("pasted".into()))]
+    #[case::resize(Event::Resize(80, 24))]
+    fn output_type_accepts_event(#[case] event: Event, #[values(false, true)] add_raw: bool) {
+        let value = parse_event(Span::test_data(), &event, &EventTypeFilter::all(), add_raw)
+            .expect("every event type passes the `all` filter");
+        for (_, output_ty) in &InputListen.signature().input_output_types {
+            assert!(
+                value.is_assignable_to(output_ty),
+                "{value:?} is not a {output_ty}"
+            );
+        }
     }
 }
