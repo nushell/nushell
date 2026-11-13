@@ -287,6 +287,24 @@ fn find_flag(signature: &Signature, flag: FlagRef<'_>) -> Option<Flag> {
     }
 }
 
+/// The [`FlagRef`] of a last-argument flag still awaiting its value.
+pub(crate) fn pending_flag_value<'a>(
+    call: &'a Call,
+    working_set: &StateWorkingSet,
+) -> Option<FlagRef<'a>> {
+    let Argument::Named((name, short, None)) = call.arguments.last()? else {
+        return None;
+    };
+
+    let flag_ref = FlagRef::from_named(name, short.as_ref());
+    let signature = working_set.get_decl(call.decl_id).signature();
+
+    find_flag(&signature, flag_ref)?
+        .arg
+        .is_some()
+        .then_some(flag_ref)
+}
+
 /// Positional arguments before `before_index`.
 fn count_positionals(call: &Call, before_index: usize) -> usize {
     call.arguments
@@ -1824,7 +1842,7 @@ impl<'engine> CompletionEngine<'engine> {
 
         let point = Span::point(absolute_position);
 
-        if let Some(flag_ref) = Self::pending_flag_value(call, working_set) {
+        if let Some(flag_ref) = pending_flag_value(call, working_set) {
             // `arg_slot` past the last argument: no node exists yet; `ArgValueCompletion` reads `None`.
             CompletionSite::at(
                 absolute_position,
@@ -1908,24 +1926,6 @@ impl<'engine> CompletionEngine<'engine> {
                 Span::point(absolute_position),
             )
         })
-    }
-
-    /// The [`FlagRef`] of a last-argument flag still awaiting its value.
-    fn pending_flag_value<'a>(
-        call: &'a Call,
-        working_set: &StateWorkingSet,
-    ) -> Option<FlagRef<'a>> {
-        let Argument::Named((name, short, None)) = call.arguments.last()? else {
-            return None;
-        };
-
-        let flag_ref = FlagRef::from_named(name, short.as_ref());
-        let signature = working_set.get_decl(call.decl_id).signature();
-
-        find_flag(&signature, flag_ref)?
-            .arg
-            .is_some()
-            .then_some(flag_ref)
     }
 
     fn resolve_argument_site<'a>(

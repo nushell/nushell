@@ -165,9 +165,15 @@ fn non_record_row_becomes_an_error_in_its_place() -> Result {
 
 #[test]
 fn rows_after_a_bad_row_are_still_processed() -> Result {
+    let code = "
+        [{a: 1} 2 {a: 3}]
+        | record where { true }
+        | each {|row| try { $row | ignore; $row } catch { 'failed' } }
+    ";
+
     test()
-        .run("[{a: 1} 2 {a: 3}] | record where { true } | last")
-        .expect_value_eq(test_value!({a: 3}))
+        .run(code)
+        .expect_value_eq(test_value!([{a: 1}, "failed", {a: 3}]))
 }
 
 #[test]
@@ -175,9 +181,16 @@ fn missing_parameter_in_a_row_does_not_shift_the_next_row() -> Result {
     // `--keys` passes one argument, so `v` is missing for every row. The first
     // row's failed call must not leave `k` bound, or the second row's key would
     // fill `v` and the call would succeed.
-    test()
-        .run("[{a: 1} {b: 2}] | record where --keys {|k, v| true} | get 1")
-        .expect_error_code_eq("nu::shell::missing_parameter")
+    let code = "
+        [{a: 1} {b: 2}]
+        | record where --keys {|k, v| true}
+        | each {|row| try { $row | ignore; 'ok' } catch {|e| $e.details.code } }
+    ";
+
+    test().run(code).expect_value_eq(test_value!([
+        "nu::shell::missing_parameter",
+        "nu::shell::missing_parameter",
+    ]))
 }
 
 #[test]

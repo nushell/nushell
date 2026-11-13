@@ -289,6 +289,51 @@ fn source_circular() -> Result {
         .expect_error_code_eq("nu::parser::circular_import")
 }
 
+/// A UTF-8 byte-order mark at the start of a file, as Windows editors can write, is skipped by
+/// every command that reads a script.
+#[rstest]
+#[case::source("bom_source", "source bom.nu", test_value!(2))]
+#[case::run("bom_run", "run bom.nu", test_value!(2))]
+#[case::use_module("bom_use", "use bom_module.nu; bom_module", test_value!(2))]
+#[case::nu_check("bom_nu_check", "nu-check bom.nu", test_value!(true))]
+fn byte_order_mark_at_start_of_script_is_skipped(
+    #[case] topic: &str,
+    #[case] code: &str,
+    #[case] expected: Value,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[
+            Stub::FileWithContent("bom.nu", "\u{feff}# a comment first\n1 + 1\n"),
+            Stub::FileWithContent("bom_module.nu", "\u{feff}export def main [] { 2 }\n"),
+        ]);
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(expected)
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn byte_order_mark_at_start_of_script_file_or_config_is_skipped() -> Result {
+    Playground::setup(
+        "byte_order_mark_at_start_of_script_file_or_config_is_skipped",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                Stub::FileWithContent("bom.nu", "\u{feff}1 + 1\n"),
+                Stub::FileWithContent("bom_config.nu", "\u{feff}$env.FROM_CONFIG = 2\n"),
+            ]);
+
+            let result: CompleteResult = test().cwd(dirs.test()).run("nu -n bom.nu | complete")?;
+            assert_eq!(result.stdout.trim(), "2", "{result:?}");
+
+            let result: CompleteResult = test()
+                .cwd(dirs.test())
+                .run("nu --config bom_config.nu -c '$env.FROM_CONFIG' | complete")?;
+            assert_eq!(result.stdout.trim(), "2", "{result:?}");
+            Ok(())
+        },
+    )
+}
+
 #[test]
 #[deps(NU)]
 fn run_nu_script_single_line() -> Result {

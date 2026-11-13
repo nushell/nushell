@@ -15,3 +15,4 @@ def "foo baz" [
     p3?: int = 1
 ] {}
 echo   
+echo (str length)

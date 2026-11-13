@@ -2,7 +2,7 @@ use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
     CustomExample, OutDest,
     ast::{self, Expr, Expression},
-    engine::{self, CallImpl, Closure, CommandType, UNKNOWN_SPAN_ID},
+    engine::{self, CallImpl, Closure, CommandType, Redirection, UNKNOWN_SPAN_ID},
     ir::{self, DataSlice},
     shell_error::eval_block_with_input::EvalBlockWithInputError,
 };
@@ -26,19 +26,30 @@ pub struct StructuredOutput {
     pub args: Vec<String>,
     /// Turns the command's output into data.
     pub decode: Closure,
+    /// Only decode when nushell uses the output, and run as written when it goes to the
+    /// terminal (the `--pipe-only` flag of `attr structured`).
+    pub pipe_only: bool,
 }
 
 impl StructuredOutput {
-    /// Whether the output of this call is used by nushell itself and should be decoded.
+    /// Whether the output of this call should be decoded.
     ///
-    /// That is the case when stdout is piped into an internal command or collected into a value.
-    /// Output that goes to the terminal or a file is left alone, as is output piped into a
-    /// command that reads it as text (an external command, `run-external` and `print` ask for
+    /// That is the case when stdout is piped into an internal command, collected into a value,
+    /// or, unless `pipe_only` is set, is the result shown in the terminal ([`OutDest::Print`]:
+    /// the last statement at the prompt or of a script, also through a `do` block or custom
+    /// command). A statement whose result is discarded (followed by `;` or a newline, a loop
+    /// body, a hook) gets [`OutDest::Inherit`] and runs as written, so the command prints its
+    /// own text. Output that goes to a file is left alone, as is output piped into a command
+    /// that reads it as text (an external command, `run-external` and `print` ask for
     /// [`OutDest::PipeRaw`]), into a byte sink (`save`, `tee`, `complete` and `ignore` ask for
     /// [`OutDest::PipeSeparate`]), or merged with stderr (`o+e>|`).
-    fn applies_to(stack: &Stack) -> bool {
-        matches!(stack.stdout(), OutDest::Pipe | OutDest::Value)
-            && !matches!(stack.stderr(), OutDest::Pipe)
+    fn applies_to(&self, stack: &Stack) -> bool {
+        let stdout_applies = match stack.stdout() {
+            OutDest::Pipe | OutDest::Value => true,
+            OutDest::Print => !self.pipe_only,
+            _ => false,
+        };
+        stdout_applies && !matches!(stack.stderr(), OutDest::Pipe)
     }
 }
 
@@ -111,42 +122,55 @@ impl Command for KnownExternal {
         let structured = self
             .structured
             .as_ref()
-            .filter(|_| StructuredOutput::applies_to(stack));
+            .filter(|structured| structured.applies_to(stack));
         // The structured-output arguments follow the name words, before the user's arguments.
         if let Some(structured) = structured {
             extern_name.extend(structured.args.iter().map(String::as_str));
         }
 
-        let output = match &call.inner {
-            CallImpl::AstRef(call) => {
-                let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
-            }
-            CallImpl::AstBox(call) => {
-                let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
-            }
-            CallImpl::IrRef(call) => {
-                let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
-            }
-            CallImpl::IrBox(call) => {
-                let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
+        // Output shown in the terminal is captured so the decode block can read it.
+        let capture_stdout = structured.is_some() && matches!(stack.stdout(), OutDest::Print);
+        let output = {
+            let mut guard;
+            let stack: &mut Stack = if capture_stdout {
+                guard = stack.push_redirection(Some(Redirection::Pipe(OutDest::Pipe)), None);
+                &mut guard
+            } else {
+                stack
+            };
+            match &call.inner {
+                CallImpl::AstRef(call) => {
+                    let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
+                CallImpl::AstBox(call) => {
+                    let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
+                CallImpl::IrRef(call) => {
+                    let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
+                CallImpl::IrBox(call) => {
+                    let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
             }
         }?;
 
         match structured {
-            // Errors from the decode block also point at the call that ran it.
+            // Errors from the decode block also point at the call that ran it. Exit-status
+            // errors stay bare, so `display_errors` applies to them as to any external.
             Some(structured) => {
                 ClosureEvalOnce::try_new(engine_state, stack, structured.decode.clone(), head_span)?
                     .run_with_input(output)
-                    .map_err(|err| {
-                        EvalBlockWithInputError::wrap(
+                    .map_err(|err| match err {
+                        ShellError::NonZeroExitCode { .. } => err,
+                        err => EvalBlockWithInputError::wrap(
                             err,
                             head_span,
                             EvalBlockWithInputError::CALLER,
-                        )
+                        ),
                     })
             }
             None => Ok(output),

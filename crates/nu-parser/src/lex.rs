@@ -1284,11 +1284,18 @@ fn lex_internal<B: Brackets>(
             // The comment ends at the newline, which is left for the main loop to turn into
             // an `Eol` token.
             if let Some(newline) = memchr::memchr(b'\n', &state.input[curr_offset..]) {
+                let span_end = if state.input[curr_offset + newline - 1] == b'\r' {
+                    curr_offset + newline - 1
+                } else {
+                    curr_offset + newline
+                };
+
                 curr_offset += newline;
+
                 if !skip_comment {
                     state.output.push(Token::new(
                         TokenContents::Comment,
-                        Span::new(state.span_offset + start, state.span_offset + curr_offset),
+                        Span::new(state.span_offset + start, state.span_offset + span_end),
                     ));
                 }
                 start = curr_offset;

@@ -47,7 +47,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Each,
             Enumerate,
             Every,
-            Filter,
             Find,
             First,
             Flatten,
@@ -328,6 +327,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             From,
             FromCsv,
+            FromDotenv,
             FromJson,
             FromMd,
             FromMsgpack,
@@ -345,6 +345,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             FromKdl,
             To,
             ToCsv,
+            ToDotenv,
             ToJson,
             ToMd,
             ToMsgpack,
@@ -437,6 +438,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             WithEnv,
             ConfigNu,
             ConfigEnv,
+            ConfigDefault,
             ConfigFlatten,
             ConfigMeta,
             ConfigReset,
@@ -558,12 +560,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             JobUnfreeze,
         }
-
-        // Removed
-        bind_command! {
-            LetEnv,
-            DateFormat,
-        };
 
         // Stor
         #[cfg(feature = "sqlite")]

@@ -409,8 +409,8 @@ impl DapPrint {
 
         let data = match engine_state.table_decl_id {
             Some(decl_id) => {
-                let table_call = ir::Call::build(decl_id, call.head).finish();
-                eval_ir_call(engine_state, stack, &table_call, data)?
+                let table_call = ir::Call::build(decl_id, call.head);
+                eval_ir_call(engine_state, stack, table_call, data)?
             }
             None => data,
         };

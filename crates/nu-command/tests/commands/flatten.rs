@@ -183,7 +183,7 @@ fn expect_column_defined_twice(command: &str, col: &str) -> Result {
     let error = test().run(command).expect_shell_error()?;
     assert_matches!(
         error,
-        ShellError::ColumnDefinedTwice { col_name, first_use:_, second_use:_ }
+        ShellError::ColumnDefinedTwice { col_name, .. }
         if col_name == col
     );
     Ok(())

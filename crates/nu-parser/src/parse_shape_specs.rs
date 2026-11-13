@@ -82,20 +82,39 @@ pub fn parse_shape_name(
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
         b"string" => SyntaxShape::String,
-        _ if matches!(type_name(bytes), b"oneof" | b"list" | b"record" | b"table") => {
-            parse_generic_shape(working_set, bytes, span)
-        }
-        _ if bytes.contains(&b'@') => {
-            working_set.error(ParseError::LabeledError(
-                "Unexpected custom completer in type spec".into(),
-                "Type specifications do not support custom completers".into(),
+        _ if completer_position(bytes).is_some() => {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "Unexpected custom completer in type spec".into(),
+                label: "Type specifications do not support custom completers".into(),
+                help: "A custom completer goes after the whole parameter type, as in \
+                       `bar: oneof<string>@baz`"
+                    .into(),
                 span,
-            ));
+            });
             working_set.error(ParseError::UnknownType(span));
             SyntaxShape::Any
         }
+        _ if matches!(type_name(bytes), b"oneof" | b"list" | b"record" | b"table") => {
+            parse_generic_shape(working_set, bytes, span)
+        }
         _ => expand_type_alias(working_set, bytes, span),
     }
+}
+
+/// Returns where the custom completer starts in a parameter's type, as in `string@completer`.
+///
+/// An `@` inside the type parameters of a generic type (`oneof<string@completer>`), or in quotes
+/// or a comment, doesn't count, so that the whole type is parsed and a misplaced completer is
+/// reported there.
+pub(crate) fn completer_position(contents: &[u8]) -> Option<usize> {
+    if !contents.contains(&b'@') {
+        return None;
+    }
+    let (tokens, _) = lex_signature(contents, 0, &[], &[b'@'], false);
+    tokens
+        .iter()
+        .find(|token| contents[token.span.start..token.span.end] == *b"@")
+        .map(|token| token.span.start)
 }
 
 /// The part of a type before its type parameters: `list` for `list<int>`.

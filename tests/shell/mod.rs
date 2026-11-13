@@ -1,5 +1,5 @@
 use nu_test_support::{
-    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed},
     prelude::*,
 };
 use pretty_assertions::assert_eq;
@@ -584,6 +584,88 @@ fn script_with_hash_arg_is_not_treated_as_comment() -> Result {
     })
 }
 
+// regression test for https://github.com/nushell/nushell/issues/19484
+#[rstest]
+#[case::flag_name_with_semicolon(&["--x;print INJECTED"])]
+#[case::flag_name_with_semicolon_and_value(&["--x;print INJECTED=1"])]
+#[case::help_flag_with_semicolon(&["--help;print INJECTED"])]
+#[case::flag_name_with_newline(&["--x\nprint INJECTED"])]
+#[case::flag_name_with_redirection(&["--x>out.txt"])]
+#[case::flag_name_with_variable_and_value(&["--x$nu=1"])]
+#[case::stdout_redirection(&["o>", "out.txt"])]
+#[case::stderr_append_redirection(&["e>>", "out.txt"])]
+#[case::combined_redirection(&["out+err>", "out.txt"])]
+#[case::spread(&["...$env.PATH"])]
+#[case::range_with_variable(&["0..$nu.pid"])]
+#[case::assignment(&["="])]
+#[case::and_and(&["&&"])]
+#[case::closing_paren(&["a)"])]
+#[nu_test_support::test]
+#[deps(NU)]
+fn script_args_are_passed_as_strings(#[case] args: &[&str]) -> Result {
+    Playground::setup("script_args_as_strings", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [--x, ...args] { $args | to json --raw }",
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run_with_data("nu -n script.nu ...$in | from json", args.to_vec())
+            .expect_value_eq(args.to_vec())?;
+        assert!(!dirs.test().join("out.txt").exists());
+        Ok(())
+    })
+}
+
+// `nu -c <commands> <args>` builds its `main` call with the same escaping.
+#[test]
+#[deps(NU)]
+fn commands_main_args_are_passed_as_strings() -> Result {
+    let args = vec!["--help;print INJECTED", "...$env.PATH"];
+
+    test()
+        .run_with_data(
+            "nu -n -c 'def main [...args] { $args | to json --raw }' ...$in | from json",
+            args.clone(),
+        )
+        .expect_value_eq(args)
+}
+
+// An argument quoted only to keep it from running as code still globs like a bare word.
+#[rstest]
+#[case::dollar("a$")]
+#[case::closing_paren("a)")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn script_glob_args_still_expand(#[case] prefix: &str) -> Result {
+    Playground::setup("script_glob_args_expand", |dirs, sandbox| -> Result {
+        let files = [format!("{prefix}1.txt"), format!("{prefix}2.txt")];
+        sandbox.with_files(&[
+            EmptyFile(&files[0]),
+            EmptyFile(&files[1]),
+            FileWithContent(
+                "script.nu",
+                "def main [g: glob] { ls $g | get name | sort | to json --raw }",
+            ),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run_with_data("nu -n script.nu $in | from json", format!("{prefix}*.txt"))
+            .expect_value_eq(files.to_vec())
+    })
+}
+
+// The same argument still expands `~` for a `path` parameter.
+#[test]
+#[deps(NU)]
+fn script_path_arg_with_dollar_expands_tilde() -> Result {
+    test()
+        .run(r#"nu -n -c 'def main [p: path] { $p | str starts-with "~" }' '~/a$b' | from json"#)
+        .expect_value_eq(false)
+}
+
 // regression test for https://github.com/nushell/nushell/issues/17719
 #[test]
 #[deps(NU)]
@@ -895,6 +977,144 @@ fn source_same_file_does_not_multiply_decls() -> Result {
         tester.run("shared_a").expect_value_eq(0)?;
         Ok(())
     })
+}
+
+/// A cached `source` declares the file's names again where they're missing: after the scope of
+/// the first `source` has ended, in the enclosing block or in a sibling block.
+#[rstest]
+#[case::def("source_cached_def", "def zz [] { 'def' }", "zz", "def")]
+#[case::alias("source_cached_alias", "alias zz = echo alias", "zz", "alias")]
+#[case::const_("source_cached_const", "const zz = 'const'", "$zz", "const")]
+#[case::let_("source_cached_let", "let zz = 'let'", "$zz", "let")]
+#[case::type_alias(
+    "source_cached_type_alias",
+    "type Zz = string",
+    "let x: Zz = 'type'; $x",
+    "type"
+)]
+#[case::use_std("source_cached_use", "use std/assert", "assert true; 'use'", "use")]
+#[case::captured_const(
+    "source_cached_captured_const",
+    "const zz = 'captured'\ndef zzget [] { $zz }",
+    "zzget",
+    "captured"
+)]
+fn source_cached_file_declares_its_names_in_another_scope(
+    #[case] topic: &str,
+    #[case] lib: &str,
+    #[case] usage: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", lib)]);
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("do {{ source lib.nu }}; source lib.nu; {usage}"))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "if true {{ source lib.nu }}; if true {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "do {{ source lib.nu }}; do {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)
+    })
+}
+
+/// A variable a sourced file declares belongs to the block around `source`, also when that block
+/// is a closure, so the closure doesn't try to capture it from outside.
+#[rstest]
+#[case::let_in_do("source_let_in_do", "do { source lib.nu; $zz }", "let")]
+#[case::let_in_closure(
+    "source_let_in_closure",
+    "let c = { source lib.nu; $zz }; do $c",
+    "let"
+)]
+#[case::mut_in_do("source_mut_in_do", "do { source lib.nu; $zzmut }", "mut")]
+#[case::nested_source("source_let_nested_in_do", "do { source outer.nu; $zz }", "let")]
+#[case::read_by_file_command("source_let_read_by_def_in_do", "do { source lib.nu; zzget }", "let")]
+fn source_variable_is_local_to_a_closure(
+    #[case] topic: &str,
+    #[case] code: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent(
+                "lib.nu",
+                "let zz = 'let'\nmut zzmut = 'mut'\ndef zzget [] { $zz }",
+            ),
+            FileWithContent("outer.nu", "source lib.nu"),
+        ]);
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(expected)
+    })
+}
+
+#[test]
+fn source_cached_file_declares_its_names_after_hide() -> Result {
+    Playground::setup("source_cached_after_hide", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", "def zz [] { 'def' }")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("source lib.nu; hide zz; source lib.nu; zz")
+            .expect_value_eq("def")
+    })
+}
+
+/// A second `source` in the same parse and scope reuses the block, as a later one does.
+#[test]
+fn source_same_file_twice_in_one_parse_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_same_file_twice_one_parse",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let once: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; scope engine-stats | get num_decls")?;
+            let twice: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; source lib.nu; scope engine-stats | get num_decls")?;
+            assert_eq!(once, twice);
+            Ok(())
+        },
+    )
+}
+
+/// Declaring a cached file's names again reuses its declarations instead of parsing it again.
+#[test]
+fn source_cached_file_in_another_scope_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_cached_other_scope_no_multiply",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            let () = tester.run("source lib.nu")?;
+            let () = tester.run("hide shared_a; hide shared_b")?;
+            let after_first: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            let () = tester.run("source lib.nu")?;
+            let after_more: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            assert_eq!(after_first, after_more);
+            tester.run("shared_a").expect_value_eq(0)
+        },
+    )
 }
 
 #[test]

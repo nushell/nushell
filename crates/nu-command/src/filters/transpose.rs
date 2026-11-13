@@ -174,23 +174,17 @@ pub fn transpose(
     }
 
     let metadata = input.take_metadata();
-    let input: Vec<_> = input.into_iter().collect();
+    let input = input.into_iter().collect_values()?;
 
-    // Ensure error values are propagated and non-record values are rejected
+    // Ensure non-record values are rejected
     for value in input.iter() {
-        match value {
-            Value::Error { .. } => {
-                return Ok(value.clone().into_pipeline_data_with_metadata(metadata));
-            }
-            Value::Record { .. } => {} // go on, this is what we're looking for
-            _ => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "table or record".into(),
-                    wrong_type: "list<any>".into(),
-                    dst_span: call.head,
-                    src_span: value.span(),
-                });
-            }
+        if !matches!(value, Value::Record { .. }) {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "table or record".into(),
+                wrong_type: "list<any>".into(),
+                dst_span: call.head,
+                src_span: value.span(),
+            });
         }
     }
 

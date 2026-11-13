@@ -71,9 +71,15 @@ fn timezone_offset_internal(
     };
     s = &s[2..];
 
-    // colons (and possibly other separators)
+    // Optional colon, with whitespace permitted around it.
     if consume_colon {
-        s = s.trim_start_matches(|c: char| c == ':' || c.is_whitespace());
+        s = s.trim_start();
+        if let Some(rest) = s.strip_prefix(':') {
+            s = rest.trim_start();
+            if s.is_empty() {
+                return Err(ParseErrorKind::Invalid);
+            }
+        }
     }
 
     // minutes (00--59)
@@ -89,12 +95,22 @@ fn timezone_offset_internal(
     } else {
         return Err(ParseErrorKind::TooShort);
     };
-    match s.len() {
+    let suffix = match s.len() {
         len if len >= 2 => &s[2..],
         0 => s,
         _ => return Err(ParseErrorKind::TooShort),
     };
+    // Preserve seconds (00--59) emitted by `into record` and `format date "%::z"`.
+    let (offset_seconds, suffix) = match suffix.strip_prefix(':').map(digits) {
+        Some(Ok((s1 @ b'0'..=b'5', s2 @ b'0'..=b'9'))) => {
+            (i32::from((s1 - b'0') * 10 + (s2 - b'0')), &suffix[3..])
+        }
+        _ => (0, suffix),
+    };
+    if !suffix.trim().is_empty() {
+        return Err(ParseErrorKind::Invalid);
+    }
 
-    let seconds = hours * 3600 + minutes * 60;
+    let seconds = hours * 3600 + minutes * 60 + offset_seconds;
     Ok(if negative { -seconds } else { seconds })
 }

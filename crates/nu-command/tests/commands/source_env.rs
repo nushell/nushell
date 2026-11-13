@@ -159,8 +159,8 @@ fn source_env_do_cd_file_relative() -> Result {
 }
 
 #[test]
-fn source_env_dont_cd_overlay() -> Result {
-    Playground::setup("source_env_dont_cd_overlay", |dirs, sandbox| {
+fn source_env_overlay_hide_keeps_cd() -> Result {
+    Playground::setup("source_env_overlay_hide_keeps_cd", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
@@ -175,7 +175,7 @@ fn source_env_dont_cd_overlay() -> Result {
         test()
             .cwd(dirs.test())
             .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
-            .expect_value_eq("source_env_dont_cd_overlay")
+            .expect_value_eq("test2")
     })
 }
 

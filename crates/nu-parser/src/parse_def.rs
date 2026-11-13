@@ -3,7 +3,7 @@ use crate::{
     lite_parser::LiteCommand,
     parse_captures_compile::discover_closure_captures,
     parse_helpers::{SPREAD_OPERATOR, garbage},
-    parse_keywords::{find_keyword_decl, reject_parser_keyword_name},
+    parse_keywords::{find_keyword_decl, is_uncallable_name, reject_parser_keyword_name},
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id, parse_attribute,
@@ -99,15 +99,8 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
-    // A call is looked up by its words joined with single spaces, so a name
-    // with any other whitespace could never be called (#15539).
-    if name.contains('#')
-        || name.contains('^')
-        || name.contains('%')
-        || name.parse::<bytesize::ByteSize>().is_ok()
-        || name.parse::<f64>().is_ok()
-        || name.split_ascii_whitespace().collect::<Vec<_>>().join(" ") != name
-    {
+    // A name that could never be called is rejected where it is defined.
+    if is_uncallable_name(working_set, &name, spans[name_pos]) {
         working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
         return;
     }

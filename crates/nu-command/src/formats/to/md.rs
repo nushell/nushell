@@ -229,7 +229,7 @@ fn to_md(
     );
 
     // Collect input to check if it's a simple list (no records/tables)
-    let values: Vec<Value> = input.into_iter().collect();
+    let values = input.into_iter().collect_values()?;
 
     // Check if input is a simple list (no records, lists, or tables)
     // Tables in nushell can be represented as List of Records or List of Lists

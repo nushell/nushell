@@ -517,13 +517,15 @@ fn filtered_messages_are_not_erased() -> Result {
 #[test]
 #[cfg_attr(ci, serial)]
 fn job_recv_timeout_works() -> Result {
+    // Sleep longer than the recv timeout so the timeout path is exercised; keep both short so
+    // this serial CI test does not add seconds of idle wait on every run.
     let code = r#"
         job spawn {
-            sleep 2sec
+            sleep 300ms
             "boop" | job send 0
         }
 
-        job recv --timeout 1sec
+        job recv --timeout 150ms
     "#;
 
     let err = test().run(code).expect_shell_error()?;
@@ -770,7 +772,7 @@ fn exiting_nushell_kills_jobs() -> Result {
         let child_pid = $info.0
         let grandchild_pid = $info.1
 
-        ps | where pid == $grandchild_pid | filter { $in.ppid in [$child_pid, 1] } | length
+        ps | where pid == $grandchild_pid | where { $in.ppid in [$child_pid, 1] } | length
     "#;
 
     test().run(code).expect_value_eq(0)

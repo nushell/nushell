@@ -30,8 +30,8 @@ impl Command for TypeKeyword {
         the name is used as a type: in parameters, input/output types, variable annotations and \
         other types. The alias is visible from its definition to the end of the block.
 
-A completer belongs to a parameter, not to its type, so `type` takes no `@completer`. Write \
-        it on the parameter instead, as in `color: Color@[red green blue]`.
+A completer belongs to a parameter, not to its type, so `type` takes no `@completer`. Write it on \
+        the parameter instead, as in `def paint [color: Color@[red green blue]] {}`.
 
 `type` is reserved, so a custom command or alias can't be named `type`. To run an external \
         `type` command, use `^type`.

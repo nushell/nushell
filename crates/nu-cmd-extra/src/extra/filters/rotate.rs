@@ -147,7 +147,7 @@ pub fn rotate(
     let metadata = input.take_metadata();
     let col_given_names: Vec<String> = call.rest(engine_state, stack, 0)?;
     let input_span = input.span().unwrap_or(call.head);
-    let mut values = input.into_iter().collect::<Vec<_>>();
+    let mut values = input.into_iter().collect_values()?;
     let mut old_column_names = vec![];
     let mut new_values = vec![];
     let mut not_a_record = false;

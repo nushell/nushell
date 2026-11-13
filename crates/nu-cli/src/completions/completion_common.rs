@@ -226,12 +226,16 @@ pub(crate) fn complete_paths(ctx: &Context, directories_only: bool) -> Fetched {
         readjusted,
     } = adjust_if_intermediate(ctx.prefix_str().as_ref(), ctx.working_set, ctx.span);
 
-    #[allow(deprecated)]
+    let cwd = ctx
+        .working_set
+        .permanent_state
+        .cwd_as_string(None)
+        .unwrap_or_default();
     let mut items: Vec<_> = complete_item(
         directories_only || readjusted,
         span,
         &prefix,
-        &[&ctx.working_set.permanent_state.current_work_dir()],
+        &[&cwd],
         ctx.options,
         ctx.working_set.permanent_state,
         ctx.stack,

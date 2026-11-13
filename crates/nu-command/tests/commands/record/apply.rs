@@ -66,12 +66,12 @@ fn transforms_are_checked_before_any_closure_runs() -> Result {
 #[test]
 fn error_in_field_is_returned_for_nested_transform() -> Result {
     let code = "
-        {a: 1} | update cells { error make {msg: boom} }
+        [1] | each { error make {msg: boom} } | wrap a
         | record apply {a: {b: {$in}}}
     ";
 
-    let err = test().run(code).expect_labeled_error()?;
-    assert_eq!(err.msg, "boom");
+    let err = test().run(code).expect_shell_error()?;
+    assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
     Ok(())
 }
 

@@ -14,7 +14,7 @@ use nu_protocol::{
         Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
         StateWorkingSet, TryHandler, env_var_eq,
     },
-    ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
+    ir::{Call, CallBuilder, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     shell_error::{
         eval_block_with_input::EvalBlockWithInputError, generic::GenericError, io::IoError,
     },
@@ -115,6 +115,8 @@ fn eval_ir_block_inner<D: DebugContext>(
         // Initialize file storage.
         let mut files = vec![None; ir_block.file_count as usize];
 
+        let mut record_items = vec![Vec::new(); ir_block.register_count as usize];
+
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
                 engine_state,
@@ -129,6 +131,7 @@ fn eval_ir_block_inner<D: DebugContext>(
                 matches: vec![],
                 registers: &mut registers[..],
                 files: &mut files[..],
+                record_items: &mut record_items[..],
             },
             ir_block,
             input,
@@ -191,9 +194,48 @@ struct EvalContext<'a> {
     registers: &'a mut [PipelineExecutionData],
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
+    /// The items added so far to the record literal being built in each register. Used to point
+    /// duplicate-key errors at the item that brought the key in.
+    record_items: &'a mut [Vec<RecordLiteralItem>],
+}
+
+/// One item of a record literal under construction: a `key: value` pair or a spread.
+#[derive(Clone, Copy)]
+struct RecordLiteralItem {
+    /// Length of the record after this item was added. Records keep insertion order, so this is
+    /// enough to tell which item added the key at a given index.
+    end: usize,
+    /// The source of the item: `key: value`, `...expr`, or a table cell. Used for the
+    /// "field first defined here" label.
+    span: Span,
+    /// Whether the item was a spread. A duplicate of a key it added gets the spread help.
+    is_spread: bool,
 }
 
 impl<'a> EvalContext<'a> {
+    /// Find the item that added `key` to the record literal being built in `reg`.
+    fn record_item_of_key(
+        &self,
+        reg: RegId,
+        record: &Record,
+        key: &str,
+    ) -> Option<RecordLiteralItem> {
+        let index = record.index_of(key)?;
+        let items = &self.record_items[reg.get() as usize];
+        items
+            .get(items.partition_point(|item| item.end <= index))
+            .copied()
+    }
+
+    /// Remember the item that was just added to the record literal being built in `reg`.
+    fn push_record_item(&mut self, reg: RegId, end: usize, span: Span, is_spread: bool) {
+        self.record_items[reg.get() as usize].push(RecordLiteralItem {
+            end,
+            span,
+            is_spread,
+        });
+    }
+
     /// Replace the contents of a register with a new value
     #[inline]
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineExecutionData) {
@@ -652,16 +694,7 @@ fn eval_instruction<D: DebugContext>(
                 ctx.stack.last_result_pipeline_data(*span)
             } else if *preserve_origin {
                 // Keep definition span (e.g. `metadata $x`).
-                let value = ctx
-                    .stack
-                    .get_var_with_origin(*var_id, *span)
-                    .or_else(|err| {
-                        if let Some(const_val) = ctx.engine_state.get_constant(*var_id).cloned() {
-                            Ok(const_val)
-                        } else {
-                            Err(err)
-                        }
-                    })?;
+                let value = get_var_with_origin(ctx, *var_id, *span)?;
                 value.into_pipeline_data()
             } else {
                 let value = get_var(ctx, *var_id, *span)?;
@@ -1012,12 +1045,17 @@ fn eval_instruction<D: DebugContext>(
 
             let key = key.coerce_into_string()?;
             if let Some(old_value) = record.insert(&key, val) {
+                let first_item = ctx.record_item_of_key(*src_dst, &record, &key);
                 return Err(ShellError::ColumnDefinedTwice {
                     col_name: key,
                     second_use: *span,
-                    first_use: old_value.span(),
+                    first_use: first_item.map_or_else(|| old_value.span(), |item| item.span),
+                    help: first_item
+                        .filter(|item| item.is_spread)
+                        .map(|_| ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                 });
             }
+            ctx.push_record_item(*src_dst, record.len(), *span, false);
 
             ctx.put_reg(
                 *src_dst,
@@ -1041,13 +1079,18 @@ fn eval_instruction<D: DebugContext>(
             // Not using .extend() here because it doesn't handle duplicates
             for (key, val) in items {
                 if let Some(first_value) = record.insert(&key, val) {
+                    let first_use = ctx
+                        .record_item_of_key(*src_dst, &record, &key)
+                        .map_or_else(|| first_value.span(), |item| item.span);
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key,
                         second_use: *span,
-                        first_use: first_value.span(),
+                        first_use,
+                        help: Some(ShellError::RECORD_SPREAD_DUPLICATE_HELP.into()),
                     });
                 }
             }
+            ctx.push_record_item(*src_dst, record.len(), *span, true);
             ctx.put_reg(
                 *src_dst,
                 PipelineExecutionData::from(
@@ -1329,6 +1372,10 @@ fn load_literal(
     // represents the `null` value and should produce `PipelineData::Value(Value::Nothing)`.
     // Some commands (like `metadata`) distinguish between these when deciding
     // whether positional args are allowed.
+    // A new record literal starts here: forget the items of an earlier one.
+    if matches!(lit, Literal::Record { .. }) {
+        ctx.record_items[dst.get() as usize].clear();
+    }
     if matches!(lit, Literal::Empty) {
         ctx.put_reg(dst, PipelineExecutionData::empty());
     } else {
@@ -1355,10 +1402,14 @@ fn literal_value(
         Literal::Binary(bin) => Value::binary(&ctx.data[*bin], span),
         Literal::Block(block_id) | Literal::RowCondition(block_id) | Literal::Closure(block_id) => {
             let block = ctx.engine_state.get_block(*block_id);
+            // Captured values keep the span they were defined with, so `metadata $x` inside the
+            // closure gives the same span as outside of it.
             let captures = block
                 .captures
                 .iter()
-                .map(|(var_id, span)| get_var(ctx, *var_id, *span).map(|val| (*var_id, val)))
+                .map(|(var_id, span)| {
+                    get_var_with_origin(ctx, *var_id, *span).map(|val| (*var_id, val))
+                })
                 .collect::<Result<Vec<_>, ShellError>>()?;
             Value::closure(
                 Closure {
@@ -1465,6 +1516,8 @@ fn binary_op(
             Comparison::NotStartsWith => lhs_val.not_starts_with(op_span, &rhs_val, span)?,
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
             Comparison::NotEndsWith => lhs_val.not_ends_with(op_span, &rhs_val, span)?,
+            Comparison::OlderThan => lhs_val.older_than(op_span, &rhs_val, span)?,
+            Comparison::NewerThan => lhs_val.newer_than(op_span, &rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
             Math::Add => lhs_val.add(op_span, &rhs_val, span)?,
@@ -1555,16 +1608,30 @@ fn eval_call<D: DebugContext>(
 }
 
 /// Evaluate a call to a command the way compiled code calls it. The call's arguments must be the
-/// last ones on `stack`, which is where [`CallBuilder`](nu_protocol::ir::CallBuilder) puts them.
+/// last ones on `stack`, which is where [`CallBuilder`] puts them.
 ///
 /// The input is type checked and record spreads become flags. A custom command binds its
 /// parameters and runs its block; any other command goes through
 /// [`Command::run`](nu_protocol::engine::Command::run). Use this rather than calling `run` on a
 /// command found by name, like a `from <ext>` converter, because it may be a custom command.
 ///
-/// Call [`Call::leave`] afterwards to reset the argument stack, whether or not the command
-/// consumed the arguments.
+/// This takes the builder so that a caller can't forget to clean up: the call's arguments are off
+/// the stack when this returns, whatever the result. A caller that builds a call and then doesn't
+/// run it removes them with [`Call::leave`].
 pub fn eval_ir_call(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: CallBuilder,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let call = call.finish();
+    let result = eval_finished_call(engine_state, stack, &call, input);
+    call.leave(stack);
+    result
+}
+
+/// The checks and the run of [`eval_ir_call`], which cleans up after any return from here.
+fn eval_finished_call(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -1666,7 +1733,7 @@ fn eval_call_frame<D: DebugContext>(
 
         result
     } else {
-        let signature = decl.signature();
+        let signature = engine_state.get_signature_cached(decl_id);
 
         // `ignore` intentionally handles upstream error values at command level.
         // Skip early input-error propagation for the built-in `ignore` command so
@@ -2058,6 +2125,23 @@ fn check_input_types(
     }
 }
 
+/// Get a variable with the span it was defined with, for `metadata $x` and closure captures.
+///
+/// Values with no source location of their own, like `$nu.pid` or `$NU_LIB_DIRS`, take `span`
+/// instead, because their placeholder span would point an error label at the host env vars.
+fn get_var_with_origin(
+    ctx: &EvalContext<'_>,
+    var_id: VarId,
+    span: Span,
+) -> Result<Value, ShellError> {
+    let value = ctx
+        .stack
+        .get_var_with_origin(var_id, span)
+        .or_else(|err| ctx.engine_state.get_constant(var_id).cloned().ok_or(err))?;
+    let origin = value.span().fallback(span);
+    Ok(value.with_span(origin))
+}
+
 /// Get variable from [`Stack`] or [`EngineState`]
 fn get_var(ctx: &mut EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, ShellError> {
     match var_id {
@@ -2260,6 +2344,7 @@ fn drain(
                 }
             }
         }
+        PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error),
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
 
@@ -2438,7 +2523,6 @@ mod tests {
         let mut stack = Stack::new();
         let mut call = Call::build(DeclId::new(0), Span::test_data());
         call.add_positional(&mut stack, Span::test_data(), Value::test_int(1));
-        let call = call.finish();
         // Another call's argument now sits above this call's.
         Call::build(DeclId::new(0), Span::test_data()).add_positional(
             &mut stack,
@@ -2446,7 +2530,7 @@ mod tests {
             Value::test_int(2),
         );
 
-        let result = eval_ir_call(&engine_state, &mut stack, &call, PipelineData::empty());
+        let result = eval_ir_call(&engine_state, &mut stack, call, PipelineData::empty());
         assert!(matches!(result, Err(ShellError::IrEvalError { .. })));
     }
 
@@ -2454,14 +2538,33 @@ mod tests {
     fn eval_ir_call_stops_when_interrupted() {
         let mut engine_state = EngineState::new();
         engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
-        let call = Call::build(DeclId::new(0), Span::test_data()).finish();
 
         let result = eval_ir_call(
             &engine_state,
             &mut Stack::new(),
-            &call,
+            Call::build(DeclId::new(0), Span::test_data()),
             PipelineData::empty(),
         );
         assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+    }
+
+    #[test]
+    fn eval_ir_call_removes_only_its_own_arguments_when_it_stops_early() {
+        let mut engine_state = EngineState::new();
+        engine_state.set_signals(Signals::new(Arc::new(AtomicBool::new(true))));
+        let mut stack = Stack::new();
+        // An argument of a call that's still being built, which has to survive.
+        Call::build(DeclId::new(0), Span::test_data()).add_positional(
+            &mut stack,
+            Span::test_data(),
+            Value::test_int(1),
+        );
+        let mut call = Call::build(DeclId::new(0), Span::test_data());
+        call.add_positional(&mut stack, Span::test_data(), Value::test_int(2));
+
+        let result = eval_ir_call(&engine_state, &mut stack, call, PipelineData::empty());
+
+        assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+        assert_eq!(stack.arguments.get_base(), 1);
     }
 }

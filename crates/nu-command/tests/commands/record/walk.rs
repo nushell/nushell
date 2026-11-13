@@ -86,8 +86,10 @@ fn row_after_a_failed_row_gets_its_own_paths() -> Result {
     let code = "
         [{a: {b: x}} {c: 1}]
         | record walk {|value, path| if $value == x { error make {msg: boom} } else { $path | to text } }
-        | last
+        | each {|row| try { $row | ignore; $row } catch { 'failed' } }
     ";
 
-    test().run(code).expect_value_eq(test_value!({c: "$.c"}))
+    test()
+        .run(code)
+        .expect_value_eq(test_value!(["failed", {c: "$.c"}]))
 }

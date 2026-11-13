@@ -127,6 +127,7 @@ fn split_column_duplicate_column_error() -> Result {
             col_name,
             first_use,
             second_use,
+            ..
         } if col_name == "col" && first_use.start < second_use.start
     );
 
@@ -139,6 +140,7 @@ fn split_column_duplicate_column_error() -> Result {
             col_name,
             first_use,
             second_use,
+            ..
         } if col_name == "x" && first_use.start < second_use.start
     );
     Ok(())

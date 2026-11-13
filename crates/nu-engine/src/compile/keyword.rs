@@ -976,11 +976,6 @@ pub(crate) fn compile_for(
         span: call.head,
     };
 
-    if call.get_named_arg("numbered").is_some() {
-        // This is deprecated and we don't support it.
-        return Err(invalid());
-    }
-
     let (var_decl_arg, in_arg, block_arg) = Some(call.positional_iter())
         .and_then(|mut iter| Some((iter.next()?, iter.next()?, iter.next()?)))
         .ok_or_else(invalid)?;

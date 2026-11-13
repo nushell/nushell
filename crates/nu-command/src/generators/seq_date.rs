@@ -309,6 +309,15 @@ pub fn run_seq_dates(
         )));
     }
 
+    // The sign of the step gets flipped below, and `i64::MIN` has no positive counterpart.
+    if step_size == i64::MIN {
+        return Err(ShellError::Generic(GenericError::new(
+            "increment is too large",
+            "increment is too large",
+            increment_span,
+        )));
+    }
+
     let in_format = match input_format {
         Some(i) => match i.coerce_into_string() {
             Ok(v) => v,
@@ -373,11 +382,31 @@ pub fn run_seq_dates(
         None => 0i64,
     };
 
+    let days_too_large = || {
+        ShellError::Generic(GenericError::new(
+            "int value too large",
+            "int value too large",
+            call_span,
+        ))
+    };
+    let periods_too_large = || {
+        ShellError::Generic(GenericError::new(
+            "incrementing by the number of periods is too large",
+            "incrementing by the number of periods is too large",
+            call_span,
+        ))
+    };
+
     // Make the signs opposite if we're created dates in reverse direction
     if reverse {
-        step_size *= -1;
-        days_to_output *= -1;
-        periods_to_output *= -1;
+        step_size = -step_size;
+        // --days is ignored when --periods is set, so only flip it when it's used
+        if periods_to_output == 0 {
+            days_to_output = days_to_output.checked_neg().ok_or_else(days_too_large)?;
+        }
+        periods_to_output = periods_to_output
+            .checked_neg()
+            .ok_or_else(periods_too_large)?;
     }
 
     // --days is ignored when --periods is set
@@ -387,25 +416,13 @@ pub fn run_seq_dates(
             .and_then(|val| val.checked_mul(step_size.abs()))
             .map(Duration::nanoseconds)
             .and_then(|inc| start_date.checked_add_signed(inc))
-            .ok_or_else(|| {
-                ShellError::Generic(GenericError::new(
-                    "incrementing by the number of periods is too large",
-                    "incrementing by the number of periods is too large",
-                    call_span,
-                ))
-            })?;
+            .ok_or_else(periods_too_large)?;
     } else if days_to_output != 0 {
         end_date = days_to_output
             .checked_sub(1)
             .and_then(Duration::try_days)
             .and_then(|days| start_date.checked_add_signed(days))
-            .ok_or_else(|| {
-                ShellError::Generic(GenericError::new(
-                    "int value too large",
-                    "int value too large",
-                    call_span,
-                ))
-            })?;
+            .ok_or_else(days_too_large)?;
     }
 
     // conceptually counting down with a positive step or counting up with a negative step

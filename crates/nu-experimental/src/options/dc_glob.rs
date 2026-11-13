@@ -9,7 +9,7 @@ struct DcGlob;
 
 impl ExperimentalOptionMarker for DcGlob {
     const IDENTIFIER: &'static str = "dc-glob";
-    const DESCRIPTION: &'static str = "Use dc-glob as the experimental glob expansion backend. Recursive patterns follow rust-lang/glob: bare `**` and `dir/**` match directories (including the pattern prefix / start dir); `**/*` matches entries under the start (not the start itself); extra `/*` segments enforce minimum depth.";
+    const DESCRIPTION: &'static str = "Use dc-glob as the glob expansion backend for every command, `glob` included. It follows nu-glob's rules, so `ls`, `rm`, `cp`, `mv`, `du`, `open` and external arguments return the same paths, and it adds `{a,b}` alternatives. For the `glob` command, which used wax, `dir/**` now lists the directories below `dir`, and wax's `<x:n,m>` repeats and `\\` escapes are gone.";
     const STATUS: Status = Status::OptIn;
     const SINCE: Version = (0, 112, 3);
     const ISSUE: u32 = 18101;

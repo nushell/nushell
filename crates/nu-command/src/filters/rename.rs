@@ -248,6 +248,7 @@ fn ensure_unique_columns(record: &Record, span: Span) -> Result<(), ShellError> 
                 col_name: column.clone(),
                 second_use: span,
                 first_use: span,
+                help: None,
             });
         }
     }

@@ -315,6 +315,7 @@ fn check_duplicate_columns(rest: &[Spanned<String>]) -> Result<(), ShellError> {
                 col_name: col.item.clone(),
                 second_use: col.span,
                 first_use: prev_span,
+                help: None,
             });
         }
     }

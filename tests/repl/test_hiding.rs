@@ -1,6 +1,52 @@
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 use crate::repl::tests::{TestResult, fail_test, run_test};
+
+/// A `hide` in a nested block hides the name in that block only, even when the block never runs.
+#[rstest]
+fn hide_in_nested_block_stays_in_block(
+    #[values(
+        r#"def myfoosymbol [] { "myfoosymbol" }"#,
+        r#"alias myfoosymbol = echo "myfoosymbol""#,
+        r#"module spam { export def myfoosymbol [] { "myfoosymbol" } }; use spam myfoosymbol"#
+    )]
+    definition: &str,
+    #[values(
+        "do { hide myfoosymbol }",
+        "if false { hide myfoosymbol }",
+        "def g [] { hide myfoosymbol }"
+    )]
+    block: &str,
+) -> Result {
+    test()
+        .run(format!("{definition}; {block}; myfoosymbol"))
+        .expect_value_eq("myfoosymbol")
+}
+
+#[test]
+fn hide_in_nested_block_hides_inside_it() -> TestResult {
+    fail_test(
+        r#"def myfoosymbol [] { "myfoosymbol" }; do { hide myfoosymbol; myfoosymbol }"#,
+        "external_command",
+    )
+}
+
+/// The same with the definition in an earlier source unit, as in the REPL or a config file.
+#[test]
+fn hide_in_nested_block_stays_in_block_across_source_units() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"def myfoosymbol [] { "myfoosymbol" }"#)?;
+    let () = tester.run("do { hide myfoosymbol }")?;
+    tester.run("myfoosymbol").expect_value_eq("myfoosymbol")
+}
+
+#[test]
+fn hide_type_alias_in_nested_block_stays_in_block() -> Result {
+    test()
+        .run("type Id = int; do { hide Id }; let x: Id = 1; $x")
+        .expect_value_eq(1)
+}
 
 // TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
 #[test]
@@ -511,4 +557,51 @@ fn hides_main_import_4() -> TestResult {
         r#"module myspammodule { export def main [] { "myfoosymbol" } }; use myspammodule; hide myspammodule *; myspammodule"#,
         "external_command",
     )
+}
+
+// `hide <module>` undoes a glob import as well as a prefixed one.
+#[rstest]
+#[case::def(r#"module spam { export def foo [] { "foo" } }; use spam *; hide spam; foo"#)]
+#[case::alias(r#"module spam { export alias foo = echo "foo" }; use spam *; hide spam; foo"#)]
+#[case::main(r#"module spam { export def main [] { "foo" } }; use spam *; hide spam; spam"#)]
+#[case::submodule(
+    r#"module spam { export module sub { export def foo [] { "foo" } } }; use spam *; hide spam; sub foo"#
+)]
+#[case::both_prefixed(
+    r#"module spam { export def foo [] { "foo" } }; use spam; use spam *; hide spam; spam foo"#
+)]
+#[case::both_bare(
+    r#"module spam { export def foo [] { "foo" } }; use spam; use spam *; hide spam; foo"#
+)]
+fn hide_module_hides_glob_import(#[case] code: &str) -> TestResult {
+    fail_test(code, "external_command")
+}
+
+// A command of yours with the same name as one of the module's isn't the module's to hide.
+#[rstest]
+#[case::prefixed_import(
+    r#"module spam { export def foo [] { "spam" } }; use spam; def foo [] { "mine" }; hide spam; foo"#
+)]
+#[case::defined_after_glob(
+    r#"module spam { export def foo [] { "spam" } }; use spam *; def foo [] { "mine" }; hide spam; foo"#
+)]
+#[case::outer_scope_main(
+    r#"module spam { export def main [] { "spam" } }; def spam [] { "mine" }; do { use spam; hide spam; spam }"#
+)]
+fn hide_module_keeps_own_definitions(#[case] code: &str) -> TestResult {
+    run_test(code, "mine")
+}
+
+// Hooks run `hide <module>` over and over, so hiding what's already gone stays quiet.
+#[rstest]
+#[case::prefixed(
+    r#"module spam { export def foo [] { "foo" } }; use spam; hide spam; hide spam; "ok""#
+)]
+#[case::glob(
+    r#"module spam { export def foo [] { "foo" } }; use spam *; hide spam; hide spam; "ok""#
+)]
+#[case::never_imported(r#"module spam { export def foo [] { "foo" } }; hide spam; "ok""#)]
+#[case::unknown(r#"hide nothing_here; "ok""#)]
+fn hide_with_nothing_left_is_silent(#[case] code: &str) -> TestResult {
+    run_test(code, "ok")
 }

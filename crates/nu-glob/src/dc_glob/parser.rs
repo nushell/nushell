@@ -26,11 +26,6 @@ pub enum AstNode {
     Alternatives {
         choices: Vec<Pattern>,
     },
-    Repeat {
-        min: u32,
-        max: u32,
-        pattern: Pattern,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +34,8 @@ pub enum CharacterClass {
     Range(char, char),
 }
 
+/// Parse a pattern: nu-glob's syntax, plus `{a,b}` alternatives. `\` is a literal character, as
+/// it is for nu-glob (a path separator on Windows).
 pub fn parse(string: impl AsRef<OsStr>) -> Pattern {
     let path = Path::new(string.as_ref());
     let mut components_iter = path.components().peekable();
@@ -67,6 +64,100 @@ pub fn parse(string: impl AsRef<OsStr>) -> Pattern {
     Pattern { nodes }
 }
 
+/// Most patterns one [`expand_alternatives`] call may spell out.
+const MAX_EXPANSIONS: usize = 1024;
+
+/// The expansions of part of a pattern, and the rest of the pattern after it.
+type Expanded<'a> = (Vec<Vec<u8>>, &'a [u8]);
+
+/// Spell out `pattern` as nu-glob patterns, one for each combination of its `{a,b}` choices.
+///
+/// The braces follow the same rules as [`parse`]: a group needs a comma at its top level, and a
+/// brace in a `[...]` class is a class member. Everything else is kept as written, so each
+/// pattern means to nu-glob what that part of `pattern` means to dc-glob.
+pub fn expand_alternatives(pattern: &str) -> anyhow::Result<Vec<String>> {
+    let (expansions, _) = expand_sequence(pattern.as_bytes(), false)?;
+    expansions
+        .into_iter()
+        .map(|bytes| Ok(String::from_utf8(bytes)?))
+        .collect()
+}
+
+/// Expand `string` up to its end, or with `in_group` up to a top-level `,` or `}`. Returns the
+/// expansions and the rest of `string`.
+fn expand_sequence(string: &[u8], in_group: bool) -> anyhow::Result<Expanded<'_>> {
+    let mut expansions = vec![vec![]];
+    let mut rest = string;
+    while let Some(&byte) = rest.first() {
+        if in_group && matches!(byte, b',' | b'}') {
+            break;
+        }
+        let taken = if byte == b'{'
+            && let Some((choices, after)) = expand_group(&rest[1..])?
+        {
+            if expansions.len() * choices.len() > MAX_EXPANSIONS {
+                anyhow::bail!("the pattern spells out more than {MAX_EXPANSIONS} alternatives");
+            }
+            expansions = expansions
+                .iter()
+                .flat_map(|prefix| {
+                    choices
+                        .iter()
+                        .map(move |choice| [&prefix[..], choice].concat())
+                })
+                .collect();
+            rest = after;
+            continue;
+        } else if byte == b'[' {
+            // A whole class, or a lone `[`.
+            let mut scratch = vec![];
+            node_character_class((rest, &mut scratch))
+                .map_or(1, |(after, _)| rest.len() - after.len())
+        } else {
+            1
+        };
+        for expansion in &mut expansions {
+            expansion.extend_from_slice(&rest[..taken]);
+        }
+        rest = &rest[taken..];
+    }
+    Ok((expansions, rest))
+}
+
+/// Expand the group that starts after a `{`. Returns its expansions and the rest of `string`
+/// after its `}`, or `None` when the group isn't closed, so the `{` is literal. A group without a
+/// comma keeps its braces.
+fn expand_group(string: &[u8]) -> anyhow::Result<Option<Expanded<'_>>> {
+    let mut choices = vec![];
+    let mut has_comma = false;
+    let mut rest = string;
+    loop {
+        let (expansions, after) = expand_sequence(rest, true)?;
+        choices.extend(expansions);
+        if choices.len() > MAX_EXPANSIONS {
+            anyhow::bail!("the pattern spells out more than {MAX_EXPANSIONS} alternatives");
+        }
+        match after.first() {
+            Some(b',') => {
+                has_comma = true;
+                rest = &after[1..];
+            }
+            Some(b'}') => {
+                rest = &after[1..];
+                break;
+            }
+            _ => return Ok(None),
+        }
+    }
+    if !has_comma {
+        choices = choices
+            .into_iter()
+            .map(|choice| [&b"{"[..], &choice, b"}"].concat())
+            .collect();
+    }
+    Ok(Some((choices, rest)))
+}
+
 pub fn parse_nodes<'a>(
     mut string: &'a [u8],
     mut cond: impl FnMut(&[u8]) -> bool,
@@ -85,17 +176,29 @@ pub fn next_node<'a>(string: &'a [u8], out: &mut Vec<AstNode>) -> &'a [u8] {
         .or_else(node_wildcard)
         .or_else(node_alternatives)
         .or_else(node_character_class)
-        .or_else(node_repeat)
         .or_else(node_cur_or_parent_dir)
         .or_else(node_literal_string)
     {
         Ok((remaining, _)) => remaining,
         Err((remaining, out)) => {
             if !remaining.is_empty() {
-                out.push(AstNode::LiteralString(remaining.into()));
+                push_literal(out, remaining);
             }
             b""
         }
+    }
+}
+
+/// Push literal bytes, extending the previous node when it is also a literal.
+///
+/// A byte like `]` or `,` ends a literal so another node can try it, and is then taken as a
+/// literal itself. Joining the pieces keeps a name like `a]c` one literal, which the globber
+/// relies on to treat a literal as a whole path component.
+fn push_literal(out: &mut Vec<AstNode>, bytes: &[u8]) {
+    if let Some(AstNode::LiteralString(previous)) = out.last_mut() {
+        previous.extend_from_slice(bytes);
+    } else {
+        out.push(AstNode::LiteralString(bytes.into()));
     }
 }
 
@@ -139,42 +242,57 @@ fn node_wildcard<'a, 'b>((string, out): NodeInput<'a, 'b>) -> NodeResult<'a, 'b>
     }
 }
 
+/// `{a,b}` alternatives. As in bash, zsh and fish, a group needs a comma at its top level to be
+/// one: in `a{b}`, `{}` or `HEAD@{1}` the braces are literal, and any pattern syntax between
+/// them still applies.
 fn node_alternatives<'a, 'b>((mut string, out): NodeInput<'a, 'b>) -> NodeResult<'a, 'b> {
     let original_string = string;
+    if string.first() != Some(&b'{') {
+        return Err((original_string, out));
+    }
+    string = &string[1..];
     let mut choices = vec![];
     let mut current_out = vec![];
-    if string.first() == Some(&b'{') {
-        string = &string[1..];
-        loop {
-            string = parse_nodes(
-                string,
-                |string| !matches!(string.first(), Some(b',' | b'}')),
-                &mut current_out,
-            );
-            match string.first() {
-                Some(b',') => {
-                    string = &string[1..];
-                    let nodes = std::mem::take(&mut current_out);
-                    choices.push(Pattern { nodes });
-                }
-                Some(b'}') => {
-                    string = &string[1..];
-                    choices.push(Pattern { nodes: current_out });
-                    break;
-                }
-                Some(_) => continue,
-                None => {
-                    return Err((original_string, out));
-                }
+    loop {
+        string = parse_nodes(
+            string,
+            |string| !matches!(string.first(), Some(b',' | b'}')),
+            &mut current_out,
+        );
+        match string.first() {
+            Some(b',') => {
+                string = &string[1..];
+                let nodes = std::mem::take(&mut current_out);
+                choices.push(Pattern { nodes });
+            }
+            Some(b'}') => {
+                string = &string[1..];
+                break;
+            }
+            Some(_) => continue,
+            None => {
+                return Err((original_string, out));
             }
         }
-        out.push(AstNode::Alternatives { choices });
-        Ok((string, out))
-    } else {
-        Err((original_string, out))
     }
+    if choices.is_empty() {
+        // No comma, so the braces are literal. Joining the literals keeps `a{b}` one literal.
+        push_literal(out, b"{");
+        for node in current_out {
+            match node {
+                AstNode::LiteralString(bytes) => push_literal(out, &bytes),
+                node => out.push(node),
+            }
+        }
+        push_literal(out, b"}");
+    } else {
+        choices.push(Pattern { nodes: current_out });
+        out.push(AstNode::Alternatives { choices });
+    }
+    Ok((string, out))
 }
 
+/// A `[...]` class. `\` is a class member like any other character.
 fn node_character_class<'a, 'b>((mut string, out): NodeInput<'a, 'b>) -> NodeResult<'a, 'b> {
     let original_string = string;
     if string.first() == Some(&b'[') {
@@ -219,67 +337,6 @@ fn node_character_class<'a, 'b>((mut string, out): NodeInput<'a, 'b>) -> NodeRes
     }
 }
 
-fn node_repeat<'a, 'b>((mut string, out): NodeInput<'a, 'b>) -> NodeResult<'a, 'b> {
-    let original_string = string;
-    let mut current_out = vec![];
-    macro_rules! fail {
-        () => {
-            return Err((original_string, out));
-        };
-    }
-    if string.first() == Some(&b'<') {
-        string = &string[1..];
-        string = parse_nodes(
-            string,
-            |string| !matches!(string.first(), Some(b':')),
-            &mut current_out,
-        );
-        if string.first() != Some(&b':') {
-            fail!();
-        }
-        string = &string[1..];
-        let Some(end_index) = string.iter().position(|byte| *byte == b'>') else {
-            fail!();
-        };
-        let Ok(repeat_params_string) = std::str::from_utf8(&string[..end_index]) else {
-            // The parameters must be valid UTF-8
-            fail!();
-        };
-        string = &string[(end_index + 1)..];
-        let node =
-            if let Some(comma_index) = repeat_params_string.bytes().position(|byte| byte == b',') {
-                let (min_string, max_string) = repeat_params_string.split_at(comma_index);
-                let Ok(min): std::result::Result<u32, _> = min_string.parse() else {
-                    // number that cannot be parsed
-                    fail!();
-                };
-                let Ok(max): std::result::Result<u32, _> = max_string[1..].parse() else {
-                    // number that cannot be parsed
-                    fail!();
-                };
-                AstNode::Repeat {
-                    min,
-                    max,
-                    pattern: Pattern { nodes: current_out },
-                }
-            } else {
-                let Ok(times): std::result::Result<u32, _> = repeat_params_string.parse() else {
-                    // number that cannot be parsed
-                    fail!();
-                };
-                AstNode::Repeat {
-                    min: times,
-                    max: times,
-                    pattern: Pattern { nodes: current_out },
-                }
-            };
-        out.push(node);
-        Ok((string, out))
-    } else {
-        Err((original_string, out))
-    }
-}
-
 fn get_utf8_char(string: &[u8]) -> Option<(char, &[u8])> {
     string
         .utf8_chunks()
@@ -312,19 +369,17 @@ fn node_cur_or_parent_dir<'a, 'b>((string, out): NodeInput<'a, 'b>) -> NodeResul
 
 fn node_literal_string<'a, 'b>((string, out): NodeInput<'a, 'b>) -> NodeResult<'a, 'b> {
     // Bytes that can start other nodes
-    const MEANINGFUL_BYTES: &[u8] = b"*?[]{}<>,:/\\";
+    const MEANINGFUL_BYTES: &[u8] = b"*?[]{},/\\";
     // Take at least one byte, but if we find a meaningful byte, leave that alone for further parsing
     if let Some(index_of_meaningful_byte) = string[1..]
         .iter()
         .position(|byte| MEANINGFUL_BYTES.contains(byte))
         .map(|idx| idx + 1)
     {
-        out.push(AstNode::LiteralString(
-            string[0..index_of_meaningful_byte].into(),
-        ));
+        push_literal(out, &string[0..index_of_meaningful_byte]);
         Ok((&string[index_of_meaningful_byte..], out))
     } else {
-        out.push(AstNode::LiteralString(string.into()));
+        push_literal(out, string);
         Ok((b"", out))
     }
 }

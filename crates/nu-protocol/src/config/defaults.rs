@@ -65,6 +65,8 @@ pub fn default_color_config() -> HashMap<String, Value> {
         ("semver-range", str("cyan_bold")),
         ("block", str("default")),
         ("hints", str("dark_gray")),
+        // `status_line` has no default: unset, the status line takes the `hints` style.
+        ("status_line_error", str("red")),
         (
             "search_result",
             rec(record! {

@@ -1,4 +1,4 @@
-use super::utils::wrap_error_with_input;
+use super::utils::{closure_result, list_or_error, wrap_error_with_input};
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::Signals;
 use nu_protocol::engine::Closure;
@@ -229,16 +229,19 @@ fn chunk_value_stream<I>(
 where
     I: Iterator<Item = Value> + 'static + Send,
 {
-    chunk_iter_by(iterator, signals, move |value| {
-        match closure.run_with_value(value.clone()) {
-            Ok(data) => data.into_value(head).unwrap_or_else(|error| {
-                Value::error(wrap_error_with_input(error, value.is_error(), head), head)
-            }),
+    // Run the closure up front, so that a failure can take the item's place and reach the chunk.
+    let keyed = iterator.map(
+        move |value| match closure_result(&mut closure, &value, head) {
+            Ok(key) => (value, key),
+            Err(error) => {
+                let error = wrap_error_with_input(error, value.is_error(), head);
+                (Value::error(error, head), Value::nothing(head))
+            }
+        },
+    );
 
-            Err(error) => Value::error(wrap_error_with_input(error, value.is_error(), head), head),
-        }
-    })
-    .map(move |it| Value::list(it, head))
+    chunk_iter_by(keyed, signals, |(_, key): &(Value, Value)| key.clone())
+        .map(move |chunk| list_or_error(chunk.into_iter().map(|(value, _)| value).collect(), head))
 }
 
 #[cfg(test)]

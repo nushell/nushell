@@ -1,5 +1,5 @@
 use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
-use crate::HELP_DECL_ID_PARSER_INFO;
+use crate::{DEFERRED_ARGUMENTS_PARSER_INFO, HELP_DECL_ID_PARSER_INFO};
 use nu_protocol::{
     DeclId, IntoSpanned, RegId, Span, Spanned, Type,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
@@ -18,7 +18,8 @@ pub(crate) fn compile_call(
     // Handle dynamic percent builtin dispatch: `%($cmd)` or `%$cmd`.
     // The parser stored the head expression in parser_info as a placeholder.
     // Rewrite this call as `run-internal <head-expr> ...args`, mirroring how
-    // `compile_external_call` rewrites dynamic external calls to `run-external`.
+    // `compile_external_call` rewrites dynamic external calls to `run-external`. The parser info
+    // tells `run-internal` to bind the arguments, which the parser read without a signature.
     if let Some(head_expr) = call.parser_info.get("percent_forced_builtin") {
         let run_internal_id = working_set.find_decl(b"run-internal").ok_or_else(|| {
             CompileError::MissingRequiredDeclaration {
@@ -35,6 +36,10 @@ pub(crate) fn compile_call(
         for arg in &call.arguments {
             new_call.arguments.push(arg.clone());
         }
+        new_call.set_parser_info(
+            DEFERRED_ARGUMENTS_PARSER_INFO.to_string(),
+            Expression::new_unknown(Expr::Bool(true), call.head, Type::Bool),
+        );
 
         return compile_call(
             working_set,
