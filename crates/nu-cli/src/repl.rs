@@ -2457,7 +2457,10 @@ mod test_recover_cwd {
         );
 
         // Relative path
-        stack.add_env_var("PWD".into(), Value::string("relative/path", Span::unknown()));
+        stack.add_env_var(
+            "PWD".into(),
+            Value::string("relative/path", Span::unknown()),
+        );
         assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
         assert!(engine_state.cwd(Some(&stack)).is_err());
 
