@@ -25,7 +25,8 @@ where
         // do not end up with "/some/path/~" or "/some/path/~user"
         path.into()
     } else {
-        relative_to.join(path)
+        // `join` would let a drive-relative path like `C:foo` replace `relative_to`
+        relative_to.join(resolve_drive_relative(path, relative_to))
     }
 }
 
@@ -231,6 +232,17 @@ mod tests {
         let resolved = resolve_drive_relative(Path::new("q:"), Path::new(r"C:\Users\me"));
         assert!(resolved.is_absolute(), "{resolved:?}");
         assert!(resolved.starts_with(r"Q:\"), "{resolved:?}");
+    }
+
+    #[test]
+    fn expand_path_with_resolves_drive_relative_against_relative_to() {
+        let cwd = Path::new(r"C:\Users\me");
+        assert_eq!(expand_path_with("c:", cwd, true), cwd);
+        assert_eq!(
+            expand_path_with("C:src", cwd, true),
+            Path::new(r"C:\Users\me\src")
+        );
+        assert_eq!(expand_path_with("c:..", cwd, true), Path::new(r"C:\Users"));
     }
 
     #[test]
