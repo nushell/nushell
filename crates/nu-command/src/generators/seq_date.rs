@@ -372,28 +372,40 @@ pub fn run_seq_dates(
         _ => today,
     };
 
-    let mut days_to_output = match day_count {
-        Some(d) => i64::from_value(d)?,
-        None => 0i64,
+    let (mut days_to_output, days_to_output_span) = match day_count {
+        Some(i) => {
+            let days = i.as_int()?;
+            if days == 0 {
+                return Ok(Value::list(Vec::new(), call_span));
+            }
+            (days, Some(i.span()))
+        }
+        None => (0, None),
     };
 
-    let mut periods_to_output = match period_count {
-        Some(d) => i64::from_value(d)?,
-        None => 0i64,
+    let (mut periods_to_output, periods_to_output_span) = match period_count {
+        Some(i) => {
+            let periods = i.as_int()?;
+            if periods == 0 {
+                return Ok(Value::list(Vec::new(), call_span));
+            }
+            (periods, Some(i.span()))
+        }
+        None => (0, None),
     };
 
     let days_too_large = || {
         ShellError::Generic(GenericError::new(
             "int value too large",
             "int value too large",
-            call_span,
+            days_to_output_span.unwrap_or(call_span),
         ))
     };
     let periods_too_large = || {
         ShellError::Generic(GenericError::new(
             "incrementing by the number of periods is too large",
             "incrementing by the number of periods is too large",
-            call_span,
+            periods_to_output_span.unwrap_or(call_span),
         ))
     };
 

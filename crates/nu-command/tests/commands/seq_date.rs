@@ -115,3 +115,16 @@ fn correct_time() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn zero_results_with_days_zero() -> Result {
+    test()
+        .run("seq date --days 0 | length")
+        .expect_value_eq(0)?;
+
+    test()
+        .run("seq date --periods 0 | length")
+        .expect_value_eq(0)?;
+
+    Ok(())
+}
