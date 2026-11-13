@@ -102,7 +102,7 @@ fn convert_value_to_ron(value: &Value, span: Span) -> Result<RonValue, ShellErro
         Value::Binary {
             val, internal_span, ..
         } => convert_value_to_ron(
-            &<std::vec::Vec<u8> as Clone>::clone(&val).into_value(span),
+            &<std::vec::Vec<u8> as Clone>::clone(val).into_value(span),
             *internal_span,
         ),
         Value::Error { error, .. } => Err(*error.clone()),
