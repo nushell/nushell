@@ -139,7 +139,9 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        recover_cwd_if_needed(engine_state, &mut unique_stack);
+        if let Some(warning) = recover_cwd_if_needed(engine_state, &mut unique_stack) {
+            report_shell_warning(Some(&unique_stack), engine_state, &warning);
+        }
         engine_state.merge_env(&mut unique_stack)?;
     }
 
@@ -148,10 +150,7 @@ pub fn evaluate_repl(
 
     // Read the shell integration toggles after the optional prerun command too, so a
     // config sourced by `--execute` governs this session's OSC emissions.
-    let shell_integration_osc2 = config.shell_integration.osc2;
-    let shell_integration_osc7 = config.shell_integration.osc7;
-    let shell_integration_osc9_9 = config.shell_integration.osc9_9;
-    let shell_integration_osc633 = config.shell_integration.osc633;
+    let shell_integration = config.shell_integration;
 
     // Build reedline after the optional prerun command so ANSI coloring and the other
     // editor settings a `--execute`-sourced config changes are picked up for the
@@ -161,34 +160,23 @@ pub fn evaluate_repl(
     confirm_stdin_is_terminal()?;
 
     let hostname = System::host_name();
-    if shell_integration_osc2 {
-        run_shell_integration_osc2(None, engine_state, &mut unique_stack, use_color);
-    }
-    if shell_integration_osc7 {
-        run_shell_integration_osc7(
-            hostname.as_deref(),
-            engine_state,
-            &mut unique_stack,
-            use_color,
-        );
-    }
-    if shell_integration_osc9_9 {
-        run_shell_integration_osc9_9(engine_state, &mut unique_stack, use_color);
-    }
-    if shell_integration_osc633 {
+    let replaced_cmd_text = if shell_integration.osc633 {
         // escape a few things because this says so
         // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
         let cmd_text = line_editor.current_buffer_contents().to_string();
-
-        let replaced_cmd_text = escape_special_vscode_bytes(&cmd_text)?;
-
-        run_shell_integration_osc633(
-            engine_state,
-            &mut unique_stack,
-            use_color,
-            replaced_cmd_text,
-        );
-    }
+        Some(escape_special_vscode_bytes(&cmd_text)?)
+    } else {
+        None
+    };
+    emit_cwd_shell_integration(
+        &shell_integration,
+        hostname.as_deref(),
+        engine_state,
+        &mut unique_stack,
+        use_color,
+        replaced_cmd_text.as_deref(),
+        &mut run_ansi_sequence,
+    );
 
     // Refresh `$nu`, so the hooks and prompt closures that run before the first prompt see the
     // startup time so far. The final value is stored right before the first prompt is drawn: see
@@ -575,18 +563,15 @@ fn run_command(ctx: RunContext) -> Reedline {
         warn!("Could not fill in result related history metadata: {e}");
     }
 
-    if shell_integration.osc2 {
-        run_shell_integration_osc2(None, engine_state, stack, use_color);
-    }
-    if shell_integration.osc7 {
-        run_shell_integration_osc7(hostname, engine_state, stack, use_color);
-    }
-    if shell_integration.osc9_9 {
-        run_shell_integration_osc9_9(engine_state, stack, use_color);
-    }
-    if shell_integration.osc633 {
-        run_shell_integration_osc633(engine_state, stack, use_color, command);
-    }
+    emit_cwd_shell_integration(
+        shell_integration,
+        hostname,
+        engine_state,
+        stack,
+        use_color,
+        Some(&command),
+        &mut run_ansi_sequence,
+    );
     if shell_integration.reset_application_mode {
         run_shell_integration_reset_application_mode();
     }
@@ -639,86 +624,81 @@ fn is_usable_dir(path: &Path) -> bool {
 
 /// If `$env.PWD` is a valid absolute path whose directory was removed, replaced with a
 /// non-directory, or became inaccessible, recover by walking up logical ancestors to the nearest
-/// usable directory (falling back to `$nu.home-dir`) and emit a warning.
+/// usable directory (falling back to `$nu.home-dir`) and return the corresponding warning.
 ///
 /// Malformed `$env.PWD` values (missing, non-string, relative, or invalid trailing slashes) are
 /// left untouched so `EngineState::cwd` reports their error normally. `$env.OLDPWD` is also left
 /// unchanged so `cd -` still targets the previous valid directory.
-fn recover_cwd_if_needed(engine_state: &EngineState, stack: &mut Stack) -> bool {
-    let Some(pwd_val) = stack.get_env_var(engine_state, "PWD") else {
-        return false;
-    };
-    let Ok(pwd_str) = pwd_val.as_str() else {
-        return false;
-    };
-    let Ok(path) = AbsolutePathBuf::try_from(pwd_str) else {
-        return false;
-    };
+fn recover_cwd_if_needed(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellWarning> {
+    let pwd_val = stack.get_env_var(engine_state, "PWD")?;
+    let pwd_str = pwd_val.as_str().ok()?;
+    let path = AbsolutePathBuf::try_from(pwd_str).ok()?;
     if path.parent().is_some() && nu_path::has_trailing_slash(path.as_ref()) {
-        return false;
+        return None;
     }
 
     if is_usable_dir(path.as_std_path()) {
-        return false;
+        return None;
     }
 
     let old_cwd = pwd_str.to_string();
     let home = nu_path::home_dir();
-    let Some(recovered) = path
+    let recovered = path
         .as_std_path()
         .ancestors()
         .skip(1)
         .chain(home.as_ref().map(|h| h.as_std_path()))
         .find(|candidate| is_usable_dir(candidate))
-        .map(Path::to_path_buf)
-    else {
-        return false;
-    };
+        .map(Path::to_path_buf)?;
 
     if stack.set_cwd(&recovered).is_err() {
-        return false;
+        return None;
     }
 
-    report_shell_warning(
-        Some(stack),
-        engine_state,
-        &ShellWarning::CwdRecovered {
-            old_cwd,
-            new_cwd: recovered.to_string_lossy().into_owned(),
-        },
-    );
-    true
+    Some(ShellWarning::CwdRecovered {
+        old_cwd,
+        new_cwd: recovered.to_string_lossy().into_owned(),
+    })
 }
 
-/// Perform one iteration of the REPL loop
-/// Result is bool: continue loop, current reedline
-#[inline]
-fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
+/// Recover an invalid `$env.PWD` if needed, report any recovery warning, merge stack environment
+/// changes into `engine_state`, refresh terminal cwd/title shell integration on recovery, and
+/// run the `env_change` and `pre_prompt` hooks before building the prompt.
+fn prepare_repl_iteration(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    hostname: Option<&str>,
+    use_color: bool,
+    cursor_pos: usize,
+    buffer: String,
+    emit_ansi: &mut impl FnMut(&str),
+) -> Option<ShellWarning> {
     use nu_cmd_base::hook;
-    use reedline::Signal;
-    let loop_start_time = Instant::now();
-
-    let LoopContext {
-        engine_state,
-        mut stack,
-        line_editor,
-        temp_file,
-        use_color,
-        entry_num,
-        hostname,
-        is_hostcommand,
-        completion_cache,
-        first_prompt,
-    } = ctx;
 
     let mut start_time = Instant::now();
     // Before doing anything, recover a vanished/inaccessible $env.PWD and merge the environment
     // from the previous REPL iteration into the permanent state.
-    recover_cwd_if_needed(engine_state, &mut stack);
-    if let Err(err) = engine_state.merge_env(&mut stack) {
+    let recovered_warning = recover_cwd_if_needed(engine_state, stack);
+    if let Some(warning) = &recovered_warning {
+        report_shell_warning(Some(stack), engine_state, warning);
+    }
+    if let Err(err) = engine_state.merge_env(stack) {
         report_shell_error(None, engine_state, &err);
     }
     perf!("merge env", start_time, use_color);
+
+    if recovered_warning.is_some() {
+        let shell_integration = engine_state.get_config().shell_integration;
+        emit_cwd_shell_integration(
+            &shell_integration,
+            hostname,
+            engine_state,
+            stack,
+            use_color,
+            None,
+            emit_ansi,
+        );
+    }
 
     start_time = Instant::now();
     engine_state.reset_signals();
@@ -737,8 +717,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     // Juhan said to do this :)
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-    repl.cursor_pos = line_editor.current_insertion_point();
-    repl.buffer = line_editor.current_buffer_contents().to_string();
+    repl.cursor_pos = cursor_pos;
+    repl.buffer = buffer;
     drop(repl);
 
     // Check all the environment variables they ask for
@@ -746,7 +726,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     if let Err(error) = hook::eval_env_change_hook(
         &engine_state.get_config().hooks.env_change.clone(),
         engine_state,
-        &mut stack,
+        stack,
     ) {
         report_shell_error(None, engine_state, &error)
     }
@@ -754,15 +734,48 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = Instant::now();
     // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
-    if let Err(err) = hook::eval_pre_prompt_hooks(engine_state, &mut stack) {
+    if let Err(err) = hook::eval_pre_prompt_hooks(engine_state, stack) {
         report_shell_error(None, engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
 
+    recovered_warning
+}
+
+/// Perform one iteration of the REPL loop
+/// Result is bool: continue loop, current reedline
+#[inline]
+fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
+    use reedline::Signal;
+    let loop_start_time = Instant::now();
+
+    let LoopContext {
+        engine_state,
+        mut stack,
+        line_editor,
+        temp_file,
+        use_color,
+        entry_num,
+        hostname,
+        is_hostcommand,
+        completion_cache,
+        first_prompt,
+    } = ctx;
+
+    prepare_repl_iteration(
+        engine_state,
+        &mut stack,
+        hostname,
+        use_color,
+        line_editor.current_insertion_point(),
+        line_editor.current_buffer_contents().to_string(),
+        &mut run_ansi_sequence,
+    );
+
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
 
-    start_time = Instant::now();
+    let mut start_time = Instant::now();
     // Find the configured cursor shapes for each mode
     let cursor_config = CursorConfig {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
@@ -1272,7 +1285,13 @@ fn do_run_cmd(
     let had_warning_before = engine_state.exit_warning_given.load(Ordering::SeqCst);
 
     if shell_integration_osc2 {
-        run_shell_integration_osc2(Some(s), engine_state, stack, use_color);
+        run_shell_integration_osc2(
+            Some(s),
+            engine_state,
+            stack,
+            use_color,
+            &mut run_ansi_sequence,
+        );
     }
 
     // Enable `$ans` capture for this user line only (not config/env/banner evals).
@@ -1312,6 +1331,34 @@ fn do_run_cmd(
     line_editor
 }
 
+/// Emit terminal cwd and title shell integration sequences (`osc2`, `osc7`, `osc9_9`, and
+/// `osc633`) for the current working directory.
+///
+/// When `osc633_command_line` is `None` (such as after `$env.PWD` recovery), only the VS Code
+/// `633;P;Cwd` marker is emitted without a `633;E` command line marker.
+fn emit_cwd_shell_integration(
+    shell_integration: &ShellIntegrationConfig,
+    hostname: Option<&str>,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    use_color: bool,
+    osc633_command_line: Option<&str>,
+    emit: &mut impl FnMut(&str),
+) {
+    if shell_integration.osc2 {
+        run_shell_integration_osc2(None, engine_state, stack, use_color, emit);
+    }
+    if shell_integration.osc7 {
+        run_shell_integration_osc7(hostname, engine_state, stack, use_color, emit);
+    }
+    if shell_integration.osc9_9 {
+        run_shell_integration_osc9_9(engine_state, stack, use_color, emit);
+    }
+    if shell_integration.osc633 {
+        run_shell_integration_osc633(engine_state, stack, use_color, osc633_command_line, emit);
+    }
+}
+
 ///
 /// Output some things and set environment variables so shells with the right integration
 /// can have more information about what is going on (both on startup and after we have
@@ -1322,6 +1369,7 @@ fn run_shell_integration_osc2(
     engine_state: &EngineState,
     stack: &mut Stack,
     use_color: bool,
+    emit: &mut impl FnMut(&str),
 ) {
     if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
@@ -1355,7 +1403,7 @@ fn run_shell_integration_osc2(
         // ESC]0;stringBEL -- Set icon name and window title to string
         // ESC]1;stringBEL -- Set icon name to string
         // ESC]2;stringBEL -- Set window title to string
-        run_ansi_sequence(&format!("\x1b]2;{title}\x07"));
+        emit(&format!("\x1b]2;{title}\x07"));
 
         perf!("set title with command osc2", start_time, use_color);
     }
@@ -1366,13 +1414,14 @@ fn run_shell_integration_osc7(
     engine_state: &EngineState,
     stack: &mut Stack,
     use_color: bool,
+    emit: &mut impl FnMut(&str),
 ) {
     if let Ok(path) = engine_state.cwd(Some(stack)) {
         let start_time = Instant::now();
 
         // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
         match osc7_sequence(hostname, path.as_std_path()) {
-            Some(sequence) => run_ansi_sequence(&sequence),
+            Some(sequence) => emit(&sequence),
             None => warn!("Could not construct OSC 7 URL for {}", path.display()),
         }
 
@@ -1399,13 +1448,18 @@ fn osc7_sequence(hostname: Option<&str>, path: &Path) -> Option<String> {
     ))
 }
 
-fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
+fn run_shell_integration_osc9_9(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    use_color: bool,
+    emit: &mut impl FnMut(&str),
+) {
     if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
         // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
         // This is helpful in Windows Terminal with Duplicate Tab
-        run_ansi_sequence(&format!("\x1b]9;9;{}\x1b\\", path));
+        emit(&format!("\x1b]9;9;{}\x1b\\", path));
 
         perf!(
             "communicate path to terminal with osc9;9",
@@ -1419,7 +1473,8 @@ fn run_shell_integration_osc633(
     engine_state: &EngineState,
     stack: &mut Stack,
     use_color: bool,
-    repl_cmd_line_text: String,
+    repl_cmd_line_text: Option<&str>,
+    emit: &mut impl FnMut(&str),
 ) {
     if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
@@ -1433,7 +1488,7 @@ fn run_shell_integration_osc633(
 
             // If we're in vscode, run their specific ansi escape sequence.
             // This is helpful for ctrl+g to change directories in the terminal.
-            run_ansi_sequence(&format!(
+            emit(&format!(
                 "{VSCODE_CWD_PROPERTY_MARKER_PREFIX}{path}{VSCODE_CWD_PROPERTY_MARKER_SUFFIX}"
             ));
 
@@ -1443,15 +1498,17 @@ fn run_shell_integration_osc633(
                 use_color
             );
 
-            // escape a few things because this says so
-            // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
-            let replaced_cmd_text =
-                escape_special_vscode_bytes(&repl_cmd_line_text).unwrap_or(repl_cmd_line_text);
+            if let Some(cmd_line_text) = repl_cmd_line_text {
+                // escape a few things because this says so
+                // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
+                let replaced_cmd_text = escape_special_vscode_bytes(cmd_line_text)
+                    .unwrap_or_else(|_| cmd_line_text.to_string());
 
-            //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
-            run_ansi_sequence(&format!(
-                "{VSCODE_COMMANDLINE_MARKER_PREFIX}{replaced_cmd_text}{VSCODE_COMMANDLINE_MARKER_SUFFIX}"
-            ));
+                //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
+                emit(&format!(
+                    "{VSCODE_COMMANDLINE_MARKER_PREFIX}{replaced_cmd_text}{VSCODE_COMMANDLINE_MARKER_SUFFIX}"
+                ));
+            }
         }
     }
 }
@@ -2329,7 +2386,7 @@ mod test_recover_cwd {
     use super::recover_cwd_if_needed;
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{ShellWarning, Span, Value};
     use tempfile::tempdir;
 
     #[test]
@@ -2352,7 +2409,16 @@ mod test_recover_cwd {
 
         std::fs::remove_dir(&child).unwrap();
 
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack));
+        assert_eq!(
+            recover_cwd_if_needed(&engine_state, &mut stack).map(|w| w.to_string()),
+            Some(
+                ShellWarning::CwdRecovered {
+                    old_cwd: child.as_std_path().to_string_lossy().into_owned(),
+                    new_cwd: parent.as_std_path().to_string_lossy().into_owned(),
+                }
+                .to_string()
+            )
+        );
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             parent.as_std_path()
@@ -2382,7 +2448,7 @@ mod test_recover_cwd {
 
         std::fs::remove_dir_all(&a).unwrap();
 
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_some());
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             root.as_std_path()
@@ -2403,7 +2469,7 @@ mod test_recover_cwd {
         std::fs::remove_dir(&target).unwrap();
         std::fs::write(&target, b"not a dir").unwrap();
 
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_some());
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             parent.as_std_path()
@@ -2432,7 +2498,7 @@ mod test_recover_cwd {
             super::have_permission(&blocked),
             super::PermissionResult::PermissionOk
         );
-        let recovered = recover_cwd_if_needed(&engine_state, &mut stack);
+        let recovered = recover_cwd_if_needed(&engine_state, &mut stack).is_some();
         let result_cwd = engine_state.cwd(Some(&stack)).unwrap();
         std::fs::set_permissions(&blocked, std::fs::Permissions::from_mode(0o755)).unwrap();
 
@@ -2452,7 +2518,7 @@ mod test_recover_cwd {
         let engine_state = EngineState::new();
         let mut stack = Stack::new();
         stack.set_cwd(valid).unwrap();
-        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             valid.as_std_path()
@@ -2463,12 +2529,12 @@ mod test_recover_cwd {
             "PWD".into(),
             Value::string("relative/path", Span::unknown()),
         );
-        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
         assert!(engine_state.cwd(Some(&stack)).is_err());
 
         // Non-string PWD
         stack.add_env_var("PWD".into(), Value::int(42, Span::unknown()));
-        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
         assert!(engine_state.cwd(Some(&stack)).is_err());
 
         // Trailing slash
@@ -2478,7 +2544,7 @@ mod test_recover_cwd {
             std::path::MAIN_SEPARATOR
         );
         stack.add_env_var("PWD".into(), Value::string(with_slash, Span::unknown()));
-        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
         assert!(engine_state.cwd(Some(&stack)).is_err());
     }
 
@@ -2508,10 +2574,7 @@ mod test_recover_cwd {
 
         std::fs::remove_dir(&child).unwrap();
 
-        assert!(recover_cwd_if_needed(
-            &tester.engine_state,
-            &mut tester.stack
-        ));
+        assert!(recover_cwd_if_needed(&tester.engine_state, &mut tester.stack).is_some());
         tester.engine_state.merge_env(&mut tester.stack)?;
         nu_cmd_base::hook::eval_env_change_hook(
             &tester.engine_state.get_config().hooks.env_change.clone(),
