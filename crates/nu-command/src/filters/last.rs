@@ -213,6 +213,8 @@ fn last_helper(
 
             for row in iterator {
                 signals.check(&head)?;
+                // Every row gets read, so an error counts even in a row that won't be returned.
+                let row = row.unwrap_error()?;
                 if buf.len() == rows {
                     buf.pop_front();
                 }

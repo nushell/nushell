@@ -756,6 +756,30 @@ mod test {
     };
 
     #[test]
+    fn byte_stream_tee_keeps_a_read_failure() {
+        let stack = Stack::new();
+        let exit = ShellError::Exit {
+            code: 7,
+            abort: false,
+        };
+        let stream = ByteStream::from_result_iter(
+            [Ok(b"1\n".to_vec()), Err(exit), Ok(b"3\n".to_vec())],
+            Span::test_data(),
+            Signals::empty(),
+            ByteStreamType::String,
+        );
+
+        let PipelineData::ByteStream(rebuilt, _) =
+            tee_byte_stream(&stack, stream, None, 1024, Signals::empty())
+        else {
+            panic!("a byte stream should stay a byte stream");
+        };
+
+        let err = rebuilt.into_bytes().expect_err("the failure should remain");
+        assert!(err.is_exit());
+    }
+
+    #[test]
     fn test_gather_env_vars() {
         let mut engine_state = EngineState::new();
         let symbols = r##" !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"##;

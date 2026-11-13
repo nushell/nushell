@@ -1140,8 +1140,8 @@ fn transform_response_using_content_type(
                     ),
                     other => other,
                 };
-                let call = ir::Call::build(converter_id, span).finish();
-                eval_ir_call(engine_state, stack, &call, output)
+                let call = ir::Call::build(converter_id, span);
+                eval_ir_call(engine_state, stack, call, output)
             }
             None => Ok(output),
         }
