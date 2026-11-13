@@ -726,9 +726,18 @@ fn eval_instruction<D: DebugContext>(
                 ctx.put_reg(*dst, PipelineExecutionData::from(new_value));
                 Ok(Continue)
             } else {
+                // Render the key as it would be written in a cell path
+                let member = if nu_utils::needs_quoting(key) {
+                    nu_utils::escape_quote_string(key)
+                } else {
+                    key.to_string()
+                };
                 Err(ShellError::EnvVarNotFoundAtRuntime {
                     envvar_name: key.into(),
                     span: *span,
+                    help: Some(format!(
+                        "use `$env.{member}?` to get `null` if it isn't set, or `$env.{member}? | default <value>` to fall back to a default"
+                    )),
                 })
             }
         }

@@ -253,6 +253,31 @@ fn hides_env_in_block() -> Result {
         .expect_error_code_eq("nu::shell::env_variable_not_found")
 }
 
+#[rstest]
+#[case::plain("$env.FOO", "FOO", "$env.FOO?")]
+#[case::needs_quoting(r#"$env."MY VAR""#, "MY VAR", r#"$env."MY VAR"?"#)]
+fn missing_env_var_suggests_optional_access(
+    #[case] code: &str,
+    #[case] name: &str,
+    #[case] suggestion: &str,
+) -> Result {
+    match test().run(code).expect_shell_error()? {
+        ShellError::EnvVarNotFoundAtRuntime {
+            envvar_name,
+            help: Some(help),
+            ..
+        } => {
+            assert_eq!(envvar_name, name);
+            assert!(
+                help.contains(&format!("`{suggestion}`")),
+                "help should suggest {suggestion}, got: {help}"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
 #[test]
 fn env_var_not_var() -> Result {
     let err = test().run("echo $PWD").expect_parse_error()?;
