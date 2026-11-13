@@ -10,6 +10,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use unicode_width::UnicodeWidthStr;
 
 pub fn render(frame: &mut Frame, session: &mut Session) {
     let theme = session.theme.clone();
@@ -40,6 +41,56 @@ pub fn render(frame: &mut Frame, session: &mut Session) {
     render_tabs(frame, session, &theme);
     render_splitter_handles(frame, session, &theme);
     render_menu_dropdown(frame, session);
+    render_pending_keys(frame, session, &theme);
+}
+
+/// The key panel: while a bind sequence is pending, the keys that continue
+/// it and what they do, in columns above the status line.
+fn render_pending_keys(frame: &mut Frame, session: &Session, theme: &Theme) {
+    let keys = session.pending_keys();
+    if keys.is_empty() {
+        return;
+    }
+    let screen = frame.area();
+    let entry_width = keys
+        .iter()
+        .map(|(key, label)| key.width() + 3 + label.width() + 2)
+        .max()
+        .unwrap_or(1);
+    let columns =
+        (screen.width.saturating_sub(2) as usize / entry_width.max(1)).clamp(1, keys.len());
+    let rows = keys.len().div_ceil(columns);
+    let height = (rows as u16).saturating_add(2).min(screen.height);
+    let bottom = session.status_area().map_or(screen.bottom(), |s| s.y);
+    let rect = Rect::new(
+        screen.x,
+        bottom.saturating_sub(height).max(screen.y),
+        screen.width,
+        height,
+    );
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(theme.border(true))
+        .style(theme.surface())
+        .title(format!(" {} ", session.pending.join(" ")));
+    let inner = block.inner(rect);
+    frame.render_widget(Clear, rect);
+    frame.render_widget(block, rect);
+    // Filled down each column first, as in yazi.
+    for (i, (key, label)) in keys.iter().enumerate() {
+        let x = inner.x.saturating_add(((i / rows) * entry_width) as u16);
+        let y = inner.y.saturating_add((i % rows) as u16);
+        if y >= inner.bottom() || x >= inner.right() {
+            continue;
+        }
+        let line = Line::from(vec![
+            Span::styled(format!(" {key}"), theme.highlight()),
+            Span::styled(" → ", theme.muted()),
+            Span::styled(label.clone(), theme.text()),
+        ]);
+        let width = (entry_width as u16).min(inner.right() - x);
+        frame.render_widget(line, Rect::new(x, y, width, 1));
+    }
 }
 
 fn render_dialog_frame(frame: &mut Frame, session: &Session, theme: &Theme) {
@@ -124,10 +175,13 @@ fn render_tabs(frame: &mut Frame, session: &Session, theme: &Theme) {
     for (i, area) in session.tab_areas.iter().enumerate() {
         let title = pages.get(i).map(|p| p.title.as_str()).unwrap_or("page");
         let active = i == session.page;
-        frame.render_widget(
-            Paragraph::new(Span::styled(format!(" {title} "), theme.tab(active))),
-            *area,
-        );
+        let line = Line::from(crate::widgets::pill(
+            &theme.glyphs.tab_caps,
+            format!(" {title} "),
+            theme.tab(active),
+            theme,
+        ));
+        frame.render_widget(Paragraph::new(line), *area);
     }
 }
 
@@ -163,7 +217,10 @@ pub fn render_to_string(session: &mut Session, width: u16, height: u16) -> Resul
         let mut line = String::new();
         for x in 0..width {
             match buffer.cell((x, y)) {
-                Some(cell) if !cell.symbol().is_empty() => line.push_str(cell.symbol()),
+                // Hyperlink sequences take no cells on a terminal.
+                Some(cell) if !cell.symbol().is_empty() => {
+                    line.push_str(&crate::widgets::strip_osc(cell.symbol()));
+                }
                 _ => line.push(' '),
             }
         }

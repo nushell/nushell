@@ -18,7 +18,7 @@ impl Command for TuiDebug {
     }
 
     fn extra_description(&self) -> &str {
-        "Use this to test a TUI in a script or CI, or to see why it looks the way it does. The result record has the same fields as `tui run` (action, focused, selected, page, values, rows, live) plus:\n\
+        "Use this to test a TUI in a script or CI, or to see why it looks the way it does. The result record has the same fields as `tui run` (action, focused, selected, page, values, rows, live, context) plus:\n\
          - `screen`: the painted buffer as a string\n\
          - `widgets`: the widget tree with each widget's layout `rect`, `focusable`, and per-kind fields: tables show `resolved_columns` and filtered `rows`; searches show their `query`; previews and `--from` widgets show the `source` they follow; lists show the `search_scope` that filters them\n\
          - `focus`: the tab order and the default focus\n\

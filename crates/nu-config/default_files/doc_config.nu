@@ -1457,10 +1457,12 @@ $env.config.explore.try.reactive = false
 # TUI Command Settings
 # --------------------
 # `$env.config.tui` styles the `tui` command family (`tui table`, `tui split`, `tui run`, ...).
-# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key except
-# `border_type` is a color value in the same forms as `color_config`: a color name, `#RRGGBB`,
-# or `{ fg?, bg?, attr? }`. In any slot, `default` is the terminal's own color.
-# When `use_ansi_coloring` is off the TUI draws without colors.
+# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Keys marked (color) take
+# the same forms as `color_config`: a color name, `#RRGGBB`, or `{ fg?, bg?, attr? }`. In any
+# such slot, `default` is the terminal's own color. `tui theme` lays one TUI's slots over these.
+# When `use_ansi_coloring` is off the TUI draws without colors. An unknown key, or a border,
+# glyph, or `file_styles` value of the wrong shape, is an error when a TUI starts, as it is for
+# `tui theme`.
 
 # tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
 # Default: { fg: white, bg: blue, attr: b }
@@ -1525,6 +1527,64 @@ $env.config.tui.button = { fg: white, bg: blue }
 # Defaults: { bg: default } / { bg: default }
 $env.config.tui.surface = { bg: default }
 $env.config.tui.backdrop = { bg: default }
+
+# tui.image_protocol (string): How `tui preview` and `tui image` draw images.
+# "auto" asks the terminal, "kitty", "sixel", "iterm2", and "halfblocks" force a protocol, and
+# "none" draws no images.
+# Default: "auto"
+$env.config.tui.image_protocol = "auto"
+
+# tui.file_styles (list): How path cells look: `ls`'s `name` beside `type`, `tui table
+# --path-columns`, and tree nodes. The first rule a file matches wins, and a file no rule matches is plain
+# text. `tui theme` replaces the whole list. A rule can ask for any of these, all of which must hold:
+#   kind: "dir", "file", "symlink" (not followed, so a link to a directory is a symlink), or
+#         "orphan" (a symlink whose target is gone)
+#   mime_type: a glob, or a list of them. From the row's `type` (`ls --mime-type`), else guessed
+#              from the extension. A directory has none.
+#   ext: an extension, or a list of them, ignoring case
+#   mode: a glob on the mode `ls -l` shows, or a list of them: "??x*" is owner-executable. A
+#         symlink's is its target's. Never matches on Windows.
+# It then looks like `fg`, `bg`, and `attr`, as a color does. Under `--icons`, `icon` replaces the
+# file's glyph, drawn in `fg` or else the glyph's usual color.
+$env.config.tui.file_styles = [
+    { kind: dir, fg: blue }
+    { kind: orphan, bg: red }
+    { kind: symlink, fg: cyan }
+    { kind: file, mode: "??x*", fg: green }
+    { mime_type: "image/*", fg: yellow }
+    { mime_type: ["audio/*", "video/*"], fg: magenta }
+    {
+        mime_type: [
+            "application/*zip*", "application/*rar*", "application/x-7z*", "application/*tar",
+            "application/x-xz", "application/*zstd", "application/x-lzma", "application/x-compress*",
+            "application/x-cpio", "application/x-arj", "application/x-xar", "application/vnd.ms-cab*"
+        ]
+        fg: red
+    }
+    {
+        mime_type: ["application/pdf", "application/msword", "application/rtf", "application/*wordprocessingml*"]
+        fg: cyan
+    }
+]
+
+# tui.title_caps / tui.status_caps / tui.tab_caps / tui.selected_caps (record): `{ open, close }`
+# glyphs of one cell each, or empty, drawn in the text's fill color at the ends of the title bar's
+# text, each status segment, each tab's title, and the highlighted row. With caps, the title and
+# status bars no longer fill their line.
+# Default: only `tab_caps` is set, and it is empty.
+$env.config.tui.tab_caps = { open: "", close: "" }
+
+# tui.check / tui.radio (record): `{ on, off }` marks of one width, for `--multi` rows and
+# `tui select` rows.
+$env.config.tui.check = { on: "[x]", off: "[ ]" }
+$env.config.tui.radio = { on: "(•)", off: "( )" }
+
+# tui.tree_open / tui.tree_closed (string): The arrows before a tree node with children.
+$env.config.tui.tree_open = "▾"
+$env.config.tui.tree_closed = "▸"
+
+# tui.progress_fill (string): The one-cell glyph `tui progress`'s bar is made of.
+$env.config.tui.progress_fill = "█"
 
 # ---------------------------------------------------------------------------------------
 # Environment Variables

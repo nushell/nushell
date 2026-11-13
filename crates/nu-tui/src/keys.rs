@@ -95,12 +95,16 @@ pub fn normalize_bind(s: &str) -> String {
     }
 }
 
-/// A chord from a bind value: a string like `ctrl+s`, or a reedline-style
-/// record `{modifier: control, keycode: char_s}` as used in
-/// `$env.config.keybindings`.
+/// A chord from a bind value: a string like `ctrl+s`, a sequence of chords
+/// separated by spaces (`m s`), or a reedline-style record
+/// `{modifier: control, keycode: char_s}` as used in `$env.config.keybindings`.
 pub fn chord_from_value(value: &Value) -> Result<String, ShellError> {
     match value {
-        Value::String { val, .. } => Ok(normalize_bind(val)),
+        Value::String { val, .. } => Ok(val
+            .split_whitespace()
+            .map(normalize_bind)
+            .collect::<Vec<_>>()
+            .join(" ")),
         Value::Record { val, .. } => {
             let modifier = val
                 .get("modifier")

@@ -1,31 +1,29 @@
 //! Orchestration of a running TUI: focus, pages, data resolution, hooks,
 //! mouse routing, and the result record. Widget-specific behaviour lives in
 //! `widgets/*`; the session only applies the [`Effect`]s they return.
-use crate::app::{TuiApp, widget_to_record};
+use crate::app::{TuiApp, merge_context, widget_to_record};
 use crate::filter::Filter;
-use crate::hooks::{self, HookOutcome, call_closure};
+use crate::hooks::{self, HookAction, HookOutcome, call_closure};
+use crate::image::Images;
 use crate::keys::{KeyPress, normalize_bind, single_char};
 use crate::layout::{SplitterHandle, assign_areas, subtree_ids};
 use crate::stream::trim_front;
-use crate::theme::Theme;
+use crate::theme::{FileFacts, FileKind, FileStyle, Theme};
 use crate::tree::TreeRow;
-use crate::widget::{Effect, Widget, WidgetKind, WidgetState};
+use crate::widget::{Effect, Size, Widget, WidgetKind, WidgetState};
 use crate::widgets::label::Slot;
 use crate::widgets::split::{SplitDir, SplitWidget};
 use crossterm::event::{Event, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
-use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_engine::get_columns;
-use nu_explore::style::create_lscolors;
 use nu_protocol::engine::{Closure, EngineState, Stack};
 use nu_protocol::{Config, Record, Span, Value};
-use nu_utils::get_ls_colors;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +70,14 @@ pub struct Page {
 enum DialogDrag {
     Move { grab_x: u16, grab_y: u16 },
     Resize,
+}
+
+/// A hook that wants the terminal, from `{action: suspend}`.
+#[derive(Debug, Clone)]
+pub struct Suspend {
+    pub hook: Closure,
+    /// Where its output starts; the TUI stays on screen round it.
+    pub area: Option<Rect>,
 }
 
 /// The floating window of `tui run --dialog`.
@@ -150,12 +156,20 @@ pub struct Session {
     /// Data produced for widgets that follow a source (`--from`, a source
     /// closure).
     derived: HashMap<String, Value>,
-    /// The (source id, source row, pane size) each derived value was
-    /// computed from, so unchanged selections do not re-run closures and a
-    /// resize does.
-    derived_key: HashMap<String, (String, Value, (u16, u16))>,
+    /// The (source id, source row, pane size, view context) each derived
+    /// value was computed from, so unchanged selections do not re-run
+    /// closures, and a resize or a context write does.
+    derived_key: HashMap<String, (String, Value, (u16, u16), Value)>,
     pub page: usize,
     pub focused: Option<String>,
+    /// The chords of a bind sequence typed so far (`m` of `m s`). The key
+    /// panel lists what can follow; a key that continues no bind drops it.
+    pub pending: Vec<String>,
+    /// A hook waiting for the terminal (`{action: suspend}`); the runtime
+    /// takes it, hands the terminal over, and runs it.
+    pub suspend: Option<Suspend>,
+    /// What the last layout covered: the screen, or the dialog's content.
+    pub laid_out: Rect,
     pub areas: HashMap<String, Rect>,
     pub handles: Vec<SplitterHandle>,
     pub tab_areas: Vec<Rect>,
@@ -171,16 +185,32 @@ pub struct Session {
     data_from_hook: bool,
     pub dialog: Option<DialogFrame>,
     pub theme: Theme,
-    pub ls_colors: LsColors,
-    pub use_ls_colors: bool,
     /// Last failure from a hook or source closure; shown on the status bar.
     pub error: Option<String>,
+    /// The graphics protocol previews encode images with. `None` until
+    /// [`Session::enable_images`], or when `$env.config.tui.image_protocol`
+    /// is `none`: previews then describe an image instead of drawing it.
+    pub images: Option<Images>,
     /// Filtered rows per widget, kept until data, a filter, or a selection
     /// changes. A frame asks for rows several times; a 100k-row list must
     /// not be filtered and cloned each time.
     rows_cache: RefCell<HashMap<String, Rc<Vec<Value>>>>,
     /// Flattened tree rows per tree widget, kept on the same terms.
     tree_cache: RefCell<HashMap<String, Rc<Vec<TreeRow>>>>,
+}
+
+/// The file's mode as `ls -l` shows it. Windows has none.
+fn mode_string(meta: &std::fs::Metadata) -> Option<String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        Some(umask::Mode::from(meta.permissions().mode()).to_string())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        None
+    }
 }
 
 impl Session {
@@ -203,13 +233,9 @@ impl Session {
             })
             .collect();
         let paths = app.paths();
-        let (theme, ls_colors, use_ls_colors) = match &engine {
-            Some((engine_state, stack)) => (
-                Theme::from_config(engine_state, stack),
-                create_lscolors(engine_state, stack),
-                stack.get_config(engine_state).ls.use_ls_colors,
-            ),
-            None => (Theme::default(), get_ls_colors(None), true),
+        let theme = match &engine {
+            Some((engine_state, stack)) => Theme::from_config(engine_state, stack, &app.theme),
+            None => Theme::default(),
         };
         let mut session = Self {
             app,
@@ -229,10 +255,12 @@ impl Session {
             stream_live: false,
             data_from_hook: false,
             dialog: None,
+            pending: Vec::new(),
+            suspend: None,
+            laid_out: Rect::default(),
             theme,
-            ls_colors,
-            use_ls_colors,
             error: None,
+            images: None,
             rows_cache: RefCell::new(HashMap::new()),
             tree_cache: RefCell::new(HashMap::new()),
         };
@@ -642,13 +670,60 @@ impl Session {
         self.current_row()
     }
 
+    /// Draw images with `images` from now on, and give every preview the
+    /// Kitty id it transmits under.
+    /// Called before the first layout pass, so nothing is encoded twice.
+    pub fn enable_images(&mut self, mut images: Images) {
+        let ids: Vec<String> = self
+            .app
+            .iter()
+            .filter(|w| matches!(w.kind, WidgetKind::Preview(_)))
+            .map(|w| w.id.clone())
+            .collect();
+        for id in ids {
+            if let Some(preview) = self
+                .states
+                .get_mut(&id)
+                .and_then(WidgetState::as_preview_mut)
+            {
+                preview.kitty_id = Some(images.alloc_id());
+            }
+            self.derived_key.remove(&id);
+        }
+        self.images = Some(images);
+    }
+
+    /// Collect images whose decode-and-encode threads finished (see
+    /// [`crate::widget::PreviewState::poll_image`]). `wait` blocks for every running job.
+    pub fn poll_images(&mut self, wait: bool) {
+        for state in self.states.values_mut() {
+            if let Some(preview) = state.as_preview_mut() {
+                preview.poll_image(wait);
+            }
+        }
+    }
+
+    /// The Kitty ids this run allocated, to delete from the terminal when
+    /// it ends. Deleting an id that was never transmitted is harmless, so no widget
+    /// tracks whether it showed anything.
+    pub fn kitty_ids_to_free(&self) -> Vec<u32> {
+        if !self.images.as_ref().is_some_and(Images::is_kitty) {
+            return Vec::new();
+        }
+        self.app
+            .iter()
+            .filter_map(|w| self.state(&w.id)?.as_preview()?.kitty_id)
+            .collect()
+    }
+
     /// Recompute every widget that follows a source whose highlighted row
-    /// changed. Runs a few passes so chains (tree → table → preview) settle.
+    /// changed, and every `tui image` whose pane changed size. Runs a few
+    /// passes so chains (tree → table → preview) settle.
     pub fn refresh_derived(&mut self) {
         let ids: Vec<String> = self
             .app
             .iter()
-            .filter(|w| w.follows_source())
+            .filter(|w| w.follows_source() || w.is_fixed_image())
             .map(|w| w.id.clone())
             .collect();
         let sources = self.sources();
@@ -690,31 +765,79 @@ impl Session {
         Some(stack)
     }
 
+    /// What a preview's `--on-change` hook returns for the state record:
+    /// nothing without a hook or an engine, and a hook error is reported
+    /// like any other.
+    fn on_change(&mut self, hook: Option<&Closure>) -> Value {
+        let span = Span::unknown();
+        let (Some(closure), Some((engine_state, stack))) = (hook, self.engine.clone()) else {
+            return Value::nothing(span);
+        };
+        let state = self.state_record(span);
+        match call_closure(&engine_state, &stack, closure.clone(), state)
+            .and_then(|data| data.into_value(span))
+        {
+            Ok(part @ (Value::Record { .. } | Value::Nothing { .. })) => part,
+            Ok(other) => {
+                self.error = Some(format!(
+                    "--on-change must return a record, not {}",
+                    other.get_type()
+                ));
+                Value::nothing(span)
+            }
+            Err(err) => {
+                self.error = Some(truncate_chars(&err.to_string(), 80));
+                Value::nothing(span)
+            }
+        }
+    }
+
     /// Recompute what `id` shows from the highlighted row of `source`.
     fn refresh_one(&mut self, id: &str, source: Option<&str>) -> bool {
         let row = source.and_then(|src| self.row_of(src));
-        let key = (
+        let mut key = (
             source.unwrap_or_default().to_string(),
             row.clone()
                 .unwrap_or_else(|| Value::nothing(Span::unknown())),
             self.inner_size(id),
+            self.view_context(id),
         );
         if self.derived_key.get(id) == Some(&key) {
             return false;
         }
-        self.derived_key.insert(id.to_string(), key);
         let Some(widget) = self.widget(id).cloned() else {
             return false;
         };
         let stack = self.closure_stack(id);
         if let WidgetKind::Preview(preview) = &widget.kind {
+            let shown = preview.shown_row(row.as_ref()).cloned();
+            let changed = self
+                .state(id)
+                .is_some_and(|state| preview.file_changed(state, shown.as_ref()));
+            if changed {
+                // A new file: the pane's part of the context starts over
+                // from what `--on-change` returns, and the key takes it so
+                // the closure runs once for it.
+                if let Some(state) = self
+                    .states
+                    .get_mut(id)
+                    .and_then(WidgetState::as_preview_mut)
+                {
+                    state.row = shown;
+                }
+                let part = self.on_change(preview.on_change.as_ref());
+                self.set_view_context(id, part);
+                key.3 = self.view_context(id);
+            }
             let Some(mut state) = self.states.remove(id) else {
                 return false;
             };
-            preview.refresh(&mut state, row.as_ref(), self, stack.as_ref());
+            preview.refresh(id, &mut state, row.as_ref(), self, stack.as_ref(), &key.3);
             self.states.insert(id.to_string(), state);
+            self.derived_key.insert(id.to_string(), key);
             return true;
         }
+        self.derived_key.insert(id.to_string(), key);
         let closure = widget.source.as_ref().and_then(|s| s.closure.clone());
         let value = match (closure, &self.engine, stack, row) {
             (Some(closure), Some((engine_state, _)), Some(stack), Some(row)) => {
@@ -855,11 +978,22 @@ impl Session {
 
     /// Run a hook closure with the state record and apply what it returns.
     pub fn run_hook(&mut self, closure: Closure) {
+        let outcome = self.hook_outcome(closure);
+        self.apply_outcome(outcome);
+    }
+
+    /// Run a hook closure with the state record. Nothing happens without an
+    /// engine (unit tests).
+    fn hook_outcome(&mut self, closure: Closure) -> HookOutcome {
         let Some((engine_state, stack)) = self.engine.clone() else {
-            return;
+            return HookOutcome::Nothing;
         };
         let state = self.state_record(Span::unknown());
-        match hooks::run_hook(&engine_state, &stack, closure, state) {
+        hooks::run_hook(&engine_state, &stack, closure, state)
+    }
+
+    fn apply_outcome(&mut self, outcome: HookOutcome) {
+        match outcome {
             HookOutcome::Nothing => self.error = None,
             HookOutcome::Data(value) => {
                 self.error = None;
@@ -872,8 +1006,190 @@ impl Session {
                 })
             }
             HookOutcome::Quit => self.quit(),
+            HookOutcome::Action(action) => {
+                self.error = None;
+                self.apply_action(action);
+            }
+            HookOutcome::Many(items) => {
+                for item in items {
+                    if self.outcome.is_some() {
+                        break;
+                    }
+                    self.apply_outcome(item);
+                }
+            }
             HookOutcome::Error(err) => self.error = Some(truncate_chars(&err, 80)),
         }
+    }
+
+    /// Change one widget as a hook asked. A wrong id or widget kind is
+    /// reported like a hook error.
+    fn apply_action(&mut self, action: HookAction) {
+        let not_a = |id: &str, kind: &str| Some(format!("`{id}` is not a {kind}"));
+        match action {
+            HookAction::Focus(id) => {
+                if self.kind(&id).is_some_and(WidgetKind::is_focusable) {
+                    self.apply(vec![Effect::Focus(id)]);
+                } else {
+                    self.error = not_a(&id, "focusable widget");
+                }
+            }
+            HookAction::Resize(id, mut sizes) => {
+                match self.states.get_mut(&id).and_then(WidgetState::as_split_mut) {
+                    Some(split) => {
+                        // One size per child, whatever the hook sent.
+                        sizes.resize(split.sizes.len(), Size::Fill(1));
+                        split.sizes = sizes;
+                    }
+                    None => self.error = not_a(&id, "split"),
+                }
+            }
+            HookAction::Context(id, value) => {
+                if let Some(id) = &id
+                    && self.widget(id).is_none()
+                {
+                    self.error = not_a(id, "widget");
+                } else {
+                    self.patch_context(id.as_deref(), value);
+                    // The view context is in the derived key, so only the
+                    // closures that see a change run again.
+                    self.refresh_derived();
+                }
+            }
+            HookAction::Scroll(id, line) => {
+                let height = crate::widgets::inner_rows(self.areas.get(&id), 2);
+                match self
+                    .states
+                    .get_mut(&id)
+                    .and_then(WidgetState::as_preview_mut)
+                {
+                    Some(preview) => preview.scroll_to(line, height),
+                    None => self.error = not_a(&id, "preview"),
+                }
+            }
+            HookAction::Suspend { hook, area } => {
+                let area = area.map(|id| (self.areas.get(&id).copied(), id));
+                match area {
+                    Some((None, id)) => self.error = not_a(&id, "widget on screen"),
+                    Some((Some(rect), _)) => {
+                        self.suspend = Some(Suspend {
+                            hook,
+                            area: Some(rect),
+                        })
+                    }
+                    None => self.suspend = Some(Suspend { hook, area: None }),
+                }
+            }
+            HookAction::Select(id, index) => {
+                let last = self.rows(&id).len().saturating_sub(1);
+                match self.states.get_mut(&id).and_then(WidgetState::as_list_mut) {
+                    Some(list) => {
+                        list.selected = index.min(last);
+                        // Whatever follows the highlighted row moves with it.
+                        self.refresh_derived();
+                    }
+                    None => self.error = not_a(&id, "list widget"),
+                }
+            }
+            HookAction::Columns(id, columns) => {
+                let widget = self
+                    .paths
+                    .get(&id)
+                    .and_then(|path| self.app.at_path_mut(path));
+                match widget.map(|w| &mut w.kind) {
+                    Some(WidgetKind::Table(table)) => table.columns = columns,
+                    _ => self.error = not_a(&id, "table"),
+                }
+            }
+        }
+    }
+
+    /// Run a suspended hook, the terminal being its to use, and apply what
+    /// it returns. The state record gains `area` when the hook has one,
+    /// with the whole laid-out `screen` inside it for margins.
+    pub fn run_suspended(&mut self, suspend: Suspend) {
+        let Some((engine_state, stack)) = self.engine.clone() else {
+            return;
+        };
+        let span = Span::unknown();
+        let mut state = self.result_fields(span, None);
+        if let Some(area) = suspend.area {
+            let int = |n: u16| Value::int(i64::from(n), span);
+            let rect = |r: Rect| {
+                nu_protocol::record! {
+                    "x" => int(r.x),
+                    "y" => int(r.y),
+                    "width" => int(r.width),
+                    "height" => int(r.height),
+                }
+            };
+            let mut area = rect(area);
+            area.insert("screen", Value::record(rect(self.laid_out), span));
+            state.insert("area", Value::record(area, span));
+        }
+        let outcome = hooks::run_hook(
+            &engine_state,
+            &stack,
+            suspend.hook,
+            Value::record(state, span),
+        );
+        self.apply_outcome(outcome);
+    }
+
+    /// Forget every preview's picture so it is decoded and sent again:
+    /// the terminal was lent to something else, which may have cleared them.
+    pub fn reset_images(&mut self) {
+        let ids: Vec<String> = self
+            .app
+            .iter()
+            .filter(|w| matches!(w.kind, WidgetKind::Preview(_)))
+            .map(|w| w.id.clone())
+            .collect();
+        for id in ids {
+            if let Some(preview) = self
+                .states
+                .get_mut(&id)
+                .and_then(WidgetState::as_preview_mut)
+            {
+                preview.image = None;
+            }
+            self.derived_key.remove(&id);
+        }
+        self.refresh_derived();
+    }
+
+    /// What a pending bind sequence can still become: the rest of each
+    /// reachable chord with its label, for the key panel. A bind scoped
+    /// to the focused widget hides a global one on the same keys.
+    pub fn pending_keys(&self) -> Vec<(String, String)> {
+        if self.pending.is_empty() {
+            return Vec::new();
+        }
+        let prefix = format!("{} ", self.pending.join(" "));
+        let mut keys: Vec<(String, String)> = Vec::new();
+        let scoped_first = self
+            .app
+            .binds
+            .iter()
+            .filter(|b| b.when.is_some() && b.when == self.focused)
+            .chain(self.app.binds.iter().filter(|b| b.when.is_none()));
+        for bind in scoped_first {
+            if let Some(rest) = bind.chord.strip_prefix(&prefix)
+                && !keys.iter().any(|(key, _)| key == rest)
+            {
+                keys.push((rest.to_string(), bind.label.clone().unwrap_or_default()));
+            }
+        }
+        keys.sort();
+        keys
+    }
+
+    /// Where the status line is, if the app has one.
+    pub fn status_area(&self) -> Option<Rect> {
+        self.app
+            .iter()
+            .find(|w| matches!(&w.kind, WidgetKind::Label(l) if l.slot == Slot::Status))
+            .and_then(|w| self.areas.get(&w.id).copied())
     }
 
     // ----- events -------------------------------------------------------
@@ -882,6 +1198,7 @@ impl Session {
     /// their pane size, so they run after layout, and again after a resize
     /// changes it.
     pub fn layout(&mut self, area: Rect) {
+        self.laid_out = area;
         assign_areas(self, area);
         self.refresh_derived();
     }
@@ -951,14 +1268,49 @@ impl Session {
             return;
         }
         let capturing = self.is_capturing();
-        if let Some(bind) = self
-            .app
-            .binds
-            .iter()
-            .find(|b| b.chord == key.chord && (!capturing || key.has_modifier()))
-        {
-            let closure = bind.closure.clone();
-            self.apply(vec![Effect::Hook(closure)]);
+        // The chords typed so far: a pending sequence plus this key.
+        let in_sequence = !self.pending.is_empty();
+        let typed = if in_sequence {
+            format!("{} {}", self.pending.join(" "), key.chord)
+        } else {
+            key.chord.clone()
+        };
+        // A bind without a modifier does not fire while typing, unless it
+        // continues a sequence already begun. A bind scoped to the focused
+        // widget beats a global one on the same chord. A scoped bind whose
+        // hook returns nothing passes the key on.
+        let (bind, continues) = if in_sequence || !capturing || key.has_modifier() {
+            let candidates = || {
+                self.app
+                    .binds
+                    .iter()
+                    .filter(|b| b.when.is_none() || b.when == self.focused)
+            };
+            let exact = candidates()
+                .find(|b| b.when.is_some() && b.chord == typed)
+                .or_else(|| candidates().find(|b| b.chord == typed))
+                .cloned();
+            let longer = format!("{typed} ");
+            (exact, candidates().any(|b| b.chord.starts_with(&longer)))
+        } else {
+            (None, false)
+        };
+        if let Some(bind) = bind {
+            self.pending.clear();
+            let scoped = bind.when.is_some();
+            let outcome = self.hook_outcome(bind.closure);
+            let pass_on = scoped && matches!(outcome, HookOutcome::Nothing);
+            self.apply_outcome(outcome);
+            if !pass_on {
+                return;
+            }
+        } else if continues {
+            // A longer sequence starts this way: wait for its next key.
+            self.pending.push(key.chord);
+            return;
+        } else if in_sequence {
+            // Nothing continues the sequence: it ends, taking this key with it.
+            self.pending.clear();
             return;
         }
         // Page digits win over a `--capture-keys` table, but not over typing.
@@ -1411,11 +1763,78 @@ impl Session {
             .map(|(engine_state, stack)| StyleComputer::from_config(engine_state, stack))
     }
 
-    fn is_path_column(&self, column: &str, row: &Value) -> bool {
-        if self.app.path_columns.iter().any(|c| c == column) {
+    /// Whether `column` holds paths: one the data marks, `name` beside a
+    /// `type` (as `ls` gives), or one of the table's own `--path-columns`.
+    pub fn is_path_column(&self, column: &str, row: &Value, path_columns: &[String]) -> bool {
+        if path_columns
+            .iter()
+            .chain(&self.app.path_columns)
+            .any(|c| c == column)
+        {
             return true;
         }
         column == "name" && row.as_record().ok().and_then(|r| r.get("type")).is_some()
+    }
+
+    /// The file a path cell stands for: `path` under `cwd` when that
+    /// exists, else the row's `name` (a `--path-columns` column of bare names
+    /// beside the full paths `ls` gives), else `path` as given. Icons and
+    /// colors look at the file itself where they can.
+    fn disk_path(&self, row: &Value, path: &str) -> PathBuf {
+        // `symlink_metadata`, not `exists`: a symlink with no target is on
+        // disk too, and is colored as an orphan.
+        let on_disk = |path: &PathBuf| path.symlink_metadata().is_ok();
+        let full = self.cwd.join(path);
+        if on_disk(&full) {
+            return full;
+        }
+        row.as_record()
+            .ok()
+            .and_then(|r| r.get("name"))
+            .and_then(|name| name.as_str().ok())
+            .map(|name| self.cwd.join(name))
+            .filter(on_disk)
+            .unwrap_or(full)
+    }
+
+    /// What the `file_styles` rules see of the file a path cell stands
+    /// for. The disk decides where the file exists: its kind and, through a
+    /// symlink, its target's mode. A row not on disk goes by its `type`
+    /// column (`ls` gives `dir` or, with `--mime-type`, the mime). The mime
+    /// is that column's where it holds one, else the name's guess.
+    fn file_facts<'a>(&self, row: &'a Value, disk: &Path) -> FileFacts<'a> {
+        let row_type = row
+            .as_record()
+            .ok()
+            .and_then(|r| r.get("type"))
+            .and_then(|t| t.as_str().ok());
+        let meta = std::fs::metadata(disk).ok();
+        let kind = match &meta {
+            None if disk.is_symlink() => FileKind::Orphan,
+            _ if disk.is_symlink() => FileKind::Symlink,
+            Some(meta) if meta.is_dir() => FileKind::Dir,
+            None if row_type == Some("dir") => FileKind::Dir,
+            _ => FileKind::File,
+        };
+        let mime = match row_type {
+            _ if kind == FileKind::Dir => None,
+            Some(mime) if mime.contains('/') => Some(mime),
+            _ => mime_guess::from_path(disk).first_raw(),
+        };
+        FileFacts {
+            kind,
+            mime,
+            ext: disk
+                .extension()
+                .map(|ext| ext.to_string_lossy().to_lowercase()),
+            mode: meta.as_ref().and_then(mode_string),
+        }
+    }
+
+    /// The `file_styles` rule for the file a path cell stands for.
+    fn file_style(&self, row: &Value, path: &str) -> Option<&FileStyle> {
+        let disk = self.disk_path(row, path);
+        self.theme.file_style(&self.file_facts(row, &disk))
     }
 
     pub fn format_value(&self, value: &Value) -> String {
@@ -1431,12 +1850,14 @@ impl Session {
         }
     }
 
-    /// Text and style of one table cell.
+    /// Text and style of one table cell. `path_columns` are the table's
+    /// `--path-columns`, shown as paths besides those the data marks.
     pub fn styled_cell(
         &self,
         row: &Value,
         column: &str,
         computer: Option<&StyleComputer>,
+        path_columns: &[String],
     ) -> (String, Style) {
         let value = match row {
             Value::Record { val, .. } => val
@@ -1446,11 +1867,10 @@ impl Session {
             other => other.clone(),
         };
         let text = self.format_value(&value);
-        if self.use_ls_colors
-            && self.is_path_column(column, row)
+        if self.is_path_column(column, row, path_columns)
             && let Some(path) = value.as_str().ok()
         {
-            return (text, self.theme.path_cell(path, &self.cwd, &self.ls_colors));
+            return (text, self.theme.path_cell(self.file_style(row, path)));
         }
         let style = match computer {
             Some(computer) => self.theme.value_cell(&value, computer),
@@ -1459,15 +1879,44 @@ impl Session {
         (text, style)
     }
 
-    /// Style of a tree node or list item: `LS_COLORS` for paths, else the
-    /// value's type color. `computer` comes from [`Session::style_computer`],
-    /// built once per frame rather than per row.
+    /// The file icon `--icons` puts before a path cell: its rule's `icon`,
+    /// else devicons' as `table --icons` and `grid --icons` draw. `None` for
+    /// a cell that is not a path.
+    pub fn path_icon(
+        &self,
+        row: &Value,
+        column: &str,
+        path_columns: &[String],
+    ) -> Option<ratatui::text::Span<'static>> {
+        use devicons::icon_for_file;
+        if !self.is_path_column(column, row, path_columns) {
+            return None;
+        }
+        let path = row.as_record().ok()?.get(column)?.as_str().ok()?;
+        let icon = icon_for_file(&self.disk_path(row, path), &None);
+        let span = match self
+            .file_style(row, path)
+            .filter(|rule| rule.icon().is_some())
+        {
+            Some(rule) => ratatui::text::Span::styled(
+                format!("{} ", rule.icon().unwrap_or_default()),
+                self.theme.rule_icon(rule, icon.color),
+            ),
+            None => {
+                ratatui::text::Span::styled(format!("{} ", icon.icon), self.theme.icon(icon.color))
+            }
+        };
+        Some(span)
+    }
+
+    /// Style of a tree node or list item: the file palette for paths, else
+    /// the value's type color. `computer` comes from
+    /// [`Session::style_computer`], built once per frame rather than per row.
     pub fn row_style(&self, row: &Value, computer: Option<&StyleComputer>) -> Style {
-        if self.use_ls_colors
-            && self.is_path_column("name", row)
+        if self.is_path_column("name", row, &[])
             && let Some(path) = crate::widgets::preview::row_path(row)
         {
-            return self.theme.path_cell(&path, &self.cwd, &self.ls_colors);
+            return self.theme.path_cell(self.file_style(row, &path));
         }
         match computer {
             Some(computer) => self.theme.value_cell(row, computer),
@@ -1489,25 +1938,37 @@ impl Session {
     }
 
     pub fn status_text(&self) -> String {
-        let extra = self.live_status_bits();
+        self.status_segments().join("  ")
+    }
+
+    /// The status bar's pieces: the `--status` label's text, then the live
+    /// bits (error, focus, filter, rows, page, keys).
+    pub fn status_segments(&self) -> Vec<String> {
         let label = self.app.widgets.iter().find_map(|w| match &w.kind {
             WidgetKind::Label(l) if l.slot == Slot::Status => Some(l.text(&w.id, self)),
             _ => None,
         });
-        match label {
-            Some(text) if !extra.is_empty() => format!("{text}  {extra}"),
-            Some(text) => text,
-            None => extra,
+        let mut segments = self.live_status_bits();
+        if let Some(text) = label {
+            segments.insert(0, text);
         }
+        segments
     }
 
-    fn live_status_bits(&self) -> String {
+    fn live_status_bits(&self) -> Vec<String> {
         let mut bits = Vec::new();
         if let Some(err) = &self.error {
             bits.push(format!("error:{err}"));
         }
         if let Some(id) = &self.focused {
             bits.push(format!("focus:{id}"));
+            if let Some(hint) = self
+                .widget(id)
+                .zip(self.state(id))
+                .and_then(|(w, state)| w.kind.hint(id, state, self))
+            {
+                bits.push(hint);
+            }
         }
         let query = self.active_query();
         if !query.is_empty() {
@@ -1530,12 +1991,73 @@ impl Session {
             ));
         }
         bits.push("tab:focus  [:page  q:quit".into());
-        bits.join("  ")
+        bits
+    }
+
+    /// The app context's shared keys: the record without `views`. Nothing
+    /// when there is no context.
+    pub fn shared_context(&self) -> Value {
+        match self.app.context.as_record() {
+            Ok(root) => {
+                let mut shared = root.clone();
+                shared.remove("views");
+                Value::record(shared, Span::unknown())
+            }
+            Err(_) => Value::nothing(Span::unknown()),
+        }
+    }
+
+    /// The context a widget's closure sees as `$ctx`, and `values.<id>`
+    /// reports: the shared keys with its own `views.<id>` laid over.
+    pub fn view_context(&self, id: &str) -> Value {
+        let own = self
+            .app
+            .context
+            .as_record()
+            .ok()
+            .and_then(|root| root.get("views")?.as_record().ok()?.get(id).cloned());
+        match own {
+            Some(own) if !own.is_nothing() => merge_context(&self.shared_context(), own),
+            _ => self.shared_context(),
+        }
+    }
+
+    /// Replace `views.<id>` of the app context, making the records on the
+    /// way as needed.
+    fn set_view_context(&mut self, id: &str, value: Value) {
+        let span = Span::unknown();
+        let mut root = self.app.context.as_record().cloned().unwrap_or_default();
+        let mut views = root
+            .remove("views")
+            .and_then(|views| views.as_record().ok().cloned())
+            .unwrap_or_default();
+        views.insert(id, value);
+        root.insert("views", Value::record(views, span));
+        self.app.context = Value::record(root, span);
+    }
+
+    /// `{action: context}`: merge `patch` into the app context, or with an
+    /// id into that widget's `views.<id>`.
+    fn patch_context(&mut self, id: Option<&str>, patch: Value) {
+        match id {
+            Some(id) => {
+                let current = self
+                    .app
+                    .context
+                    .as_record()
+                    .ok()
+                    .and_then(|root| root.get("views")?.as_record().ok()?.get(id).cloned())
+                    .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                self.set_view_context(id, merge_context(&current, patch));
+            }
+            None => self.app.context = merge_context(&self.app.context, patch),
+        }
     }
 
     /// The state record every hook receives and `tui run` returns:
-    /// `{action, focused, selected, page, values, rows, live}`. `values`
-    /// holds every widget's state by id.
+    /// `{action, focused, selected, page, values, rows, live, context}`.
+    /// `values` holds every widget's state by id; `context` is the app's
+    /// record (`tui context`, `{action: context}`).
     pub fn state_record(&self, span: Span) -> Value {
         Value::record(self.result_fields(span, None), span)
     }
@@ -1571,6 +2093,7 @@ impl Session {
             Value::int(as_list(&self.app.data).len() as i64, span),
         );
         rec.insert("live", Value::bool(self.stream_live, span));
+        rec.insert("context", self.app.context.clone());
         if let Some(screen) = screen {
             rec.insert("screen", Value::string(screen, span));
         }
@@ -1723,6 +2246,7 @@ pub fn as_list(value: &Value) -> &[Value] {
     }
 }
 
+/// A context patch: records merge key by key, anything else replaces.
 fn digit_page(chord: &str) -> Option<usize> {
     let c = single_char(chord)?;
     (c.is_ascii_digit() && c != '0').then(|| (c as u8 - b'1') as usize)
@@ -1772,6 +2296,8 @@ mod tests {
                 capture_keys: false,
                 multi: false,
                 index: false,
+                icons: false,
+                path_columns: Vec::new(),
             }),
         )
     }
@@ -1817,7 +2343,7 @@ mod tests {
             id,
             WidgetKind::Preview(PreviewWidget {
                 max_bytes: 1024,
-                transform: None,
+                ..PreviewWidget::default()
             }),
         )
     }
@@ -2029,6 +2555,8 @@ mod tests {
                 capture_keys: true,
                 multi: false,
                 index: false,
+                icons: false,
+                path_columns: Vec::new(),
             }),
         ));
         app(widgets, rows)
@@ -2630,6 +3158,8 @@ mod tests {
             capture_keys: true,
             multi: false,
             index: false,
+            icons: false,
+            path_columns: Vec::new(),
         });
         let mut session = Session::new(app(
             vec![
@@ -2870,6 +3400,8 @@ mod tests {
                     capture_keys: false,
                     multi: true,
                     index: false,
+                    icons: false,
+                    path_columns: Vec::new(),
                 }),
             )],
             Value::test_nothing(),

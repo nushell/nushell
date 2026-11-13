@@ -208,6 +208,7 @@ impl UpdateFromValue for Config {
                 "tui" => {
                     self.tui.update(val, current_path, errors);
                     check_tui_border_type(&mut self.tui, current_path, errors);
+                    check_tui_image_protocol(&mut self.tui, current_path, errors);
                 }
                 "color_config" => self.color_config.update(val, current_path, errors),
                 "clip" => self.clip.update(val, current_path, errors),
@@ -331,6 +332,40 @@ fn check_tui_border_type(
         Ok(_) => {
             let names = TableMode::tui_border_names().collect::<Vec<_>>().join(", ");
             errors.invalid_value(path, format!("one of {names}"), value);
+        }
+        Err(_) => errors.type_mismatch(path, Type::String, value),
+    }
+    match errors.config().tui.get(KEY).cloned() {
+        Some(old) => tui.insert(KEY.into(), old),
+        None => tui.remove(KEY),
+    };
+}
+
+/// The values `$env.config.tui.image_protocol` accepts: ask the terminal,
+/// force one graphics protocol, or draw no images.
+pub const TUI_IMAGE_PROTOCOLS: [&str; 6] =
+    ["auto", "kitty", "sixel", "iterm2", "halfblocks", "none"];
+
+/// `$env.config.tui.image_protocol` must be one of [`TUI_IMAGE_PROTOCOLS`].
+/// A bad value is reported and the previous one kept, as for `border_type`.
+fn check_tui_image_protocol(
+    tui: &mut HashMap<String, Value>,
+    path: &mut ConfigPath,
+    errors: &mut ConfigErrors,
+) {
+    const KEY: &str = "image_protocol";
+    let Some(value) = tui.get(KEY) else {
+        return;
+    };
+    let path = &mut path.push(KEY);
+    match value.as_str() {
+        Ok(name) if TUI_IMAGE_PROTOCOLS.contains(&name) => return,
+        Ok(_) => {
+            errors.invalid_value(
+                path,
+                format!("one of {}", TUI_IMAGE_PROTOCOLS.join(", ")),
+                value,
+            );
         }
         Err(_) => errors.type_mismatch(path, Type::String, value),
     }
@@ -508,6 +543,44 @@ mod tests {
                 "{bad:?}: {err:?}"
             );
             assert_eq!(new.tui.get("border_type"), old.tui.get("border_type"));
+        }
+    }
+
+    /// `tui.image_protocol` is checked the same way: a protocol name, `auto`,
+    /// or `none`, else an error that keeps the previous value.
+    #[test]
+    fn tui_image_protocol_rejects_unknown_names_and_keeps_the_old_one() {
+        let old = Config::default();
+        let tui = |protocol: Value| {
+            Value::test_record(record! {
+                "tui" => Value::test_record(record! { "image_protocol" => protocol }),
+            })
+        };
+
+        for good in TUI_IMAGE_PROTOCOLS {
+            let mut new = old.clone();
+            new.update_from_value(&old, &tui(Value::test_string(good)))
+                .expect("a listed protocol");
+            assert_eq!(
+                new.tui.get("image_protocol"),
+                Some(&Value::test_string(good))
+            );
+        }
+
+        for bad in [
+            Value::test_string("Kitty"),
+            Value::test_string("png"),
+            Value::test_bool(true),
+        ] {
+            let mut new = old.clone();
+            let err = new
+                .update_from_value(&old, &tui(bad.clone()))
+                .expect_err("not an image protocol");
+            assert!(
+                format!("{err:?}").contains("$env.config.tui.image_protocol"),
+                "{bad:?}: {err:?}"
+            );
+            assert_eq!(new.tui.get("image_protocol"), old.tui.get("image_protocol"));
         }
     }
 

@@ -14,8 +14,17 @@ use std::collections::{HashMap, HashSet};
 /// A `tui bind` entry: a normalized chord and the hook it runs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bind {
+    /// One chord, or a sequence of them separated by spaces (`m s`).
     pub chord: String,
     pub closure: Closure,
+    /// `--label`: what the key panel says the bind does while the rest of
+    /// its sequence is awaited.
+    #[serde(default)]
+    pub label: Option<String>,
+    /// `--when`: only while this widget is focused. A scoped bind whose
+    /// hook returns nothing lets the key go on to the widget.
+    #[serde(default)]
+    pub when: Option<String>,
 }
 
 /// Composable TUI definition passed through the pipeline as a custom value.
@@ -30,12 +39,21 @@ pub struct TuiApp {
     /// rows are appended to `data` as they arrive.
     #[serde(skip)]
     pub stream: Option<Feed>,
-    /// Path columns from pipeline metadata (`ls` sets `name`). Used for LS_COLORS.
+    /// Path columns from pipeline metadata (`ls` sets `name`): colored and iconed as files.
     #[serde(default)]
     pub path_columns: Vec<String>,
     /// Global key bindings from `tui bind`.
     #[serde(default)]
     pub binds: Vec<Bind>,
+    /// `tui theme`: slots laid over `$env.config.tui` for this TUI.
+    #[serde(default)]
+    pub theme: HashMap<String, Value>,
+    /// `tui context`: the record every hook reads as `$state.context` and
+    /// `{action: context}` writes. Its `views` record holds one entry per
+    /// widget id, the part only that widget's closure sees (see
+    /// [`Session::view_context`](crate::session::Session::view_context)).
+    #[serde(default)]
+    pub context: Value,
 }
 
 impl TuiApp {
@@ -46,6 +64,8 @@ impl TuiApp {
             stream: None,
             path_columns: Vec::new(),
             binds: Vec::new(),
+            theme: HashMap::new(),
+            context: Value::nothing(Span::unknown()),
         }
     }
 
@@ -56,7 +76,7 @@ impl TuiApp {
     pub fn from_input(input: PipelineData) -> Self {
         let mut app = Self::new();
         if let Some(meta) = input.metadata_ref() {
-            // `ls` marks its path columns, for LS_COLORS.
+            // `ls` marks its path columns, for their colors and icons.
             app.path_columns = meta.path_columns.clone();
         }
         match input {
@@ -415,6 +435,18 @@ impl CustomValue for TuiApp {
         if !self.path_columns.is_empty() {
             rec.insert("path_columns", string_list(&self.path_columns, span));
         }
+        if !self.theme.is_empty() {
+            let mut theme: Vec<_> = self.theme.iter().collect();
+            theme.sort_by(|a, b| a.0.cmp(b.0));
+            let theme = theme
+                .into_iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect::<Record>();
+            rec.insert("theme", Value::record(theme, span));
+        }
+        if !self.context.is_nothing() {
+            rec.insert("context", self.context.clone());
+        }
         if !self.binds.is_empty() {
             rec.insert(
                 "binds",
@@ -467,4 +499,21 @@ impl CustomValue for TuiApp {
 /// Shared input/output type for component commands.
 pub fn tui_type() -> Type {
     Type::custom(TYPE_NAME)
+}
+
+/// Lay `patch` over `current`: records merge key by key (one level deep,
+/// so a nested record replaces the one under its key), anything else
+/// replaces the whole value. The rule `tui context` and `{action: context}`
+/// share.
+pub fn merge_context(current: &Value, patch: Value) -> Value {
+    match (current, patch) {
+        (Value::Record { val: base, .. }, Value::Record { val: patch, .. }) => {
+            let mut merged = base.clone().into_owned();
+            for (k, v) in patch.into_owned() {
+                merged.insert(k, v);
+            }
+            Value::record(merged, Span::unknown())
+        }
+        (_, patch) => patch,
+    }
 }

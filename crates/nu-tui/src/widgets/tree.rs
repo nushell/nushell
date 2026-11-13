@@ -11,6 +11,7 @@ use ratatui::text::{Line, Span as TSpan, Text};
 use ratatui::widgets::Paragraph;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TreeWidget {
@@ -165,29 +166,30 @@ impl TuiWidget for TreeWidget {
         let computer = session.style_computer();
         let name = super::custom_title(session, id, "tree");
         let block = super::framed(&format!("{name} ({})", rows.len()), focused, session, id);
-        let inner = block.inner(area);
+        let inner = super::capped(block.inner(area), theme);
         frame.render_widget(block, area);
+        let scroll = list.scroll_for(inner.height as usize);
+        let glyphs = &theme.glyphs;
+        // Both arrows take the wider one's room, so labels line up.
+        let arrow_width = glyphs.tree_open.width().max(glyphs.tree_closed.width());
+        let padded = |arrow: &str| format!("{arrow}{} ", " ".repeat(arrow_width - arrow.width()));
         let lines: Vec<Line> = rows
             .iter()
             .enumerate()
-            .skip(list.scroll_for(inner.height as usize))
+            .skip(scroll)
             .take(inner.height as usize)
             .map(|(i, row)| {
                 let marker = if !row.expandable {
-                    "  "
+                    padded("")
                 } else if row.expanded {
-                    "▾ "
+                    padded(&glyphs.tree_open)
                 } else {
-                    "▸ "
+                    padded(&glyphs.tree_closed)
                 };
                 let check = if self.multi {
-                    if list.checked.contains(&i) {
-                        "[x] "
-                    } else {
-                        "[ ] "
-                    }
+                    format!("{} ", glyphs.check.get(list.checked.contains(&i)))
                 } else {
-                    ""
+                    String::new()
                 };
                 let indent = "  ".repeat(row.depth);
                 let mut style = session.row_style(&row.value, computer.as_ref());
@@ -201,6 +203,11 @@ impl TuiWidget for TreeWidget {
             })
             .collect();
         frame.render_widget(Paragraph::new(Text::from(lines)).style(theme.text()), inner);
+        if let Some(row) = rows.get(list.selected) {
+            let y = inner.top() + list.selected.saturating_sub(scroll) as u16;
+            let style = session.row_style(&row.value, computer.as_ref());
+            super::draw_selected_caps(frame, inner, y, style, theme);
+        }
     }
 
     fn value(&self, id: &str, state: &WidgetState, session: &Session) -> Value {
