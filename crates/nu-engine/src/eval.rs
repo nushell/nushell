@@ -116,7 +116,7 @@ impl CallEval {
                     to_type: param_type.to_string(),
                     from_type: value.get_type().to_string(),
                     span: value.span(),
-                    help: None,
+                    help: value.explain_type_mismatch(&param_type),
                 });
             }
 
@@ -150,7 +150,7 @@ impl CallEval {
                 to_type: param_type.to_string(),
                 from_type: value.get_type().to_string(),
                 span: value.span(),
-                help: None,
+                help: value.explain_type_mismatch(&param_type),
             });
         }
 

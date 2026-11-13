@@ -1013,6 +1013,24 @@ fn run_rejects_arguments_main_does_not_accept(
 // Quoting a variable would pass its name, so there's no hint for it.
 #[case::variable("let n = 5; run word.nu $n", "string", None)]
 #[case::number_for_a_float("run float.nu 5", "float", Some("pass a value of type `float`"))]
+// The hint comes first, then the item that doesn't match.
+#[case::list_item(
+    "run names.nu [a 23]",
+    "list<string>",
+    Some("pass a value of type `list<string>`\nitem `1`: expected string, got int")
+)]
+// A spread list item gets the hint too, and its own detail after it.
+#[case::spread_list_item(
+    "run rest.nu ...[[a 23]]",
+    "list<string>",
+    Some("pass a value of type `list<string>`\nitem `1`: expected string, got int")
+)]
+// A record gets no hint, but still names the field that doesn't match.
+#[case::record_field(
+    "run cfg.nu {a: 23}",
+    "record<a: string>",
+    Some("field `a`: expected string, got int")
+)]
 fn run_does_not_convert_script_arguments(
     #[case] code: &str,
     #[case] expected_type: &str,
@@ -1031,6 +1049,24 @@ fn run_does_not_convert_script_arguments(
                 "float.nu",
                 "
                 def main [x: float] { $x }
+            ",
+            ),
+            FileWithContentToBeTrimmed(
+                "names.nu",
+                "
+                def main [names: list<string>] { $names }
+            ",
+            ),
+            FileWithContentToBeTrimmed(
+                "cfg.nu",
+                "
+                def main [cfg: record<a: string>] { $cfg }
+            ",
+            ),
+            FileWithContentToBeTrimmed(
+                "rest.nu",
+                "
+                def main [...rest: list<string>] { $rest }
             ",
             ),
         ]);
@@ -1122,6 +1158,29 @@ fn run_rejects_spreads(#[case] code: &str, #[case] message: &str) -> Result {
         assert_contains(message, err.to_string());
         Ok(())
     })
+}
+
+/// A spread field of the wrong type keeps its own help and points at the field's value `23`, not
+/// at the whole spread.
+#[test]
+fn run_spread_field_error_points_at_the_field() -> Result {
+    Playground::setup(
+        "run_spread_field_error_points_at_the_field",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed("flags.nu", FLAGS_SCRIPT)]);
+
+            let err = test()
+                .cwd(dirs.test())
+                .run("run flags.nu ...{foo: 23}")
+                .expect_shell_error()?;
+            assert_matches!(
+                err,
+                ShellError::CantConvert { help: Some(help), span, .. }
+                    if help == "spread field `foo` does not match the type of `--foo`" && span.len() == 2
+            );
+            Ok(())
+        },
+    )
 }
 
 #[test]
