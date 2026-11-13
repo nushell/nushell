@@ -1,6 +1,7 @@
 mod command;
 mod csv;
 mod delimited;
+mod dotenv;
 mod json;
 mod kdl;
 mod md;
@@ -19,6 +20,8 @@ mod yaml;
 pub use self::csv::FromCsv;
 pub use self::toml::FromToml;
 pub use command::From;
+pub use dotenv::FromDotenv;
+pub(crate) use dotenv::{is_dotenv_file, is_key as is_dotenv_key};
 pub use json::FromJson;
 pub use kdl::FromKdl;
 pub use md::FromMd;

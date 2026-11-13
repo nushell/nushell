@@ -60,3 +60,22 @@ fn failed_while_should_break_running() -> Result {
         .run(code)
         .expect_error_code_eq("nu::shell::non_zero_exit_code")
 }
+
+/// `while` is a statement without output, so like `for` it can't be part of a pipeline, also
+/// after an environment shorthand.
+#[rstest::rstest]
+#[case::bare("while false { } | describe")]
+#[case::env_shorthand("FOO=1 while false { } | describe")]
+fn while_in_pipeline_is_an_error(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::unexpected_keyword")
+}
+
+/// A non-bool condition is the same type mismatch in `while` and `if`.
+#[test]
+fn while_non_bool_condition() -> Result {
+    test()
+        .run("while 1 { }")
+        .expect_error_code_eq("nu::shell::type_mismatch")
+}

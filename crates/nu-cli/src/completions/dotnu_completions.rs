@@ -161,6 +161,6 @@ impl Completer for DotNuCompletion {
                 .collect::<Vec<_>>(),
         );
 
-        Fetched::Cacheable(all_results)
+        Fetched::answering(all_results).worth_keeping()
     }
 }

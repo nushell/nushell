@@ -28,3 +28,14 @@ fn call_scope_variables() -> Result {
 
     test().run(code).expect_value_eq(1)
 }
+
+#[test]
+#[deps(NU_PLUGIN_EXAMPLE)]
+fn call_custom_command() -> Result {
+    let code = "
+        def double [x: int, --plus: int = 0] { $x * 2 + $plus }
+        example call-decl double {plus: 1} 21
+    ";
+
+    test().run(code).expect_value_eq(43)
+}

@@ -1,12 +1,159 @@
+use chrono::DateTime;
+use nu_protocol::casing::Casing;
+use nu_protocol::{ast::PathMember, record};
+
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 // Tests happy paths
 
-#[test]
-fn into_datetime_from_record_cell_path() -> Result {
-    test()
-        .run("{d: '2021'} | into datetime d | get d | into record | get year")
-        .expect_value_eq(2021)
+const TEST_DATETIME_FMT: &str = "%Y-%m-%dT%H:%M:%S%z";
+
+#[rstest]
+#[case::string(
+    "{
+        name: 'foo',
+        start_time: '2021-02-27T14:55:40+01:00',
+        stop_time: '2021-02-27T15:55:40+01:00',
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T14:55:40+01:00",
+        "stop_time" => "2021-02-27T15:55:40+01:00",
+    },
+)]
+#[case::record(
+    "{
+        name: 'foo',
+        start_time: {
+            year: 2021,
+            month: 2,
+            day: 27,
+            hour: 14,
+            minute: 55,
+            second: 40,
+            timezone: '+01:00',
+        },
+        stop_time: {
+            year: 2021,
+            month: 2,
+            day: 27,
+            hour: 15,
+            minute: 55,
+            second: 40,
+            timezone: '+01:00',
+        },
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T14:55:40+01:00",
+        "stop_time" => "2021-02-27T15:55:40+01:00",
+    },
+)]
+#[case::duration(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T13:55:40+00:00",
+        "stop_time" => "2021-02-27T14:55:40+00:00",
+    },
+)]
+#[case::duration_negative(
+    "{
+        name: 'foo',
+        start_time: -2day,
+        stop_time: -1day,
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "1969-12-30T00:00:00+00:00",
+        "stop_time" => "1969-12-31T00:00:00+00:00",
+    },
+)]
+#[case::duration_with_timezone(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    "--timezone utc",
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T13:55:40+00:00",
+        "stop_time" => "2021-02-27T14:55:40+00:00",
+    },
+)]
+#[case::duration_with_timezone(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    "--timezone America/New_York",
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T08:55:40-05:00",
+        "stop_time" => "2021-02-27T09:55:40-05:00",
+    },
+)]
+#[case::duration_with_offset(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    "--offset -6",
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T07:55:40-06:00",
+        "stop_time" => "2021-02-27T08:55:40-06:00",
+    },
+)]
+fn into_datetime_cell_path(
+    #[case] input: &str,
+    #[case(opt)] args: Option<&str>,
+    #[case] mut expected: Value,
+) -> Result {
+    for col in ["start_time", "stop_time"] {
+        expected.update_cell_path(
+            &[PathMember::test_string(col, false, Casing::Sensitive)],
+            Box::new(|val| {
+                Value::test_date(
+                    DateTime::parse_from_str(val.as_str().unwrap(), TEST_DATETIME_FMT).unwrap(),
+                )
+            }),
+        )?;
+    }
+
+    let code = format!(
+        "$in | from nuon | into datetime start_time stop_time {}",
+        args.unwrap_or("")
+    );
+
+    let actual = test().run_with_data(code, input);
+
+    actual.clone().expect_value_eq(expected.clone())?;
+
+    let actual = actual?;
+
+    for col in ["start_time", "stop_time"] {
+        let actual_date = actual.get_data_by_key(col).unwrap().as_date()?;
+        let expected_date = expected.get_data_by_key(col).unwrap().as_date()?;
+
+        assert_eq!(expected_date.timezone(), actual_date.timezone());
+        assert_eq!(expected_date.offset(), actual_date.offset());
+    }
+
+    Ok(())
 }
 
 #[test]
@@ -15,17 +162,17 @@ fn into_datetime_from_record() -> Result {
         "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5, millisecond: 6, microsecond: 7, nanosecond: 8, timezone: '+01:00'} | into datetime | into record",
     )
     .expect_value_eq(
-        nu_protocol::record! {
-            "year" => nu_protocol::Value::test_int(2023),
-            "month" => nu_protocol::Value::test_int(1),
-            "day" => nu_protocol::Value::test_int(2),
-            "hour" => nu_protocol::Value::test_int(3),
-            "minute" => nu_protocol::Value::test_int(4),
-            "second" => nu_protocol::Value::test_int(5),
-            "millisecond" => nu_protocol::Value::test_int(6),
-            "microsecond" => nu_protocol::Value::test_int(7),
-            "nanosecond" => nu_protocol::Value::test_int(8),
-            "timezone" => nu_protocol::Value::test_string("+01:00"),
+        record! {
+            "year" => Value::test_int(2023),
+            "month" => Value::test_int(1),
+            "day" => Value::test_int(2),
+            "hour" => Value::test_int(3),
+            "minute" => Value::test_int(4),
+            "second" => Value::test_int(5),
+            "millisecond" => Value::test_int(6),
+            "microsecond" => Value::test_int(7),
+            "nanosecond" => Value::test_int(8),
+            "timezone" => Value::test_string("+01:00"),
         },
     )
 }
@@ -324,11 +471,107 @@ fn formatted_input_rejects_invalid_offset_flag() -> Result {
     }
 }
 
+#[rstest]
+#[case::winter(1_704_067_200_000_000_000, "2024-01-01 01:00 +01:00")]
+#[case::summer(1_719_792_000_000_000_000, "2024-07-01 02:00 +02:00")]
+fn named_timezone_converts_nanosecond_timestamp(
+    #[case] timestamp: i64,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --timezone Europe/Berlin
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test()
+        .run_with_data(code, timestamp)
+        .expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::winter("2024-01-01 00:00 +00:00", "2024-01-01 01:00 +01:00")]
+#[case::summer("2024-07-01 00:00 +00:00", "2024-07-01 02:00 +02:00")]
+fn named_timezone_converts_formatted_input_with_offset(
+    #[case] input: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --format '%Y-%m-%d %H:%M %z' --timezone Europe/Berlin
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::winter("2024-01-01 12:00", "2024-01-01 12:00 +01:00")]
+#[case::summer("2024-07-01 12:00", "2024-07-01 12:00 +02:00")]
+fn named_timezone_interprets_formatted_wall_clock(
+    #[case] input: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --format '%Y-%m-%d %H:%M' --timezone eUrOpE/bErLiN
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+#[test]
+fn named_timezone_interprets_formatted_date_only() -> Result {
+    let code = "
+        '2024-07-01'
+        | into datetime --format '%Y-%m-%d' --timezone Europe/Berlin
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run(code).expect_value_eq("2024-07-01 00:00 +02:00")
+}
+
+#[test]
+fn named_timezone_interprets_formatted_time_only() -> Result {
+    let code = "
+        '12:30'
+        | into datetime --format '%H:%M' --timezone Asia/Kolkata
+        | format date '%H:%M %:z'
+    ";
+
+    test().run(code).expect_value_eq("12:30 +05:30")
+}
+
+#[rstest]
+#[case::nonexistent("2024-03-31 02:30")]
+#[case::ambiguous("2024-10-27 02:30")]
+fn named_timezone_rejects_invalid_wall_clock(#[case] input: &str) -> Result {
+    let code = "$in | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin";
+    let err = test().run_with_data(code, input).expect_shell_error()?;
+    assert_matches!(err, ShellError::DatetimeParseError { .. });
+    Ok(())
+}
+
 #[test]
 fn list_flag_produces_available_format_entries() -> Result {
     let len: i64 = test().run("into datetime --list | length")?;
     assert_ne!(len, 0);
     Ok(())
+}
+
+#[test]
+fn formats_flag_columns() -> Result {
+    test()
+        .run("into datetime --formats | columns | to nuon")
+        .expect_value_eq("[Recognized_Format, Format, Kind, Description]")
+}
+
+#[test]
+fn formats_flag_examples_all_convert() -> Result {
+    // every example, the standards, variants and relative forms included, reads as a date
+    let code = "into datetime --formats | get Recognized_Format | each { into datetime | describe } | uniq";
+    test().run(code).expect_value_eq(["datetime"])
 }
 
 #[test]

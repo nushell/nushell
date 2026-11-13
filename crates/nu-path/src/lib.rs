@@ -12,7 +12,7 @@ mod trailing_slash;
 pub use components::components;
 pub use expansions::{
     absolute_with, canonicalize_with, expand_path, expand_path_with, expand_to_real_path,
-    locate_in_dirs,
+    locate_in_dirs, resolve_drive_relative,
 };
 pub use helpers::{home_dir, is_windows_device_path};
 pub use path::*;

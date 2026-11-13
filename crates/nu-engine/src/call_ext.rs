@@ -34,18 +34,6 @@ pub trait CallExt {
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError>;
 
-    /// Returns the rest arguments starting at `starting_pos`, preserving whether each item was
-    /// passed as a spread argument.
-    ///
-    /// The tuple contains `(value, is_spread)`. This differs from [`CallExt::rest()`], which
-    /// flattens spread arguments into a single list of values.
-    fn rest_preserving_spreads<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        starting_pos: usize,
-    ) -> Result<Vec<(T, bool)>, ShellError>;
-
     fn opt<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -56,6 +44,7 @@ pub trait CallExt {
     fn opt_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError>;
 
@@ -154,21 +143,6 @@ impl CallExt for ast::Call {
         .collect()
     }
 
-    fn rest_preserving_spreads<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        starting_pos: usize,
-    ) -> Result<Vec<(T, bool)>, ShellError> {
-        let stack = &mut stack.use_call_arg_out_dest();
-        self.rest_iter(starting_pos)
-            .map(|(expr, is_spread)| {
-                let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-                Ok((T::from_value(result)?, is_spread))
-            })
-            .collect()
-    }
-
     fn opt<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -191,6 +165,7 @@ impl CallExt for ast::Call {
     fn opt_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        _stack: &Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.positional_iter().nth(pos) {
@@ -301,17 +276,6 @@ impl CallExt for ir::Call {
             .collect()
     }
 
-    fn rest_preserving_spreads<T: FromValue>(
-        &self,
-        _engine_state: &EngineState,
-        stack: &mut Stack,
-        starting_pos: usize,
-    ) -> Result<Vec<(T, bool)>, ShellError> {
-        self.rest_iter(stack, starting_pos)
-            .map(|(val, is_spread)| Ok((T::from_value(val.clone())?, is_spread)))
-            .collect()
-    }
-
     fn opt<T: FromValue>(
         &self,
         _engine_state: &EngineState,
@@ -329,12 +293,15 @@ impl CallExt for ir::Call {
     fn opt_const<T: FromValue>(
         &self,
         _working_set: &StateWorkingSet,
-        _pos: usize,
+        stack: &Stack,
+        pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        Err(ShellError::IrEvalError {
-            msg: "const evaluation is not yet implemented on ir::Call".into(),
-            span: Some(self.head),
-        })
+        self.positional_iter(stack)
+            .nth(pos)
+            .filter(|v| !v.is_nothing())
+            .cloned()
+            .map(T::from_value)
+            .transpose()
     }
 
     fn req<T: FromValue>(
@@ -427,15 +394,6 @@ impl CallExt for engine::Call<'_> {
         proxy!(self.rest(engine_state, stack, starting_pos))
     }
 
-    fn rest_preserving_spreads<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        starting_pos: usize,
-    ) -> Result<Vec<(T, bool)>, ShellError> {
-        proxy!(self.rest_preserving_spreads(engine_state, stack, starting_pos))
-    }
-
     fn opt<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -448,9 +406,10 @@ impl CallExt for engine::Call<'_> {
     fn opt_const<T: FromValue>(
         &self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        proxy!(self.opt_const(working_set, pos))
+        proxy!(self.opt_const(working_set, stack, pos))
     }
 
     fn req<T: FromValue>(

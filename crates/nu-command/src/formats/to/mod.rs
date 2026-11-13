@@ -1,6 +1,7 @@
 mod command;
 mod csv;
 mod delimited;
+mod dotenv;
 mod json;
 mod kdl;
 mod md;
@@ -16,6 +17,7 @@ mod yaml;
 pub use self::csv::ToCsv;
 pub use self::toml::ToToml;
 pub use command::To;
+pub use dotenv::ToDotenv;
 pub use json::ToJson;
 pub use kdl::ToKdl;
 pub use md::ToMd;

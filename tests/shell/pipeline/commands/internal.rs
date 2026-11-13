@@ -356,6 +356,100 @@ fn load_env_variable_arg() -> Result {
 }
 
 #[test]
+fn load_env_converts_loaded_variables() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row ":" } } }
+        load-env { TESTENVVAR: "hello:world" }
+        $env.TESTENVVAR
+    "#;
+
+    test().run(code).expect_value_eq(["hello", "world"])
+}
+
+#[test]
+fn load_env_makes_path_a_list() -> Result {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let code = format!("load-env {{ pAtH: 'first{separator}second' }}; $env.PATH");
+
+    test().run(code).expect_value_eq(["first", "second"])
+}
+
+#[test]
+fn load_env_converts_only_what_it_loads() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { OTHER: { from_string: { split row "," } } }
+        $env.OTHER = "a,b"
+        load-env { TESTENVVAR: "x,y" }
+        $env.OTHER
+    "#;
+
+    test().run(code).expect_value_eq("a,b")
+}
+
+#[test]
+fn load_env_leaves_path_alone_when_it_isnt_loaded() -> Result {
+    test()
+        .run("$env.PATH = 5; load-env { TESTENVVAR: 1 }; $env.TESTENVVAR")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn load_env_leaves_path_alone_when_a_converted_variable_is_loaded() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row "," } } }
+        $env.PATH = 5
+        load-env { TESTENVVAR: "x,y" }
+        [$env.PATH $env.TESTENVVAR]
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([5, ["x", "y"]]))
+}
+
+#[test]
+fn load_env_skips_a_conversion_without_from_string() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { to_string: { $in } } }
+        load-env { TESTENVVAR: "x" }
+        $env.TESTENVVAR
+    "#;
+
+    test().run(code).expect_value_eq("x")
+}
+
+#[test]
+fn load_env_loads_nothing_when_a_conversion_fails() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { error make { msg: boom } } } }
+        try { load-env { OTHER: "a", TESTENVVAR: "x" } }
+        [($env.OTHER? == null) ($env.TESTENVVAR? == null)]
+    "#;
+
+    test().run(code).expect_value_eq([true, true])
+}
+
+#[test]
+fn load_env_of_env_conversions_converts_every_variable() -> Result {
+    let code = r#"
+        $env.OTHER = "a,b"
+        load-env { ENV_CONVERSIONS: { OTHER: { from_string: { split row "," } } } }
+        $env.OTHER
+    "#;
+
+    test().run(code).expect_value_eq(["a", "b"])
+}
+
+#[test]
+fn refreshing_env_conversions_normalizes_path() -> Result {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let code =
+        format!("$env.PATH = 'first{separator}second'; $env.ENV_CONVERSIONS = {{}}; $env.PATH");
+
+    test().run(code).expect_value_eq(["first", "second"])
+}
+
+#[test]
 fn load_env_doesnt_leak() -> Result {
     let err = test()
         .run(r#"do { echo { name: xyz, value: "my message" } | load-env }; $env.xyz"#)
@@ -686,8 +780,8 @@ fn table_with_commas() -> Result {
 fn duration_overflow() -> Result {
     let err = test()
         .run("ls | get modified | each { |it| $it + 10000000000000000day }")
-        .expect_compile_error()?;
-    assert_matches!(err, CompileError::InvalidLiteral { msg, .. } if msg == "duration too large");
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::LiteralTooLarge(..));
     Ok(())
 }
 
@@ -695,8 +789,8 @@ fn duration_overflow() -> Result {
 fn date_and_duration_overflow() -> Result {
     let err = test()
         .run("ls | get modified | each { |it| $it + 1000000000day }")
-        .expect_compile_error()?;
-    assert_matches!(err, CompileError::InvalidLiteral { msg, .. } if msg == "duration too large");
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::LiteralTooLarge(..));
     Ok(())
 }
 
@@ -990,10 +1084,8 @@ fn liststream_error_with_backtrace_custom() -> Result {
         .env("NU_BACKTRACE", 1)
         .run(code)
         .expect_shell_error()?;
-    let [err] = match err {
-        ShellError::EvalBlockWithInput { sources, .. } => sources.try_into().unwrap(),
-        _ => return Err(err.into()),
-    };
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
+    let err = err.into_inner()?;
 
     // is this enough to test that backtracing is on?
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "a custom error");
@@ -1022,7 +1114,7 @@ fn liststream_error_with_backtrace_function() -> Result {
         b
     ";
 
-    let [err, _] = test()
+    let [err] = test()
         .env("NU_BACKTRACE", 1)
         .run(code)
         .expect_shell_error()?
@@ -1031,9 +1123,9 @@ fn liststream_error_with_backtrace_function() -> Result {
         .collect_array()
         .unwrap();
 
-    assert_matches!(err, ShellError::EvalBlockWithInput { .. });
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
     let err = err.into_inner()?;
-    assert_matches!(err, ShellError::EvalBlockWithInput { .. });
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
     let err = err.into_inner()?;
     assert_matches!(err, ShellError::ChainedError(..));
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "a custom error");
@@ -1048,7 +1140,7 @@ fn liststream_error_with_backtrace_single_stream() -> Result {
         .run(code)
         .expect_shell_error()?;
 
-    assert_matches!(err, ShellError::EvalBlockWithInput { .. });
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
     let err = err.into_inner()?;
     assert_matches!(err, ShellError::ChainedError(..));
     assert_eq!(err.into_inner()?.into_labeled()?.msg, "a custom err");

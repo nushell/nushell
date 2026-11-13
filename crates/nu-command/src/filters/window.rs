@@ -1,3 +1,4 @@
+use super::utils::{list_or_error, take_error};
 use nu_engine::command_prelude::*;
 use nu_protocol::ListStream;
 use std::num::NonZeroUsize;
@@ -137,6 +138,9 @@ impl Command for Window {
 struct WindowOverlapIter<I: Iterator<Item = Value>> {
     iter: I,
     window: Vec<Value>,
+    // The window size lives here and not in `window.capacity()`, because `window` is not
+    // allocated up front: the size is user supplied and can be far larger than the input.
+    size: usize,
     stride: usize,
     remainder: bool,
     span: Span,
@@ -152,7 +156,9 @@ impl<I: Iterator<Item = Value>> WindowOverlapIter<I> {
     ) -> Self {
         Self {
             iter: iter.into_iter(),
-            window: Vec::with_capacity(size.into()),
+            // Don't reserve `size`: it comes from the user and can be much larger than the input.
+            window: Vec::new(),
+            size: size.into(),
             stride: stride.into(),
             remainder,
             span,
@@ -165,22 +171,25 @@ impl<I: Iterator<Item = Value>> Iterator for WindowOverlapIter<I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let len = if self.window.is_empty() {
-            self.window.capacity()
+            self.size
         } else {
             self.stride
         };
 
+        let kept = self.window.len();
         self.window.extend((&mut self.iter).take(len));
 
-        if self.window.len() == self.window.capacity()
-            || (self.remainder && !self.window.is_empty())
-        {
+        if self.window.len() == self.size || (self.remainder && !self.window.is_empty()) {
             let mut next = Vec::with_capacity(self.window.len());
             next.extend(self.window.iter().skip(self.stride).cloned());
             let window = std::mem::replace(&mut self.window, next);
-            Some(Value::list(window, self.span))
+            Some(list_or_error(window, self.span))
         } else {
-            None
+            // Too few items are left for a window, but the new ones have been read, so an error
+            // still counts. The items kept from the last window have already been reported.
+            let mut new_items = self.window.split_off(kept);
+            self.window.clear();
+            take_error(&mut new_items)
         }
     }
 }
@@ -189,7 +198,8 @@ struct WindowGapIter<I: Iterator<Item = Value>> {
     iter: I,
     size: usize,
     skip: usize,
-    first: bool,
+    /// How many items are left to skip before the next window.
+    gap: usize,
     remainder: bool,
     span: Span,
 }
@@ -207,7 +217,7 @@ impl<I: Iterator<Item = Value>> WindowGapIter<I> {
             iter: iter.into_iter(),
             size,
             skip: stride.get() - size,
-            first: true,
+            gap: 0,
             remainder,
             span,
         }
@@ -218,19 +228,26 @@ impl<I: Iterator<Item = Value>> Iterator for WindowGapIter<I> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut window = Vec::with_capacity(self.size);
-        window.extend(
-            (&mut self.iter)
-                .skip(if self.first { 0 } else { self.skip })
-                .take(self.size),
-        );
+        // An error in the gap comes out on its own, so it doesn't take a place in the next window.
+        while self.gap > 0 {
+            self.gap -= 1;
+            let value = self.iter.next()?;
+            if value.is_error() {
+                return Some(value);
+            }
+        }
 
-        self.first = false;
+        // `self.size` is user supplied and can be far larger than the input, so don't reserve it.
+        // `Take` passes the size hint of the input through, so `collect` allocates once.
+        let mut window: Vec<_> = (&mut self.iter).take(self.size).collect();
+
+        self.gap = self.skip;
 
         if window.len() == self.size || (self.remainder && !window.is_empty()) {
-            Some(Value::list(window, self.span))
+            Some(list_or_error(window, self.span))
         } else {
-            None
+            // Too few items are left for a window, but they've been read, so an error still counts.
+            take_error(&mut window)
         }
     }
 }

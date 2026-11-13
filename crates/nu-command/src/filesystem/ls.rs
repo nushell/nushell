@@ -1,4 +1,4 @@
-use crate::{DirBuilder, DirInfo};
+use crate::{DirBuilder, DirInfo, SeenSet};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, glob_from};
 use nu_glob::MatchOptions;
@@ -292,7 +292,7 @@ impl Command for Ls {
             },
             Example {
                 description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days.",
-                example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
+                example: "ls -as ~ | where type == dir and modified older-than 7day",
                 result: None,
             },
             Example {
@@ -456,13 +456,35 @@ fn ls_for_one_pattern(
     let no_matches = paths_peek.peek().is_none();
     signals.check(&call_span)?;
     if no_matches {
-        return Err(ShellError::Generic(
-            GenericError::new(
-                format!("No matches found for {:?}", path.item),
-                "Pattern, file or folder not found",
-                p_tag,
+        let pattern = path.item.as_ref();
+        // A string (as opposed to a glob) is taken literally, so `ls '*.rs'` looks for a file
+        // named `*.rs`. Say so instead of making it look like the pattern matched nothing.
+        let (label, help) = if !path.item.is_expand()
+            && nu_glob::is_glob_with_backend(pattern)
+            && nu_glob::Pattern::new(pattern).is_ok()
+        {
+            // Backtick strings have no escapes, so only offer one when the pattern has no backtick.
+            let backticks = if pattern.contains('`') {
+                String::new()
+            } else {
+                format!(" or backticks, as in ls `{pattern}`")
+            };
+            (
+                "File or folder not found",
+                format!(
+                    "Strings are not expanded as glob patterns. If you meant a glob, use \
+                    `into glob`{backticks}"
+                ),
             )
-            .with_help("no matches found"),
+        } else {
+            (
+                "Pattern, file or folder not found",
+                "no matches found".to_string(),
+            )
+        };
+        return Err(ShellError::Generic(
+            GenericError::new(format!("No matches found for '{pattern}'"), label, p_tag)
+                .with_help(help),
         ));
     }
 
@@ -539,9 +561,9 @@ fn ls_for_one_pattern(
                                         prefix.to_path_buf()
                                     };
 
-                                    // Bare trailing `**` (dc-glob) can match the
-                                    // start dir itself; after stripping the prefix
-                                    // that is an empty relative path → show ".".
+                                    // A match that is the prefix itself, with the
+                                    // prefix being the cwd, joins to an empty
+                                    // relative path → show ".".
                                     let joined = new_prefix.join(remainder);
                                     if joined.as_os_str().is_empty() {
                                         Some(".".to_string())
@@ -833,7 +855,11 @@ pub(crate) fn dir_entry_dict(
             if md.is_dir() {
                 if du {
                     let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
-                    let dir_size = DirInfo::new(filename, &params, None, span, signals)?.get_size();
+                    // Fresh per directory: a link is counted once inside each
+                    // directory whose size is reported here.
+                    let mut seen = SeenSet::default();
+                    let dir_size =
+                        DirInfo::new(filename, &params, None, span, signals, &mut seen)?.get_size();
 
                     Value::filesize(dir_size as i64, span)
                 } else {

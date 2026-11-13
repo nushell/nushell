@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Rename;
@@ -137,7 +138,9 @@ fn rename(
     };
     let closure: Option<Closure> = call.get_flag(engine_state, stack, "block")?;
 
-    let mut closure = closure.map(|closure| ClosureEval::new(engine_state, stack, closure));
+    let mut closure = closure
+        .map(|closure| ClosureEval::try_new(engine_state, stack, closure, call.head))
+        .transpose()?;
 
     let metadata = input.take_metadata();
     input
@@ -210,7 +213,10 @@ fn rename(
                             }
                         };
 
-                        match record {
+                        match record.and_then(|record| {
+                            ensure_unique_columns(&record, span)?;
+                            Ok(record)
+                        }) {
                             Ok(record) => Value::record(record, span),
                             Err(err) => Value::error(err, span),
                         }
@@ -233,12 +239,44 @@ fn rename(
         .map(|data| data.set_metadata(metadata))
 }
 
+/// Reject a rename whose result would use the same column name twice
+fn ensure_unique_columns(record: &Record, span: Span) -> Result<(), ShellError> {
+    let mut seen = HashSet::new();
+    for column in record.columns() {
+        if !seen.insert(column) {
+            return Err(ShellError::ColumnDefinedTwice {
+                col_name: column.clone(),
+                second_use: span,
+                first_use: span,
+                help: None,
+            });
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::TestResultExt;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(Rename)
+    }
+
+    #[test]
+    fn test_duplicate_column_name_as_input() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("[[a b]; [6 7]] | rename x x")
+            .expect_error_code_eq("nu::shell::column_defined_twice")
+    }
+
+    #[test]
+    fn test_duplicate_column_name_after_eval() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("[[a x]; [6 7]] | rename x")
+            .expect_error_code_eq("nu::shell::column_defined_twice")
     }
 }

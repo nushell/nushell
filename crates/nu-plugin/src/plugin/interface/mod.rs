@@ -2,7 +2,7 @@
 
 use nu_plugin_core::{
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
-    StreamManagerHandle,
+    StreamManagerHandle, StreamReaderSignal,
     util::{Waitable, WaitableMut},
 };
 use nu_plugin_protocol::{
@@ -21,7 +21,11 @@ use nu_protocol::{
 use nu_utils::SharedCow;
 use std::{
     collections::{BTreeMap, HashMap, btree_map},
-    sync::{Arc, atomic::AtomicBool, mpsc},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering as AtomicOrdering},
+        mpsc,
+    },
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -76,6 +80,11 @@ struct EngineInterfaceState {
     signals: Signals,
     /// Registered signal handlers
     signal_handlers: Handlers,
+    /// Last successfully written and flushed GC option. Completion reads this without waiting
+    /// for transport I/O, and uses it to preserve background input reads after a response.
+    gc_disabled: AtomicBool,
+    /// Serialize GC option updates so the local state follows the same order as wire messages.
+    gc_option_lock: Mutex<()>,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -131,6 +140,8 @@ impl EngineInterfaceManager {
                 writer: Box::new(writer),
                 signals: Signals::new(Arc::new(AtomicBool::new(false))),
                 signal_handlers: Handlers::new(),
+                gc_disabled: AtomicBool::new(false),
+                gc_option_lock: Mutex::new(()),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -155,6 +166,7 @@ impl EngineInterfaceManager {
             state: self.state.clone(),
             stream_manager_handle: self.stream_manager.get_handle(),
             context: Some(context),
+            input: None,
         }
     }
 
@@ -245,6 +257,7 @@ impl InterfaceManager for EngineInterfaceManager {
             state: self.state.clone(),
             stream_manager_handle: self.stream_manager.get_handle(),
             context: None,
+            input: None,
         }
     }
 
@@ -287,11 +300,14 @@ impl InterfaceManager for EngineInterfaceManager {
                 })?)
             }
             PluginInput::Call(id, call) => {
-                let interface = self.interface_for_context(id);
+                let mut interface = self.interface_for_context(id);
                 // Read streams in the input
-                let call = match call
-                    .map_data(|input| self.read_pipeline_data(input, &Signals::empty()))
-                {
+                let call = match call.map_data(|input| {
+                    let (data, cancellation) =
+                        self.read_pipeline_data_with_cancellation(input, &Signals::empty())?;
+                    interface.input = cancellation;
+                    Ok(data)
+                }) {
                     Ok(call) => call,
                     Err(err) => {
                         // If there's an error with initialization of the input stream, just send
@@ -407,6 +423,8 @@ pub struct EngineInterface {
     stream_manager_handle: StreamManagerHandle,
     /// The plugin call this interface belongs to.
     context: Option<PluginCallId>,
+    /// Original transport input, shared by interface clones but never exposed to plugin code.
+    input: Option<StreamReaderSignal>,
 }
 
 impl EngineInterface {
@@ -451,6 +469,11 @@ impl EngineInterface {
                     // instead
                     Err(err) => return self.write_response(Err(err)),
                 };
+                // Link before publishing the header, so even an immediate Drop can wake the
+                // original input. Engine-call input writers must not have this link.
+                if let Some(input) = &self.input {
+                    writer.cancel_input_on_drop(input.clone());
+                }
                 // Write pipeline data header response, and the full stream
                 let response = PluginCallResponse::PipelineData(header);
                 self.write(PluginOutput::CallResponse(self.context()?, response))?;
@@ -463,6 +486,17 @@ impl EngineInterface {
                 self.flush()?;
                 Ok(Default::default())
             }
+        }
+    }
+
+    /// Release this call's original input after the entire response has finished writing.
+    /// Plugins opting out of GC may keep consuming input in the background after completion.
+    /// SDK-owned forwarding to an engine call also keeps the input readable until it finishes.
+    pub(crate) fn finish_input(&self) {
+        if let Some(input) = &self.input
+            && !self.state.gc_disabled.load(AtomicOrdering::Acquire)
+        {
+            input.cancel_when_released();
         }
     }
 
@@ -516,6 +550,10 @@ impl EngineInterface {
 
         let call = call.map_data(|input| {
             let (input_header, input_writer) = self.init_write_pipeline_data(input, &())?;
+            // PipelineData is opaque, so conservatively hold the original input while any SDK
+            // forwarding stream still has a consumer. Attach before publishing the engine call:
+            // its response, or a concurrent Drop of our own output, can arrive immediately.
+            input_writer.keep_input_alive(self.input.as_ref().map(StreamReaderSignal::hold));
             writer = Some(input_writer);
             Ok(input_header)
         })?;
@@ -543,7 +581,6 @@ impl EngineInterface {
     ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
         let (writer, rx) = self.write_engine_call(call)?;
 
-        // Finish writing stream in the background
         writer.write_background()?;
 
         // Wait on receiver to get the response
@@ -1030,9 +1067,31 @@ impl EngineInterface {
     /// running for longer than the engine can automatically determine.
     ///
     /// The user can still stop the plugin if they want to with the `plugin stop` command.
+    /// While disabled, the SDK also preserves original call inputs after their responses finish.
+    /// Dropping a call's output stream still requests input cleanup, waiting for SDK-owned
+    /// forwarding to finish or for its consumer to drop the forwarded stream. Cancelled input
+    /// reads report [`ShellError::Interrupted`], rather than successful end-of-stream.
+    /// This setting is plugin-wide and last write wins, for both garbage collection and input
+    /// retention. The SDK checks it when each response finishes. Overlapping calls that toggle
+    /// the setting must coordinate their updates, keeping GC disabled until all background
+    /// consumers have finished. Disabling GC in Nushell's configuration alone does not opt out
+    /// of completion cleanup in the SDK.
+    /// Failed writes or flushes leave the SDK's last successful setting unchanged.
     pub fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
+        // Keep successful updates in wire order, without blocking input cleanup on transport I/O.
+        let _gc_option_lock =
+            self.state
+                .gc_option_lock
+                .lock()
+                .map_err(|_| ShellError::NushellFailed {
+                    msg: "GC option mutex poisoned due to panic".into(),
+                })?;
         self.write(PluginOutput::Option(PluginOption::GcDisabled(disabled)))?;
-        self.flush()
+        self.flush()?;
+        self.state
+            .gc_disabled
+            .store(disabled, AtomicOrdering::Release);
+        Ok(())
     }
 
     /// Write a call response of [`Ordering`], for `partial_cmp`.

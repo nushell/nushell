@@ -484,3 +484,40 @@ fn write_pipeline_data_byte_stream() -> Result<(), ShellError> {
 
     Ok(())
 }
+
+#[test]
+fn write_pipeline_data_byte_stream_preserves_shell_errors() -> Result<(), ShellError> {
+    for error in [
+        ShellError::Interrupted {
+            span: Span::test_data(),
+        },
+        ShellError::PluginFailedToDecode {
+            msg: "original error".into(),
+        },
+    ] {
+        let test = TestCase::new();
+        let manager = TestInterfaceManager::new(&test);
+        let data = PipelineData::byte_stream(
+            ByteStream::from_result_iter(
+                [Err::<Vec<u8>, _>(error.clone())],
+                Span::test_data(),
+                Signals::empty(),
+                ByteStreamType::Binary,
+            ),
+            None,
+        );
+        let (header, writer) = manager
+            .get_interface()
+            .init_write_pipeline_data(data, &())?;
+        let id = header.stream_id().expect("missing stream id");
+        writer.write()?;
+        assert!(matches!(test.next_written(),
+            Some(PluginOutput::Data(stream_id, StreamData::Raw(Err(received))))
+                if stream_id == id && received == error.into()));
+        assert!(
+            matches!(test.next_written(), Some(PluginOutput::End(stream_id)) if stream_id == id)
+        );
+        assert!(!test.has_unconsumed_write());
+    }
+    Ok(())
+}

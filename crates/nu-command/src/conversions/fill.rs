@@ -31,14 +31,19 @@ enum FillAlignment {
 
 impl FromValue for FillAlignment {
     fn from_value(v: Value) -> Result<Self, ShellError> {
-        Ok(match String::from_value(v)?.to_ascii_lowercase().as_str() {
-            "l" | "left" => Self::Left,
-            "r" | "right" => Self::Right,
-            "c" | "center" | "m" | "middle" => Self::Middle,
-            "cr" | "centerright" | "mr" | "middleright" => Self::MiddleRight,
-            // TODO: This should probably be an error
-            _ => Self::Left,
-        })
+        let span = v.span();
+        let s = String::from_value(v)?;
+        match s.to_ascii_lowercase().as_str() {
+            "l" | "left" => Ok(Self::Left),
+            "r" | "right" => Ok(Self::Right),
+            "c" | "center" | "m" | "middle" => Ok(Self::Middle),
+            "cr" | "centerright" | "mr" | "middleright" => Ok(Self::MiddleRight),
+            _ => Err(ShellError::InvalidValue {
+                valid: "one of: left (l), right (r), center/middle (c/m), centerright/middleright (cr/mr)".into(),
+                actual: format!("'{s}'"),
+                span,
+            }),
+        }
     }
 }
 
@@ -92,12 +97,14 @@ impl Command for Fill {
                     .short('a')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr)).",
+                        "The alignment of the output. Defaults to Left (left (l), right (r), center/middle (c/m), centerright/middleright (cr/mr)).",
                     )
                     .completion(Completion::new_list(&[
                         "left",
                         "right",
+                        "center",
                         "middle",
+                        "centerright",
                         "middleright",
                     ])),
             )

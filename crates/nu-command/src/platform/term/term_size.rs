@@ -1,5 +1,5 @@
-use crossterm::terminal::size;
 use nu_engine::command_prelude::*;
+use nu_utils::terminal_size;
 
 #[derive(Clone)]
 pub struct TermSize;
@@ -53,7 +53,7 @@ impl Command for TermSize {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let (cols, rows) = size().unwrap_or((0, 0));
+        let (cols, rows) = terminal_size().unwrap_or((0, 0));
 
         Ok(Value::record(
             record! {

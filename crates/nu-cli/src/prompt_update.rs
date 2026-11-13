@@ -39,7 +39,8 @@ pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 /// Re-evaluate the prompt and install it as the per-cycle baseline. This
-/// overwrites anything a background job pushed during the previous cycle.
+/// overwrites anything a background job pushed during the previous cycle; the
+/// pushes this cycle's `PromptState::begin_update` kept stay on top.
 pub fn update_prompt(config: &Config, engine_state: &EngineState, stack: &Stack) {
     let new_contents = build_prompt_contents(config, engine_state, stack);
 
@@ -176,7 +177,7 @@ mod tests {
 
     #[test]
     fn transient_prompt_override_still_wins_over_the_live_baseline() {
-        use nu_protocol::engine::PromptSegment;
+        use nu_protocol::{JobId, engine::PromptSegment};
 
         let config = Config::default();
         let engine_state = EngineState::new();
@@ -191,7 +192,7 @@ mod tests {
         // The configured TRANSIENT_PROMPT_INDICATOR beats a later live change.
         engine_state
             .prompt_state
-            .set(PromptSegment::Indicator, "live> ");
+            .set(PromptSegment::Indicator, "live> ", JobId::new(1));
 
         assert_eq!(
             transient_prompt.render_prompt_indicator(reedline::PromptEditMode::Emacs),
@@ -319,7 +320,7 @@ mod tests {
     /// Renders the transient emacs indicator, given a live baseline pushed
     /// after the transient prompt was built.
     fn rendered_transient_indicator(config: &Config, env: &[(&str, &str)]) -> String {
-        use nu_protocol::engine::PromptSegment;
+        use nu_protocol::{JobId, engine::PromptSegment};
 
         let engine_state = EngineState::new();
         let mut stack = Stack::new();
@@ -330,7 +331,7 @@ mod tests {
         let transient = make_transient_prompt(config, &engine_state, &stack);
         engine_state
             .prompt_state
-            .set(PromptSegment::Indicator, "live> ");
+            .set(PromptSegment::Indicator, "live> ", JobId::new(1));
 
         transient
             .render_prompt_indicator(reedline::PromptEditMode::Emacs)

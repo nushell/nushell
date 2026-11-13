@@ -1,3 +1,4 @@
+use crate::filters::utils::{closure_result, list_or_error};
 use fancy_regex::Regex;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{FromValue, Signals};
@@ -191,7 +192,7 @@ impl Command for SubCommand {
         let split = split.unwrap_or(Split::On);
         let matcher = match separator {
             Value::Closure { val, .. } => {
-                Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
+                Matcher::from_closure(ClosureEval::try_new(engine_state, stack, *val, call.head)?)
             }
             _ => Matcher::new(engine_state, has_regex, separator)?,
         };
@@ -201,12 +202,13 @@ impl Command for SubCommand {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let has_regex = call.has_flag_const(working_set, "regex")?;
-        let separator: Value = call.req_const(working_set, 0)?;
-        let split: Option<Split> = call.get_flag_const(working_set, "split")?;
+        let has_regex = call.has_flag_const(working_set, stack, "regex")?;
+        let separator: Value = call.req_const(working_set, stack, 0)?;
+        let split: Option<Split> = call.get_flag_const(working_set, stack, "split")?;
         let split = split.unwrap_or(Split::On);
         let matcher = Matcher::new(working_set.permanent(), has_regex, separator)?;
         split_list(working_set.permanent(), call, input, matcher, split)
@@ -270,11 +272,7 @@ impl Matcher {
                 }
             }
             Matcher::Direct(lhs) => rhs == lhs,
-            Matcher::Closure(closure) => closure
-                .run_with_value(rhs.clone())
-                .and_then(|data| data.into_value(rhs.span()))
-                .map(|value| value.is_true())
-                .unwrap_or(false),
+            Matcher::Closure(closure) => closure_result(closure, rhs, rhs.span())?.is_true(),
         })
     }
 }
@@ -287,13 +285,27 @@ fn split_list(
     split: Split,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
+
+    // Decide up front, so that an error can stay in place and reach the group: a closure's failure
+    // takes the item's place, and an item that holds an error is never a separator.
+    let decided = input.into_iter().map(move |value| {
+        if value.is_error() {
+            return (value, false);
+        }
+
+        match matcher.compare(&value) {
+            Ok(is_separator) => (value, is_separator),
+            Err(error) => (Value::error(error, head), false),
+        }
+    });
+
     Ok(SplitList::new(
-        input.into_iter(),
+        decided,
         engine_state.signals().clone(),
         split,
-        move |x| matcher.compare(x).unwrap_or(false),
+        |(_, is_separator): &(Value, bool)| *is_separator,
     )
-    .map(move |x| Value::list(x, head))
+    .map(move |group| list_or_error(group.into_iter().map(|(value, _)| value).collect(), head))
     .into_pipeline_data(head, engine_state.signals().clone()))
 }
 

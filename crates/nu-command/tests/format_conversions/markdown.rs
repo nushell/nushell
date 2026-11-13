@@ -42,6 +42,52 @@ fn md_table_pretty() -> Result {
 }
 
 #[test]
+fn md_table_keeps_row_order_with_missing_columns() -> Result {
+    let code = "[{a: 1, b: 2} {a: 3} {b: 4} {a: 5}] | to md";
+    test()
+        .run(code)
+        .expect_value_eq("| a | b |\n| --- | --- |\n| 1 | 2 |\n| 3 |  |\n|  | 4 |\n| 5 |  |")
+}
+
+#[test]
+fn md_table_pretty_keeps_row_order_with_missing_columns() -> Result {
+    let code = "[{a: 1, b: 2} {a: 3} {b: 4} {a: 5}] | to md --pretty";
+    test().run(code).expect_value_eq(
+        "| a   | b   |\n| --- | --- |\n| 1   | 2   |\n| 3   |     |\n|     | 4   |\n| 5   |     |",
+    )
+}
+
+#[test]
+fn md_table_with_empty_column_name_after_other_rows() -> Result {
+    let code = r#"[{a: 1} {a: 2} {"": 5}] | to md"#;
+    test()
+        .run(code)
+        .expect_value_eq("|  | a |\n| --- | --- |\n|  | 1 |\n|  | 2 |\n| 5 |  |")
+}
+
+#[test]
+fn md_per_element_keeps_input_order() -> Result {
+    let code = r#"[{h1: "Intro"} {a: 1} {h1: "Next"}] | to md --per-element"#;
+    test()
+        .run(code)
+        .expect_value_eq("# Intro\n| a |\n| --- |\n| 1 |\n\n\n# Next")
+}
+
+#[test]
+fn md_per_element_splits_different_shapes() -> Result {
+    let code = "[{a: 1, b: 2} {c: 3} {ab: 4}] | to md --per-element";
+    test().run(code).expect_value_eq(
+        "| a | b |\n| --- | --- |\n| 1 | 2 |\n\n\n| c |\n| --- |\n| 3 |\n\n\n| ab |\n| --- |\n| 4 |",
+    )
+}
+
+#[test]
+fn md_per_element_string_does_not_join_record_group() -> Result {
+    let code = r#"[{h1: "Title"} "h1"] | to md --per-element"#;
+    test().run(code).expect_value_eq("# Title\n* h1")
+}
+
+#[test]
 fn md_combined() -> Result {
     let code = r#"
         def title [] {

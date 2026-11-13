@@ -116,6 +116,6 @@ nu-cmd-lang = { workspace = true, features = ["plugin"] }
 nu-engine = { workspace = true, features = ["plugin"] }
 nu-parser = { workspace = true, features = ["plugin"] }
 nu-command = { workspace = true, features = ["plugin"] }
-nu-plugin-test-support.workspace = true
+nu-plugin-test-support = { workspace = true, features = ["local-socket"] }
 
 tempfile.workspace = true

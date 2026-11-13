@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::PromptSegment;
+use nu_protocol::engine::PromptContents;
 
 #[derive(Clone)]
 pub struct CommandlineSetPrompt;
@@ -72,7 +72,11 @@ segments that have finished computing. The line and cursor are preserved.
 `--indicator` sets only the default/emacs indicator. Use `--vi-insert`,
 `--vi-normal` and `--vi-visual` to set the vi mode indicators independently.
 
-The pushed prompt lasts only until the next prompt is drawn.
+The pushed prompt lasts only until the next prompt is drawn. The exception is a
+push from code that runs while the next prompt is built (a `pre_prompt` or
+`env_change` hook, or a prompt closure such as `$env.config.prompt.left`), or from a
+job that code starts: it shows on that prompt even if it lands before the prompt
+is drawn.
 
 meant for REPL sessions only"#
     }
@@ -118,29 +122,19 @@ meant for REPL sessions only"#
             || vi_visual.is_some()
             || multiline.is_some()
         {
-            engine_state.prompt_state.apply(|contents| {
-                if let Some(content) = left {
-                    contents.apply_segment_override(PromptSegment::Left, content);
-                }
-                if let Some(content) = right {
-                    contents.apply_segment_override(PromptSegment::Right, content);
-                }
-                if let Some(content) = indicator {
-                    contents.apply_segment_override(PromptSegment::Indicator, content);
-                }
-                if let Some(content) = vi_insert {
-                    contents.apply_segment_override(PromptSegment::ViInsert, content);
-                }
-                if let Some(content) = vi_normal {
-                    contents.apply_segment_override(PromptSegment::ViNormal, content);
-                }
-                if let Some(content) = vi_visual {
-                    contents.apply_segment_override(PromptSegment::ViVisual, content);
-                }
-                if let Some(content) = multiline {
-                    contents.apply_segment_override(PromptSegment::Multiline, content);
-                }
-            });
+            let pushed = PromptContents {
+                left: left.map(Into::into),
+                right: right.map(Into::into),
+                indicator: indicator.map(Into::into),
+                vi_insert: vi_insert.map(Into::into),
+                vi_normal: vi_normal.map(Into::into),
+                vi_visual: vi_visual.map(Into::into),
+                multiline: multiline.map(Into::into),
+                ..Default::default()
+            };
+            engine_state
+                .prompt_state
+                .apply(pushed, engine_state.current_job.root);
         }
 
         Ok(Value::nothing(head).into_pipeline_data())

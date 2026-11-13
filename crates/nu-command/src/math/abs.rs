@@ -73,10 +73,11 @@ impl Command for MathAbs {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
         let head = call.head;
         run_with_elementwise(
             input,

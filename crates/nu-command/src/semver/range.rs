@@ -1,6 +1,8 @@
 use nu_protocol::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemverRangeValue {
@@ -27,6 +29,20 @@ impl nu_protocol::CustomValue for SemverRangeValue {
 
     fn as_mut_any(&mut self) -> &mut dyn Any {
         self
+    }
+
+    /// Requirements have no order, so only equal requirements compare, as `Equal`.
+    fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+        let other = other
+            .as_custom_value()
+            .ok()?
+            .as_any()
+            .downcast_ref::<Self>()?;
+        (self.requirement == other.requirement).then_some(Ordering::Equal)
+    }
+
+    fn hash_value(&self, mut state: &mut dyn Hasher) {
+        self.requirement.hash(&mut state);
     }
 }
 
@@ -86,5 +102,31 @@ mod tests {
             let range = SemverRangeValue::new(req);
             assert_eq!(range.type_name(), "semver-range");
         }
+    }
+
+    #[test]
+    fn equal_requirements_are_strict_eq_and_hash_equal() {
+        use std::collections::hash_map::DefaultHasher;
+
+        let range = |req| {
+            Value::custom(
+                Box::new(SemverRangeValue::new(
+                    semver::VersionReq::parse(req).unwrap(),
+                )),
+                Span::test_data(),
+            )
+        };
+        let hash = |val: &Value| {
+            let mut hasher = DefaultHasher::new();
+            val.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        let a = range("^1.2");
+        let b = range("^1.2");
+        assert!(a.strict_eq(&a));
+        assert!(a.strict_eq(&b));
+        assert_eq!(hash(&a), hash(&b));
+        assert!(!a.strict_eq(&range("~1.2")));
     }
 }

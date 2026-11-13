@@ -422,5 +422,25 @@ fn table_abbreviation_cut() -> Result {
     assert_eq!(actual, output);
     let actual: String = test().run("0..2000 | table --width=80 -a 200000")?;
     assert_eq!(actual, output);
+    let actual: String = test().run("0..2000 | table --width=80 -a 9223372036854775807")?;
+    assert_eq!(actual, output);
+    Ok(())
+}
+
+#[test]
+fn table_abbreviation_huge_count_stream() -> Result {
+    let expected: String = test().run("[[a]; [1] [2] [3]] | table --width=80 -a 100")?;
+    let actual: String =
+        test().run("[[a]; [1] [2] [3]] | every 1 | table --width=80 -a 9223372036854775807")?;
+    assert_eq!(actual, expected);
+    Ok(())
+}
+
+#[test]
+fn table_abbreviation_huge_count_list() -> Result {
+    let expected: String = test().run("[[a]; [1] [2] [3]] | table --width=80 -a 100")?;
+    let actual: String =
+        test().run("[[a]; [1] [2] [3]] | table --width=80 -a 9223372036854775807")?;
+    assert_eq!(actual, expected);
     Ok(())
 }

@@ -72,10 +72,11 @@ impl Command for DecodeBase32Hex {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let encoding = if call.has_flag_const(working_set, "nopad")? {
+        let encoding = if call.has_flag_const(working_set, stack, "nopad")? {
             data_encoding::BASE32HEX_NOPAD
         } else {
             data_encoding::BASE32HEX
@@ -154,10 +155,11 @@ impl Command for EncodeBase32Hex {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let encoding = if call.has_flag_const(working_set, "nopad")? {
+        let encoding = if call.has_flag_const(working_set, stack, "nopad")? {
             data_encoding::BASE32HEX_NOPAD
         } else {
             data_encoding::BASE32HEX

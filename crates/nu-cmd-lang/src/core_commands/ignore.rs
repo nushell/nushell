@@ -1,10 +1,10 @@
 use nu_engine::command_prelude::*;
 #[cfg(feature = "os")]
 use nu_protocol::{
-    ByteStream, Signals,
+    ByteStream,
     process::{ChildPipe, check_ok},
     shell_error::io::IoError,
-    write_all_and_flush,
+    write_to_out_dest,
 };
 use nu_protocol::{OutDest, engine::StateWorkingSet};
 #[cfg(feature = "os")]
@@ -163,11 +163,12 @@ impl Command for Ignore {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let consume_stderr = call.has_flag_const(working_set, "stderr")?;
-        let consume_stdout = call.has_flag_const(working_set, "stdout")? || !consume_stderr;
+        let consume_stderr = call.has_flag_const(working_set, stack, "stderr")?;
+        let consume_stdout = call.has_flag_const(working_set, stack, "stdout")? || !consume_stderr;
 
         if consume_stderr && matches!(&input, PipelineData::Value(Value::Error { .. }, _)) {
             return Ok(PipelineData::empty());
@@ -281,41 +282,6 @@ fn handle_external_child(
     }
 
     Ok(PipelineData::empty())
-}
-
-#[cfg(feature = "os")]
-/// Write collected bytes to the requested output destination.
-fn write_to_out_dest(
-    bytes: &[u8],
-    out_dest: &OutDest,
-    span: Span,
-    stdout_fallback: bool,
-    signals: &Signals,
-) -> Result<(), ShellError> {
-    if bytes.is_empty() {
-        return Ok(());
-    }
-
-    match out_dest {
-        OutDest::Null => Ok(()),
-        OutDest::File(file) => {
-            let mut file = file.as_ref();
-            write_all_and_flush(bytes, &mut file, "file", Some(span), signals)
-        }
-        OutDest::Print
-        | OutDest::Inherit
-        | OutDest::Pipe
-        | OutDest::PipeSeparate
-        | OutDest::Value => {
-            if stdout_fallback {
-                let mut stdout = io::stdout();
-                write_all_and_flush(bytes, &mut stdout, "stdout", Some(span), signals)
-            } else {
-                let mut stderr = io::stderr();
-                write_all_and_flush(bytes, &mut stderr, "stderr", Some(span), signals)
-            }
-        }
-    }
 }
 
 #[cfg(feature = "os")]

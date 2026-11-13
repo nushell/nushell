@@ -1,11 +1,10 @@
+use crate::{BlockId, HASH_ITEM_LIMIT, ShellError, Span, Value, VarId, engine::EngineState};
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     fmt::{self, Debug},
+    hash::{Hash, Hasher},
 };
-
-use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
-
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Closure {
@@ -29,14 +28,32 @@ impl Debug for Closure {
     }
 }
 
+impl Hash for Closure {
+    /// Hashes `block_id`, the number of captures, and the first [`HASH_ITEM_LIMIT`] captures in
+    /// order, which agrees with [`Value::strict_eq`]'s positional compare of captures. Closures
+    /// built from one literal with different captures then land in different buckets.
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.block_id.hash(state);
+        self.captures.len().hash(state);
+        for capture in self.captures.iter().take(HASH_ITEM_LIMIT) {
+            capture.hash(state);
+        }
+    }
+}
+
+/// Help text shared by every error reporting a closure whose block is not
+/// available in the engine state, most commonly because the closure was
+/// parsed after the running job was spawned.
+pub const MISSING_CLOSURE_BLOCK_HELP: &str = "the closure was likely parsed after this job was spawned; define it before `job spawn`, or pass plain data instead of a closure";
+
 impl Closure {
     pub fn coerce_into_string<'a>(
         &self,
         engine_state: &'a EngineState,
         span: Span,
     ) -> Result<Cow<'a, str>, ShellError> {
-        let block = engine_state.get_block(self.block_id);
-        if let Some(span) = block.span {
+        let block = engine_state.try_get_block(self.block_id);
+        if let Some(span) = block.and_then(|block| block.span) {
             let contents_bytes = engine_state.get_span_contents(span);
             Ok(String::from_utf8_lossy(contents_bytes))
         } else {

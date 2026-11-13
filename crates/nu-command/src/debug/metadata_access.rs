@@ -39,9 +39,14 @@ impl Command for MetadataAccess {
         let closure: Closure = call.req(engine_state, caller_stack, 0)?;
         let metadata_record = Value::record(build_metadata_record(&input, call.head), call.head);
 
-        ClosureEvalOnce::new_env_preserve_out_dest(engine_state, caller_stack, closure)
-            .add_arg(metadata_record)?
-            .run_with_input(input)
+        ClosureEvalOnce::try_new_env_preserve_out_dest(
+            engine_state,
+            caller_stack,
+            closure,
+            call.head,
+        )?
+        .add_arg(metadata_record)?
+        .run_with_input(input)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

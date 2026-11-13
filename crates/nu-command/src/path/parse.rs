@@ -70,12 +70,13 @@ On Windows, an extra 'prefix' column is added."
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            extension: call.get_flag_const(working_set, "extension")?,
+            extension: call.get_flag_const(working_set, stack, "extension")?,
         };
 
         // This doesn't match explicit nulls

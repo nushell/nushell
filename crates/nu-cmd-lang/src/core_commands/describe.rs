@@ -52,12 +52,13 @@ impl Command for Describe {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let options = Options {
-            no_collect: call.has_flag_const(working_set, "no-collect")?,
-            detailed: call.has_flag_const(working_set, "detailed")?,
+            no_collect: call.has_flag_const(working_set, stack, "no-collect")?,
+            detailed: call.has_flag_const(working_set, stack, "detailed")?,
         };
         run(None, call, input, options)
     }
@@ -264,7 +265,7 @@ fn run(
                 let subtype = if options.no_collect {
                     Value::string("any", head)
                 } else {
-                    describe_value(stream.into_debug_value(), head, engine_state)
+                    describe_value(stream.into_debug_value()?, head, engine_state)
                 };
                 Value::record(
                     record! {
@@ -280,7 +281,7 @@ fn run(
             } else if options.no_collect {
                 Value::string("stream", head)
             } else {
-                let value = stream.into_debug_value();
+                let value = stream.into_debug_value()?;
                 let base_description = value.get_type().to_string();
                 Value::string(format!("{base_description} (stream)"), head)
             }
@@ -416,7 +417,8 @@ fn describe_value_inner(
             })
         }
         Value::Closure { ref val, .. } => {
-            let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
+            let block =
+                engine_state.and_then(|engine_state| engine_state.try_get_block(val.block_id));
 
             let mut record = record! {
                 "type" => Value::string("closure", head),

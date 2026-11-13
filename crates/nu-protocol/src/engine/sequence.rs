@@ -15,7 +15,7 @@ impl Sequence {
         // We're only not using `fetch_add` so that we can check for overflow, as wrapping with the
         // identifier would lead to a serious bug - however unlikely that is.
         self.0
-            .fetch_update(Relaxed, Relaxed, |current| current.checked_add(1))
+            .try_update(Relaxed, Relaxed, |current| current.checked_add(1))
             .map_err(|_| ShellError::NushellFailedHelp {
                 msg: "an accumulator for identifiers overflowed".into(),
                 help: format!("see {}", std::panic::Location::caller()),

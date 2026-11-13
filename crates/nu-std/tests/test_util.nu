@@ -88,3 +88,18 @@ def repeat_things [] {
         assert equal ($x | repeat 2) [$x $x]
     }
 }
+
+@test
+def structure_tokenizes_a_command_line [] {
+    use std/assert
+
+    let tokens = structure "ls -a | where name == foo"
+    assert equal ($tokens | get text) [ls -a "|" where name "==" foo]
+    assert equal ($tokens | get kind) [internalcall flag pipe internalcall string operator string]
+
+    # the parser's duplicate spans are collapsed to one row each
+    assert equal ($tokens | length) ($tokens | get span | uniq | length)
+
+    # an empty line structures to no tokens
+    assert equal (structure "") []
+}

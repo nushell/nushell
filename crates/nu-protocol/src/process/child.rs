@@ -2,7 +2,7 @@ use crate::{
     ShellError, Span,
     byte_stream::convert_file,
     engine::{EngineState, FrozenJob, Job},
-    shell_error::{generic::GenericError, io::IoError},
+    shell_error::{bridge::ShellErrorBridge, generic::GenericError, io::IoError},
 };
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
@@ -11,7 +11,7 @@ use std::{
     fmt::Debug,
     io::{self, Read},
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     thread,
 };
 
@@ -218,12 +218,51 @@ impl Read for ChildPipe {
     }
 }
 
+/// How the thread that feeds a child's stdin got on, for a child that has such a thread.
+#[derive(Debug, Clone)]
+struct StdinFeed {
+    /// That thread has nobody to return its error to, so it leaves the error here.
+    failure: Arc<OnceLock<ShellError>>,
+    /// Set by `do --ignore-errors`. Doesn't apply to `exit`, which isn't an error.
+    ignore_errors: bool,
+}
+
+impl StdinFeed {
+    fn check(&self) -> Result<(), ShellError> {
+        match self.failure.get() {
+            Some(error) if !self.ignore_errors || error.is_exit() => Err(error.clone()),
+            _ => Ok(()),
+        }
+    }
+}
+
+/// Reads a child's stdout, then fails at the end of it if feeding the child's stdin failed.
+struct StdoutThenStdinFeed {
+    stdout: ChildPipe,
+    stdin: StdinFeed,
+}
+
+impl Read for StdoutThenStdinFeed {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let read = self.stdout.read(buf)?;
+        if read == 0 && !buf.is_empty() {
+            self.stdin.check().map_err(ShellErrorBridge)?;
+        }
+        Ok(read)
+    }
+}
+
 #[derive(Debug)]
 pub struct ChildProcess {
     pub stdout: Option<ChildPipe>,
     pub stderr: Option<ChildPipe>,
     exit_status: Arc<Mutex<ExitStatusFuture>>,
     ignore_error: Arc<Mutex<bool>>,
+    /// Pid of the process, when it was spawned by the shell. Lets a consumer
+    /// that stops reading early (an interactive viewer) kill a producer that
+    /// would otherwise keep the pipeline waiting on its exit status.
+    pid: Option<u32>,
+    stdin: Option<StdinFeed>,
     span: Span,
 }
 
@@ -298,6 +337,7 @@ impl ChildProcess {
                 }
             }
         };
+        let pid = child.pid();
 
         // Create a thread to wait for the exit status.
         let (exit_status_sender, exit_status) = mpsc::channel();
@@ -339,7 +379,9 @@ impl ChildProcess {
                 )
             })?;
 
-        Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
+        let mut this = Self::from_raw(stdout, stderr, Some(exit_status), span);
+        this.pid = Some(pid);
+        Ok(this)
     }
 
     pub fn from_raw(
@@ -357,8 +399,51 @@ impl ChildProcess {
                     .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
             )),
             ignore_error: Arc::new(Mutex::new(false)),
+            pid: None,
+            stdin: None,
             span,
         }
+    }
+
+    /// The process id, if this child was spawned by the shell.
+    pub fn pid(&self) -> Option<u32> {
+        self.pid
+    }
+
+    /// Reports `failure`, once it's set, as the failure of this child, after the child finishes.
+    ///
+    /// This is for a thread that feeds the child's stdin. To make sure the failure is seen, set it
+    /// before closing stdin: a child can't get to the end of its input before that. A child that
+    /// exits without reading its input isn't held up, so a later failure then goes unreported.
+    pub fn with_stdin_failure(mut self, failure: Option<Arc<OnceLock<ShellError>>>) -> Self {
+        self.stdin = failure.map(|failure| StdinFeed {
+            failure,
+            ignore_errors: false,
+        });
+        self
+    }
+
+    /// Whether the shell feeds this child's stdin, as set up by
+    /// [`with_stdin_failure`](Self::with_stdin_failure).
+    pub fn is_stdin_fed(&self) -> bool {
+        self.stdin.is_some()
+    }
+
+    /// Stops reporting a failure to feed stdin, unless the failure is an `exit`.
+    pub fn ignore_stdin_errors(&mut self) {
+        if let Some(stdin) = &mut self.stdin {
+            stdin.ignore_errors = true;
+        }
+    }
+
+    /// Takes stdout for a reader that won't wait for the process. Since nothing will check on the
+    /// process after that, a failure to feed stdin comes at the end of what stdout reads.
+    pub(crate) fn take_stdout_to_read(&mut self) -> Option<ChildPipe> {
+        let stdout = self.stdout.take()?;
+        Some(match self.stdin.clone() {
+            Some(stdin) => ChildPipe::Tee(Box::new(StdoutThenStdinFeed { stdout, stdin })),
+            None => stdout,
+        })
     }
 
     pub fn ignore_error(&mut self, ignore: bool) -> &mut Self {
@@ -373,7 +458,7 @@ impl ChildProcess {
         self.span
     }
 
-    pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
+    pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
         if self.stderr.is_some() {
             debug_assert!(false, "stderr should not exist");
             return Err(ShellError::Generic(GenericError::new(
@@ -383,30 +468,20 @@ impl ChildProcess {
             )));
         }
 
-        let bytes = (self.stdout)
+        let bytes = (self.stdout.take())
             .map(collect_bytes)
             .transpose()
-            .map_err(|err| IoError::new(err, self.span, None))?
+            .map_err(|err| ShellErrorBridge::unpack(err, self.span))?
             .unwrap_or_default();
 
-        let mut exit_status = self
-            .exit_status
-            .lock()
-            .expect("lock exit_status future should success");
-        let ignore_error = {
-            let guard = self
-                .ignore_error
-                .lock()
-                .expect("lock ignore error should success");
-            *guard
-        };
-        check_ok(exit_status.wait(self.span)?, ignore_error, self.span)?;
+        self.check_exit()?;
 
         Ok(bytes)
     }
 
     pub fn wait(mut self) -> Result<(), ShellError> {
-        let from_io_error = IoError::factory(self.span, None);
+        let span = self.span;
+        let from_io_error = |err| ShellErrorBridge::unpack(err, span);
         if let Some(stdout) = self.stdout.take() {
             let stderr = self
                 .stderr
@@ -425,7 +500,7 @@ impl ChildProcess {
                 handle
                     .join()
                     .map_err(|e| match e.downcast::<io::Error>() {
-                        Ok(io) => from_io_error(*io).into(),
+                        Ok(io) => from_io_error(*io),
                         Err(err) => ShellError::Generic(GenericError::new(
                             "Unknown error",
                             format!("{err:?}"),
@@ -439,18 +514,7 @@ impl ChildProcess {
         } else if let Some(stderr) = self.stderr.take() {
             consume_pipe(stderr).map_err(&from_io_error)?;
         }
-        let mut exit_status = self
-            .exit_status
-            .lock()
-            .expect("lock exit_status future should success");
-        let ignore_error = {
-            let guard = self
-                .ignore_error
-                .lock()
-                .expect("lock ignore error should success");
-            *guard
-        };
-        check_ok(exit_status.wait(self.span)?, ignore_error, self.span)
+        self.check_exit()
     }
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, ShellError> {
@@ -462,34 +526,7 @@ impl ChildProcess {
     }
 
     pub fn wait_with_output(self) -> Result<ProcessOutput, ShellError> {
-        let from_io_error = IoError::factory(self.span, None);
-
-        let (stdout, stderr) = match (self.stdout, self.stderr) {
-            (None, None) => (None, None),
-            (None, Some(stderr)) => (None, Some(collect_bytes(stderr).map_err(&from_io_error)?)),
-            (Some(stdout), None) => (Some(collect_bytes(stdout).map_err(&from_io_error)?), None),
-            (Some(stdout), Some(stderr)) => {
-                let stderr = thread::Builder::new()
-                    .spawn(move || collect_bytes(stderr))
-                    .map_err(&from_io_error)?;
-
-                let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
-
-                let stderr = stderr
-                    .join()
-                    .map_err(|e| match e.downcast::<io::Error>() {
-                        Ok(io) => from_io_error(*io).into(),
-                        Err(err) => ShellError::Generic(GenericError::new(
-                            "Unknown error",
-                            format!("{err:?}"),
-                            self.span,
-                        )),
-                    })?
-                    .map_err(&from_io_error)?;
-
-                (Some(stdout), Some(stderr))
-            }
-        };
+        let (stdout, stderr) = collect_pipes(self.stdout, self.stderr, self.span)?;
 
         let mut exit_status = self
             .exit_status
@@ -497,11 +534,77 @@ impl ChildProcess {
             .expect("lock exit_status future should success");
         let exit_status = exit_status.wait(self.span)?;
 
+        if let Some(stdin) = &self.stdin {
+            stdin.check()?;
+        }
+
         Ok(ProcessOutput {
             stdout,
             stderr,
             exit_status,
         })
+    }
+
+    /// Reads stdout and stderr to the end and waits for the child, then puts what was read
+    /// back so it can still be read, e.g. by a command that wants the stderr of a child whose
+    /// output had to be collected first. Fails like [`into_bytes`](Self::into_bytes) if the
+    /// child did.
+    pub fn buffer_output(&mut self) -> Result<(), ShellError> {
+        self.buffer_pipes()?;
+        // The process has exited, so there is nothing left to kill.
+        self.pid = None;
+
+        self.check_exit()
+    }
+
+    /// Reads stdout and stderr to the end, without waiting for the child, and puts what was read
+    /// back so it can still be read. Both are read at the same time, so the child can't block on
+    /// one pipe while the other one is being read.
+    pub fn buffer_pipes(&mut self) -> Result<(), ShellError> {
+        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        self.stdout = stdout.map(replay);
+        self.stderr = stderr.map(replay);
+        Ok(())
+    }
+
+    /// A copy of the process without its stderr, which reads the same stdout from memory and
+    /// shares the exit status. Both pipes are read into memory to make it, so the child can't
+    /// block, and they still read the same afterwards.
+    pub fn copy_stdout(&mut self) -> Result<Self, ShellError> {
+        let (stdout, stderr) = collect_pipes(self.stdout.take(), self.stderr.take(), self.span)?;
+        self.stdout = stdout.clone().map(replay);
+        self.stderr = stderr.map(replay);
+        Ok(Self {
+            stdout: stdout.map(replay),
+            stderr: None,
+            exit_status: self.exit_status.clone(),
+            ignore_error: self.ignore_error.clone(),
+            pid: None,
+            stdin: self.stdin.clone(),
+            span: self.span,
+        })
+    }
+
+    /// Wait for the process, then return an error if it failed, unless its errors are ignored.
+    ///
+    /// A failure to feed its stdin comes first, as it may be why the process failed. It isn't the
+    /// process's own error, so ignoring those doesn't ignore it.
+    fn check_exit(&self) -> Result<(), ShellError> {
+        let ignore_error = *self
+            .ignore_error
+            .lock()
+            .expect("lock ignore error should success");
+        let mut exit_status = self
+            .exit_status
+            .lock()
+            .expect("lock exit_status future should success");
+        let exit_status = exit_status.wait(self.span)?;
+
+        if let Some(stdin) = &self.stdin {
+            stdin.check()?;
+        }
+
+        check_ok(exit_status, ignore_error, self.span)
     }
 
     pub fn clone_exit_status_future(&self) -> Arc<Mutex<ExitStatusFuture>> {
@@ -511,6 +614,51 @@ impl ChildProcess {
     pub fn clone_ignore_error(&self) -> Arc<Mutex<bool>> {
         self.ignore_error.clone()
     }
+}
+
+/// Stdout and stderr as read by [`collect_pipes`], for the pipes the child had.
+type PipeOutput = (Option<Vec<u8>>, Option<Vec<u8>>);
+
+/// Reads both pipes to the end. With two, stderr is read on its own thread, so a child that
+/// fills one pipe can't block while the other one is being read.
+fn collect_pipes(
+    stdout: Option<ChildPipe>,
+    stderr: Option<ChildPipe>,
+    span: Span,
+) -> Result<PipeOutput, ShellError> {
+    let from_io_error = |err| ShellErrorBridge::unpack(err, span);
+
+    Ok(match (stdout, stderr) {
+        (None, None) => (None, None),
+        (None, Some(stderr)) => (None, Some(collect_bytes(stderr).map_err(&from_io_error)?)),
+        (Some(stdout), None) => (Some(collect_bytes(stdout).map_err(&from_io_error)?), None),
+        (Some(stdout), Some(stderr)) => {
+            let stderr = thread::Builder::new()
+                .spawn(move || collect_bytes(stderr))
+                .map_err(&from_io_error)?;
+
+            let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
+
+            let stderr = stderr
+                .join()
+                .map_err(|e| match e.downcast::<io::Error>() {
+                    Ok(io) => from_io_error(*io),
+                    Err(err) => ShellError::Generic(GenericError::new(
+                        "Unknown error",
+                        format!("{err:?}"),
+                        span,
+                    )),
+                })?
+                .map_err(&from_io_error)?;
+
+            (Some(stdout), Some(stderr))
+        }
+    })
+}
+
+/// A pipe that reads `buf` from memory, for output that was read ahead of its reader.
+fn replay(buf: Vec<u8>) -> ChildPipe {
+    ChildPipe::Tee(Box::new(io::Cursor::new(buf)))
 }
 
 fn collect_bytes(pipe: ChildPipe) -> io::Result<Vec<u8>> {
@@ -534,4 +682,48 @@ pub struct ProcessOutput {
     pub stdout: Option<Vec<u8>>,
     pub stderr: Option<Vec<u8>>,
     pub exit_status: ExitStatus,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// A pipe holding `bytes`, with the write end closed.
+    fn pipe_with(bytes: &[u8]) -> PipeReader {
+        let (reader, mut writer) = os_pipe::pipe().expect("create pipe");
+        writer.write_all(bytes).expect("write pipe");
+        reader
+    }
+
+    #[test]
+    fn buffer_pipes_keeps_both_outputs_readable() {
+        let mut child = ChildProcess::from_raw(
+            Some(pipe_with(b"out")),
+            Some(pipe_with(b"err")),
+            None,
+            Span::test_data(),
+        );
+        child.buffer_pipes().expect("buffer_pipes");
+        let output = child.wait_with_output().expect("wait_with_output");
+        assert_eq!(output.stdout.as_deref(), Some(&b"out"[..]));
+        assert_eq!(output.stderr.as_deref(), Some(&b"err"[..]));
+    }
+
+    #[test]
+    fn copy_stdout_leaves_the_process_output_alone() {
+        let mut child = ChildProcess::from_raw(
+            Some(pipe_with(b"out")),
+            Some(pipe_with(b"err")),
+            None,
+            Span::test_data(),
+        );
+        let copy = child.copy_stdout().expect("copy stdout");
+        assert!(copy.stderr.is_none());
+        assert_eq!(copy.into_bytes().expect("copy into_bytes"), b"out");
+
+        let output = child.wait_with_output().expect("wait_with_output");
+        assert_eq!(output.stdout.as_deref(), Some(&b"out"[..]));
+        assert_eq!(output.stderr.as_deref(), Some(&b"err"[..]));
+    }
 }

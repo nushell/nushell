@@ -1,6 +1,8 @@
+use miette::Diagnostic;
 use nu_protocol::{ParseError, ShellError};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn spread_in_list() -> Result {
@@ -82,18 +84,72 @@ fn spread_in_record() -> Result {
         .expect_value_eq(test_value!({ foo: "bar", a: { x: 1 }, b: 3 }))
 }
 
-#[test]
-fn duplicate_cols() -> Result {
-    let err = test().run("{a: 1, ...{a: 3}}").expect_shell_error()?;
+/// `second` and `first` are the source text the "field redefined here" and "field first defined
+/// here" labels should cover, `help` whether the spread help should be shown.
+#[rstest]
+#[case::spread_after_pair("{a: 1, ...{a: 3}}", "...{a: 3}", "a: 1", true)]
+#[case::pair_after_spread("{...{a: 4, x: 3}, x: 1}", "x: 1", "...{a: 4, x: 3}", true)]
+#[case::spread_after_spread("{...{a: 0, x: 2}, ...{x: 5}}", "...{x: 5}", "...{a: 0, x: 2}", true)]
+#[case::variable_spread("let a = {s: 1}; {...$a, s: 3}", "s: 3", "...$a", true)]
+#[case::nested_def(
+    "
+        def outer [] {
+            let args = {s: 1}
+            def recurse [--s: int] {
+                recurse ...{...$args, s: 3}
+            }
+            recurse ...$args
+        }
+        outer
+    ",
+    "s: 3",
+    "...$args",
+    true
+)]
+#[case::spread_after_pair_with_value_from_elsewhere(
+    "def g [] { {b: 9} }; let r = {a: 3}; {a: (g).b, ...$r}",
+    "...$r",
+    "a: (g).b",
+    true
+)]
+#[case::spread_between_pairs("{x: 1, ...{a: 2}, y: 3, a: 4}", "a: 4", "...{a: 2}", true)]
+#[case::empty_spread_before_pair("{...{}, a: 1, ...{a: 2}}", "...{a: 2}", "a: 1", true)]
+#[case::pair_after_unrelated_spread(
+    "let k = 'x'; {...{a: 1}, $k: 2, $k: 3}",
+    "$k: 3",
+    "$k: 2",
+    false
+)]
+#[case::dynamic_key("let k = 'a'; {$k: 1, $k: 2}", "$k: 2", "$k: 1", false)]
+#[case::table_header("let k = 'a'; [[$k $k]; [1 2]]", "2", "1", false)]
+fn duplicate_cols(
+    #[case] code: &str,
+    #[case] second: &str,
+    #[case] first: &str,
+    #[case] help: bool,
+) -> Result {
+    let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
+    assert_eq!(
+        err.help().map(|help| help.to_string()).as_deref(),
+        help.then_some(ShellError::RECORD_SPREAD_DUPLICATE_HELP)
+    );
 
-    let err = test().run("{...{a: 4, x: 3}, x: 1}").expect_shell_error()?;
-    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
-
-    let err = test()
-        .run("{...{a: 0, x: 2}, ...{x: 5}}")
-        .expect_shell_error()?;
-    assert_matches!(err, ShellError::ColumnDefinedTwice { .. });
+    // Label offsets are relative to wherever the test source starts, so compare each label to
+    // where its text sits in `code`.
+    let labels: Vec<_> = err.labels().unwrap().collect();
+    assert_eq!(labels.len(), 2);
+    assert_eq!(labels[0].label(), Some("field redefined here"));
+    assert_eq!(labels[1].label(), Some("field first defined here"));
+    let second_at = code.find(second).unwrap();
+    let first_at = code.find(first).unwrap();
+    assert_eq!(labels[0].len(), second.len(), "second use in {code:?}");
+    assert_eq!(labels[1].len(), first.len(), "first use in {code:?}");
+    assert_eq!(
+        labels[0].offset() - second_at,
+        labels[1].offset() - first_at,
+        "label positions in {code:?}"
+    );
     Ok(())
 }
 

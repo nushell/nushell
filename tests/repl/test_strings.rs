@@ -1,4 +1,7 @@
 use crate::repl::tests::{TestResult, fail_test, run_test};
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn cjk_in_substrings() -> TestResult {
@@ -169,7 +172,7 @@ fn raw_string_inside_closure() -> TestResult {
 #[test]
 fn incomplete_string() -> TestResult {
     fail_test("r#abc", "expected '")?;
-    fail_test("r#'bc", "expected closing '#")?;
+    fail_test("r#'bc", "expected `'#`")?;
     fail_test("'ab\"", "expected `'`")?;
     fail_test("\"ab'", "expected `\"`")?;
     fail_test(
@@ -181,4 +184,50 @@ fn incomplete_string() -> TestResult {
 "#,
         "expected `\"`",
     )
+}
+
+/// Text after a string's last quote is an error.
+#[rstest]
+#[case::single_then_bare("'a'b")]
+#[case::single_then_double(r#"'a'"b""#)]
+fn text_after_closing_quote(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::extra_token_after_closing_delimiter")
+}
+
+/// A quoted word runs to its last quote of the same kind, and the quotes of that kind inside it
+/// are part of the string. Scripts rely on this for JSON and HTML text.
+#[rstest]
+#[case::single("'a''b'", "a''b")]
+#[case::double(r#""[{a: "b"}]""#, r#"[{a: "b"}]"#)]
+#[case::interpolation(r#"let c = 'x'; $"<p class="($c)">""#, r#"<p class="x">"#)]
+fn same_quotes_inside_a_string(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// An escaped quote and a quote inside an interpolated subexpression don't close the string.
+#[rstest]
+#[case::escaped_quote(r#""a\"b""#, "a\"b")]
+#[case::subexpression_quote(r#"$"a(")")b""#, "a)b")]
+fn quotes_that_do_not_close(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// `\x` escapes add raw bytes, which must form valid UTF-8.
+#[test]
+fn hex_escapes_invalid_utf8() -> Result {
+    let err = test().run(r#""\xFF""#).expect_parse_error()?;
+    assert_matches!(err, ParseError::InvalidLiteral(msg, ..) if msg.contains("UTF-8"));
+    test().run(r#""\xC3\xA9""#).expect_value_eq("é")
+}
+
+/// An unclosed raw string reports the closer it needs, like any other unclosed string.
+#[rstest]
+#[case::one_hash("r#'abc", "'#")]
+#[case::two_hashes("r##'abc", "'##")]
+fn unclosed_raw_string(#[case] code: &str, #[case] closer: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(err, ParseError::Unclosed(delimiter, ..) if delimiter == closer);
+    Ok(())
 }

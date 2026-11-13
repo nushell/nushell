@@ -87,6 +87,14 @@ impl Command for Match {
                 result: Some(Value::test_int(6)),
             },
             Example {
+                description: "Match the first and last items of a list, capturing the items between them.",
+                example: "match [1, 2, 3, 4] { [$first, ..$middle, $last] => $middle }",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
+            },
+            Example {
                 description: "Match against pipeline input.",
                 example: "{a: {b: 3}} | match $in {{a: { $b }} => ($b + 10) }",
                 result: Some(Value::test_int(13)),

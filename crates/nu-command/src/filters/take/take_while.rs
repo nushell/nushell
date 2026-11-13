@@ -1,3 +1,4 @@
+use crate::filters::utils::take_by_closure;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{engine::Closure, test_table, test_value};
 
@@ -26,7 +27,7 @@ impl Command for TakeWhile {
             )
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::RowCondition,
                 "The predicate that element(s) must match.",
             )
             .category(Category::Filters)
@@ -40,7 +41,7 @@ impl Command for TakeWhile {
         vec![
             Example {
                 description: "Take while the element is negative.",
-                example: "[-1 -2 9 1] | take while {|x| $x < 0 }",
+                example: "[-1 -2 9 1] | take while $it < 0",
                 result: Some(test_value!([-1, -2])),
             },
             Example {
@@ -50,7 +51,7 @@ impl Command for TakeWhile {
             },
             Example {
                 description: "Take while the field value is negative.",
-                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take while {|x| $x.a < 0 }",
+                example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take while a < 0",
                 result: Some(test_value!([{a: (-1)}, {a: (-2)}])),
             },
             Example {
@@ -79,26 +80,16 @@ impl Command for TakeWhile {
 
         let metadata = input.take_metadata();
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
-        let predicate = move |value: &Value| {
-            closure
-                .run_with_value(value.clone())
-                .and_then(|data| data.into_value(head))
-                .map(|cond| cond.is_true())
-                .unwrap_or(false)
-        };
+        let closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
-        let it = input.into_iter_strict(head)?;
-
-        Ok(match include {
-            0 => it.take_while(predicate).into_pipeline_data_with_metadata(
-                head,
-                engine_state.signals().clone(),
-                metadata,
-            ),
-            n => super::take_while_include::take_while_include_n(it, predicate, n)
-                .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata),
-        })
+        Ok(take_by_closure(
+            input.into_iter_strict(head)?,
+            closure,
+            head,
+            Value::is_true,
+            include,
+        )
+        .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

@@ -51,9 +51,14 @@ fn render(
 ) -> Option<String> {
     let output = match value {
         Value::String { val, .. } => val.clone(),
-        Value::Closure { val, .. } => {
-            let result = ClosureEvalOnce::new(engine_state, stack, val.as_ref().clone())
-                .run_with_input(PipelineData::empty());
+        Value::Closure {
+            val, internal_span, ..
+        } => {
+            // `try_new` reports a closure whose block is gone instead of
+            // panicking on it.
+            let result =
+                ClosureEvalOnce::try_new(engine_state, stack, val.as_ref().clone(), *internal_span)
+                    .and_then(|eval| eval.run_with_input(PipelineData::empty()));
 
             trace!("render (block) {}:{}:{}", file!(), line!(), column!());
 

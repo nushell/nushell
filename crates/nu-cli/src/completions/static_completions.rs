@@ -45,6 +45,6 @@ impl Completer for StaticCompletion {
             }
         }
 
-        Fetched::Pure(matcher.suggestion_results())
+        Fetched::answering(matcher.suggestion_results())
     }
 }

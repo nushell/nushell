@@ -5,7 +5,7 @@
 
 use crate::{
     PipelineData, PipelineExecutionData, ShellError, Span, Value,
-    ast::{Block, Expr, PipelineElement},
+    ast::Block,
     debugger::Debugger,
     engine::{EngineState, Stack},
     ir::IrBlock,
@@ -29,7 +29,6 @@ struct ElementInfo {
     depth: i64,
     element_span: Span,
     element_output: Option<Value>,
-    expr: Option<String>,
     instruction: Option<(usize, String)>,
     children: Vec<ElementId>,
 }
@@ -42,7 +41,6 @@ impl ElementInfo {
             depth,
             element_span,
             element_output: None,
-            expr: None,
             instruction: None,
             children: vec![],
         }
@@ -64,7 +62,6 @@ pub struct ProfilerOptions {
     pub collect_source: bool,
     pub collect_expanded_source: bool,
     pub collect_values: bool,
-    pub collect_exprs: bool,
     pub collect_instructions: bool,
     pub collect_lines: bool,
     pub duration_mode: DurationMode,
@@ -88,7 +85,6 @@ impl Profiler {
             depth: 0,
             element_span: span,
             element_output: opts.collect_values.then(|| Value::nothing(span)),
-            expr: opts.collect_exprs.then(|| "call".to_string()),
             instruction: opts
                 .collect_instructions
                 .then(|| (0, "<start>".to_string())),
@@ -138,70 +134,6 @@ impl Debugger for Profiler {
 
     fn leave_block(&mut self, _engine_state: &EngineState, _block: &Block) {
         self.depth -= 1;
-    }
-
-    fn enter_element(&mut self, engine_state: &EngineState, element: &PipelineElement) {
-        if self.depth > self.opts.max_depth {
-            return;
-        }
-
-        let Some(parent_id) = self.last_element_id() else {
-            eprintln!("Profiler Error: Missing parent element ID.");
-            return;
-        };
-
-        let expr_opt = self
-            .opts
-            .collect_exprs
-            .then(|| expr_to_string(engine_state, &element.expr.expr));
-
-        let new_id = ElementId(self.elements.len());
-
-        let mut new_element = ElementInfo::new(self.depth, element.expr.span);
-        new_element.expr = expr_opt;
-
-        self.elements.push(new_element);
-
-        let Some(parent) = self.elements.get_mut(parent_id.0) else {
-            eprintln!("Profiler Error: Missing parent element.");
-            return;
-        };
-
-        parent.children.push(new_id);
-        self.element_stack.push(new_id);
-    }
-
-    fn leave_element(
-        &mut self,
-        _engine_state: &EngineState,
-        element: &PipelineElement,
-        result: &Result<PipelineData, ShellError>,
-    ) {
-        if self.depth > self.opts.max_depth {
-            return;
-        }
-
-        let element_span = element.expr.span;
-
-        let out_opt = self.opts.collect_values.then(|| match result {
-            Ok(pipeline_data) => match pipeline_data {
-                PipelineData::Value(val, ..) => val.clone(),
-                PipelineData::ListStream(..) => Value::string("list stream", element_span),
-                PipelineData::ByteStream(..) => Value::string("byte stream", element_span),
-                _ => Value::nothing(element_span),
-            },
-            Err(e) => Value::error(e.clone(), element_span),
-        });
-
-        let Some(last_element) = self.last_element_mut() else {
-            eprintln!("Profiler Error: Missing last element.");
-            return;
-        };
-
-        last_element.duration_ns = last_element.start.elapsed().as_nanos() as i64;
-        last_element.element_output = out_opt;
-
-        self.element_stack.pop();
     }
 
     fn enter_instruction(
@@ -309,60 +241,6 @@ fn profiler_error(msg: impl Into<Cow<'static, str>>, span: Span) -> ShellError {
     ShellError::Generic(GenericError::new("Profiler Error", msg, span))
 }
 
-fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
-    match expr {
-        Expr::AttributeBlock(ab) => expr_to_string(engine_state, &ab.item.expr),
-        Expr::Binary(_) => "binary".to_string(),
-        Expr::BinaryOp(_, _, _) => "binary operation".to_string(),
-        Expr::Block(_) => "block".to_string(),
-        Expr::Bool(_) => "bool".to_string(),
-        Expr::Call(call) => {
-            let decl = engine_state.get_decl(call.decl_id);
-            if decl.name() == "collect" && call.head == Span::new(0, 0) {
-                "call (implicit collect)"
-            } else {
-                "call"
-            }
-            .to_string()
-        }
-        Expr::CellPath(_) => "cell path".to_string(),
-        Expr::Closure(_) => "closure".to_string(),
-        Expr::DateTime(_) => "datetime".to_string(),
-        Expr::Directory(_, _) => "directory".to_string(),
-        Expr::ExternalCall(_, _) => "external call".to_string(),
-        Expr::Filepath(_, _) => "filepath".to_string(),
-        Expr::Float(_) => "float".to_string(),
-        Expr::FullCellPath(full_cell_path) => {
-            let head = expr_to_string(engine_state, &full_cell_path.head.expr);
-            format!("full cell path ({head})")
-        }
-        Expr::Garbage => "garbage".to_string(),
-        Expr::GlobPattern(_, _) => "glob pattern".to_string(),
-        Expr::ImportPattern(_) => "import pattern".to_string(),
-        Expr::Int(_) => "int".to_string(),
-        Expr::Keyword(_) => "keyword".to_string(),
-        Expr::List(_) => "list".to_string(),
-        Expr::MatchBlock(_) => "match block".to_string(),
-        Expr::Nothing => "nothing".to_string(),
-        Expr::Operator(_) => "operator".to_string(),
-        Expr::Overlay(_) => "overlay".to_string(),
-        Expr::Range(_) => "range".to_string(),
-        Expr::Record(_) => "record".to_string(),
-        Expr::RowCondition(_) => "row condition".to_string(),
-        Expr::Signature(_) => "signature".to_string(),
-        Expr::String(_) | Expr::RawString(_) => "string".to_string(),
-        Expr::StringInterpolation(_) => "string interpolation".to_string(),
-        Expr::GlobInterpolation(_, _) => "glob interpolation".to_string(),
-        Expr::Collect(_, _) => "collect".to_string(),
-        Expr::Subexpression(_) => "subexpression".to_string(),
-        Expr::Table(_) => "table".to_string(),
-        Expr::UnaryNot(_) => "unary not".to_string(),
-        Expr::ValueWithUnit(_) => "value with unit".to_string(),
-        Expr::Var(_) => "var".to_string(),
-        Expr::VarDecl(_) => "var decl".to_string(),
-    }
-}
-
 fn format_result(
     result: Result<&PipelineData, impl Borrow<ShellError>>,
     element_span: Span,
@@ -464,10 +342,6 @@ fn collect_data(
         };
 
         row.push("source", Value::string(fragment, profiler_span));
-    }
-
-    if let Some(expr_string) = &element.expr {
-        row.push("expr", Value::string(expr_string.clone(), profiler_span));
     }
 
     if let Some((instruction_index, instruction)) = &element.instruction {

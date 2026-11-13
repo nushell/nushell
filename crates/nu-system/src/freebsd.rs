@@ -1,38 +1,33 @@
 use itertools::{EitherOrBoth, Itertools};
 use libc::{
-    CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS, TDF_IDLETD, c_char, kinfo_proc,
-    sysctl,
+    CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ARGS, KERN_PROC_CWD, KERN_PROC_ENV, KERN_PROC_PATHNAME,
+    KERN_PROC_PROC, KERN_PROC_VMMAP, KVME_TYPE_DEFAULT, KVME_TYPE_SWAP, TDF_IDLETD, c_char,
+    kinfo_file, kinfo_vmentry, sysctl,
 };
 use std::{
-    ffi::CStr,
     io,
     mem::{self, MaybeUninit},
     ptr,
-    time::Duration,
+    time::{Duration, UNIX_EPOCH},
 };
 
+use crate::process::{ProcessInfo, name_and_command};
+use crate::unix::{UserNames, c_string, split_nul};
 use nu_utils::time::Instant;
 
-#[derive(Debug)]
-pub struct ProcessInfo {
-    pub pid: i32,
-    pub ppid: i32,
-    pub name: String,
-    pub argv: Vec<u8>,
-    pub stat: c_char,
-    pub percent_cpu: f64,
-    pub mem_resident: u64, // in bytes
-    pub mem_virtual: u64,  // in bytes
-}
-
-pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
-    compare_procs(interval).unwrap_or_else(|err| {
+/// Lists every process, measuring CPU usage over `interval`. When `long` is false, the details
+/// only `ps --long` shows aren't read, so they are `None`.
+///
+/// The working directory and environment are only readable for the current user's processes (or
+/// as root).
+pub fn collect_proc(interval: Duration, long: bool) -> Vec<ProcessInfo> {
+    compare_procs(interval, long).unwrap_or_else(|err| {
         log::warn!("Failed to get processes: {}", err);
         vec![]
     })
 }
 
-fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
+fn compare_procs(interval: Duration, long: bool) -> io::Result<Vec<ProcessInfo>> {
     let pagesize = get_pagesize()? as u64;
 
     // Compare two full snapshots of all of the processes over the interval
@@ -43,74 +38,87 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
     let true_interval = Instant::now().saturating_duration_since(now);
     let true_interval_sec = true_interval.as_secs_f64();
 
-    // Group all of the threads in each process together
-    let a_grouped = procs_a.into_iter().group_by(|proc| proc.ki_pid);
-    let b_grouped = procs_b.into_iter().group_by(|proc| proc.ki_pid);
+    let mut user_names = UserNames::default();
 
     // Join the processes between the two snapshots
-    Ok(a_grouped
+    Ok(procs_a
         .into_iter()
-        .merge_join_by(b_grouped.into_iter(), |(pid_a, _), (pid_b, _)| {
-            pid_a.cmp(pid_b)
-        })
-        .map(|threads| {
-            // Join the threads between the two snapshots for the process
-            let mut threads = {
-                let (left, right) = threads.left_and_right();
-                left.into_iter()
-                    .flat_map(|(_, threads)| threads)
-                    .merge_join_by(
-                        right.into_iter().flat_map(|(_, threads)| threads),
-                        |thread_a, thread_b| thread_a.ki_tid.cmp(&thread_b.ki_tid),
-                    )
-                    .peekable()
+        .merge_join_by(procs_b, |a, b| a.ki_pid.cmp(&b.ki_pid))
+        .filter_map(|procs| {
+            let (prev_proc, proc) = match procs {
+                EitherOrBoth::Both(a, b) => (Some(a), b),
+                // Started during the sample, so there's nothing to compare against.
+                EitherOrBoth::Right(b) => (None, b),
+                // Exited during the sample.
+                EitherOrBoth::Left(_) => return None,
             };
-
-            // Pick the later process entry of the first thread to use for basic process information
-            let proc = match threads.peek().ok_or(io::ErrorKind::NotFound)? {
-                EitherOrBoth::Both(_, b) => b,
-                EitherOrBoth::Left(a) => a,
-                EitherOrBoth::Right(b) => b,
-            }
-            .clone();
 
             // Skip over the idle process. It always appears with high CPU usage when the
             // system is idle
             if proc.ki_tdflags as u64 & TDF_IDLETD as u64 != 0 {
-                return Err(io::ErrorKind::NotFound.into());
+                return None;
             }
 
-            // Aggregate all of the threads that exist in both snapshots and sum their runtime.
-            let (runtime_a, runtime_b) =
-                threads
-                    .flat_map(|t| t.both())
-                    .fold((0., 0.), |(runtime_a, runtime_b), (a, b)| {
-                        let runtime_in_seconds =
-                            |proc: &kinfo_proc| proc.ki_runtime as f64 /* µsec */ / 1_000_000.0;
-                        (
-                            runtime_a + runtime_in_seconds(&a),
-                            runtime_b + runtime_in_seconds(&b),
-                        )
-                    });
-
             // The percentage CPU is the ratio of how much runtime occurred for the process out of
-            // the true measured interval that occurred.
-            let percent_cpu = 100. * (runtime_b - runtime_a).max(0.) / true_interval_sec;
+            // the true measured interval that occurred. `ki_runtime` is the process total in
+            // microseconds, including threads that have exited. A different start time means
+            // the pid was reused.
+            let start = (proc.ki_start.tv_sec, proc.ki_start.tv_usec);
+            let percent_cpu = prev_proc
+                .filter(|prev| (prev.ki_start.tv_sec, prev.ki_start.tv_usec) == start)
+                .map(|prev| {
+                    let used = proc.ki_runtime.saturating_sub(prev.ki_runtime);
+                    100. * used as f64 / 1_000_000. / true_interval_sec
+                });
 
-            let info = ProcessInfo {
+            #[allow(clippy::unnecessary_cast, reason = "`c_char` is `u8` on some targets")]
+            let comm = proc.ki_comm.map(|c| c as u8);
+            // Keep the process even when its arguments can't be read (a zombie, say).
+            let (name, command) = name_and_command(
+                &proc_sysctl(KERN_PROC_ARGS, proc.ki_pid).unwrap_or_default(),
+                c_string(&comm).unwrap_or_default(),
+            );
+
+            Some(ProcessInfo {
                 pid: proc.ki_pid,
                 ppid: proc.ki_ppid,
-                name: read_cstr(&proc.ki_comm).to_string_lossy().into_owned(),
-                argv: get_proc_args(proc.ki_pid)?,
-                stat: proc.ki_stat,
-                percent_cpu,
-                mem_resident: proc.ki_rssize.max(0) as u64 * pagesize,
-                mem_virtual: proc.ki_size.max(0) as u64,
-            };
-            Ok(info)
+                name,
+                command: command.filter(|_| long),
+                exe: long
+                    .then(|| proc_sysctl(KERN_PROC_PATHNAME, proc.ki_pid).ok())
+                    .flatten()
+                    .and_then(|path| c_string(&path)),
+                user: user_names.get(proc.ki_uid),
+                user_id: Some(proc.ki_uid),
+                status: Some(process_status(proc.ki_stat)),
+                cpu_usage: percent_cpu,
+                cpu_time: Some(Duration::from_micros(proc.ki_runtime)),
+                mem_size: Some(proc.ki_rssize.max(0) as u64 * pagesize),
+                virtual_size: Some(proc.ki_size as u64),
+                private_size: long
+                    .then(|| get_private_resident(proc.ki_pid, pagesize))
+                    .flatten(),
+                // `ki_rusage` counts storage I/O in blocks (`ru_inblock`, `ru_oublock`), not
+                // bytes, and the kernel keeps no byte count to report.
+                disk_read: None,
+                disk_written: None,
+                start_time: Some(
+                    UNIX_EPOCH
+                        + Duration::from_secs(proc.ki_start.tv_sec.max(0) as u64)
+                        + Duration::from_micros(proc.ki_start.tv_usec.max(0) as u64),
+                ),
+                process_group_id: Some(proc.ki_pgid),
+                session_id: Some(proc.ki_sid.into()),
+                priority: Some(proc.ki_pri.pri_level.into()),
+                nice: Some(proc.ki_nice.into()),
+                thread_count: Some(proc.ki_numthreads.into()),
+                cwd: long.then(|| get_cwd(proc.ki_pid)).flatten(),
+                environ: long
+                    .then(|| proc_sysctl(KERN_PROC_ENV, proc.ki_pid).ok())
+                    .flatten()
+                    .map(|env| split_nul(&env)),
+            })
         })
-        // Remove errors from the list - probably just processes that are gone now
-        .flat_map(|result: io::Result<_>| result.ok())
         .collect())
 }
 
@@ -122,21 +130,13 @@ fn check(err: libc::c_int) -> std::io::Result<()> {
     }
 }
 
-/// This is a bounds-checked way to read a `CStr` from a slice of `c_char`
-fn read_cstr(slice: &[libc::c_char]) -> &CStr {
-    unsafe {
-        // SAFETY: ensure that c_char and u8 are the same size
-        mem::transmute::<libc::c_char, u8>(0);
-        let slice: &[u8] = mem::transmute(slice);
-        CStr::from_bytes_until_nul(slice).unwrap_or_default()
-    }
-}
-
+/// Lists every process. `KERN_PROC_PROC` gives one entry per process, whose `ki_runtime` is the
+/// process's total, while `KERN_PROC_ALL` gives one per thread with that thread's own runtime.
 fn get_procs() -> io::Result<Vec<libc::kinfo_proc>> {
     // To understand what's going on here, see the sysctl(3) manpage for FreeBSD.
     unsafe {
         const STRUCT_SIZE: usize = mem::size_of::<libc::kinfo_proc>();
-        let ctl_name = [CTL_KERN, KERN_PROC, KERN_PROC_ALL];
+        let ctl_name = [CTL_KERN, KERN_PROC, KERN_PROC_PROC];
 
         // First, try to figure out how large a buffer we need to allocate
         // (calling with NULL just tells us that)
@@ -172,15 +172,17 @@ fn get_procs() -> io::Result<Vec<libc::kinfo_proc>> {
         let true_len = data_len.div_ceil(STRUCT_SIZE);
         vec.set_len(true_len);
 
-        // Sort the procs by pid and then tid before using them
-        vec.sort_by_key(|p| (p.ki_pid, p.ki_tid));
+        // Sort the procs by pid before using them
+        vec.sort_by_key(|p| p.ki_pid);
         Ok(vec)
     }
 }
 
-fn get_proc_args(pid: i32) -> io::Result<Vec<u8>> {
+/// Reads the variable-length `kern.proc.<what>.<pid>` sysctl, such as the arguments
+/// (`KERN_PROC_ARGS`) or environment (`KERN_PROC_ENV`) of a process.
+fn proc_sysctl(what: i32, pid: i32) -> io::Result<Vec<u8>> {
     unsafe {
-        let ctl_name = [CTL_KERN, KERN_PROC, KERN_PROC_ARGS, pid];
+        let ctl_name = [CTL_KERN, KERN_PROC, what, pid];
 
         // First, try to figure out how large a buffer we need to allocate
         // (calling with NULL just tells us that)
@@ -213,6 +215,41 @@ fn get_proc_args(pid: i32) -> io::Result<Vec<u8>> {
         vec.set_len(data_len);
         Ok(vec)
     }
+}
+
+/// The working directory: the path in the `kinfo_file` that `KERN_PROC_CWD` returns.
+fn get_cwd(pid: i32) -> Option<String> {
+    let data = proc_sysctl(KERN_PROC_CWD, pid).ok()?;
+    c_string(data.get(mem::offset_of!(kinfo_file, kf_path)..)?)
+}
+
+/// Resident memory of the process's anonymous mappings (heap, stack and anonymous `mmap`), the
+/// resident pages of each `KERN_PROC_VMMAP` entry backed by anonymous memory, like Linux's
+/// `RssAnon`. The entries' `kve_private_resident` (the `PRES` column of `procstat -v`) can't be
+/// used: it is the page count of the whole VM object, so a mapped file such as a shared library
+/// would add all of its cached pages, once for each of its mappings.
+fn get_private_resident(pid: i32, pagesize: u64) -> Option<u64> {
+    let data = proc_sysctl(KERN_PROC_VMMAP, pid).ok()?;
+    let read_int = |offset: usize| {
+        let bytes = data.get(offset..offset + mem::size_of::<i32>())?;
+        Some(i32::from_ne_bytes(bytes.try_into().ok()?))
+    };
+    let mut pages = 0;
+    let mut offset = 0;
+    // The kernel packs the entries, so each one starts with its own size.
+    while offset < data.len() {
+        let size = read_int(offset + mem::offset_of!(kinfo_vmentry, kve_structsize))?;
+        if size <= 0 {
+            break;
+        }
+        let kind = read_int(offset + mem::offset_of!(kinfo_vmentry, kve_type))?;
+        if kind == KVME_TYPE_DEFAULT || kind == KVME_TYPE_SWAP {
+            let resident = read_int(offset + mem::offset_of!(kinfo_vmentry, kve_resident))?;
+            pages += resident.max(0) as u64;
+        }
+        offset += size as usize;
+    }
+    Some(pages * pagesize)
 }
 
 /// For getting simple values from the sysctl interface
@@ -256,73 +293,15 @@ fn get_pagesize() -> io::Result<libc::c_int> {
     unsafe { get_ctl(&[CTL_HW, HW_PAGESIZE]) }
 }
 
-impl ProcessInfo {
-    /// PID of process
-    pub fn pid(&self) -> i32 {
-        self.pid
-    }
-
-    /// Parent PID of process
-    pub fn ppid(&self) -> i32 {
-        self.ppid
-    }
-
-    /// Name of command
-    pub fn name(&self) -> String {
-        let argv_name = self
-            .argv
-            .split(|b| *b == 0)
-            .next()
-            .map(String::from_utf8_lossy)
-            .unwrap_or_default()
-            .into_owned();
-
-        if !argv_name.is_empty() {
-            argv_name
-        } else {
-            // Just use the command name alone.
-            self.name.clone()
-        }
-    }
-
-    /// Full name of command, with arguments
-    pub fn command(&self) -> String {
-        if let Some(last_nul) = self.argv.iter().rposition(|b| *b == 0) {
-            // The command string is NUL separated
-            // Take the string up to the last NUL, then replace the NULs with spaces
-            String::from_utf8_lossy(&self.argv[0..last_nul]).replace("\0", " ")
-        } else {
-            // The argv is empty, so use the name instead
-            self.name()
-        }
-    }
-
-    /// Get the status of the process
-    pub fn status(&self) -> String {
-        match self.stat {
-            libc::SIDL | libc::SRUN => "Running",
-            libc::SSLEEP => "Sleeping",
-            libc::SSTOP => "Stopped",
-            libc::SWAIT => "Waiting",
-            libc::SLOCK => "Locked",
-            libc::SZOMB => "Zombie",
-            _ => "Unknown",
-        }
-        .into()
-    }
-
-    /// CPU usage as a percent of total
-    pub fn cpu_usage(&self) -> f64 {
-        self.percent_cpu
-    }
-
-    /// Memory size in number of bytes
-    pub fn mem_size(&self) -> u64 {
-        self.mem_resident
-    }
-
-    /// Virtual memory size in bytes
-    pub fn virtual_size(&self) -> u64 {
-        self.mem_virtual
+/// Names a process state (`ki_stat`).
+fn process_status(stat: c_char) -> &'static str {
+    match stat {
+        libc::SIDL | libc::SRUN => "Running",
+        libc::SSLEEP => "Sleeping",
+        libc::SSTOP => "Stopped",
+        libc::SWAIT => "Waiting",
+        libc::SLOCK => "Locked",
+        libc::SZOMB => "Zombie",
+        _ => "Unknown",
     }
 }

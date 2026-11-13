@@ -36,6 +36,11 @@ impl Command for JobSpawn {
                 "An optional description for this job.",
                 Some('d'),
             )
+            .switch(
+                "auto-kill",
+                "Kill this job on `exit` without warning that it is still running.",
+                Some('k'),
+            )
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -58,11 +63,19 @@ impl Command for JobSpawn {
 
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
+        // The job thread's engine state is a clone of this one, so an unavailable
+        // block can be reported here, where the caller's `try`/`catch` sees it,
+        // instead of from the background thread after the job was registered.
+        engine_state.get_closure_block(&closure, head)?;
+
         let description: Option<String> = call.get_flag(engine_state, stack, "description")?;
+        let auto_kill = call.has_flag(engine_state, stack, "auto-kill")?;
         let job_stack = stack.clone();
 
         let mut job_state = engine_state.clone();
         job_state.is_interactive = false;
+        // A background job never returns to the prompt, even when spawned by the REPL.
+        job_state.is_repl = false;
 
         // the new job should have its ctrl-c independent of foreground
         let job_signals = Signals::new(Arc::new(AtomicBool::new(false)));
@@ -79,12 +92,17 @@ impl Command for JobSpawn {
         let (send, recv) = mpsc::channel();
 
         let id = {
-            let thread_job = ThreadJob::new(job_signals, description, send);
+            let thread_job = ThreadJob::new(job_signals, description, auto_kill, send);
 
             let id = jobs.add_job(Job::Thread(thread_job.clone()));
 
             job_state.current_job = CurrentJob {
                 id,
+                root: if engine_state.is_background_job() {
+                    engine_state.current_job.root
+                } else {
+                    id
+                },
                 background_thread_job: Some(thread_job),
                 mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
             };
@@ -100,8 +118,8 @@ impl Command for JobSpawn {
                     Some(Redirection::Pipe(OutDest::Null)),
                     Some(Redirection::Pipe(OutDest::Null)),
                 );
-                ClosureEvalOnce::new_preserve_out_dest(&job_state, &stack, closure)
-                    .run_with_input(PipelineData::Empty)
+                ClosureEvalOnce::try_new_preserve_out_dest(&job_state, &stack, closure, head)
+                    .and_then(|eval| eval.run_with_input(PipelineData::Empty))
                     .and_then(|data| data.drain())
                     .unwrap_or_else(|err| {
                         if !job_state.signals().interrupted() {
@@ -131,11 +149,18 @@ impl Command for JobSpawn {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            example: "job spawn { sleep 5sec; rm evidence.pdf }",
-            description: "Spawn a background job to do some time consuming work.",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "job spawn { sleep 5sec; rm evidence.pdf }",
+                description: "Spawn a background job to do some time consuming work.",
+                result: None,
+            },
+            Example {
+                example: "job spawn --auto-kill { loop { sleep 1sec } }",
+                description: "Spawn a job that `exit` kills without warning about it.",
+                result: None,
+            },
+        ]
     }
 
     fn extra_description(&self) -> &str {
@@ -143,6 +168,10 @@ impl Command for JobSpawn {
 and registers this task in the background job table, which can be retrieved with `job list`.
 
 This command returns the job id of the newly created job.
+
+The --auto-kill flag applies to the spawned thread job. If an external process
+inside it is suspended and registered as a separate frozen job, it would still
+trigger the exit warning.
             "
     }
 }

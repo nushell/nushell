@@ -124,7 +124,9 @@ impl Traverse for Expression {
                     recur(arg.expr());
                 }
             }
-            Expr::UnaryNot(expr) | Expr::Collect(_, expr) => recur(expr.as_ref()),
+            Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) | Expr::Collect(_, expr) => {
+                recur(expr.as_ref())
+            }
             Expr::BinaryOp(lhs, op, rhs) => {
                 recur(lhs);
                 recur(op);
@@ -211,7 +213,9 @@ impl Traverse for Expression {
                     Expr::ExternalCall(head, args) => {
                         recur(head.as_ref()).or(args.iter().find_map(|arg| recur(arg.expr())))
                     }
-                    Expr::UnaryNot(expr) | Expr::Collect(_, expr) => recur(expr.as_ref()),
+                    Expr::UnaryNot(expr) | Expr::UnaryMinus(expr) | Expr::Collect(_, expr) => {
+                        recur(expr.as_ref())
+                    }
                     Expr::BinaryOp(lhs, op, rhs) => recur(lhs).or(recur(op)).or(recur(rhs)),
                     Expr::MatchBlock(matches) => matches.iter().find_map(|(pattern, expr)| {
                         pattern.find_map(working_set, f).or(recur(expr))
@@ -256,7 +260,6 @@ impl Traverse for MatchPattern {
             |pattern: &'a MatchPattern| pattern.flat_map(working_set, f, results);
 
         match &self.pattern {
-            Pattern::Expression(expr) => expr.flat_map(working_set, f, results),
             Pattern::List(patterns) | Pattern::Or(patterns) => {
                 for pattern in patterns {
                     recur_pattern(pattern);
@@ -282,7 +285,6 @@ impl Traverse for MatchPattern {
         let recur = |expr: &'a Expression| expr.find_map(working_set, f);
         let recur_pattern = |pattern: &'a MatchPattern| pattern.find_map(working_set, f);
         match &self.pattern {
-            Pattern::Expression(expr) => recur(expr),
             Pattern::List(patterns) | Pattern::Or(patterns) => {
                 patterns.iter().find_map(recur_pattern)
             }

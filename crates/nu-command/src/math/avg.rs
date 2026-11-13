@@ -60,10 +60,11 @@ impl Command for MathAvg {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function_with_cell_paths_const(working_set, call, input, average)
+        run_with_function_with_cell_paths_const(working_set, stack, call, input, average)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

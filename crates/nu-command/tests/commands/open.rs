@@ -122,6 +122,52 @@ fn parses_csv() -> Result {
     })
 }
 
+/// A `from <ext>` alias is rejected with an error suggesting a `def`, instead of failing with
+/// "Can't run alias directly" (#18725).
+#[test]
+fn open_with_a_from_alias_suggests_def() -> Result {
+    Playground::setup("open_with_from_alias", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("deno.jsonc", r#"{"name": "nu"}"#),
+            FileWithContent("plain.foo", "a,b\n1,2\n"),
+        ]);
+
+        let code = r#"alias "from jsonc" = from json; open deno.jsonc"#;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
+        assert_contains("Can't open file with alias `from jsonc`", err.to_string());
+        assert_contains("def 'from jsonc' [] { from json }", format!("{err:?}"));
+        assert!(!format!("{err:?}").contains("Can't run alias directly"));
+
+        // The suggestion keeps the alias's flags.
+        let code = r#"alias "from foo" = from csv --noheaders; open plain.foo"#;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
+        assert_contains(
+            "def 'from foo' [] { from csv --noheaders }",
+            format!("{err:?}"),
+        );
+        Ok(())
+    })
+}
+
+/// An alias over the converter it shadows (`alias "from json" = from json --objects`) can't
+/// become a `def` of that name, which would call itself, so the help shows the explicit pipeline.
+#[test]
+fn open_with_a_shadowing_from_alias_suggests_a_pipeline() -> Result {
+    Playground::setup("open_with_shadowing_from_alias", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("data.json", r#"{"name": "nu"}"#)]);
+
+        let code = r#"alias "from json" = from json --objects; open data.json"#;
+        let err = test().cwd(dirs.test()).run(code).expect_error()?;
+        assert_contains("Can't open file with alias `from json`", err.to_string());
+        assert_contains(
+            "open --raw data.json | from json --objects",
+            format!("{err:?}"),
+        );
+        assert!(!format!("{err:?}").contains("def 'from json'"));
+        Ok(())
+    })
+}
+
 // sample.db has the following format:
 //
 // ╭─────────┬────────────────╮
@@ -212,7 +258,15 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::wrap("wrap wrapped | columns | first", "wrapped")]
 #[case::interleave("interleave { [{z: 999}] } | length", 6)]
 #[case::rotate("rotate --ccw | columns | first", "column0")]
-#[case::group_by("group-by z | columns | length", 4)]
+#[case::group_by(
+    "group-by z",
+    test_value!({
+        "1": [{z: 1}],
+        "42": [{z: 42}],
+        "425": [{z: 425}],
+        "4253": [{z: 4253}],
+    })
+)]
 #[case::get("get z.0", 1)]
 #[case::length("length", 5)]
 #[case::merge("first | merge {n: 1} | get n", 1)]
@@ -223,8 +277,12 @@ fn sqlite_database_operations(#[case] operation: &str, #[case] expected: impl In
 #[case::shuffle("shuffle | length", 5)]
 #[case::split_list("split list 2 | flatten | length", 5)]
 #[case::each_while("each while {|row| $row } | length", 5)]
-#[case::tee("tee {|x| $x | ignore } | flatten | length", 6)]
-#[case::filter("filter {|row| $row.z > 100 } | length", 2)]
+// note: `tee`'s closure does not bind positional params for stream inputs, which used to
+// surface a `variable not found` error row that `length` swallowed and counted (6 = 5 rows
+// + 1 masked error). Since `length` now propagates stream errors, drop the row with a
+// closure that takes no arguments (`tee { ignore }`), keeping streaming intact.
+#[case::tee("tee { ignore } | flatten | length", 5)]
+#[case::where_closure("where {|row| $row.z > 100 } | length", 2)]
 fn sqlite_int_table_operations(
     #[case] operation: &str,
     #[case] expected: impl IntoValue,

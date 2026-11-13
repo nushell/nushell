@@ -47,3 +47,33 @@ fn doesnt_create_temp_file() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn relative_absolute() -> Result {
+    // #18996
+    Playground::setup("mktemp_relative", |dirs, _| {
+        let output: String = test().cwd(dirs.test()).run("mktemp --dry")?;
+        let loc = AbsolutePath::try_new(&output).unwrap();
+
+        assert_ne!(dirs.test(), loc.parent().unwrap());
+
+        let output: String = test().cwd(dirs.test()).run("mktemp --dry --directory")?;
+        let loc = AbsolutePath::try_new(&output).unwrap();
+
+        assert_ne!(dirs.test(), loc.parent().unwrap());
+
+        let output: String = test().cwd(dirs.test()).run("mktemp --dry file.XXX")?;
+        let loc = AbsolutePath::try_new(&output).unwrap();
+
+        assert_eq!(dirs.test(), loc.parent().unwrap());
+
+        let output: String = test()
+            .cwd(dirs.test())
+            .run("mktemp --dry --directory dir.XXX")?;
+        let loc = AbsolutePath::try_new(&output).unwrap();
+
+        assert_eq!(dirs.test(), loc.parent().unwrap());
+
+        Ok(())
+    })
+}

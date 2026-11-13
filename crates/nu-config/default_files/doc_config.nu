@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.115.2"
+# version = "0.117.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -113,8 +113,9 @@ $env.config.show_banner = true
 # Default: false
 $env.config.rm.always_trash = false
 
-# recursion_limit (int): Maximum times a command can call itself recursively.
-# Prevents infinite recursion by generating an error when exceeded.
+# recursion_limit (int): Maximum depth of nested custom command and closure calls.
+# Each call to a custom command or closure (`do`, `each`, `where`, hooks, etc.) adds one level.
+# Prevents infinite recursion from crashing Nushell by generating an error when exceeded.
 # Must be greater than 1.
 # Default: 50
 $env.config.recursion_limit = 50
@@ -171,6 +172,10 @@ $env.config.edit_mode = "emacs"
 # Default: null
 $env.config.buffer_editor = null
 
+# Arguments support {file}, {line}, and {col} placeholders, e.g. ["hx", "{file}:{line}:{col}"].
+# Positions are one-based; `config nu` and `config env` use line 1, column 1.
+# The file path is appended unless an argument contains {file} or is the exact path.
+#
 # Example: Setting buffer_editor with arguments as a list:
 # $env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 
@@ -189,6 +194,12 @@ $env.config.cursor_shape.vi_insert = "inherit"
 # One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
 # Default: "inherit"
 $env.config.cursor_shape.vi_normal = "inherit"
+
+# cursor_shape.vi_visual (string): Cursor shape when in vi visual mode.
+# One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
+# "inherit" follows `cursor_shape.vi_normal`, so a config that only sets that one keeps its shape in visual mode.
+# Default: "inherit"
+$env.config.cursor_shape.vi_visual = "inherit"
 
 # cursor_shape.helix_normal (string): Cursor shape when in helix normal mode.
 # One of: "block", "underscore", "line", "blink_block", "blink_underscore", "blink_line", or "inherit".
@@ -227,6 +238,10 @@ $env.config.show_hints = true
 # Any closure error or unsupported return type yields no hint.
 # To use the built-in hinter instead, set hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
+# External commands run detached from the terminal, but can still receive input
+# from a pipeline. Their uncaptured output is discarded. `print` still writes to
+# the screen. `input`, `input list`, `input listen` and `term query` return an
+# error, which yields no hint unless caught.
 # Default: null
 $env.config.hinter.closure = null
 
@@ -239,6 +254,38 @@ $env.config.hinter.closure = null
 #     ($last | str substring ($ctx.line | str length)..)
 #   }
 # }
+
+# status_line (record): A line under the one being edited that comments on it
+# as you type. It is hidden in history search and erased when the line runs.
+# It is drawn in `color_config.status_line` with errors in
+# `color_config.status_line_error`, or plain when `use_ansi_coloring` is false.
+# status_line.enable (bool): Show the status line at all. false turns off every
+# part below.
+# Default: true
+$env.config.status_line.enable = true
+
+# status_line.errors (bool): Show the first parse or type error in the line,
+# unless it touches the cursor (you are still typing it) or the line is
+# unfinished, as with an open `{`. A line that `use`s a module not loaded yet
+# is not checked, since the module loads only when the line runs.
+# Default: true
+$env.config.status_line.errors = true
+
+# status_line.signature (bool): Show the signature of the command under the
+# cursor, with the parameter being typed emphasized.
+# Default: true
+$env.config.status_line.signature = true
+
+# status_line.type (bool): Show the type the pipeline at the cursor outputs, as
+# far as the parser can infer it (`any` and `nothing` are not shown).
+# Default: true
+$env.config.status_line.type = true
+
+# status_line.preview (bool): Show the value of a line built only from const
+# commands, such as `"a,b" | split row "," | str uppercase`. A preview that takes
+# longer than 25ms to compute is interrupted and not shown.
+# Default: true
+$env.config.status_line.preview = true
 
 # completions.algorithm (string): The algorithm used for matching completions.
 # "prefix": Match from the beginning of the text.
@@ -276,6 +323,15 @@ $env.config.completions.partial = true
 # typing "ls " and pressing Tab will partially complete the first matching letters.
 # If the directory also includes "faster", only "f" would be partially completed.
 
+# completions.persistent_menus (bool): Controls whether active menus stay open while editing.
+# true: Erasing characters (or emptying the commandline) refilters the menu instead of
+# closing it; the menu closes on Esc, Ctrl-C, or when a value is accepted.
+# Applies to all menus, including the history menu.
+# false: A backspace closes the menu when completions.quick is enabled, and any edit
+# that empties the commandline closes it.
+# Default: false
+$env.config.completions.persistent_menus = false
+
 # completions.use_ls_colors (bool): Apply LS_COLORS to file/path completions.
 # true: Use LS_COLORS for styling file completions.
 # false: Don't use LS_COLORS.
@@ -312,21 +368,76 @@ $env.config.completions.external.enable = true
 # Default: 100
 $env.config.completions.external.max_results = 100
 
-# completions.external.completer (closure|null): Custom closure for argument completions.
-# The closure receives a |spans| parameter - a list of strings representing
-# tokens on the current commandline. Usually set to call a third-party
-# completion system like Carapace.
-# Evaluating this closure blocks the line editor and may take the TTY, which
-# interactive pickers (fzf, `input list`) need. Completers that only print a
-# list should return quickly. Custom menu `source` closures already run on
-# the REPL thread the same way.
+# completions.external.completer (closure|record|null): Custom closure for argument
+# completions. Usually set to call a third-party completion system like Carapace.
+#
+# A completer's input is overloaded on the parameters it declares: it is handed exactly the
+# fields it names, and nothing it did not ask for (order does not matter; an unrecognized name
+# receives nothing). The three it can ask for:
+#   token: record    the token being completed, as {text, kind, span}
+#   place: record    where in the line that is: `cursor` (a byte offset) and `target`
+#                    ({start, end}, the range a suggestion replaces), plus the resolution
+#                    (`kind`, plus `flag`/`index`). Read `target` rather than `token.span`:
+#                    they differ wherever a completion spans several tokens, such as a
+#                    multiword command head or a cell path. `command` is the token list of the
+#                    command being completed -- the element the cursor is in, plus `""` for a
+#                    fresh empty argument slot. Unlike `buffer`, it is the command after a
+#                    pipe, inside a closure, or after a `;`, so `$place.command.0` is the
+#                    command name a completer like Carapace needs.
+#   buffer: string   the whole command line up to the cursor, across pipes and closures, for
+#                    completers that need more than the current token. `std/util structure`
+#                    turns it into a {text, kind, span} table. Prefer it over calling
+#                    `commandline` from inside a completer: `buffer` is always the line being
+#                    completed, whereas `commandline` reads editor state and can come back
+#                    empty depending on how completion was triggered (e.g. after a `;`).
+# `commandline complete --input` returns all three at once, for inspecting a completer.
+# A completer never sees text past the cursor.
+#
+# Returns a list of suggestions (a string, or a record of {value, description?, style?,
+# span?, extra?}) or a record of {options, completions}. External/command-wide completers
+# are not filtered by default; parameter completers are. See `options.filter`.
 # Default: null
 $env.config.completions.external.completer = null
 
-# Example: A simplified Carapace completer (use the official one from Carapace docs):
-# $env.config.completions.external.completer = {|spans|
-#   carapace $spans.0 nushell ...$spans | from json
+# Example: A simplified Carapace completer (use the official one from Carapace docs).
+# It reads `$place.command`, so the command being completed is the first token even after a
+# pipe, inside a closure, or after a `;`:
+# $env.config.completions.external.completer = {|place|
+#   carapace $place.command.0 nushell ...$place.command | from json
 # }
+#
+# Example: branch off the resolved cursor instead of re-parsing the line, by declaring
+# only the `place` it needs:
+# $env.config.completions.external.completer = {|place|
+#   if $place.kind == "flag-value" and $place.flag == "base" {
+#     git branch | lines | str trim
+#   }
+# }
+#
+# Example: inspect the parsed tokens of the line the cursor is on:
+# use std/util
+# def line-tokens [buffer] {
+#   util structure $buffer  # -> [{text, kind, span}, ...]
+# }
+#
+# A `def`-based completer (attached with `@complete` or to a parameter with `@`) can carry
+# the `@interactive` attribute to run on the line-editor thread with the terminal to itself,
+# so it can drive a picker like `fzf` or `input list`:
+# @interactive
+# def pick-file [token: record] { ls | get name | to text | ^fzf --query $token.text | lines }
+# Every other completer runs on a background worker instead: non-blocking, and cached.
+#
+# `external.completer` is a plain closure, which cannot carry an attribute. To make it run
+# inline (the picker-driving case), have it call an `@interactive` command: interactivity is
+# seen through the closure to that command, so there is no separate switch. The command
+# usually reads `$place.command` to feed the command being completed to its picker:
+# @interactive
+# def carapace-fzf [place] {
+#   carapace $place.command.0 nushell ...$place.command | from json | get value | to text | ^fzf | lines
+# }
+# $env.config.completions.external.completer = {|place| carapace-fzf $place }
+# A closure that does not reach an `@interactive` command stays on the background worker:
+# non-blocking, and cached.
 
 # --------------------
 # Terminal Integration
@@ -463,18 +574,23 @@ $env.config.table.padding.left = 1
 # Default: 1
 $env.config.table.padding.right = 1
 
-# table.trim (record): Rules for handling content when table exceeds terminal width.
-# methodology (string): "wrapping" or "truncating".
-# truncating_suffix (string): Suffix for truncated text (only for truncating).
-# wrapping_try_keep_words (bool): Avoid breaking words when wrapping.
+# table.trim (record): How cells narrower than their text are fitted. A table that
+# does not fit shows as many columns as fit with each at least 10 characters wide (or
+# its natural width when less), shrinks the widest first, and drops the rest behind a
+# trailing `...` column (which is not truncating_suffix).
+# wrapping: wrap cells that do not fit onto extra lines.
+# truncating: keep one line per row and cut cells that do not fit with truncating_suffix.
+# wrapping_try_keep_words (bool): Prefer wrapping on word boundaries.
+# truncating_suffix (string): Marker appended to a cut cell (truncating only).
 # Default: { methodology: "wrapping", wrapping_try_keep_words: true }
 $env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true}
 
-# Example: Using truncating mode instead:
 # $env.config.table.trim = { methodology: "truncating", truncating_suffix: "..." }
 
 # table.header_on_separator (bool): Display column headers on table border.
-# true: Headers appear embedded in top/bottom border.
+# true: Headers appear embedded in top/bottom border, unless a visible header has
+#   characters wider or narrower than one column (CJK, emoji, a newline): then the
+#   headers keep their own row. Columns stay at least as wide as their header.
 # false: Headers in their own row with separator below.
 # Default: false
 $env.config.table.header_on_separator = false
@@ -738,13 +854,37 @@ $env.config.hooks.command_not_found = null
 # etc.). Inspect with `$env.config.keybindings`. Reedline's base emacs/vi maps are
 # still applied underneath and are listed by `keybindings default`.
 #
-# Assigning this list merges into the current bindings rather than replacing
-# them (an emptied list stays empty; defaults are not reintroduced).
-# An entry replaces the existing binding with the same name (updating its key
-# or event in place); when several bindings share a name, the key
-# (modifier/keycode/mode) decides which one it is, and a name reused for a
-# genuinely new key appends with a one-time warning. Set `event: null` on a
-# matching binding to unbind a key, or assign `[]` to clear the whole list.
+# Assigning this list replaces it, defaults included, so add bindings with
+# `++=` to keep the defaults. Assigning only your own entries turns off Tab and
+# Shift+Tab completion, Ctrl+Space, F1 help, Ctrl+X and Ctrl+Z paging and the
+# Ctrl+R history menu, since the keys that open the menus are in this list.
+# Reedline's own base maps are not, so movement and editing keep working.
+# Like any list it is stored as written, and reedline applies the entries in
+# order on top of its own base maps. When several entries bind the same modifier
+# and keycode in the same mode, the last one wins. The `name` is only a label
+# and plays no part in that.
+#
+# The modifier, keycode and mode of every entry are checked when the list is
+# assigned. If one can't be read, the assignment is an error and the list stays
+# as it was, like any other setting that can't be read. Other fields in the same
+# record still apply, but in config.nu the lines after it don't run. The `event`
+# is checked when the prompt is built.
+#
+# To remove a binding you added, assign the list without it:
+# $env.config.keybindings = $env.config.keybindings | where name != my_binding
+# To unbind a key that reedline itself binds, add an entry for it with
+# `event: null`. To tidy up exact repeats, keep the last of each (the fields are
+# compared as written, so `emacs` and `[emacs]` count as different):
+# $env.config.keybindings = $env.config.keybindings | reverse | uniq-by modifier keycode mode | reverse
+# Assign `[]` to clear the whole list. To get the defaults back in a running shell
+# (these are the entries nushell adds, not reedline's own base bindings, which
+# `keybindings default` lists):
+# $env.config.keybindings = (config default).keybindings
+# A config that is sourced again, for example by a reload binding, adds its `++=`
+# entries each time. To keep the list from growing, assign the defaults first and
+# append after, so the list is built from the same start every time:
+# $env.config.keybindings = (config default).keybindings
+# $env.config.keybindings ++= [...]
 
 # Example: Add Alt+. keybinding to insert the last token from previous command:
 # $env.config.keybindings ++= [
@@ -760,9 +900,10 @@ $env.config.hooks.command_not_found = null
 #   }
 # ]
 
-# Example: Bind Ctrl+g to leave insert mode. A mode event only applies to its own
-# state machine and reports itself inapplicable elsewhere, so `until` hands the
-# key on and one binding covers both editors:
+# Example: Bind Ctrl+g to leave insert mode. `SwitchMode` names the mode to land
+# in, with the same names `mode` takes above. It only reaches the modes of the
+# editor `edit_mode` selects and reports itself inapplicable elsewhere, so
+# `until` hands the key on and one binding covers both editors:
 # $env.config.keybindings ++= [
 #   {
 #     name: leave_insert_mode
@@ -771,15 +912,18 @@ $env.config.hooks.command_not_found = null
 #     mode: [vi_insert helix_insert]
 #     event: {
 #       until: [
-#         { send: ViChangeMode, mode: normal }
-#         { send: HelixChangeMode, mode: normal }
+#         { send: SwitchMode, mode: vi_normal }
+#         { send: SwitchMode, mode: helix_normal }
 #       ]
 #     }
 #   }
 # ]
-# `ViChangeMode` takes "normal", "insert" or "visual"; `HelixChangeMode` takes
-# "normal", "insert" or "select". An unknown
-# mode name leaves the mode alone rather than erroring.
+# A `SwitchMode` into the mode already active does nothing and reports itself
+# inapplicable, so an `until` list of `vi_normal` then `vi_insert` toggles
+# between the two.
+# The older `ViChangeMode` (mode: "normal", "insert" or "visual") and
+# `HelixChangeMode` (mode: "normal", "insert" or "select") still parse and mean
+# the same as the `SwitchMode` above. An unknown mode name is a config error.
 
 # -------------
 # Abbreviations
@@ -796,7 +940,7 @@ $env.config.abbreviations = {}
 # $env.config.abbreviations = {
 #   gs: "git status",
 #   ll: "ls -l",
-#   ptop: "ps | sort-by -r cpu | first 10"
+#   ptop: "ps | compact cpu | sort-by -r cpu | first 10"
 # }
 
 # -----
@@ -824,9 +968,29 @@ $env.config.abbreviations = {}
 # `type` record, controlling whether an entry's description is shown before or
 # after its value. Unset keeps reedline's default.
 #
+# A menu's `source` receives the same inputs as every completer, bound by the parameters it
+# declares, in place of the old `{|buffer, position|}` pair -- see
+# completions.external.completer above. A source that used to write
+# `$buffer | split row ' ' | last` now declares `{|token|}` and reads `$token.text`, and one
+# that needs the whole line declares `{|buffer|}` the same way a completer does.
+# It returns what a completer returns, so one source can serve as either; the `options` of a
+# {completions, options} record name engine behaviour a menu has no say in and are ignored.
+#
 # Default: completion_menu, ide_completion_menu, history_menu, help_menu.
-# Inspect with `$env.config.menus`. Assigning this list merges into the
-# defaults by `name` rather than replacing them, so `=` never clears them.
+# Inspect with `$env.config.menus`. Assigning this list replaces it, defaults
+# included, so add menus with `++=`. Assigning only your own menus removes the
+# defaults, which also turns off Tab completion. Like any list it is stored as
+# written, and reedline registers the menus in order: when several share a
+# `name`, the last one wins, so `++=` with a default's name overrides that
+# default. The `type.layout`, `input_mode` (or `only_buffer_difference`) and
+# `output_mode` of every menu are checked when the list is assigned. If one can't
+# be read, the assignment is an error and the list stays as it was. The fields
+# that belong to one layout, such as `columns` or `page_size`, are checked when
+# the prompt is built. To drop the ones a later menu overrides:
+# $env.config.menus = $env.config.menus | uniq-by name --keep-last
+# To get the defaults back in a running shell, which is also how a config that is
+# sourced again starts from the same list every time:
+# $env.config.menus = (config default).menus
 
 # Example: Custom completion menu configuration:
 # $env.config.menus ++= [{
@@ -1260,6 +1424,15 @@ $env.config.color_config.block = "default"
 # Default: dark_gray
 $env.config.color_config.hints = "dark_gray"
 
+# color_config.status_line: Style for the REPL's status line (see
+# `status_line`). The parameter being typed is drawn in it, bold and underlined.
+# Default: the `hints` style, when not set
+$env.config.color_config.status_line = $env.config.color_config.hints
+
+# color_config.status_line_error: Style for an error on the REPL's status line.
+# Default: red
+$env.config.color_config.status_line_error = "red"
+
 # color_config.search_result: Style for `find` command search result highlights.
 # Default: { bg: red, fg: default }
 $env.config.color_config.search_result = {bg: "red", fg: "default"}
@@ -1390,6 +1563,79 @@ $env.config.explore.try.reactive = false
 #     try: { reactive: false }
 # }
 
+# --------------------
+# TUI Command Settings
+# --------------------
+# `$env.config.tui` styles the `tui` command family (`tui table`, `tui split`, `tui run`, ...).
+# It is read by `Theme::from_config` in `crates/nu-tui/src/theme.rs`. Every key except
+# `border_type` is a color value in the same forms as `color_config`: a color name, `#RRGGBB`,
+# or `{ fg?, bg?, attr? }`. In any slot, `default` is the terminal's own color.
+# When `use_ansi_coloring` is off the TUI draws without colors.
+
+# tui.title_bar (color): The one-line title bar from `tui label --titlebar`.
+# Default: { fg: white, bg: blue, attr: b }
+$env.config.tui.title_bar = { fg: white, bg: blue, attr: b }
+
+# tui.status_bar (color): The bottom status bar from `tui label --status`.
+# Default: { fg: white, bg: dark_gray }
+$env.config.tui.status_bar = { fg: white, bg: dark_gray }
+
+# tui.border / tui.border_focused (color): Widget borders, and the border of the focused widget.
+# Defaults: { fg: dark_gray } / { fg: cyan }
+$env.config.tui.border = { fg: dark_gray }
+$env.config.tui.border_focused = { fg: cyan }
+
+# tui.border_type (string): The lines of every widget border, named like `table --theme`.
+# A widget's own `--border` flag overrides it. A tui border always takes one cell, so `none`
+# is an error, and so is `default`. Each name draws the closest outline of that table theme:
+#   single, thin: ┌─┐ │ └─┘       rounded: ╭─╮ │ ╰─╯        double: ╔═╗ ║ ╚═╝
+#   heavy: ┏━┓ ┃ ┗━┛              reinforced: ┏─┓ │ ┗─┛
+#   basic, basic_compact: +-+ | +-+                  ascii_rounded: .-. | '-'
+#   dots: .... : : :..:            with_love: ❤ lines, no sides
+#   compact: ─ lines, no sides     compact_double: ═ lines, no sides
+#   restructured: = lines, no sides                  markdown: | sides, no lines
+#   frameless, light, psql: blank
+# Default: "single"
+$env.config.tui.border_type = "single"
+
+# tui.selected (color): The highlighted row in tables, trees, selects, and menus.
+# Default: { attr: r }
+$env.config.tui.selected = { attr: r }
+
+# tui.header (color): Table column headers.
+# Default: { fg: green, attr: b }
+$env.config.tui.header = { fg: green, attr: b }
+
+# tui.muted (color): Placeholders and empty-state text.
+# Default: { fg: dark_gray }
+$env.config.tui.muted = { fg: dark_gray }
+
+# tui.highlight (color): Search query text and check marks.
+# Default: { fg: yellow, attr: b }
+$env.config.tui.highlight = { fg: yellow, attr: b }
+
+# tui.tab_active / tui.tab_inactive (color): Entries in the tab bar.
+# Defaults: { fg: cyan, attr: bu } / { fg: dark_gray }
+$env.config.tui.tab_active = { fg: cyan, attr: bu }
+$env.config.tui.tab_inactive = { fg: dark_gray }
+
+# tui.progress (color): The filled part of `tui progress`.
+# Default: { fg: green }
+$env.config.tui.progress = { fg: green }
+
+# tui.button (color): `tui button` labels.
+# Default: { fg: white, bg: blue }
+$env.config.tui.button = { fg: white, bg: blue }
+
+# tui.surface / tui.backdrop (color): Background fill behind widgets, and behind a `--dialog`.
+# Only the fill color is used: a record's `bg`, or a bare color such as "#121216".
+# `default` is the terminal's own background, which keeps text readable on light and dark
+# terminals. A color gives an opaque fill, for example near-black `{ bg: "#121216" }` and
+# `{ bg: "#08080c" }`. Plain text keeps the terminal's foreground, so pick a fill it reads on.
+# Defaults: { bg: default } / { bg: default }
+$env.config.tui.surface = { bg: default }
+$env.config.tui.backdrop = { bg: default }
+
 # ---------------------------------------------------------------------------------------
 # Environment Variables
 # ---------------------------------------------------------------------------------------
@@ -1401,7 +1647,7 @@ $env.config.explore.try.reactive = false
 # PROMPT_ variables accept either a string or a closure that returns a string.
 
 # Every PROMPT_ variable below, transient ones included, is deprecated since
-# 0.115.0. They still take precedence when set, but $env.config.prompt is the
+# 0.118.0. They still take precedence when set, but $env.config.prompt is the
 # supported way to configure the prompt. See the "Prompt" section above.
 #
 # None of them is seeded at startup any more, so they now exist only if you set
@@ -1468,6 +1714,10 @@ $env.config.explore.try.reactive = false
 # ---------------------
 # Environment Settings
 # ---------------------
+
+# CMD_DURATION_MS: Duration of the last command in milliseconds.
+# At startup it is always "0823" (the day of Nushell's first release), so you can use
+# `$env.CMD_DURATION_MS == "0823"` to check if you are in the first prompt/command.
 
 # ENV_CONVERSIONS: Specifies how environment variables are converted.
 # from_string: Convert from string to Nushell value on startup.

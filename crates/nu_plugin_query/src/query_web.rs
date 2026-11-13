@@ -213,14 +213,14 @@ pub fn retrieve_tables(
     }
 
     if inspect_mode {
-        eprintln!("Passed in Column Headers = {:?}\n", &cols);
+        eprintln!("Passed in Column Headers = {:?}\n", cols);
         eprintln!("First 2048 HTML chars = {}\n", &html[0..2047]);
     }
 
     let tables = match WebTable::find_by_headers(html, &cols, inspect_mode) {
         Some(t) => {
             if inspect_mode {
-                eprintln!("Table Found = {:#?}", &t);
+                eprintln!("Table Found = {:#?}", t);
             }
             t
         }
@@ -281,18 +281,17 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
     // a table has ben rotated ccw 90 degrees, in these cases all columns will be missing
     // we keep track of this with this variable so we can deal with it later
     let mut at_least_one_row_filled = false;
-    // if columns are still empty, let's just make a single column table with the data
+    // if columns are still empty, the table has no headers, so generate
+    // `columnN` names and emit one record per row
     if cols.is_empty() {
         at_least_one_row_filled = true;
-        let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();
-
-        let mut record = Record::new();
-        for row in &table_with_no_empties {
+        for row in table.iter().filter(|item| !item.is_empty()) {
+            let mut record = Record::new();
             for (counter, cell) in row.iter().enumerate() {
                 record.push(format!("column{counter}"), Value::string(cell, span));
             }
+            table_out.push(Value::record(record, span))
         }
-        table_out.push(Value::record(record, span))
     } else {
         for row in &table {
             let record = cols
@@ -300,10 +299,10 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
                 .map(|col| {
                     let val = row
                         .get(col)
-                        .unwrap_or(&format!("Missing column: '{}'", &col))
+                        .unwrap_or(&format!("Missing column: '{}'", col))
                         .to_string();
 
-                    if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
+                    if !at_least_one_row_filled && val != format!("Missing column: '{}'", col) {
                         at_least_one_row_filled = true;
                     }
                     (col.clone(), Value::string(val, span))
@@ -472,6 +471,27 @@ mod tests {
         <a href="https://example.com" target="_self">Example</a>
     "#;
 
+    const TABLE_NO_HEADERS: &str = r#"
+        <table>
+            <tr><td>row1-a</td><td>row1-b</td></tr>
+            <tr><td>row2-a</td><td>row2-b</td></tr>
+        </table>
+    "#;
+
+    const TABLE_NO_HEADERS_ONE_ROW: &str = r#"
+        <table>
+            <tr><td>row1-a</td><td>row1-b</td></tr>
+        </table>
+    "#;
+
+    const TABLE_WITH_HEADERS: &str = r#"
+        <table>
+            <tr><th>name</th><th>type</th></tr>
+            <tr><td>row1-a</td><td>dir</td></tr>
+            <tr><td>row2-a</td><td>file</td></tr>
+        </table>
+    "#;
+
     fn null_spanned<T: ToOwned + ?Sized>(input: &T) -> Spanned<T::Owned> {
         Spanned {
             item: input.to_owned(),
@@ -575,6 +595,97 @@ mod tests {
         let config = nu_protocol::Config::default();
         let out = result.to_expanded_string("\n", &config);
         assert_eq!("[[foo]]".to_string(), out);
+    }
+
+    fn table_to_records(value: Value) -> Vec<Vec<(String, String)>> {
+        value
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(|row| {
+                row.into_record()
+                    .unwrap()
+                    .into_iter()
+                    .map(|(col, cell)| (col, cell.coerce_into_string().unwrap()))
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_table_without_headers_multiple_rows() {
+        let item = retrieve_tables(
+            TABLE_NO_HEADERS,
+            &Value::list(Vec::new(), Span::test_data()),
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            table_to_records(item),
+            vec![
+                vec![
+                    ("column0".to_string(), "row1-a".to_string()),
+                    ("column1".to_string(), "row1-b".to_string())
+                ],
+                vec![
+                    ("column0".to_string(), "row2-a".to_string()),
+                    ("column1".to_string(), "row2-b".to_string())
+                ]
+            ]
+        )
+    }
+
+    #[test]
+    fn test_table_without_headers_one_row() {
+        let item = retrieve_tables(
+            TABLE_NO_HEADERS_ONE_ROW,
+            &Value::list(Vec::new(), Span::test_data()),
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            table_to_records(item),
+            vec![vec![
+                ("column0".to_string(), "row1-a".to_string()),
+                ("column1".to_string(), "row1-b".to_string())
+            ]]
+        )
+    }
+
+    #[test]
+    fn test_table_with_headers() {
+        let item = retrieve_tables(
+            TABLE_WITH_HEADERS,
+            &Value::list(Vec::new(), Span::test_data()),
+            false,
+            Span::test_data(),
+        )
+        .unwrap();
+
+        // header names are collected from a HashMap, so column order is not
+        // guaranteed; sort each record's fields before comparing
+        let mut out = table_to_records(item);
+        for row in out.iter_mut() {
+            row.sort();
+        }
+
+        assert_eq!(
+            out,
+            vec![
+                vec![
+                    ("name".to_string(), "row1-a".to_string()),
+                    ("type".to_string(), "dir".to_string())
+                ],
+                vec![
+                    ("name".to_string(), "row2-a".to_string()),
+                    ("type".to_string(), "file".to_string())
+                ]
+            ]
+        )
     }
 
     #[test]
