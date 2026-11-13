@@ -27,7 +27,7 @@ pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
 }
 
 const HELP_MSG: &str = "Nushell's config file can be found with the command: $nu.config-path. \
-For more help: (https://nushell.sh/book/configuration.html#configurations-with-built-in-commands)";
+For more help: (https://nushell.sh/book/configuration.html#quickstart)";
 
 fn get_editor_commandline(
     value: &Value,
