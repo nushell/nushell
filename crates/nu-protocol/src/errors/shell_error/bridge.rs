@@ -19,6 +19,9 @@ pub struct ShellErrorBridge(pub ShellError);
 impl ShellErrorBridge {
     /// Converts an I/O error from reading a stream into a [`ShellError`]. A [`ShellError`] packed
     /// in a bridge comes back out as is; anything else becomes an [`IoError`] at `span`.
+    ///
+    /// Anything that reads a stream should use this instead of [`IoError::new`], which would lose
+    /// the error in the bridge, even if that's an `exit`.
     pub fn unpack(err: std::io::Error, span: Span) -> ShellError {
         match Self::try_from(err) {
             Ok(Self(err)) => err,

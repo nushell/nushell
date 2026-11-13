@@ -1,3 +1,4 @@
+use super::utils::list_or_error;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     ListStream,
@@ -238,7 +239,7 @@ impl<I: Iterator<Item = Value>> Iterator for ChunksIter<I> {
         let chunk: Vec<_> = std::iter::once(first)
             .chain((&mut self.iter).take(self.size - 1))
             .collect();
-        Some(Value::list(chunk, self.span))
+        Some(list_or_error(chunk, self.span))
     }
 }
 
