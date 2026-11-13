@@ -64,3 +64,33 @@ fn reverse_ignores_days_when_periods_is_set() -> Result {
     assert_eq!(dates, expected);
     Ok(())
 }
+
+#[test]
+fn correct_amount_of_results_with_end_or_begin_date() -> Result {
+    test()
+        .run("seq date --end-date ((date now) + 10day | format date '%Y-%m-%d') | length")
+        .expect_value_eq(11)?;
+
+    test()
+        .run("seq date --end-date ((date now) - 10day | format date '%Y-%m-%d') | length")
+        .expect_value_eq(11)?;
+
+    test()
+        .run("seq date --begin-date ((date now) + 10day | format date '%Y-%m-%d') | length")
+        .expect_value_eq(11)?;
+
+    test()
+        .run("seq date --begin-date ((date now) - 10day | format date '%Y-%m-%d') | length")
+        .expect_value_eq(11)?;
+
+    Ok(())
+}
+
+#[test]
+fn correct_time() -> Result {
+    test()
+        .run("seq date --output-format '%H:%M' | first")
+        .expect_value_eq("00:00")?;
+
+    Ok(())
+}

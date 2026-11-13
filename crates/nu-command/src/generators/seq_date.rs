@@ -1,4 +1,4 @@
-use chrono::{Duration, Local, NaiveDate, NaiveDateTime};
+use chrono::{Duration, Local, NaiveDate, NaiveDateTime, NaiveTime};
 use nu_engine::command_prelude::*;
 use nu_protocol::{FromValue, shell_error::generic::GenericError};
 
@@ -296,7 +296,7 @@ pub fn run_seq_dates(
     reverse: bool,
     call_span: Span,
 ) -> Result<Value, ShellError> {
-    let today = Local::now().naive_local();
+    let today = Local::now().date_naive().and_time(NaiveTime::MIN);
     // if cannot convert , it will return error
     let increment_span = increment.span();
     let mut step_size: i64 = i64::from_value(increment)?;
