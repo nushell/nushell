@@ -1,4 +1,4 @@
-use crate::{FromValue, ParseWarning, ShellError, Type, Value, ast::Call};
+use crate::{FromValue, IntoValue, ParseWarning, ShellError, Type, Value, ast::Call, record};
 
 // Make nu_protocol available in this namespace, consumers of this crate will
 // have this without such an export.
@@ -149,5 +149,22 @@ impl DeprecationEntry {
             report_mode,
             help: self.help,
         })
+    }
+
+    // We don't implement the trait here because we need to pass a command_name to generate the label.
+    pub fn into_value(self, command_name: &str, span: Span) -> Value {
+        let record = record! {
+            "type" => self.type_name().into_value(span),
+            "label" => self.label(command_name).into_value(span),
+            "flag" => match self.ty {
+                DeprecationType::Command => None,
+                DeprecationType::Flag(flag) => Some(flag),
+            }.into_value(span),
+            "since" => self.since.into_value(span),
+            "expected_removal" => self.expected_removal.into_value(span),
+            "help" => self.help.into_value(span),
+        };
+
+        Value::record(record, span)
     }
 }

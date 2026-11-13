@@ -6,8 +6,8 @@ use crate::parse_literals::parse_full_cell_path;
 use crate::{
     Token, TokenContents,
     lex::lex_signature,
-    parse_helpers::{SPREAD_OPERATOR, garbage, is_variable},
-    parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
+    parse_helpers::{SPREAD_OPERATOR, earlier_use, garbage, is_variable},
+    parse_shape_specs::{completer_position, parse_completer, parse_shape_name, parse_type},
     type_check::type_compatible,
 };
 use log::trace;
@@ -15,7 +15,10 @@ use nu_protocol::{
     Flag, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet, Value, VarId,
     ast::*, engine::StateWorkingSet, eval_const::eval_constant,
 };
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 pub fn parse_import_pattern<'a>(
     working_set: &mut StateWorkingSet,
@@ -268,7 +271,15 @@ pub fn parse_var_with_opt_type(
     }
 }
 
-const RESERVED_VARIABLE_NAMES: [&[u8]; 3] = [b"in", b"nu", b"env"];
+// Builtin variable names that cannot be rebound with `let` / `mut` / `const`.
+// `LAST_RESULT_VAR_NAME` is reserved so `$ans` always means interactive last-result
+// (wired via `parse_variable_expr` → `LAST_VARIABLE_ID`).
+const RESERVED_VARIABLE_NAMES: &[&[u8]] = &[
+    b"in",
+    b"nu",
+    b"env",
+    nu_protocol::LAST_RESULT_VAR_NAME.as_bytes(),
+];
 
 pub(crate) fn ensure_not_reserved_variable_name(
     working_set: &mut StateWorkingSet,
@@ -558,7 +569,8 @@ pub fn parse_signature(
     if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("] or )", Span::new(end, end)));
+        let open = ParseError::opener_span(span, 1);
+        working_set.error(ParseError::unclosed("] or )", open, Span::new(end, end)));
     }
 
     let sig = parse_signature_helper(working_set, Span::new(start, end), is_external);
@@ -577,6 +589,11 @@ pub fn parse_signature_helper(
         Type,
         AfterType,
         DefaultValue,
+        AfterDefaultValue,
+        /// The next item token is the value of a rejected `:` or `=`
+        SkipValue,
+        /// The current parameter has already been reported malformed
+        AfterError,
     }
 
     #[derive(Debug)]
@@ -608,6 +625,7 @@ pub fn parse_signature_helper(
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
+
     // Track variables whose name→VarId mappings have not yet been inserted
     // into the overlay scope
     //
@@ -644,6 +662,14 @@ pub fn parse_signature_helper(
                             // We're seeing two types for the same thing for some reason, error
                             working_set.error(ParseError::Expected("type", span));
                         }
+                        ParseMode::AfterDefaultValue => {
+                            // A type annotation after a default value, error
+                            working_set.error(ParseError::Expected("type", span));
+                            parse_mode = ParseMode::SkipValue;
+                        }
+                        // The error for this parameter was already reported
+                        ParseMode::AfterError => parse_mode = ParseMode::SkipValue,
+                        ParseMode::SkipValue => {}
                     }
                 }
                 // The = symbol separates a variable from its default value
@@ -652,9 +678,15 @@ pub fn parse_signature_helper(
                         ParseMode::Arg | ParseMode::AfterType if last_token => working_set.error(
                             ParseError::Expected("default value", Span::new(span.end, span.end)),
                         ),
-                        ParseMode::Arg | ParseMode::AfterType => {
-                            parse_mode = ParseMode::DefaultValue;
+                        ParseMode::Arg => {
+                            if args.is_empty() {
+                                working_set.error(ParseError::Expected("parameter or flag", span));
+                                parse_mode = ParseMode::SkipValue;
+                            } else {
+                                parse_mode = ParseMode::DefaultValue;
+                            }
                         }
+                        ParseMode::AfterType => parse_mode = ParseMode::DefaultValue,
                         ParseMode::Type => {
                             working_set.error(ParseError::Expected("type", span));
                         }
@@ -662,9 +694,23 @@ pub fn parse_signature_helper(
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
                         ParseMode::DefaultValue => {
-                            // We're seeing two default values for some reason, error
+                            // We're seeing a `=` right after another `=` with no
+                            // value in between, error
                             working_set.error(ParseError::Expected("default value", span));
                         }
+                        ParseMode::AfterDefaultValue => {
+                            // We're seeing two default values for the same argument, error
+                            working_set.error(ParseError::LabeledErrorWithHelp {
+                                error: "A positional parameter or flag can have at most one default value.".to_string(),
+                                label: "extra default value".to_string(),
+                                help: "remove the extra default value".to_string(),
+                                span,
+                            });
+                            parse_mode = ParseMode::SkipValue;
+                        }
+                        // The error for this parameter was already reported
+                        ParseMode::AfterError => parse_mode = ParseMode::SkipValue,
+                        ParseMode::SkipValue => {}
                     }
                 }
                 // The , symbol separates params only
@@ -681,6 +727,13 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::DefaultValue => {
                             working_set.error(ParseError::Expected("default value", span));
+                        }
+                        ParseMode::AfterDefaultValue => {
+                            parse_mode = ParseMode::AfterCommaArg;
+                        }
+                        // The missing value was already reported at the `:`/`=`
+                        ParseMode::SkipValue | ParseMode::AfterError => {
+                            parse_mode = ParseMode::AfterCommaArg;
                         }
                     }
                 } else {
@@ -701,7 +754,11 @@ pub fn parse_signature_helper(
                         };
 
                     match parse_mode {
-                        ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType => {
+                        ParseMode::Arg
+                        | ParseMode::AfterCommaArg
+                        | ParseMode::AfterType
+                        | ParseMode::AfterDefaultValue
+                        | ParseMode::AfterError => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -746,11 +803,13 @@ pub fn parse_signature_helper(
                                         },
                                         type_annotated: false,
                                     });
+                                    parse_mode = ParseMode::Arg;
                                 } else if flags.len() >= 3 {
                                     working_set.error(ParseError::Expected(
                                         "only one short flag alternative",
                                         span,
                                     ));
+                                    parse_mode = ParseMode::AfterError;
                                 } else {
                                     let short_flag = &flags[1];
                                     let short_flag = if !short_flag.starts_with(b"-")
@@ -786,11 +845,12 @@ pub fn parse_signature_helper(
                                             },
                                             type_annotated: false,
                                         });
+                                        parse_mode = ParseMode::Arg;
                                     } else {
                                         working_set.error(ParseError::Expected("short flag", span));
+                                        parse_mode = ParseMode::AfterError;
                                     }
                                 }
-                                parse_mode = ParseMode::Arg;
                             }
                             // Mandatory short flag, e.g. -e (must be one character)
                             else if contents.starts_with(b"-") && contents.len() > 1 {
@@ -972,9 +1032,7 @@ pub fn parse_signature_helper(
                         }
                         ParseMode::Type => {
                             if let Some(last) = args.last_mut() {
-                                let (syntax_shape, completer) = contents
-                                    .iter()
-                                    .position(|b| *b == b'@')
+                                let (syntax_shape, completer) = completer_position(&contents)
                                     .and_then(|idx| {
                                         let (shape, completer) = contents.split_at_checked(idx)?;
                                         let (shape_span, completer_span) = span.split_at(idx)?;
@@ -1155,7 +1213,12 @@ pub fn parse_signature_helper(
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::Arg;
+                            parse_mode = ParseMode::AfterDefaultValue;
+                        }
+                        ParseMode::SkipValue => {
+                            // This token is the value of a rejected `:` or `=`; it is
+                            // intentionally skipped since the error was already reported.
+                            parse_mode = ParseMode::AfterError;
                         }
                     }
                 }
@@ -1204,7 +1267,65 @@ pub fn parse_signature_helper(
 
     let mut sig = Signature::new(String::new());
 
+    // Parameters and flags share one variable namespace (`--foo-bar` binds `$foo_bar`, as do
+    // `foo_bar` and `$foo_bar`), and each short flag needs its own letter. A repeat would silently
+    // shadow or swallow the earlier one. Only `_` may repeat, to ignore several arguments.
+    let mut variable_names = HashMap::new();
+    let mut short_flags = HashMap::new();
+    let declaration_span = |working_set: &StateWorkingSet, var_id: Option<VarId>| {
+        var_id.map_or(span, |var_id| {
+            working_set.get_variable(var_id).declaration_span
+        })
+    };
+
     for arg in args {
+        // An `extern` only describes another program's arguments for completions and binds no
+        // variables, so it is not checked: generated completions often list a flag twice, and
+        // a real program's last argument may follow a list.
+        if !is_external {
+            match &arg {
+                Arg::Positional {
+                    arg: positional, ..
+                }
+                | Arg::RestPositional(positional) => {
+                    let at = declaration_span(working_set, positional.var_id);
+                    let name = positional.name.trim_start_matches('$');
+                    let is_rest = matches!(arg, Arg::RestPositional(_));
+                    if name != "_"
+                        && let Some(first) = earlier_use(&mut variable_names, name.to_string(), at)
+                    {
+                        let prefix = if is_rest { "..." } else { "" };
+                        let display = format!("{prefix}{}", positional.name);
+                        working_set.error(ParseError::DuplicateParameter(display, at, first));
+                    }
+                    if !is_rest && sig.rest_positional.is_some() {
+                        working_set
+                            .error(ParseError::PositionalAfterRest(positional.name.clone(), at));
+                    }
+                }
+                Arg::Flag { flag, .. } => {
+                    let at = declaration_span(working_set, flag.var_id);
+                    // A long flag binds a variable named after it, with `-` replaced by `_`; a
+                    // flag with only a short form binds one named after its letter.
+                    let (name, display) = match flag.short {
+                        Some(short) if flag.long.is_empty() => {
+                            (short.to_string(), format!("-{short}"))
+                        }
+                        _ => (flag.long.replace('-', "_"), format!("--{}", flag.long)),
+                    };
+                    if let Some(first) = earlier_use(&mut variable_names, name, at) {
+                        working_set.error(ParseError::DuplicateParameter(display, at, first));
+                    }
+                    if let Some(short) = flag.short
+                        && let Some(first) = earlier_use(&mut short_flags, short, at)
+                    {
+                        let display = format!("-{short}");
+                        working_set.error(ParseError::DuplicateParameter(display, at, first));
+                    }
+                }
+            }
+        }
+
         match arg {
             Arg::Positional {
                 arg: positional,

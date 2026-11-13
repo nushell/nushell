@@ -8,7 +8,7 @@ fn doesnt_break_on_utf8() -> Result {
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_IECHO)]
 fn infinite_output_piped_to_value() -> Result {
-    test().run("nu --testbin iecho x | 1").expect_value_eq(1)
+    test().run("iecho x | 1").expect_value_eq(1)
 }

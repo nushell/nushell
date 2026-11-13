@@ -100,13 +100,14 @@ impl Command for StrTrim {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let character = call.get_flag_const::<Spanned<String>>(working_set, "char")?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
-        let left = call.has_flag_const(working_set, "left")?;
-        let right = call.has_flag_const(working_set, "right")?;
+        let character = call.get_flag_const::<Spanned<String>>(working_set, stack, "char")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
+        let left = call.has_flag_const(working_set, stack, "left")?;
+        let right = call.has_flag_const(working_set, stack, "right")?;
         run(
             character,
             cell_paths,

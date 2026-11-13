@@ -88,11 +88,12 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let encoding: Spanned<String> = call.req_const(working_set, 0)?;
-        let ignore_errors = call.has_flag_const(working_set, "ignore-errors")?;
+        let encoding: Spanned<String> = call.req_const(working_set, stack, 0)?;
+        let ignore_errors = call.has_flag_const(working_set, stack, "ignore-errors")?;
         run(call, input, encoding, ignore_errors)
     }
 }

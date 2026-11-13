@@ -25,6 +25,7 @@ workspace = true
 
 [dependencies]
 ansi-str = { workspace = true }
+ansiopt = { workspace = true, features = ["render"] }
 nu-ansi-term.workspace = true
 nu-cmd-base.workspace = true
 nu-color-config.workspace = true
@@ -67,7 +68,6 @@ csv = { workspace = true }
 devicons = { workspace = true }
 digest = { workspace = true, default-features = false }
 dns-lookup = { workspace = true, optional = true }
-dtparse = { workspace = true }
 encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
@@ -78,6 +78,7 @@ human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
+jiff = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
@@ -95,8 +96,10 @@ num-traits = { workspace = true }
 oem_cp = { workspace = true }
 open = { workspace = true, optional = true }
 os_pipe = { workspace = true, optional = true }
+parse_datetime = { workspace = true, optional = true }
 pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
+pure-rust-locales = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
 aegis-password-generator = { workspace = true, optional = true }
@@ -122,12 +125,10 @@ sha2 = { workspace = true }
 strum = { workspace = true }
 sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
-titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
 toml_edit = { workspace = true }
 kdl = { workspace = true }
 unicode-segmentation = { workspace = true }
-update-informer = { workspace = true, optional = true }
 ureq = { workspace = true, default-features = false, features = [
 	"charset",
 	"gzip",
@@ -165,7 +166,9 @@ winreg = { workspace = true }
 arboard = { version = "3.6.0", default-features = false, features = ["wayland-data-control"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-uucore = { workspace = true, features = ["mode"] }
+# `mode` uses rustix::fs::Mode / rustix::process::umask; uucore 0.12 only
+# enables rustix/process for that feature, so also enable `fs` (rustix/fs).
+uucore = { workspace = true, features = ["fs", "mode"] }
 fff-search = { workspace = true, optional = true, default-features = false }
 
 [target.'cfg(unix)'.dependencies]
@@ -175,9 +178,6 @@ nix = { workspace = true, default-features = false, features = [
 	"resource",
 	"pthread",
 ] }
-
-[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-procfs = { workspace = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 optional = true
@@ -212,6 +212,7 @@ os = [
 	"notify-debouncer-full",
 	"open",
 	"os_pipe",
+	"dep:parse_datetime",
 	"reedline",
 	"uu_cp",
 	"uu_mkdir",
@@ -241,23 +242,22 @@ network = [
 	"dns-lookup",
 	"multipart-rs",
 	"nu-test-support/network",
-	"update-informer",
 	"ureq",
 	"uuid",
 ]
 
-native-tls = ["dep:native-tls", "update-informer/native-tls", "ureq/native-tls"]
+native-tls = ["dep:native-tls", "ureq/native-tls"]
 rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:rustls",
 	"dep:webpki-roots",
 	"nu-test-support/rustls-tls",
-	"update-informer/rustls-tls",
 	"ureq/rustls",
 ]
 
 plugin = ["nu-parser/plugin", "nu-test-support/plugin", "os"]
 sqlite = ["rusqlite"]
+# Weak on `reedline` so the flag is inert without `os` (which pulls reedline in).
 trash-support = ["trash"]
 
 [dev-dependencies]

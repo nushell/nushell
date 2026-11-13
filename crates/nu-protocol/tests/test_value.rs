@@ -3,6 +3,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
 };
 use rstest::rstest;
+use std::cmp::Ordering;
 
 #[test]
 fn test_comparison_nothing() {
@@ -101,6 +102,48 @@ fn test_float_equality_comparison() {
             Ok(Value::Bool { val: true, .. })
         ));
     }
+}
+
+/// The equality tolerance scales with the operands, so an infinite operand must skip it.
+/// Otherwise `inf == 1` and `inf == -inf` would be true.
+#[rstest]
+#[case::inf_vs_int(
+    Value::test_float(f64::INFINITY),
+    Value::test_int(1),
+    Ordering::Greater
+)]
+#[case::inf_vs_float(
+    Value::test_float(f64::INFINITY),
+    Value::test_float(1.0),
+    Ordering::Greater
+)]
+#[case::neg_inf_vs_zero(
+    Value::test_float(f64::NEG_INFINITY),
+    Value::test_int(0),
+    Ordering::Less
+)]
+#[case::inf_vs_neg_inf(
+    Value::test_float(f64::INFINITY),
+    Value::test_float(f64::NEG_INFINITY),
+    Ordering::Greater
+)]
+#[case::inf_vs_inf(
+    Value::test_float(f64::INFINITY),
+    Value::test_float(f64::INFINITY),
+    Ordering::Equal
+)]
+#[case::max_vs_inf(
+    Value::test_float(f64::MAX),
+    Value::test_float(f64::INFINITY),
+    Ordering::Less
+)]
+fn test_float_infinity_comparison(
+    #[case] lhs: Value,
+    #[case] rhs: Value,
+    #[case] expected: Ordering,
+) {
+    assert_eq!(lhs.partial_cmp(&rhs), Some(expected));
+    assert_eq!(rhs.partial_cmp(&lhs), Some(expected.reverse()));
 }
 
 #[rstest]

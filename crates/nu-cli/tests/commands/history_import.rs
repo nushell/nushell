@@ -1,134 +1,56 @@
-use nu_protocol::HistoryFileFormat;
-use nu_test_support::{Outcome, nu};
+use std::path::Path;
+
+use nu_protocol::{Config, HistoryConfig, HistoryFileFormat};
+use nu_test_support::prelude::*;
+use nu_test_support::tester::NuTester;
 use reedline::{
     FileBackedHistory, History, HistoryItem, HistoryItemId, ReedlineError, SearchQuery,
     SqliteBackedHistory,
 };
 use rstest::rstest;
-use tempfile::TempDir;
 
-struct Test {
-    cfg_dir: TempDir,
+trait NuTesterHistoryExt {
+    fn with_history(self, config_home: impl AsRef<Path>, format: HistoryFileFormat) -> Self;
 }
 
-impl Test {
-    fn new(history_format: &'static str) -> Self {
-        let cfg_dir = tempfile::Builder::new()
-            .prefix("history_import_test")
-            .tempdir()
-            .unwrap();
-        // Assigning to $env.config.history.file_format seems to work only in startup
-        // configuration.
-        std::fs::write(
-            cfg_dir.path().join("env.nu"),
-            format!("$env.config.history.file_format = {history_format:?}"),
-        )
-        .unwrap();
-        Self { cfg_dir }
-    }
+impl NuTesterHistoryExt for NuTester {
+    fn with_history(mut self, config_home: impl AsRef<Path>, format: HistoryFileFormat) -> Self {
+        let config_home = config_home.as_ref().to_path_buf();
+        std::fs::create_dir_all(&config_home).unwrap();
 
-    fn nu(&self, cmd: impl AsRef<str>) -> Outcome {
-        let env = [(
-            "XDG_CONFIG_HOME".to_string(),
-            self.cfg_dir.path().to_str().unwrap().to_string(),
-        )];
-        let env_config = self.cfg_dir.path().join("env.nu");
-        nu!(envs: env, env_config: env_config, cmd.as_ref())
-    }
-
-    fn open_plaintext(&self) -> Result<FileBackedHistory, ReedlineError> {
-        FileBackedHistory::with_file(
-            100,
-            self.cfg_dir
-                .path()
-                .join("nushell")
-                .join(HistoryFileFormat::Plaintext.default_file_name()),
-        )
-    }
-
-    fn open_sqlite(&self) -> Result<SqliteBackedHistory, ReedlineError> {
-        SqliteBackedHistory::with_file(
-            self.cfg_dir
-                .path()
-                .join("nushell")
-                .join(HistoryFileFormat::Sqlite.default_file_name()),
-            None,
-            None,
-        )
-    }
-
-    fn open_backend(&self, format: HistoryFileFormat) -> Result<Box<dyn History>, ReedlineError> {
-        fn boxed(be: impl History + 'static) -> Box<dyn History> {
-            Box::new(be)
-        }
-        use HistoryFileFormat::*;
-        match format {
-            Plaintext => self.open_plaintext().map(boxed),
-            Sqlite => self.open_sqlite().map(boxed),
-        }
-    }
-}
-
-enum HistorySource {
-    Vec(Vec<HistoryItem>),
-    Command(&'static str),
-}
-
-struct TestCase {
-    dst_format: HistoryFileFormat,
-    dst_history: Vec<HistoryItem>,
-    src_history: HistorySource,
-    want_history: Vec<HistoryItem>,
-}
-
-const EMPTY_TEST_CASE: TestCase = TestCase {
-    dst_format: HistoryFileFormat::Plaintext,
-    dst_history: Vec::new(),
-    src_history: HistorySource::Vec(Vec::new()),
-    want_history: Vec::new(),
-};
-
-impl TestCase {
-    fn run(self) {
-        use HistoryFileFormat::*;
-        let test = Test::new(match self.dst_format {
-            Plaintext => "plaintext",
-            Sqlite => "sqlite",
+        self.engine_state.config_dirs.config_home = config_home;
+        self.engine_state.set_config(Config {
+            history: HistoryConfig {
+                file_format: format,
+                ..Default::default()
+            },
+            ..Default::default()
         });
-        save_all(
-            &mut *test.open_backend(self.dst_format).unwrap(),
-            self.dst_history,
+        self.engine_state.generate_nu_constant();
+        self
+    }
+}
+
+fn open_backend(
+    config_home: &Path,
+    format: HistoryFileFormat,
+) -> Result<Box<dyn History>, ReedlineError> {
+    fn boxed(be: impl History + 'static) -> Box<dyn History> {
+        Box::new(be)
+    }
+
+    match format {
+        HistoryFileFormat::Plaintext => FileBackedHistory::with_file(
+            100,
+            config_home.join(HistoryFileFormat::Plaintext.default_file_name()),
         )
-        .unwrap();
-
-        let outcome = match self.src_history {
-            HistorySource::Vec(src_history) => {
-                let src_format = match self.dst_format {
-                    Plaintext => Sqlite,
-                    Sqlite => Plaintext,
-                };
-                save_all(&mut *test.open_backend(src_format).unwrap(), src_history).unwrap();
-                test.nu("history import")
-            }
-            HistorySource::Command(cmd) => {
-                let mut cmd = cmd.to_string();
-                cmd.push_str(" | history import");
-                test.nu(cmd)
-            }
-        };
-        assert!(outcome.status.success());
-        let got = query_all(&*test.open_backend(self.dst_format).unwrap()).unwrap();
-
-        // Compare just the commands first, for readability.
-        fn commands_only(items: &[HistoryItem]) -> Vec<&str> {
-            items
-                .iter()
-                .map(|item| item.command_line.as_str())
-                .collect()
-        }
-        assert_eq!(commands_only(&got), commands_only(&self.want_history));
-        // If commands match, compare full items.
-        assert_eq!(got, self.want_history);
+        .map(boxed),
+        HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(
+            config_home.join(HistoryFileFormat::Sqlite.default_file_name()),
+            None,
+            None,
+        )
+        .map(boxed),
     }
 }
 
@@ -146,6 +68,13 @@ fn save_all(history: &mut dyn History, items: Vec<HistoryItem>) -> Result<(), Re
     Ok(())
 }
 
+fn commands_only(items: &[HistoryItem]) -> Vec<&str> {
+    items
+        .iter()
+        .map(|item| item.command_line.as_str())
+        .collect()
+}
+
 const EMPTY_ITEM: HistoryItem = HistoryItem {
     command_line: String::new(),
     id: None,
@@ -159,51 +88,78 @@ const EMPTY_ITEM: HistoryItem = HistoryItem {
 };
 
 #[test]
-fn history_import_pipe_string() {
-    TestCase {
-        dst_format: HistoryFileFormat::Plaintext,
-        src_history: HistorySource::Command("echo bar"),
-        want_history: vec![HistoryItem {
+fn history_import_pipe_string() -> Result {
+    Playground::setup("history_import_pipe_string", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+
+        let () = test()
+            .with_history(&config_home, HistoryFileFormat::Plaintext)
+            .run("echo bar | history import")?;
+
+        let got =
+            query_all(&*open_backend(&config_home, HistoryFileFormat::Plaintext).unwrap()).unwrap();
+        let want_history = vec![HistoryItem {
             id: Some(HistoryItemId::new(0)),
             command_line: "bar".to_string(),
             ..EMPTY_ITEM
-        }],
-        ..EMPTY_TEST_CASE
-    }
-    .run();
+        }];
+
+        assert_eq!(commands_only(&got), commands_only(&want_history));
+        assert_eq!(got, want_history);
+        Ok(())
+    })
 }
 
 #[test]
-fn history_import_pipe_record() {
-    TestCase {
-        dst_format: HistoryFileFormat::Sqlite,
-        src_history: HistorySource::Command("[[cwd command]; [/tmp some_command]]"),
-        want_history: vec![HistoryItem {
+fn history_import_pipe_record() -> Result {
+    Playground::setup("history_import_pipe_record", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+
+        let () = test()
+            .with_history(&config_home, HistoryFileFormat::Sqlite)
+            .run("[[cwd command]; [/tmp some_command]] | history import")?;
+
+        let got =
+            query_all(&*open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap()).unwrap();
+        let want_history = vec![HistoryItem {
             id: Some(HistoryItemId::new(1)),
             command_line: "some_command".to_string(),
             cwd: Some("/tmp".to_string()),
             ..EMPTY_ITEM
-        }],
-        ..EMPTY_TEST_CASE
-    }
-    .run();
+        }];
+
+        assert_eq!(commands_only(&got), commands_only(&want_history));
+        assert_eq!(got, want_history);
+        Ok(())
+    })
 }
 
 #[test]
-fn to_empty_plaintext() {
-    TestCase {
-        dst_format: HistoryFileFormat::Plaintext,
-        src_history: HistorySource::Vec(vec![
-            HistoryItem {
-                command_line: "foo".to_string(),
-                ..EMPTY_ITEM
-            },
-            HistoryItem {
-                command_line: "bar".to_string(),
-                ..EMPTY_ITEM
-            },
-        ]),
-        want_history: vec![
+fn to_empty_plaintext() -> Result {
+    Playground::setup("history_import_to_empty_plaintext", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+        save_all(
+            &mut *open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap(),
+            vec![
+                HistoryItem {
+                    command_line: "foo".to_string(),
+                    ..EMPTY_ITEM
+                },
+                HistoryItem {
+                    command_line: "bar".to_string(),
+                    ..EMPTY_ITEM
+                },
+            ],
+        )
+        .unwrap();
+
+        let () = test()
+            .with_history(&config_home, HistoryFileFormat::Plaintext)
+            .run("history import")?;
+
+        let got =
+            query_all(&*open_backend(&config_home, HistoryFileFormat::Plaintext).unwrap()).unwrap();
+        let want_history = vec![
             HistoryItem {
                 id: Some(HistoryItemId::new(0)),
                 command_line: "foo".to_string(),
@@ -214,27 +170,40 @@ fn to_empty_plaintext() {
                 command_line: "bar".to_string(),
                 ..EMPTY_ITEM
             },
-        ],
-        ..EMPTY_TEST_CASE
-    }
-    .run()
+        ];
+
+        assert_eq!(commands_only(&got), commands_only(&want_history));
+        assert_eq!(got, want_history);
+        Ok(())
+    })
 }
 
 #[test]
-fn to_empty_sqlite() {
-    TestCase {
-        dst_format: HistoryFileFormat::Sqlite,
-        src_history: HistorySource::Vec(vec![
-            HistoryItem {
-                command_line: "foo".to_string(),
-                ..EMPTY_ITEM
-            },
-            HistoryItem {
-                command_line: "bar".to_string(),
-                ..EMPTY_ITEM
-            },
-        ]),
-        want_history: vec![
+fn to_empty_sqlite() -> Result {
+    Playground::setup("history_import_to_empty_sqlite", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+        save_all(
+            &mut *open_backend(&config_home, HistoryFileFormat::Plaintext).unwrap(),
+            vec![
+                HistoryItem {
+                    command_line: "foo".to_string(),
+                    ..EMPTY_ITEM
+                },
+                HistoryItem {
+                    command_line: "bar".to_string(),
+                    ..EMPTY_ITEM
+                },
+            ],
+        )
+        .unwrap();
+
+        let () = test()
+            .with_history(&config_home, HistoryFileFormat::Sqlite)
+            .run("history import")?;
+
+        let got =
+            query_all(&*open_backend(&config_home, HistoryFileFormat::Sqlite).unwrap()).unwrap();
+        let want_history = vec![
             HistoryItem {
                 id: Some(HistoryItemId::new(1)),
                 command_line: "foo".to_string(),
@@ -245,36 +214,58 @@ fn to_empty_sqlite() {
                 command_line: "bar".to_string(),
                 ..EMPTY_ITEM
             },
-        ],
-        ..EMPTY_TEST_CASE
-    }
-    .run()
+        ];
+
+        assert_eq!(commands_only(&got), commands_only(&want_history));
+        assert_eq!(got, want_history);
+        Ok(())
+    })
 }
 
 #[rstest]
 #[case::plaintext(HistoryFileFormat::Plaintext)]
 #[case::sqlite(HistoryFileFormat::Sqlite)]
-fn to_existing(#[case] dst_format: HistoryFileFormat) {
-    TestCase {
-        dst_format,
-        dst_history: vec![
-            HistoryItem {
-                id: Some(HistoryItemId::new(0)),
-                command_line: "original-1".to_string(),
-                ..EMPTY_ITEM
-            },
-            HistoryItem {
+fn to_existing(#[case] dst_format: HistoryFileFormat) -> Result {
+    Playground::setup("history_import_to_existing", |dirs, _| {
+        let config_home = dirs.test().join("nushell").to_std_path_buf();
+
+        save_all(
+            &mut *open_backend(&config_home, dst_format).unwrap(),
+            vec![
+                HistoryItem {
+                    id: Some(HistoryItemId::new(0)),
+                    command_line: "original-1".to_string(),
+                    ..EMPTY_ITEM
+                },
+                HistoryItem {
+                    id: Some(HistoryItemId::new(1)),
+                    command_line: "original-2".to_string(),
+                    ..EMPTY_ITEM
+                },
+            ],
+        )
+        .unwrap();
+
+        let src_format = match dst_format {
+            HistoryFileFormat::Plaintext => HistoryFileFormat::Sqlite,
+            HistoryFileFormat::Sqlite => HistoryFileFormat::Plaintext,
+        };
+        save_all(
+            &mut *open_backend(&config_home, src_format).unwrap(),
+            vec![HistoryItem {
                 id: Some(HistoryItemId::new(1)),
-                command_line: "original-2".to_string(),
+                command_line: "new".to_string(),
                 ..EMPTY_ITEM
-            },
-        ],
-        src_history: HistorySource::Vec(vec![HistoryItem {
-            id: Some(HistoryItemId::new(1)),
-            command_line: "new".to_string(),
-            ..EMPTY_ITEM
-        }]),
-        want_history: vec![
+            }],
+        )
+        .unwrap();
+
+        let () = test()
+            .with_history(&config_home, dst_format)
+            .run("history import")?;
+
+        let got = query_all(&*open_backend(&config_home, dst_format).unwrap()).unwrap();
+        let want_history = vec![
             HistoryItem {
                 id: Some(HistoryItemId::new(0)),
                 command_line: "original-1".to_string(),
@@ -290,7 +281,10 @@ fn to_existing(#[case] dst_format: HistoryFileFormat) {
                 command_line: "new".to_string(),
                 ..EMPTY_ITEM
             },
-        ],
-    }
-    .run()
+        ];
+
+        assert_eq!(commands_only(&got), commands_only(&want_history));
+        assert_eq!(got, want_history);
+        Ok(())
+    })
 }

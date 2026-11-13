@@ -227,9 +227,16 @@ fn return_closure_value() -> Result {
 }
 
 #[test]
-#[deps(NU)]
+fn closure_from_variable_is_the_value() -> Result {
+    let outcome: Value = test().run("let c = {|| 1 }; null | default $c")?;
+    assert!(matches!(outcome, Value::Closure { .. }));
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
 fn lazy_output_streams() -> Result {
-    let code = "default { nu --testbin cococo 'hello' } | describe";
+    let code = "default { cococo 'hello' } | describe";
     let actual: String = test().run(code)?;
     assert_contains("byte stream", actual);
     Ok(())

@@ -51,7 +51,7 @@ impl Command for ClipPaste {
             return Ok(Value::string(text, call.head).into_pipeline_data());
         }
 
-        let trimmed = text.trim_start();
+        let trimmed = text.strip_prefix('\u{feff}').unwrap_or(&text).trim_start();
         if trimmed.starts_with('{') || trimmed.starts_with('[') || trimmed.starts_with('"') {
             return match try_json_str_to_value(trimmed, call.head, false, &Signals::empty()) {
                 Ok(value) => Ok(value.into_pipeline_data()),

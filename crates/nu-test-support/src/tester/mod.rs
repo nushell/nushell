@@ -2,12 +2,14 @@ use std::{
     env,
     error::Error,
     fmt::{Debug, Display},
+    io,
     panic::Location,
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
     sync::{Arc, LazyLock},
 };
 
 use miette::Diagnostic;
+use nu_cmd_base::hook::eval_repl_hooks;
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
     PipelineExecutionData, ShellError, Span, Value,
@@ -26,12 +28,26 @@ use nu_plugin_engine::{GetPlugin, PersistentPlugin, PluginDeclaration};
 #[cfg(feature = "plugin")]
 use nu_protocol::{PluginIdentity, PluginSignature, RegisteredPlugin};
 
-static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("could not canonicalize root")
+/// Workspace root.
+///
+/// Default starting cwd for [`test()`].
+pub static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
+    // Some OS implementations of `path::absolute` do not resolve ".."
+    // lexically, so the "../.." here would otherwise leak into every
+    // path derived from `WORKSPACE_ROOT`.
+    nu_path::dots::expand_dots(
+        path::absolute(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+            .expect("could not absolutize root"),
+    )
 });
+
+/// Test fixtures.
+pub static FIXTURES: LazyLock<PathBuf> =
+    LazyLock::new(|| WORKSPACE_ROOT.join("tests").join("fixtures"));
+
+/// Test assets.
+pub static ASSETS: LazyLock<PathBuf> =
+    LazyLock::new(|| WORKSPACE_ROOT.join("tests").join("assets"));
 
 // By using different engine states depending on the group key, we can ensure that behavior from
 // experimental options or environment variables take proper effect in the setup of an engine state.
@@ -46,13 +62,15 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     #[cfg(feature = "os")]
     let engine_state = nu_cli::add_cli_context(engine_state);
     // let engine_state = nu_explore::add_explore_context(engine_state);
+    #[cfg(feature = "os")]
+    let engine_state = nu_tui::add_tui_context(engine_state);
 
     // Make `engine_state` mutable without fiddling with features
     let mut engine_state = engine_state;
 
     engine_state.generate_nu_constant();
     [
-        ("PWD", Value::test_string(ROOT.to_string_lossy())),
+        ("PWD", Value::test_string(WORKSPACE_ROOT.to_string_lossy())),
         ("config", Config::default().into_value(Span::unknown())),
         ("NO_COLOR", Value::test_bool(true)),
     ]
@@ -70,7 +88,7 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     engine_state
 });
 
-/// Plugin auto loader for [`THREAD_PLUGIN_AUTO_LOAD`] and [`GLOBAL_PLUGIN_AUTO_LOAD`].
+/// Plugin auto loader for [`PLUGIN_AUTO_LOAD`].
 #[cfg(feature = "plugin")]
 #[derive(Debug, Clone)]
 pub struct PluginAutoLoader {
@@ -85,6 +103,32 @@ pub static PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = const_rwlock(Vec::new());
 /// Plugins to be automatically loaded into a [`NuTester`].
 #[cfg(feature = "plugin")]
 pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::new());
+
+/// Parse `source` as the contents of the file at `path`, the way `source` parses a file: the path
+/// is pushed on the working set's file stack while it parses, so that relative `use` and `source`
+/// resolve next to it. `lex_once` turns the lexer's bracket tables
+/// ([`StateWorkingSet::lex_once`]) on or off.
+pub fn parse_file<'a>(
+    engine_state: &'a EngineState,
+    path: &Path,
+    source: &[u8],
+    lex_once: bool,
+) -> (StateWorkingSet<'a>, Arc<Block>) {
+    let mut working_set = StateWorkingSet::new(engine_state);
+    working_set.lex_once = lex_once;
+    working_set
+        .files
+        .push(path.to_path_buf(), Span::unknown())
+        .expect("a single file cannot be a circular import");
+    let block = nu_parser::parse(
+        &mut working_set,
+        Some(&path.to_string_lossy()),
+        source,
+        false,
+    );
+    working_set.files.pop();
+    (working_set, block)
+}
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
@@ -149,8 +193,11 @@ pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::n
 /// # Ok::<(), nu_test_support::tester::TestError>(())
 /// ```
 pub fn test() -> NuTester {
+    let mut engine_state = INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone();
+    engine_state.make_session_state_unique();
+
     let tester = NuTester {
-        engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
+        engine_state,
         stack: Stack::new().collect_value(),
         fname_counter: Counter::default(),
     };
@@ -297,7 +344,7 @@ impl NuTester {
 
         let cwd = match cwd.is_absolute() {
             true => cwd,
-            false => ROOT
+            false => WORKSPACE_ROOT
                 .join(cwd)
                 .canonicalize()
                 .expect("could not canonicalize path"),
@@ -419,25 +466,6 @@ impl NuTester {
             .inherit_env_if_set("no_proxy")
     }
 
-    /// Adds the "nu" binary for testing to the path.
-    ///
-    /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
-    #[deprecated(note = "use `#[deps(NU)]` instead")]
-    pub fn add_nu_to_path(self) -> Self {
-        let nu_home = crate::fs::binaries();
-        let path = self.engine_state.get_env_var("PATH");
-        let path = match path {
-            None => nu_home.display().to_string(),
-            Some(path) => format!(
-                "{nu}{sep}{prev}",
-                nu = nu_home.display(),
-                sep = ENV_PATH_SEPARATOR_CHAR,
-                prev = path.as_str().expect("PATH should always be a string")
-            ),
-        };
-        self.env("PATH", path)
-    }
-
     /// Add a custom environment variable to the engine state.
     pub fn env(mut self, key: impl Into<String>, val: impl IntoValue) -> Self {
         self.engine_state
@@ -464,6 +492,40 @@ impl NuTester {
     ) -> Result<T> {
         let input = PipelineData::value(data.into_value(Span::test_data()), None);
         Self::extract_value(self.run_raw_with_data(code, input)?)
+    }
+
+    /// Run multiple Nushell command pipelines after each other and extract the value into `T`.
+    ///
+    /// This shortcircuits if any pipeline fails.
+    #[track_caller]
+    pub fn run_multiple<T: FromValue>(
+        &mut self,
+        pipelines: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<T> {
+        let last = pipelines
+            .into_iter()
+            .map(|pipeline| self.run(pipeline))
+            .try_fold(Value::test_nothing(), |_, value| value)?;
+        Ok(T::from_value(last)?)
+    }
+
+    /// Run Nushell code after evaluating the REPL hook checkpoints for that source.
+    ///
+    /// This is for behavior that specifically depends on `pre_prompt`, `env_change`, or
+    /// `pre_execution` hooks.
+    /// For ordinary shared-state tests, prefer repeated [`run`](Self::run) calls or
+    /// [`run_multiple`](Self::run_multiple).
+    #[track_caller]
+    pub fn run_with_hooks<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T> {
+        let location = TestLocation(Location::caller());
+        let code = code.as_ref();
+
+        eval_repl_hooks(&mut self.engine_state, &mut self.stack, code)
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
+            .and_then(|()| self.run(code))
     }
 
     /// Run Nushell code and return the raw [`PipelineExecutionData`].
@@ -589,6 +651,9 @@ pub enum TestErrorKind {
         got: Value,
     },
     NoInner,
+    MultipleInner {
+        count: usize,
+    },
     UnexpectedErrorKind {
         expected: &'static str,
         got: ShellError,
@@ -609,6 +674,10 @@ pub enum TestErrorKind {
         description: String,
         code: String,
         err: Box<TestErrorKind>,
+    },
+    Io {
+        message: String,
+        kind: io::ErrorKind,
     },
 }
 
@@ -636,6 +705,19 @@ impl From<ParseError> for TestError {
         Self {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::Parse(err),
+        }
+    }
+}
+
+impl From<io::Error> for TestError {
+    #[track_caller]
+    fn from(value: io::Error) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Io {
+                message: value.to_string(),
+                kind: value.kind(),
+            },
         }
     }
 }
@@ -866,19 +948,24 @@ impl TestResultExt for Result<Value> {
 pub trait ShellErrorExt {
     /// Tries to convert into an inner value from a [`ShellError`].
     ///
-    /// Useful if the error is expected to be a generic error that contains an inner error or a
-    /// chained error that chained another error.
+    /// Useful if the error is expected to be a generic error that contains an inner error, a
+    /// chained error that chained another error, or a [`ShellError::EvalBlockWithInput`] that
+    /// wraps a closure's error.
     ///
-    /// However, this function returns [`None`]
+    /// However, this function returns [`TestErrorKind::NoInner`]
     /// - if `inner` of [`ShellError::Generic`] is empty
     /// - if `sources` of [`ShellError::ChainedError`] is empty
     /// - the error is none of the above types
     ///
-    /// So make sure that a [`None`] value is not surprise.
+    /// Also if multiple inner values are found a [`TestErrorKind::MultipleInner`] is returned.
     fn into_inner(self) -> Result<ShellError>;
 
     /// Extract the [`LabeledError`] from [`ShellError::LabeledError`], if it is one.
     fn into_labeled(self) -> Result<LabeledError>;
+
+    /// Extract the iterator on the sources of the [`ChainedError`] from
+    /// [`ShellError::ChainedError`], if it is one.
+    fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>>;
 
     /// Extract the error field from [`ShellError::Generic`], if it is one.
     fn generic_error(self) -> Result<String>;
@@ -894,11 +981,27 @@ impl ShellErrorExt for ShellError {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::NoInner,
         };
-        match self {
-            ShellError::Generic(err) => err.inner.into_iter().next().ok_or(no_inner),
-            ShellError::ChainedError(err) => err.sources_iter().next().ok_or(no_inner),
-            _ => Err(no_inner),
+
+        let iter: &mut dyn Iterator<Item = ShellError> = match self {
+            ShellError::Generic(err) => &mut err.inner.into_iter(),
+            ShellError::ChainedError(err) => &mut err.sources_iter(),
+            ShellError::EvalBlockWithInput(err) => &mut std::iter::once(*err.error),
+            _ => return Err(no_inner),
+        };
+
+        let Some(inner) = iter.next() else {
+            return Err(no_inner);
+        };
+
+        let rest = iter.count();
+        if rest != 0 {
+            return Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::MultipleInner { count: rest + 1 },
+            });
         }
+
+        Ok(inner)
     }
 
     #[track_caller]
@@ -909,6 +1012,20 @@ impl ShellErrorExt for ShellError {
                 location: TestLocation(Location::caller()),
                 kind: TestErrorKind::UnexpectedErrorKind {
                     expected: "Labeled",
+                    got,
+                },
+            }),
+        }
+    }
+
+    #[track_caller]
+    fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>> {
+        match self {
+            ShellError::ChainedError(err) => Ok(err.sources_iter()),
+            got => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Chained",
                     got,
                 },
             }),

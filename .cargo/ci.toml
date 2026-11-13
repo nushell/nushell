@@ -1,0 +1,3 @@
+# allow in CI to depend on `cfg(ci)`
+[target.'cfg(all())']
+rustflags = ["--cfg", "ci"]

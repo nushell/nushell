@@ -41,6 +41,10 @@ impl PluginCommand for LazyAggregate {
                     PolarsPluginType::NuLazyFrame.into(),
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
+                (
+                    PolarsPluginType::NuLazyGroupBy.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
             ])
             .category(Category::Custom("lazyframe".into()))
     }

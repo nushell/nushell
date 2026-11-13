@@ -1,4 +1,6 @@
-use nu_test_support::{fs::file_contents, playground::Playground, prelude::*};
+use nu_test_support::{playground::Playground, prelude::*};
+use nu_utils::consts::LINE_SEPARATOR_STR;
+use std::fs;
 
 #[test]
 fn tee_save_values_to_file() -> Result {
@@ -8,8 +10,8 @@ fn tee_save_values_to_file() -> Result {
             .run("1..5 | tee { save copy.txt }")
             .expect_value_eq([1, 2, 3, 4, 5])?;
         assert_eq!(
-            "1\n2\n3\n4\n5\n",
-            file_contents(dirs.test().join("copy.txt"))
+            ["1", "2", "3", "4", "5", ""].join(LINE_SEPARATOR_STR),
+            fs::read_to_string(dirs.test().join("copy.txt"))?
         );
 
         Ok(())
@@ -17,12 +19,12 @@ fn tee_save_values_to_file() -> Result {
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_ECHO_ENV)]
 fn tee_save_stdout_to_file() -> Result {
     Playground::setup("tee_save_stdout_to_file_test", |dirs, _sandbox| {
         let code = r#"
             $env.FOO = "teststring"
-            nu --testbin echo_env FOO | tee { save copy.txt }
+            echo_env FOO | tee { save copy.txt }
         "#;
 
         test()
@@ -30,19 +32,22 @@ fn tee_save_stdout_to_file() -> Result {
             .run(code)
             .expect_value_eq("teststring")?;
 
-        assert_eq!("teststring\n", file_contents(dirs.test().join("copy.txt")));
+        assert_eq!(
+            "teststring\n",
+            fs::read_to_string(dirs.test().join("copy.txt"))?
+        );
 
         Ok(())
     })
 }
 
 #[test]
-#[deps(NU)]
+#[deps(TESTBIN_ECHO_ENV_STDERR)]
 fn tee_save_stderr_to_file() -> Result {
     Playground::setup("tee_save_stderr_to_file_test", |dirs, _sandbox| {
         let code = r#"
             $env.FOO = "teststring"
-            do { nu --testbin echo_env_stderr FOO }
+            do { echo_env_stderr FOO }
             | tee --stderr { save copy.txt }
             | complete
             | get stderr
@@ -53,7 +58,10 @@ fn tee_save_stderr_to_file() -> Result {
             .run(code)
             .expect_value_eq("teststring\n")?;
 
-        assert_eq!("teststring\n", file_contents(dirs.test().join("copy.txt")));
+        assert_eq!(
+            "teststring\n",
+            fs::read_to_string(dirs.test().join("copy.txt"))?
+        );
 
         Ok(())
     })
@@ -91,5 +99,67 @@ fn tee_single_value_non_streamable() -> Result {
     assert_eq!("500\n", result.stdout);
     assert_eq!("500\n", result.stderr);
 
+    Ok(())
+}
+
+#[test]
+fn tee_closure_error_on_streamable_value_is_returned() -> Result {
+    let err = test()
+        .run(r#"'ho' | tee { error make {msg: "boom"} }"#)
+        .expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_division_by_zero_on_streamable_value_is_returned() -> Result {
+    let err = test().run("'ho' | tee { 5 / 0 }").expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::DivisionByZero { .. }),
+        "expected a division by zero error, got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn tee_closure_error_on_external_output_is_returned() -> Result {
+    let code = r#"
+        $env.FOO = "teststring"
+        echo_env FOO | tee { error make {msg: "boom"} } | collect
+    "#;
+    let err = test().run(code).expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_error_reaches_lines() -> Result {
+    let err = test()
+        .run(r#"'ho' | tee { error make {msg: "boom"} } | lines"#)
+        .expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_error_on_binary_reaches_each() -> Result {
+    let err = test()
+        .run(r#"0x[0102] | tee { error make {msg: "boom"} } | each { $in }"#)
+        .expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_error_reaches_commands_that_read_the_stream() -> Result {
+    for code in [
+        r#"0x[0102] | tee { error make {msg: "boom"} } | last"#,
+        r#"0x[0102] | tee { error make {msg: "boom"} } | chunks 1 | collect"#,
+        r#"0x[0102] | tee { error make {msg: "boom"} } | bytes ends-with 0x[01]"#,
+    ] {
+        let err = test().run(code).expect_shell_error()?;
+        assert_eq!(err.to_string(), "boom", "{code}");
+    }
     Ok(())
 }

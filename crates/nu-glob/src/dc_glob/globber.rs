@@ -1,6 +1,7 @@
-use super::compiler::Program;
-use super::matcher::{MatchResult, path_matches};
-use crate::{MatchOptions, Pattern};
+use super::DcPattern;
+use super::compiler::{Instruction, Program};
+use super::matcher::{MatchResult, is_hidden, path_matches};
+use crate::MatchOptions;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -50,26 +51,11 @@ impl InterruptFlag {
     }
 }
 
-pub fn glob(
-    relative_to: impl Into<PathBuf>,
-    program: Arc<Program>,
-    fast_path: Option<RecursiveFastPath>,
-) -> impl Iterator<Item = anyhow::Result<PathBuf>> + Send {
-    glob_with_options(
-        relative_to,
-        program,
-        TraversalOptions::default(),
-        vec![],
-        InterruptFlag::default(),
-        fast_path,
-    )
-}
-
 pub fn glob_with_options(
     relative_to: impl Into<PathBuf>,
     program: Arc<Program>,
     options: TraversalOptions,
-    exclude_patterns: Vec<Pattern>,
+    exclude_patterns: Vec<DcPattern>,
     interrupt: InterruptFlag,
     fast_path: Option<RecursiveFastPath>,
 ) -> impl Iterator<Item = anyhow::Result<PathBuf>> + Send {
@@ -80,9 +66,20 @@ pub fn glob_with_options(
         .absolute_prefix
         .clone()
         .unwrap_or_else(|| base_dir.clone());
-    let current_dir = traversal_start_dir(&program, &traversal_base);
+    let (current_dir, literal_pattern, left_to_matcher) =
+        traversal_start_dir(&program, &traversal_base);
+    // The walk starts `left_to_matcher` levels higher than it would without `-i`,
+    // so the depth budget grows by the same amount to keep `--depth` counting
+    // from the same place.
+    let options = TraversalOptions {
+        max_depth: options.max_depth.map(|max| max + left_to_matcher),
+        ..options
+    };
 
     rayon::spawn(move || {
+        if interrupt.is_set() {
+            return;
+        }
         // For relative programs we can start traversal at a static prefix, but we
         // still emit and match paths relative to the original base directory.
         let output_relative_to = if program.absolute_prefix.is_some() {
@@ -98,7 +95,7 @@ pub fn glob_with_options(
         let needs_parent_probe = program
             .instructions
             .iter()
-            .any(|instruction| matches!(instruction, super::compiler::Instruction::ParentDir));
+            .any(|instruction| matches!(instruction, Instruction::ParentDir));
 
         let state = WalkState {
             tx: &tx,
@@ -113,25 +110,109 @@ pub fn glob_with_options(
             fast_path: fast_path.as_ref(),
         };
 
-        glob_to(&current_dir, 0, state)
+        // A literal pattern names the start path itself. A wildcard pattern, a trailing `**`
+        // included, never matches the walk root.
+        if literal_pattern {
+            maybe_emit_start(&current_dir, &state);
+        } else {
+            glob_to(&current_dir, 0, state)
+        }
     });
     rx.into_iter()
 }
 
-fn traversal_start_dir(program: &Program, base: &Path) -> PathBuf {
+/// Emit the traversal-start path for a literal pattern, which names it.
+///
+/// Walk depth for this candidate is 0 (the walk root). Uses the same exclude
+/// and `max_depth` gates as [`handle_path_candidate`].
+fn maybe_emit_start(current_dir: &Path, state: &WalkState<'_>) {
+    let program = state.program;
+    let match_path = if program.absolute_prefix.is_some() {
+        current_dir.to_path_buf()
+    } else {
+        current_dir
+            .strip_prefix(state.match_relative_to)
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default()
+    };
+    let output_path = if program.absolute_prefix.is_some() {
+        current_dir.to_path_buf()
+    } else {
+        match_path.clone()
+    };
+
+    // A literal pattern has no `**`, so the matcher never asks whether the path is a directory.
+    let result = path_matches(&match_path, false, program);
+    if !result.valid_as_complete_match {
+        return;
+    }
+
+    let match_options = MatchOptions::default();
+    let excluded = state.has_excludes
+        && state
+            .exclude_patterns
+            .iter()
+            .any(|exclude| exclude.matches_path_with(&match_path, match_options));
+    if excluded {
+        return;
+    }
+
+    // Walk depth for the start directory is 0. `max_depth` is `Option<usize>`,
+    // so depth 0 is always within range (same as `candidate_depth <= max` with 0).
+
+    // Literal paths may name files or symlinks, unless a trailing separator asks for a
+    // directory, which a symlink can lead to.
+    let metadata = if program.dirs_only {
+        fs::metadata(current_dir)
+    } else {
+        fs::symlink_metadata(current_dir)
+    };
+    match metadata {
+        Ok(metadata) if program.dirs_only && !metadata.is_dir() => return,
+        Ok(_) => {}
+        Err(err) => {
+            // Missing literal paths are ordinary non-matches. Other failures
+            // must still reach callers.
+            if !matches!(
+                err.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) {
+                let _ = state
+                    .tx
+                    .send(Err(anyhow!("{}: {}", current_dir.display(), err)));
+            }
+            return;
+        }
+    }
+
+    let _ = state.tx.send(Ok(output_path));
+}
+
+/// Compute the directory the traversal starts from, and whether the pattern
+/// names that path literally.
+///
+/// A literal pattern can be answered by looking at the path itself instead of
+/// walking a directory tree, but only when the whole pattern was consumed as
+/// literal path components. Deriving both answers from the same walk keeps
+/// them from drifting apart.
+///
+/// With case-insensitive matching the pattern may spell a path component
+/// differently than the filesystem does, so the literal prefix is left to the
+/// matcher, which compares path components without regard to case.
+fn traversal_start_dir(program: &Program, base: &Path) -> (PathBuf, bool, usize) {
     let mut out = base.to_path_buf();
     let mut i = 0;
     while i < program.instructions.len() {
         match &program.instructions[i] {
             // Already represented in `base`
-            super::compiler::Instruction::RootDir | super::compiler::Instruction::Prefix(_) => {
+            Instruction::RootDir | Instruction::Prefix(_) => {
                 i += 1;
             }
-            super::compiler::Instruction::Separator => {
+            Instruction::Separator => {
                 i += 1;
             }
             // Collect literal path components until the first pattern component.
-            super::compiler::Instruction::LiteralString(bytes) => {
+            Instruction::LiteralString(bytes) => {
                 // If this LiteralString is part of a pattern component (contains
                 // dynamic instructions before the next Separator or end), stop
                 // here rather than including it in the traversal start directory.
@@ -142,21 +223,83 @@ fn traversal_start_dir(program: &Program, base: &Path) -> PathBuf {
                 if component.is_empty() {
                     break;
                 }
+                if program.case_insensitive && !parent_follows(&program.instructions, i) {
+                    // The pattern may spell this component differently than the
+                    // filesystem does, so the directory to walk from is not
+                    // known here. Leave the component to the matcher, which
+                    // compares path components without regard to case.
+                    return (out, false, literal_components_from(program, i));
+                }
+                // A `..` after this component has to be resolved by the
+                // filesystem, so the component cannot be left to the matcher
+                // either: the traversal start directory has to carry the `..`
+                // for the walk to reach the parent.
                 out.push(component.as_ref());
                 i += 1;
             }
-            super::compiler::Instruction::CurDir => {
+            Instruction::CurDir => {
                 i += 1;
             }
-            super::compiler::Instruction::ParentDir => {
-                out.pop();
+            Instruction::ParentDir => {
+                // Keep the lexical component so paths stripped relative to
+                // the original base still match `../` in the program. This
+                // also lets the filesystem resolve parents through symlinks.
+                out.push("..");
+                i += 1;
+            }
+            // The pattern was consumed entirely as literal path components.
+            Instruction::Complete => {
+                return (out, program.instructions.len() > 1, 0);
+            }
+            // A dynamic instruction: the pattern has to be matched by walking.
+            _ => break,
+        }
+    }
+
+    (out, false, 0)
+}
+
+/// Whether a `..` component follows the literal at `start`.
+///
+/// A `..` after a literal component has to be resolved by the filesystem, so
+/// the literal cannot be left to the matcher: the traversal start directory
+/// has to carry the `..` for the walk to reach the parent.
+fn parent_follows(instructions: &[Instruction], start: usize) -> bool {
+    instructions[start..]
+        .iter()
+        .any(|instruction| matches!(instruction, Instruction::ParentDir))
+}
+
+/// How many literal path components the matcher has to compare, starting at `start`.
+///
+/// These are the components the traversal could not push into the start
+/// directory, so each one takes a level of walk depth that it would not take
+/// otherwise.
+fn literal_components_from(program: &Program, start: usize) -> usize {
+    let mut count = 0;
+    let mut i = start;
+    while i < program.instructions.len() {
+        match &program.instructions[i] {
+            Instruction::LiteralString(bytes) => {
+                // A literal that is part of a pattern component is not a path
+                // component of its own.
+                if !component_is_purely_literal(&program.instructions, i) {
+                    break;
+                }
+                let component = String::from_utf8_lossy(bytes);
+                if component.is_empty() {
+                    break;
+                }
+                count += 1;
+                i += 1;
+            }
+            Instruction::Separator => {
                 i += 1;
             }
             _ => break,
         }
     }
-
-    out
+    count
 }
 
 /// Check whether the instruction at `start` is part of a purely literal path
@@ -164,23 +307,25 @@ fn traversal_start_dir(program: &Program, base: &Path) -> PathBuf {
 /// `Separator` or `Complete`). Returns `false` if any non-literal instruction
 /// is found within the same component, indicating we have entered a file-name
 /// pattern component and should not include its literals in the start directory.
-fn component_is_purely_literal(
-    instructions: &[super::compiler::Instruction],
-    start: usize,
-) -> bool {
+fn component_is_purely_literal(instructions: &[Instruction], start: usize) -> bool {
     let mut j = start;
     while j < instructions.len() {
         match &instructions[j] {
-            super::compiler::Instruction::LiteralString(_) => {
+            Instruction::LiteralString(_) => {
                 j += 1;
             }
-            // End of this component; all instructions so far were literal.
-            super::compiler::Instruction::Separator | super::compiler::Instruction::Complete => {
+            // End of this component; all instructions so far were literal. The separator
+            // before a trailing `**` compiles to `ComponentEnd`, so in `link/**` the literal
+            // `link` is a whole component and the walk starts inside it, even when it is a
+            // symlink to a directory.
+            Instruction::Separator
+            | Instruction::Complete
+            | Instruction::ComponentEnd
+            | Instruction::ComponentBoundary => {
                 return true;
             }
             // Any other instruction (Alternative, Jump, AnyCharacter, AnyString,
-            // Characters, Increment, BranchIfLessThan) is dynamic — this is a
-            // pattern component.
+            // Characters) is dynamic — this is a pattern component.
             _ => return false,
         }
     }
@@ -200,7 +345,8 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
                 handle_path_candidate(&parent_path, None, depth, true, state, scope)?;
             }
 
-            // All of the real results from the directory listing
+            // All of the real results from the directory listing, streamed in the order the
+            // filesystem returns them. Sorting would buffer the whole directory first.
             for result in results {
                 if state.interrupt.is_set() {
                     break;
@@ -237,6 +383,17 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
         })
         .unwrap_or(()),
         Err(err) => {
+            // A missing walk root is an ordinary non-match. The legacy glob
+            // backend returns an empty list for a path that does not exist, so
+            // the wildcard and the literal form of a pattern agree.
+            if depth == 0
+                && matches!(
+                    err.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                )
+            {
+                return;
+            }
             let wrapped_err = anyhow!("{}: {}", target.display(), err);
             let _ = state.tx.send(Err(wrapped_err));
         }
@@ -250,7 +407,7 @@ struct WalkState<'a> {
     output_relative_to: &'a Path,
     match_relative_to: &'a Path,
     options: TraversalOptions,
-    exclude_patterns: &'a [Pattern],
+    exclude_patterns: &'a [DcPattern],
     has_excludes: bool,
     needs_parent_probe: bool,
     program: &'a Program,
@@ -318,8 +475,19 @@ fn recursive_fast_path_match(
     path: &Path,
     fast_path: &RecursiveFastPath,
     is_parent: bool,
+    is_dir: bool,
+    skip_hidden_in_recursion: bool,
 ) -> MatchResult {
+    // The `**` reaches every candidate below the literal prefix, so when it has to skip hidden
+    // directories, it drops them here as the matcher's `NotHiddenDir` would: no descent, no
+    // match.
+    let hidden_dir = skip_hidden_in_recursion
+        && is_dir
+        && path
+            .file_name()
+            .is_some_and(|name| is_hidden(name.as_encoded_bytes()));
     let valid_as_complete_match = !is_parent
+        && !hidden_dir
         && path.file_name().is_some_and(|name| match fast_path {
             RecursiveFastPath::Suffix(suffix) => name.as_encoded_bytes().ends_with(suffix),
             RecursiveFastPath::BasenamePattern(tokens) => {
@@ -330,7 +498,7 @@ fn recursive_fast_path_match(
     MatchResult {
         // For recursive basename-pattern fast paths, every directory is a valid
         // prefix because deeper descendants can still satisfy the file-name match.
-        valid_as_prefix: true,
+        valid_as_prefix: !hidden_dir,
         valid_as_complete_match,
     }
 }
@@ -365,20 +533,6 @@ fn handle_path_candidate<'a>(
         depth + 1
     };
 
-    let result = if program.case_insensitive {
-        path_matches(match_path_candidate, program)
-    } else if let Some(fast_path) = fast_path {
-        recursive_fast_path_match(match_path_candidate, fast_path, is_parent)
-    } else {
-        path_matches(match_path_candidate, program)
-    };
-    let match_options = MatchOptions::default();
-
-    let excluded = has_excludes
-        && exclude_patterns
-            .iter()
-            .any(|exclude| exclude.matches_path_with(match_path_candidate, match_options));
-
     let file_type = match file_type {
         Some(file_type) => file_type,
         None => match fs::symlink_metadata(path) {
@@ -397,6 +551,26 @@ fn handle_path_candidate<'a>(
     } else {
         file_type.is_dir()
     };
+
+    let result = if program.case_insensitive {
+        path_matches(match_path_candidate, is_dir, program)
+    } else if let Some(fast_path) = fast_path {
+        recursive_fast_path_match(
+            match_path_candidate,
+            fast_path,
+            is_parent,
+            is_dir,
+            program.skip_hidden_in_recursion,
+        )
+    } else {
+        path_matches(match_path_candidate, is_dir, program)
+    };
+    let match_options = MatchOptions::default();
+
+    let excluded = has_excludes
+        && exclude_patterns
+            .iter()
+            .any(|exclude| exclude.matches_path_with(match_path_candidate, match_options));
 
     let should_prune = if is_dir && has_excludes {
         let probe_candidate = match_path_candidate.join("__dc_glob_probe__");
@@ -423,10 +597,12 @@ fn handle_path_candidate<'a>(
         }
     }
 
-    // If it is valid as a complete match, send it out
+    // If it is valid as a complete match, send it out.
+    // A trailing bare `**` or separator is directory-only (matches rust-lang/glob and nu-glob).
     if result.valid_as_complete_match
         && !excluded
         && options.max_depth.is_none_or(|max| candidate_depth <= max)
+        && (!program.dirs_only || is_dir)
     {
         state.tx.send(Ok(output_path_candidate.to_owned()))?;
     }

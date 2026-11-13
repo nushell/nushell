@@ -24,6 +24,7 @@ pub mod eval_const;
 mod example;
 mod id;
 pub mod ir;
+mod last_result;
 mod lev_distance;
 mod module;
 mod one_of;
@@ -38,6 +39,7 @@ pub mod span;
 mod syntax_shape;
 mod ty;
 mod ty_relation;
+mod type_alias;
 mod value;
 
 pub use alias::*;
@@ -47,10 +49,16 @@ pub use completion::*;
 pub use config::*;
 pub use deprecation::*;
 pub use did_you_mean::did_you_mean;
-pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
+pub use engine::{
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, NU_VARIABLE_ID,
+};
 pub use errors::*;
 pub use example::*;
 pub use id::*;
+pub use last_result::{
+    block_is_bare_last_result, block_is_bare_last_result_with, truncate_list_item,
+    truncate_value_to_budget, value_is_error_only,
+};
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
 pub use one_of::*;
@@ -62,6 +70,7 @@ pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
 pub use ty_relation::*;
+pub use type_alias::*;
 pub use value::*;
 
 pub use nu_derive_value::*;

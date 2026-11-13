@@ -17,7 +17,7 @@ export def main [
     [(which "unzip" | is-not-empty), { unzip $zipfile $filename }]
   ]
 
-  # Attempt available programs
+  # Use the first available program and report extraction failures.
   for program in $programs {
     if not $program.preconditions {
       continue
@@ -27,6 +27,15 @@ export def main [
       let out = do $program.closure
       rm $zipfile
       return $out
+    } catch { |err|
+      error make {
+        msg: "Failed to unzip artifact"
+        help: $err.msg
+        label: {
+          text: $"failed to extract ($filename)"
+          span: $span
+        }
+      }
     }
   }
 

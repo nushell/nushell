@@ -1,6 +1,9 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::SUPPORTED_DURATION_UNITS;
+
+pub const SUPPORTED_UNITS: &[&str] = &[
+    "ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk", "month", "yr", "dec",
+];
 
 struct Arguments {
     format_value: Spanned<String>,
@@ -33,11 +36,11 @@ impl Command for FormatDuration {
                 (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
-            .required(
-                "format value",
-                SyntaxShape::String,
-                "The unit in which to display the duration.",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new("format value", SyntaxShape::String)
+                    .desc("The unit in which to display the duration.")
+                    .completion(Completion::new_list(SUPPORTED_UNITS)),
+            ))
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -91,16 +94,17 @@ impl Command for FormatDuration {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format_value = call.req_const::<Value>(working_set, 0)?;
+        let format_value = call.req_const::<Value>(working_set, stack, 0)?;
         let format_value_span = format_value.span();
         let format_value = Spanned {
             item: format_value.coerce_into_string()?.to_ascii_lowercase(),
             span: format_value_span,
         };
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let float_precision = working_set.permanent().config.float_precision as usize;
         let arg = Arguments {
@@ -194,7 +198,7 @@ fn convert_inner_to_unit(val: i64, to_unit: &str, span: Span) -> Result<f64, She
 
         _ => Err(ShellError::InvalidUnit {
             span,
-            supported_units: SUPPORTED_DURATION_UNITS.join(", "),
+            supported_units: SUPPORTED_UNITS.join(", "),
         }),
     }
 }

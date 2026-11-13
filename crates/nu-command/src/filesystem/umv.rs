@@ -93,7 +93,7 @@ impl Command for UMv {
                 Some('u')
             )
             .switch("no-clobber", "Do not overwrite an existing file.", Some('n'))
-            .switch("all", "Move hidden files if '*' is provided.", Some('a'))
+            .switch("all", "Let glob patterns match hidden names (those starting with '.') at any depth.", Some('a'))
             .rest(
                 "paths",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
@@ -188,12 +188,8 @@ impl Command for UMv {
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
-                match v {
-                    Ok(path) => {
-                        app_vals.push(path);
-                    }
-                    Err(e) => return Err(e),
-                }
+                let path = v?;
+                app_vals.push(path);
             }
             files.push((app_vals, p.item.is_expand()));
         }
@@ -250,6 +246,7 @@ impl Command for UMv {
             strip_slashes: false,
             debug: false,
             context: None,
+            exchange: false,
         };
         if let Err(error) = uu_mv::mv(&files_for_mv, &options) {
             return Err(ShellError::Generic(GenericError::new_internal(

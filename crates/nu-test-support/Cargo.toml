@@ -26,6 +26,7 @@ os = [
   "nu-engine/os",
   "nu-protocol/os",
   "nu-utils/os",
+  "dep:nu-tui",
 ]
 network = ["nu-command/network"]
 rustls-tls = ["nu-command/rustls-tls"]
@@ -39,10 +40,12 @@ plugin = [
 
 [dependencies]
 nu-cli = { workspace = true, optional = true }
+nu-cmd-base.workspace = true
 nu-cmd-extra.workspace = true
 nu-cmd-lang.workspace = true
 nu-cmd-plugin = { workspace = true, optional = true }
 nu-command.workspace = true
+nu-tui = { workspace = true, optional = true }
 nu-engine.workspace = true
 nu-experimental.workspace = true
 nu-glob.workspace = true
@@ -56,6 +59,7 @@ nu-test-support-macros.workspace = true
 nu-utils.workspace = true
 
 derive_more = { workspace = true, features = ["debug"] }
+indoc = { workspace = true }
 itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }

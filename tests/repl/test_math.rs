@@ -1,4 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test};
+use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn add_simple() -> TestResult {
@@ -23,6 +25,31 @@ fn modulo1() -> TestResult {
 #[test]
 fn modulo2() -> TestResult {
     run_test("5.25 mod 2", "1.25")
+}
+
+/// Infinity orders above every finite number and is equal only to itself.
+#[rstest]
+#[case::eq_int("inf == 1", false)]
+#[case::eq_neg_inf("inf == -inf", false)]
+#[case::eq_self("inf == inf", true)]
+#[case::gt_int("inf > 1", true)]
+#[case::lt_inf("1 < inf", true)]
+#[case::neg_inf_lt_zero("-inf < 0", true)]
+#[case::max("[1.0 inf] | math max | $in == inf", true)]
+fn infinity_comparison(#[case] code: &str, #[case] expected: bool) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// `in` accepts an int in a list of floats (and the reverse), like `==` does.
+#[rstest]
+#[case::int_in_floats("1 in [1.0]", true)]
+#[case::float_in_ints("1.0 in [1]", true)]
+#[case::int_in_mixed("1 in [1.0 'a']", true)]
+#[case::string_in_mixed("'a' in [1 'a']", true)]
+#[case::not_in("2 not-in [1.0]", true)]
+#[case::has("[1.0] has 1", true)]
+fn in_operator_int_float(#[case] code: &str, #[case] expected: bool) -> Result {
+    test().run(code).expect_value_eq(expected)
 }
 
 #[test]

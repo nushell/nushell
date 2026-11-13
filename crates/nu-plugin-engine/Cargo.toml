@@ -11,6 +11,10 @@ version.workspace = true
 [lib]
 bench = false
 
+[features]
+default = ["local-socket"]
+local-socket = ["nu-plugin-core/local-socket"]
+
 [lints]
 workspace = true
 
@@ -27,10 +31,6 @@ log = { workspace = true }
 
 [dev-dependencies]
 typetag = "0.2"
-
-[features]
-default = ["local-socket"]
-local-socket = ["nu-plugin-core/local-socket"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true, features = [

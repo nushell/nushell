@@ -20,7 +20,13 @@ impl Command for Which {
         Signature::build("which")
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
-            .rest("applications", SyntaxShape::String, "Application(s).")
+            .param(Parameter::Rest(
+                PositionalArg::new("applications", SyntaxShape::String)
+                    .desc("Application(s).")
+                    .completion(Completion::Builtin(BuiltinCompletion::Command {
+                        internal_only: false,
+                    })),
+            ))
             .switch("all", "List all executables.", Some('a'))
             .category(Category::System)
     }

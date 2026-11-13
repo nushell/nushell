@@ -18,3 +18,5 @@ pub const LINE_SEPARATOR_STR: &str = "\r\n";
 /// Line separator used on Linux/macOS/Unix is "\n".
 #[cfg(not(target_family = "windows"))]
 pub const LINE_SEPARATOR_STR: &str = "\n";
+
+// Use `std::path::MAIN_SEPARATOR` for native filesystem path separators.

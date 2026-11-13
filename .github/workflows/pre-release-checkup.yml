@@ -3,6 +3,9 @@ on:
   - workflow_dispatch
 
 
+permissions:
+  contents: read
+
 env:
   NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
@@ -22,8 +25,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v7
-      - uses: taiki-e/install-action@cargo-hack
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-hack
 
       - name: Feature power set
         run: |

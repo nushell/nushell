@@ -1,4 +1,7 @@
-use crate::math::utils::run_with_function;
+use crate::math::utils::{
+    NumericUnit, expand_range_input, run_with_function, run_with_function_and_cell_paths,
+    to_unit_f64, variance_denominator,
+};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -13,6 +16,8 @@ impl Command for MathVariance {
         Signature::build("math variance")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Duration)), Type::Number),
+                (Type::List(Box::new(Type::Filesize)), Type::Number),
                 (Type::Range, Type::Number),
                 (Type::table(), Type::record()),
                 (Type::record(), Type::record()),
@@ -22,12 +27,25 @@ impl Command for MathVariance {
                 "Calculate sample variance (i.e. using N-1 as the denominator).",
                 Some('s'),
             )
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
+            )
             .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
     fn description(&self) -> &str {
         "Returns the variance of a list of numbers or of each column in a table."
+    }
+
+    fn extra_description(&self) -> &str {
+        "For filesize and duration inputs, variance is computed in base units \
+         (bytes and nanoseconds) and returned as a plain number. There is no \
+         squared unit type in Nushell, so the result is the variance of the \
+         underlying byte or nanosecond values (B² or ns²), not of the display \
+         unit used when the values were written."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -45,42 +63,37 @@ impl Command for MathVariance {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let sample = call.has_flag(engine_state, stack, "sample")?;
-        let name = call.head;
-        let span = input.span().unwrap_or(name);
-        let input: PipelineData = match input.try_expand_range() {
-            Err(_) => {
-                return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
-                    val_span: span,
-                    call_span: name,
-                });
-            }
-            Ok(val) => val,
-        };
-        run_with_function(call, input, compute_variance(sample))
+        let mf = compute_variance(sample);
+        if cell_paths.is_empty() {
+            let input = expand_range_input(input, call.head)?;
+            return run_with_function(call, input, mf);
+        }
+        run_with_function_and_cell_paths(call, input, cell_paths, engine_state.signals(), mf)
     }
 
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let sample = call.has_flag_const(working_set, "sample")?;
-        let name = call.head;
-        let span = input.span().unwrap_or(name);
-        let input: PipelineData = match input.try_expand_range() {
-            Err(_) => {
-                return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
-                    val_span: span,
-                    call_span: name,
-                });
-            }
-            Ok(val) => val,
-        };
-        run_with_function(call, input, compute_variance(sample))
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
+        let sample = call.has_flag_const(working_set, stack, "sample")?;
+        let mf = compute_variance(sample);
+        if cell_paths.is_empty() {
+            let input = expand_range_input(input, call.head)?;
+            return run_with_function(call, input, mf);
+        }
+        run_with_function_and_cell_paths(
+            call,
+            input,
+            cell_paths,
+            working_set.permanent().signals(),
+            mf,
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -103,56 +116,118 @@ impl Command for MathVariance {
                     "b" => Value::test_int(1),
                 })),
             },
+            Example {
+                description: "Compute the variance of list-valued columns in a record.",
+                example: "{alice: [1 3], bob: [4 6]} | math variance",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(1),
+                    "bob" => Value::test_int(1),
+                })),
+            },
+            Example {
+                description: "Compute the variance of a single column using a cell path.",
+                example: "{alice: [1 3], bob: [4 6]} | math variance alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::test_int(1),
+                    "bob" => Value::list(
+                        vec![Value::test_int(4), Value::test_int(6)],
+                        Span::test_data(),
+                    ),
+                })),
+            },
+            Example {
+                // 1KB=1000B, 3KB=3000B; population variance is 1_000_000 (B²), not 1 (KB²).
+                description: "Variance of filesizes is a number of base units squared (bytes²).",
+                example: "[1KB 3KB] | math variance",
+                result: Some(Value::test_float(1_000_000.0)),
+            },
+            Example {
+                description: "Variance of large, close values is computed accurately.",
+                example: "[506250000.0 506250001.0] | math variance",
+                result: Some(Value::test_float(0.25)),
+            },
         ]
     }
 }
 
-fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
-    let n = Value::int(values.len() as i64, span);
-    let mut sum_x = Value::int(0, span);
-    let mut sum_x2 = Value::int(0, span);
+/// Numerically-stable two-pass variance in `f64` base units.
+///
+/// All numeric types (int/float/duration/filesize) are converted to `f64` and
+/// the mean-deviation form `Σ(r − mean_r)² / denom` is used, where `denom` is
+/// `n` for the population variance and `n − 1` with `--sample`. The deviations
+/// are taken from residuals `r = x − min` rather than from `x` itself: shifting
+/// the origin to the smallest value keeps every residual of a constant sequence
+/// exactly `0`, and summing residuals cannot overflow the way summing `x` does
+/// for large-magnitude floats. This avoids the catastrophic cancellation of the
+/// single-pass `Σx² − (Σx)²/n` formula, which loses precision (and can even go
+/// negative) when values are large but close together. The result is a plain
+/// `f64`: squared base units (B² / ns²) for filesize/duration, or a plain number
+/// for int/float. Integer inputs above `2^53` are exact as `i64` but not as
+/// `f64`, so their variance is approximate rather than an error.
+fn variance_unit_f64(
+    values: &[Value],
+    sample: bool,
+    span: Span,
+    head: Span,
+) -> Result<f64, ShellError> {
+    let mut nums = Vec::with_capacity(values.len());
     for value in values {
-        let v = match &value {
-            Value::Int { .. } | Value::Float { .. } => Ok(value),
-            Value::Error { error, .. } => Err(*error.clone()),
-            other => Err(ShellError::UnsupportedInput {
-                msg: format!(
-                    "Attempted to compute the sum of squares of a non-int, non-float value '{}' with a type of `{}`.",
-                    other.coerce_string()?,
-                    other.get_type()
-                ),
-                input: "value originates from here".into(),
-                msg_span: span,
-                input_span: value.span(),
-            }),
-        }?;
-        let v_squared = &v.mul(span, v, span)?;
-        sum_x2 = sum_x2.add(span, v_squared, span)?;
-        sum_x = sum_x.add(span, v, span)?;
+        let (_, n) = to_unit_f64(value, head)?;
+        nums.push(n);
     }
-
-    let sum_x_squared = sum_x.mul(span, &sum_x, span)?;
-    let sum_x_squared_div_n = sum_x_squared.div(span, &n, span)?;
-
-    let ss = sum_x2.sub(span, &sum_x_squared_div_n, span)?;
-
-    Ok(ss)
+    let denom = variance_denominator(nums.len(), sample, head, span)? as f64;
+    // Shift the origin to the smallest value, then average and accumulate the
+    // deviations of the residuals. The shift is exact for every input, so a
+    // constant sequence yields all-zero residuals and an exact variance of 0.
+    let origin = nums.iter().copied().fold(f64::INFINITY, f64::min);
+    let mean = nums.iter().map(|x| x - origin).sum::<f64>() / nums.len() as f64;
+    let ss = nums
+        .iter()
+        .map(|x| {
+            let d = (x - origin) - mean;
+            d * d
+        })
+        .sum::<f64>();
+    Ok(ss / denom)
 }
 
 pub fn compute_variance(
     sample: bool,
 ) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
     move |values: &[Value], span: Span, head: Span| {
-        let n = if sample {
-            values.len() - 1
-        } else {
-            values.len()
-        };
-        // sum_of_squares() needs the span of the original value, not the call head.
-        let ss = sum_of_squares(values, span)?;
-        let n = Value::int(n as i64, head);
-        ss.div(head, &n, head)
+        // Validate that all values share one numeric unit (int/float may mix;
+        // duration/filesize must be homogeneous).
+        let _ = values_unit(values, head)?;
+        // Two-pass f64 variance for all units (numerically stable).
+        let var = variance_unit_f64(values, sample, span, head)?;
+        Ok(Value::float(var, span))
     }
+}
+
+/// Determine the common unit of a value list for re-wrapping stddev results.
+pub fn values_unit(values: &[Value], head: Span) -> Result<NumericUnit, ShellError> {
+    let mut unit = NumericUnit::Number;
+    for (i, value) in values.iter().enumerate() {
+        let (this_unit, _) = to_unit_f64(value, head)?;
+        if i == 0 {
+            unit = this_unit;
+            continue;
+        }
+        // int and float may mix; duration/filesize must stay homogeneous.
+        match (unit, this_unit) {
+            (NumericUnit::Number, NumericUnit::Number) => {}
+            (a, b) if a == b => {}
+            (a, _) => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: a.as_str().into(),
+                    wrong_type: value.get_type().to_string(),
+                    dst_span: head,
+                    src_span: value.span(),
+                });
+            }
+        }
+    }
+    Ok(unit)
 }
 
 #[cfg(test)]

@@ -23,6 +23,11 @@ use std::hash::{Hash, Hasher};
 #[debug("{_0:?}")]
 pub struct EnvName(pub(crate) String);
 
+/// All environment variables are case-insensitive on all platforms
+pub fn env_var_eq(a: &str, b: &str) -> bool {
+    a.eq_ignore_ascii_case(b)
+}
+
 impl<T: Into<String>> From<T> for EnvName {
     fn from(name: T) -> Self {
         EnvName(name.into())
@@ -37,8 +42,7 @@ impl AsRef<str> for EnvName {
 
 impl PartialEq<Self> for EnvName {
     fn eq(&self, other: &Self) -> bool {
-        // All environment variables are case-insensitive on all platforms
-        self.0.eq_ignore_ascii_case(&other.0)
+        env_var_eq(&self.0, &other.0)
     }
 }
 

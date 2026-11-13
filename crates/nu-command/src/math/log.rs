@@ -1,6 +1,5 @@
-use crate::math::utils::ensure_bounded;
+use crate::math::utils::run_with_elementwise;
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct MathLog;
@@ -24,7 +23,13 @@ impl Command for MathLog {
                     Type::List(Box::new(Type::Float)),
                 ),
                 (Type::Range, Type::List(Box::new(Type::Number))),
+                (Type::record(), Type::record()),
             ])
+            .rest(
+                "columns",
+                SyntaxShape::CellPath,
+                "The cell-paths/columns to operate on.",
+            )
             .allow_variants_without_examples(true)
             .category(Category::Math)
     }
@@ -48,28 +53,37 @@ impl Command for MathLog {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let base = require_valid_base(call.req(engine_state, stack, 0)?, call.head)?;
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let head = call.head;
-        let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
-        if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
-            let span = v.span();
-            ensure_bounded(val, span, head)?;
-        }
-        log(base, call.head, input, engine_state.signals())
+        run_with_elementwise(
+            input,
+            cell_paths,
+            head,
+            engine_state.signals(),
+            true,
+            move |value| operate(value, head, base),
+        )
     }
 
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let base = require_valid_base(call.req_const(working_set, stack, 0)?, call.head)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 1)?;
         let head = call.head;
-        let base: Spanned<f64> = call.req_const(working_set, 0)?;
-        if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
-            let span = v.span();
-            ensure_bounded(val, span, head)?;
-        }
-        log(base, call.head, input, working_set.permanent().signals())
+        run_with_elementwise(
+            input,
+            cell_paths,
+            head,
+            working_set.permanent().signals(),
+            true,
+            move |value| operate(value, head, base),
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -91,30 +105,51 @@ impl Command for MathLog {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Compute the log base 10 of list-valued columns in a record.",
+                example: "{alice: [1 10 100], bob: [1000 10000]} | math log 10",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(
+                        vec![Value::test_float(0.0), Value::test_float(1.0), Value::test_float(2.0)],
+                        Span::test_data(),
+                    ),
+                    "bob" => Value::list(
+                        vec![Value::test_float(3.0), Value::test_float(4.0)],
+                        Span::test_data(),
+                    ),
+                })),
+            },
+            Example {
+                description: "Compute the log base 10 of a single column using a cell path.",
+                example: "{alice: [1 10 100], bob: [1000 10000]} | math log 10 alice",
+                result: Some(Value::test_record(record! {
+                    "alice" => Value::list(
+                        vec![Value::test_float(0.0), Value::test_float(1.0), Value::test_float(2.0)],
+                        Span::test_data(),
+                    ),
+                    "bob" => Value::list(
+                        vec![Value::test_int(1000), Value::test_int(10000)],
+                        Span::test_data(),
+                    ),
+                })),
+            },
         ]
     }
 }
 
-fn log(
-    base: Spanned<f64>,
-    head: Span,
-    input: PipelineData,
-    signals: &Signals,
-) -> Result<PipelineData, ShellError> {
-    if base.item <= 0.0f64 {
+fn require_valid_base(base: Spanned<f64>, head: Span) -> Result<f64, ShellError> {
+    // A logarithm is only defined for a base in the open intervals (0, 1) and (1, Inf):
+    // the base has to be a finite, positive number different from 1. `!is_finite()`
+    // covers `NaN` as well as both infinities.
+    if !base.item.is_finite() || base.item <= 0.0f64 || base.item == 1.0f64 {
         return Err(ShellError::UnsupportedInput {
-            msg: "Base has to be greater 0".into(),
+            msg: "Base has to be a finite number greater than 0 and not equal to 1".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: base.span,
         });
     }
-    // This doesn't match explicit nulls
-    if let PipelineData::Empty = input {
-        return Err(ShellError::PipelineEmpty { dst_span: head });
-    }
-    let base = base.item;
-    input.map(move |value| operate(value, head, base), signals)
+    Ok(base.item)
 }
 
 fn operate(value: Value, head: Span, base: f64) -> Value {
@@ -127,8 +162,21 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                 _ => unreachable!(),
             };
 
-            if val <= 0.0 {
-                return Value::error(
+            // A positive test keeps `NaN` out of the log: `NaN > 0.0` is false, so it
+            // reaches the error branch instead of silently returning `NaN`.
+            if val > 0.0 {
+                // Specialize for better precision/performance
+                let val = if base == 10.0 {
+                    val.log10()
+                } else if base == 2.0 {
+                    val.log2()
+                } else {
+                    val.log(base)
+                };
+
+                Value::float(val, span)
+            } else {
+                Value::error(
                     ShellError::UnsupportedInput {
                         msg: "'math log' undefined for values outside the open interval (0, Inf)."
                             .into(),
@@ -137,23 +185,13 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                         input_span: span,
                     },
                     span,
-                );
+                )
             }
-            // Specialize for better precision/performance
-            let val = if base == 10.0 {
-                val.log10()
-            } else if base == 2.0 {
-                val.log2()
-            } else {
-                val.log(base)
-            };
-
-            Value::float(val, span)
         }
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "numeric".into(),
+                exp_input_type: crate::math::utils::NUMBER_INPUT_TYPES.into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

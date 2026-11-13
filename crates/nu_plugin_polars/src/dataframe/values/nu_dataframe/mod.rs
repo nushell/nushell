@@ -1,5 +1,5 @@
 mod between_values;
-mod conversion;
+pub mod conversion;
 mod custom_value;
 mod operations;
 

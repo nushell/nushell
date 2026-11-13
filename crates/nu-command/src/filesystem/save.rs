@@ -1,14 +1,16 @@
-use crate::formats::{preserve_toml_document, read_toml_source_from_metadata};
+use crate::formats::{is_dotenv_file, preserve_toml_document, read_toml_source_from_metadata};
 use crate::progress_bar;
-use nu_engine::{command_prelude::*, get_eval_block};
+use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::{expand_path_with, is_windows_device_path};
 use nu_protocol::{
-    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
-    byte_stream::copy_with_signals, process::ChildPipe, shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    ByteStreamSource, DataSource, DeclId, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals,
+    ir,
+    process::ChildPipe,
+    shell_error::generic::GenericError,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use std::{
-    borrow::Cow,
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
@@ -55,7 +57,11 @@ impl Command for Save {
             )
             .switch("raw", "Save file as raw binary.", Some('r'))
             .switch("append", "Append input to the end of the file.", Some('a'))
-            .switch("force", "Overwrite the destination.", Some('f'))
+            .switch(
+                "force",
+                "Overwrite the destination, creating missing parent directories.",
+                Some('f'),
+            )
             .switch("progress", "Enable progress bar.", Some('p'))
             .category(Category::FileSystem)
     }
@@ -116,7 +122,7 @@ impl Command for Save {
                 let (mut file, _) =
                     get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
-                    file.write_all(&value_to_bytes(val)?)
+                    file.write_all(&value_to_bytes(val, span)?)
                         .map_err(&from_io_error)?;
                     file.write_all("\n".as_bytes()).map_err(&from_io_error)?;
                 }
@@ -144,10 +150,12 @@ impl Command for Save {
                 }
 
                 // Try to convert the input pipeline into another type if we know the extension
-                let ext = extract_extension(&input, &path.item, raw);
-                let converted = match ext {
+                let converter = find_converter(engine_state, &input, &path.item, raw);
+                let converted = match converter {
                     None => input,
-                    Some(ext) => convert_to_extension(engine_state, &ext, stack, input, span)?,
+                    Some(decl_id) => {
+                        convert_to_extension(engine_state, decl_id, stack, input, span, path.span)?
+                    }
                 };
 
                 // Save custom value however they implement saving
@@ -165,7 +173,7 @@ impl Command for Save {
                     return save_byte_stream(stream, metadata.as_ref());
                 }
 
-                let bytes = value_to_bytes(converted.into_value(span)?)?;
+                let bytes = value_to_bytes(converted.into_value(span)?, span)?;
 
                 // Only open file after successful conversion
                 let (mut file, _) =
@@ -293,52 +301,103 @@ fn preserve_toml_output(
     }
 }
 
-/// Extract extension for conversion.
-fn extract_extension<'e>(input: &PipelineData, path: &'e Path, raw: bool) -> Option<Cow<'e, str>> {
+/// Find the `to` command that converts the input for the file: `to {ext}` for its extension,
+/// in any case as with `open`, or `to dotenv` for a record saved to a file named like `.env` or
+/// `.env.local` whose extension has no `to` command.
+fn find_converter(
+    engine_state: &EngineState,
+    input: &PipelineData,
+    path: &Path,
+    raw: bool,
+) -> Option<DeclId> {
     match (raw, input) {
         (true, _)
         | (_, PipelineData::ByteStream(..))
         | (_, PipelineData::Value(Value::String { .. }, ..)) => None,
-        _ => path.extension().map(|name| name.to_string_lossy()),
+        _ => {
+            let find = |ext: &str| engine_state.find_decl(format!("to {ext}").as_bytes(), &[]);
+            let ext = path
+                .extension()
+                .map(|ext| ext.to_string_lossy().to_lowercase());
+            ext.and_then(|ext| find(&ext)).or_else(|| {
+                let dotenv = matches!(input, PipelineData::Value(Value::Record { .. }, ..))
+                    && path
+                        .file_name()
+                        .is_some_and(|name| is_dotenv_file(&name.to_string_lossy()));
+                dotenv.then(|| find("dotenv")).flatten()
+            })
+        }
     }
 }
 
 /// Convert given data into content of file of specified extension if
 /// corresponding `to` command exists. Otherwise attempt to convert
-/// data to bytes as is
+/// data to bytes as is. `path_span` is the file argument, which an error about the converter
+/// points at.
 fn convert_to_extension(
     engine_state: &EngineState,
-    extension: &str,
+    decl_id: DeclId,
     stack: &mut Stack,
     input: PipelineData,
     span: Span,
+    path_span: Span,
 ) -> Result<PipelineData, ShellError> {
-    if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
-        let decl = engine_state.get_decl(decl_id);
-        if let Some(block_id) = decl.block_id() {
-            let block = engine_state.get_block(block_id);
-            let eval_block = get_eval_block(engine_state);
-            eval_block(engine_state, stack, block, input).map(|p| p.body)
-        } else {
-            let call = ast::Call::new(span);
-            decl.run(engine_state, stack, &(&call).into(), input)
-        }
+    let decl = engine_state.get_decl(decl_id);
+    if let Some(alias) = decl.as_alias() {
+        let file = String::from_utf8_lossy(engine_state.get_span_contents(path_span));
+        Err(crate::formats::alias_converter_error(
+            engine_state,
+            alias,
+            "save",
+            "save file",
+            &format!("... | {{}} | save {file}"),
+            path_span,
+        ))
     } else {
-        Ok(input)
+        let call = ir::Call::build(decl_id, span);
+        eval_ir_call(engine_state, stack, call, input)
+    }
+}
+
+/// Actionable error for when `save` receives structured data (a record, table,
+/// or other non-string value) but the destination has no matching
+/// `to <extension>` serializer, so the value can't be written as-is.
+///
+/// Filenames are only hints. Mirrors how `to json`/`to toml` report
+/// unserializable input: the failure is that `save` doesn't support this input
+/// for this file, not a low-level string coercion, so we raise
+/// [`ShellError::UnsupportedInput`] pointing at the explicit conversions rather
+/// than a bare "can't convert to string".
+fn cant_serialize_to_file(from_type: Type, value_span: Span, call_span: Span) -> ShellError {
+    ShellError::UnsupportedInput {
+        msg: format!(
+            "cannot save {from_type} to this file: no `to` converter matches the file's \
+             extension. Serialize it first, e.g. `... | to json | save <file>`, or save \
+             the rendered table with ansi escape sequences with `... | table | save <file>`"
+        ),
+        input: "value originates from here".into(),
+        msg_span: call_span,
+        input_span: value_span,
     }
 }
 
 /// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
 ///
-/// Propagates [`Value::Error`] and creates error otherwise
-fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
+/// Propagates [`Value::Error`] and, for structured values that can't be
+/// coerced to text, returns an actionable [`cant_serialize_to_file`] error
+/// pointing at `span` (the `save` invocation).
+fn value_to_bytes(value: Value, span: Span) -> Result<Vec<u8>, ShellError> {
     match value {
         Value::String { val, .. } => Ok(val.into_bytes()),
         Value::Binary { val, .. } => Ok(val.into_owned()),
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
-                .map(Value::coerce_into_string)
+                .map(|val| {
+                    let (ty, val_span) = (val.get_type(), val.span());
+                    val.coerce_into_string()
+                        .map_err(|_| cant_serialize_to_file(ty, val_span, span))
+                })
                 .collect::<Result<Vec<String>, ShellError>>()?
                 .join("\n")
                 + "\n";
@@ -347,7 +406,13 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error, .. } => Err(*error),
-        other => Ok(other.coerce_into_string()?.into_bytes()),
+        other => {
+            let (ty, val_span) = (other.get_type(), other.span());
+            other
+                .coerce_into_string()
+                .map(String::into_bytes)
+                .map_err(|_| cant_serialize_to_file(ty, val_span, span))
+        }
     }
 }
 
@@ -451,6 +516,20 @@ fn get_files(
         .as_ref()
         .map(|stderr_path| prepare_path(stderr_path, append, force))
         .transpose()?;
+
+    // With --force, create missing parent directories for both destinations
+    if force {
+        let mut destinations = vec![(path, path_span)];
+        if let Some((stderr_path, stderr_path_span)) = &stderr_path_and_span {
+            destinations.push((stderr_path, *stderr_path_span));
+        }
+        for (destination, span) in destinations {
+            if let Some(parent) = destination.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|err| ShellError::Io(IoError::new(err, span, parent.to_path_buf())))?;
+            }
+        }
+    }
 
     // Only if both files can be used open and possibly truncate them
     let file = open_file(engine_state, path, path_span, append)?;
@@ -636,7 +715,7 @@ fn stream_to_file(
         if let Err(err) = res {
             let _ = file.flush();
             bar.abandoned_msg("# Error while saving #");
-            Err(from_io_error(err).into())
+            Err(ShellErrorBridge::unpack(err, span))
         } else {
             file.flush().map_err(&from_io_error)?;
             Ok(())

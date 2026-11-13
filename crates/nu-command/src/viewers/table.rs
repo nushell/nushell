@@ -11,12 +11,12 @@ use nu_utils::time::Instant;
 use url::Url;
 
 use nu_color_config::{StyleComputer, TextStyle, color_from_hex};
-use nu_engine::{command_prelude::*, env_to_string};
+use nu_engine::{command_prelude::*, env_to_string, eval_ir_call};
 use nu_path::form::Absolute;
 use nu_pretty_hex::{HexConfig, HexStyles};
 use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals,
-    TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY, TableMode, ValueIterator,
+    TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY, TableMode, ValueIterator, ir,
     shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use nu_table::{
@@ -61,7 +61,7 @@ impl Command for Table {
                     .short('t')
                     .arg(SyntaxShape::String)
                     .desc("Set a table mode/theme.")
-                    .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
+                    .completion(Completion::new_list(TableMode::NAMES)),
             )
             .named(
                 "index",
@@ -95,7 +95,7 @@ impl Command for Table {
             )
             .switch(
                 "collapse",
-                "Expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control.",
+                "Expand the table structure in collapse mode.",
                 Some('c'),
             )
             .named(
@@ -220,11 +220,13 @@ pub(crate) fn render_value_as_plain_table_text(
     value: Value,
     span: Span,
 ) -> ShellResult<String> {
-    let call = Call::new(span);
-    let input = value.into_pipeline_data();
-    let input = CmdInput::parse(engine_state, stack, &call, input)?;
-    let output = handle_table_command(input)?;
-    let output = output.into_value(span)?;
+    let output = match engine_state.table_decl_id {
+        Some(decl_id) => {
+            let call = ir::Call::build(decl_id, span);
+            eval_ir_call(engine_state, stack, call, value.into_pipeline_data())?.into_value(span)?
+        }
+        None => value,
+    };
     let config = stack.get_config(engine_state);
 
     let text = match output {
@@ -242,6 +244,7 @@ struct TableConfig {
     theme: TableMode,
     abbreviation: Option<usize>,
     index: Option<usize>,
+    index_explicit: bool,
     use_ansi_coloring: bool,
     icons: bool,
     hex_styles: HexStyles,
@@ -269,6 +272,7 @@ struct CLIArgs {
     expand_flatten_separator: Option<String>,
     collapse: bool,
     index: Option<usize>,
+    index_explicit: bool,
     use_ansi_coloring: bool,
     icons: bool,
 }
@@ -282,6 +286,7 @@ fn parse_table_config(
         abbreviation,
         theme,
         index,
+        index_explicit,
         use_ansi_coloring,
         icons,
         ..
@@ -297,6 +302,7 @@ fn parse_table_config(
         theme,
         abbreviation,
         index,
+        index_explicit,
         use_ansi_coloring,
         icons,
         hex_styles,
@@ -333,6 +339,9 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
     let icons = call.has_flag(state, stack, "icons")?;
+    let index_explicit = call
+        .get_flag::<Value>(state, stack, "index")?
+        .is_some_and(|v| !matches!(v, Value::Nothing { .. }));
 
     let use_ansi_coloring = stack.get_config(state).use_ansi_coloring.get(state);
 
@@ -346,6 +355,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         expand_flatten_separator,
         width,
         index,
+        index_explicit,
         use_ansi_coloring,
         icons,
     })
@@ -482,6 +492,10 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             Err(*error)
         }
         PipelineData::Value(Value::Custom { val, .. }, metadata) => {
+            // Always collapse a top-level custom so primitive customs (semver,
+            // etc.) print as scalars, matching filesize/duration. Structured
+            // customs become native records/lists. Cell coloring for customs
+            // inside lists/tables is handled in build_table_batch.
             let base_pipeline = val
                 .to_base_value(span)?
                 .into_pipeline_data_with_metadata(metadata);
@@ -716,16 +730,18 @@ fn build_table_batch(
     opts: TableOpts<'_>,
     span: Span,
 ) -> StringResult {
-    // convert each custom value to its base value so it can be properly
-    // displayed in a table
+    // Expand structured custom values (records/lists) so they render as native
+    // table rows/columns. Leave primitive custom values as Custom so type-specific
+    // color_config keys (e.g. "semver") still apply via style_primitive.
     for val in &mut vals {
-        let span = val.span();
+        let val_span = val.span();
 
         if let Value::Custom { val: custom, .. } = val {
-            *val = custom
-                .to_base_value(span)
-                .or_else(|err| Result::<_, ShellError>::Ok(Value::error(err, span)))
-                .expect("error converting custom value to base value")
+            match custom.to_base_value(val_span) {
+                Ok(base @ (Value::Record { .. } | Value::List { .. })) => *val = base,
+                Ok(_) => {}
+                Err(err) => *val = Value::error(err, val_span),
+            }
         }
     }
 
@@ -1070,8 +1086,12 @@ fn stream_collect_abbreviated(
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
-    let mut head = Vec::with_capacity(size);
-    let mut tail = VecDeque::with_capacity(size);
+    // `size` is user supplied (`--abbreviated`) and can be far larger than the input, so size the
+    // buffers from what the iterator says it has. They only ever hold rows that are actually read.
+    // `head` ends up with `size` rows, the `...` row and the tail, so reserve that final length.
+    let hint = stream.size_hint().0;
+    let mut head = Vec::with_capacity(hint.min(size.saturating_mul(2).saturating_add(1)));
+    let mut tail = VecDeque::with_capacity(hint.saturating_sub(size).min(size));
 
     if size == 0 {
         return (vec![], 0, false);
@@ -1235,7 +1255,7 @@ fn create_empty_placeholder(
 
     let cell = format!("empty {value_type_name}");
     let mut table = NuTable::new(1, 1);
-    table.insert((0, 0), cell);
+    table.insert((0, 0), cell.clone());
     table.set_data_style(TextStyle::default().dimmed());
     let mut out = TableOutput::from_table(table, false, false);
 
@@ -1246,9 +1266,8 @@ fn create_empty_placeholder(
         out.table.clear_all_colors();
     }
 
-    out.table
-        .draw(termwidth)
-        .expect("Could not create empty table placeholder")
+    // a terminal too narrow for the bordered placeholder still gets the bare text
+    out.table.draw(termwidth).unwrap_or(cell)
 }
 
 fn convert_table_to_output(
@@ -1281,31 +1300,8 @@ fn convert_table_to_output(
     }
 }
 
-const SUPPORTED_TABLE_MODES: &[&str] = &[
-    "basic",
-    "compact",
-    "compact_double",
-    "default",
-    "frameless",
-    "heavy",
-    "light",
-    "none",
-    "reinforced",
-    "rounded",
-    "thin",
-    "with_love",
-    "psql",
-    "markdown",
-    "dots",
-    "restructured",
-    "ascii_rounded",
-    "basic_compact",
-    "single",
-    "double",
-];
-
 fn supported_table_modes() -> Vec<Value> {
-    SUPPORTED_TABLE_MODES
+    TableMode::NAMES
         .iter()
         .copied()
         .map(Value::test_string)
@@ -1336,6 +1332,7 @@ fn create_table_opts<'a>(
         theme,
         offset,
         index,
+        table_cfg.index_explicit,
         table_cfg.width_priority_columns.clone(),
     )
 }

@@ -26,6 +26,11 @@ impl Command for SemverBump {
                 "Preserve the existing build metadata from the input version",
                 Some('p'),
             )
+            .switch(
+                "loose",
+                "Allow common non-strict prefixes such as v1.2.3, v.1.2.3, v:1.2.3, v-1.2.3, or v_1.2.3 when parsing string input; the prefix is preserved on the result",
+                Some('l'),
+            )
             .named(
                 "build-metadata",
                 SyntaxShape::String,
@@ -87,6 +92,20 @@ impl Command for SemverBump {
                 example: "'1.2.3+build.5' | into semver | semver bump patch --preserve-build-metadata",
                 result: Some(SemverValue::test_value("1.2.4+build.5")),
             },
+            Example {
+                // Assert via `to text` so the example locks the display prefix;
+                // SemverValue equality ignores prefix by design.
+                description: "Bump a loosely-prefixed version string",
+                example: "'v1.2.3' | semver bump patch --loose | to text",
+                result: Some(Value::test_string("v1.2.4")),
+            },
+            Example {
+                // Assert via `to text` so the example locks the display prefix;
+                // SemverValue equality ignores prefix by design.
+                description: "Bump after converting with --loose (prefix is preserved)",
+                example: "'v1.2.3' | into semver --loose | semver bump major | to text",
+                result: Some(Value::test_string("v2.0.0")),
+            },
         ]
     }
 
@@ -103,6 +122,7 @@ impl Command for SemverBump {
             call.get_flag(engine_state, stack, "build-metadata")?;
         let preserve_build_metadata =
             call.has_flag(engine_state, stack, "preserve-build-metadata")?;
+        let loose = call.has_flag(engine_state, stack, "loose")?;
         let head = call.head;
 
         input.map(
@@ -114,6 +134,7 @@ impl Command for SemverBump {
                     ignore_errors,
                     build_metadata.as_deref(),
                     preserve_build_metadata,
+                    loose,
                 )
                 .unwrap_or_else(|err| Value::error(err, head))
             },
@@ -129,8 +150,9 @@ fn bump_value_with_options(
     ignore_errors: bool,
     build_metadata: Option<&str>,
     preserve_build_metadata: bool,
+    loose: bool,
 ) -> Result<Value, ShellError> {
-    let semver_val = match SemverValue::try_from(input) {
+    let semver_val = match SemverValue::try_from_value(input, loose) {
         Ok(semver) => semver,
         Err(err) => {
             if ignore_errors {
@@ -162,12 +184,13 @@ fn bump_value_with_options(
 
     let result = match (build_metadata, preserve_build_metadata) {
         (Some(metadata), _) => result.set_build_metadata(metadata)?,
-        (None, true) => SemverValue {
-            version: semver::Version {
+        (None, true) => SemverValue::with_prefix(
+            semver::Version {
                 build: original_build,
                 ..result.version
             },
-        },
+            result.prefix,
+        ),
         (None, false) => result,
     };
 
@@ -187,168 +210,189 @@ mod tests {
         match value {
             Value::Custom { val, .. } => {
                 let semver = val.as_any().downcast_ref::<SemverValue>().unwrap();
-                semver.version.to_string()
+                semver.display()
             }
             _ => panic!("Expected Custom value"),
         }
     }
 
+    fn bump(
+        input: &Value,
+        level: &str,
+        ignore_errors: bool,
+        build_metadata: Option<&str>,
+        preserve_build_metadata: bool,
+        loose: bool,
+    ) -> Result<Value, ShellError> {
+        bump_value_with_options(
+            input,
+            level,
+            Span::test_data(),
+            ignore_errors,
+            build_metadata,
+            preserve_build_metadata,
+            loose,
+        )
+    }
+
     #[test]
     fn test_bump_major() {
         let input = create_semver_value("1.2.3");
-        let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "major", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
     #[test]
     fn test_bump_minor() {
         let input = create_semver_value("1.2.3");
-        let result =
-            bump_value_with_options(&input, "minor", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "minor", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0");
     }
 
     #[test]
     fn test_bump_patch() {
         let input = create_semver_value("1.2.3");
-        let result =
-            bump_value_with_options(&input, "patch", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "patch", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.4");
     }
 
     #[test]
     fn test_bump_alpha() {
         let input = create_semver_value("1.2.3");
-        let result =
-            bump_value_with_options(&input, "alpha", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "alpha", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-alpha.1");
     }
 
     #[test]
     fn test_bump_beta() {
         let input = create_semver_value("1.2.3");
-        let result =
-            bump_value_with_options(&input, "beta", Span::test_data(), false, None, false).unwrap();
+        let result = bump(&input, "beta", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-beta.1");
     }
 
     #[test]
     fn test_bump_rc() {
         let input = create_semver_value("1.2.3");
-        let result =
-            bump_value_with_options(&input, "rc", Span::test_data(), false, None, false).unwrap();
+        let result = bump(&input, "rc", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3-rc.1");
     }
 
     #[test]
     fn test_bump_release() {
         let input = create_semver_value("1.2.3-alpha.1");
-        let result =
-            bump_value_with_options(&input, "release", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "release", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.3");
     }
 
     #[test]
     fn test_bump_invalid_level() {
         let input = create_semver_value("1.2.3");
-        let result =
-            bump_value_with_options(&input, "invalid", Span::test_data(), false, None, false);
+        let result = bump(&input, "invalid", false, None, false, false);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_bump_string_input_is_supported() {
         let input = Value::string("1.2.3", Span::test_data());
-        let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "major", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
     #[test]
     fn test_bump_string_input_with_build_metadata() {
         let input = Value::string("1.2.3", Span::test_data());
-        let result = bump_value_with_options(
-            &input,
-            "minor",
-            Span::test_data(),
-            false,
-            Some("build"),
-            false,
-        )
-        .unwrap();
+        let result = bump(&input, "minor", false, Some("build"), false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0+build");
     }
 
     #[test]
     fn test_bump_ignore_errors_for_invalid_input() {
         let input = Value::string("not-a-version", Span::test_data());
-        let result =
-            bump_value_with_options(&input, "major", Span::test_data(), true, None, false).unwrap();
+        let result = bump(&input, "major", true, None, false, false).unwrap();
         assert!(matches!(result, Value::String { .. }));
     }
 
     #[test]
     fn test_bump_wrong_custom_value() {
         let input = Value::int(42, Span::test_data());
-        let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None, false);
+        let result = bump(&input, "major", false, None, false, false);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_bump_with_prerelease() {
         let input = create_semver_value("1.2.3-alpha.1");
-        let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "major", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0");
     }
 
     #[test]
     fn test_bump_with_build_metadata() {
         let input = create_semver_value("1.2.3+build.1");
-        let result =
-            bump_value_with_options(&input, "minor", Span::test_data(), false, None, false)
-                .unwrap();
+        let result = bump(&input, "minor", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.3.0");
     }
 
     #[test]
     fn test_bump_preserve_build_metadata() {
         let input = create_semver_value("1.2.3+build.5");
-        let result =
-            bump_value_with_options(&input, "patch", Span::test_data(), false, None, true).unwrap();
+        let result = bump(&input, "patch", false, None, true, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.4+build.5");
     }
 
     #[test]
     fn test_bump_preserve_build_metadata_major() {
         let input = create_semver_value("1.2.3+build.1");
-        let result =
-            bump_value_with_options(&input, "major", Span::test_data(), false, None, true).unwrap();
+        let result = bump(&input, "major", false, None, true, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "2.0.0+build.1");
     }
 
     #[test]
     fn test_bump_build_metadata_takes_precedence() {
         let input = create_semver_value("1.2.3+build.1");
-        let result = bump_value_with_options(
-            &input,
-            "patch",
-            Span::test_data(),
-            false,
-            Some("override"),
-            true,
-        )
-        .unwrap();
+        let result = bump(&input, "patch", false, Some("override"), true, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "1.2.4+override");
+    }
+
+    #[test]
+    fn test_bump_loose_string_preserves_prefix() {
+        let input = Value::string("v1.2.3", Span::test_data());
+        let result = bump(&input, "major", false, None, false, true).unwrap();
+        assert_eq!(get_semver_from_value(&result), "v2.0.0");
+
+        let input = Value::string("v.1.2.3", Span::test_data());
+        let result = bump(&input, "patch", false, None, false, true).unwrap();
+        assert_eq!(get_semver_from_value(&result), "v.1.2.4");
+
+        let input = Value::string("v:1.2.3", Span::test_data());
+        let result = bump(&input, "minor", false, None, false, true).unwrap();
+        assert_eq!(get_semver_from_value(&result), "v:1.3.0");
+
+        let input = Value::string("v-1.2.3", Span::test_data());
+        let result = bump(&input, "major", false, None, false, true).unwrap();
+        assert_eq!(get_semver_from_value(&result), "v-2.0.0");
+
+        let input = Value::string("v_1.2.3", Span::test_data());
+        let result = bump(&input, "patch", false, None, false, true).unwrap();
+        assert_eq!(get_semver_from_value(&result), "v_1.2.4");
+    }
+
+    #[test]
+    fn test_bump_loose_required_for_prefixed_string() {
+        let input = Value::string("v1.2.3", Span::test_data());
+        let result = bump(&input, "major", false, None, false, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bump_preserves_prefix_from_semver_value() {
+        let input = Value::custom(
+            Box::new(SemverValue::parse("v1.2.3", true).unwrap()),
+            Span::test_data(),
+        );
+        // Prefix is already on the value; --loose is not required to keep it.
+        let result = bump(&input, "major", false, None, false, false).unwrap();
+        assert_eq!(get_semver_from_value(&result), "v2.0.0");
     }
 }
 

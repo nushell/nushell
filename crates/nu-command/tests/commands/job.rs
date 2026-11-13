@@ -1,65 +1,434 @@
-// all tests in here are marked as serial to reduce load while testing
+// all tests in here are marked as serial in CI to reduce load while testing
 // this improves the stability of these tests
 
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
+use rstest::rstest;
+use std::time::Duration;
 
-#[test]
-#[serial]
-fn job_send_root_job_works() {
-    let actual = nu!("
-        job spawn { 'beep' | job send 0 }
-        job recv --timeout 10sec");
+#[rstest]
+#[case(None)]
+#[case(Some("-k"))]
+#[case(Some("--auto-kill"))]
+#[nu_test_support::test]
+#[cfg_attr(ci, serial)]
+fn job_list_reports_auto_kill(#[case] auto_kill_flag: Option<&str>) -> Result {
+    let is_auto_kill = auto_kill_flag.is_some();
 
-    assert_eq!(actual.out, "beep");
+    let spawn_command = match auto_kill_flag {
+        Some(auto_kill_flag) => format!("job spawn {auto_kill_flag} {{ job recv }}"),
+        None => "job spawn { job recv }".to_owned(),
+    };
+
+    let code = format!(
+        "
+        let id = {spawn_command}
+        let auto_kill = job list | where id == $id | get auto_kill.0
+        job kill $id
+        $auto_kill
+    "
+    );
+
+    test().run(&code).expect_value_eq(is_auto_kill)
 }
 
 #[test]
-#[serial]
-fn job_send_background_job_works() {
-    let actual = nu!("
+fn job_spawn_runs_with_empty_pipeline_not_null_value() -> Result {
+    let code = "
+        job spawn { peek | metadata | job send 0 }
+        (job recv --timeout 1sec).peek.type
+    ";
+    // `null | peek | metadata | get peek.type` is `nothing`
+    test().run(code).expect_value_eq("empty")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_root_job_works() -> Result {
+    let code = "
+        job spawn { 'beep' | job send 0 }
+        job recv --timeout 10sec
+    ";
+
+    test().run(code).expect_value_eq("beep")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_background_job_works() -> Result {
+    let code = "
         let job = job spawn { job recv | job send 0 }
         'boop' | job send $job
-        job recv --timeout 10sec");
+        job recv --timeout 10sec
+    ";
 
-    assert_eq!(actual.out, "boop");
+    test().run(code).expect_value_eq("boop")
 }
 
 #[test]
-#[serial]
-fn job_send_to_self_works() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            job recv | try { do $in } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ 1 + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_zip_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { [1 2 3] | zip $closure } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_each_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            job recv | try { $in | each $in } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_tee_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { [1 2 3] | tee $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_par_each_returns_one_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { [1 2 3] | par-each $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_record_each_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { {a: 1} | record each $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |key, value| {($key): $value} } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_view_source_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { view source $closure | ignore } catch { |err| $err | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec | get msg")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_describe_detailed_does_not_panic() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { $closure | describe --detailed | get type | job send 0 } catch { |err| $err.msg | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq("closure")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_debug_profile_does_not_leave_debugger_active() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { debug profile $closure | ignore } catch { |err| $err.msg | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    // Once the error arrives, the `debug profile` call has finished. Its failure
+    // must not leave the profiler installed: the debugger slot is shared with
+    // the job, so a leaked profiler shows up here as a non-Noop debugger.
+    let msg = tester.run::<String>("job recv --timeout 10sec")?;
+    assert_eq!(msg, "Closure cannot be evaluated");
+
+    let debugger = tester
+        .engine_state
+        .debugger
+        .lock()
+        .expect("debugger lock is poisoned");
+    assert!(
+        format!("{debugger:?}").contains("NoopDebugger"),
+        "debug profile left an active debugger installed: {debugger:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_job_spawn_is_catchable() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { job spawn $closure | ignore; '' } catch { |err| $err.msg } | job send 0
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_error_labels_render() -> Result {
+    let mut tester = test();
+
+    // The stale closure's own span points into source this job's engine state
+    // does not have. Errors must label themselves with a call-site span
+    // instead, or the label fails to render (`OutOfBounds`).
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            [
+                (try { [{a: 1}] | update a $closure | ignore; '' } catch { |err| $err | to text })
+                (try { [1 2 3] | tee $closure | ignore; '' } catch { |err| $err | to text })
+                (try { ['b'] | str replace 'b' $closure | ignore; '' } catch { |err| $err | to text })
+                (try { 5 | default (job recv) | ignore; '' } catch { |err| $err | to text })
+            ] | job send 0
+        }
+    ",
+    )?;
+
+    // The second closure feeds the inline `(job recv)` in the `default` site.
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    let rendered: Vec<String> = tester.run("job recv --timeout 10sec")?;
+    for text in &rendered {
+        assert!(
+            text.contains("Closure cannot be evaluated"),
+            "error not rendered: {text}"
+        );
+        // A label span pointing into the sender's source fails to render.
+        assert!(
+            !text.contains("OutOfBounds"),
+            "error label failed to render: {text}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_default_returns_an_error() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            try { 5 | default (job recv) | ignore; '' } catch { |err| $err.msg } | job send 0
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ 1 + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq("Closure cannot be evaluated")
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_other_consumers_return_errors() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            [
+                (try { with-env {X: 1} $closure | ignore; '' } catch { |err| $err.msg })
+                (try { explain $closure | ignore; '' } catch { |err| $err.msg })
+                (try { generate $closure 1 | ignore; '' } catch { |err| $err.msg })
+                (try { {a: 1} | record where $closure | ignore; '' } catch { |err| $err.msg })
+                (try { {a: {b: 1}} | record walk $closure | ignore; '' } catch { |err| $err.msg })
+                (try { [2 1] | sort-by $closure | ignore; '' } catch { |err| $err.msg })
+            ] | job send 0
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester
+        .run("job recv --timeout 10sec")
+        .expect_value_eq(vec!["Closure cannot be evaluated"; 6])
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_closure_parsed_after_spawn_to_text_serialize_does_not_panic() -> Result {
+    let mut tester = test();
+
+    tester.run::<()>(
+        "
+        let queue = job spawn {
+            let closure = job recv
+            try { $closure | to text --serialize | str starts-with 'unable to retrieve' | job send 0 } catch { |err| $err.msg | job send 0 }
+        }
+    ",
+    )?;
+
+    tester.run::<()>("{ |it| $it + 1 } | job send $queue")?;
+
+    tester.run("job recv --timeout 10sec").expect_value_eq(true)
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+fn job_send_to_self_works() -> Result {
+    let code = r#"
         "meep" | job send 0
-        job recv"#);
+        job recv
+    "#;
 
-    assert_eq!(actual.out, "meep");
+    test().run(code).expect_value_eq("meep")
 }
 
 #[test]
-#[serial]
-fn job_send_to_self_from_background_works() {
-    let actual = nu!("
+#[cfg_attr(ci, serial)]
+fn job_send_to_self_from_background_works() -> Result {
+    let code = "
         job spawn {
             'beep' | job send (job id)
             job recv | job send 0
         }
 
-        job recv --timeout 10sec");
+        job recv --timeout 10sec
+    ";
 
-    assert_eq!(actual.out, "beep");
+    test().run(code).expect_value_eq("beep")
 }
 
 #[test]
-#[serial]
-fn job_id_of_root_job_is_zero() {
-    let actual = nu!("job id");
-
-    assert_eq!(actual.out, "0");
+#[cfg_attr(ci, serial)]
+fn job_id_of_root_job_is_zero() -> Result {
+    test().run("job id").expect_value_eq(0)
 }
 
 #[test]
-#[serial]
-fn job_id_of_background_jobs_works() {
-    let actual = nu!("
+#[cfg_attr(ci, serial)]
+fn job_id_of_background_jobs_works() -> Result {
+    let code = "
         let job1 = job spawn { job id | job send 0 }
         let id1 = job recv --timeout 5sec
 
@@ -69,63 +438,67 @@ fn job_id_of_background_jobs_works() {
         let job3 = job spawn { job id | job send 0 }
         let id3 = job recv --timeout 5sec
 
-        [($job1 == $id1) ($job2 == $id2) ($job3 == $id3)] | to nuon
+        [($job1 == $id1) ($job2 == $id2) ($job3 == $id3)]
 
-        ");
+    ";
 
-    assert_eq!(actual.out, "[true, true, true]");
+    test().run(code).expect_value_eq([true, true, true])
 }
 
 #[test]
-#[serial]
-fn untagged_job_recv_accepts_tagged_messages() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn untagged_job_recv_accepts_tagged_messages() -> Result {
+    let code = r#"
         job spawn { "boop" | job send 0 --tag 123 }
         job recv --timeout 10sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "boop");
+    test().run(code).expect_value_eq("boop")
 }
 
 #[test]
-#[serial]
-fn tagged_job_recv_filters_untagged_messages() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn tagged_job_recv_filters_untagged_messages() -> Result {
+    let code = r#"
         job spawn { "boop" | job send 0 }
         job recv --tag 123 --timeout 1sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "");
-    assert!(actual.err.contains("timeout"));
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_contains("requested time interval", err.to_string());
+    Ok(())
 }
 
 #[test]
-#[serial]
-fn tagged_job_recv_filters_badly_tagged_messages() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn tagged_job_recv_filters_badly_tagged_messages() -> Result {
+    let code = r#"
         job spawn { "boop" | job send 0 --tag 321 }
         job recv  --tag 123 --timeout 1sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "");
-    assert!(actual.err.contains("timeout"));
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_contains("requested time interval", err.to_string());
+    Ok(())
 }
 
 #[test]
-#[serial]
-fn tagged_job_recv_accepts_properly_tagged_messages() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn tagged_job_recv_accepts_properly_tagged_messages() -> Result {
+    let code = r#"
         job spawn { "boop" | job send 0 --tag 123 }
         job recv --tag 123 --timeout 5sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "boop");
+    test().run(code).expect_value_eq("boop")
 }
 
 #[test]
-#[serial]
-fn filtered_messages_are_not_erased() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn filtered_messages_are_not_erased() -> Result {
+    let code = r#"
         "msg1" | job send 0 --tag 123
         "msg2" | job send 0 --tag 456
         "msg3" | job send 0 --tag 789
@@ -135,59 +508,65 @@ fn filtered_messages_are_not_erased() {
         let third  = job recv --timeout 1sec
 
 
-        [($first) ($second) ($third)] | to nuon
-        "#);
+        [($first) ($second) ($third)]
+    "#;
 
-    assert_eq!(actual.out, r#"["msg3", "msg1", "msg2"]"#);
+    test().run(code).expect_value_eq(["msg3", "msg1", "msg2"])
 }
 
 #[test]
-#[serial]
-fn job_recv_timeout_works() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn job_recv_timeout_works() -> Result {
+    // Sleep longer than the recv timeout so the timeout path is exercised; keep both short so
+    // this serial CI test does not add seconds of idle wait on every run.
+    let code = r#"
         job spawn {
-            sleep 2sec
+            sleep 300ms
             "boop" | job send 0
         }
 
-        job recv --timeout 1sec
-        "#);
+        job recv --timeout 150ms
+    "#;
 
-    assert_eq!(actual.out, "");
-    assert!(actual.err.contains("timeout"));
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_contains("requested time interval", err.to_string());
+    Ok(())
 }
 
 #[test]
-#[serial]
-fn job_recv_timeout_zero_works() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn job_recv_timeout_zero_works() -> Result {
+    let code = r#"
         "hi there" | job send 0
         job recv --timeout 0sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "hi there");
+    test().run(code).expect_value_eq("hi there")
 }
 
 #[test]
-#[serial]
-fn job_flush_clears_messages() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn job_flush_clears_messages() -> Result {
+    let code = r#"
         "SALE!!!" | job send 0
         "[HYPERLINK BLOCKED]" | job send 0
 
         job flush
 
         job recv --timeout 1sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "");
-    assert!(actual.err.contains("timeout"));
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_contains("requested time interval", err.to_string());
+    Ok(())
 }
 
 #[test]
-#[serial]
-fn job_flush_clears_filtered_messages() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn job_flush_clears_filtered_messages() -> Result {
+    let code = r#"
         "msg1" | job send 0 --tag 123
         "msg2" | job send 0 --tag 456
         "msg3" | job send 0 --tag 789
@@ -197,16 +576,18 @@ fn job_flush_clears_filtered_messages() {
         job flush
 
         job recv --timeout 1sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "");
-    assert!(actual.err.contains("timeout"));
+    let err = test().run(code).expect_shell_error()?;
+
+    assert_contains("requested time interval", err.to_string());
+    Ok(())
 }
 
 #[test]
-#[serial]
-fn job_flush_with_tag() {
-    let actual = nu!(r#"
+#[cfg_attr(ci, serial)]
+fn job_flush_with_tag() -> Result {
+    let code = r#"
         "spam" | job send 0 --tag 404
         "not" | str reverse | job send 0 --tag 505
         "still alive" | job send 0 --tag 606
@@ -217,277 +598,343 @@ fn job_flush_with_tag() {
         job flush --tag 404
 
         job recv --timeout 1sec
-        "#);
+    "#;
 
-    assert_eq!(actual.out, "still alive");
-    assert_eq!(actual.err, "");
+    test().run(code).expect_value_eq("still alive")
 }
 
 #[test]
-#[serial]
-fn first_job_id_is_one() {
-    let actual = nu!("job spawn {} | to nuon");
-
-    assert_eq!(actual.out, "1");
+#[cfg_attr(ci, serial)]
+fn first_job_id_is_one() -> Result {
+    test().run("job spawn {}").expect_value_eq(1)
 }
 
 #[test]
-#[serial]
-fn job_list_adds_jobs_correctly() {
-    let actual = nu!(format!(
-        "
-            let list0 = job list | get id;
-            let job1 = job spawn {{ job recv }};
-            let list1 = job list | get id;
-            let job2 = job spawn {{ job recv }};
-            let list2 = job list | get id;
-            let job3 = job spawn {{ job recv }};
-            let list3 = job list | get id;
-            [({}), ({}), ({}), ({})] | to nuon
-            ",
-        "$list0 == []",
-        "$list1 == [$job1]",
-        "($list2 | sort) == ([$job1, $job2] | sort)",
-        "($list3 | sort) == ([$job1, $job2, $job3] | sort)"
-    ));
+#[cfg_attr(ci, serial)]
+fn job_list_adds_jobs_correctly() -> Result {
+    let code = "
+        let list0 = job list | get id;
+        let job1 = job spawn { job recv };
+        let list1 = job list | get id;
+        let job2 = job spawn { job recv };
+        let list2 = job list | get id;
+        let job3 = job spawn { job recv };
+        let list3 = job list | get id;
+        [
+            ($list0 == []),
+            ($list1 == [$job1]),
+            (($list2 | sort) == ([$job1, $job2] | sort)),
+            (($list3 | sort) == ([$job1, $job2, $job3] | sort)),
+        ]
+    ";
 
-    assert_eq!(actual.out, "[true, true, true, true]");
+    test().run(code).expect_value_eq([true, true, true, true])
 }
 
 #[test]
-#[serial]
-fn jobs_get_removed_from_list_after_termination() {
-    let actual = nu!(format!(
-        r#"
-            let job = job spawn {{ job recv }};
+#[cfg_attr(ci, serial)]
+fn jobs_get_removed_from_list_after_termination() -> Result {
+    let code = r#"
+        let job = job spawn { job recv };
 
-            let list0 = job list | get id;
+        let list0 = job list | get id;
 
-            "die!" | job send $job
+        "die!" | job send $job
 
-            sleep 0.2sec
+        sleep 0.2sec
 
-            let list1 = job list | get id;
+        let list1 = job list | get id;
 
-            [({}) ({})] | to nuon
-            "#,
-        "$list0 == [$job]", "$list1 == []",
-    ));
+        [($list0 == [$job]) ($list1 == [])]
+    "#;
 
-    assert_eq!(actual.out, "[true, true]");
+    test().run(code).expect_value_eq([true, true])
 }
 
 // TODO: find way to communicate between process in windows
 // so these tests can fail less often
 #[test]
-#[serial] // seems to fail less often with this
-fn job_list_shows_pids() {
-    let actual = nu!(format!(
-        r#"
-            let job1 = job spawn {{ nu -c "sleep 1sec" | nu -c "sleep 2sec" }};
-            sleep 500ms;
-            let list0 = job list | where id == $job1 | first | get pids;
-            sleep 1sec;
-            let list1 = job list | where id == $job1 | first | get pids;
-            [({}), ({}), ({})] | to nuon
-            "#,
-        "($list0 | length) == 2", "($list1 | length) == 1", "$list1.0 in $list0",
-    ));
+#[serial]
+#[deps(NU)]
+fn job_list_shows_pids() -> Result {
+    let code = r#"
+        let job1 = job spawn { nu -c "sleep 1sec" | nu -c "sleep 2sec" };
+        sleep 500ms;
+        let list0 = job list | where id == $job1 | first | get pids;
+        sleep 1sec;
+        let list1 = job list | where id == $job1 | first | get pids;
+        [(($list0 | length) == 2), (($list1 | length) == 1), ($list1.0 in $list0)]
+    "#;
 
-    assert_eq!(actual.out, "[true, true, true]");
+    test().run(code).expect_value_eq([true, true, true])
 }
 
 #[test]
-#[serial]
-fn killing_job_removes_it_from_table() {
-    let actual = nu!(format!(
-        "
-            let job1 = job spawn {{ job recv }}
-            let job2 = job spawn {{ job recv }}
-            let job3 = job spawn {{ job recv }}
+#[cfg_attr(ci, serial)]
+fn killing_job_removes_it_from_table() -> Result {
+    let code = "
+        let job1 = job spawn { job recv }
+        let job2 = job spawn { job recv }
+        let job3 = job spawn { job recv }
 
-            let list_before = job list | get id
+        let list_before = job list | get id
 
-            job kill $job1
-            let list_after_kill_1 = job list | get id
+        job kill $job1
+        let list_after_kill_1 = job list | get id
 
-            job kill $job2
-            let list_after_kill_2 = job list | get id
+        job kill $job2
+        let list_after_kill_2 = job list | get id
 
-            job kill $job3
-            let list_after_kill_3 = job list | get id
+        job kill $job3
+        let list_after_kill_3 = job list | get id
 
-            [({}) ({}) ({}) ({})] | to nuon
-            ",
-        "($list_before | sort) == ([$job1 $job2 $job3] | sort)",
-        "($list_after_kill_1 | sort) == ([$job2 $job3] | sort)",
-        "($list_after_kill_2 | sort) == ([$job3] | sort)",
-        "$list_after_kill_3 == []",
-    ));
+        [
+            (($list_before | sort) == ([$job1 $job2 $job3] | sort)),
+            (($list_after_kill_1 | sort) == ([$job2 $job3] | sort)),
+            (($list_after_kill_2 | sort) == ([$job3] | sort)),
+            ($list_after_kill_3 == []),
+        ]
+    ";
 
-    assert_eq!(actual.out, "[true, true, true, true]");
+    test().run(code).expect_value_eq([true, true, true, true])
 }
 
 // this test is unreliable on the macOS CI, but it worked fine for a couple months.
 // still works on other operating systems.
-#[test]
+#[rstest]
+#[timeout(Duration::from_secs(3))]
+#[nu_test_support::test]
 #[serial]
-fn killing_job_kills_pids() {
-    let actual = nu!(format!(
-        r#"
-            let job1 = job spawn {{ nu -c "sleep 1sec" | nu -c "sleep 1sec" }}
+#[deps(NU)]
+fn killing_job_kills_pids() -> Result {
+    let code = r#"
+        def wait-until [condition: closure, timeout: duration] {
+            let deadline = (date now) + $timeout
 
-            sleep 25ms
+            loop {
+                if (do $condition) {
+                    break
+                }
 
-            let pids = job list | where id == $job1 | get pids
+                if (date now) >= $deadline {
+                    error make { msg: "timed out waiting for condition" }
+                }
 
-            let child_pids_before = ps | where ppid == $nu.pid
+                # Only prevents busy-spinning. Correctness doesn't depend on it.
+                sleep 1ms
+            }
+        }
 
-            job kill $job1
+        # These remain blocked until the job is killed.
+        let job1 = job spawn {
+            nu -c "job recv" | nu -c "job recv"
+        }
 
-            sleep 25ms
+        # Wait until both processes have actually been registered.
+        wait-until {
+            (
+                job list
+                | where id == $job1
+                | first
+                | get pids
+                | length
+            ) == 2
+        } 5sec
 
-            let child_pids_after = ps | where ppid == $nu.pid
+        let pids = (
+            job list
+            | where id == $job1
+            | first
+            | get pids
+        )
 
-            [({}) ({})] | to nuon
-            "#,
-        "($child_pids_before | length) == 2", "$child_pids_after == []",
-    ));
+        job kill $job1
 
-    assert_eq!(actual.out, "[true, true]");
+        # Check the specific processes rather than all children of this Nu process.
+        wait-until { ps | where pid in $pids | is-empty } 5sec
+        true
+    "#;
+
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
 #[serial]
-fn exiting_nushell_kills_jobs() {
-    let actual = nu!(r#"
-            let result = nu -c "let job = job spawn { nu -c 'sleep 1sec' };
-                   sleep 100ms;
-                   let child_pid = job list | where id == $job | get pids | first;
-                   [$nu.pid $child_pid] | to nuon"
+#[deps(NU)]
+fn exiting_nushell_kills_jobs() -> Result {
+    let code = r#"
+        let result = nu -c "let job = job spawn { nu -c 'sleep 1sec' };
+                sleep 100ms;
+                let child_pid = job list | where id == $job | get pids | first;
+                [$nu.pid $child_pid] | to nuon"
 
-            let info = $result | from nuon
-            let child_pid = $info.0
-            let grandchild_pid = $info.1
+        let info = $result | from nuon
+        let child_pid = $info.0
+        let grandchild_pid = $info.1
 
-            ps | where pid == $grandchild_pid | filter { $in.ppid in [$child_pid, 1] } | length | to nuon
-            "#);
-    assert_eq!(actual.out, "0");
+        ps | where pid == $grandchild_pid | where { $in.ppid in [$child_pid, 1] } | length
+    "#;
+
+    test().run(code).expect_value_eq(0)
 }
 
 #[cfg(unix)]
 #[test]
 #[serial]
-fn jobs_get_group_id_right() {
-    let actual = nu!(r#"
-            let job1 = job spawn { nu -c "sleep 0.5sec" | nu -c "sleep 0.5sec"; }
+#[deps(NU)]
+fn jobs_get_group_id_right() -> Result {
+    let code = r#"
+        let job1 = job spawn { nu -c "sleep 0.5sec" | nu -c "sleep 0.5sec"; }
 
-            sleep 25ms
+        mut pids = []
+        for _ in 0..50 {
+            let jobs = job list | where id == $job1
+            if ($jobs | is-not-empty) {
+                $pids = ($jobs | first | get pids)
+                if (($pids | length) >= 2) {
+                    break
+                }
+            }
+            sleep 20ms
+        }
 
-            let pids = job list | where id == $job1 | first | get pids
+        let pid1 = $pids.0
+        let pid2 = $pids.1
 
-            let pid1 = $pids.0
-            let pid2 = $pids.1
+        mut groups = []
+        for _ in 0..50 {
+            $groups = ps --long | select pid process_group_id | rename PID PGID
+            if (($groups | where PID == $nu.pid | is-not-empty)
+                and ($groups | where PID == $pid1 | is-not-empty)
+                and ($groups | where PID == $pid2 | is-not-empty)) {
+                break
+            }
+            sleep 20ms
+        }
 
-            let groups = ^ps -ax -o pid,pgid | from ssv -m 1 | update PID {|it| $it.PID | into int} | update PGID {|it| $it.PGID | into int}
+        let my_group = $groups | where PID == $nu.pid | first | get PGID
+        let group1 = $groups | where PID == $pid1 | first | get PGID
+        let group2 = $groups | where PID == $pid2 | first | get PGID
 
-            let my_group = $groups | where PID == $nu.pid | first | get PGID
-            let group1 = $groups | where PID == $pid1 | first | get PGID
-            let group2 = $groups | where PID == $pid2 | first | get PGID
+        [($my_group != $group1) ($my_group != $group2) ($group1 == $group2)]
+    "#;
 
-            [($my_group != $group1) ($my_group != $group2) ($group1 == $group2)] | to nuon
-            "#,);
+    test().run(code).expect_value_eq([true, true, true])
+}
 
-    assert_eq!(actual.out, "[true, true, true]");
+#[test]
+#[cfg_attr(ci, serial)]
+#[deps(NU)]
+fn job_extern_output_is_silent() -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "nu -n -c $in | complete",
+        r#" job spawn { nu -c "'hi'" }; sleep 1sec"#,
+    )?;
+
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout, "");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(ci, serial)]
+#[deps(NU)]
+fn job_print_is_not_silent() -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "nu -n -c $in | complete",
+        r#" job spawn { print "hi" }; sleep 1sec"#,
+    )?;
+
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "hi");
+    assert_eq!(result.stderr, "");
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn job_extern_output_is_silent() {
-    let actual = nu!(r#" job spawn { nu -c "'hi'" }; sleep 1sec"#);
-    assert_eq!(actual.out, "");
-    assert_eq!(actual.err, "");
+#[deps(NU)]
+fn job_extern_into_value_is_not_silent() -> Result {
+    let result: CompleteResult = test().run_with_data(
+        "nu -n -c $in | complete",
+        r#" job spawn { print (nu -c "'hi'") }; sleep 1sec"#,
+    )?;
+
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "hi");
+    assert_eq!(result.stderr, "");
+    Ok(())
 }
 
 #[test]
 #[serial]
-fn job_print_is_not_silent() {
-    let actual = nu!(r#" job spawn { print "hi" }; sleep 1sec"#);
-    assert_eq!(actual.out, "hi");
-    assert_eq!(actual.err, "");
-}
-
-#[test]
-#[serial]
-fn job_extern_into_value_is_not_silent() {
-    let actual = nu!(r#" job spawn { print (nu -c "'hi'") }; sleep 1sec"#);
-    assert_eq!(actual.out, "hi");
-    assert_eq!(actual.err, "");
-}
-
-#[test]
-#[serial]
-fn job_extern_into_pipe_is_not_silent() {
-    let actual = nu!(r#"
+#[deps(NU)]
+fn job_extern_into_pipe_is_not_silent() -> Result {
+    let code = r#"
         job spawn {
             print (nu -c "10" | nu --stdin -c "($in | into int) + 1")
         }
-        sleep 1sec"#);
+        sleep 1sec
+    "#;
 
-    assert_eq!(actual.out, "11");
-    assert_eq!(actual.err, "");
+    let result: CompleteResult = test().run_with_data("nu -n -c $in | complete", code)?;
+
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "11");
+    assert_eq!(result.stderr, "");
+    Ok(())
 }
 
 #[test]
-#[serial]
-fn job_list_returns_no_description_when_job_is_undescribed() {
-    let actual = nu!("
+#[cfg_attr(ci, serial)]
+fn job_list_returns_no_description_when_job_is_undescribed() -> Result {
+    let code = "
         job spawn { sleep 10sec }
         job spawn { sleep 10sec }
         job spawn { sleep 10sec }
 
-        ('description' in (job list | columns)) | to nuon");
+        ('description' in (job list | columns))
+    ";
 
-    assert_eq!(actual.out, "false");
-    assert_eq!(actual.err, "");
+    test().run(code).expect_value_eq(false)
 }
 
 #[test]
-#[serial]
-fn job_list_returns_description_when_job_is_spawned_with_description() {
-    let actual = nu!("
+#[cfg_attr(ci, serial)]
+fn job_list_returns_description_when_job_is_spawned_with_description() -> Result {
+    let code = "
         job spawn { sleep 10sec } --description abc
         job list | where id == 1 | get description.0
-        ");
+    ";
 
-    assert_eq!(actual.out, "abc");
-    assert_eq!(actual.err, "");
+    test().run(code).expect_value_eq("abc")
 }
 
 #[test]
-#[serial]
-fn job_describe_modifies_descriptionless_job_desc() {
-    let actual = nu!("
+#[cfg_attr(ci, serial)]
+fn job_describe_modifies_descriptionless_job_desc() -> Result {
+    let code = "
         job spawn { sleep 10sec }
 
         job describe 1 beep
 
-        job list | where id == 1 | get description.0");
+        job list | where id == 1 | get description.0
+    ";
 
-    assert_eq!(actual.out, "beep");
-    assert_eq!(actual.err, "");
+    test().run(code).expect_value_eq("beep")
 }
 
 #[test]
-#[serial]
-fn job_describe_modifies_described_job_description() {
-    let actual = nu!("
+#[cfg_attr(ci, serial)]
+fn job_describe_modifies_described_job_description() -> Result {
+    let code = "
         job spawn { sleep 10sec } --description abc
 
         job describe 1 beep
 
-        job list | where id == 1 | get description.0");
+        job list | where id == 1 | get description.0
+    ";
 
-    assert_eq!(actual.out, "beep");
-    assert_eq!(actual.err, "");
+    test().run(code).expect_value_eq("beep")
 }

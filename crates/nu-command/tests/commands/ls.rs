@@ -1,8 +1,8 @@
-use nu_protocol::ParseError;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn lists_regular_files() -> Result {
@@ -62,9 +62,11 @@ fn lists_regular_files_in_special_folder() -> Result {
             .run("(ls).name")
             .expect_value_eq(["test.txt"])?;
 
+        // Quote the path: `]` is a list closer and cannot appear unquoted inside
+        // a parenthesized subexpression.
         test()
             .cwd(dirs.test())
-            .run("(ls abcd]).name")
+            .run(r#"(ls "abcd]").name"#)
             .expect_value_eq(["abcd]/test.txt"])?;
 
         test()
@@ -216,8 +218,88 @@ fn fails_when_glob_doesnt_match() -> Result {
             .cwd(dirs.test())
             .run("ls root3*")
             .expect_shell_error()?;
-        let err_msg = err.generic_msg()?;
-        assert_contains("file or folder not found", err_msg);
+        let ShellError::Generic(err) = err else {
+            panic!("expected a generic error, got {err:?}");
+        };
+        assert_eq!(err.error, "No matches found for 'root3*'");
+        assert_eq!(err.msg, "Pattern, file or folder not found");
+        assert_eq!(err.help.as_deref(), Some("no matches found"));
+
+        Ok(())
+    })
+}
+
+#[rstest]
+#[case::plain("'*.rs'", "*.rs")]
+#[case::space("'my dir/*.rs'", "my dir/*.rs")]
+fn quoted_glob_pattern_explains_that_it_is_not_expanded(
+    #[case] arg: &str,
+    #[case] pattern: &str,
+) -> Result {
+    // https://github.com/nushell/nushell/issues/16115
+    Playground::setup("ls_test_quoted_glob", |dirs, sandbox| {
+        sandbox.mkdir("my dir");
+        sandbox.with_files(&[EmptyFile("foo.rs"), EmptyFile("my dir/x.rs")]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run(format!("ls {arg}"))
+            .expect_shell_error()?;
+        let ShellError::Generic(err) = err else {
+            panic!("expected a generic error, got {err:?}");
+        };
+        assert_eq!(err.error, format!("No matches found for '{pattern}'"));
+        assert_eq!(err.msg, "File or folder not found");
+        assert_eq!(
+            err.help.as_deref(),
+            Some(&*format!(
+                "Strings are not expanded as glob patterns. If you meant a glob, use \
+                `into glob` or backticks, as in ls `{pattern}`"
+            ))
+        );
+
+        Ok(())
+    })
+}
+
+#[test]
+fn quoted_glob_pattern_with_backtick_only_suggests_into_glob() -> Result {
+    Playground::setup("ls_test_quoted_glob_backtick", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a`tick1")]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("ls 'a`*'")
+            .expect_shell_error()?;
+        let ShellError::Generic(err) = err else {
+            panic!("expected a generic error, got {err:?}");
+        };
+        assert_eq!(
+            err.help.as_deref(),
+            Some("Strings are not expanded as glob patterns. If you meant a glob, use `into glob`")
+        );
+
+        test()
+            .cwd(dirs.test())
+            .run("ls ('a`*' | into glob) | get name.0")
+            .expect_value_eq("a`tick1")
+    })
+}
+
+#[test]
+fn quoted_invalid_glob_pattern_gets_the_plain_error() -> Result {
+    Playground::setup("ls_test_quoted_bad_glob", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("report1.txt")]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("ls 'report[1.txt'")
+            .expect_shell_error()?;
+        let ShellError::Generic(err) = err else {
+            panic!("expected a generic error, got {err:?}");
+        };
+        assert_eq!(err.msg, "Pattern, file or folder not found");
+        assert_eq!(err.help.as_deref(), Some("no matches found"));
 
         Ok(())
     })
@@ -379,28 +461,46 @@ fn glob_with_hidden_directory() -> Result {
 
 #[test]
 #[cfg(unix)]
-fn fails_with_permission_denied() {
+fn fails_with_permission_denied() -> Result {
+    use nu_protocol::shell_error::io::ErrorKind;
+    use std::os::unix::fs::PermissionsExt;
+
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox
             .within("dir_a")
             .with_files(&[EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
-        let actual_with_path_arg = nu!(cwd: dirs.test(), "
-            chmod 000 dir_a; ls dir_a
-        ");
+        let is_root = nix::unistd::Uid::effective().is_root();
+        let dir_a = dirs.test().join("dir_a");
+        let original_permissions = std::fs::metadata(&dir_a)?.permissions();
 
-        let actual_in_cwd = nu!(cwd: dirs.test(), "
-            chmod 100 dir_a; cd dir_a; ls
-        ");
+        let mut permissions = original_permissions.clone();
+        permissions.set_mode(0o000);
+        std::fs::set_permissions(&dir_a, permissions)?;
+        let path_arg_result: Result<Value> = test().cwd(dirs.test()).run("ls dir_a");
 
-        let get_uid = nu!(cwd: dirs.test(), "
-            id -u
-        ");
-        let is_root = get_uid.out == "0";
+        let mut permissions = original_permissions.clone();
+        permissions.set_mode(0o100);
+        std::fs::set_permissions(&dir_a, permissions)?;
+        let cwd_result: Result<Value> = test().cwd(&dir_a).run("ls");
 
-        assert!(actual_with_path_arg.err.contains("Permission denied") || is_root);
+        std::fs::set_permissions(&dir_a, original_permissions)?;
 
-        assert!(actual_in_cwd.err.contains("Permission denied") || is_root);
+        if !is_root {
+            let path_arg_err = path_arg_result.expect_io_error()?;
+            let cwd_err = cwd_result.expect_io_error()?;
+
+            assert_matches!(
+                path_arg_err.kind,
+                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+            );
+            assert_matches!(
+                cwd_err.kind,
+                ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+            );
+        }
+
+        Ok(())
     })
 }
 
@@ -439,35 +539,24 @@ fn list_all_columns() -> Result {
             .expect_value_eq(["name", "type", "size", "modified"])?;
         // Long
         let expected = cfg_select! {
-            unix => {
-                [
-                    "name",
-                    "type",
-                    "target",
-                    "readonly",
-                    "mode",
-                    "num_links",
-                    "inode",
-                    "user",
-                    "group",
-                    "size",
-                    "created",
-                    "accessed",
-                    "modified",
-                ]
-            }
-            windows => {
-                [
-                    "name",
-                    "type",
-                    "target",
-                    "readonly",
-                    "size",
-                    "created",
-                    "accessed",
-                    "modified",
-                ]
-            }
+            unix => [
+                "name",
+                "type",
+                "target",
+                "readonly",
+                "mode",
+                "num_links",
+                "inode",
+                "user",
+                "group",
+                "size",
+                "created",
+                "accessed",
+                "modified",
+            ],
+            windows => [
+                "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
+            ],
         };
         test()
             .cwd(dirs.test())
@@ -962,6 +1051,116 @@ fn ls_literal_empty_directory() -> Result {
     });
 
     Ok(())
+}
+
+/// Regression for https://github.com/nushell/nushell/issues/18600#issuecomment-5077246342
+///
+/// `ls **` goes through `glob_from`, which rewrites the pattern to absolute
+/// `{cwd}/**`. Multi-component trailing `**` must expand (directories only).
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_bare_double_star() -> Result {
+    Playground::setup("ls_dc_bare_double_star", |dirs, sandbox| {
+        sandbox.mkdir("1");
+        sandbox.mkdir("1/2");
+        sandbox.mkdir("1/2/3");
+        sandbox.within("1/2/3").with_files(&[EmptyFile("file.txt")]);
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+
+        // Nested directories present; file.txt must not appear (trailing ** is dir-only).
+        // Must not error with "No matches found".
+        // Compare expanded paths so relative vs absolute display names both work.
+        let code = "
+            let paths = (ls ** | get name | each { path expand } | sort)
+            (
+                ($paths | length) >= 5
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)1(char psep)2(char psep)3'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo'})
+                and ($paths | any {|p| $p | str ends-with $'(char psep)foo(char psep)bar'})
+                and not ($paths | any {|p| $p | str ends-with 'file.txt'})
+            )
+        ";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(true)
+            .expect("ls ** should list nested dirs and not files with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_prefixed_trailing_double_star() -> Result {
+    Playground::setup("ls_dc_prefixed_trailing", |dirs, sandbox| {
+        sandbox.mkdir("foo");
+        sandbox.mkdir("foo/bar");
+        sandbox
+            .within("foo")
+            .with_files(&[EmptyFile("sibling.txt")]);
+        sandbox
+            .within("foo/bar")
+            .with_files(&[EmptyFile("nested.txt")]);
+
+        // As with nu-glob: the directories below `foo`, not `foo` itself and no files.
+        test()
+            .cwd(dirs.test())
+            .run("ls foo/** | get name")
+            .expect_value_eq([format!("foo{}bar", std::path::MAIN_SEPARATOR)])
+            .expect("ls foo/** should list only the directories below foo with dc-glob");
+
+        // `*` has to match a whole component, so `*/**` doesn't list `foo` itself either.
+        test()
+            .cwd(dirs.test())
+            .run("ls */** | get name")
+            .expect_value_eq([format!("foo{}bar", std::path::MAIN_SEPARATOR)])
+            .expect("ls */** should list only the directories below foo with dc-glob");
+    });
+
+    Ok(())
+}
+
+/// With dc-glob, `{a,b}` alternates in a glob, and braces without a comma are literal.
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_dc_glob_braces() -> Result {
+    Playground::setup("ls_dc_braces", |dirs, sandbox| {
+        sandbox.with_files(&[
+            EmptyFile("a.rs"),
+            EmptyFile("b.toml"),
+            EmptyFile("c.txt"),
+            EmptyFile("a{b}.txt"),
+            EmptyFile("{x,y}"),
+        ]);
+        sandbox.within("src").with_files(&[EmptyFile("x.rs")]);
+        sandbox.within("tests").with_files(&[EmptyFile("y.rs")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("ls *.{rs,toml} | get name | sort")
+            .expect_value_eq(["a.rs", "b.toml"])?;
+
+        // An argument can't start with `{`, which nushell reads as a record or closure.
+        test()
+            .cwd(dirs.test())
+            .run("ls ./{src,tests}/*.rs | get name | path basename | sort")
+            .expect_value_eq(["x.rs", "y.rs"])?;
+
+        test()
+            .cwd(dirs.test())
+            .run("ls a{b}* | get name")
+            .expect_value_eq(["a{b}.txt"])?;
+
+        // A path that isn't a glob names itself, braces and all.
+        test()
+            .cwd(dirs.test())
+            .run("ls '{x,y}' | get name")
+            .expect_value_eq(["{x,y}"])
+    })
 }
 
 // Windows does not allow `*` in filenames, so this regression only applies on Unix.

@@ -1,6 +1,11 @@
 use super::Pipeline;
-use crate::{OutDest, Signature, Span, Type, VarId, engine::StateWorkingSet, ir::IrBlock};
+use crate::{
+    OutDest, Signature, Span, Type, VarId,
+    engine::{BoundNames, ScopeBindings, StateWorkingSet},
+    ir::IrBlock,
+};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
@@ -11,6 +16,27 @@ pub struct Block {
     /// The block compiled to IR instructions. Not available for subexpressions.
     pub ir_block: Option<IrBlock>,
     pub span: Option<Span>, // None option encodes no span to avoid using test_span()
+    /// Local command/module name bindings introduced while parsing this block.
+    ///
+    /// Nested parse scopes discard their name maps on exit; this snapshot lets `scope`
+    /// subcommands report those locals while the block is being evaluated.
+    ///
+    /// Not serialized: only meaningful within the process that parsed the block.
+    #[serde(skip)]
+    pub scope_bindings: Option<Arc<ScopeBindings>>,
+    /// Whether `parse_block` ran with `scoped = true` (`enter_scope`).
+    ///
+    /// Distinct from `scope_bindings`: a scoped parse of a let-only file still
+    /// snapshots as `None`. Needed so `source` does not reuse a `source-env` parse.
+    #[serde(skip)]
+    pub parsed_scoped: bool,
+    /// For a file parsed without a scope of its own (`scoped = false`), the names the parse bound
+    /// in the caller's scope frame, or `None` if it changed that frame in other ways too.
+    ///
+    /// The parser reuses a cached unscoped block only where these names are still bound, since
+    /// reusing it doesn't declare them again. See [`BoundNames`].
+    #[serde(skip)]
+    pub bound_names: Option<Arc<BoundNames>>,
 }
 
 impl Block {
@@ -49,6 +75,9 @@ impl Block {
             redirect_env: false,
             ir_block: None,
             span: None,
+            scope_bindings: None,
+            parsed_scoped: false,
+            bound_names: None,
         }
     }
 
@@ -60,6 +89,9 @@ impl Block {
             redirect_env: false,
             ir_block: None,
             span: None,
+            scope_bindings: None,
+            parsed_scoped: false,
+            bound_names: None,
         }
     }
 
@@ -97,6 +129,9 @@ where
             redirect_env: false,
             ir_block: None,
             span: None,
+            scope_bindings: None,
+            parsed_scoped: false,
+            bound_names: None,
         }
     }
 }

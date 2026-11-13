@@ -1,9 +1,10 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
-    CustomExample,
+    CustomExample, OutDest,
     ast::{self, Expr, Expression},
-    engine::{self, CallImpl, CommandType, UNKNOWN_SPAN_ID},
+    engine::{self, CallImpl, Closure, CommandType, Redirection, UNKNOWN_SPAN_ID},
     ir::{self, DataSlice},
+    shell_error::eval_block_with_input::EvalBlockWithInputError,
 };
 
 #[derive(Clone)]
@@ -11,8 +12,45 @@ pub struct KnownExternal {
     pub signature: Box<Signature>,
     pub attributes: Vec<(String, Value)>,
     pub examples: Vec<CustomExample>,
+    /// How to get data from the command, from its `@structured` attribute.
+    pub structured: Option<StructuredOutput>,
     /// The span of the `extern` declaration, used to look up its source file.
     pub span: Span,
+}
+
+/// The `@structured` attribute of an extern (the record `attr structured` returns).
+#[derive(Clone, nu_protocol::FromValue)]
+pub struct StructuredOutput {
+    /// Arguments that make the command print structured output. They go right after the
+    /// command's name words, so a `--` the user passes still comes after them.
+    pub args: Vec<String>,
+    /// Turns the command's output into data.
+    pub decode: Closure,
+    /// Only decode when nushell uses the output, and run as written when it goes to the
+    /// terminal (the `--pipe-only` flag of `attr structured`).
+    pub pipe_only: bool,
+}
+
+impl StructuredOutput {
+    /// Whether the output of this call should be decoded.
+    ///
+    /// That is the case when stdout is piped into an internal command, collected into a value,
+    /// or, unless `pipe_only` is set, is the result shown in the terminal ([`OutDest::Print`]:
+    /// the last statement at the prompt or of a script, also through a `do` block or custom
+    /// command). A statement whose result is discarded (followed by `;` or a newline, a loop
+    /// body, a hook) gets [`OutDest::Inherit`] and runs as written, so the command prints its
+    /// own text. Output that goes to a file is left alone, as is output piped into a command
+    /// that reads it as text (an external command, `run-external` and `print` ask for
+    /// [`OutDest::PipeRaw`]), into a byte sink (`save`, `tee`, `complete` and `ignore` ask for
+    /// [`OutDest::PipeSeparate`]), or merged with stderr (`o+e>|`).
+    fn applies_to(&self, stack: &Stack) -> bool {
+        let stdout_applies = match stack.stdout() {
+            OutDest::Pipe | OutDest::Value => true,
+            OutDest::Print => !self.pipe_only,
+            _ => false,
+        };
+        stdout_applies && !matches!(stack.stderr(), OutDest::Pipe)
+    }
 }
 
 impl Command for KnownExternal {
@@ -71,7 +109,7 @@ impl Command for KnownExternal {
                 self.name().to_string()
             };
 
-        let extern_name: Vec<_> = extern_name_str.split_whitespace().collect();
+        let mut extern_name: Vec<_> = extern_name_str.split_whitespace().collect();
 
         if extern_name.is_empty() {
             return Err(ShellError::NushellFailedSpanned {
@@ -81,24 +119,67 @@ impl Command for KnownExternal {
             });
         }
 
-        match &call.inner {
-            CallImpl::AstRef(call) => {
-                let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
-            }
-            CallImpl::AstBox(call) => {
-                let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
-            }
-            CallImpl::IrRef(call) => {
-                let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
-            }
-            CallImpl::IrBox(call) => {
-                let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
-                command.run(engine_state, stack, &(&extern_call).into(), input)
-            }
+        let structured = self
+            .structured
+            .as_ref()
+            .filter(|structured| structured.applies_to(stack));
+        // The structured-output arguments follow the name words, before the user's arguments.
+        if let Some(structured) = structured {
+            extern_name.extend(structured.args.iter().map(String::as_str));
         }
+
+        // Output shown in the terminal is captured so the decode block can read it.
+        let capture_stdout = structured.is_some() && matches!(stack.stdout(), OutDest::Print);
+        let output = {
+            let mut guard;
+            let stack: &mut Stack = if capture_stdout {
+                guard = stack.push_redirection(Some(Redirection::Pipe(OutDest::Pipe)), None);
+                &mut guard
+            } else {
+                stack
+            };
+            match &call.inner {
+                CallImpl::AstRef(call) => {
+                    let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
+                CallImpl::AstBox(call) => {
+                    let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
+                CallImpl::IrRef(call) => {
+                    let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
+                CallImpl::IrBox(call) => {
+                    let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
+                    command.run(engine_state, stack, &(&extern_call).into(), input)
+                }
+            }
+        }?;
+
+        match structured {
+            // Errors from the decode block also point at the call that ran it. Exit-status
+            // errors stay bare, so `display_errors` applies to them as to any external.
+            Some(structured) => {
+                ClosureEvalOnce::try_new(engine_state, stack, structured.decode.clone(), head_span)?
+                    .run_with_input(output)
+                    .map_err(|err| match err {
+                        ShellError::NonZeroExitCode { .. } => err,
+                        err => EvalBlockWithInputError::wrap(
+                            err,
+                            head_span,
+                            EvalBlockWithInputError::CALLER,
+                        ),
+                    })
+            }
+            None => Ok(output),
+        }
+    }
+
+    // An extern reads its input as text, like `^cmd`.
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::PipeRaw), None)
     }
 
     fn attributes(&self) -> Vec<(String, Value)> {
@@ -152,21 +233,17 @@ fn ast_call_to_extern_call(
                 let named_span_id = engine_state
                     .find_span_id(named.0.span)
                     .unwrap_or(UNKNOWN_SPAN_ID);
-                if let Some(short) = &named.1 {
-                    extern_call.add_positional(Expression::new_existing(
-                        Expr::String(format!("-{}", short.item)),
-                        named.0.span,
-                        named_span_id,
-                        Type::String,
-                    ));
-                } else {
-                    extern_call.add_positional(Expression::new_existing(
-                        Expr::String(format!("--{}", named.0.item)),
-                        named.0.span,
-                        named_span_id,
-                        Type::String,
-                    ));
-                }
+                // Prefer the short form the AST preserved; otherwise forward `--<long>`.
+                let flag = match named.1.as_ref().filter(|short| !short.item.is_empty()) {
+                    Some(short) => format!("-{}", short.item),
+                    None => format!("--{}", named.0.item),
+                };
+                extern_call.add_positional(Expression::new_existing(
+                    Expr::String(flag),
+                    named.0.span,
+                    named_span_id,
+                    Type::String,
+                ));
                 if let Some(arg) = &named.2 {
                     extern_call.add_positional(arg.clone());
                 }
@@ -204,7 +281,6 @@ fn ir_call_to_extern_call(
                 let name_arg = engine::Argument::Positional {
                     span: *span,
                     val: Value::string(known_external_option_name(data, *name, *short), *span),
-                    ast: None,
                 };
                 extern_call.add_argument(stack, name_arg);
             }
@@ -219,12 +295,10 @@ fn ir_call_to_extern_call(
                 let name_arg = engine::Argument::Positional {
                     span: *span,
                     val: Value::string(known_external_option_name(data, *name, *short), *span),
-                    ast: None,
                 };
                 let val_arg = engine::Argument::Positional {
                     span: *span,
                     val: val.clone(),
-                    ast: None,
                 };
                 extern_call.add_argument(stack, name_arg);
                 extern_call.add_argument(stack, val_arg);

@@ -37,6 +37,44 @@ pub fn eval_env_change_hook(
     Ok(())
 }
 
+pub fn eval_pre_prompt_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    let hook = engine_state.get_config().hooks.pre_prompt.clone();
+    eval_hooks(engine_state, stack, vec![], &hook, "pre_prompt")
+}
+
+pub fn eval_pre_execution_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    commandline: impl Into<String>,
+) -> Result<(), ShellError> {
+    engine_state
+        .repl_state
+        .lock()
+        .expect("repl state mutex")
+        .buffer = commandline.into();
+
+    let hook = engine_state.get_config().hooks.pre_execution.clone();
+    eval_hooks(engine_state, stack, vec![], &hook, "pre_execution")
+}
+
+pub fn eval_repl_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    commandline: impl Into<String>,
+) -> Result<(), ShellError> {
+    engine_state.merge_env(stack)?;
+
+    eval_pre_prompt_hooks(engine_state, stack)?;
+
+    let hook = engine_state.get_config().hooks.env_change.clone();
+    eval_env_change_hook(&hook, engine_state, stack)?;
+
+    eval_pre_execution_hooks(engine_state, stack, commandline)
+}
+
 pub fn eval_hooks(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -118,7 +156,15 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body) {
+            // Clear pipe redirections, as `run_hook` does for closure hooks, so the hook's
+            // output goes where a statement's would.
+            let result = eval_block::<WithoutDebug>(
+                engine_state,
+                &mut stack.push_redirection(None, None),
+                &block,
+                input,
+            );
+            match result.map(|p| p.body) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -289,7 +335,7 @@ fn run_hook(
     arguments: Vec<(String, Value)>,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let block = engine_state.get_block(closure.block_id);
+    let block = engine_state.get_closure_block(closure, span)?;
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
 

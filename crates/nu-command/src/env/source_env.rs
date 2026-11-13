@@ -21,11 +21,17 @@ impl Command for SourceEnv {
     fn signature(&self) -> Signature {
         Signature::build("source-env")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
-                "filename",
-                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]), // type is string to avoid automatically canonicalizing the path
-                "The filepath to the script file to source the environment from (`null` for no-op).",
-            )
+            .param(Parameter::Required(
+                PositionalArg::new(
+                    "filename",
+                    // type is string to avoid automatically canonicalizing the path
+                    SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
+                )
+                .desc("The filepath to the script file to source the environment from (`null` for no-op).")
+                .completion(Completion::Builtin(BuiltinCompletion::NuFile {
+                    std_virtual_path: false,
+                })),
+            ))
             .category(Category::Core)
     }
 

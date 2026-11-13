@@ -15,6 +15,7 @@ use rmcp::{
     },
 };
 use server::NushellMcpServer;
+use std::net::Ipv6Addr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
@@ -33,9 +34,52 @@ pub enum McpTransport {
     Stdio,
     /// HTTP transport with SSE streaming
     Http {
+        /// Address to bind to (default: 127.0.0.1)
+        bind_host: String,
         /// Port to listen on
-        port: u16,
+        bind_port: u16,
+        /// Optional list of allowed `Host` header values, guarding against DNS-rebinding
+        /// attacks (default: rmcp's built-in loopback-only list)
+        allowed_hosts: Option<Vec<String>>,
+        /// Optional list of allowed `Origin` header values for HTTP request validation
+        /// (default: none, which disables Origin validation for backward compatibility)
+        allowed_origins: Option<Vec<String>>,
     },
+}
+
+impl McpTransport {
+    /// Create a new MCP transport configuration for HTTP, using rmcp's default
+    /// `Host`/`Origin` validation. Use [`McpTransport::with_allowed_hosts`] and
+    /// [`McpTransport::with_allowed_origins`] to customize it.
+    pub fn http(bind_address: Option<String>, port: Option<u16>) -> Self {
+        McpTransport::Http {
+            bind_host: bind_address.unwrap_or("127.0.0.1".into()),
+            bind_port: port.unwrap_or(8080),
+            allowed_hosts: None,
+            allowed_origins: None,
+        }
+    }
+
+    /// Set the allowed `Host` header values for the HTTP transport.
+    /// Has no effect on [`McpTransport::Stdio`].
+    pub fn with_allowed_hosts(mut self, hosts: Option<Vec<String>>) -> Self {
+        if let McpTransport::Http { allowed_hosts, .. } = &mut self {
+            *allowed_hosts = hosts;
+        }
+        self
+    }
+
+    /// Set the allowed CORS origins for the HTTP transport.
+    /// Has no effect on [`McpTransport::Stdio`].
+    pub fn with_allowed_origins(mut self, origins: Option<Vec<String>>) -> Self {
+        if let McpTransport::Http {
+            allowed_origins, ..
+        } = &mut self
+        {
+            *allowed_origins = origins;
+        }
+        self
+    }
 }
 
 pub fn initialize_mcp_server(
@@ -84,7 +128,21 @@ pub fn initialize_mcp_server(
     runtime.block_on(async {
         let result = match transport {
             McpTransport::Stdio => run_stdio_server(engine_state).await,
-            McpTransport::Http { port } => run_http_server(engine_state, port).await,
+            McpTransport::Http {
+                bind_host,
+                bind_port,
+                allowed_hosts,
+                allowed_origins,
+            } => {
+                // Bare IPv6 literals (e.g. `::1`) must be bracketed to form a valid
+                // socket address; hostnames, IPv4, and already-bracketed hosts are used as-is.
+                let addr = if bind_host.parse::<Ipv6Addr>().is_ok() {
+                    format!("[{bind_host}]:{bind_port}")
+                } else {
+                    format!("{bind_host}:{bind_port}")
+                };
+                run_http_server(engine_state, &addr, allowed_hosts, allowed_origins).await
+            }
         };
         if let Err(e) = result {
             tracing::error!("Error running MCP server: {:?}", e);
@@ -113,7 +171,9 @@ const SESSION_CHANNEL_CAPACITY: usize = 16;
 
 async fn run_http_server(
     engine_state: EngineState,
-    port: u16,
+    bind_address: &str,
+    bind_hosts: Option<Vec<String>>,
+    bind_origins: Option<Vec<String>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let engine_state = Arc::new(engine_state);
 
@@ -128,19 +188,31 @@ async fn run_http_server(
     session_manager.session_config = session_config;
     let session_manager = Arc::new(session_manager);
 
+    // Only override rmcp's defaults when the user explicitly configured a list: rmcp's
+    // default `allowed_hosts` (loopback only) guards against DNS-rebinding attacks, and
+    // passing an empty Vec here would disable that protection by allowing any Host header.
+    let mut http_config = StreamableHttpServerConfig::default();
+    if let Some(hosts) = bind_hosts.filter(|hosts| !hosts.is_empty()) {
+        http_config = http_config.with_allowed_hosts(hosts);
+    }
+    if let Some(origins) = bind_origins {
+        http_config = http_config.with_allowed_origins(origins);
+    }
+
     let service = TowerToHyperService::new(StreamableHttpService::new(
         {
             let engine_state = engine_state.clone();
             move || Ok(NushellMcpServer::new((*engine_state).clone()))
         },
         session_manager,
-        StreamableHttpServerConfig::default(),
+        http_config.clone(),
     ));
 
-    let addr = format!("0.0.0.0:{port}");
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    tracing::info!("MCP HTTP server listening on http://{addr}");
-    eprintln!("MCP HTTP server listening on http://{addr}");
+    let listener = tokio::net::TcpListener::bind(bind_address).await?;
+    tracing::info!("MCP HTTP server listening on http://{bind_address}");
+    tracing::info!("Allowed hosts: {:?}", http_config.allowed_hosts);
+    tracing::info!("Allowed origins: {:?}", http_config.allowed_origins);
+    eprintln!("MCP HTTP server listening on http://{bind_address}");
 
     loop {
         let io = tokio::select! {

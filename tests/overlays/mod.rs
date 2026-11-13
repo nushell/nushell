@@ -1,122 +1,71 @@
+use itertools::Itertools;
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
-use nu_test_support::{nu, nu_repl_code};
-use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-#[test]
-fn add_overlay() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use spam",
-        "foo",
-    ];
+#[rstest]
+#[case::add_overlay([
+    r#"module spam { export def foo [] { "foo" } }"#,
+    "overlay use spam",
+    "foo",
+], "foo")]
+#[case::add_overlay_as_new_name([
+    r#"module spam { export def foo [] { "foo" } }"#,
+    "overlay use spam as spam_new",
+    "foo",
+], "foo")]
+#[case::add_overlay_twice([
+    r#"module spam { export def foo [] { "foo" } }"#,
+    "overlay use spam",
+    "overlay use spam",
+    "foo",
+], "foo")]
+#[case::add_prefixed_overlay([
+    r#"module spam { export def foo [] { "foo" } }"#,
+    "overlay use --prefix spam",
+    "spam foo",
+], "foo")]
+#[case::add_prefixed_overlay_twice([
+    r#"module spam { export def foo [] { "foo" } }"#,
+    "overlay use --prefix spam",
+    "overlay use --prefix spam",
+    "spam foo",
+], "foo")]
+fn overlay_use_success<const C: usize>(
+    #[case] commands: [&str; C],
+    #[case] expected: impl IntoValue + Clone,
+) -> Result {
+    test()
+        .run(commands.iter().join("; "))
+        .expect_value_eq(expected.clone())?;
+    test().run_multiple(commands).expect_value_eq(expected)?;
+    Ok(())
+}
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+#[rstest]
+#[case::prefixed_then_unprefixed([
+    r#"module spam { export def foo [] { "foo" } }"#,
+    "overlay use --prefix spam",
+    "overlay use spam",
+])]
+#[case::unprefixed_then_prefixed([
+    r#"module spam { export def foo [] { "foo" } }"#,
+    "overlay use spam",
+    "overlay use --prefix spam",
+])]
+fn overlay_prefix_mismatch<const C: usize>(#[case] commands: [&str; C]) -> Result {
+    test()
+        .run(commands.iter().join("; "))
+        .expect_parse_error()?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::parser::overlay_prefix_mismatch")?;
+    Ok(())
 }
 
 #[test]
-fn add_overlay_as_new_name() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use spam as spam_new",
-        "foo",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
-}
-
-#[test]
-fn add_overlay_twice() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use spam",
-        "overlay use spam",
-        "foo",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
-}
-
-#[test]
-fn add_prefixed_overlay() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use --prefix spam",
-        "spam foo",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
-}
-
-#[test]
-fn add_prefixed_overlay_twice() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use --prefix spam",
-        "overlay use --prefix spam",
-        "spam foo",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
-}
-
-#[test]
-fn add_prefixed_overlay_mismatch_1() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use --prefix spam",
-        "overlay use spam",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("exists with a prefix"));
-    // Why doesn't the REPL test work with the previous expected output
-    assert!(actual_repl.err.contains("overlay_prefix_mismatch"));
-}
-
-#[test]
-fn add_prefixed_overlay_mismatch_2() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use spam",
-        "overlay use --prefix spam",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("exists without a prefix"));
-    // Why doesn't the REPL test work with the previous expected output
-    assert!(actual_repl.err.contains("overlay_prefix_mismatch"));
-}
-
-#[test]
-fn prefixed_overlay_keeps_custom_decl() {
-    let inp = &[
+fn prefixed_overlay_keeps_custom_decl() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use --prefix spam",
         r#"def bar [] { "bar" }"#,
@@ -124,16 +73,14 @@ fn prefixed_overlay_keeps_custom_decl() {
         "bar",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "bar");
-    assert_eq!(actual_repl.out, "bar");
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
+    Ok(())
 }
 
 #[test]
-fn def_before_overlay_use_should_work() {
-    let inp = &[
+fn def_before_overlay_use_should_work() -> Result {
+    let commands = [
         r#"def something [] { "example" }"#,
         "module spam { }",
         "overlay use spam",
@@ -142,98 +89,103 @@ fn def_before_overlay_use_should_work() {
         "bar",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("Command `bar` not found"));
-    assert!(actual_repl.err.contains("Command `bar` not found"));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    let error = test()
+        .run_multiple::<Value>(commands)
+        .expect_shell_error()?;
+    assert_contains("Command `bar` not found", format!("{error:?}"));
+    Ok(())
 }
 
 #[test]
-fn define_module_before_overlay_inside_func_should_work() {
-    let inp = &[
+fn define_module_before_overlay_inside_func_should_work() -> Result {
+    let commands = [
         r#"
-def main [] {
-  module spam { export def foo [] { "foo" } }
-  overlay use spam
-  def bar [] { "bar" }
-  overlay hide spam
-  bar # Returns bar
-};"#,
+            def main [] {
+                module spam { export def foo [] { "foo" } }
+                overlay use spam
+                def bar [] { "bar" }
+                overlay hide spam
+                bar # Returns bar
+            };
+        "#,
         "main",
     ];
 
-    let actual = nu!(&inp.join("; "));
-
-    assert!(actual.err.contains("Command `bar` not found"));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn add_overlay_env() {
-    let inp = &[
+fn add_overlay_env() -> Result {
+    let commands = [
         r#"module spam { export-env { $env.FOO = "foo" } }"#,
         "overlay use spam",
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn add_prefixed_overlay_env_no_prefix() {
-    let inp = &[
+fn add_prefixed_overlay_env_no_prefix() -> Result {
+    let commands = [
         r#"module spam { export-env { $env.FOO = "foo" } }"#,
         "overlay use --prefix spam",
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
+}
 
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+#[rstest]
+#[case::decl(["overlay use samples/spam.nu", "foo"], "foo")]
+#[case::alias(["overlay use samples/spam.nu", "bar"], "bar")]
+#[case::env(["overlay use samples/spam.nu", "$env.BAZ"], "baz")]
+fn overlay_use_from_file<const C: usize>(
+    #[case] commands: [&str; C],
+    #[case] expected: impl IntoValue + Clone,
+) -> Result {
+    test()
+        .cwd("tests/overlays")
+        .run(commands.iter().join("; "))
+        .expect_value_eq(expected.clone())?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq(expected)?;
+    Ok(())
 }
 
 #[test]
-fn add_overlay_from_file_decl() {
-    let inp = &["overlay use samples/spam.nu", "foo"];
+fn add_overlay_from_const_file_decl() -> Result {
+    let commands = ["const file = 'samples/spam.nu'", "overlay use $file", "foo"];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn add_overlay_from_const_file_decl() {
-    let inp = &["const file = 'samples/spam.nu'", "overlay use $file", "foo"];
-
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-
-    assert_eq!(actual.out, "foo");
-}
-
-#[test]
-fn add_overlay_from_const_module_name_decl() {
-    let inp = &[
+fn add_overlay_from_const_module_name_decl() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "const mod = 'spam'",
         "overlay use $mod",
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-#[deps(NU)]
 fn add_overlay_from_file_with_stored_where_condition() -> Result {
     Playground::setup(
         "add_overlay_from_file_with_stored_where_condition",
@@ -250,95 +202,72 @@ fn add_overlay_from_file_with_stored_where_condition() -> Result {
             "#,
             )]);
 
-            let inp = &["overlay use mod.nu", "helper | to nuon --raw"];
+            let commands = ["overlay use mod.nu", "helper | to nuon --raw"];
 
-            let mut tester = test().cwd(dirs.test());
-            tester.run(inp.join("; ")).expect_value_eq("[[a];[1]]")?;
-            tester.run(nu_repl_code(inp)).expect_value_eq("[[a];[1]]")
+            test()
+                .cwd(dirs.test())
+                .run(commands.join("; "))
+                .expect_value_eq("[[a];[1]]")?;
+            test()
+                .cwd(dirs.test())
+                .run_multiple(commands)
+                .expect_value_eq("[[a];[1]]")
         },
     )
 }
 
 #[test]
-fn new_overlay_from_const_name() {
-    let inp = &[
+fn new_overlay_from_const_name() -> Result {
+    let commands = [
         "const mod = 'spam'",
         "overlay new $mod",
         "overlay list | last | get name",
     ];
 
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+    test().run_multiple(commands).expect_value_eq("spam")
 }
 
 #[test]
-fn hide_overlay_from_const_name() {
-    let inp = &[
+fn hide_overlay_from_const_name() -> Result {
+    let commands = [
         "const mod = 'spam'",
         "overlay new $mod",
         "overlay hide $mod",
         "overlay list | where active == true | get name | str join ' '",
     ];
 
-    let actual = nu!(&inp.join("; "));
-
-    assert!(!actual.out.contains("spam"));
+    let out: String = test().run_multiple(commands)?;
+    assert_contains_not("spam", out);
+    Ok(())
 }
 
-// This one tests that the `nu_repl()` loop works correctly
+// This one tests that separate pipeline execution updates the working directory
 #[test]
-fn add_overlay_from_file_decl_cd() {
-    let inp = &["cd samples", "overlay use spam.nu", "foo"];
-
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual_repl.out, "foo");
-}
-
-#[test]
-fn add_overlay_from_file_alias() {
-    let inp = &["overlay use samples/spam.nu", "bar"];
-
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "bar");
-    assert_eq!(actual_repl.out, "bar");
+fn add_overlay_from_file_decl_cd() -> Result {
+    let mut tester = test().cwd("tests/overlays");
+    let () = tester.run("cd samples")?;
+    let cwd: String = tester.run("$env.PWD")?;
+    tester = tester.cwd(cwd);
+    let () = tester.run("overlay use spam.nu")?;
+    tester.run("foo").expect_value_eq("foo")
 }
 
 #[test]
-fn add_overlay_from_file_env() {
-    let inp = &["overlay use samples/spam.nu", "$env.BAZ"];
-
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "baz");
-    assert_eq!(actual_repl.out, "baz");
-}
-
-#[test]
-fn add_overlay_scoped() {
-    let inp = &[
+fn add_overlay_scoped() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "do { overlay use spam }",
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "foo");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn update_overlay_from_module() {
-    let inp = &[
+fn update_overlay_from_module() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
         r#"module spam { export def foo [] { "bar" } }"#,
@@ -346,16 +275,14 @@ fn update_overlay_from_module() {
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "bar");
-    assert_eq!(actual_repl.out, "bar");
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
+    Ok(())
 }
 
 #[test]
-fn update_overlay_from_module_env() {
-    let inp = &[
+fn update_overlay_from_module_env() -> Result {
+    let commands = [
         r#"module spam { export-env { $env.FOO = "foo" } }"#,
         "overlay use spam",
         r#"module spam { export-env { $env.FOO = "bar" } }"#,
@@ -363,16 +290,14 @@ fn update_overlay_from_module_env() {
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "bar");
-    assert_eq!(actual_repl.out, "bar");
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_do_not_eval_twice() {
-    let inp = &[
+fn overlay_use_do_not_eval_twice() -> Result {
+    let commands = [
         r#"module spam { export-env { $env.FOO = "foo" } }"#,
         "overlay use spam",
         r#"$env.FOO = "bar""#,
@@ -381,299 +306,257 @@ fn overlay_use_do_not_eval_twice() {
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "bar");
-    assert_eq!(actual_repl.out, "bar");
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay() {
-    let inp = &[
+fn hide_overlay() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
         "overlay hide spam",
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "foo");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_last_overlay() {
-    let inp = &[
+fn hide_last_overlay() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
         "overlay hide",
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "foo");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_scoped() {
-    let inp = &[
+fn hide_overlay_scoped() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
         "do { overlay hide spam }",
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_env() {
-    let inp = &[
+fn hide_overlay_env() -> Result {
+    let commands = [
         r#"module spam { export-env { $env.FOO = "foo" } }"#,
         "overlay use spam",
         "overlay hide spam",
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("not_found"));
-    assert!(actual_repl.err.contains("not_found"));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_scoped_env() {
-    let inp = &[
+fn hide_overlay_scoped_env() -> Result {
+    let commands = [
         r#"module spam { export-env { $env.FOO = "foo" } }"#,
         "overlay use spam",
         "do { overlay hide spam }",
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn list_default_overlay() {
-    let inp = &["overlay list | last | get name"];
+fn list_default_overlay() -> Result {
+    let commands = ["overlay list | last | get name"];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "zero");
-    assert_eq!(actual_repl.out, "zero");
+    test().run(commands.join("; ")).expect_value_eq("zero")?;
+    test().run_multiple(commands).expect_value_eq("zero")?;
+    Ok(())
 }
 
 #[test]
-fn list_last_overlay() {
-    let inp = &[
+fn list_last_overlay() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
         "overlay list | last | get name",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "spam");
-    assert_eq!(actual_repl.out, "spam");
+    test().run(commands.join("; ")).expect_value_eq("spam")?;
+    test().run_multiple(commands).expect_value_eq("spam")?;
+    Ok(())
 }
 
 #[test]
-fn list_overlay_scoped() {
-    let inp = &[
+fn list_overlay_scoped() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
         "do { overlay list | last | get name }",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "spam");
-    assert_eq!(actual_repl.out, "spam");
+    test().run(commands.join("; ")).expect_value_eq("spam")?;
+    test().run_multiple(commands).expect_value_eq("spam")?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_discard_decl() {
-    let inp = &[
+fn hide_overlay_discard_decl() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         r#"def bagr [] { "bagr" }"#,
         "overlay hide spam",
         "bagr",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "bagr");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_discard_alias() {
-    let inp = &[
+fn hide_overlay_discard_alias() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         r#"alias bagr = echo "bagr""#,
         "overlay hide spam",
         "bagr",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "bagr");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_discard_env() {
-    let inp = &[
+fn hide_overlay_discard_env() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "$env.BAGR = 'bagr'",
         "overlay hide spam",
         "$env.BAGR",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("not_found"));
-    assert!(actual_repl.err.contains("not_found"));
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_keep_decl() {
-    let inp = &[
+fn hide_overlay_keep_decl() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         r#"def bagr [] { "bagr" }"#,
         "overlay hide --keep-custom spam",
         "bagr",
     ];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert!(actual.out.contains("bagr"));
-    assert!(actual_repl.out.contains("bagr"));
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_keep_alias() {
-    let inp = &[
+fn hide_overlay_keep_alias() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "alias bagr = echo 'bagr'",
         "overlay hide --keep-custom spam",
         "bagr",
     ];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert!(actual.out.contains("bagr"));
-    assert!(actual_repl.out.contains("bagr"));
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_dont_keep_env() {
-    let inp = &[
+fn hide_overlay_dont_keep_env() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "$env.BAGR = 'bagr'",
         "overlay hide --keep-custom spam",
         "$env.BAGR",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("not_found"));
-    assert!(actual_repl.err.contains("not_found"));
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_dont_keep_overwritten_decl() {
-    let inp = &[
+fn hide_overlay_dont_keep_overwritten_decl() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "def foo [] { 'bar' }",
         "overlay hide --keep-custom spam",
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "bagr");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_dont_keep_overwritten_alias() {
-    let inp = &[
+fn hide_overlay_dont_keep_overwritten_alias() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "alias bar = echo `baz`",
         "overlay hide --keep-custom spam",
         "bar",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "bagr");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_dont_keep_overwritten_env() {
-    let inp = &[
+fn hide_overlay_dont_keep_overwritten_env() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "$env.BAZ = 'bagr'",
         "overlay hide --keep-custom spam",
         "$env.BAZ",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("not_found"));
-    assert!(actual_repl.err.contains("not_found"));
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_keep_decl_in_latest_overlay() {
-    let inp = &[
+fn hide_overlay_keep_decl_in_latest_overlay() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "def bagr [] { 'bagr' }",
         "module eggs { }",
@@ -682,16 +565,20 @@ fn hide_overlay_keep_decl_in_latest_overlay() {
         "bagr",
     ];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert!(actual.out.contains("bagr"));
-    assert!(actual_repl.out.contains("bagr"));
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_keep_alias_in_latest_overlay() {
-    let inp = &[
+fn hide_overlay_keep_alias_in_latest_overlay() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "alias bagr = echo 'bagr'",
         "module eggs { }",
@@ -700,16 +587,20 @@ fn hide_overlay_keep_alias_in_latest_overlay() {
         "bagr",
     ];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert!(actual.out.contains("bagr"));
-    assert!(actual_repl.out.contains("bagr"));
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("bagr")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("bagr")?;
+    Ok(())
 }
 
 #[test]
-fn hide_overlay_dont_keep_env_in_latest_overlay() {
-    let inp = &[
+fn hide_overlay_dont_keep_env_in_latest_overlay() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         "$env.BAGR = 'bagr'",
         "module eggs { }",
@@ -718,16 +609,14 @@ fn hide_overlay_dont_keep_env_in_latest_overlay() {
         "$env.BAGR",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("not_found"));
-    assert!(actual_repl.err.contains("not_found"));
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test().run_multiple(commands).expect_parse_error()?;
+    Ok(())
 }
 
 #[test]
-fn preserve_overrides() {
-    let inp = &[
+fn preserve_overrides() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         r#"def foo [] { "new-foo" }"#,
         "overlay hide spam",
@@ -735,16 +624,20 @@ fn preserve_overrides() {
         "foo",
     ];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "new-foo");
-    assert_eq!(actual_repl.out, "new-foo");
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("new-foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("new-foo")?;
+    Ok(())
 }
 
 #[test]
-fn reset_overrides() {
-    let inp = &[
+fn reset_overrides() -> Result {
+    let commands = [
         "overlay use samples/spam.nu",
         r#"def foo [] { "new-foo" }"#,
         "overlay hide spam",
@@ -752,43 +645,49 @@ fn reset_overrides() {
         "foo",
     ];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_new() {
-    let inp = &["overlay new spam", "overlay list | last | get name"];
+fn overlay_new() -> Result {
+    let commands = ["overlay new spam", "overlay list | last | get name"];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "spam");
-    assert_eq!(actual_repl.out, "spam");
+    test().run(commands.join("; ")).expect_value_eq("spam")?;
+    test().run_multiple(commands).expect_value_eq("spam")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_keep_pwd() {
-    let inp = &[
+fn overlay_keep_pwd() -> Result {
+    let commands = [
         "overlay new spam",
         "cd samples",
         "overlay hide --keep-env [ PWD ] spam",
         "$env.PWD | path basename",
     ];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "samples");
-    assert_eq!(actual_repl.out, "samples");
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("samples")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("samples")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_reactivate_with_nufile_should_not_change_pwd() {
-    let inp = &[
+fn overlay_reactivate_with_nufile_should_not_change_pwd() -> Result {
+    let commands = [
         "overlay use spam.nu",
         "cd ..",
         "overlay hide --keep-env [ PWD ] spam",
@@ -797,58 +696,239 @@ fn overlay_reactivate_with_nufile_should_not_change_pwd() {
         "$env.PWD | path basename",
     ];
 
-    let actual = nu!(cwd: "tests/overlays/samples", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays/samples", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "samples");
-    assert_eq!(actual_repl.out, "samples");
+    test()
+        .cwd("tests/overlays/samples")
+        .run(commands.join("; "))
+        .expect_value_eq("samples")?;
+    test()
+        .cwd("tests/overlays/samples")
+        .run_multiple(commands)
+        .expect_value_eq("samples")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_reactivate_with_module_name_should_change_pwd() {
-    let inp = &[
+fn overlay_reactivate_with_module_name_keeps_pwd() -> Result {
+    let commands = [
         "overlay use spam.nu",
         "cd ..",
-        "overlay hide --keep-env [ PWD ] spam",
+        "overlay hide spam",
         "cd samples",
         "overlay use spam",
         "$env.PWD | path basename",
     ];
 
-    let actual = nu!(cwd: "tests/overlays/samples", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays/samples", nu_repl_code(inp));
+    test()
+        .cwd("tests/overlays/samples")
+        .run(commands.join("; "))
+        .expect_value_eq("samples")?;
+    test()
+        .cwd("tests/overlays/samples")
+        .run_multiple(commands)
+        .expect_value_eq("samples")?;
+    Ok(())
+}
 
-    assert_eq!(actual.out, "overlays");
-    assert_eq!(actual_repl.out, "overlays");
+/// The parser drops an overlay command's effect when the enclosing block ends, but the stack keeps
+/// it. `cd` writes `PWD` through the stack's overlays and the parser reads it through its own, so
+/// the two must still agree. `spam.nu` only exists in `samples`, so a stale `PWD` fails to parse.
+/// `run_with_hooks` merges the stack into the engine like the REPL does, and `run` doesn't.
+#[rstest]
+#[case::use_in_if(["if true { overlay use foo }"])]
+#[case::use_in_try(["try { overlay use foo }"])]
+#[case::use_in_for(["for _ in [1] { overlay use foo }"])]
+#[case::use_in_match(["match 1 { 1 => { overlay use foo } }"])]
+#[case::new_in_if(["if true { overlay new bar }"])]
+#[case::hide_in_if(["overlay use foo", "if true { overlay hide foo }"])]
+fn overlay_command_in_block_parser_follows_cd<const C: usize>(
+    #[case] commands: [&str; C],
+) -> Result {
+    let mut tester = test().cwd("tests/overlays");
+
+    let () = tester.run(r#"module foo { export-env { $env.FOO = "foo" } }"#)?;
+    let () = tester.run_multiple(commands)?;
+    let () = tester.run("cd samples")?;
+    let () = tester.run_with_hooks("use ./spam.nu foo")?;
+
+    tester.run("foo").expect_value_eq("foo")
+}
+
+/// Variables set after an overlay command in a block land in the overlay only the stack still has.
+/// The parser reads `NU_LIB_DIRS` from the engine, so it must look there too.
+#[test]
+fn overlay_new_in_block_parser_reads_env_set_after_it() -> Result {
+    let mut tester = test().cwd("tests/overlays");
+
+    let () = tester.run("if true { overlay new bar }")?;
+    let () = tester.run(r#"$env.NU_LIB_DIRS = [($env.PWD | path join "samples")]"#)?;
+    let () = tester.run_with_hooks("use spam.nu foo")?;
+
+    tester.run("foo").expect_value_eq("foo")
+}
+
+/// When the parser and the stack agree, hiding an overlay keeps the directory you `cd`'d to in it,
+/// across the env merge between REPL lines.
+#[test]
+fn overlay_hide_after_merge_keeps_pwd() -> Result {
+    let mut tester = test().cwd("tests/overlays");
+
+    let () = tester.run_with_hooks("overlay new foo")?;
+    let () = tester.run_with_hooks("cd samples")?;
+    let () = tester.run_with_hooks("overlay hide foo")?;
+
+    tester
+        .run_with_hooks("$env.PWD | path basename")
+        .expect_value_eq("samples")
 }
 
 #[test]
-fn overlay_wrong_rename_type() {
-    let inp = &["module spam {}", "overlay use spam as { echo foo }"];
+fn overlay_new_reactivating_keeps_pwd() -> Result {
+    let commands = [
+        "overlay new spam",
+        "cd samples",
+        "overlay hide spam",
+        "cd ..",
+        "overlay new spam",
+        "$env.PWD | path basename",
+    ];
 
-    let actual = nu!(&inp.join("; "));
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("overlays")
+}
 
-    assert!(actual.err.contains("parse_mismatch"));
+// `OLDPWD` has to follow `PWD`, or `cd -` goes somewhere you weren't just in.
+#[rstest]
+#[case::hide(&["overlay new spam", "cd samples", "overlay hide spam"], "overlays")]
+#[case::use_by_name(
+    &[
+        "overlay use samples/spam.nu",
+        "cd samples",
+        "overlay hide spam",
+        "cd ..",
+        "cd samples",
+        "cd ..",
+        "overlay use spam",
+    ],
+    "samples"
+)]
+#[case::new(
+    &[
+        "overlay new spam",
+        "cd samples",
+        "overlay hide spam",
+        "cd ..",
+        "cd samples",
+        "cd ..",
+        "overlay new spam",
+    ],
+    "samples"
+)]
+fn overlay_changes_keep_oldpwd(#[case] commands: &[&str], #[case] expected: &str) -> Result {
+    let mut tester = test().cwd("tests/overlays");
+    for command in commands {
+        let () = tester.run(*command)?;
+    }
+    tester
+        .run("$env.OLDPWD | path basename")
+        .expect_value_eq(expected)
+}
+
+// An `export-env` block can still move you when an overlay comes back.
+#[test]
+fn overlay_reload_keeps_cd_from_export_env() -> Result {
+    Playground::setup("overlay_reload_export_env_cd", |dirs, sandbox| -> Result {
+        sandbox
+            .mkdir("sub")
+            .with_files(&[FileWithContent("spam.nu", "export-env { cd sub }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        let () = tester.run("overlay hide spam")?;
+        let () = tester.run("cd ..")?;
+        let () = tester.run("overlay use --reload spam")?;
+        tester
+            .run("$env.PWD | path basename")
+            .expect_value_eq("sub")
+    })
+}
+
+// The overlay's name isn't bound to a module in these, so only its origin can find the file.
+#[rstest]
+#[case::renamed(
+    "overlay_reload_renamed",
+    "foo.nu",
+    &["use foo.nu", "overlay use foo.nu as bar", "overlay hide bar"],
+    "overlay use bar"
+)]
+#[case::imported_in_another_overlay(
+    "overlay_reload_other_overlay",
+    "spam.nu",
+    &["overlay new tmp", "overlay use spam.nu", "overlay hide tmp"],
+    "overlay use spam"
+)]
+fn overlay_by_name_reads_a_changed_file_without_a_module_name(
+    #[case] topic: &str,
+    #[case] file: &str,
+    #[case] first: &[&str],
+    #[case] again: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(file, "export def v [] { 1 }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        for command in first {
+            let () = tester.run(*command)?;
+        }
+        let () = tester.run_with_data(format!("save -f {file}"), "export def v [] { 2 }")?;
+        let () = tester.run(again)?;
+        tester.run("v").expect_value_eq(2)
+    })
+}
+
+// A bare overlay name isn't a path, so `FILE_PWD` has to come from the module's file.
+#[test]
+fn overlay_by_name_reload_sets_file_pwd() -> Result {
+    Playground::setup("overlay_reload_file_pwd", |dirs, sandbox| -> Result {
+        let code = "export-env { $env.WHERE = ($env.FILE_PWD | path basename) }";
+        sandbox
+            .mkdir("mods")
+            .with_files(&[FileWithContent("mods/foo.nu", code)]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use mods/foo.nu")?;
+        let () = tester.run("overlay hide foo")?;
+        let () = tester.run_with_data("save -f mods/foo.nu", format!("{code}\n"))?;
+        let () = tester.run("overlay use foo")?;
+        tester.run("$env.WHERE").expect_value_eq("mods")
+    })
 }
 
 #[test]
-fn overlay_add_renamed() {
-    let inp = &[
+fn overlay_wrong_rename_type() -> Result {
+    let commands = ["module spam {}", "overlay use spam as { echo foo }"];
+
+    test().run(commands.join("; ")).expect_parse_error()?;
+    Ok(())
+}
+
+#[test]
+fn overlay_add_renamed() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam as eggs --prefix",
         "eggs foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_add_renamed_const() {
-    let inp = &[
+fn overlay_add_renamed_const() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "const name = 'spam'",
         "const new_name = 'eggs'",
@@ -856,90 +936,84 @@ fn overlay_add_renamed_const() {
         "eggs foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_add_renamed_from_file() {
-    let inp = &["overlay use samples/spam.nu as eggs --prefix", "eggs foo"];
+fn overlay_add_renamed_from_file() -> Result {
+    let commands = ["overlay use samples/spam.nu as eggs --prefix", "eggs foo"];
 
-    let actual = nu!(cwd: "tests/overlays", &inp.join("; "));
-    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("foo")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_cant_rename_existing_overlay() {
-    let inp = &[
+fn overlay_cant_rename_existing_overlay() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
         "overlay hide spam",
         "overlay use spam as eggs",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("cant_add_overlay_help"));
-    assert!(actual_repl.err.contains("cant_add_overlay_help"));
+    test().run(commands.join("; ")).expect_parse_error()?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::parser::cant_add_overlay_help")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_can_add_renamed_overlay() {
-    let inp = &[
+fn overlay_can_add_renamed_overlay() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam as eggs --prefix",
         "overlay use spam --prefix",
         "(spam foo) + (eggs foo)",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foofoo");
-    assert_eq!(actual_repl.out, "foofoo");
+    test().run(commands.join("; ")).expect_value_eq("foofoo")?;
+    test().run_multiple(commands).expect_value_eq("foofoo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_hide_renamed_overlay() {
-    let inp = &[
+fn overlay_hide_renamed_overlay() -> Result {
+    let commands = [
         r#"module spam { export def foo-command-which-does-not-conflict [] { "foo" } }"#,
         "overlay use spam as eggs",
         "overlay hide eggs",
         "foo-command-which-does-not-conflict",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("external_command"));
-    assert!(actual_repl.err.contains("external_command"));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::shell::external_command")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_hide_restore_hidden_env() {
-    let inp = &[
-        "$env.foo = 'bar'",
-        "overlay new aa",
-        "hide-env foo",
-        "overlay hide aa",
-        "$env.foo",
-    ];
-
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual_repl.out, "bar");
+fn overlay_hide_restore_hidden_env() -> Result {
+    let mut tester = test().env("foo", "bar");
+    let () = tester.run("overlay new aa")?;
+    let () = tester.run("hide-env foo")?;
+    let () = tester.run("overlay hide aa")?;
+    tester.run("$env.foo").expect_value_eq("bar")
 }
 
 #[test]
-fn overlay_hide_dont_restore_hidden_env_which_is_introduce_currently() {
-    let inp = &[
+fn overlay_hide_dont_restore_hidden_env_which_is_introduce_currently() -> Result {
+    let commands = [
         "overlay new aa",
         "$env.foo = 'bar'",
         "hide-env foo", // hide the env in overlay `aa`
@@ -947,14 +1021,13 @@ fn overlay_hide_dont_restore_hidden_env_which_is_introduce_currently() {
         "'foo' in $env",
     ];
 
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual_repl.out, "false");
+    test().run_multiple(commands).expect_value_eq(false)?;
+    Ok(())
 }
 
 #[test]
-fn overlay_hide_and_add_renamed_overlay() {
-    let inp = &[
+fn overlay_hide_and_add_renamed_overlay() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam as eggs",
         "overlay hide eggs",
@@ -962,31 +1035,27 @@ fn overlay_hide_and_add_renamed_overlay() {
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_export_env() {
-    let inp = &[
+fn overlay_use_export_env() -> Result {
+    let commands = [
         "module spam { export-env { $env.FOO = 'foo' } }",
         "overlay use spam",
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_export_env_config_affected() {
-    let inp = &[
+fn overlay_use_export_env_config_affected() -> Result {
+    let commands = [
         "mut out = []",
         "$env.config.filesize.unit = 'metric'",
         "$out ++= [(20MB | into string)]",
@@ -996,38 +1065,21 @@ fn overlay_use_export_env_config_affected() {
         "$out | to json --raw",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB"]"#);
-    assert_eq!(actual_repl.out, r#"["20.0 MB","20.0 MiB"]"#);
+    let Value::String { val, .. } = test().run(commands.join("; "))? else {
+        panic!("expected string value")
+    };
+    assert_eq!(val.replace(",0 ", ".0 "), r#"["20.0 MB","20.0 MiB"]"#);
+    let Value::String { val, .. } = test().run_multiple(commands)? else {
+        panic!("expected string value")
+    };
+    assert_eq!(val.replace(",0 ", ".0 "), r#"["20.0 MB","20.0 MiB"]"#);
+    Ok(())
 }
 
 #[test]
-fn overlay_hide_config_affected() {
-    let inp = &[
-        "mut out = []",
-        "$env.config.filesize.unit = 'metric'",
-        "$out ++= [(20MB | into string)]",
-        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
-        "overlay use spam",
-        "$out ++= [(20MiB | into string)]",
-        "overlay hide",
-        "$out ++= [(20MB | into string)]",
-        "$out | to json --raw",
-    ];
-
-    // Can't hide overlay within the same source file
-    // let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    // assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
-    assert_eq!(actual_repl.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
-}
-
-#[test]
-fn overlay_use_after_hide_config_affected() {
-    let inp = &[
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn overlay_hide_config_affected() -> Result {
+    let commands = [
         "mut out = []",
         "$env.config.filesize.unit = 'metric'",
         "$out ++= [(20MB | into string)]",
@@ -1036,112 +1088,121 @@ fn overlay_use_after_hide_config_affected() {
         "$out ++= [(20MiB | into string)]",
         "overlay hide",
         "$out ++= [(20MB | into string)]",
-        "overlay use spam",
-        "$out ++= [(20MiB | into string)]",
-        "$out | to json --raw",
+        "$out",
     ];
 
-    // Can't hide overlay within the same source file
-    // let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    // assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
-    assert_eq!(
-        actual_repl.out,
-        r#"["20.0 MB","20.0 MiB","20.0 MB","20.0 MiB"]"#
-    );
+    // Can't hide overlay within the same source file.
+    test()
+        .run_multiple(commands)
+        .expect_value_eq(["20.0 MB", "20.0 MiB", "20.0 MB"])
 }
 
 #[test]
-fn overlay_use_export_env_hide() {
-    let inp = &[
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
+fn overlay_use_after_hide_config_affected() -> Result {
+    let commands = [
+        "mut out = []",
+        "$env.config.filesize.unit = 'metric'",
+        "$out ++= [(20MB | into string)]",
+        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        "overlay hide",
+        "$out ++= [(20MB | into string)]",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        "$out",
+    ];
+
+    // Can't hide overlay within the same source file.
+    test()
+        .run_multiple(commands)
+        .expect_value_eq(["20.0 MB", "20.0 MiB", "20.0 MB", "20.0 MiB"])
+}
+
+#[test]
+fn overlay_use_export_env_hide() -> Result {
+    let commands = [
         "$env.FOO = 'foo'",
         "module spam { export-env { hide-env FOO } }",
         "overlay use spam",
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("not_found"));
-    assert!(actual_repl.err.contains("not_found"));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_do_cd() {
-    Playground::setup("overlay_use_do_cd", |dirs, sandbox| {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
-                    export-env { cd test1/test2 }
-                ",
-            )]);
+fn overlay_use_do_cd() -> Result {
+    Playground::setup("overlay_use_do_cd", |dirs, sandbox| -> Result {
+        sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
+            "test1/test2/spam.nu",
+            "export-env { cd test1/test2 }",
+        )]);
 
-        let inp = &[
-            "overlay use test1/test2/spam.nu",
-            "$env.PWD | path basename",
-        ];
+        let code = "
+            overlay use test1/test2/spam.nu
+            $env.PWD | path basename
+        ";
 
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-
-        assert_eq!(actual.out, "test2");
+        test().cwd(dirs.test()).run(code).expect_value_eq("test2")
     })
 }
 
 #[test]
-fn overlay_use_do_cd_file_relative() {
-    Playground::setup("overlay_use_do_cd_file_relative", |dirs, sandbox| {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
+fn overlay_use_do_cd_file_relative() -> Result {
+    Playground::setup(
+        "overlay_use_do_cd_file_relative",
+        |dirs, sandbox| -> Result {
+            sandbox.mkdir("test1/test2").with_files(&[FileWithContent(
                 "test1/test2/spam.nu",
-                "
-                    export-env { cd ($env.FILE_PWD | path join '..') }
-                ",
+                "export-env { cd ($env.FILE_PWD | path join '..') }",
             )]);
 
-        let inp = &[
-            "overlay use test1/test2/spam.nu",
-            "$env.PWD | path basename",
-        ];
+            let code = "
+                overlay use test1/test2/spam.nu
+                $env.PWD | path basename
+            ";
 
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-
-        assert_eq!(actual.out, "test1");
-    })
+            test().cwd(dirs.test()).run(code).expect_value_eq("test1")
+        },
+    )
 }
 
 #[test]
-fn overlay_use_dont_cd_overlay() {
-    Playground::setup("overlay_use_dont_cd_overlay", |dirs, sandbox| {
-        sandbox
-            .mkdir("test1/test2")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "test1/test2/spam.nu",
-                "
+fn overlay_hide_in_export_env_keeps_cd() -> Result {
+    Playground::setup(
+        "overlay_hide_in_export_env_keeps_cd",
+        |dirs, sandbox| -> Result {
+            sandbox
+                .mkdir("test1/test2")
+                .with_files(&[FileWithContentToBeTrimmed(
+                    "test1/test2/spam.nu",
+                    "
                     export-env {
                         overlay new spam
                         cd test1/test2
                         overlay hide spam
                     }
                 ",
-            )]);
+                )]);
 
-        let inp = &["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
+            let code = "
+           source-env test1/test2/spam.nu
+           $env.PWD | path basename
+        ";
 
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-
-        assert_eq!(actual.out, "overlay_use_dont_cd_overlay");
-    })
+            test().cwd(dirs.test()).run(code).expect_value_eq("test2")
+        },
+    )
 }
 
 #[test]
-fn overlay_use_find_scoped_module() {
-    Playground::setup("overlay_use_find_module_scoped", |dirs, _| {
-        let inp = "
+fn overlay_use_find_scoped_module() -> Result {
+    Playground::setup("overlay_use_find_module_scoped", |dirs, _| -> Result {
+        let code = "
                 do {
                     module spam { }
 
@@ -1150,15 +1211,13 @@ fn overlay_use_find_scoped_module() {
                 }
             ";
 
-        let actual = nu!(cwd: dirs.test(), inp);
-
-        assert_eq!(actual.out, "spam");
+        test().cwd(dirs.test()).run(code).expect_value_eq("spam")
     })
 }
 
 #[test]
-fn overlay_preserve_hidden_env_1() {
-    let inp = &[
+fn overlay_preserve_hidden_env_1() -> Result {
+    let commands = [
         "overlay new spam",
         "$env.FOO = 'foo'",
         "overlay new eggs",
@@ -1168,16 +1227,14 @@ fn overlay_preserve_hidden_env_1() {
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_preserve_hidden_env_2() {
-    let inp = &[
+fn overlay_preserve_hidden_env_2() -> Result {
+    let commands = [
         "overlay new spam",
         "$env.FOO = 'foo'",
         "overlay hide spam",
@@ -1190,16 +1247,14 @@ fn overlay_preserve_hidden_env_2() {
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_reset_hidden_env() {
-    let inp = &[
+fn overlay_reset_hidden_env() -> Result {
+    let commands = [
         "overlay new spam",
         "$env.FOO = 'foo'",
         "overlay new eggs",
@@ -1210,17 +1265,15 @@ fn overlay_reset_hidden_env() {
         "$env.FOO",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "bar");
-    assert_eq!(actual_repl.out, "bar");
+    test().run(commands.join("; ")).expect_value_eq("bar")?;
+    test().run_multiple(commands).expect_value_eq("bar")?;
+    Ok(())
 }
 
 #[ignore = "TODO: For this to work, we'd need to make predecls respect overlays"]
 #[test]
-fn overlay_preserve_hidden_decl() {
-    let inp = &[
+fn overlay_preserve_hidden_decl() -> Result {
+    let commands = [
         "overlay new spam",
         "def foo [] { 'foo' }",
         "overlay new eggs",
@@ -1230,17 +1283,15 @@ fn overlay_preserve_hidden_decl() {
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[ignore = "TODO: For this to work, we'd need to make predecls respect overlays"]
 #[test]
-fn overlay_preserve_hidden_alias() {
-    let inp = &[
+fn overlay_preserve_hidden_alias() -> Result {
+    let commands = [
         "overlay new spam",
         "alias foo = echo 'foo'",
         "overlay new eggs",
@@ -1250,78 +1301,62 @@ fn overlay_preserve_hidden_alias() {
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_trim_single_quote() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        "overlay use 'spam'",
-        "overlay list | last | get name",
-    ];
+fn overlay_trim_single_quote() -> Result {
+    let code = r#"
+        module spam { export def foo [] { "foo" } }
+        overlay use 'spam'
+        overlay list | last | get name
+    "#;
 
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
-fn overlay_trim_single_quote_hide() {
-    let inp = &[
+fn overlay_trim_single_quote_hide() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use 'spam'",
         "overlay hide spam ",
         "foo",
     ];
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "foo");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn overlay_trim_double_quote() {
-    let inp = &[
-        r#"module spam { export def foo [] { "foo" } }"#,
-        r#"overlay use "spam" "#,
-        "overlay list | last | get name",
-    ];
+fn overlay_trim_double_quote() -> Result {
+    let code = r#"
+        module spam { export def foo [] { "foo" } }
+        overlay use "spam"
+        overlay list | last | get name
+    "#;
 
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
-fn overlay_trim_double_quote_hide() {
-    let inp = &[
+fn overlay_trim_double_quote_hide() -> Result {
+    let commands = [
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use "spam" "#,
         "overlay hide spam ",
         "foo",
     ];
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(!actual.err.is_empty());
-    #[cfg(windows)]
-    assert_ne!(actual_repl.out, "foo");
-    #[cfg(not(windows))]
-    assert!(!actual_repl.err.is_empty());
+    test().run(commands.join("; ")).expect_shell_error()?;
+    test().run_multiple(commands).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_and_restore_older_env_vars() {
-    let inp = &[
+fn overlay_use_and_restore_older_env_vars() -> Result {
+    let commands = [
         "module spam {
             export-env {
                 let old_baz = $env.BAZ;
@@ -1336,16 +1371,18 @@ fn overlay_use_and_restore_older_env_vars() {
         "$env.BAZ",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "new-bazbaz");
-    assert_eq!(actual_repl.out, "new-bazbaz");
+    test()
+        .run(commands.join("; "))
+        .expect_value_eq("new-bazbaz")?;
+    test()
+        .run_multiple(commands)
+        .expect_value_eq("new-bazbaz")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_and_reload() {
-    let inp = &[
+fn overlay_use_and_reload() -> Result {
+    let commands = [
         "module spam {
             export def foo [] { 'foo' };
             export alias fooalias = echo 'foo';
@@ -1361,16 +1398,16 @@ fn overlay_use_and_reload() {
         "$'(foo)(fooalias)($env.FOO)'",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foofoofoo");
-    assert_eq!(actual_repl.out, "foofoofoo");
+    test()
+        .run(commands.join("; "))
+        .expect_value_eq("foofoofoo")?;
+    test().run_multiple(commands).expect_value_eq("foofoofoo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_and_reolad_keep_custom() {
-    let inp = &[
+fn overlay_use_and_reolad_keep_custom() -> Result {
+    let commands = [
         "overlay new spam",
         "def foo [] { 'newfoo' }",
         "alias fooalias = echo 'newfoo'",
@@ -1379,83 +1416,78 @@ fn overlay_use_and_reolad_keep_custom() {
         "$'(foo)(fooalias)($env.FOO)'",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "newfoonewfoonewfoo");
-    assert_eq!(actual_repl.out, "newfoonewfoonewfoo");
+    test()
+        .run(commands.join("; "))
+        .expect_value_eq("newfoonewfoonewfoo")?;
+    test()
+        .run_multiple(commands)
+        .expect_value_eq("newfoonewfoonewfoo")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_use_main() {
-    let inp = &[
-        r#"module spam { export def main [] { "spam" } }"#,
-        "overlay use spam",
-        "spam",
-    ];
+fn overlay_use_main() -> Result {
+    let code = r#"
+        module spam { export def main [] { "spam" } }
+        overlay use spam
+        spam
+    "#;
 
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
-fn overlay_use_main_prefix() {
-    let inp = &[
-        r#"module spam { export def main [] { "spam" } }"#,
-        "overlay use spam --prefix",
-        "spam",
-    ];
+fn overlay_use_main_prefix() -> Result {
+    let code = r#"
+        module spam { export def main [] { "spam" } }
+        overlay use spam --prefix
+        spam
+    "#;
 
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
-fn overlay_use_main_def_env() {
-    let inp = &[
-        r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
-        "overlay use spam",
-        "spam",
-        "$env.SPAM",
-    ];
+fn overlay_use_main_def_env() -> Result {
+    let code = r#"
+        module spam { export def --env main [] { $env.SPAM = "spam" } }
+        overlay use spam
+        spam
+        $env.SPAM
+    "#;
 
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+    test().run(code).expect_value_eq("spam")
 }
 
 #[test]
-fn overlay_use_main_def_known_external() {
+fn overlay_use_main_def_known_external() -> Result {
     // note: requires installed cargo
-    let inp = &[
+    let commands = [
         "module cargo { export extern main [] }",
         "overlay use cargo",
         "cargo --version",
     ];
 
-    let actual = nu!(&inp.join("; "));
-
-    assert!(actual.out.contains("cargo"));
+    let out: String = test().inherit_rust_toolchain_env().run_multiple(commands)?;
+    assert_contains("cargo", out);
+    Ok(())
 }
 
 #[test]
-fn overlay_use_main_not_exported() {
-    let inp = &[
-        r#"module my-super-cool-and-unique-module-name { def main [] { "hi" } }"#,
-        "overlay use my-super-cool-and-unique-module-name",
-        "my-super-cool-and-unique-module-name",
-    ];
+fn overlay_use_main_not_exported() -> Result {
+    let code = r#"
+        module my-super-cool-and-unique-module-name { def main [] { "hi" } }
+        overlay use my-super-cool-and-unique-module-name
+        my-super-cool-and-unique-module-name
+    "#;
 
-    let actual = nu!(&inp.join("; "));
-
-    assert!(actual.err.contains("external_command"));
+    test().run(code).expect_shell_error()?;
+    Ok(())
 }
 
 #[test]
-fn alias_overlay_hide() {
-    let inp = &[
+fn alias_overlay_hide() -> Result {
+    let commands = [
         "overlay new spam",
         "def my-epic-command-name [] { 'foo' }",
         "overlay new eggs",
@@ -1464,32 +1496,32 @@ fn alias_overlay_hide() {
         "my-epic-command-name",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.contains("external_command"));
-    assert!(actual_repl.err.contains("external_command"));
+    test()
+        .run(commands.join("; "))
+        .expect_error_code_eq("nu::shell::external_command")?;
+    test()
+        .run_multiple(commands)
+        .expect_error_code_eq("nu::shell::external_command")?;
+    Ok(())
 }
 
 #[test]
-fn alias_overlay_use() {
-    let inp = &[
+fn alias_overlay_use() -> Result {
+    let commands = [
         "module spam { export def foo [] { 'foo' } }",
         "alias ou = overlay use",
         "ou spam",
         "foo",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "foo");
-    assert_eq!(actual_repl.out, "foo");
+    test().run(commands.join("; ")).expect_value_eq("foo")?;
+    test().run_multiple(commands).expect_value_eq("foo")?;
+    Ok(())
 }
 
 #[test]
-fn alias_overlay_use_2() {
-    let inp = &[
+fn alias_overlay_use_2() -> Result {
+    let commands = [
         "module inner {}",
         "module spam { export alias b = overlay use inner }",
         "use spam",
@@ -1497,18 +1529,14 @@ fn alias_overlay_use_2() {
         "overlay list | get 1.name",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.is_empty());
-    assert!(actual_repl.err.is_empty());
-    assert_eq!(actual.out, "inner");
-    assert_eq!(actual_repl.out, "inner");
+    test().run(commands.join("; ")).expect_value_eq("inner")?;
+    test().run_multiple(commands).expect_value_eq("inner")?;
+    Ok(())
 }
 
 #[test]
-fn alias_overlay_use_3() {
-    let inp = &[
+fn alias_overlay_use_3() -> Result {
+    let commands = [
         "module inner {}",
         "module spam { export alias b = overlay use inner }",
         "use spam b",
@@ -1516,34 +1544,28 @@ fn alias_overlay_use_3() {
         "overlay list | get 1.name",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual.err.is_empty());
-    assert!(actual_repl.err.is_empty());
-    assert_eq!(actual.out, "inner");
-    assert_eq!(actual_repl.out, "inner");
+    test().run(commands.join("; ")).expect_value_eq("inner")?;
+    test().run_multiple(commands).expect_value_eq("inner")?;
+    Ok(())
 }
 
 #[test]
-fn alias_overlay_new() {
-    let inp = &[
+fn alias_overlay_new() -> Result {
+    let commands = [
         "alias on = overlay new",
         "on spam",
         "on eggs",
         "overlay list | last | get name",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert_eq!(actual.out, "eggs");
-    assert_eq!(actual_repl.out, "eggs");
+    test().run(commands.join("; ")).expect_value_eq("eggs")?;
+    test().run_multiple(commands).expect_value_eq("eggs")?;
+    Ok(())
 }
 
 #[test]
-fn overlay_new_with_reload() {
-    let inp = &[
+fn overlay_new_with_reload() -> Result {
+    let commands = [
         "overlay new spam",
         "$env.foo = 'bar'",
         "overlay hide spam",
@@ -1551,40 +1573,47 @@ fn overlay_new_with_reload() {
         "'foo' in $env",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
+    test().run(commands.join("; ")).expect_value_eq(false)?;
+    test().run_multiple(commands).expect_value_eq(false)?;
+    Ok(())
+}
 
-    assert_eq!(actual.out, "false");
-    assert_eq!(actual_repl.out, "false");
+#[rstest]
+#[case::main("spam", "spam")]
+#[case::foo("foo", "foo")]
+#[case::bar("bar", "bar")]
+#[case::foo_baz("foo baz", "foobaz")]
+#[case::bar_baz("bar baz", "barbaz")]
+#[case::baz("baz", "spambaz")]
+fn overlay_use_module_dir(#[case] code: &str, #[case] expected: impl IntoValue) -> Result {
+    let commands = ["overlay use samples/spam", code];
+    test()
+        .cwd("tests/modules")
+        .run(commands.iter().join("; "))
+        .expect_value_eq(expected)
 }
 
 #[test]
-fn overlay_use_module_dir() {
-    let import = "overlay use samples/spam";
+fn overlay_use_module_dir_with_dot_by_path() -> Result {
+    Playground::setup(
+        "overlay_use_module_dir_with_dot",
+        |dirs, sandbox| -> Result {
+            sandbox.mkdir("spam.eggs").with_files(&[FileWithContent(
+                "spam.eggs/mod.nu",
+                r#"export def foo [] { "foo" }"#,
+            )]);
 
-    let inp = &[import, "spam"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spam");
-
-    let inp = &[import, "foo"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foo");
-
-    let inp = &[import, "bar"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "bar");
-
-    let inp = &[import, "foo baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foobaz");
-
-    let inp = &[import, "bar baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "barbaz");
-
-    let inp = &[import, "baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spambaz");
+            let mut tester = test().cwd(dirs.test());
+            let () = tester.run("overlay use ./spam.eggs")?;
+            tester
+                .run("overlay list | where active | get name | where $it =~ spam | to nuon")
+                .expect_value_eq(r#"["spam.eggs"]"#)?;
+            let () = tester.run("overlay hide spam.eggs")?;
+            tester
+                .run("overlay list | where active | get name | where $it =~ spam | length")
+                .expect_value_eq(0)
+        },
+    )
 }
 
 #[rstest]
@@ -1601,72 +1630,301 @@ fn overlay_use_module_dir_prefix(#[case] code: &str, #[case] expected: impl Into
 }
 
 #[test]
-fn overlay_help_no_error() {
-    let actual = nu!("overlay hide -h");
-    assert!(actual.err.is_empty());
-    let actual = nu!("overlay new -h");
-    assert!(actual.err.is_empty());
-    let actual = nu!("overlay use -h");
-    assert!(actual.err.is_empty());
+fn overlay_help_no_error() -> Result {
+    let _: Value = test().run("overlay hide -h")?;
+    let _: Value = test().run("overlay new -h")?;
+    let _: Value = test().run("overlay use -h")?;
+    Ok(())
 }
 
 #[test]
-fn test_overlay_use_with_printing_file_pwd() {
-    Playground::setup("use_with_printing_file_pwd", |dirs, nu| {
+fn test_overlay_use_with_printing_file_pwd() -> Result {
+    Playground::setup("use_with_printing_file_pwd", |dirs, nu| -> Result {
         let file = dirs.test().join("foo").join("mod.nu");
         nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             "
                 export-env {
-                    print $env.FILE_PWD
+                    $env.OVERLAY_FILE_PWD = $env.FILE_PWD
                 }
             ",
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "overlay use foo"
-        );
-
-        assert_eq!(actual.out, dirs.test().join("foo").to_string_lossy());
-    });
+        test()
+            .cwd(dirs.test())
+            .run("overlay use foo; $env.OVERLAY_FILE_PWD")
+            .expect_value_eq(dirs.test().join("foo"))
+    })
 }
 
 #[test]
-fn test_overlay_use_with_printing_current_file() {
-    Playground::setup("use_with_printing_current_file", |dirs, nu| {
+fn test_overlay_use_with_printing_current_file() -> Result {
+    Playground::setup("use_with_printing_current_file", |dirs, nu| -> Result {
         let file = dirs.test().join("foo").join("mod.nu");
         nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             "
                 export-env {
-                    print $env.CURRENT_FILE
+                    $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
                 }
             ",
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "overlay use foo"
-        );
-
-        assert_eq!(
-            actual.out,
-            dirs.test().join("foo").join("mod.nu").to_string_lossy()
-        );
-    });
+        test()
+            .cwd(dirs.test())
+            .run("overlay use foo; $env.OVERLAY_CURRENT_FILE")
+            .expect_value_eq(dirs.test().join("foo").join("mod.nu"))
+    })
 }
 
 #[test]
-fn report_errors_in_export_env() {
-    let inp = &[
+fn report_errors_in_export_env() -> Result {
+    let commands = [
         r#"module spam { export-env { error make -u {msg: "reported"} } }"#,
         "overlay use spam",
     ];
 
-    let actual = nu!(&inp.join("; "));
-    let actual_repl = nu!(nu_repl_code(inp));
+    test().run(commands.join("; ")).expect_shell_error()?;
+    let error = test().run_multiple(commands).expect_shell_error()?;
+    assert_contains("reported", format!("{error:?}"));
+    Ok(())
+}
 
-    assert!(actual.err.contains("reported"));
-    assert!(actual_repl.err.contains("reported"));
+#[test]
+fn overlay_hide_keeps_pwd() -> Result {
+    let commands = [
+        "overlay new spam",
+        "cd samples",
+        "overlay hide spam",
+        "$env.PWD | path basename",
+    ];
+
+    test()
+        .cwd("tests/overlays")
+        .run(commands.join("; "))
+        .expect_value_eq("samples")?;
+    test()
+        .cwd("tests/overlays")
+        .run_multiple(commands)
+        .expect_value_eq("samples")
+}
+
+#[test]
+fn overlay_hide_keeps_pwd_set_by_export_env() -> Result {
+    Playground::setup("overlay_hide_export_env_pwd", |dirs, sandbox| -> Result {
+        sandbox
+            .mkdir("sub")
+            .with_files(&[FileWithContent("spam.nu", "export-env { cd sub }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        let () = tester.run("overlay hide spam")?;
+        tester
+            .run("$env.PWD | path basename")
+            .expect_value_eq("sub")
+    })
+}
+
+// The overlay's other variables still go away with it.
+#[test]
+fn overlay_hide_still_drops_other_env() -> Result {
+    let commands = ["overlay new spam", "$env.FOO = 'foo'", "overlay hide spam"];
+
+    let mut tester = test();
+    for command in commands {
+        let () = tester.run(command)?;
+    }
+    tester.run("'FOO' in $env").expect_value_eq(false)
+}
+
+// `overlay use <name>` reads the module's file again once it has changed.
+#[rstest]
+#[case::active("overlay_name_active", &[])]
+#[case::hidden("overlay_name_hidden", &["overlay hide spam"])]
+#[case::not_on_top("overlay_name_not_on_top", &["overlay new eggs"])]
+fn overlay_use_by_name_reads_a_changed_file(
+    #[case] topic: &str,
+    #[case] between: &[&str],
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'old' }; export-env { $env.SPAM = 'old' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        for command in between {
+            let () = tester.run(command)?;
+        }
+        let () = tester.run(
+            r#""export def foo [] { 'new' }; export-env { $env.SPAM = 'new' }" | save -f spam.nu"#,
+        )?;
+        let () = tester.run("overlay use spam")?;
+        tester.run("foo").expect_value_eq("new")?;
+        tester.run("$env.SPAM").expect_value_eq("new")
+    })
+}
+
+#[test]
+fn overlay_use_by_name_reads_a_changed_directory_module() -> Result {
+    Playground::setup("overlay_name_dir", |dirs, sandbox| -> Result {
+        sandbox.mkdir("pkg").with_files(&[
+            FileWithContent("pkg/mod.nu", "export use sub.nu *"),
+            FileWithContent("pkg/sub.nu", "export def foo [] { 'old' }"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use pkg")?;
+        tester.run("foo").expect_value_eq("old")?;
+        let () = tester.run(r#""export def foo [] { 'new' }" | save -f pkg/sub.nu"#)?;
+        let () = tester.run("overlay use pkg")?;
+        tester.run("foo").expect_value_eq("new")
+    })
+}
+
+// With an unchanged file, reactivating by name doesn't run `export-env` again.
+#[test]
+fn overlay_use_by_name_keeps_env_when_file_is_unchanged() -> Result {
+    Playground::setup("overlay_name_unchanged", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export-env { $env.SPAM = 'module' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        let () = tester.run("$env.SPAM = 'mine'")?;
+        let () = tester.run("overlay use spam")?;
+        tester.run("$env.SPAM").expect_value_eq("mine")
+    })
+}
+
+// Reloading drops what the new version no longer exports, however the overlay comes back.
+#[rstest]
+#[case::path("overlay_deleted_path", &[], "overlay use spam.nu", "bar", "foo")]
+#[case::name("overlay_deleted_name", &[], "overlay use spam", "bar", "foo")]
+#[case::reload_flag("overlay_deleted_flag", &[], "overlay use --reload spam", "bar", "foo")]
+#[case::hidden_path("overlay_deleted_hidden_path", &["overlay hide spam"], "overlay use spam.nu", "bar", "foo")]
+#[case::hidden_name("overlay_deleted_hidden_name", &["overlay hide spam"], "overlay use spam", "bar", "foo")]
+#[case::not_on_top("overlay_deleted_not_on_top", &["overlay new eggs"], "overlay use spam.nu", "bar", "foo")]
+fn overlay_deleted_command_goes_away_on_reload(
+    #[case] topic: &str,
+    #[case] between: &[&str],
+    #[case] again: &str,
+    #[case] deleted: &str,
+    #[case] kept: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'old' }; export def bar [] { 'bar' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        for command in between {
+            let () = tester.run(command)?;
+        }
+        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+        let () = tester.run(again)?;
+        tester.run(kept).expect_value_eq("new")?;
+        tester
+            .run(deleted)
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+#[test]
+fn overlay_deleted_constant_goes_away_on_reload() -> Result {
+    Playground::setup("overlay_deleted_const", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export const X = 'old'; export const Y = 'old'",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        let () = tester.run("overlay hide spam")?;
+        let () = tester.run_with_data("save -f spam.nu", "export const Y = 'new'")?;
+        let () = tester.run("overlay use spam")?;
+        tester.run("$Y").expect_value_eq("new")?;
+        tester
+            .run("$X")
+            .expect_error_code_eq("nu::parser::variable_not_found")
+    })
+}
+
+#[rstest]
+#[case::reload("overlay_deleted_sub_reload", &[], "overlay use --reload spam")]
+#[case::hidden_path("overlay_deleted_sub_path", &["overlay hide spam"], "overlay use spam.nu")]
+#[case::hidden_name("overlay_deleted_sub_name", &["overlay hide spam"], "overlay use spam")]
+fn overlay_deleted_submodule_goes_away_on_reload(
+    #[case] topic: &str,
+    #[case] before_the_edit: &[&str],
+    #[case] again: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export module sub { export def x [] { 'old' } }; export def foo [] { 'old' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        let () = tester.run("use sub")?;
+        for command in before_the_edit {
+            let () = tester.run(*command)?;
+        }
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        let () = tester.run(again)?;
+        tester.run("foo").expect_value_eq("new")?;
+        tester
+            .run("use sub")
+            .expect_error_code_eq("nu::parser::module_not_found")
+    })
+}
+
+#[test]
+fn overlay_prefixed_deleted_command_goes_away_on_reload() -> Result {
+    Playground::setup("overlay_deleted_prefixed", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'old' }; export def bar [] { 'bar' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use --prefix spam.nu")?;
+        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+        let () = tester.run("overlay use --prefix spam.nu")?;
+        tester.run("spam foo").expect_value_eq("new")?;
+        tester
+            .run("spam bar")
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+// What you defined inside the overlay isn't the module's, so a reload leaves it alone.
+#[rstest]
+#[case::custom_command("overlay_reload_custom", "def mine [] { 'mine' }", "mine", "mine")]
+#[case::redefined("overlay_reload_redefined", "def bar [] { 'mine' }", "bar", "mine")]
+fn overlay_reload_keeps_your_own_definitions(
+    #[case] topic: &str,
+    #[case] definition: &str,
+    #[case] call: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'old' }; export def bar [] { 'bar' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("overlay use spam.nu")?;
+        let () = tester.run(definition)?;
+        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+        let () = tester.run("overlay use spam.nu")?;
+        tester.run(call).expect_value_eq(expected)
+    })
 }

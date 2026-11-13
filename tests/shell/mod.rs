@@ -1,14 +1,11 @@
 use nu_test_support::{
-    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
-    nu_repl_code,
+    fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed},
     prelude::*,
 };
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-#[cfg(unix)]
-use nu_utils::time::Instant;
-
+mod background_jobs;
 mod environment;
 mod pipeline;
 mod repl;
@@ -46,114 +43,54 @@ fn plugins_are_declared_with_wix() -> Result {
 }
 
 #[test]
-#[cfg(not(windows))]
-fn do_not_panic_if_broken_pipe() {
-    // `nu -h | false`
-    // used to panic with a BrokenPipe error
-    let child_output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -h | false",
-            nu_test_support::fs::executable_path()
-        ))
-        .output()
-        .expect("failed to execute process");
-
-    assert!(child_output.stderr.is_empty());
+#[deps(NU, TESTBIN_FAIL)]
+fn do_not_panic_if_broken_pipe() -> Result {
+    // `nu -h | fail` used to panic with a BrokenPipe error.
+    let result: CompleteResult = test().run("nu -h | ^fail | complete")?;
+    assert_eq!(result.exit_code, 1);
+    assert!(result.stderr.is_empty());
+    Ok(())
 }
 
-#[test]
-#[cfg(unix)]
-fn exit_failure_if_stdout_full() {
-    let mut child = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -n > /dev/full",
-            nu_test_support::fs::executable_path()
-        ))
-        .spawn()
-        .expect("failed to spawn process");
-
-    let start = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().expect("failed to query child status") {
-            break status;
-        }
-
-        if start.elapsed() > std::time::Duration::from_secs(5) {
-            let _ = child.kill();
-            panic!("child did not exit within 5 seconds");
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    };
-
-    assert!(!status.success(), "expected failure status");
-    assert!(
-        status.code().is_some(),
-        "expected process to exit normally rather than by signal"
-    );
-}
-
-#[test]
-#[cfg(unix)]
-fn exit_failure_if_stderr_full() {
-    let mut child = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{:?} -n 2>/dev/full",
-            nu_test_support::fs::executable_path()
-        ))
-        .spawn()
-        .expect("failed to spawn process");
-
-    let start = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().expect("failed to query child status") {
-            break status;
-        }
-
-        if start.elapsed() > std::time::Duration::from_secs(5) {
-            let _ = child.kill();
-            panic!("child did not exit within 5 seconds");
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    };
-
-    assert!(!status.success(), "expected failure status");
-    assert!(
-        status.code().is_some(),
-        "expected process to exit normally rather than by signal"
-    );
-}
-
-#[test]
+#[cfg(target_os = "linux")]
+#[rstest]
+#[case::stdout(std::fs::File::create("/dev/full").unwrap(), std::process::Stdio::null())]
+#[case::stderr(std::process::Stdio::null(), std::fs::File::create("/dev/full").unwrap())]
+#[timeout(std::time::Duration::from_secs(5))]
+#[nu_test_support::test]
+#[serial]
 #[deps(NU)]
+fn exit_failure_if_output_full(
+    #[case] stdout: impl Into<std::process::Stdio>,
+    #[case] stderr: impl Into<std::process::Stdio>,
+) -> Result {
+    let output = std::process::Command::new(NU.path())
+        .arg("-n")
+        .stdout(stdout)
+        .stderr(stderr)
+        .output()?;
+
+    pretty_assertions::assert_matches!(output.status.code(), Some(code) if code != 0);
+    Ok(())
+}
+
+#[test]
 fn nu_lib_dirs_repl() -> Result {
     Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| -> Result {
         sandbox
             .mkdir("scripts")
-            .with_files(&[FileWithContentToBeTrimmed(
-                "scripts/foo.nu",
-                r#"
-                    $env.FOO = "foo"
-                "#,
-            )]);
+            .with_files(&[FileWithContent("scripts/foo.nu", "$env.FOO = 'foo'")]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
-            "source-env foo.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let scripts = dirs.test().join("scripts");
+        let mut tester = test()
+            .cwd(dirs.test())
+            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+        let () = tester.run("source-env foo.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-#[deps(NU)]
 fn nu_lib_dirs_script() -> Result {
     Playground::setup("nu_lib_dirs_script", |dirs, sandbox| -> Result {
         sandbox
@@ -171,19 +108,16 @@ fn nu_lib_dirs_script() -> Result {
                 ",
             )]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
-            "source-env main.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let scripts = dirs.test().join("scripts");
+        let mut tester = test()
+            .cwd(dirs.test())
+            .env("NU_LIB_DIRS", [scripts.to_string_lossy().to_string()]);
+        let () = tester.run("source-env main.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-#[deps(NU)]
 fn nu_lib_dirs_relative_repl() -> Result {
     Playground::setup("nu_lib_dirs_relative_repl", |dirs, sandbox| -> Result {
         sandbox
@@ -195,14 +129,9 @@ fn nu_lib_dirs_relative_repl() -> Result {
                 "#,
             )]);
 
-        let inp_lines = &[
-            "$env.NU_LIB_DIRS = [ 'scripts' ]",
-            "source-env foo.nu",
-            "$env.FOO",
-        ];
-
-        let command = format!("{} | to text | str trim", nu_repl_code(inp_lines));
-        test().cwd(dirs.test()).run(command).expect_value_eq("foo")
+        let mut tester = test().cwd(dirs.test()).env("NU_LIB_DIRS", ["scripts"]);
+        let () = tester.run("source-env foo.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
@@ -283,8 +212,9 @@ fn run_export_extern() -> Result {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_login_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-l", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
@@ -294,8 +224,9 @@ fn run_in_login_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_not_login_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-c", "echo $nu.is-login"])
         .output()
         .expect("failed to run nu");
@@ -305,8 +236,9 @@ fn run_in_not_login_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_interactive_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-i", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
@@ -316,8 +248,9 @@ fn run_in_interactive_mode() {
 }
 
 #[test]
+#[deps(NU)]
 fn run_in_noninteractive_mode() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "-c", "echo $nu.is-interactive"])
         .output()
         .expect("failed to run nu");
@@ -326,9 +259,226 @@ fn run_in_noninteractive_mode() {
     assert!(child_output.stderr.is_empty());
 }
 
+/// `nu -c` reports every parse warning, not only the first. `@deprecated --report every` warns
+/// at each call, and the default `--report first` warns once per deprecated command.
+#[rstest]
+#[case::report_every("@deprecated --report every\ndef g [] { 1 }\ng; g; g", 3)]
+#[case::report_first("@deprecated\ndef g [] { 1 }\ng; g; g", 1)]
+#[case::two_commands("@deprecated\ndef g [] { 1 }\n@deprecated\ndef k [] { 2 }\ng; k", 2)]
+// The `main` call is parsed after the script, whose warnings are not reported again.
+#[case::with_main(
+    "@deprecated --report every\ndef g [] { 1 }\ndef main [] { g; g; g }",
+    3
+)]
+// Code the parser tries more than once still warns once per call.
+#[case::retried_parse("@deprecated --report every\ndef g [] { 1 }\n[-(g)(2)] | ignore", 1)]
+#[case::range_bound("@deprecated --report every\ndef g [] { 1 }\n1..(g) | ignore", 1)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn commands_report_every_parse_warning(#[case] code: &str, #[case] expected: usize) -> Result {
+    let output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", code])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("nu::parser::deprecated").count(),
+        expected,
+        "{stderr}"
+    );
+    Ok(())
+}
+
+/// A script file reports every parse warning too.
 #[test]
+#[deps(NU)]
+fn script_reports_every_parse_warning() -> Result {
+    Playground::setup("script_parse_warnings", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "deprecated.nu",
+            "@deprecated\ndef g [] { 1 }\n@deprecated\ndef k [] { 2 }\ng; k\n",
+        )]);
+        let output = std::process::Command::new(NU.path())
+            .args(["-n", "deprecated.nu"])
+            .current_dir(dirs.test())
+            .output()?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            stderr.matches("nu::parser::deprecated").count(),
+            2,
+            "{stderr}"
+        );
+        Ok(())
+    })
+}
+
+// `$nu.startup-time` must be a real duration wherever it can be read, also before startup has
+// finished and in engines that never ran nushell's `main`.
+#[test]
+fn startup_time_in_embedded_engine() -> Result {
+    let startup: std::time::Duration = test().run("$nu.startup-time")?;
+    assert!(
+        startup > std::time::Duration::ZERO,
+        "startup time {startup:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn startup_time_while_config_is_evaluated() -> Result {
+    Playground::setup(
+        "startup_time_while_config_is_evaluated",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "config.nu",
+                "$env.STARTUP_IN_CONFIG = $nu.startup-time",
+            )]);
+            let code = "
+            nu --no-std-lib --config config.nu -c '$env.STARTUP_IN_CONFIG | into int'
+            | into int
+            | into duration
+        ";
+            let startup: std::time::Duration = test().cwd(dirs.test()).run(code)?;
+
+            assert!(
+                startup > std::time::Duration::ZERO,
+                "startup time {startup:?}"
+            );
+            Ok(())
+        },
+    )
+}
+
+// A `try` with a `catch` or `finally` block collects the block's output to know whether
+// it failed. When the tried external's stdout is inherited, its output already went to
+// the terminal; collecting used to turn the data-less stream into an empty string, which
+// printed as a stray blank line after the external's own output. The `try` must be the
+// final statement: only the final statement's value is printed, so that is where the
+// fabricated empty string became visible.
+// https://github.com/nushell/nushell/issues/18765
+#[rstest]
+#[case::catch("try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {}", "hi\n")]
+#[case::finally("try { ^$env.TEST_NU_BIN -n -c 'print hi' } finally {}", "hi\n")]
+#[case::catch_and_finally(
+    "try { ^$env.TEST_NU_BIN -n -c 'print hi' } catch {} finally {}",
+    "hi\n"
+)]
+// The collected stream still reports the external's failure, so `catch` runs.
+#[case::catch_on_failure(
+    "try { ^$env.TEST_NU_BIN -n -c 'exit 1' } catch { print caught }",
+    "caught\n"
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_inherited_external_output_has_no_extra_blank_line(
+    #[case] script: &str,
+    #[case] expected: &str,
+) {
+    let child_output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", script])
+        .env("TEST_NU_BIN", NU.path())
+        .output()
+        .expect("failed to run nu");
+
+    assert_eq!(expected, String::from_utf8_lossy(&child_output.stdout));
+    assert!(
+        child_output.stderr.is_empty(),
+        "unexpected stderr: {}",
+        String::from_utf8_lossy(&child_output.stderr),
+    );
+}
+
+// `ignore`, `save --stderr` and `complete` ask for an external's stderr on its own pipe, but a
+// `try` with `catch` collects the block's output to see whether it failed, and a value can only
+// hold stdout. Collecting a child that still had a stderr pipe failed with "internal error:
+// stderr should not exist", so `catch` ran for an external that succeeded. The output after
+// the `try` must now be the same as without it, stderr included.
+// https://github.com/nushell/nushell/issues/19335
+#[rstest]
+#[case::ignore("{} | ignore; print done")]
+#[case::ignore_stdout("{} | ignore --stdout; print done")]
+#[case::ignore_stderr("{} | ignore --stderr; print done")]
+#[case::complete("{} | complete | to nuon")]
+#[case::save_stderr(
+    "let d = mktemp -d; {} | save ($d | path join out) --stderr ($d | path join err); [(open --raw ($d | path join out)) (open --raw ($d | path join err))] | to nuon"
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_keeps_a_piped_stderr_of_a_successful_external(
+    #[case] consumer: &str,
+    #[values(
+        "print hi; print -e oops",
+        // More than a pipe buffer holds: reading it only after the child exits would hang.
+        "print -e ('' | fill -c x -w 200000)"
+    )]
+    external: &str,
+) {
+    let run = |producer: String| {
+        std::process::Command::new(NU.path())
+            .args(["-n", "-c", &consumer.replace("{}", &producer)])
+            .env("TEST_NU_BIN", NU.path())
+            .output()
+            .expect("failed to run nu")
+    };
+    let external = format!("^$env.TEST_NU_BIN -n -c \"{external}\"");
+    let expected = run(external.clone());
+    let actual = run(format!("try {{ {external} }} catch {{ print caught }}"));
+
+    assert!(expected.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&expected.stdout),
+        String::from_utf8_lossy(&actual.stdout)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&expected.stderr),
+        String::from_utf8_lossy(&actual.stderr)
+    );
+}
+
+#[rstest]
+#[case::in_a_def(
+    "def f [] { try { ^$env.TEST_NU_BIN -n -c 'print -e oops' } catch { print caught } }; f | ignore; print done",
+    "done\n",
+    "oops\n"
+)]
+// `finally` sees the stdout as a value, and the stderr still goes to the next command.
+#[case::finally(
+    "try { ^$env.TEST_NU_BIN -n -c 'print hi; print -e oops' } catch { print caught } finally {|v| print $'fin ($v | str trim)' } | ignore --stderr; print done",
+    "fin hi\ndone\n",
+    ""
+)]
+#[case::finally_without_catch(
+    "try { ^$env.TEST_NU_BIN -n -c 'print -e oops' } finally { print fin } | ignore; print done",
+    "fin\ndone\n",
+    "oops\n"
+)]
+// A failing external is still caught.
+#[case::failure(
+    "try { ^$env.TEST_NU_BIN -n -c 'exit 1' } catch { print caught } | ignore; print done",
+    "caught\ndone\n",
+    ""
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn try_catch_piped_into_ignore_catches_only_a_failing_external(
+    #[case] script: &str,
+    #[case] stdout: &str,
+    #[case] stderr: &str,
+) {
+    let child_output = std::process::Command::new(NU.path())
+        .args(["-n", "-c", script])
+        .env("TEST_NU_BIN", NU.path())
+        .output()
+        .expect("failed to run nu");
+
+    assert_eq!(stdout, String::from_utf8_lossy(&child_output.stdout));
+    assert_eq!(stderr, String::from_utf8_lossy(&child_output.stderr));
+}
+
+#[test]
+#[deps(NU)]
 fn run_with_no_newline() {
-    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+    let child_output = std::process::Command::new(NU.path())
         .args(["-n", "--no-newline", "-c", "\"hello world\""])
         .output()
         .expect("failed to run nu");
@@ -393,12 +543,127 @@ fn script_with_newline_arg_does_not_split_commands() -> Result {
             "def main [...args: string] { print ...($args) }",
         )]);
 
-        // If newline escaping regresses, parsing fails before returning "ok".
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run("nu script.nu a b \"c\\nd\" | complete")?;
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "a\nb\nc\nd\n");
+        assert!(result.stderr.is_empty());
+        Ok(())
+    })
+}
+
+// regression test for https://github.com/nushell/nushell/issues/18778
+#[test]
+#[deps(NU)]
+fn script_with_hash_arg_is_not_treated_as_comment() -> Result {
+    Playground::setup("script_hash_arg", |dirs, sandbox| -> Result {
+        sandbox.mkdir("script_hash_arg");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [color: string] { print $color }",
+        )]);
+
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run(r##"nu script.nu "#000000" | complete"##)?;
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "#000000\n");
+        assert!(result.stderr.is_empty());
+
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run(r##"nu script.nu "#" | complete"##)?;
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "#\n");
+        assert!(result.stderr.is_empty());
+        Ok(())
+    })
+}
+
+// regression test for https://github.com/nushell/nushell/issues/19484
+#[rstest]
+#[case::flag_name_with_semicolon(&["--x;print INJECTED"])]
+#[case::flag_name_with_semicolon_and_value(&["--x;print INJECTED=1"])]
+#[case::help_flag_with_semicolon(&["--help;print INJECTED"])]
+#[case::flag_name_with_newline(&["--x\nprint INJECTED"])]
+#[case::flag_name_with_redirection(&["--x>out.txt"])]
+#[case::flag_name_with_variable_and_value(&["--x$nu=1"])]
+#[case::stdout_redirection(&["o>", "out.txt"])]
+#[case::stderr_append_redirection(&["e>>", "out.txt"])]
+#[case::combined_redirection(&["out+err>", "out.txt"])]
+#[case::spread(&["...$env.PATH"])]
+#[case::range_with_variable(&["0..$nu.pid"])]
+#[case::assignment(&["="])]
+#[case::and_and(&["&&"])]
+#[case::closing_paren(&["a)"])]
+#[nu_test_support::test]
+#[deps(NU)]
+fn script_args_are_passed_as_strings(#[case] args: &[&str]) -> Result {
+    Playground::setup("script_args_as_strings", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [--x, ...args] { $args | to json --raw }",
+        )]);
+
         test()
             .cwd(dirs.test())
-            .run("nu script.nu a b \"c\\nd\"; 'ok'")
-            .expect_value_eq("ok")
+            .run_with_data("nu -n script.nu ...$in | from json", args.to_vec())
+            .expect_value_eq(args.to_vec())?;
+        assert!(!dirs.test().join("out.txt").exists());
+        Ok(())
     })
+}
+
+// `nu -c <commands> <args>` builds its `main` call with the same escaping.
+#[test]
+#[deps(NU)]
+fn commands_main_args_are_passed_as_strings() -> Result {
+    let args = vec!["--help;print INJECTED", "...$env.PATH"];
+
+    test()
+        .run_with_data(
+            "nu -n -c 'def main [...args] { $args | to json --raw }' ...$in | from json",
+            args.clone(),
+        )
+        .expect_value_eq(args)
+}
+
+// An argument quoted only to keep it from running as code still globs like a bare word.
+#[rstest]
+#[case::dollar("a$")]
+#[case::closing_paren("a)")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn script_glob_args_still_expand(#[case] prefix: &str) -> Result {
+    Playground::setup("script_glob_args_expand", |dirs, sandbox| -> Result {
+        let files = [format!("{prefix}1.txt"), format!("{prefix}2.txt")];
+        sandbox.with_files(&[
+            EmptyFile(&files[0]),
+            EmptyFile(&files[1]),
+            FileWithContent(
+                "script.nu",
+                "def main [g: glob] { ls $g | get name | sort | to json --raw }",
+            ),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run_with_data("nu -n script.nu $in | from json", format!("{prefix}*.txt"))
+            .expect_value_eq(files.to_vec())
+    })
+}
+
+// The same argument still expands `~` for a `path` parameter.
+#[test]
+#[deps(NU)]
+fn script_path_arg_with_dollar_expands_tilde() -> Result {
+    test()
+        .run(r#"nu -n -c 'def main [p: path] { $p | str starts-with "~" }' '~/a$b' | from json"#)
+        .expect_value_eq(false)
 }
 
 // regression test for https://github.com/nushell/nushell/issues/17719
@@ -429,6 +694,42 @@ fn script_help_shows_single_subcommand() -> Result {
     })
 }
 
+// regression test for https://github.com/nushell/nushell/issues/11657: an alias of a `main`
+// subcommand is listed under its own name right after that subcommand, and an alias named like a
+// `main` subcommand is listed under its script-qualified name, not as the command it wraps.
+#[test]
+#[deps(NU)]
+fn script_help_lists_main_alias_under_its_own_name() -> Result {
+    Playground::setup("main_alias_help", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def "main bar" [] {}
+               alias mb = main bar
+               alias "main baz" = main bar
+               def "main" [] { help main }"#,
+        )]);
+
+        let out: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu --help | ansi strip")?;
+        let lines: Vec<&str> = out.lines().map(str::trim).collect();
+        let bar_at = lines
+            .iter()
+            .position(|line| line.starts_with("script.nu bar (custom)"))
+            .unwrap_or_else(|| panic!("no `script.nu bar` line in:\n{out}"));
+        assert!(
+            lines
+                .get(bar_at + 1)
+                .is_some_and(|line| line.starts_with("mb (alias) - Alias for ")),
+            "got:\n{out}"
+        );
+        assert_contains("script.nu baz (alias)", &out);
+        assert_eq!(out.matches("bar (").count(), 1, "got:\n{out}");
+
+        Ok(())
+    })
+}
+
 #[test]
 #[deps(NU)]
 fn source_empty_file() -> Result {
@@ -449,6 +750,467 @@ fn source_empty_file() -> Result {
 #[case("overlay use null; null | describe")]
 fn source_use_null(#[case] code: &str) -> Result {
     test().run(code).expect_value_eq("nothing")
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_with_let_variable() -> Result {
+    Playground::setup("source_script_with_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("sss.nu", "print $xxx; print ($xxx | str length)"),
+            FileWithContent("lll.nu", "let xxx = 'let in script'\nsource sss.nu"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu lll.nu | to text")?;
+        assert_eq!(out, "let in script\n13");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_with_mut_variable() -> Result {
+    Playground::setup("source_script_with_mut", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("sss.nu", "print $xxx"),
+            FileWithContent("mmm.nu", "mut xxx = 'mut in script'\nsource sss.nu"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu mmm.nu | to text")?;
+        assert_eq!(out, "mut in script");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_can_modify_outer_variable() -> Result {
+    Playground::setup(
+        "source_script_can_modify_outer",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("inc.nu", "$xxx = ($xxx + 1)"),
+                FileWithContent(
+                    "counter.nu",
+                    "mut xxx = 0\nsource inc.nu\nsource inc.nu\nprint $xxx",
+                ),
+            ]);
+
+            let out: String = test().cwd(dirs.test()).run("nu counter.nu | to text")?;
+            assert_eq!(out, "2");
+            Ok(())
+        },
+    )
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_variable_visible_after_source() -> Result {
+    Playground::setup("source_var_visible_after", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("helper.nu", "$y = 'set in source'"),
+            FileWithContent("main.nu", "mut y = 'original'\nsource helper.nu\nprint $y"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu main.nu | to text")?;
+        assert_eq!(out, "set in source");
+        Ok(())
+    })
+}
+
+#[test]
+fn source_redeclared_let_variable() -> Result {
+    // Regression: re-declaring a `let` variable should not break subsequent
+    // `source` calls.  The sourced file's block was previously cached with
+    // the old VarId across parse sessions (e.g. across REPL inputs),
+    // causing spurious variable-not-found errors.
+    // See https://github.com/nushell/nushell/issues/18515
+    Playground::setup("source_redeclared_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("sss.nu", "$xxx")]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("let xxx = 'first'; source sss.nu")?;
+        assert_eq!(out1, "first");
+
+        // Re-declare $xxx then source again.  Each run() creates a new
+        // parse session; the second call must re-parse sss.nu with the
+        // new VarId instead of using a stale cached block.
+        let out2: String = tester.run("let xxx = 'second'; source sss.nu")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+fn source_redeclared_mut_variable() -> Result {
+    Playground::setup("source_redeclared_mut", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("sss.nu", "$xxx")]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("mut xxx = 'first'; source sss.nu")?;
+        assert_eq!(out1, "first");
+
+        let out2: String = tester.run("mut xxx = 'second'; source sss.nu")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_with_let_and_main_command() -> Result {
+    // Regression: scripts with both `def main` and `source` should still work
+    Playground::setup("source_script_with_main", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("lib.nu", "print $greeting"),
+            FileWithContent(
+                "app.nu",
+                "let greeting = 'hello'\nsource lib.nu\ndef main [] {}",
+            ),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu app.nu | to text")?;
+        assert_eq!(out, "hello");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_nested_free_variable_visible() -> Result {
+    // Outer free var must resolve through nested source chains (A → B → C).
+    Playground::setup("source_nested_free_var", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("c.nu", "print $xxx"),
+            FileWithContent("b.nu", "source c.nu"),
+            FileWithContent("a.nu", "let xxx = 'nested'\nsource b.nu"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu a.nu | to text")?;
+        assert_eq!(out, "nested");
+        Ok(())
+    })
+}
+
+#[test]
+fn source_env_redeclared_let_variable() -> Result {
+    // Same span-cache / VarId issue as `source` when re-declaring across parse sessions.
+    Playground::setup("source_env_redeclared_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "env.nu",
+            "export-env { $env.FROM_SOURCE = $xxx }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("let xxx = 'first'; source-env env.nu; $env.FROM_SOURCE")?;
+        assert_eq!(out1, "first");
+
+        let out2: String = tester.run("let xxx = 'second'; source-env env.nu; $env.FROM_SOURCE")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+fn source_redeclared_let_visible_inside_sourced_def() -> Result {
+    // Nested `def` bodies capture outer vars. File-level captures must include
+    // those (or the span cache would reuse a stale `foo` after `let` redeclare).
+    // See https://github.com/nushell/nushell/issues/18515
+    Playground::setup("source_redeclared_let_in_def", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("foo.nu", "def foo [] { $xxx }")]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let out1: String = tester.run("let xxx = 'first'; source foo.nu; foo")?;
+        assert_eq!(out1, "first");
+
+        let out2: String = tester.run("let xxx = 'second'; source foo.nu; foo")?;
+        assert_eq!(out2, "second");
+
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn source_script_def_sees_outer_let() -> Result {
+    Playground::setup("source_script_def_outer_let", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("foo.nu", "def foo [] { $xxx }"),
+            FileWithContent("app.nu", "let xxx = 'from-script'\nsource foo.nu\nfoo"),
+        ]);
+
+        let out: String = test().cwd(dirs.test()).run("nu app.nu | to text")?;
+        assert_eq!(out, "from-script");
+        Ok(())
+    })
+}
+
+#[test]
+fn source_same_file_does_not_multiply_decls() -> Result {
+    // Capture-free sourced files must reuse the cached block so repeated
+    // `source` does not add another `def` for the same name each time.
+    Playground::setup("source_same_file_no_multiply", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "lib.nu",
+            "def shared_a [] { 0 }\ndef shared_b [] { 0 }\ndef shared_c [] { 0 }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("source lib.nu")?;
+        let after_first: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+        let () = tester.run("source lib.nu")?;
+        let () = tester.run("source lib.nu")?;
+        let after_more: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+        assert_eq!(
+            after_first, after_more,
+            "re-sourcing a capture-free file should reuse decls, not add new ones"
+        );
+        tester.run("shared_a").expect_value_eq(0)?;
+        Ok(())
+    })
+}
+
+/// A cached `source` declares the file's names again where they're missing: after the scope of
+/// the first `source` has ended, in the enclosing block or in a sibling block.
+#[rstest]
+#[case::def("source_cached_def", "def zz [] { 'def' }", "zz", "def")]
+#[case::alias("source_cached_alias", "alias zz = echo alias", "zz", "alias")]
+#[case::const_("source_cached_const", "const zz = 'const'", "$zz", "const")]
+#[case::let_("source_cached_let", "let zz = 'let'", "$zz", "let")]
+#[case::type_alias(
+    "source_cached_type_alias",
+    "type Zz = string",
+    "let x: Zz = 'type'; $x",
+    "type"
+)]
+#[case::use_std("source_cached_use", "use std/assert", "assert true; 'use'", "use")]
+#[case::captured_const(
+    "source_cached_captured_const",
+    "const zz = 'captured'\ndef zzget [] { $zz }",
+    "zzget",
+    "captured"
+)]
+fn source_cached_file_declares_its_names_in_another_scope(
+    #[case] topic: &str,
+    #[case] lib: &str,
+    #[case] usage: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", lib)]);
+
+        test()
+            .cwd(dirs.test())
+            .run(format!("do {{ source lib.nu }}; source lib.nu; {usage}"))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "if true {{ source lib.nu }}; if true {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)?;
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "do {{ source lib.nu }}; do {{ source lib.nu; {usage} }}"
+            ))
+            .expect_value_eq(expected)
+    })
+}
+
+/// A variable a sourced file declares belongs to the block around `source`, also when that block
+/// is a closure, so the closure doesn't try to capture it from outside.
+#[rstest]
+#[case::let_in_do("source_let_in_do", "do { source lib.nu; $zz }", "let")]
+#[case::let_in_closure(
+    "source_let_in_closure",
+    "let c = { source lib.nu; $zz }; do $c",
+    "let"
+)]
+#[case::mut_in_do("source_mut_in_do", "do { source lib.nu; $zzmut }", "mut")]
+#[case::nested_source("source_let_nested_in_do", "do { source outer.nu; $zz }", "let")]
+#[case::read_by_file_command("source_let_read_by_def_in_do", "do { source lib.nu; zzget }", "let")]
+fn source_variable_is_local_to_a_closure(
+    #[case] topic: &str,
+    #[case] code: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent(
+                "lib.nu",
+                "let zz = 'let'\nmut zzmut = 'mut'\ndef zzget [] { $zz }",
+            ),
+            FileWithContent("outer.nu", "source lib.nu"),
+        ]);
+
+        test().cwd(dirs.test()).run(code).expect_value_eq(expected)
+    })
+}
+
+#[test]
+fn source_cached_file_declares_its_names_after_hide() -> Result {
+    Playground::setup("source_cached_after_hide", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", "def zz [] { 'def' }")]);
+
+        test()
+            .cwd(dirs.test())
+            .run("source lib.nu; hide zz; source lib.nu; zz")
+            .expect_value_eq("def")
+    })
+}
+
+/// A second `source` in the same parse and scope reuses the block, as a later one does.
+#[test]
+fn source_same_file_twice_in_one_parse_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_same_file_twice_one_parse",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let once: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; scope engine-stats | get num_decls")?;
+            let twice: i64 = test()
+                .cwd(dirs.test())
+                .run("source lib.nu; source lib.nu; scope engine-stats | get num_decls")?;
+            assert_eq!(once, twice);
+            Ok(())
+        },
+    )
+}
+
+/// Declaring a cached file's names again reuses its declarations instead of parsing it again.
+#[test]
+fn source_cached_file_in_another_scope_does_not_multiply_decls() -> Result {
+    Playground::setup(
+        "source_cached_other_scope_no_multiply",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                "lib.nu",
+                "def shared_a [] { 0 }\ndef shared_b [] { 0 }",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            let () = tester.run("source lib.nu")?;
+            let () = tester.run("hide shared_a; hide shared_b")?;
+            let after_first: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            let () = tester.run("source lib.nu")?;
+            let after_more: i64 = tester.run("scope engine-stats | get num_decls")?;
+
+            assert_eq!(after_first, after_more);
+            tester.run("shared_a").expect_value_eq(0)
+        },
+    )
+}
+
+#[test]
+fn source_redeclared_let_visible_through_nested_source() -> Result {
+    // Wrapper files that only `source` a child with free vars must not reuse a
+    // stale child block after `let` is redeclared.
+    Playground::setup(
+        "source_redeclared_nested_source",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("b.nu", "$xxx"),
+                FileWithContent("a.nu", "source b.nu"),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            let out1: String = tester.run("let xxx = 'first'; source a.nu")?;
+            assert_eq!(out1, "first");
+
+            let out2: String = tester.run("let xxx = 'second'; source a.nu")?;
+            assert_eq!(out2, "second");
+
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn source_redeclared_let_visible_through_def_wrapping_source() -> Result {
+    Playground::setup(
+        "source_redeclared_def_wraps_source",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[
+                FileWithContent("b.nu", "$xxx"),
+                FileWithContent("a.nu", "def foo [] { source b.nu }"),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+
+            let out1: String = tester.run("let xxx = 'first'; source a.nu; foo")?;
+            assert_eq!(out1, "first");
+
+            let out2: String = tester.run("let xxx = 'second'; source a.nu; foo")?;
+            assert_eq!(out2, "second");
+
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn source_after_source_env_still_registers_defs() -> Result {
+    // `source` is unscoped; `source-env` is scoped. Reuse must not share those
+    // parses, or `source` after `source-env` would skip overlay registration.
+    Playground::setup("source_after_source_env_defs", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("lib.nu", "def from_lib [] { 7 }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("source-env lib.nu")?;
+        tester
+            .run("from_lib")
+            .expect_error_code_eq("nu::shell::external_command")?;
+
+        let () = tester.run("source lib.nu")?;
+        tester.run("from_lib").expect_value_eq(7)?;
+        Ok(())
+    })
+}
+
+#[test]
+fn source_after_source_env_still_registers_lets() -> Result {
+    // Scoped let-only files snapshot `scope_bindings` as None. Reuse must still
+    // distinguish `source` from `source-env` so overlay vars get registered.
+    Playground::setup("source_after_source_env_lets", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[
+            FileWithContent("lets.nu", "let foo = 1"),
+            FileWithContent("consts.nu", "const bar = 2"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+
+        let () = tester.run("source-env lets.nu")?;
+        tester
+            .run("$foo")
+            .expect_error_code_eq("nu::parser::variable_not_found")?;
+        let () = tester.run("source lets.nu")?;
+        tester.run("$foo").expect_value_eq(1)?;
+
+        let () = tester.run("source-env consts.nu")?;
+        tester
+            .run("$bar")
+            .expect_error_code_eq("nu::parser::variable_not_found")?;
+        let () = tester.run("source consts.nu")?;
+        tester.run("$bar").expect_value_eq(2)?;
+        Ok(())
+    })
 }
 
 #[test]
@@ -564,6 +1326,181 @@ fn main_script_subcommand_help_uses_script_name2() -> Result {
 
 #[test]
 #[deps(NU)]
+fn main_script_missing_argument_uses_script_name() -> Result {
+    Playground::setup("script_missing_arg", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [foo: string] { print $foo }",
+        )]);
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        assert!(stderr.contains("script.nu"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_subcommand_missing_argument_uses_script_name() -> Result {
+    Playground::setup("script_sub_missing_arg", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [] {}
+            def 'main foo' [bar: string] {}
+            ",
+        )]);
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu script.nu foo | complete | get stderr")?;
+        assert!(stderr.contains("Missing required positional argument"));
+        assert!(stderr.contains("script.nu foo"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_with_space_in_name_uses_script_name() -> Result {
+    // The multi-word name resolves to the script's `main` through the overlay, so the call uses it.
+    Playground::setup("script_space_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "my script.nu",
+            "def main [foo: string] { $foo }",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 'my script.nu' ok | to text | str trim")
+            .expect_value_eq("ok")?;
+
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu 'my script.nu' | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        assert!(stderr.contains("my script.nu"));
+        assert!(!stderr.contains("main"), "error mentioned `main`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_named_like_a_parser_keyword_still_runs() -> Result {
+    // Parsing `<keyword> ok` would run the keyword's own parser: `for` panics, and `source`, `use`,
+    // `module` and `alias` report parse errors. `main` is called directly for these names.
+    for name in ["for", "source", "source-env", "use", "module", "alias"] {
+        Playground::setup("script_keyword_name", |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                name,
+                "def main [foo: string] { print $\"got ($foo)\" }",
+            )]);
+            test()
+                .cwd(dirs.test())
+                .run(format!("nu {name} ok | to text | str trim"))
+                .expect_value_eq("got ok")
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn script_without_main_is_unaffected() -> Result {
+    // The script name is only used to call a `main`, so a script without one runs as before.
+    Playground::setup("script_without_main", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("script.nu", "print hello")]);
+        test()
+            .cwd(dirs.test())
+            .run("nu script.nu | to text | str trim")
+            .expect_value_eq("hello")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_named_like_a_value_still_runs() -> Result {
+    // `10kb` parses as a filesize, so `main` is called as `main` here.
+    Playground::setup("script_value_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent("10kb", "def main [foo: string] { $foo }")]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 10kb ok | to text | str trim")
+            .expect_value_eq("ok")?;
+
+        let stderr: String = test()
+            .cwd(dirs.test())
+            .run("nu 10kb | complete | get stderr")?;
+        assert!(stderr.contains("missing foo"));
+        // The snippet shows the call that was run.
+        assert!(
+            stderr.contains("1 | main"),
+            "error didn't fall back to `main`: {stderr}"
+        );
+        assert!(!stderr.contains("1 | 10kb"), "call used `10kb`: {stderr}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_with_helper_named_after_script_runs_main() -> Result {
+    // `build.nu docs` resolves to the script's own `build.nu docs` helper, not to `main`, so
+    // `main` is called directly and gets `docs` as its argument.
+    Playground::setup("script_helper_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "build.nu",
+            "def main [target: string] { print $\"building ($target)\" }
+            def 'build.nu docs' [] { print helper }
+            ",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu build.nu docs | to text | str trim")
+            .expect_value_eq("building docs")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn main_script_name_with_separator_is_not_run_as_code() -> Result {
+    // The parser stops a call at `;`, `#` or `|`, so the rest of these names must not be run as
+    // code or swallow the arguments.
+    Playground::setup("script_semicolon_name", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "main;print injected",
+            "def main [] { print 'main ran' }",
+        )]);
+        test()
+            .cwd(dirs.test())
+            .run("nu 'main;print injected' | to text | str trim")
+            .expect_value_eq("main ran")
+    })?;
+
+    let mut names = vec!["main #2.nu"];
+    if !cfg!(windows) {
+        // `|` isn't allowed in Windows file names.
+        names.push("main|str upcase");
+    }
+    for name in names {
+        Playground::setup("script_separator_name", |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContent(
+                name,
+                "def main [foo: string] { print $\"got ($foo)\" }",
+            )]);
+            test()
+                .cwd(dirs.test())
+                .run(format!("nu '{name}' ok | to text | str trim"))
+                .expect_value_eq("got ok")
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
 fn script_file_not_found() -> Result {
     let stderr: String = test().run("nu non-existent-script.nu foo bar | complete | get stderr")?;
     assert!(
@@ -610,6 +1547,7 @@ fn builtin_commands_can_be_shadowed_and_extended() -> Result {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+#[deps(NU)]
 fn nu_env_pwd_symlink() {
     Playground::setup("nu_env_pwd_symlink", |_, sandbox| {
         // Test that the value of PWD in the environment takes precedence
@@ -619,7 +1557,7 @@ fn nu_env_pwd_symlink() {
 
         let pwd = sandbox.cwd().join(pwd);
         let current_dir = std::fs::canonicalize(&pwd).unwrap();
-        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        let child_output = std::process::Command::new(NU.path())
             .args(["-c", "echo $env.PWD"])
             .current_dir(current_dir)
             .env("PWD", &pwd)
@@ -636,7 +1574,7 @@ fn nu_env_pwd_symlink() {
 
         let pwd = sandbox.cwd().join(pwd);
         let current_dir = sandbox.cwd().canonicalize().unwrap();
-        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        let child_output = std::process::Command::new(NU.path())
             .args(["-c", "echo $env.PWD"])
             .current_dir(&current_dir)
             .env("PWD", &pwd)

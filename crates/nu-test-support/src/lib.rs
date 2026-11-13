@@ -596,13 +596,10 @@
 pub mod assertions;
 pub mod fs;
 pub mod harness;
+pub mod locale_override;
 pub mod net;
 pub mod playground;
 pub mod value_types;
-
-pub mod deprecated;
-#[doc(no_inline)]
-pub use deprecated::*;
 
 pub mod tester;
 pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test};
@@ -611,17 +608,21 @@ pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test}
 pub mod prelude {
     #[doc(no_inline)]
     pub use super::{
-        Outcome,
         assertions::*,
         harness::deps::*,
-        nu,
         playground::Playground,
-        tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test},
+        tester::{
+            ASSETS, FIXTURES, Result, ShellErrorExt, TestError as Error, TestResultExt,
+            WORKSPACE_ROOT, test,
+        },
         value_types::*,
     };
 
     #[doc(no_inline)]
-    pub use nu_protocol::{CompileError, FromValue, IntoValue, ParseError, ShellError, Value};
+    pub use nu_protocol::{
+        CompileError, FromValue, IntoValue, ParseError, ShellError, Value, test_list, test_record,
+        test_table, test_value,
+    };
 }
 
 // Expose macros to be used for the test harness.

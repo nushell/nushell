@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
 use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
@@ -12,6 +11,11 @@ impl Command for DeleteVar {
 
     fn description(&self) -> &str {
         "Delete variables from nushell memory, making them unrecoverable."
+    }
+
+    fn extra_description(&self) -> &str {
+        "A constant is hidden instead: it can't be used for the rest of the block, but code that \
+         used it before the `unlet` keeps its value."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -28,75 +32,19 @@ impl Command for DeleteVar {
     fn run(
         &self,
         _engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Collect all positional arguments passed to the command
-        let expressions: Vec<_> = (0..).map_while(|i| call.positional_nth(stack, i)).collect();
-
-        // Ensure at least one argument is provided
-        if expressions.is_empty() {
-            return Err(ShellError::Generic(GenericError::new(
-                "Wrong number of arguments",
-                "unlet takes at least one argument",
-                call.head,
-            )));
-        }
-
-        // Validate each argument and collect valid variable IDs
-        let mut var_ids = Vec::with_capacity(expressions.len());
-        for expr in expressions {
-            match &expr.expr {
-                nu_protocol::ast::Expr::Var(var_id) => {
-                    // Prevent deletion of built-in variables that are essential for nushell operation
-                    if var_id == &NU_VARIABLE_ID
-                        || var_id == &ENV_VARIABLE_ID
-                        || var_id == &IN_VARIABLE_ID
-                    {
-                        // Determine the variable name for the error message
-                        let var_name = match *var_id {
-                            NU_VARIABLE_ID => "nu",
-                            ENV_VARIABLE_ID => "env",
-                            IN_VARIABLE_ID => "in",
-                            _ => "unknown", // This should never happen due to the check above
-                        };
-
-                        return Err(ShellError::Generic(GenericError::new(
-                            "Cannot delete built-in variable",
-                            format!(
-                                "'${}' is a built-in variable and cannot be deleted",
-                                var_name
-                            ),
-                            expr.span,
-                        )));
-                    }
-                    var_ids.push(*var_id);
-                }
-                _ => {
-                    // Argument is not a variable reference
-                    return Err(ShellError::Generic(
-                        GenericError::new(
-                            "Not a variable",
-                            "Argument must be a variable reference like $x",
-                            expr.span,
-                        )
-                        .with_help("Use $variable_name to refer to the variable"),
-                    ));
-                }
-            }
-        }
-
-        // Remove all valid variables from the stack
-        for var_id in var_ids {
-            stack.remove_var(var_id);
-        }
-
-        Ok(PipelineData::empty())
-    }
-
-    fn requires_ast_for_arguments(&self) -> bool {
-        true
+        // The IR compiler turns a direct `unlet` call into instructions (`compile_unlet`). This
+        // only runs for an indirect call, like `%($name)` or a plugin's `call_decl`, which
+        // passes values rather than variables.
+        Err(GenericError::new(
+            "Can't call `unlet` indirectly",
+            "`unlet` deletes the variables written in its call, like `unlet $x`",
+            call.head,
+        )
+        .into())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -109,6 +57,11 @@ impl Command for DeleteVar {
             Example {
                 example: "let x = 1; let y = 2; unlet $x $y",
                 description: "Delete multiple variables from memory.",
+                result: None,
+            },
+            Example {
+                example: "const x = 1; def f [] { $x }; unlet $x; f",
+                description: "Hide a constant. A command defined before the `unlet` keeps its value.",
                 result: None,
             },
             Example {

@@ -376,6 +376,17 @@ pub fn is_glob_with_backend(pattern: &str) -> bool {
     }
 }
 
+/// Returns true if a path component of a glob pattern has pattern syntax, so the walk has to
+/// match it rather than start below it, selecting the active backend via the `dc-glob`
+/// experimental option.
+pub fn is_glob_component_with_backend(component: &str) -> bool {
+    if nu_experimental::DC_GLOB.get() {
+        dc_glob::is_glob_component(component)
+    } else {
+        is_glob(component)
+    }
+}
+
 /// Escapes glob metacharacters for literal path matching, selecting the active
 /// backend via the `dc-glob` experimental option.
 pub fn escape_with_backend(pattern: &str) -> String {

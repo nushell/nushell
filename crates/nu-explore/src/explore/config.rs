@@ -48,7 +48,21 @@ impl Default for ExploreConfig {
 }
 
 impl ExploreConfig {
-    /// take the default explore config and update it with relevant values from the nu config
+    /// Build an [`ExploreConfig`] from `$env.config` (via [`Config`]).
+    ///
+    /// Reads only these keys under `$env.config.explore` (others are ignored):
+    /// - color styles: `selected_cell`, `highlight`, `status_bar_text`,
+    ///   `status_bar_background`, `command_bar_text`, `command_bar_background`,
+    ///   `title_bar_text`, `title_bar_background`
+    /// - nested: `status.{info,success,warn,error}`, `try.reactive`
+    ///
+    /// Related values taken from elsewhere (not `$env.config.explore`):
+    /// - [`Config::table`] `.padding` → column padding
+    /// - header/index flags and separator style are set by the `explore` command
+    ///   after this call (`--head`, `--index`, `color_config.separator`)
+    ///
+    /// Unsupported (commonly seen but not applied): `explore.config.*`,
+    /// `explore.table.*` (including `table.selected_cell` / `table.show_cursor`).
     pub fn from_nu_config(config: &Config) -> Self {
         let mut ret = Self::default();
 
@@ -74,12 +88,12 @@ impl ExploreConfig {
             ret.cmd_bar_background = *s;
         }
 
-        if let Some(s) = colors.get("command_bar_background") {
-            ret.cmd_bar_background = *s;
-        }
-
         if let Some(s) = colors.get("selected_cell") {
             ret.selected_cell = *s;
+        }
+
+        if let Some(s) = colors.get("highlight") {
+            ret.highlight = *s;
         }
 
         if let Some(s) = colors.get("title_bar_text") {
@@ -143,5 +157,46 @@ const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
         is_strikethrough: false,
         is_underline: false,
         prefix_with_reset: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::{Config, Value, record};
+    use std::collections::HashMap;
+
+    #[test]
+    fn from_nu_config_applies_highlight() {
+        let mut explore = HashMap::new();
+        explore.insert(
+            "highlight".into(),
+            Value::test_record(record! {
+                "fg" => Value::test_string("red"),
+                "bg" => Value::test_string("blue"),
+            }),
+        );
+        let config = Config {
+            explore,
+            ..Config::default()
+        };
+        let explore_cfg = ExploreConfig::from_nu_config(&config);
+        assert_eq!(explore_cfg.highlight.foreground, Some(Color::Red));
+        assert_eq!(explore_cfg.highlight.background, Some(Color::Blue));
+    }
+
+    #[test]
+    fn from_nu_config_default_highlight_matches_explore_default() {
+        let config = Config::default();
+        let explore_cfg = ExploreConfig::from_nu_config(&config);
+        let defaults = ExploreConfig::default();
+        assert_eq!(
+            explore_cfg.highlight.foreground,
+            defaults.highlight.foreground
+        );
+        assert_eq!(
+            explore_cfg.highlight.background,
+            defaults.highlight.background
+        );
     }
 }

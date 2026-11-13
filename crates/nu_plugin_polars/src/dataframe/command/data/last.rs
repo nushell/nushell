@@ -49,6 +49,10 @@ impl PluginCommand for LastDF {
                     PolarsPluginType::NuLazyFrame.into(),
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
+                (
+                    PolarsPluginType::NuLazyGroupBy.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
             ])
             .category(Category::Custom("dataframe".into()))
     }

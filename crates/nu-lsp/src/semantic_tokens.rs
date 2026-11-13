@@ -101,7 +101,7 @@ mod tests {
         TextDocumentIdentifier, Uri, WorkDoneProgressParams,
         request::{Request, SemanticTokensFullRequest},
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
 
     fn send_semantic_token_request(client_connection: &Connection, uri: Uri) -> Message {
         client_connection
@@ -127,7 +127,7 @@ mod tests {
     fn semantic_token_internals() {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/semantic_tokens/internals.nu");
         let script = path_to_uri(&script);
 

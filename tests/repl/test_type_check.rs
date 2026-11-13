@@ -304,6 +304,14 @@ fn in_variable_expression_wrong_output_type() -> TestResult {
     )
 }
 
+#[test]
+fn pipeline_input_on_rhs_is_type_checked() -> TestResult {
+    fail_test(
+        r#"def test []: int -> any { "x" + $in }; 3 | test"#,
+        "nu::parser::operator_incompatible_types",
+    )
+}
+
 #[rstest]
 #[case("if true {} else { foo 1 }")]
 #[case("if true {} else if (foo 1) == null { }")]

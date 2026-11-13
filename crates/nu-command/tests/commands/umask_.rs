@@ -1,19 +1,20 @@
 use std::os::unix::fs::MetadataExt;
 
-use nix::sys::stat::{Mode, umask};
 use nu_path::AbsolutePath;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_protocol::ShellError;
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
-fn mask_get() {
-    Playground::setup("mask_get", |_dirs, _sandbox| {
-        umask(Mode::from_bits(0o27).unwrap());
+#[deps(NU)]
+fn mask_get() -> Result {
+    let result: CompleteResult =
+        test().run_with_data("nu -n -c $in | complete", "umask rwxr-x---; umask")?;
 
-        let actual = nu!("umask");
-
-        assert!(actual.out.contains("rwxr-x---"));
-    });
+    assert_eq!(result.exit_code, 0);
+    assert_contains("rwxr-x---", result.stdout);
+    assert_eq!(result.stderr, "");
+    Ok(())
 }
 
 fn get_perms(path: &AbsolutePath) -> u32 {
@@ -21,69 +22,89 @@ fn get_perms(path: &AbsolutePath) -> u32 {
 }
 
 #[test]
-fn mask_set() {
+#[deps(NU)]
+fn mask_set() -> Result {
     Playground::setup("mask_set", |dirs, _sandbox| {
-        // Set a "baseline" mask which is different from the one set in the test
-        // script, to ensure it's changed by the command.
-        umask(Mode::from_bits(0o27).unwrap());
-
         // The umask only applies to the process setting it, so the file and
         // directory used in this test must be created inside the same script
         // which calls the umask command.
-        nu!(cwd: dirs.test(), "
+        let code = "
             umask r-x----w-;
             touch file;
             mkdir dir;
-        ");
+        ";
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run_with_data("nu -n -c $in | complete", code)?;
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stderr, "");
 
         let file_path = dirs.test().join("file");
         let dir_path = dirs.test().join("dir");
 
-        assert!(get_perms(&file_path) == 0o402);
-        assert!(get_perms(&dir_path) == 0o502);
-    });
+        assert_eq!(get_perms(&file_path), 0o402);
+        assert_eq!(get_perms(&dir_path), 0o502);
+        Ok(())
+    })
 }
 
 #[test]
-fn mask_set_invalid1() {
+fn mask_set_invalid1() -> Result {
     Playground::setup("mask_set_invalid", |_dirs, _sandbox| {
-        let actual = nu!("umask invalid");
+        let err = test().run("umask invalid").expect_shell_error()?;
 
-        assert!(actual.err.contains("Invalid mode"));
-    });
+        assert_matches!(
+            err,
+            ShellError::IncorrectValue { msg, .. } if msg.starts_with("Invalid mode")
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn mask_set_invalid2() {
+fn mask_set_invalid2() -> Result {
     Playground::setup("mask_set_invalid", |_dirs, _sandbox| {
-        let actual = nu!("umask r-x");
+        let err = test().run("umask r-x").expect_shell_error()?;
 
-        assert!(actual.err.contains("Invalid mode"));
-    });
+        assert_matches!(
+            err,
+            ShellError::IncorrectValue { msg, .. } if msg.starts_with("Invalid mode")
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn mask_set_invalid3() {
+fn mask_set_invalid3() -> Result {
     Playground::setup("mask_set_invalid", |_dirs, _sandbox| {
-        let actual = nu!("umask rwxrwxrwxrwx---rwx");
+        let err = test()
+            .run("umask rwxrwxrwxrwx---rwx")
+            .expect_shell_error()?;
 
-        assert!(actual.err.contains("Invalid mode"));
-    });
+        assert_matches!(
+            err,
+            ShellError::IncorrectValue { msg, .. } if msg.starts_with("Invalid mode")
+        );
+        Ok(())
+    })
 }
 
 #[cfg(target_family = "unix")]
 #[test]
-fn race_overwrite_mask() {
+#[deps(NU)]
+fn race_overwrite_mask() -> Result {
     // See Issue #17469
     //
     // `uucore::mode::get_umask` is racy. This test verifies that our mitigation
     //  is sufficient to prevent the race.
-    Playground::setup("race_overwrite_umask", |dirs, _| {
-        let count = nu!(
-            cwd: dirs.test(),
-            "seq 0 1000 | par-each { umask } | uniq | length"
-        )
-        .out;
-        assert_eq!(count, "1");
-    });
+    let result: CompleteResult = test().run_with_data(
+        "nu -n -c $in | complete",
+        "seq 0 1000 | par-each { umask } | uniq | length",
+    )?;
+
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "1");
+    assert_eq!(result.stderr, "");
+    Ok(())
 }

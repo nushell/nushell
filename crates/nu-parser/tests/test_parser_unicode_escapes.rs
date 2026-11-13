@@ -84,9 +84,7 @@ pub fn unicode_escapes_in_strings_expected_failures() {
 
 #[test]
 pub fn trailing_backslash_escape_does_not_panic() {
-    do_test(
-        b"\"say \\",
-        "--success not expected--",
-        Some("UnexpectedEof"),
-    );
+    // Incomplete quoted string (trailing escape) must not panic. Reported as
+    // Unclosed `"` (multi-span delimiter diagnostic), not a crash.
+    do_test(b"\"say \\", "--success not expected--", Some("Unclosed"));
 }

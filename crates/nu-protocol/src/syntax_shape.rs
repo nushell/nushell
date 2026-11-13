@@ -14,6 +14,10 @@ pub enum SyntaxShape {
     /// Any syntactic form is allowed
     Any,
 
+    /// A plugin-defined custom value, named by its `CustomValue::type_name`
+    /// (e.g. `polars_dataframe`).
+    Custom(Box<str>),
+
     /// A binary literal
     Binary,
 
@@ -91,7 +95,9 @@ pub enum SyntaxShape {
     /// Only a numeric (integer or float) value is allowed
     Number,
 
-    /// One of a list of possible items, checked in order
+    /// One of a list of possible items, checked in order, except that for an argument not
+    /// starting with `$`, `(` or `{`, shapes accepting any bare word (string, path, directory,
+    /// glob, cell-path, external-argument, any) are checked last
     OneOf(Vec<SyntaxShape>),
 
     /// An operator, eg `+`
@@ -137,6 +143,7 @@ impl SyntaxShape {
     pub fn to_type(&self) -> Type {
         match self {
             SyntaxShape::Any => Type::Any,
+            SyntaxShape::Custom(name) => Type::Custom(name.clone()),
             SyntaxShape::Block => Type::Block,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
@@ -192,6 +199,7 @@ impl Display for SyntaxShape {
                 write!(f, "\"{}\" {}", String::from_utf8_lossy(kw), shape)
             }
             SyntaxShape::Any => write!(f, "any"),
+            SyntaxShape::Custom(name) => write!(f, "{name}"),
             SyntaxShape::String => write!(f, "string"),
             SyntaxShape::CellPath => write!(f, "cell-path"),
             SyntaxShape::FullCellPath => write!(f, "cell-path"),

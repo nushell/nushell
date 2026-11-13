@@ -53,10 +53,11 @@ impl Command for StrJoin {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let separator: Option<String> = call.opt_const(working_set, 0)?;
+        let separator: Option<String> = call.opt_const(working_set, stack, 0)?;
         run(working_set.permanent(), call, input, separator)
     }
 

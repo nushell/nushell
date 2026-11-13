@@ -1,6 +1,6 @@
 use nu_parser::parse;
 use nu_protocol::{
-    ParseError,
+    ParseError, Span,
     engine::{EngineState, StateWorkingSet},
 };
 use reedline::{ValidationResult, Validator};
@@ -13,15 +13,35 @@ pub struct NuValidator {
 impl Validator for NuValidator {
     fn validate(&self, line: &str) -> ValidationResult {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
+        let line_start = working_set.next_span_start();
         parse(&mut working_set, None, line.as_bytes(), false);
 
-        if matches!(
-            working_set.parse_errors.first(),
-            Some(ParseError::UnexpectedEof(..))
-        ) {
+        // A file the line loads can have an unclosed delimiter too, but typing more can't close it.
+        // The first loaded file starts where the line ends, so an error at that offset is the
+        // line's only if it also ends there.
+        let line_span = Span::new(line_start, line_start + line.len());
+        let error_in_line = working_set
+            .parse_errors
+            .first()
+            .is_some_and(|error| line_span.contains_span(error.span()));
+
+        if error_in_line && is_incomplete(&working_set.parse_errors) {
             ValidationResult::Incomplete
         } else {
             ValidationResult::Complete
         }
     }
+}
+
+/// Whether a line that parsed with `errors` is unfinished rather than wrong.
+///
+/// Unclosed delimiters and unexpected EOF both mean the user may still be
+/// typing a multi-line construct (e.g. an open `{` in the REPL). Unbalanced
+/// closers are complete but wrong inputs, so the REPL submits the line and
+/// shows the diagnostic.
+pub(crate) fn is_incomplete(errors: &[ParseError]) -> bool {
+    matches!(
+        errors.first(),
+        Some(ParseError::UnexpectedEof(..) | ParseError::Unclosed(..))
+    )
 }

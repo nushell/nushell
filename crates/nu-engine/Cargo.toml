@@ -39,3 +39,4 @@ plugin = [
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }
+rstest.workspace = true

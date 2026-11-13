@@ -5,7 +5,7 @@ use super::{
 
 use nu_protocol::{
     ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Value,
-    ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
+    ast::{CellPath, Expr, Expression, ListItem, Math, Operator, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
 };
@@ -146,6 +146,7 @@ pub(crate) fn compile_expression(
                     Instruction::LoadVariable {
                         dst: out_reg,
                         var_id: IN_VARIABLE_ID,
+                        preserve_origin: false,
                     }
                     .into_spanned(expr.span),
                 )?;
@@ -155,6 +156,7 @@ pub(crate) fn compile_expression(
                     Instruction::LoadVariable {
                         dst: out_reg,
                         var_id: *var_id,
+                        preserve_origin: false,
                     }
                     .into_spanned(expr.span),
                 )?;
@@ -193,6 +195,29 @@ pub(crate) fn compile_expression(
                 out_reg,
             )?;
             builder.push(Instruction::Not { src_dst: out_reg }.into_spanned(expr.span))?;
+            Ok(())
+        }
+        Expr::UnaryMinus(operand) => {
+            drop_input(builder)?;
+            compile_expression(
+                working_set,
+                builder,
+                operand,
+                RedirectModes::value(operand.span),
+                None,
+                out_reg,
+            )?;
+            // Negate by multiplying by -1, which works for every type that can be negated
+            // (ints, floats, durations and filesizes).
+            let minus_one = builder.literal(Literal::Int(-1).into_spanned(expr.span))?;
+            builder.push(
+                Instruction::BinaryOp {
+                    lhs_dst: out_reg,
+                    op: Operator::Math(Math::Multiply),
+                    rhs: minus_one,
+                }
+                .into_spanned(expr.span),
+            )?;
             Ok(())
         }
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -238,7 +263,15 @@ pub(crate) fn compile_expression(
         }
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)
+            compile_block(
+                working_set,
+                builder,
+                block,
+                true,
+                redirect_modes,
+                in_reg,
+                out_reg,
+            )
         }
         Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
         Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),
@@ -399,7 +432,7 @@ pub(crate) fn compile_expression(
                                 key: key_reg,
                                 val: val_reg,
                             }
-                            .into_spanned(expr.span),
+                            .into_spanned(key.span.merge(val.span)),
                         )?;
                     }
                     RecordItem::Spread(spread_span, expr) => {
@@ -418,7 +451,7 @@ pub(crate) fn compile_expression(
                                 src_dst: out_reg,
                                 items: reg,
                             }
-                            .into_spanned(*spread_span),
+                            .into_spanned(spread_span.merge(expr.span)),
                         )?;
                     }
                 }

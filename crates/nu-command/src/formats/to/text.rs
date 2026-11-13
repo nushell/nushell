@@ -2,25 +2,21 @@ use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
-use nu_utils::ObviousFloat;
+use nu_utils::{ObviousFloat, consts::LINE_SEPARATOR_STR};
 use std::io::Write;
 
-const LINE_ENDING: &str = if cfg!(target_os = "windows") {
-    "\r\n"
-} else {
-    "\n"
-};
-
 #[derive(Clone)]
-pub struct ToText;
+pub struct ToTextLike(&'static str);
+pub const TO_TEXT: ToTextLike = ToTextLike("to text");
+pub const TO_TXT: ToTextLike = ToTextLike("to txt");
 
-impl Command for ToText {
+impl Command for ToTextLike {
     fn name(&self) -> &str {
-        "to text"
+        self.0
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to text")
+        Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "no-newline",
@@ -55,15 +51,17 @@ impl Command for ToText {
             PipelineData::Empty => Ok(Value::string(String::new(), head)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
+                let value = value.unwrap_error()?;
                 let add_trailing = !no_newline
                     && match &value {
                         Value::List { vals, .. } => !vals.is_empty(),
                         Value::Record { val, .. } => !val.is_empty(),
                         _ => false,
                     };
-                let mut str = local_into_string(engine_state, value, LINE_ENDING, serialize_types);
+                let mut str =
+                    local_into_string(engine_state, value, LINE_SEPARATOR_STR, serialize_types);
                 if add_trailing {
-                    str.push_str(LINE_ENDING);
+                    str.push_str(LINE_SEPARATOR_STR);
                 }
                 Ok(
                     Value::string(str, head)
@@ -85,17 +83,18 @@ impl Command for ToText {
                             let Some(val) = iter.next() else {
                                 return Ok(false);
                             };
+                            let val = val.unwrap_error()?;
                             if first {
                                 first = false;
                             } else {
-                                write!(buf, "{LINE_ENDING}").map_err(&from_io_error)?;
+                                write!(buf, "{LINE_SEPARATOR_STR}").map_err(&from_io_error)?;
                             }
                             // TODO: write directly into `buf` instead of creating an intermediate
                             // string.
                             let str = local_into_string(
                                 &engine_state_clone,
                                 val,
-                                LINE_ENDING,
+                                LINE_SEPARATOR_STR,
                                 serialize_types,
                             );
                             write!(buf, "{str}").map_err(&from_io_error)?;
@@ -104,16 +103,16 @@ impl Command for ToText {
                     )
                 } else {
                     let engine_state_clone = engine_state.clone();
-                    ByteStream::from_iter(
+                    ByteStream::from_result_iter(
                         stream.into_inner().map(move |val| {
                             let mut str = local_into_string(
                                 &engine_state_clone,
-                                val,
-                                LINE_ENDING,
+                                val.unwrap_error()?,
+                                LINE_SEPARATOR_STR,
                                 serialize_types,
                             );
-                            str.push_str(LINE_ENDING);
-                            str
+                            str.push_str(LINE_SEPARATOR_STR);
+                            Ok(str)
                         }),
                         span,
                         engine_state.signals().clone(),
@@ -130,25 +129,42 @@ impl Command for ToText {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
+        let command = self.name();
         vec![
             Example {
                 description: "Outputs data as simple text with a trailing newline.",
-                example: "[1] | to text",
-                result: Some(Value::test_string("1".to_string() + LINE_ENDING)),
+                example: match command {
+                    "to text" => "[1] | to text",
+                    "to txt" => "[1] | to txt",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
+                result: Some(Value::test_string("1".to_string() + LINE_SEPARATOR_STR)),
             },
             Example {
                 description: "Outputs data as simple text without a trailing newline.",
-                example: "[1] | to text --no-newline",
+                example: match command {
+                    "to text" => "[1] | to text --no-newline",
+                    "to txt" => "[1] | to txt --no-newline",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
                 result: Some(Value::test_string("1")),
             },
             Example {
                 description: "Outputs external data as simple text.",
-                example: "git help -a | lines | find -r '^ ' | to text",
+                example: match command {
+                    "to text" => "git help -a | lines | find -r '^ ' | to text",
+                    "to txt" => "git help -a | lines | find -r '^ ' | to txt",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
                 result: None,
             },
             Example {
                 description: "Outputs records as simple text.",
-                example: "ls | to text",
+                example: match command {
+                    "to text" => "ls | to text",
+                    "to txt" => "ls | to txt",
+                    _ => unreachable!("only implemented for `text` and `txt`"),
+                },
                 result: None,
             },
         ]
@@ -203,8 +219,8 @@ fn local_into_string(
             .join(separator),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
+                let block = engine_state.try_get_block(val.block_id);
+                if let Some(span) = block.and_then(|block| block.span) {
                     let contents_bytes = engine_state.get_span_contents(span);
                     let contents_string = String::from_utf8_lossy(contents_bytes);
                     contents_string.to_string()
@@ -249,7 +265,8 @@ mod test {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(ToText)
+        nu_test_support::test().examples(TO_TEXT)?;
+        nu_test_support::test().examples(TO_TXT)
     }
 
     #[test]
@@ -260,7 +277,7 @@ mod test {
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            working_set.add_decl(Box::new(ToText {}));
+            working_set.add_decl(Box::new(TO_TEXT));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(Get {}));
 

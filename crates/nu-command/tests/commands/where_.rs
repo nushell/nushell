@@ -54,6 +54,20 @@ fn filters_with_1_arity_block() -> Result {
 }
 
 #[test]
+fn where_with_return_in_closure() -> Result {
+    let code = "
+        1..10 | where {|it|
+            if $it mod 2 == 0 {
+                return true
+            };
+            return false
+        }
+    ";
+
+    test().run(code).expect_value_eq([2, 4, 6, 8, 10])
+}
+
+#[test]
 fn unique_env_each_iteration() -> Result {
     let code = "
         [1 2] 
@@ -169,6 +183,48 @@ fn has_operator() -> Result {
 }
 
 #[test]
+fn bool_column_after_logical_operator() -> Result {
+    let table = "[[name, a, b, n]; [w, false, false, 2], [x, false, true, 1], [y, true, false, 1], [z, true, true, 2]]";
+
+    test()
+        .run(format!("{table} | where not a and not b | get name"))
+        .expect_value_eq(["w"])?;
+    test()
+        .run(format!("{table} | where a and b | get name"))
+        .expect_value_eq(["z"])?;
+    test()
+        .run(format!("{table} | where a or b | get name"))
+        .expect_value_eq(["x", "y", "z"])?;
+    test()
+        .run(format!("{table} | where a xor b | get name"))
+        .expect_value_eq(["x", "y"])?;
+    test()
+        .run(format!("{table} | where a or not b and n > 1 | get name"))
+        .expect_value_eq(["w", "y", "z"])?;
+    test()
+        .run(format!("{table} | where n > 1 and b | get name"))
+        .expect_value_eq(["z"])?;
+    // A quoted word resolves like a bare one, as it does on the left.
+    test()
+        .run(format!(r#"{table} | where a and "b" | get name"#))
+        .expect_value_eq(["z"])?;
+    test()
+        .run(format!("{table} | where a and not not b | get name"))
+        .expect_value_eq(["z"])?;
+    // Every command taking a row condition shares the expansion.
+    test()
+        .run(format!("{table} | take while not a and not b | get name"))
+        .expect_value_eq(["w"])
+}
+
+#[test]
+fn bare_word_after_comparison_stays_string() -> Result {
+    test()
+        .run("[[name, foo]; [foo, bar], [bar, foo]] | where name == foo and foo == bar | get name")
+        .expect_value_eq(["foo"])
+}
+
+#[test]
 fn stored_condition() -> Result {
     test()
         .run("let cond = { $in mod 2 == 0 }; 1..10 | where $cond")
@@ -180,4 +236,23 @@ fn nested_stored_condition() -> Result {
     test()
         .run("let nested = {cond: { $in mod 2 == 0 }}; 1..10 | where $nested.cond")
         .expect_value_eq([2, 4, 6, 8, 10])
+}
+
+/// A `where` closure is a row condition, so like `where $it > $x` it can read a `mut` variable.
+#[test]
+fn closure_reads_mutable_variable() -> Result {
+    test()
+        .run("mut x = 1; [1 2 3] | where {|v| $v > $x }")
+        .expect_value_eq([2, 3])
+}
+
+/// A row condition runs over copies of the variables it uses, so assigning to a `mut` variable
+/// in one is an error instead of an update that is silently lost.
+#[rstest::rstest]
+#[case::closure("mut x = 0; [1 2 3] | where {|v| $x += 1; true }")]
+#[case::block("mut x = 0; [1 2 3] | where { $x = 5; true }")]
+fn assigning_mutable_variable_is_an_error(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    pretty_assertions::assert_matches!(err, ParseError::CaptureOfMutableVar(_));
+    Ok(())
 }

@@ -89,12 +89,8 @@ impl Value {
     pub fn find_path<'a>(&'a self, keys: &[&str]) -> Option<&'a Value> {
         let mut target = self;
         for key in keys {
-            match target.find(key) {
-                Some(t) => {
-                    target = t;
-                }
-                None => return None,
-            }
+            let t = target.find(key)?;
+            target = t;
         }
         Some(target)
     }
@@ -131,11 +127,7 @@ impl Value {
                 Value::Array(ref list) => parse_index(&token[..]).and_then(|x| list.get(x)),
                 _ => return None,
             };
-            if let Some(t) = target_opt {
-                target = t;
-            } else {
-                return None;
-            }
+            target = target_opt?;
         }
         Some(target)
     }

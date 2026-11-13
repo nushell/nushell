@@ -144,8 +144,8 @@ fn use_do_cd_file_relative() -> Result {
 }
 
 #[test]
-fn use_dont_cd_overlay() -> Result {
-    Playground::setup("use_dont_cd_overlay", |dirs, playground| {
+fn use_overlay_hide_keeps_cd() -> Result {
+    Playground::setup("use_overlay_hide_keeps_cd", |dirs, playground| {
         playground
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
@@ -163,7 +163,7 @@ fn use_dont_cd_overlay() -> Result {
         let () = tester.run("use test1/test2/spam.nu")?;
         tester
             .run("$env.PWD | path basename")
-            .expect_value_eq("use_dont_cd_overlay")
+            .expect_value_eq("test2")
     })
 }
 
@@ -224,6 +224,77 @@ fn use_module_creates_accurate_did_you_mean_2() -> Result {
     match err {
         ShellError::ExternalCommand { help, .. } => {
             assert_contains("A command with that name exists in module `spam`.", help);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
+#[case("def fizz [] { }")]
+#[case("extern fizz []")]
+#[case("alias fizz = ^git")]
+fn do_not_suggest_later_def(#[case] forward_decl: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run("def buzz [] { fizz }")?;
+    let () = tester.run(forward_decl)?;
+
+    let err = tester.run("buzz").expect_shell_error()?;
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert_eq!(
+                help,
+                "`fizz` is neither a Nushell built-in or a known external command"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
+#[case::alias("alias st = str trim", "hide st", "st", "`st`")]
+#[case::module_command(
+    "module spam { export def baz [] {} }; use spam",
+    "hide 'spam baz'",
+    "spam baz",
+    "`spam baz`"
+)]
+fn do_not_suggest_command_hidden_from_later_overlay(
+    #[case] definition: &str,
+    #[case] hide: &str,
+    #[case] call: &str,
+    #[case] hidden_name: &str,
+) -> Result {
+    // Separate source units: the command is merged into overlay `zero` before `hide` runs with
+    // `x` active, so the hide is recorded in `x`.
+    let mut tester = test();
+    let () = tester.run(definition)?;
+    let () = tester.run("overlay new x")?;
+    let () = tester.run(hide)?;
+
+    let err = tester.run(call).expect_shell_error()?;
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert_contains_not(hidden_name, help);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn suggest_only_imported_path() -> Result {
+    let mut tester = test();
+    let () = tester.run("use std/dirs")?;
+
+    let err = tester.run("gt").expect_shell_error()?;
+
+    // here it should _not_ suggest "goto",
+    // which is only available via "dirs goto"
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert_eq!(help, "Did you mean `get`?");
             Ok(())
         }
         err => Err(err.into()),
@@ -363,4 +434,125 @@ fn report_errors_in_export_env() -> Result {
     let err = test().run(code).expect_shell_error()?;
     assert_contains("reported", err.to_string());
     Ok(())
+}
+
+#[test]
+fn use_keyword_named_module_with_main_errors() -> Result {
+    let code = r#"
+        module run { export def main [] { "hello" } }
+        use run
+    "#;
+
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::KeywordShadowModuleMain(name, ..) => {
+            assert_eq!(name, "run");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
+#[case("run")]
+#[case("if")]
+#[case("where")]
+#[case("source")]
+#[case("overlay")]
+fn use_keyword_named_module_with_main_errors_for_keyword(#[case] keyword: &str) -> Result {
+    let code = format!(
+        r#"module {kw} {{ export def main [] {{ "hello" }} }}
+        use {kw}"#,
+        kw = keyword
+    );
+
+    let err = test().run(&code).expect_parse_error()?;
+    match err {
+        ParseError::KeywordShadowModuleMain(name, ..) => {
+            assert_eq!(name, keyword);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn use_keyword_named_module_without_main_works() -> Result {
+    let code = r#"
+        module run { export def helper [] { "hello" } }
+        use run helper
+        helper
+    "#;
+
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn use_non_keyword_module_with_main_works() -> Result {
+    let code = r#"
+        module spam { export def main [] { "hello" } }
+        use spam
+        spam
+    "#;
+
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn overlay_use_keyword_named_module_with_main_errors() -> Result {
+    let code = r#"
+        module run { export def main [] { "hello" } }
+        overlay use run
+    "#;
+
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::KeywordShadowModuleMain(name, ..) => {
+            assert_eq!(name, "run");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn overlay_use_keyword_named_module_as_different_name_works() -> Result {
+    Playground::setup("use_keyword_as", |dirs, playground| {
+        playground.with_files(&[FileWithContentToBeTrimmed(
+            "run.nu",
+            "
+                export def main [] { 'hello' }
+            ",
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run("overlay use run.nu as my_run; my_run")
+            .expect_value_eq("hello")
+    })
+}
+
+#[test]
+fn use_keyword_named_module_file_with_main_errors() -> Result {
+    Playground::setup("use_keyword_file", |dirs, playground| {
+        playground.with_files(&[FileWithContentToBeTrimmed(
+            "run.nu",
+            "
+                export def main [] { 'hello' }
+            ",
+        )]);
+
+        let err = test()
+            .cwd(dirs.test())
+            .run("use run.nu")
+            .expect_parse_error()?;
+
+        match err {
+            ParseError::KeywordShadowModuleMain(name, ..) => {
+                assert_eq!(name, "run");
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
+    })
 }

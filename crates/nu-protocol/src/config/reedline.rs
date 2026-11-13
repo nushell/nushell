@@ -73,6 +73,10 @@ pub struct CursorShapeConfig {
     pub emacs: NuCursorShape,
     pub vi_insert: NuCursorShape,
     pub vi_normal: NuCursorShape,
+    pub vi_visual: NuCursorShape,
+    pub helix_normal: NuCursorShape,
+    pub helix_select: NuCursorShape,
+    pub helix_insert: NuCursorShape,
 }
 
 impl UpdateFromValue for CursorShapeConfig {
@@ -92,7 +96,11 @@ impl UpdateFromValue for CursorShapeConfig {
             match col.as_str() {
                 "vi_insert" => self.vi_insert.update(val, path, errors),
                 "vi_normal" => self.vi_normal.update(val, path, errors),
+                "vi_visual" => self.vi_visual.update(val, path, errors),
                 "emacs" => self.emacs.update(val, path, errors),
+                "helix_normal" => self.helix_normal.update(val, path, errors),
+                "helix_select" => self.helix_select.update(val, path, errors),
+                "helix_insert" => self.helix_insert.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }
@@ -104,6 +112,7 @@ pub enum EditBindings {
     Vi,
     #[default]
     Emacs,
+    Helix,
 }
 
 impl FromStr for EditBindings {
@@ -113,7 +122,8 @@ impl FromStr for EditBindings {
         match s.to_ascii_lowercase().as_str() {
             "vi" => Ok(Self::Vi),
             "emacs" => Ok(Self::Emacs),
-            _ => Err("'emacs' or 'vi'"),
+            "helix" => Ok(Self::Helix),
+            _ => Err("'emacs', 'vi' or 'helix'"),
         }
     }
 }

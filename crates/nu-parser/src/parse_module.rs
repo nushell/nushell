@@ -1,7 +1,7 @@
 use crate::{
     Token, TokenContents,
     exportable::Exportable,
-    lex,
+    lex_once::lex_file,
     lite_parser::{LiteCommand, lite_parse},
     parse_helpers::{garbage_pipeline, trim_quotes},
     parse_pipelines::redirecting_builtin_error,
@@ -17,9 +17,10 @@ use crate::parse_bindings::parse_const;
 use crate::parse_def::{
     has_flag_const, parse_attribute_block, parse_def, parse_def_predecl, parse_extern,
 };
+use crate::parse_type_alias::parse_type_alias;
 
 use nu_protocol::{
-    BlockId, Module, ModuleId, ParseError, Span, Type,
+    BlockId, Module, ModuleId, ParseError, ResolvedImportPattern, Span, Type,
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline,
@@ -83,6 +84,7 @@ pub fn parse_export_in_block(
             b"use" => "export use",
             b"module" => "export module",
             b"const" => "export const",
+            b"type" => "export type",
             _ => "export",
         }
     } else {
@@ -96,12 +98,13 @@ pub fn parse_export_in_block(
 
     let mut pipeline = match full_name {
         "export def" => parse_def(working_set, lite_command, None).0,
-        "export extern" => parse_extern(working_set, lite_command, None),
+        "export extern" => parse_extern(working_set, lite_command, None).0,
         _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         "export alias" => parse_alias(working_set, lite_command, None),
         "export const" => parse_const(working_set, &lite_command.parts[1..]).0,
         "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
+        "export type" => parse_type_alias(working_set, lite_command).0,
         _ => {
             if let Some(decl_id) = working_set.find_decl(full_name.as_bytes()) {
                 let starting_error_count = working_set.parse_errors.len();
@@ -194,30 +197,20 @@ pub fn parse_export_in_module(
                 (pipeline, result)
             }
             b"extern" => {
-                let mut pipeline = parse_extern(working_set, lite_command, Some(module_name));
-
-                if !warp_export_call(working_set, &mut pipeline, "export extern", spans) {
-                    return (garbage_pipeline(working_set, spans), vec![]);
-                }
+                let (mut pipeline, cmd_result) =
+                    parse_extern(working_set, lite_command, Some(module_name));
 
                 let mut result = vec![];
 
-                let decl_name = match spans.get(2) {
-                    Some(span) => working_set.get_span_contents(*span),
-                    None => &[],
-                };
-                let decl_name = trim_quotes(decl_name);
-
-                if let Some(decl_id) = working_set.find_decl(decl_name) {
+                if let Some((decl_name, decl_id)) = cmd_result {
                     result.push(Exportable::Decl {
-                        name: decl_name.to_vec(),
+                        name: decl_name,
                         id: decl_id,
                     });
-                } else {
-                    working_set.error(ParseError::InternalError(
-                        "failed to find added declaration".into(),
-                        Span::concat(&spans[1..]),
-                    ));
+                }
+
+                if !warp_export_call(working_set, &mut pipeline, "export extern", spans) {
+                    return (garbage_pipeline(working_set, spans), vec![]);
                 }
 
                 (pipeline, result)
@@ -310,6 +303,20 @@ pub fn parse_export_in_module(
 
                 (pipeline, result)
             }
+            b"type" => {
+                let (mut pipeline, type_alias) = parse_type_alias(working_set, lite_command);
+
+                if !warp_export_call(working_set, &mut pipeline, "export type", spans) {
+                    return (garbage_pipeline(working_set, spans), vec![]);
+                }
+
+                let result = type_alias
+                    .map(|(name, id)| Exportable::TypeAlias { name, id })
+                    .into_iter()
+                    .collect();
+
+                (pipeline, result)
+            }
             b"const" => {
                 let (mut pipeline, var_name_span) = parse_const(working_set, &spans[1..]);
 
@@ -344,7 +351,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, alias, use, module, const or extern keyword",
+                    "def, alias, use, module, const, extern or type keyword",
                     spans[1],
                 ));
 
@@ -353,9 +360,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, alias, use, module, const or extern keyword".to_string(),
+            "def, alias, use, module, const, extern or type keyword".to_string(),
             Span::new(export_span.end, export_span.end),
-            "def, alias, use, module, const or extern keyword".to_string(),
+            "def, alias, use, module, const, extern or type keyword".to_string(),
         ));
 
         (garbage_pipeline(working_set, spans), vec![])
@@ -495,9 +502,9 @@ pub fn parse_module_block(
 ) -> (Block, Module, Vec<Span>) {
     working_set.enter_scope();
 
-    let source = working_set.get_span_contents(span);
-
-    let (output, err) = lex(source, span.start, &[], &[], false);
+    // A bracket table recorded for the module's file serves only this parse (see `lex_file`).
+    let bracket_tables = working_set.bracket_tables.len();
+    let (output, err) = lex_file(working_set, span, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -536,7 +543,7 @@ pub fn parse_module_block(
                     .push(parse_def(working_set, command, None).0),
                 b"extern" => block
                     .pipelines
-                    .push(parse_extern(working_set, command, None)),
+                    .push(parse_extern(working_set, command, None).0),
                 b"export" => {
                     let (pipe, exportables) =
                         parse_export_in_module(working_set, command, module_name, &mut module);
@@ -568,13 +575,27 @@ pub fn parse_module_block(
                             }
                             Exportable::Module { name, id } => {
                                 if &name == b"mod" {
-                                    let (submodule_main, submodule_decls, submodule_submodules) = {
+                                    let (
+                                        submodule_main,
+                                        submodule_decls,
+                                        submodule_submodules,
+                                        submodule_type_aliases,
+                                    ) = {
                                         let submodule = working_set.get_module(id);
-                                        (submodule.main, submodule.decls(), submodule.submodules())
+                                        (
+                                            submodule.main,
+                                            submodule.decls(),
+                                            submodule.submodules(),
+                                            submodule.type_aliases.clone(),
+                                        )
                                     };
 
                                     for (decl_name, decl_id) in submodule_decls {
                                         module.add_decl(decl_name, decl_id);
+                                    }
+
+                                    for (alias_name, type_alias_id) in submodule_type_aliases {
+                                        module.add_type_alias(alias_name, type_alias_id);
                                     }
 
                                     if let Some(main_decl_id) = submodule_main {
@@ -609,6 +630,9 @@ pub fn parse_module_block(
                             Exportable::VarDecl { name, id } => {
                                 module.add_variable(name, id);
                             }
+                            Exportable::TypeAlias { name, id } => {
+                                module.add_type_alias(name, id);
+                            }
                         }
                     }
 
@@ -623,6 +647,9 @@ pub fn parse_module_block(
                 b"alias" => block
                     .pipelines
                     .push(parse_alias(working_set, command, None)),
+                b"type" => block
+                    .pipelines
+                    .push(parse_type_alias(working_set, command).0),
                 b"use" => {
                     let (pipeline, _) = parse_use(working_set, command, Some(&mut module));
 
@@ -644,7 +671,7 @@ pub fn parse_module_block(
                 }
                 _ => {
                     working_set.error(ParseError::ExpectedKeyword(
-                        "def, const, extern, alias, use, module, export or export-env keyword"
+                        "def, const, extern, alias, type, use, module, export or export-env keyword"
                             .into(),
                         command.parts[0],
                     ));
@@ -660,49 +687,61 @@ pub fn parse_module_block(
         }
     }
 
+    working_set.bracket_tables.truncate(bracket_tables);
     working_set.exit_scope();
 
     (block, module, module_comments)
 }
 
-fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
-    let module = working_set.get_module(module_id);
+/// Returns true if the module's file has changed on disk. Modules without a file, and files
+/// that can no longer be read, count as unchanged.
+fn file_changed(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    let Some((file_path, file_id)) = &working_set.get_module(module_id).file else {
+        return false;
+    };
+    matches!(
+        (working_set.get_contents_of_file(*file_id), file_path.read(working_set)),
+        (Some(existing), Some(new)) if existing != new
+    )
+}
 
-    fn submodule_need_reloading(working_set: &StateWorkingSet, submodule_id: ModuleId) -> bool {
-        let submodule = working_set.get_module(submodule_id);
-        let submodule_changed = if let Some((file_path, file_id)) = &submodule.file {
-            let existing_contents = working_set.get_contents_of_file(*file_id);
-            let file_contents = file_path.read(working_set);
-
-            if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
-                existing != new
-            } else {
-                false
+/// The modules reachable from `module_id` through submodules or imports.
+///
+/// Each module is listed once: modules are commonly reachable through many paths (e.g. a utility
+/// module imported by most siblings).
+fn reachable_modules(working_set: &StateWorkingSet, module_id: ModuleId) -> Vec<ModuleId> {
+    fn walk(
+        working_set: &StateWorkingSet,
+        module_id: ModuleId,
+        seen: &mut HashSet<ModuleId>,
+        found: &mut Vec<ModuleId>,
+    ) {
+        let module = working_set.get_module(module_id);
+        for id in module
+            .submodules
+            .iter()
+            .map(|(_, id)| *id)
+            .chain(module.imported_modules.iter().copied())
+        {
+            if seen.insert(id) {
+                found.push(id);
+                walk(working_set, id, seen, found);
             }
-        } else {
-            false
-        };
-
-        if submodule_changed {
-            true
-        } else {
-            module_needs_reloading(working_set, submodule_id)
         }
     }
 
-    let export_submodule_changed = module
-        .submodules
-        .iter()
-        .any(|(_, submodule_id)| submodule_need_reloading(working_set, *submodule_id));
+    let mut found = vec![];
+    walk(working_set, module_id, &mut HashSet::new(), &mut found);
+    found
+}
 
-    if export_submodule_changed {
-        return true;
-    }
-
-    module
-        .imported_modules
-        .iter()
-        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id))
+/// Returns true if any module reachable from `module_id` has changed on disk since it was parsed.
+///
+/// Each file is read at most once per call, which matters where file opens are expensive.
+fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    reachable_modules(working_set, module_id)
+        .into_iter()
+        .any(|id| file_changed(working_set, id))
 }
 
 fn parse_module_file(
@@ -736,27 +775,202 @@ fn parse_module_file(
     let file_id = working_set.add_file(&path.path().to_string_lossy(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
-    if let Some(module_id) = working_set.find_module_by_span(new_span)
+    let previous = working_set.find_module(module_name.as_bytes());
+
+    let module_id = if let Some(module_id) = working_set.find_module_by_span(new_span)
         && !module_needs_reloading(working_set, module_id)
     {
-        return Some(module_id);
+        module_id
+    } else {
+        if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
+            working_set.error(e);
+            return None;
+        }
+
+        let (block, mut module, module_comments) =
+            parse_module_block(working_set, new_span, module_name.as_bytes());
+
+        working_set.files.pop();
+
+        let _ = working_set.add_block(Arc::new(block));
+        module.file = Some((path, file_id));
+        working_set.add_module(&module_name, module, module_comments)
+    };
+
+    if let Some(previous) = previous
+        && previous != module_id
+        && same_module_file(working_set, previous, module_id)
+    {
+        refresh_imports(working_set, previous, module_id, path_span);
+        // Point the name at this version: one found in the cache wasn't added above.
+        working_set.use_modules(vec![(module_name.into_bytes(), module_id)]);
     }
-
-    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
-        working_set.error(e);
-        return None;
-    }
-
-    let (block, mut module, module_comments) =
-        parse_module_block(working_set, new_span, module_name.as_bytes());
-
-    working_set.files.pop();
-
-    let _ = working_set.add_block(Arc::new(block));
-    module.file = Some((path, file_id));
-    let module_id = working_set.add_module(&module_name, module, module_comments);
 
     Some(module_id)
+}
+
+/// Re-reads a module that was found by name if its file, or a file it imports, changed on disk.
+///
+/// Returns the module to use: the new version, or `module_id` itself when nothing changed, when
+/// the module wasn't loaded from a file, or while the highlighter is skipping module loads.
+///
+/// A module added during this parse was only just read, so it isn't checked. That keeps the
+/// `export module x.nu; export use x` idiom from walking the disk once per module in a tree.
+fn reload_changed_module(
+    working_set: &mut StateWorkingSet,
+    module_id: ModuleId,
+    span: Span,
+) -> ModuleId {
+    let added_in_this_parse = module_id.get() >= working_set.permanent().num_modules();
+    if working_set.skip_module_load
+        || added_in_this_parse
+        || !(file_changed(working_set, module_id) || module_needs_reloading(working_set, module_id))
+    {
+        return module_id;
+    }
+
+    let module = working_set.get_module(module_id);
+    let Some((path, _)) = module.file.clone() else {
+        return module_id;
+    };
+    let name = String::from_utf8_lossy(&module.name).to_string();
+
+    parse_module_file(working_set, path, span, Some(name)).unwrap_or(module_id)
+}
+
+/// Whether two modules came from the same file, which makes one a newer version of the other.
+fn same_module_file(working_set: &StateWorkingSet, first: ModuleId, second: ModuleId) -> bool {
+    match (
+        &working_set.get_module(first).file,
+        &working_set.get_module(second).file,
+    ) {
+        (Some((first, _)), Some((second, _))) => first == second,
+        _ => false,
+    }
+}
+
+/// What `use <module> *` brings into scope.
+fn glob_exports(
+    working_set: &StateWorkingSet,
+    module_id: ModuleId,
+    span: Span,
+) -> ResolvedImportPattern {
+    let (exports, _) = working_set.get_module(module_id).resolve_import_pattern(
+        working_set,
+        module_id,
+        &[ImportPatternMember::Glob { span }],
+        None,
+        span,
+        &mut vec![],
+    );
+    exports
+}
+
+/// Compares what two versions of a module export. Returns the names to point at the new version,
+/// which are the ones still showing the old one, and the ids of the exports the new one dropped,
+/// apart from any in `keep`.
+fn compare_exports<Id: Copy + PartialEq>(
+    old: &[(Vec<u8>, Id)],
+    new: &[(Vec<u8>, Id)],
+    keep: &[(Vec<u8>, Id)],
+    find: impl Fn(&[u8]) -> Option<Id>,
+) -> (Vec<(Vec<u8>, Id)>, Vec<Id>) {
+    let mut kept = vec![];
+    let mut dropped = vec![];
+
+    for (name, old_id) in old {
+        match new.iter().find(|(new_name, _)| new_name == name) {
+            Some((_, new_id)) => {
+                if new_id != old_id && find(name) == Some(*old_id) {
+                    kept.push((name.clone(), *new_id));
+                }
+            }
+            None => {
+                if !keep.iter().any(|(_, id)| id == old_id) {
+                    dropped.push(*old_id);
+                }
+            }
+        }
+    }
+
+    (kept, dropped)
+}
+
+/// Brings what was imported from `old` up to date with `new`, the version of the module that was
+/// just read from the same file, however it was imported and whichever names this `use` asked for.
+///
+/// A name still showing the old version moves to the new one, and an export the new version
+/// dropped is hidden, so a command deleted from the file goes away. Both go by the old definitions'
+/// ids, so a command you've since defined with the same name stays.
+fn refresh_imports(working_set: &mut StateWorkingSet, old: ModuleId, new: ModuleId, span: Span) {
+    // `use <module> *` names everything except the prefixed names `use <module>` brings in.
+    let all_decls = |module_id: ModuleId, exports: &ResolvedImportPattern| {
+        let module = working_set.get_module(module_id);
+        let mut decls = module.decls_with_head(&module.name);
+        decls.extend_from_slice(&exports.decls);
+        decls
+    };
+
+    let old_exports = glob_exports(working_set, old, span);
+    let new_exports = glob_exports(working_set, new, span);
+
+    // A re-export this module dropped can also be what you imported straight from its own module,
+    // which is still there. A module counts if you can name it, unless it's only in scope because
+    // `use <module> *` bound it as a submodule.
+    let mut direct = ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]);
+    for id in reachable_modules(working_set, old) {
+        if let Some(id) = working_set.find_module(&working_set.get_module(id).name)
+            && id != old
+            && !old_exports.modules.iter().any(|(_, bound)| *bound == id)
+        {
+            let exports = glob_exports(working_set, id, span);
+            direct.decls.extend(exports.decls);
+            direct.constants.extend(exports.constants);
+            direct.type_aliases.extend(exports.type_aliases);
+        }
+    }
+
+    let (decls, dropped_decls) = compare_exports(
+        &all_decls(old, &old_exports),
+        &all_decls(new, &new_exports),
+        &direct.decls,
+        |name| working_set.find_decl(name),
+    );
+    let (type_aliases, dropped_type_aliases) = compare_exports(
+        &old_exports.type_aliases,
+        &new_exports.type_aliases,
+        &direct.type_aliases,
+        |name| working_set.find_type_alias(name),
+    );
+    let (constants, dropped_constants) = compare_exports(
+        &old_exports.constants,
+        &new_exports.constants,
+        &direct.constants,
+        |name| working_set.find_variable(name),
+    );
+    let (modules, dropped_modules) =
+        compare_exports(&old_exports.modules, &new_exports.modules, &[], |name| {
+            working_set.find_module(name)
+        });
+
+    working_set.use_decls(decls);
+    working_set.use_type_aliases(type_aliases);
+    working_set.use_variables(constants);
+    working_set.use_modules(modules);
+
+    for id in dropped_constants {
+        working_set.hide_variable(id);
+    }
+    for id in dropped_modules {
+        working_set.hide_module(id);
+    }
+    let visibility = &mut working_set.last_overlay_mut().visibility;
+    for id in dropped_decls {
+        visibility.hide_decl_id(&id);
+    }
+    for id in dropped_type_aliases {
+        visibility.hide_type_alias_id(&id);
+    }
 }
 
 fn find_in_dirs(
@@ -780,8 +994,15 @@ pub fn parse_module_file_or_dir(
         return None;
     }
 
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
+    if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
+        return None;
+    }
+
+    let cwd = working_set
+        .permanent()
+        .cwd_as_string(None)
+        .unwrap_or_default();
 
     let module_path = if let Some(path) = find_in_dirs(
         &module_path_str,
@@ -804,8 +1025,10 @@ pub fn parse_module_file_or_dir(
             return None;
         };
 
-        let module_name = if let Some(stem) = module_path.file_stem() {
-            stem.to_string_lossy().to_string()
+        // A directory has no extension, so use its whole name. Otherwise
+        // `a.b` would become a module called `a`.
+        let module_name = if let Some(name) = module_path.path().file_name() {
+            name.to_string_lossy().to_string()
         } else {
             working_set.error(ParseError::ModuleNotFound(
                 path_span,
@@ -964,6 +1187,11 @@ pub fn parse_module(
             Type::Any,
         )]);
 
+        if working_set.skip_module_load {
+            working_set.skipped_module_load = true;
+            return (pipeline, None);
+        }
+
         if let Some(module_id) = parse_module_file_or_dir(
             working_set,
             module_name_or_path.as_bytes(),
@@ -1006,7 +1234,14 @@ pub fn parse_module(
     if block_bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
+        let open = Span::new(
+            block_expr_span.start,
+            block_expr_span
+                .start
+                .saturating_add(1)
+                .min(block_expr_span.end),
+        );
+        working_set.error(ParseError::unclosed("}", open, Span::new(end, end)));
     }
 
     let block_content_span = Span::new(start, end);
@@ -1042,6 +1277,28 @@ pub fn parse_module(
         )]),
         Some(module_id),
     )
+}
+
+/// A module named after a parser keyword cannot have its `main` command invoked,
+/// because `main` is the module's default entry point (called as `module_name`),
+/// and parser keywords are intercepted by the parser before any command lookup.
+///
+/// Emits a `KeywordShadowModuleMain` error and returns `true` when this conflict is detected.
+fn check_main_keyword_shadow(
+    working_set: &mut StateWorkingSet,
+    has_main: bool,
+    name: &[u8],
+    span: Span,
+) -> bool {
+    if has_main && crate::parse_keywords::is_parser_keyword(name) {
+        working_set.error(ParseError::KeywordShadowModuleMain(
+            String::from_utf8_lossy(name).to_string(),
+            span,
+        ));
+        true
+    } else {
+        false
+    }
 }
 
 pub fn parse_use(
@@ -1157,6 +1414,7 @@ pub fn parse_use(
     };
 
     let (mut import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
+        let module_id = reload_changed_module(working_set, module_id, import_pattern.head.span);
         let module = working_set.get_module(module_id).clone();
         (
             ImportPattern {
@@ -1172,6 +1430,17 @@ pub fn parse_use(
             module,
             module_id,
         )
+    } else if working_set.skip_module_load {
+        working_set.skipped_module_load = true;
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]),
+            vec![],
+        );
     } else if let Some(module_id) = parse_module_file_or_dir(
         working_set,
         &import_pattern.head.name,
@@ -1208,6 +1477,15 @@ pub fn parse_use(
             vec![],
         );
     };
+
+    if check_main_keyword_shadow(
+        working_set,
+        module.main.is_some(),
+        &module.name,
+        import_pattern.head.span,
+    ) {
+        return (garbage_pipeline(working_set, &[call_span]), vec![]);
+    }
 
     let mut imported_modules = vec![];
     let (definitions, errors) = module.resolve_import_pattern(
@@ -1258,6 +1536,15 @@ pub fn parse_use(
                     id: *variable_id,
                 }),
         )
+        .chain(
+            definitions
+                .type_aliases
+                .iter()
+                .map(|(name, type_alias_id)| Exportable::TypeAlias {
+                    name: name.clone(),
+                    id: *type_alias_id,
+                }),
+        )
         .collect();
 
     import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
@@ -1267,6 +1554,7 @@ pub fn parse_use(
     }
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
+    working_set.use_type_aliases(definitions.type_aliases);
     working_set.use_variables(constants);
 
     let import_pattern_expr = Expression::new(
@@ -1363,17 +1651,17 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
             parse_string(working_set, *span);
         }
 
-        let (is_module, module) =
+        let (module_id, module) =
             if let Some(module_id) = working_set.find_module(&import_pattern.head.name) {
-                (true, working_set.get_module(module_id).clone())
+                (Some(module_id), working_set.get_module(module_id).clone())
             } else if import_pattern.members.is_empty() {
                 if let Some(id) = working_set.find_decl(&import_pattern.head.name) {
                     let mut module = Module::new(b"tmp".to_vec());
                     module.add_decl(import_pattern.head.name.clone(), id);
 
-                    (false, module)
+                    (None, module)
                 } else {
-                    (false, Module::new(b"tmp".to_vec()))
+                    (None, Module::new(b"tmp".to_vec()))
                 }
             } else {
                 working_set.error(ParseError::ModuleNotFound(
@@ -1383,17 +1671,46 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                 return garbage_pipeline(working_set, spans);
             };
 
-        let decls_to_hide = if import_pattern.members.is_empty() {
-            if is_module {
-                module.decl_names_with_head(&import_pattern.head.name)
+        // A type alias comes after aliases and commands in `hide`'s priority: a bare name hides
+        // the type alias of that name only when it doesn't name an alias or a command.
+        let (decls_to_hide, type_aliases_to_hide) = if import_pattern.members.is_empty() {
+            if let Some(module_id) = module_id {
+                // `use <module>` brings in `<module> cmd` and `use <module> *` brings in `cmd`, so
+                // hide whichever happened. A bare name counts only while it's still the module's:
+                // a command of your own with that name stays. Only the glob form imports type
+                // aliases.
+                let mut decls = module.decl_names_with_head(&import_pattern.head.name);
+                let exports = glob_exports(working_set, module_id, spans[1]);
+                for (name, id) in exports.decls {
+                    if working_set.find_decl(&name) == Some(id) && !decls.contains(&name) {
+                        decls.push(name);
+                    }
+                }
+                let type_aliases = exports
+                    .type_aliases
+                    .into_iter()
+                    .filter(|(name, id)| working_set.find_type_alias(name) == Some(*id))
+                    .map(|(name, _)| name)
+                    .collect();
+                (decls, type_aliases)
             } else {
-                module.decl_names()
+                let decls = module.decl_names();
+                let type_aliases = if decls.is_empty() {
+                    vec![import_pattern.head.name.clone()]
+                } else {
+                    vec![]
+                };
+                (decls, type_aliases)
             }
         } else {
             match &import_pattern.members[0] {
-                ImportPatternMember::Glob { .. } => module.decl_names(),
+                ImportPatternMember::Glob { .. } => (
+                    module.decl_names(),
+                    module.type_aliases.keys().cloned().collect(),
+                ),
                 ImportPatternMember::Name { name, span } => {
                     let mut decls = vec![];
+                    let mut type_aliases = vec![];
 
                     if name == b"main" {
                         if module.main.is_some() {
@@ -1405,14 +1722,17 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                         module.decl_name_with_head(name, &import_pattern.head.name)
                     {
                         decls.push(item);
+                    } else if module.type_aliases.contains_key(name) {
+                        type_aliases.push(name.clone());
                     } else {
                         working_set.error(ParseError::ExportNotFound(*span));
                     }
 
-                    decls
+                    (decls, type_aliases)
                 }
                 ImportPatternMember::List { names } => {
                     let mut decls = vec![];
+                    let mut type_aliases = vec![];
 
                     for (name, span) in names {
                         if name == b"main" {
@@ -1426,13 +1746,15 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                             module.decl_name_with_head(name, &import_pattern.head.name)
                         {
                             decls.push(item);
+                        } else if module.type_aliases.contains_key(name) {
+                            type_aliases.push(name.clone());
                         } else {
                             working_set.error(ParseError::ExportNotFound(*span));
                             break;
                         }
                     }
 
-                    decls
+                    (decls, type_aliases)
                 }
             }
         };
@@ -1444,6 +1766,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         };
 
         working_set.hide_decls(&decls_to_hide);
+        working_set.hide_type_aliases(&type_aliases_to_hide);
 
         let import_pattern_expr = Expression::new(
             working_set,
@@ -1506,7 +1829,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     working_set.add_overlay(
         overlay_name.as_bytes().to_vec(),
         module_id,
-        nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+        nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
         false,
     );
 
@@ -1625,6 +1948,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             let module_id = overlay_frame.origin;
 
             if let Some(new_module_id) = working_set.find_module(overlay_name.as_bytes()) {
+                let new_module_id =
+                    reload_changed_module(working_set, new_module_id, overlay_name_span);
                 if !do_reload && (module_id == new_module_id) {
                     (
                         overlay_name,
@@ -1641,17 +1966,29 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     )
                 }
             } else {
-                let module_name = overlay_name.as_bytes().to_vec();
-                (overlay_name, Module::new(module_name), module_id, true)
+                // The overlay's name isn't bound to a module here, as when the overlay was renamed
+                // or its module was imported in another overlay. Its origin still knows the file.
+                let new_module_id =
+                    reload_changed_module(working_set, module_id, overlay_name_span);
+                let module = if new_module_id == module_id {
+                    Module::new(overlay_name.as_bytes().to_vec())
+                } else {
+                    working_set.get_module(new_module_id).clone()
+                };
+                (overlay_name, module, new_module_id, true)
             }
         } else {
             if let Some(module_id) = working_set.find_module(overlay_name.as_bytes()) {
+                let module_id = reload_changed_module(working_set, module_id, overlay_name_span);
                 (
                     new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
                     working_set.get_module(module_id).clone(),
                     module_id,
                     true,
                 )
+            } else if working_set.skip_module_load {
+                working_set.skipped_module_load = true;
+                return pipeline;
             } else if let Some(module_id) = parse_module_file_or_dir(
                 working_set,
                 overlay_name.as_bytes(),
@@ -1672,6 +2009,15 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 return pipeline;
             }
         };
+
+    if check_main_keyword_shadow(
+        working_set,
+        origin_module.main.is_some(),
+        final_overlay_name.as_bytes(),
+        overlay_name_span,
+    ) {
+        return pipeline;
+    }
 
     let (definitions, errors) = if is_module_updated {
         if has_prefix {
@@ -1697,18 +2043,31 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         }
     } else {
         (
-            nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+            nu_protocol::ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]),
             vec![],
         )
     };
 
     if errors.is_empty() {
+        let previous_origin = working_set
+            .find_overlay(final_overlay_name.as_bytes())
+            .map(|overlay| overlay.origin);
+
         working_set.add_overlay(
             final_overlay_name.as_bytes().to_vec(),
             origin_module_id,
             definitions,
             has_prefix,
         );
+
+        // The overlay keeps its old definitions, including while it was hidden. Now that it's on
+        // top, hiding the ones its module dropped takes effect.
+        if let Some(previous_origin) = previous_origin
+            && previous_origin != origin_module_id
+            && same_module_file(working_set, previous_origin, origin_module_id)
+        {
+            refresh_imports(working_set, previous_origin, origin_module_id, call.head);
+        }
     } else {
         working_set.parse_errors.extend(errors);
     }

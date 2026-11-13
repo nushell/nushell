@@ -1,6 +1,7 @@
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::bridge::ShellErrorBridge;
 use std::io::Read;
 
 #[derive(Clone)]
@@ -103,12 +104,21 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
             Ok(Value::int(vals.len() as i64, call.head).into_pipeline_data())
         }
         PipelineData::ListStream(stream, ..) => {
-            Ok(Value::int(stream.into_iter().count() as i64, call.head).into_pipeline_data())
+            let mut count = 0;
+            for value in stream {
+                // Propagate error values instead of silently counting them (see #18928).
+                value.unwrap_error()?;
+                count += 1;
+            }
+            Ok(Value::int(count, call.head).into_pipeline_data())
         }
         PipelineData::ByteStream(stream, ..) if stream.type_().is_binary_coercible() => {
             Ok(Value::int(
                 match stream.reader() {
-                    Some(r) => r.bytes().count() as i64,
+                    Some(r) => r
+                        .bytes()
+                        .try_fold(0, |count, byte| byte.map(|_| count + 1))
+                        .map_err(|err| ShellErrorBridge::unpack(err, span))?,
                     None => 0,
                 },
                 call.head,

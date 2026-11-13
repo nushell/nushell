@@ -144,6 +144,19 @@ pub trait PluginCommand: Sync {
     /// handling of I/O. This is recommended if the plugin is expected to transform large
     /// lists or potentially large quantities of bytes. The API is more complex however, and
     /// [`SimplePluginCommand`] is recommended instead if this is not a concern.
+    ///
+    /// The SDK requests cleanup of the original transport input when the complete response has
+    /// been written, or when Nushell drops the response stream. Cancelled reads report
+    /// [`ShellError::Interrupted`], not successful end-of-stream. Returning a lazy stream does not
+    /// itself end input consumption. Both cleanup requests wait for SDK-owned forwarding to
+    /// finish or for its consumer to drop the forwarded stream. Because forwarded PipelineData
+    /// is opaque, even forwarding an unrelated stream conservatively holds the original input.
+    /// Streams returned by engine calls are separate readers and are not interrupted by this
+    /// cleanup. To keep reading in plugin-owned background threads after the response finishes,
+    /// first call [`EngineInterface::set_gc_disabled`] with `true`.
+    /// This option applies to the whole plugin, not just this call, and disabling GC in Nushell's
+    /// configuration alone does not preserve input after completion.
+    /// This does not prevent input cleanup when the response stream is explicitly dropped.
     fn run(
         &self,
         plugin: &Self::Plugin,

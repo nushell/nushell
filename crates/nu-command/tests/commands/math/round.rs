@@ -60,3 +60,26 @@ fn cannot_round_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn filesize_round_is_noop_on_base_units() -> Result {
+    // 2.1KB is stored as 2100 bytes; rounding cannot use the display unit (KB).
+    let expected: Value = test().run("2.1KB")?;
+    test().run("2.1KB | math round").expect_value_eq(expected)
+}
+
+#[test]
+fn duration_round_is_noop_on_base_units() -> Result {
+    // 2.1min is stored as whole nanoseconds; rounding cannot use minutes.
+    let expected: Value = test().run("2.1min")?;
+    test().run("2.1min | math round").expect_value_eq(expected)
+}
+
+#[test]
+fn filesize_round_rejects_precision() -> Result {
+    let err = test()
+        .run("2.1KB | math round --precision 0")
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::UnsupportedInput { .. }));
+    Ok(())
+}

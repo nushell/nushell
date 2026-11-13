@@ -11,6 +11,9 @@ use nu_protocol::{
 
 use crate::fake_persistent_plugin::FakePersistentPlugin;
 
+#[cfg(test)]
+mod tests;
+
 struct FakePluginRead<T>(mpsc::Receiver<T>);
 struct FakePluginWrite<T>(mpsc::Sender<T>);
 

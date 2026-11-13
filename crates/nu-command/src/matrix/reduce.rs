@@ -66,7 +66,7 @@ impl Command for MatrixReduce {
             }
         };
 
-        let mut closure_eval = ClosureEval::new(engine_state, stack, closure);
+        let mut closure_eval = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
         // Match `reduce`: first arg is the element, second is the accumulator.
         for &val in iter {

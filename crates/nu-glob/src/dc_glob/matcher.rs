@@ -52,6 +52,11 @@ fn next_string<'a, 'b>(
     }
 }
 
+/// Whether a path component that starts with `name` is hidden, that is, starts with `.`.
+pub(super) fn is_hidden(name: &[u8]) -> bool {
+    name.first() == Some(&b'.')
+}
+
 fn length_of_first_char(string: &[u8]) -> Option<usize> {
     string.utf8_chunks().next().map(|chunk| {
         chunk
@@ -93,17 +98,15 @@ struct ProgramState<'a> {
     path_components: Peekable<Components<'a>>,
     current_string: Option<&'a [u8]>,
     fresh_string: bool,
-    counters: Vec<u32>,
 }
 
 impl<'a> ProgramState<'a> {
-    fn new(path_components: Components<'a>, num_counters: u16) -> ProgramState<'a> {
+    fn new(path_components: Components<'a>) -> ProgramState<'a> {
         ProgramState {
             pc: ProgramOffset(0),
             path_components: path_components.peekable(),
             current_string: None,
             fresh_string: false,
-            counters: vec![0; num_counters as usize],
         }
     }
 }
@@ -113,20 +116,49 @@ struct Matcher<'a> {
     state: ProgramState<'a>,
     alternatives: Vec<ProgramState<'a>>,
     result: MatchResult,
+    /// Whether the path's last component is a directory. The components before it are.
+    last_is_dir: bool,
 }
 
 impl<'a> Matcher<'a> {
     fn advance(&mut self, program: &Program) -> bool {
-        match &program.instructions[self.state.pc.0] {
-            Instruction::Separator if !self.has_string() => {
-                self.state.current_string = None;
-                if self.state.path_components.peek().is_some() {
-                    self.next()
-                } else {
-                    self.end_of_input()
+        let instruction = &program.instructions[self.state.pc.0];
+        match instruction {
+            // Separator between path components. Require that the previous
+            // component was opened and fully consumed (`Some(b"")`). A bare
+            // `None` means no component was bound yet — allowing Separator to
+            // succeed here used to make `*/*` match a single path segment by
+            // combining an empty `*` with a free Separator (issue #18600).
+            //
+            // At EOF after a finished component we do **not** advance the PC:
+            // that would let a following empty `*` complete-match (regressing
+            // #18600). Prefixed trailing `**` (`foo/**`) is handled by the
+            // compiler, which compiles the Separator before a terminal recurse
+            // to `ComponentEnd`, so path `foo` can complete without a Separator.
+            Instruction::Separator if !self.has_string() => match self.state.current_string {
+                // Finished matching inside a component; advance to the next path
+                // component when one remains.
+                Some([]) => {
+                    self.state.current_string = None;
+                    self.state.fresh_string = false;
+                    if self.state.path_components.peek().is_some() {
+                        self.next()
+                    } else {
+                        self.end_of_input()
+                    }
                 }
-            }
-            // Collapse multiple separators with no consumption in between
+                // No finished component — do not invent path segments.
+                None => self.try_alternative(),
+                // Unreachable under `!has_string()` (non-empty is handled above).
+                Some(_) => {
+                    debug_assert!(
+                        false,
+                        "Separator with non-empty current_string under !has_string()"
+                    );
+                    self.try_alternative()
+                }
+            },
+            // Collapse multiple separators when a new component was just loaded.
             Instruction::Separator if self.state.fresh_string => self.next(),
             Instruction::Prefix(string) if !self.has_string() => {
                 match self.state.path_components.next() {
@@ -149,14 +181,25 @@ impl<'a> Matcher<'a> {
                 Some(_) => self.try_alternative(),
                 None => self.end_of_input(),
             },
-            Instruction::CurDir if !self.has_string() => match self.state.path_components.next() {
-                Some(Component::CurDir) => self.next(),
-                Some(_) => self.try_alternative(),
-                None => self.end_of_input(),
-            },
+            Instruction::CurDir if !self.has_string() => {
+                // Path components omit `.` except at the start of a relative
+                // path, and stripping the traversal base removes even that.
+                if matches!(self.state.path_components.peek(), Some(Component::CurDir)) {
+                    self.state.path_components.next();
+                }
+                self.state.current_string = Some(&[]);
+                self.state.fresh_string = false;
+                self.next()
+            }
             Instruction::ParentDir if !self.has_string() => match self.state.path_components.next()
             {
-                Some(Component::ParentDir) => self.next(),
+                Some(Component::ParentDir) => {
+                    // The following separator requires a consumed component,
+                    // just as it does after a literal file or directory name.
+                    self.state.current_string = Some(&[]);
+                    self.state.fresh_string = false;
+                    self.next()
+                }
                 Some(_) => self.try_alternative(),
                 None => self.end_of_input(),
             },
@@ -185,6 +228,12 @@ impl<'a> Matcher<'a> {
                     &mut self.state.fresh_string,
                 ) {
                     NextString::Normal(current_string) => {
+                        if program.literal_leading_dot
+                            && self.state.fresh_string
+                            && is_hidden(current_string)
+                        {
+                            return self.try_alternative();
+                        }
                         // consume the first actual UTF-8 character
                         if let Some(length) = length_of_first_char(current_string) {
                             *current_string = &current_string[length..];
@@ -214,30 +263,38 @@ impl<'a> Matcher<'a> {
                     NextString::EndOfInput => self.end_of_input(),
                 }
             }
-            Instruction::Characters(classes) => {
+            Instruction::Characters { classes, negated } => {
                 match next_string(
                     &mut self.state.path_components,
                     &mut self.state.current_string,
                     &mut self.state.fresh_string,
                 ) {
                     NextString::Normal(current_string) => {
+                        if program.literal_leading_dot
+                            && self.state.fresh_string
+                            && is_hidden(current_string)
+                        {
+                            return self.try_alternative();
+                        }
                         let mut iter = current_string.utf8_chunks();
                         let Some(chunk) = iter.next() else {
                             return self.try_alternative();
                         };
 
-                        let mut chars = chunk.valid().chars();
-                        let Some(ch) = chars.next() else {
-                            return self.try_alternative();
+                        let length = match chunk.valid().chars().next() {
+                            Some(ch)
+                                if char_matches_classes(ch, classes, program.case_insensitive)
+                                    != *negated =>
+                            {
+                                ch.len_utf8()
+                            }
+                            // An undecodable byte is not a class member; consume it like `?`.
+                            None if *negated => 1,
+                            _ => return self.try_alternative(),
                         };
-
-                        if char_matches_classes(ch, classes, program.case_insensitive) {
-                            *current_string = &current_string[ch.len_utf8()..];
-                            self.state.fresh_string = false;
-                            self.next()
-                        } else {
-                            self.try_alternative()
-                        }
+                        *current_string = &current_string[length..];
+                        self.state.fresh_string = false;
+                        self.next()
                     }
                     NextString::NotNormal => self.try_alternative(),
                     NextString::EndOfInput => self.end_of_input(),
@@ -255,14 +312,29 @@ impl<'a> Matcher<'a> {
                 });
                 self.next()
             }
-            Instruction::Increment(counter_id) => {
-                self.state.counters[counter_id.0 as usize] += 1;
-                self.next()
+            Instruction::ComponentBoundary => {
+                // Require a path-component boundary: no unconsumed bytes in the
+                // current component. Clear a finished `Some([])` to `None`.
+                if self.has_string() {
+                    self.try_alternative()
+                } else {
+                    self.state.current_string = None;
+                    self.state.fresh_string = false;
+                    self.next()
+                }
             }
-            Instruction::BranchIfLessThan(index, counter_id, value) => {
-                if self.state.counters[counter_id.0 as usize] < *value {
-                    self.state.pc = *index;
-                    true
+            Instruction::ComponentEnd => {
+                if self.state.current_string == Some(&[]) {
+                    self.state.current_string = None;
+                    self.state.fresh_string = false;
+                    self.next()
+                } else {
+                    self.try_alternative()
+                }
+            }
+            Instruction::NotHiddenDir => {
+                if program.skip_hidden_in_recursion && self.next_is_hidden_dir() {
+                    self.try_alternative()
                 } else {
                     self.next()
                 }
@@ -274,6 +346,19 @@ impl<'a> Matcher<'a> {
 
     fn has_string(&self) -> bool {
         self.state.current_string.is_some_and(|s| !s.is_empty())
+    }
+
+    /// Whether the matcher stands before a path component that is a hidden directory.
+    fn next_is_hidden_dir(&mut self) -> bool {
+        if self.state.current_string.is_some() {
+            return false;
+        }
+        let hidden = matches!(
+            self.state.path_components.peek(),
+            Some(Component::Normal(name)) if is_hidden(name.as_encoded_bytes())
+        );
+        // Every component but the last is a directory, since the path goes on below it.
+        hidden && (self.last_is_dir || self.state.path_components.clone().nth(1).is_some())
     }
 
     fn next(&mut self) -> bool {
@@ -303,14 +388,20 @@ impl<'a> Matcher<'a> {
     }
 }
 
-pub fn path_matches(path: &Path, program: &Program) -> MatchResult {
+/// Match `path` against `program`.
+///
+/// `last_is_dir` says whether the last component of `path` is a directory. Only
+/// [`Program::skip_hidden_in_recursion`] reads it, so callers that don't set that flag can pass
+/// `false`.
+pub fn path_matches(path: &Path, last_is_dir: bool, program: &Program) -> MatchResult {
     let mut matcher = Matcher {
-        state: ProgramState::new(path.components(), program.counters),
+        state: ProgramState::new(path.components()),
         alternatives: vec![],
         result: MatchResult {
             valid_as_prefix: false,
             valid_as_complete_match: false,
         },
+        last_is_dir,
     };
 
     while !matcher.result.valid_as_prefix || !matcher.result.valid_as_complete_match {

@@ -1,10 +1,11 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_options::NuMatcher,
+    Completer, Context, Fetched, SemanticSuggestion, completion_options::NuMatcher,
+    to_reedline_span,
 };
 use nu_protocol::{
-    ENV_VARIABLE_ID, Span, SuggestionKind, Type, Value,
+    ENV_VARIABLE_ID, SuggestionKind, Type, Value,
     ast::{self, Comparison, Expr, Expression},
-    engine::{Stack, StateWorkingSet},
+    engine::StateWorkingSet,
 };
 use reedline::Suggestion;
 use strum::{EnumMessage, IntoEnumIterator};
@@ -66,10 +67,20 @@ fn number_comparison_ops() -> Vec<OperatorItem> {
                     | Comparison::NotEndsWith
                     | Comparison::Has
                     | Comparison::NotHas
+                    | Comparison::OlderThan
+                    | Comparison::NewerThan
             )
         })
         .map(operator_to_item)
         .collect()
+}
+
+/// Comparisons offered after a datetime: the numeric ones plus `older-than` and `newer-than`.
+fn date_comparison_ops() -> Vec<OperatorItem> {
+    let mut ops = number_comparison_ops();
+    ops.push(operator_to_item(Comparison::OlderThan));
+    ops.push(operator_to_item(Comparison::NewerThan));
+    ops
 }
 
 fn math_ops() -> Vec<OperatorItem> {
@@ -114,7 +125,10 @@ fn valid_float_ops() -> Vec<OperatorItem> {
 }
 
 fn valid_string_ops() -> Vec<OperatorItem> {
-    let mut ops: Vec<OperatorItem> = Comparison::iter().map(operator_to_item).collect();
+    let mut ops: Vec<OperatorItem> = Comparison::iter()
+        .filter(|op| !matches!(op, Comparison::OlderThan | Comparison::NewerThan))
+        .map(operator_to_item)
+        .collect();
     ops.push(operator_to_item(ast::Math::Concatenate));
     ops.push(OperatorItem {
         symbols: "like".into(),
@@ -165,7 +179,7 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
         Value::String { .. } => valid_string_ops(),
         Value::Binary { .. } => valid_binary_ops(),
         Value::Bool { .. } => valid_bool_ops(),
-        Value::Date { .. } => number_comparison_ops(),
+        Value::Date { .. } => date_comparison_ops(),
         Value::Filesize { .. } | Value::Duration { .. } => valid_value_with_unit_ops(),
         Value::Range { .. } | Value::Record { .. } => collection_comparison_ops(),
         Value::List { .. } => valid_list_ops(),
@@ -191,11 +205,15 @@ fn ops_by_value(value: &Value, mutable: bool) -> Vec<OperatorItem> {
 }
 
 fn is_expression_mutable(expr: &Expr, working_set: &StateWorkingSet) -> bool {
-    let Expr::FullCellPath(path) = expr else {
-        return false;
-    };
-    let Expr::Var(id) = path.head.expr else {
-        return false;
+    // A cell path's head (`$foo.bar`) and a bare `$foo` left-hand side refer to
+    // the same variable, so both count as mutable here.
+    let id = match expr {
+        Expr::Var(id) => *id,
+        Expr::FullCellPath(path) => match path.head.expr {
+            Expr::Var(id) => id,
+            _ => return false,
+        },
+        _ => return false,
     };
     if id == ENV_VARIABLE_ID {
         return true;
@@ -205,15 +223,13 @@ fn is_expression_mutable(expr: &Expr, working_set: &StateWorkingSet) -> bool {
 }
 
 impl Completer for OperatorCompletion<'_> {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
+    fn fetch(&mut self, ctx: &Context) -> Fetched {
+        let working_set = ctx.working_set;
+        let stack = ctx.stack;
+        let span = ctx.span;
+        let offset = ctx.offset;
+        let options = ctx.options;
+        let prefix = ctx.prefix_str();
         let mut needs_assignment_ops = true;
         // Complete according expression type
         // TODO: type inference on self.left_hand_side to get more accurate completions
@@ -223,7 +239,7 @@ impl Completer for OperatorCompletion<'_> {
             Type::String => valid_string_ops(),
             Type::Binary => valid_binary_ops(),
             Type::Bool => valid_bool_ops(),
-            Type::Date => number_comparison_ops(),
+            Type::Date => date_comparison_ops(),
             Type::Filesize | Type::Duration => valid_value_with_unit_ops(),
             Type::Record(_) | Type::Range => collection_comparison_ops(),
             Type::List(_) | Type::Table(_) => valid_list_ops(),
@@ -232,7 +248,7 @@ impl Completer for OperatorCompletion<'_> {
                 Expr::FullCellPath(path) => {
                     // for `$ <tab>`
                     if let Expr::Garbage = path.head.expr {
-                        return vec![];
+                        return Fetched::answering(vec![]);
                     }
                     let value =
                         eval_cell_path(working_set, stack, &path.head, &path.tail, path.head.span)
@@ -258,6 +274,7 @@ impl Completer for OperatorCompletion<'_> {
         }
 
         let mut matcher = NuMatcher::new(prefix, options, true);
+        let suggestion_span = to_reedline_span(span, offset);
         for OperatorItem {
             symbols,
             description,
@@ -265,15 +282,16 @@ impl Completer for OperatorCompletion<'_> {
         {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: symbols.to_owned(),
-                    description: Some(description.to_owned()),
-                    span: reedline::Span::new(span.start - offset, span.end - offset),
+                    // Already owned — moved, not cloned.
+                    value: symbols,
+                    description: Some(description),
+                    span: suggestion_span,
                     append_whitespace: true,
                     ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Operator),
             });
         }
-        matcher.suggestion_results()
+        Fetched::answering(matcher.suggestion_results())
     }
 }

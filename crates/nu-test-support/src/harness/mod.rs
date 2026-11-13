@@ -57,6 +57,7 @@ pub mod macros {
 pub const SKIP_DEPS_BUILD_ENV: &str = "NU_TEST_SKIP_DEPS_BUILD";
 
 pub const BUILD_PROFILE: &str = env!("BUILD_PROFILE");
+pub const BUILD_TARGET: Option<&str> = option_env!("BUILD_TARGET");
 static TARGET_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();
@@ -87,15 +88,17 @@ pub fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    if args.no_capture {
-        kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);
-    }
-
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
 
+    // suppress direct output if `--no-capture` is *not* used
     #[cfg(feature = "plugin")]
     nu_plugin_core::SUPPRESS_STDERR.store(!args.no_capture, Ordering::Relaxed);
+    nu_protocol::report_error::SUPPRESS_REPORTING.store(!args.no_capture, Ordering::Relaxed);
+    kitest::capture::CAPTURE_OUTPUT_MACROS.store(!args.no_capture, Ordering::Relaxed);
+
+    // do not allow updating the cwd via `EngineState::merge_env`
+    nu_protocol::engine::UPDATE_CWD.store(false, Ordering::Relaxed);
 
     let filter = DefaultFilter::default()
         .with_exact(args.exact)
@@ -123,7 +126,8 @@ pub fn main() -> ExitCode {
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
         .with_exact(args.exact);
 
-    let ignore = match args.include_ignored {
+    // `--ignored` selects ignored tests and must also allow them to run.
+    let ignore = match args.include_ignored || args.ignored {
         false => DefaultIgnore::Default,
         true => DefaultIgnore::IncludeIgnored,
     };
@@ -149,9 +153,44 @@ pub fn main() -> ExitCode {
 
     match (args.format, args.list) {
         (Format::Pretty, true) => harness.with_formatter(pretty_formatter).list().exit_code(),
-        (Format::Pretty, false) => harness.with_formatter(pretty_formatter).run().exit_code(),
+        (Format::Pretty, false) => {
+            let report = harness.with_formatter(pretty_formatter).run();
+            if args.report_time {
+                print_report_times(&report.outcomes);
+            }
+            report.exit_code()
+        }
         (Format::Terse, true) => harness.with_formatter(terse_formatter).list().exit_code(),
-        (Format::Terse, false) => harness.with_formatter(terse_formatter).run().exit_code(),
+        (Format::Terse, false) => {
+            let report = harness.with_formatter(terse_formatter).run();
+            if args.report_time {
+                print_report_times(&report.outcomes);
+            }
+            report.exit_code()
+        }
+    }
+}
+
+/// Print per-test durations, slowest first, for CI profiling with `--report-time`.
+fn print_report_times<GroupKey, GroupCtx>(
+    outcomes: &kitest::GroupedTestOutcomes<'_, GroupKey, GroupCtx>,
+) {
+    let mut timed: Vec<(&str, std::time::Duration)> = outcomes
+        .iter()
+        .flat_map(|(_, tests, _)| {
+            tests
+                .iter()
+                .map(|(name, outcome)| (*name, outcome.duration))
+        })
+        .collect();
+    timed.sort_by_key(|(_, duration)| std::cmp::Reverse(*duration));
+    eprintln!();
+    eprintln!("slowest tests (--report-time):");
+    for (name, duration) in timed.iter().take(50) {
+        eprintln!("  {:>8.3}s  {name}", duration.as_secs_f64());
+    }
+    if timed.len() > 50 {
+        eprintln!("  ... and {} more", timed.len() - 50);
     }
 }
 

@@ -1,129 +1,228 @@
+use chrono::DateTime;
 use nu_protocol::{
-    IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range, Signals, Span,
-    Value, ast::RangeInclusion,
+    Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
+    Range, Signals, Span, Value, ast::RangeInclusion,
 };
-use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
-fn gets_the_last_row() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "ls | sort-by name | where type == file | last 1 | get name.0 | str trim"
+fn gets_the_last_row() -> Result {
+    test()
+        .cwd("tests/fixtures/formats")
+        .run("ls | sort-by name | where type == file | last 1 | get name.0 | path basename")
+        .expect_value_eq("utf16.ini")
+}
+
+#[test]
+fn gets_last_rows_by_amount() -> Result {
+    test()
+        .run_with_data(
+            "$in | last 3 | length",
+            test_table![
+                ["name", "type", "size", "modified"];
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+            ],
+        )
+        .expect_value_eq(3)
+}
+
+#[test]
+fn gets_last_row_when_no_amount_given() -> Result {
+    // FIXME: We should probably change last to return a one row table instead of a record here
+    test()
+        .run_with_data(
+            "$in | last | values | length",
+            test_table![
+                ["name", "type", "size", "modified"];
+                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+            ],
+        )
+        .expect_value_eq(4)
+}
+
+#[test]
+fn requests_more_rows_than_table_has() -> Result {
+    test().run("[date] | last 50 | length").expect_value_eq(1)
+}
+
+#[test]
+fn gets_last_row_as_list_when_amount_given() -> Result {
+    test()
+        .run("[1, 2, 3] | last 1 | describe")
+        .expect_value_eq("list<int>")
+}
+
+#[test]
+fn gets_last_bytes() -> Result {
+    test()
+        .run("(0x[aa bb cc] | last 2) == 0x[bb cc]")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn gets_last_byte() -> Result {
+    test().run("0x[aa bb cc] | last").expect_value_eq(204)
+}
+
+#[test]
+fn gets_last_bytes_from_stream() -> Result {
+    test()
+        .run("(1..10 | each { 0x[aa bb cc] } | bytes collect | last 2) == 0x[bb cc]")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn gets_last_byte_from_stream() -> Result {
+    test()
+        .run("1..10 | each { 0x[aa bb cc] } | bytes collect | last")
+        .expect_value_eq(204)
+}
+
+#[test]
+fn last_errors_on_negative_index() -> Result {
+    let err = test().run("[1, 2, 3] | last -2").expect_shell_error()?;
+
+    assert_matches!(err, ShellError::NeedsPositiveValue { .. });
+    Ok(())
+}
+
+#[test]
+fn fail_on_non_iterator() -> Result {
+    let err = test().run("1 | last").expect_parse_error()?;
+
+    assert_matches!(err, ParseError::InputMismatch(input_type, _) if input_type == "int");
+    Ok(())
+}
+
+#[test]
+fn errors_on_empty_list_when_no_rows_given_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("[] | last --strict")
+}
+
+#[test]
+fn error_on_empty_list_stream_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("[1] | where {|x| $x > 1 } | last --strict")
+}
+
+#[test]
+fn error_on_empty_binary_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("0x[] | last --strict")
+}
+
+#[test]
+fn const_last() -> Result {
+    test()
+        .run("const x = [1 2 3] | last; $x")
+        .expect_value_eq(3)
+}
+
+#[test]
+fn const_last_with_rows() -> Result {
+    test()
+        .run("const x = [1 2 3] | last 2; $x | to nuon --raw")
+        .expect_value_eq("[2,3]")
+}
+
+#[test]
+fn const_last_range() -> Result {
+    test()
+        .run("const x = 1..5 | last 2; $x | to nuon --raw")
+        .expect_value_eq("[4,5]")
+}
+
+#[test]
+fn const_last_binary_with_filesize() -> Result {
+    test()
+        .run("const x = 0x[01 02 03] | last 2b; $x | to nuon --raw")
+        .expect_value_eq("0x[0203]")
+}
+
+#[test]
+fn const_last_strict_on_empty_list_errors() -> Result {
+    let err = test()
+        .run("const x = [] | last --strict")
+        .expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    Ok(())
+}
+
+#[test]
+fn last_zero_rows_on_unbounded_range_returns_empty() -> Result {
+    test()
+        .run("1.. | last 0 | to nuon --raw")
+        .expect_value_eq("[]")
+}
+
+#[test]
+fn last_errors_on_unbounded_range() -> Result {
+    test()
+        .run("1.. | last")
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn const_last_errors_on_unbounded_range() -> Result {
+    let err = test().run("const x = 1.. | last 2").expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Range must be bounded"));
+    Ok(())
+}
+
+fn assert_empty_content_diagnostic(code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::access_empty_content")?;
+
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::AccessEmptyContent { .. });
+    let message = err.to_string();
+    assert_eq!(message, "Cannot access empty content.");
+    assert_contains_not("too large", &message);
+
+    let labeled = LabeledError::from_diagnostic(&err);
+    assert_eq!(
+        labeled
+            .labels
+            .iter()
+            .map(|label| label.text.as_str())
+            .collect::<Vec<_>>(),
+        ["content is empty"]
     );
-
-    assert_eq!(actual.out, "utf16.ini");
+    assert!(
+        labeled
+            .labels
+            .iter()
+            .all(|label| !label.text.contains("too large")),
+        "empty-content span label should not describe a row or index as too large: {:?}",
+        labeled.labels
+    );
+    Ok(())
 }
 
 #[test]
-fn gets_last_rows_by_amount() {
-    Playground::setup("last_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-        ]);
-
-        let actual = nu!(cwd: dirs.test(), "ls | last 3 | length");
-
-        assert_eq!(actual.out, "3");
-    })
+fn does_not_error_on_empty_list_when_no_rows_given() -> Result {
+    test()
+        .run("[] | last | describe")
+        .expect_value_eq("nothing")
 }
 
 #[test]
-fn gets_last_row_when_no_amount_given() {
-    Playground::setup("last_test_2", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
-
-        // FIXME: We should probably change last to return a one row table instead of a record here
-        let actual = nu!(cwd: dirs.test(), "ls | last | values | length");
-
-        assert_eq!(actual.out, "4");
-    })
+fn returns_nothing_on_empty_list_when_no_rows_given() -> Result {
+    test().run("[] | last").expect_value_eq(())
 }
 
 #[test]
-fn requests_more_rows_than_table_has() {
-    let actual = nu!("[date] | last 50 | length");
-
-    assert_eq!(actual.out, "1");
-}
-
-#[test]
-fn gets_last_row_as_list_when_amount_given() {
-    let actual = nu!("[1, 2, 3] | last 1 | describe");
-
-    assert_eq!(actual.out, "list<int>");
-}
-
-#[test]
-fn gets_last_bytes() {
-    let actual = nu!("(0x[aa bb cc] | last 2) == 0x[bb cc]");
-
-    assert_eq!(actual.out, "true");
-}
-
-#[test]
-fn gets_last_byte() {
-    let actual = nu!("0x[aa bb cc] | last");
-
-    assert_eq!(actual.out, "204");
-}
-
-#[test]
-fn gets_last_bytes_from_stream() {
-    let actual = nu!("(1..10 | each { 0x[aa bb cc] } | bytes collect | last 2) == 0x[bb cc]");
-
-    assert_eq!(actual.out, "true");
-}
-
-#[test]
-fn gets_last_byte_from_stream() {
-    let actual = nu!("1..10 | each { 0x[aa bb cc] } | bytes collect | last");
-
-    assert_eq!(actual.out, "204");
-}
-
-#[test]
-fn last_errors_on_negative_index() {
-    let actual = nu!("[1, 2, 3] | last -2");
-
-    assert!(actual.err.contains("use a positive value"));
-}
-
-#[test]
-fn fail_on_non_iterator() {
-    let actual = nu!("1 | last");
-
-    assert!(actual.err.contains("command doesn't support"));
-}
-
-#[test]
-fn errors_on_empty_list_when_no_rows_given_in_strict_mode() {
-    let actual = nu!("[] | last --strict");
-    assert!(actual.err.contains("index too large"));
-}
-
-#[test]
-fn does_not_error_on_empty_list_when_no_rows_given() {
-    let actual = nu!("[] | last | describe");
-
-    assert!(actual.out.contains("nothing"));
-}
-
-#[test]
-fn returns_nothing_on_empty_list_when_no_rows_given() {
-    let actual = nu!("[] | last");
-
-    assert_eq!(actual.out, "");
-}
-
-#[test]
-fn returns_d_on_empty_list_when_no_rows_given_with_default() {
-    let actual = nu!("[a b] | where $it == 'c' | last | default 'd'");
-
-    assert_eq!(actual.out, "d");
+fn returns_d_on_empty_list_when_no_rows_given_with_default() -> Result {
+    test()
+        .run("[a b] | where $it == 'c' | last | default 'd'")
+        .expect_value_eq("d")
 }
 
 #[test]
@@ -218,4 +317,18 @@ fn last_preserves_pipeline_metadata(#[case] input: InputKind, #[case] code: &str
     };
     assert_eq!(expected, out);
     Ok(())
+}
+
+#[test]
+fn last_with_huge_count_on_a_byte_stream() -> Result {
+    test()
+        .run("(random binary 16b | last 9223372036854775807 | length) == 16")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn last_with_huge_count_on_binary() -> Result {
+    test()
+        .run("(0x[11 22 33] | last 9223372036854775807) == 0x[11 22 33]")
+        .expect_value_eq(true)
 }

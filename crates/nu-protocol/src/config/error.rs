@@ -50,11 +50,25 @@ impl<'a> ConfigErrors<'a> {
     }
 
     pub fn type_mismatch(&mut self, path: &ConfigPath, expected: Type, actual: &Value) {
+        let actual_ty = actual.get_type();
+        // Common config.nu mistake: `{ show_banner false }` is a closure (missing `:`),
+        // not a record — point users at field syntax instead of only "got closure".
+        let help = match (&expected, &actual_ty) {
+            (Type::Record(..), Type::Closure | Type::Block) => {
+                "If you meant a record, use `key: value` fields (colon required). \
+                 A missing `:` makes `{ … }` parse as a closure/block."
+                    .into()
+            }
+            _ => format!(
+                "Check the value assigned to {path}. Expected type: {expected}, found: {actual_ty}."
+            ),
+        };
         self.error(ConfigError::TypeMismatch {
             path: path.to_string(),
             expected,
-            actual: actual.get_type(),
+            actual: actual_ty,
             span: actual.span(),
+            help,
         });
     }
 

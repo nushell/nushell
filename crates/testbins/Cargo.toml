@@ -1,0 +1,14 @@
+[package]
+authors.workspace = true
+description = "Binaries to test Nushell with"
+edition.workspace = true
+license.workspace = true
+name = "testbins"
+repository = "https://github.com/nushell/nushell/tree/main/crates/testbins"
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+indoc.workspace = true
+lexopt.workspace = true
