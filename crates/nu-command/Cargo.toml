@@ -208,21 +208,21 @@ os = [
   "nu-utils/os",
   "dep:fff-search",
 
-	# os-dependant dependencies
-	"crossterm",
-	"notify-debouncer-full",
-	"open",
-	"os_pipe",
-	"dep:parse_datetime",
-	"reedline",
-	"uu_cp",
-	"uu_mkdir",
-	"uu_mktemp",
-	"uu_mv",
-	"uu_touch",
-	"uu_uname",
-	"uu_whoami",
-	"which",
+  # os-dependant dependencies
+  "crossterm",
+  "notify-debouncer-full",
+  "open",
+  "os_pipe",
+  "dep:parse_datetime",
+  "reedline",
+  "uu_cp",
+  "uu_mkdir",
+  "uu_mktemp",
+  "uu_mv",
+  "uu_touch",
+  "uu_uname",
+  "uu_whoami",
+  "which",
 ]
 
 # The dependencies listed below need 'getrandom'.
