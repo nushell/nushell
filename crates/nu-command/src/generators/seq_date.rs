@@ -412,14 +412,14 @@ pub fn run_seq_dates(
     // --days is ignored when --periods is set
     if periods_to_output != 0 {
         end_date = periods_to_output
-            .checked_sub(1)
+            .checked_sub(periods_to_output.signum())
             .and_then(|val| val.checked_mul(step_size.abs()))
             .map(Duration::nanoseconds)
             .and_then(|inc| start_date.checked_add_signed(inc))
             .ok_or_else(periods_too_large)?;
     } else if days_to_output != 0 {
         end_date = days_to_output
-            .checked_sub(1)
+            .checked_sub(days_to_output.signum())
             .and_then(Duration::try_days)
             .and_then(|days| start_date.checked_add_signed(days))
             .ok_or_else(days_too_large)?;

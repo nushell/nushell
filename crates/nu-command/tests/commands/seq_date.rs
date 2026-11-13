@@ -87,6 +87,27 @@ fn correct_amount_of_results_with_end_or_begin_date() -> Result {
 }
 
 #[test]
+fn correct_amount_of_results_with_reverse_and_days() -> Result {
+    test()
+        .run("seq date --days 10 | length")
+        .expect_value_eq(10)?;
+
+    test()
+        .run("seq date --days 10 --reverse | length")
+        .expect_value_eq(10)?;
+
+    test()
+        .run("seq date --periods 10 | length")
+        .expect_value_eq(10)?;
+
+    test()
+        .run("seq date --periods 10 --reverse | length")
+        .expect_value_eq(10)?;
+
+    Ok(())
+}
+
+#[test]
 fn correct_time() -> Result {
     test()
         .run("seq date --output-format '%H:%M' | first")
