@@ -8068,6 +8068,7 @@ checksum = "b91f7eff05f748767f183df4320a63d6936e9c6107d97c9e6bdd9784f4289c94"
 dependencies = [
  "base64 0.21.7",
  "bitflags 2.13.1",
+ "indexmap 2.14.1",
  "serde",
  "serde_derive",
 ]

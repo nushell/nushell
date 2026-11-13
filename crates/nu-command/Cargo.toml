@@ -24,7 +24,7 @@ harness = false
 workspace = true
 
 [dependencies]
-ron = "0.8"
+ron = { workspace = true }
 ansi-str = { workspace = true }
 ansiopt = { workspace = true, features = ["render"] }
 nu-ansi-term.workspace = true
