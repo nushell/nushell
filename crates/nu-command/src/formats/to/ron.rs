@@ -38,7 +38,9 @@ impl Command for ToRon {
         } else {
             ron::ser::to_string_pretty(
                 &ron_value,
-                ron::ser::PrettyConfig::default().indentor("    ".to_string()),
+                ron::ser::PrettyConfig::default()
+                    .indentor("\t".to_string())
+                    .new_line("\n".to_string()),
             )
         }
         .map_err(|err| ShellError::CantConvert {
