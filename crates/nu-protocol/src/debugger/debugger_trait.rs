@@ -14,8 +14,8 @@
 //! `Debugger::report()` to get some output from the debugger, if necessary.
 
 use crate::{
-    PipelineData, PipelineExecutionData, ShellError, Span, Value,
-    ast::{Block, PipelineElement},
+    PipelineExecutionData, ShellError, Span, Value,
+    ast::Block,
     engine::{EngineState, Stack},
     ir::IrBlock,
 };
@@ -35,19 +35,6 @@ pub trait DebugContext: Clone + Copy + Debug {
     /// Called when the evaluator leaves a block
     #[allow(unused_variables)]
     fn leave_block(engine_state: &EngineState, block: &Block) {}
-
-    /// Called when the AST evaluator enters a pipeline element
-    #[allow(unused_variables)]
-    fn enter_element(engine_state: &EngineState, element: &PipelineElement) {}
-
-    /// Called when the AST evaluator leaves a pipeline element
-    #[allow(unused_variables)]
-    fn leave_element(
-        engine_state: &EngineState,
-        element: &PipelineElement,
-        result: &Result<PipelineData, ShellError>,
-    ) {
-    }
 
     /// Called before the IR evaluator runs an instruction
     #[allow(unused_variables)]
@@ -89,24 +76,6 @@ impl DebugContext for WithDebug {
     fn leave_block(engine_state: &EngineState, block: &Block) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
             debugger.deref_mut().leave_block(engine_state, block);
-        }
-    }
-
-    fn enter_element(engine_state: &EngineState, element: &PipelineElement) {
-        if let Ok(mut debugger) = engine_state.debugger.lock() {
-            debugger.deref_mut().enter_element(engine_state, element);
-        }
-    }
-
-    fn leave_element(
-        engine_state: &EngineState,
-        element: &PipelineElement,
-        result: &Result<PipelineData, ShellError>,
-    ) {
-        if let Ok(mut debugger) = engine_state.debugger.lock() {
-            debugger
-                .deref_mut()
-                .leave_element(engine_state, element, result);
         }
     }
 
@@ -179,20 +148,6 @@ pub trait Debugger: Send + Debug {
     /// Called when the evaluator leaves a block
     #[allow(unused_variables)]
     fn leave_block(&mut self, engine_state: &EngineState, block: &Block) {}
-
-    /// Called when the AST evaluator enters a pipeline element
-    #[allow(unused_variables)]
-    fn enter_element(&mut self, engine_state: &EngineState, pipeline_element: &PipelineElement) {}
-
-    /// Called when the AST evaluator leaves a pipeline element
-    #[allow(unused_variables)]
-    fn leave_element(
-        &mut self,
-        engine_state: &EngineState,
-        element: &PipelineElement,
-        result: &Result<PipelineData, ShellError>,
-    ) {
-    }
 
     /// Called before the IR evaluator runs an instruction.
     ///
