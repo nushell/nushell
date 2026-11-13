@@ -105,6 +105,7 @@ fn convert_value_to_ron(value: &Value, span: Span) -> Result<RonValue, ShellErro
             &<std::vec::Vec<u8> as Clone>::clone(&val).into_value(span),
             *internal_span,
         ),
+        Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::CantConvert {
             to_type: "structured ron data".into(),
             from_type: value.get_type().to_string(),
