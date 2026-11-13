@@ -726,12 +726,9 @@ fn eval_instruction<D: DebugContext>(
                 ctx.put_reg(*dst, PipelineExecutionData::from(new_value));
                 Ok(Continue)
             } else {
-                // FIXME: using the same span twice, shouldn't this really be
-                // EnvVarNotFoundAtRuntime? There are tests that depend on CantFindColumn though...
-                Err(ShellError::CantFindColumn {
-                    col_name: key.into(),
-                    span: Some(*span),
-                    src_span: *span,
+                Err(ShellError::EnvVarNotFoundAtRuntime {
+                    envvar_name: key.into(),
+                    span: *span,
                 })
             }
         }

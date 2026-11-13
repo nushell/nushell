@@ -203,7 +203,7 @@ fn hides_environment_from_child() -> Result {
         .run(r#"nu -c 'hide-env TEST; nu -c "$env.TEST"' | complete"#)?;
 
     assert!(result.stdout.is_empty());
-    assert!(result.stderr.contains("column_not_found") || result.stderr.contains("name_not_found"));
+    assert!(result.stderr.contains("env_variable_not_found"));
     Ok(())
 }
 
@@ -246,11 +246,11 @@ fn hides_env_in_block() -> Result {
 
     test()
         .run(pipelines.join("; "))
-        .expect_error_code_eq("nu::shell::column_not_found")?;
+        .expect_error_code_eq("nu::shell::env_variable_not_found")?;
 
     test()
         .run_multiple(pipelines)
-        .expect_error_code_eq("nu::shell::column_not_found")
+        .expect_error_code_eq("nu::shell::env_variable_not_found")
 }
 
 #[test]

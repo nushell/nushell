@@ -94,8 +94,8 @@ fn use_eval_export_env_hide() -> Result {
 
         let err = tester.run("$env.FOO").expect_shell_error()?;
         match err {
-            ShellError::CantFindColumn { col_name, .. } => {
-                assert_eq!(col_name, "FOO");
+            ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } => {
+                assert_eq!(envvar_name, "FOO");
                 Ok(())
             }
             err => Err(err.into()),
