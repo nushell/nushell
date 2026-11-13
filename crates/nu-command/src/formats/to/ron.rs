@@ -97,6 +97,7 @@ fn convert_value_to_ron(value: &Value, span: Span) -> Result<RonValue, ShellErro
         Value::Duration { val, .. } => Ok(RonValue::Number(ron::Number::from(val.to_owned()))),
         Value::Range { val, .. } => Ok(RonValue::String(val.to_string())),
         Value::CellPath { val, .. } => Ok(RonValue::String(val.to_string())),
+        Value::Glob { val, .. } => Ok(RonValue::String(val.clone())),
         // It doesn't appear I can implement support for closures easily, I'll leave
         // that for a later version, but it doesn't seem most other file formats do either
         Value::Binary {
