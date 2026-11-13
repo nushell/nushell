@@ -50,6 +50,18 @@ impl Default for PromptConfig {
     }
 }
 
+/// The default [`PromptConfig::left`] and [`PromptConfig::right`].
+///
+/// Both are closures, which need a parsed block and thus cannot sit in
+/// [`PromptConfig::default`]. `nu-cli` evaluates them at startup and records
+/// them on the engine state, where `config default` picks them up. Both stay
+/// `None` when no config is loaded, as the prompt itself does.
+#[derive(Clone, Debug, Default)]
+pub struct DefaultPrompts {
+    pub left: Option<Value>,
+    pub right: Option<Value>,
+}
+
 /// The transient prompt, which replaces the real one in scrollback once a line
 /// is submitted.
 ///

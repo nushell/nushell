@@ -7,12 +7,12 @@ use nu_protocol::report_shell_error;
 #[cfg(feature = "plugin")]
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::shell_error::io::IoError;
-#[cfg(feature = "plugin")]
-use nu_protocol::{ParseError, PluginRegistryFile, Span, engine::StateWorkingSet};
 use nu_protocol::{
-    PipelineData, ShellError,
+    DefaultPrompts, PipelineData, ShellError,
     engine::{EngineState, Stack},
 };
+#[cfg(feature = "plugin")]
+use nu_protocol::{ParseError, PluginRegistryFile, Span, engine::StateWorkingSet};
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
 #[cfg(feature = "plugin")]
@@ -363,4 +363,11 @@ pub fn eval_default_prompts(engine_state: &mut EngineState, stack: &mut Stack) {
     if let Err(err) = engine_state.merge_env(stack) {
         report_shell_error(Some(stack), engine_state, &err);
     }
+
+    // Recorded for `config default`, which cannot evaluate them itself.
+    let prompt = &engine_state.get_config().prompt;
+    engine_state.default_prompts = DefaultPrompts {
+        left: prompt.left.clone(),
+        right: prompt.right.clone(),
+    };
 }

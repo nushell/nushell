@@ -1,7 +1,7 @@
 use crate::{
-    BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, TypeAlias,
-    TypeAliasId, Value, VarId, VirtualPathId,
+    BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
+    Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
+    TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -181,6 +181,8 @@ pub struct EngineState {
     /// and triggers an in-place repaint. Shared with every job that clones this
     /// engine state.
     pub prompt_state: Arc<PromptState>,
+    /// The default prompt closures, once `nu-cli` has evaluated them at startup.
+    pub default_prompts: DefaultPrompts,
     pub table_decl_id: Option<DeclId>,
     /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it, so that
     /// cloning stays cheap; a clone that appends declarations while sharing it starts over with an
@@ -327,6 +329,7 @@ impl EngineState {
                 accept: false,
             })),
             prompt_state: Arc::new(PromptState::new()),
+            default_prompts: DefaultPrompts::default(),
             table_decl_id: None,
             signature_cache: Arc::default(),
             #[cfg(feature = "plugin")]

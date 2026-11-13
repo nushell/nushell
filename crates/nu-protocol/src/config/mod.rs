@@ -27,7 +27,7 @@ pub use key_spec::{
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
-pub use prompt::PromptConfig;
+pub use prompt::{DefaultPrompts, PromptConfig};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
