@@ -2383,7 +2383,8 @@ mod test_auto_cd {
 
 #[cfg(test)]
 mod test_recover_cwd {
-    use super::recover_cwd_if_needed;
+    use super::{osc7_sequence, prepare_repl_iteration, recover_cwd_if_needed};
+    use miette::Diagnostic;
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
     use nu_protocol::{ShellWarning, Span, Value};
@@ -2549,7 +2550,8 @@ mod test_recover_cwd {
     }
 
     #[test]
-    fn recovery_triggers_env_change_pwd_hook_via_merge_env() -> nu_test_support::Result {
+    fn prepare_repl_iteration_recovers_warns_hooks_and_updates_terminal_cwd()
+    -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
         let parent = AbsolutePath::try_new(tempdir.path()).unwrap();
         let child = parent.join("deleted-dir");
@@ -2558,29 +2560,65 @@ mod test_recover_cwd {
         let mut tester = nu_test_support::test();
         let () = tester.run(
             "
+            $env.TERM_PROGRAM = 'vscode'
             $env.PWD_HOOK_LOG = []
             $env.config.hooks.env_change.PWD = [{|before, after|
                 $env.PWD_HOOK_LOG = ($env.PWD_HOOK_LOG | append [$before, $after])
             }]
+            $env.config.shell_integration = {
+                osc2: true, osc7: true, osc8: false, osc9_9: true,
+                osc133: false, osc633: true, reset_application_mode: false
+            }
             ",
         )?;
         tester.stack.set_cwd(&child)?;
-        tester.engine_state.merge_env(&mut tester.stack)?;
-        nu_cmd_base::hook::eval_env_change_hook(
-            &tester.engine_state.get_config().hooks.env_change.clone(),
+        let mut initial_osc = Vec::new();
+        let initial_warning = prepare_repl_iteration(
             &mut tester.engine_state,
             &mut tester.stack,
-        )?;
+            Some("host"),
+            false,
+            0,
+            String::new(),
+            &mut |seq| initial_osc.push(seq.to_string()),
+        );
+        assert!(initial_warning.is_none());
+        assert!(initial_osc.is_empty());
 
         std::fs::remove_dir(&child).unwrap();
 
-        assert!(recover_cwd_if_needed(&tester.engine_state, &mut tester.stack).is_some());
-        tester.engine_state.merge_env(&mut tester.stack)?;
-        nu_cmd_base::hook::eval_env_change_hook(
-            &tester.engine_state.get_config().hooks.env_change.clone(),
+        let mut emitted_osc = Vec::new();
+        let warning = prepare_repl_iteration(
             &mut tester.engine_state,
             &mut tester.stack,
-        )?;
+            Some("host"),
+            false,
+            0,
+            String::new(),
+            &mut |seq| emitted_osc.push(seq.to_string()),
+        )
+        .expect("expected ShellWarning::CwdRecovered");
+
+        assert_eq!(
+            warning.code().map(|c| c.to_string()).as_deref(),
+            Some("nu::shell::cwd_recovered")
+        );
+        let child_str = child.as_std_path().to_string_lossy();
+        let parent_str = parent.as_std_path().to_string_lossy();
+        match &warning {
+            ShellWarning::CwdRecovered { old_cwd, new_cwd } => {
+                assert_eq!(old_cwd, child_str.as_ref());
+                assert_eq!(new_cwd, parent_str.as_ref());
+            }
+            other => panic!("unexpected warning: {other:?}"),
+        }
+
+        // Permanent engine state reflects the recovered directory, proving recovery ran before
+        // `merge_env`.
+        assert_eq!(
+            tester.engine_state.cwd(None)?.as_std_path(),
+            parent.as_std_path()
+        );
 
         let log = tester
             .stack
@@ -2588,9 +2626,35 @@ mod test_recover_cwd {
             .unwrap()
             .clone()
             .into_list()?;
-        assert_eq!(
-            log.last().unwrap().as_str()?,
-            parent.as_std_path().to_string_lossy()
+        assert!(
+            log.len() >= 2,
+            "expected before/after hook entries: {log:?}"
+        );
+        assert_eq!(log[log.len() - 2].as_str()?, child_str.as_ref());
+        assert_eq!(log[log.len() - 1].as_str()?, parent_str.as_ref());
+
+        let expected_osc7 = osc7_sequence(Some("host"), parent.as_std_path()).unwrap();
+        assert!(
+            emitted_osc
+                .iter()
+                .any(|seq| seq.starts_with("\x1b]2;") && seq.contains(parent_str.as_ref())),
+            "missing OSC 2 sequence for recovered cwd in {emitted_osc:?}"
+        );
+        assert!(
+            emitted_osc.contains(&expected_osc7),
+            "missing OSC 7 sequence {expected_osc7:?} in {emitted_osc:?}"
+        );
+        assert!(
+            emitted_osc.contains(&format!("\x1b]9;9;{parent_str}\x1b\\")),
+            "missing OSC 9;9 sequence in {emitted_osc:?}"
+        );
+        assert!(
+            emitted_osc.contains(&format!("\x1b]633;P;Cwd={parent_str}\x1b\\")),
+            "missing OSC 633;P;Cwd sequence in {emitted_osc:?}"
+        );
+        assert!(
+            !emitted_osc.iter().any(|seq| seq.starts_with("\x1b]633;E;")),
+            "unexpected OSC 633;E command marker on recovery: {emitted_osc:?}"
         );
         Ok(())
     }
