@@ -659,6 +659,8 @@ fn prepare_prompt(
     prompt_update::make_transient_prompt(config, engine_state, &Stack::with_parent(stack.clone()))
 }
 
+/// Whether `path` is a directory the user can `cd` into: it is a directory and
+/// `have_permission` passes (`access(X_OK)` on Unix, `read_dir` on Windows).
 fn is_usable_dir(path: &Path) -> bool {
     path.is_dir() && matches!(have_permission(path), PermissionResult::PermissionOk)
 }
