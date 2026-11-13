@@ -354,8 +354,8 @@ fn convert_to_extension(
             path_span,
         ))
     } else {
-        let call = ir::Call::build(decl_id, span).finish();
-        eval_ir_call(engine_state, stack, &call, input)
+        let call = ir::Call::build(decl_id, span);
+        eval_ir_call(engine_state, stack, call, input)
     }
 }
 

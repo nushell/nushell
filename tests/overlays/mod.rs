@@ -766,10 +766,10 @@ fn overlay_new_in_block_parser_reads_env_set_after_it() -> Result {
     tester.run("foo").expect_value_eq("foo")
 }
 
-/// When the parser and the stack agree, hiding an overlay still goes back to the directory it was
-/// activated in.
+/// When the parser and the stack agree, hiding an overlay keeps the directory you `cd`'d to in it,
+/// across the env merge between REPL lines.
 #[test]
-fn overlay_hide_after_merge_restores_pwd() -> Result {
+fn overlay_hide_after_merge_keeps_pwd() -> Result {
     let mut tester = test().cwd("tests/overlays");
 
     let () = tester.run_with_hooks("overlay new foo")?;
@@ -778,7 +778,7 @@ fn overlay_hide_after_merge_restores_pwd() -> Result {
 
     tester
         .run_with_hooks("$env.PWD | path basename")
-        .expect_value_eq("overlays")
+        .expect_value_eq("samples")
 }
 
 #[test]

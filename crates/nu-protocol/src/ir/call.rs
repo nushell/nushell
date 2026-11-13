@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     DeclId, ShellError, Span, Spanned, Value,
     ast::Expression,
-    engine::{self, Argument, Stack},
+    engine::{Argument, Stack},
 };
 
 use super::DataSlice;
@@ -291,21 +291,6 @@ impl CallBuilder {
     /// argument stack will be reset when they exit.
     pub fn finish(&self) -> Call {
         self.inner.clone()
-    }
-
-    /// Run a closure with the [`Call`] as an [`engine::Call`] reference, and then clean up the
-    /// arguments that were added to the [`Stack`] after.
-    ///
-    /// For convenience. Calls [`Call::leave`] after the closure ends.
-    pub fn with<T>(
-        self,
-        stack: &mut Stack,
-        f: impl FnOnce(&mut Stack, &engine::Call<'_>) -> T,
-    ) -> T {
-        let call = engine::Call::from(&self.inner);
-        let result = f(stack, &call);
-        self.inner.leave(stack);
-        result
     }
 }
 
