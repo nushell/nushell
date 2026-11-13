@@ -19,6 +19,8 @@ path = "tests/main.rs"
 harness = false
 
 [dev-dependencies]
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-command = { workspace = true, features = ["os"] }
 nu-std.workspace = true
@@ -42,6 +44,7 @@ nu-experimental.workspace = true
 nu-ansi-term.workspace = true
 reedline = { workspace = true, features = ["bashisms"] }
 
+serde = { workspace = true }
 chrono = { default-features = false, features = ["std"], workspace = true }
 crossterm = { workspace = true }
 fancy-regex = { workspace = true }
