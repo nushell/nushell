@@ -23,13 +23,14 @@ use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, trim_quotes_str};
+use nu_path::AbsolutePathBuf;
 use nu_protocol::shell_error::io::IoError;
-use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
+use nu_protocol::{BannerKind, ShellIntegrationConfig, ShellWarning, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
     engine::{EngineState, Stack},
-    report_shell_error,
+    report_shell_error, report_shell_warning,
 };
 use nu_utils::time::Instant;
 use nu_utils::{
@@ -138,6 +139,7 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
+        recover_cwd_if_needed(engine_state, &mut unique_stack);
         engine_state.merge_env(&mut unique_stack)?;
     }
 
@@ -629,6 +631,63 @@ fn prepare_prompt(
     )
 }
 
+fn is_usable_dir(path: &Path) -> bool {
+    path.is_dir() && matches!(have_permission(path), PermissionResult::PermissionOk)
+}
+
+/// If `$env.PWD` is a valid absolute path whose directory was removed, replaced with a
+/// non-directory, or became inaccessible, recover by walking up logical ancestors to the nearest
+/// usable directory (falling back to `$nu.home-dir`) and emit a warning.
+///
+/// Malformed `$env.PWD` values (missing, non-string, relative, or invalid trailing slashes) are
+/// left untouched so `EngineState::cwd` reports their error normally. `$env.OLDPWD` is also left
+/// unchanged so `cd -` still targets the previous valid directory.
+fn recover_cwd_if_needed(engine_state: &EngineState, stack: &mut Stack) -> bool {
+    let Some(pwd_val) = stack.get_env_var(engine_state, "PWD") else {
+        return false;
+    };
+    let Ok(pwd_str) = pwd_val.as_str() else {
+        return false;
+    };
+    let Ok(path) = AbsolutePathBuf::try_from(pwd_str) else {
+        return false;
+    };
+    if path.parent().is_some() && nu_path::has_trailing_slash(path.as_ref()) {
+        return false;
+    }
+
+    if is_usable_dir(path.as_std_path()) {
+        return false;
+    }
+
+    let old_cwd = pwd_str.to_string();
+    let home = nu_path::home_dir();
+    let Some(recovered) = path
+        .as_std_path()
+        .ancestors()
+        .skip(1)
+        .chain(home.as_ref().map(|h| h.as_std_path()))
+        .find(|candidate| is_usable_dir(candidate))
+        .map(Path::to_path_buf)
+    else {
+        return false;
+    };
+
+    if stack.set_cwd(&recovered).is_err() {
+        return false;
+    }
+
+    report_shell_warning(
+        Some(stack),
+        engine_state,
+        &ShellWarning::CwdRecovered {
+            old_cwd,
+            new_cwd: recovered.to_string_lossy().into_owned(),
+        },
+    );
+    true
+}
+
 /// Perform one iteration of the REPL loop
 /// Result is bool: continue loop, current reedline
 #[inline]
@@ -651,8 +710,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     } = ctx;
 
     let mut start_time = Instant::now();
-    // Before doing anything, merge the environment from the previous REPL iteration into the
-    // permanent state.
+    // Before doing anything, recover a vanished/inaccessible $env.PWD and merge the environment
+    // from the previous REPL iteration into the permanent state.
+    recover_cwd_if_needed(engine_state, &mut stack);
     if let Err(err) = engine_state.merge_env(&mut stack) {
         report_shell_error(None, engine_state, &err);
     }
@@ -2259,5 +2319,211 @@ mod test_auto_cd {
         let input = "now🍪is";
         let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(input, actual);
+    }
+}
+
+#[cfg(test)]
+mod test_recover_cwd {
+    use super::recover_cwd_if_needed;
+    use nu_path::AbsolutePath;
+    use nu_protocol::engine::{EngineState, Stack};
+    use nu_protocol::{Span, Value};
+    use tempfile::tempdir;
+
+    #[test]
+    fn recovers_to_parent_when_cwd_deleted_and_preserves_oldpwd() {
+        let tempdir = tempdir().unwrap();
+        let parent = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let child = parent.join("deleted-dir");
+        std::fs::create_dir(&child).unwrap();
+        let prev = parent.join("previous-dir");
+        std::fs::create_dir(&prev).unwrap();
+
+        let mut engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.set_cwd(&child).unwrap();
+        stack.add_env_var(
+            "OLDPWD".into(),
+            Value::string(prev.as_std_path().to_string_lossy(), Span::unknown()),
+        );
+        engine_state.merge_env(&mut stack).unwrap();
+
+        std::fs::remove_dir(&child).unwrap();
+
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack));
+        assert_eq!(
+            engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
+            parent.as_std_path()
+        );
+        assert_eq!(
+            stack
+                .get_env_var(&engine_state, "OLDPWD")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            prev.as_std_path().to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn walks_up_multiple_deleted_ancestors() {
+        let tempdir = tempdir().unwrap();
+        let root = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let a = root.join("a");
+        let b = a.join("b");
+        let c = b.join("c");
+        std::fs::create_dir_all(&c).unwrap();
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.set_cwd(&c).unwrap();
+
+        std::fs::remove_dir_all(&a).unwrap();
+
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack));
+        assert_eq!(
+            engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
+            root.as_std_path()
+        );
+    }
+
+    #[test]
+    fn recovers_when_cwd_is_replaced_by_file() {
+        let tempdir = tempdir().unwrap();
+        let parent = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let target = parent.join("target");
+        std::fs::create_dir(&target).unwrap();
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.set_cwd(&target).unwrap();
+
+        std::fs::remove_dir(&target).unwrap();
+        std::fs::write(&target, b"not a dir").unwrap();
+
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack));
+        assert_eq!(
+            engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
+            parent.as_std_path()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn skips_inaccessible_directory_when_recovering() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tempdir = tempdir().unwrap();
+        let parent = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let blocked = parent.join("blocked");
+        let inner = blocked.join("inner");
+        std::fs::create_dir_all(&inner).unwrap();
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.set_cwd(&inner).unwrap();
+
+        // Make `blocked` unsearchable so both `inner` and `blocked` are unusable,
+        // unless running as a privileged user that bypasses POSIX mode checks.
+        std::fs::set_permissions(&blocked, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let bypassed = matches!(
+            super::have_permission(&blocked),
+            super::PermissionResult::PermissionOk
+        );
+        let recovered = recover_cwd_if_needed(&engine_state, &mut stack);
+        let result_cwd = engine_state.cwd(Some(&stack)).unwrap();
+        std::fs::set_permissions(&blocked, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        if bypassed {
+            assert!(!recovered);
+        } else {
+            assert!(recovered);
+            assert_eq!(result_cwd.as_std_path(), parent.as_std_path());
+        }
+    }
+
+    #[test]
+    fn leaves_valid_cwd_and_malformed_pwd_untouched() {
+        let tempdir = tempdir().unwrap();
+        let valid = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.set_cwd(valid).unwrap();
+        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert_eq!(
+            engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
+            valid.as_std_path()
+        );
+
+        // Relative path
+        stack.add_env_var("PWD".into(), Value::string("relative/path", Span::unknown()));
+        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(engine_state.cwd(Some(&stack)).is_err());
+
+        // Non-string PWD
+        stack.add_env_var("PWD".into(), Value::int(42, Span::unknown()));
+        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(engine_state.cwd(Some(&stack)).is_err());
+
+        // Trailing slash
+        let with_slash = format!(
+            "{}{}",
+            valid.as_std_path().display(),
+            std::path::MAIN_SEPARATOR
+        );
+        stack.add_env_var("PWD".into(), Value::string(with_slash, Span::unknown()));
+        assert!(!recover_cwd_if_needed(&engine_state, &mut stack));
+        assert!(engine_state.cwd(Some(&stack)).is_err());
+    }
+
+    #[test]
+    fn recovery_triggers_env_change_pwd_hook_via_merge_env() -> nu_test_support::Result {
+        let tempdir = tempdir().unwrap();
+        let parent = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let child = parent.join("deleted-dir");
+        std::fs::create_dir(&child).unwrap();
+
+        let mut tester = nu_test_support::test();
+        let () = tester.run(
+            "
+            $env.PWD_HOOK_LOG = []
+            $env.config.hooks.env_change.PWD = [{|before, after|
+                $env.PWD_HOOK_LOG = ($env.PWD_HOOK_LOG | append [$before, $after])
+            }]
+            ",
+        )?;
+        tester.stack.set_cwd(&child)?;
+        tester.engine_state.merge_env(&mut tester.stack)?;
+        nu_cmd_base::hook::eval_env_change_hook(
+            &tester.engine_state.get_config().hooks.env_change.clone(),
+            &mut tester.engine_state,
+            &mut tester.stack,
+        )?;
+
+        std::fs::remove_dir(&child).unwrap();
+
+        assert!(recover_cwd_if_needed(
+            &tester.engine_state,
+            &mut tester.stack
+        ));
+        tester.engine_state.merge_env(&mut tester.stack)?;
+        nu_cmd_base::hook::eval_env_change_hook(
+            &tester.engine_state.get_config().hooks.env_change.clone(),
+            &mut tester.engine_state,
+            &mut tester.stack,
+        )?;
+
+        let log = tester
+            .stack
+            .get_env_var(&tester.engine_state, "PWD_HOOK_LOG")
+            .unwrap()
+            .clone()
+            .into_list()?;
+        assert_eq!(
+            log.last().unwrap().as_str()?,
+            parent.as_std_path().to_string_lossy()
+        );
+        Ok(())
     }
 }
