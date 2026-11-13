@@ -45,9 +45,12 @@ impl Command for InputListen {
                 "How long to wait for input before returning.",
                 Some('o')
             )
-            // Each event type has its own fields (see `extra_description`), so the output is
-            // any record. A key-only record type fails `let x = input listen` on other events.
-            .input_output_types(vec![(Type::Nothing, Type::record())])
+            // Each event type has its own fields (see `extra_description`), and `type` is the only
+            // one they share. A key-only record type fails `let x = input listen` on other events.
+            .input_output_types(vec![(
+                Type::Nothing,
+                Type::Record(vec![("type".to_string(), Type::String)].into()),
+            )])
     }
 
     fn description(&self) -> &str {
@@ -71,7 +74,8 @@ There are 5 `key_type` variants:
     f - f1, f2, f3 ... keys
     char - alphanumeric and special symbols (a, A, 1, $ ...)
     media - dedicated media keys (play, pause, tracknext ...)
-    modifier - a modifier key on its own (leftshift, rightalt ...), on terminals that report these
+    modifier - a modifier key on its own (leftshift, rightalt ...). Terminals send these only in
+               the kitty keyboard protocol's report-all-keys mode, which `input listen` doesn't turn on
     other - keys not falling under previous categories (up, down, backspace, enter ...)
 Some terminals send a focus event whenever focus reporting is turned on, so `input listen`
 returns `{type: focus event: gained}` right away. To wait for other events instead, leave
@@ -194,71 +198,86 @@ impl EventTypeFilter {
     }
 
     fn from_value(value: Value, head: Span) -> Result<EventTypeFilter, ShellError> {
-        if let Value::List { vals, .. } = value {
-            let mut filter = Self::default();
-            for event_type in vals {
-                let span = event_type.span();
-                if let Value::String { val, .. } = event_type {
-                    match val.as_str() {
-                        "focus" => filter.listen_focus = true,
-                        "key" => filter.listen_key = true,
-                        "mouse" => filter.listen_mouse = true,
-                        "paste" => filter.listen_paste = true,
-                        "resize" => filter.listen_resize = true,
-                        _ => return Err(Self::wrong_type_error(head, val.as_str(), span)),
-                    }
-                } else {
-                    return Err(Self::bad_list_error(head, &event_type));
+        let list_span = value.span();
+        let Value::List { vals, .. } = value else {
+            return Err(Self::types_error(
+                head,
+                "--types expects a list of strings".into(),
+                list_span,
+            ));
+        };
+        // An empty list listens for nothing, so `input listen` could only end by timing out.
+        if vals.is_empty() {
+            return Err(Self::types_error(
+                head,
+                "--types expects at least one event type".into(),
+                list_span,
+            ));
+        }
+
+        let mut filter = Self::default();
+        for event_type in vals {
+            let span = event_type.span();
+            let Value::String { val, .. } = event_type else {
+                return Err(Self::types_error(
+                    head,
+                    "--types expects a list of strings".into(),
+                    span,
+                ));
+            };
+            match val.as_str() {
+                "focus" => filter.listen_focus = true,
+                "key" => filter.listen_key = true,
+                "mouse" => filter.listen_mouse = true,
+                "paste" => filter.listen_paste = true,
+                "resize" => filter.listen_resize = true,
+                _ => {
+                    return Err(Self::types_error(
+                        head,
+                        format!("{val} is not a valid event type"),
+                        span,
+                    ));
                 }
             }
-            Ok(filter)
-        } else {
-            Err(Self::bad_list_error(head, &value))
         }
+        Ok(filter)
     }
 
-    fn wrong_type_error(head: Span, val: &str, val_span: Span) -> ShellError {
+    /// An invalid `--types` argument, pointing at the offending value.
+    fn types_error(head: Span, msg: String, input_span: Span) -> ShellError {
         ShellError::UnsupportedInput {
-            msg: format!("{val} is not a valid event type"),
+            msg,
             input: "value originates from here".into(),
             msg_span: head,
-            input_span: val_span,
-        }
-    }
-
-    fn bad_list_error(head: Span, value: &Value) -> ShellError {
-        ShellError::UnsupportedInput {
-            msg: "--types expects a list of strings".to_string(),
-            input: "value originates from here".into(),
-            msg_span: head,
-            input_span: value.span(),
+            input_span,
         }
     }
 
     /// Enable capturing of all events allowed by this filter. Each mode is recorded in
-    /// `console_state` once it is on, so a failure part way through still turns off the
-    /// modes enabled before it.
+    /// `console_state` before its enable sequence is written, so a failure part way through,
+    /// even one after the bytes reached the terminal, still turns it off. Turning off a mode
+    /// that never came on is harmless.
     fn enable_events(
         &self,
         console_state: &mut DeferredConsoleRestore,
         span: Span,
     ) -> Result<(), ShellError> {
         if self.listen_mouse {
+            console_state.setup_event_types.listen_mouse = true;
             crossterm::execute!(stdout(), EnableMouseCapture)
                 .map_err(|err| IoError::new(err, span, None))?;
-            console_state.setup_event_types.listen_mouse = true;
         }
 
         if self.listen_paste {
+            console_state.setup_event_types.listen_paste = true;
             crossterm::execute!(stdout(), EnableBracketedPaste)
                 .map_err(|err| IoError::new(err, span, None))?;
-            console_state.setup_event_types.listen_paste = true;
         }
 
         if self.listen_focus {
+            console_state.setup_event_types.listen_focus = true;
             crossterm::execute!(stdout(), crossterm::event::EnableFocusChange)
                 .map_err(|err| IoError::new(err, span, None))?;
-            console_state.setup_event_types.listen_focus = true;
         }
 
         Ok(())
@@ -271,7 +290,7 @@ impl EventTypeFilter {
 /// errors included.
 #[derive(Default)]
 struct DeferredConsoleRestore {
-    /// The event types whose capturing is currently on.
+    /// The event types whose capturing may be on and has to be turned off.
     setup_event_types: EventTypeFilter,
     /// Set once the kitty keyboard enhancement flags were pushed.
     pop_keyboard_enhancement: bool,
@@ -509,7 +528,8 @@ mod tests {
     use rstest::rstest;
 
     /// `let x = input listen` checks the event against the declared output type at runtime,
-    /// so every event kind must fit it, with and without `--raw`.
+    /// so every event kind must fit it, with and without `--raw`. The type requires a `type`
+    /// string field, so this also checks that every record has one.
     #[rstest]
     #[case::focus_gained(Event::FocusGained)]
     #[case::focus_lost(Event::FocusLost)]
@@ -530,6 +550,23 @@ mod tests {
                 value.is_assignable_to(output_ty),
                 "{value:?} is not a {output_ty}"
             );
+        }
+    }
+
+    /// Every invalid `--types` value is an error before the terminal is touched. `[]` would
+    /// otherwise listen for nothing and only return on `--timeout`.
+    #[rstest]
+    #[case::empty_list(Value::test_list(vec![]), "at least one event type")]
+    #[case::not_a_list(Value::test_string("key"), "list of strings")]
+    #[case::not_a_string(Value::test_list(vec![Value::test_int(1)]), "list of strings")]
+    #[case::unknown_type(Value::test_list(vec![Value::test_string("bogus")]), "bogus is not a valid event type")]
+    fn invalid_types_are_rejected(#[case] types: Value, #[case] expected: &str) {
+        match EventTypeFilter::from_value(types, Span::test_data()) {
+            Err(ShellError::UnsupportedInput { msg, .. }) => {
+                assert!(msg.contains(expected), "{msg}")
+            }
+            Err(err) => panic!("unexpected error: {err:?}"),
+            Ok(_) => panic!("invalid --types was accepted"),
         }
     }
 }
