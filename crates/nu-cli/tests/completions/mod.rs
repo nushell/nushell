@@ -225,6 +225,7 @@ fn fuzzy_alpha_sort_completer() -> NuCompleter {
 }
 
 #[rstest]
+#[case::uppercase_subcommand_head("STR up", None, vec!["str upcase", "str uppercase"])]
 #[case::double_dash_long_flag("tst --", None, vec!["--help", "--mod"])]
 #[case::single_dash_all_flags("tst -", None, vec!["--help", "--mod", "-h", "-s"])]
 #[case::flags_after_cursor("tst -h", Some(5), vec!["--help", "--mod", "-h", "-s"])]
@@ -246,6 +247,28 @@ fn misc_command_argument_completions(
 ) {
     let suggestions = completer.complete_blocking(input, pos.unwrap_or(input.len()));
     match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+#[case::insensitive(false, vec!["Straße upcase"])]
+#[case::sensitive(true, vec![])]
+fn subcommand_head_case_sensitivity(#[case] case_sensitive: bool, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = format!(
+        r#"
+        $env.config.completions.case_sensitive = {case_sensitive}
+        def "Straße upcase" [] {{}}
+        "#
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "STRASSE up";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        assert_eq!(suggestion.span, Span::new(0, input.len()));
+    }
 }
 
 #[rstest]
@@ -630,6 +653,37 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     alias s = spam foo"#,
     "s b", None,
     vec!["spam foo bar".into()],
+    3
+)]
+#[case::fuzzy_hidden_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    def foo [i?: string] {}
+    def "foo bar" [] {}
+    alias f = foo
+    hide foo"#,
+    "f b", None,
+    vec!["foo bar".into()],
+    3
+)]
+#[case::fuzzy_hidden_module_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { export def foo [i?: string] {}; export def "foo bar" [] {} }
+    use spam
+    def "foo bar" [] {}
+    alias f = spam foo
+    hide "spam foo""#,
+    "f b", None,
+    vec!["spam foo bar".into()],
+    3
+)]
+#[case::fuzzy_hidden_module_main_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { export def main [i?: string] {}; export def bar [] {} }
+    use spam
+    alias s = spam
+    hide spam main"#,
+    "s b", None,
+    vec!["spam bar".into()],
     3
 )]
 /// Custom function flags mixed with subcommands

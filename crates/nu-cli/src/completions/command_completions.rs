@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, DeclId, SuggestionKind,
     engine::{CommandType, StateWorkingSet},
 };
+use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
@@ -181,9 +182,15 @@ impl CommandCompletion {
             if self.parent_heads.as_ref().is_some_and(|heads| {
                 !heads.iter().any(|head| {
                     let mut words = raw_name.split_ascii_whitespace();
-                    head.split_ascii_whitespace()
-                        .all(|word| words.next() == Some(word))
-                        && words.next().is_some()
+                    head.split_ascii_whitespace().all(|word| {
+                        words.next().is_some_and(|candidate| {
+                            if context.options.case_sensitive {
+                                candidate == word
+                            } else {
+                                candidate.eq_ignore_case(word)
+                            }
+                        })
+                    }) && words.next().is_some()
                 })
             }) {
                 return;
