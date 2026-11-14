@@ -179,10 +179,13 @@ fn report_error(
     error: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    let report = format!(
+    let mut report = format!(
         "Error: {:?}",
         CliError::new(stack, error, working_set, Some(default_code))
     );
+    if report.ends_with('\n') {
+        report.pop();
+    }
 
     if !SUPPRESS_REPORTING.load(Ordering::Relaxed) {
         // Avoid eprintln! since it panics on broken stderr, which double-panics
@@ -205,10 +208,13 @@ fn report_warning(
     warning: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    let report = format!(
+    let mut report = format!(
         "Warning: {:?}",
         CliError::new(stack, warning, working_set, Some(default_code))
     );
+    if report.ends_with('\n') {
+        report.pop();
+    }
 
     if !SUPPRESS_REPORTING.load(Ordering::Relaxed)
         && writeln!(std::io::stderr(), "{report}").is_err()
