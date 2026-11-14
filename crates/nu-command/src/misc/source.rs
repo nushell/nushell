@@ -27,7 +27,7 @@ impl Command for Source {
     }
 
     fn extra_description(&self) -> &str {
-        "This command is a parser keyword. The file is read and parsed before the script runs, so the path must be a literal or a constant, not the value of a variable. For details, check:
+        "This command is a parser keyword. The file is read and parsed before the script runs, so the path must be a literal or a constant, not the value of a variable. Definitions in the file become available at parse time, but any other top-level statements in the file are run when `source` is evaluated. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
