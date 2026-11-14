@@ -4,9 +4,11 @@ use nu_test_support::prelude::*;
 use nu_utils::time::Instant;
 use std::{sync::Arc, time::Duration};
 
-// Each test opens the window the REPL opens before its hooks run (`PromptState::begin_update`),
-// runs what a hook would, then installs the prompt baseline the way the REPL does. Jobs report
-// back with `job send 0`, so the tests wait for them without sleeping.
+// The first tests check which job pushes survive the prompt baseline. Each opens the window the
+// REPL opens before its hooks run (`PromptState::begin_update`), runs what a hook would, then
+// installs the prompt baseline the way the REPL does. Jobs report back with `job send 0`, so the
+// tests wait for them without sleeping. The tests after them check that job threads drop the
+// REPL's repainter when they end; see the comment above `install_repainter`.
 
 #[test]
 fn push_from_a_job_started_for_the_prompt_survives_the_baseline() -> Result {
@@ -129,5 +131,19 @@ fn killed_job_drops_the_repainter_when_its_thread_ends() -> Result {
     wait_until("the killed job's thread drops the repainter", || {
         Arc::strong_count(&repainter) == 1
     });
+    Ok(())
+}
+
+#[test]
+fn panicking_job_drops_the_repainter() -> Result {
+    let mut tester = test();
+    let repainter = install_repainter(&tester.engine_state);
+
+    let _: i64 = tester.run("job spawn { panic 'job thread panics on purpose' }")?;
+    wait_until("the panicking job ends", || {
+        job_count(&tester.engine_state) == 0
+    });
+
+    assert_eq!(Arc::strong_count(&repainter), 1);
     Ok(())
 }

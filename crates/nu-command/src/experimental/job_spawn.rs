@@ -113,22 +113,13 @@ impl Command for JobSpawn {
         let result = thread::Builder::new()
             .name(format!("background job {}", id.get()))
             .spawn(move || {
-                let mut stack = job_stack.reset_pipes();
-                let stack = stack.push_redirection(
-                    Some(Redirection::Pipe(OutDest::Null)),
-                    Some(Redirection::Pipe(OutDest::Null)),
-                );
-                ClosureEvalOnce::try_new_preserve_out_dest(&job_state, &stack, closure, head)
-                    .and_then(|eval| eval.run_with_input(PipelineData::Empty))
-                    .and_then(|data| data.drain())
-                    .unwrap_or_else(|err| {
-                        if !job_state.signals().interrupted() {
-                            report_shell_error(None, &job_state, &err);
-                        }
-                    });
-
-                {
-                    let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
+                // This also runs when the closure panics, so it recovers a poisoned jobs lock
+                // instead of panicking: a panic while unwinding would abort the shell.
+                scopeguard::defer! {
+                    let mut jobs = job_state
+                        .jobs
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
                     jobs.remove_job(id);
 
@@ -142,6 +133,20 @@ impl Command for JobSpawn {
                         job_state.prompt_state.set_repainter(None);
                     }
                 }
+
+                let mut stack = job_stack.reset_pipes();
+                let stack = stack.push_redirection(
+                    Some(Redirection::Pipe(OutDest::Null)),
+                    Some(Redirection::Pipe(OutDest::Null)),
+                );
+                ClosureEvalOnce::try_new_preserve_out_dest(&job_state, &stack, closure, head)
+                    .and_then(|eval| eval.run_with_input(PipelineData::Empty))
+                    .and_then(|data| data.drain())
+                    .unwrap_or_else(|err| {
+                        if !job_state.signals().interrupted() {
+                            report_shell_error(None, &job_state, &err);
+                        }
+                    });
             });
 
         match result {
