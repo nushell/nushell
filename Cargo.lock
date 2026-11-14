@@ -893,20 +893,19 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.72.1"
+version = "0.73.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "993776b509cfb49c750f11b8f07a46fa23e0a1386ffc01fb1e7d343efc387895"
+checksum = "787ef8ef523575546b106a58213d6e6b06198a05c2f757258c68a74273670cfa"
 dependencies = [
  "bitflags 2.13.1",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash",
- "shlex",
- "syn 2.0.117",
+ "shlex 2.0.1",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -998,9 +997,9 @@ checksum = "36f64beae40a84da1b4b26ff2761a5b895c12adc41dc25aaee1c4f2bbfe97a6e"
 
 [[package]]
 name = "bracoxide"
-version = "0.1.8"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daeb5b71668c934a1db0c7b07317a3564f2558c5e9155c70d7d6823c01f2ddcd"
+checksum = "74ca487aa0a5f028c11c19ee0acc2db41e41c71bbf0b0ebdd0ba4354c60c48db"
 
 [[package]]
 name = "brotli"
@@ -1184,7 +1183,7 @@ dependencies = [
  "find-msvc-tools",
  "jobserver",
  "libc",
- "shlex",
+ "shlex 1.3.0",
 ]
 
 [[package]]
@@ -1676,7 +1675,7 @@ dependencies = [
  "filedescriptor",
  "mio",
  "parking_lot",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "serde",
  "signal-hook 0.3.18",
  "signal-hook-mio",
@@ -2428,7 +2427,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ce92ff622d6dadf7349484f42c93271a0d49b7cc4d466a936405bacbe10aa78"
 dependencies = [
  "cfg-if",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.59.0",
 ]
 
@@ -2682,7 +2681,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e72ed92b67c146290f88e9c89d60ca163ea417a446f61ffd7b72df3e7f1dfd5"
 dependencies = [
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.61.2",
 ]
 
@@ -2828,7 +2827,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bd49230192a3797a9a4d6abe9b3eed6f7fa4c8a8a4947977c6f80025f92cbd8"
 dependencies = [
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-link",
 ]
 
@@ -3647,15 +3646,6 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -3959,9 +3949,9 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "libproc"
-version = "0.14.11"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a54ad7278b8bc5301d5ffd2a94251c004feb971feba96c971ea4063645990757"
+checksum = "564c269d134dc8276288e18bf00b30e7fe2136ff8f0974f9bf65477cd5ad82fe"
 dependencies = [
  "bindgen",
  "errno",
@@ -4650,7 +4640,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "assert_cmd",
  "crossterm",
@@ -4713,7 +4703,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4756,7 +4746,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "indexmap 2.14.1",
  "miette 7.6.0",
@@ -4768,7 +4758,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -4796,7 +4786,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "miette 7.6.0",
@@ -4815,7 +4805,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "nu-engine",
@@ -4826,7 +4816,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -4838,7 +4828,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "aegis-password-generator",
  "alphanumeric-sort",
@@ -4915,7 +4905,7 @@ dependencies = [
  "oem_cp",
  "open",
  "os_pipe",
- "parse_datetime",
+ "parse_datetime 0.17.0",
  "pathdiff",
  "percent-encoding",
  "pretty_assertions",
@@ -4973,7 +4963,7 @@ dependencies = [
 
 [[package]]
 name = "nu-config"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "derive_more 2.1.1",
  "derive_setters",
@@ -4987,7 +4977,7 @@ dependencies = [
 
 [[package]]
 name = "nu-dap"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "derive_more 2.1.1",
@@ -5012,7 +5002,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "heck",
  "proc-macro-error3",
@@ -5023,7 +5013,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "log",
@@ -5038,7 +5028,7 @@ dependencies = [
 
 [[package]]
 name = "nu-experimental"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "thiserror 2.0.20",
@@ -5046,7 +5036,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -5076,7 +5066,7 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "anyhow",
  "doc-comment",
@@ -5087,7 +5077,7 @@ dependencies = [
 
 [[package]]
 name = "nu-heavy-utils"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "base64 0.23.1",
  "better_default",
@@ -5109,7 +5099,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -5126,7 +5116,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -5156,7 +5146,7 @@ dependencies = [
 
 [[package]]
 name = "nu-mcp"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "bytes",
  "chrono",
@@ -5183,7 +5173,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "itertools 0.15.0",
@@ -5203,7 +5193,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "dirs 7.0.0",
  "omnipath",
@@ -5213,7 +5203,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "log",
  "nix 0.31.3",
@@ -5229,7 +5219,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "interprocess",
  "log",
@@ -5244,7 +5234,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "log",
  "nu-engine",
@@ -5260,7 +5250,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -5272,7 +5262,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -5290,7 +5280,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -5299,7 +5289,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "brotli 9.1.1",
  "bstr",
@@ -5350,7 +5340,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "log",
  "miette 7.6.0",
@@ -5361,7 +5351,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "libc",
@@ -5380,7 +5370,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -5393,7 +5383,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.2",
@@ -5401,7 +5391,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "bytes",
  "derive_more 2.1.1",
@@ -5443,7 +5433,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support-macros"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "heck",
  "nu-experimental",
@@ -5455,7 +5445,7 @@ dependencies = [
 
 [[package]]
 name = "nu-tui"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "ansi-str",
  "crossterm",
@@ -5480,7 +5470,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "byteyarn",
  "crossterm",
@@ -5504,7 +5494,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_custom_values"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "nu-plugin",
  "nu-plugin-test-support",
@@ -5515,7 +5505,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -5525,7 +5515,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -5540,7 +5530,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -5550,7 +5540,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -5559,7 +5549,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -5600,7 +5590,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -5615,7 +5605,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "interprocess",
  "serde",
@@ -5754,7 +5744,7 @@ dependencies = [
 
 [[package]]
 name = "nuon"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -6156,6 +6146,17 @@ name = "parse_datetime"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "503fd4c8b0685e5eb32a8276533611f63e3b44768e9e8724e73f6852c2542f82"
+dependencies = [
+ "jiff",
+ "num-traits",
+ "winnow 1.0.4",
+]
+
+[[package]]
+name = "parse_datetime"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb51967a779ef73b125a243688e53e4bb2474f91cae72734ee5051e857fb2645"
 dependencies = [
  "jiff",
  "num-traits",
@@ -7344,7 +7345,7 @@ dependencies = [
  "chrono",
  "flate2",
  "procfs-core",
- "rustix 1.1.4",
+ "rustix 1.1.6",
 ]
 
 [[package]]
@@ -7497,9 +7498,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.14"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "addec6a0dcad8a8d96a771f815f0eaf55f9d1805756410b39f5fa81332574cbd"
+checksum = "af66907df18639dcf4db56ca65490cabc4b27a97dbadd96f2926cca73298f016"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -7813,8 +7814,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.52.1"
-source = "git+https://github.com/nushell/reedline#c9fcec8a91b034b21fc89fd77aa54a07569ee3c3"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b061d8059603bc95c569166a79ca60c01ccc8f8b6065035aed66a3753fdb06c"
 dependencies = [
  "arboard",
  "crossterm",
@@ -7822,7 +7824,7 @@ dependencies = [
  "fd-lock",
  "nu-ansi-term",
  "rusqlite",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "strip-ansi-escapes",
@@ -7987,9 +7989,9 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 
 [[package]]
 name = "rmcp"
-version = "3.4.0"
+version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b23c62fe489ac1d401ab32688cfacac3737a8978dc3343e5361464c7724fd3cb"
+checksum = "d24a7e92f4bcaa36b97fa93c4fa7ca8f3e669eced949345b3462dba333c7f909"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -8000,6 +8002,7 @@ dependencies = [
  "http-body",
  "http-body-util",
  "indexmap 2.14.1",
+ "libc",
  "pastey",
  "pin-project-lite",
  "rand 0.10.2",
@@ -8007,6 +8010,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "sse-stream",
  "thiserror 2.0.20",
  "tokio",
@@ -8019,9 +8023,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "3.4.0"
+version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd740c45d66ceb87e5579082abc27bd771665e464e9660a17a048c721b2a6025"
+checksum = "b3140f24a766f80f9ec1607bde85680959a69b83d46fa9ce87dadab7e67ab029"
 dependencies = [
  "darling 0.24.1",
  "proc-macro2",
@@ -8167,9 +8171,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.4"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190"
+checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
 dependencies = [
  "bitflags 2.13.1",
  "errno",
@@ -8609,6 +8613,12 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "shlex"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-hook"
@@ -9161,7 +9171,7 @@ dependencies = [
  "fastrand",
  "getrandom 0.4.2",
  "once_cell",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.61.2",
 ]
 
@@ -9190,7 +9200,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b8cb979cb11c32ce1603f8137b22262a9d131aaa5c37b5678025f22b8becd0"
 dependencies = [
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.60.2",
 ]
 
@@ -9202,7 +9212,7 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
 name = "testbins"
-version = "0.116.2"
+version = "0.117.1"
 dependencies = [
  "indoc",
  "lexopt",
@@ -9431,9 +9441,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.1.4+spec-1.1.0"
+version = "1.1.6+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3aace63f4bbcdfc2c965b059de67119c89c4017a70d633be6c104910f67056f5"
+checksum = "920602543f0911ab71da12c50d59701da54c196d1a2bf5cb4b75667f137a406a"
 dependencies = [
  "indexmap 2.14.1",
  "serde_core",
@@ -9603,9 +9613,9 @@ dependencies = [
 
 [[package]]
 name = "trash"
-version = "5.2.9"
+version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be89b3fe156965d29ac4f8522f3a640c655affdd9f21cb4f36857f0c92c00317"
+checksum = "1e13ed7a76ae8b9053f33493745ebb4cd2e5ee1cccd9823bb96ec97b78ec4844"
 dependencies = [
  "chrono",
  "libc",
@@ -9617,6 +9627,7 @@ dependencies = [
  "scopeguard",
  "urlencoding",
  "windows 0.62.2",
+ "windows-core",
 ]
 
 [[package]]
@@ -9933,7 +9944,7 @@ dependencies = [
  "indicatif",
  "libc",
  "nix 0.31.3",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "uucore",
  "walkdir",
@@ -9948,7 +9959,7 @@ checksum = "665e031110e8de62ebe483eb50b21c19f57c6f02c571e3c57cfb6cf344209370"
 dependencies = [
  "clap",
  "fluent",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "uucore",
 ]
 
@@ -9978,7 +9989,7 @@ dependencies = [
  "libc",
  "nix 0.31.3",
  "rustc-hash",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "uucore",
  "windows-sys 0.61.2",
@@ -9995,8 +10006,8 @@ dependencies = [
  "fluent",
  "jiff",
  "libc",
- "parse_datetime",
- "rustix 1.1.4",
+ "parse_datetime 0.16.0",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "uucore",
  "windows-sys 0.61.2",
@@ -10022,7 +10033,7 @@ checksum = "c1267f81972136719195877c21cefd2fb1bc821c8fb692d16f8b0ce4b717108c"
 dependencies = [
  "clap",
  "fluent",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "uucore",
  "windows-sys 0.61.2",
 ]
@@ -10046,7 +10057,7 @@ dependencies = [
  "os_display",
  "procfs",
  "rustc-hash",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "unic-langid",
  "unicode-width 0.2.2",
@@ -10351,7 +10362,7 @@ checksum = "aa75f400b7f719bcd68b3f47cd939ba654cedeef690f486db71331eec4c6a406"
 dependencies = [
  "cc",
  "downcast-rs",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "smallvec",
  "wayland-sys",
 ]
@@ -10363,7 +10374,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab51d9f7c071abeee76007e2b742499e535148035bb835f97aaed1338cf516c3"
 dependencies = [
  "bitflags 2.13.1",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "wayland-backend",
  "wayland-scanner",
 ]
@@ -11099,7 +11110,7 @@ dependencies = [
  "libc",
  "log",
  "os_pipe",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "tree_magic_mini",
  "wayland-backend",
@@ -11121,7 +11132,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9993aa5be5a26815fe2c3eacfc1fde061fc1a1f094bf1ad2a18bf9c495dd7414"
 dependencies = [
  "gethostname",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "x11rb-protocol",
 ]
 
@@ -11133,12 +11144,12 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 
 [[package]]
 name = "xattr"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156"
+checksum = "963d6fab92d5504b971dc8bd90ca743c2575e590bc8071ea5bc571598667ae08"
 dependencies = [
  "libc",
- "rustix 1.1.4",
+ "rustix 1.1.6",
 ]
 
 [[package]]

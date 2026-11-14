@@ -54,7 +54,7 @@ mod uniq;
 mod uniq_by;
 mod update;
 mod upsert;
-mod utils;
+pub(crate) mod utils;
 mod values;
 mod where_;
 mod window;

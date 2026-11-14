@@ -89,7 +89,9 @@ impl<'a> ArgValueCompletion<'a> {
                     matcher.add_semantic_suggestion(suggestion);
                 }
 
-                Some(Fetched::answering(matcher.suggestion_results()).worth_keeping())
+                // Plugins may read state outside the shell (files, processes, services),
+                // which the shared completion cache cannot track.
+                Some(Fetched::answering(matcher.suggestion_results()).without_cache())
             }
             Ok(None) => None, // fallback to type based completion, file completion, etc.
             Err(error) => {

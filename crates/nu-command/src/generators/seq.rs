@@ -103,16 +103,37 @@ fn seq(
         )));
     }
 
-    // A zero increment never terminates (`seq 5 0 5` would emit `5` forever) or
-    // silently produces nothing, so reject it up front like GNU `seq` does.
-    // The increment is the middle argument; with fewer than three arguments it
-    // defaults to 1 and cannot be zero.
-    if rest_nums.len() > 2 && rest_nums[1].item == 0.0 {
-        return Err(ShellError::IncorrectValue {
-            msg: "increment cannot be 0".into(),
-            val_span: rest_nums[1].span,
-            call_span: span,
-        });
+    // Throw an error if an invalid range has been given
+    for (i, num) in rest_nums.iter().enumerate() {
+        // NaN values are not allowed at all.
+        if num.item.is_nan() {
+            return Err(ShellError::IncorrectValue {
+                msg: "NaN values are not allowed".into(),
+                val_span: num.span,
+                call_span: span,
+            });
+        }
+
+        // A zero increment never terminates (`seq 5 0 5` would emit `5` forever) or
+        // silently produces nothing, so reject it up front like GNU `seq` does.
+        // The increment is the middle argument; with fewer than three arguments it
+        // defaults to 1 and cannot be zero.
+        if i == 1 && rest_nums.len() >= 3 && num.item == 0.0 {
+            return Err(ShellError::IncorrectValue {
+                msg: "increment cannot be 0".into(),
+                val_span: num.span,
+                call_span: span,
+            });
+        }
+
+        // The first and the increment values cannot be infinite
+        if (i == 0 || i != rest_nums.len().saturating_sub(1)) && num.item.is_infinite() {
+            return Err(ShellError::IncorrectValue {
+                msg: "First and increment cannot be infinite".into(),
+                val_span: num.span,
+                call_span: span,
+            });
+        }
     }
 
     let rest_nums: Vec<f64> = rest_nums.iter().map(|n| n.item).collect();
@@ -172,7 +193,12 @@ impl Iterator for FloatSeq {
         let count = self.first + self.index as f64 * self.step;
         // Accuracy guaranteed as far as possible; each time, the value is re-evaluated from the
         // base arguments
-        if (count > self.last && self.step >= 0.0) || (count < self.last && self.step <= 0.0) {
+
+        // Stop iteration if the return value would be non-finite
+        if !count.is_finite()
+            || (count > self.last && self.step >= 0.0)
+            || (count < self.last && self.step <= 0.0)
+        {
             return None;
         }
         self.index += 1;

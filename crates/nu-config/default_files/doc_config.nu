@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.116.2"
+# version = "0.117.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -172,6 +172,10 @@ $env.config.edit_mode = "emacs"
 # Default: null
 $env.config.buffer_editor = null
 
+# Arguments support {file}, {line}, and {col} placeholders, e.g. ["hx", "{file}:{line}:{col}"].
+# Positions are one-based; `config nu` and `config env` use line 1, column 1.
+# The file path is appended unless an argument contains {file} or is the exact path.
+#
 # Example: Setting buffer_editor with arguments as a list:
 # $env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 
@@ -234,6 +238,10 @@ $env.config.show_hints = true
 # Any closure error or unsupported return type yields no hint.
 # To use the built-in hinter instead, set hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
+# External commands run detached from the terminal, but can still receive input
+# from a pipeline. Their uncaptured output is discarded. `print` still writes to
+# the screen. `input`, `input list`, `input listen` and `term query` return an
+# error, which yields no hint unless caught.
 # Default: null
 $env.config.hinter.closure = null
 
@@ -339,9 +347,11 @@ $env.config.completions.use_ls_colors = true
 # 0: Disable the cache; every Tab recomputes.
 # A larger value remembers more prefixes (uses more memory).
 # A smaller value forgets sooner.
-# Closures on `$env.config.completions.external.completer` and custom
-# `@comp` / `@complete` completers are not stored, so an interactive picker
-# (fzf, `input list`) runs again on the next Tab.
+# Custom `@comp` / `@complete` and external completer answers are cached by
+# default. If their results depend on files, processes, or other state outside
+# the cache key, return `{completions: $items, options: {cache: false}}` to
+# recompute them on later prompts. Interactive pickers (`fzf`, `input list`)
+# are not cached. Plugin dynamic completions are also recomputed.
 # Default: 100
 $env.config.completions.cache_size = 100
 
@@ -387,7 +397,8 @@ $env.config.completions.external.max_results = 100
 #
 # Returns a list of suggestions (a string, or a record of {value, description?, style?,
 # span?, extra?}) or a record of {options, completions}. External/command-wide completers
-# are not filtered by default; parameter completers are. See `options.filter`.
+# are not filtered by default; parameter completers are. See `options.filter`
+# and `options.cache` above.
 # Default: null
 $env.config.completions.external.completer = null
 

@@ -268,10 +268,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             }
         }
 
-        let call = call_builder.finish();
-        let result = eval_ir_call(&self.engine_state, stack, &call, input);
-        call.leave(stack);
-        result
+        eval_ir_call(&self.engine_state, stack, call_builder, input)
     }
 
     fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
