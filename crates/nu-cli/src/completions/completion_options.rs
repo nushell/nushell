@@ -34,6 +34,7 @@ pub enum MatchAlgorithm {
 pub struct NuMatcher<'a, T> {
     options: &'a CompletionOptions,
     should_sort: bool,
+    strip_quotes: bool,
     needle: String,
     state: State<T>,
 }
@@ -75,7 +76,18 @@ impl<T> NuMatcher<'_, T> {
     ) -> NuMatcher<'_, T> {
         // NOTE: Should match `'bar baz'` when completing `foo "b<tab>`
         // https://github.com/nushell/nushell/issues/16860#issuecomment-3402016955
-        let needle = needle.as_ref().trim_matches(QUOTES);
+        let mut matcher = Self::literal(needle.as_ref().trim_matches(QUOTES), options, should_sort);
+        matcher.strip_quotes = true;
+        matcher
+    }
+
+    /// Match already-decoded text, preserving literal quotes in the needle and candidates.
+    pub fn literal(
+        needle: impl AsRef<str>,
+        options: &CompletionOptions,
+        should_sort: bool,
+    ) -> NuMatcher<'_, T> {
+        let needle = needle.as_ref();
         match options.match_algorithm {
             MatchAlgorithm::Prefix | MatchAlgorithm::Substring => {
                 let lowercase_needle = if options.case_sensitive {
@@ -86,6 +98,7 @@ impl<T> NuMatcher<'_, T> {
                 NuMatcher {
                     options,
                     should_sort,
+                    strip_quotes: false,
                     needle: lowercase_needle,
                     state: State::Unscored(Vec::new()),
                 }
@@ -105,6 +118,7 @@ impl<T> NuMatcher<'_, T> {
                 NuMatcher {
                     options,
                     should_sort,
+                    strip_quotes: false,
                     needle: needle.to_owned(),
                     state: State::Fuzzy {
                         matcher: Matcher::new({
@@ -125,7 +139,11 @@ impl<T> NuMatcher<'_, T> {
     ///
     /// Helper to avoid code duplication between [NuMatcher::add] and [NuMatcher::matches].
     fn matches_aux(&mut self, orig_haystack: &str, item: Option<T>) -> Option<Vec<usize>> {
-        let haystack = orig_haystack.trim_start_matches(QUOTES);
+        let haystack = if self.strip_quotes {
+            orig_haystack.trim_start_matches(QUOTES)
+        } else {
+            orig_haystack
+        };
         let offset = orig_haystack.len() - haystack.len();
         // A combining mark can share a displayed grapheme with a stripped quote.
         let offset = if offset == 0 || orig_haystack.is_ascii() {
@@ -137,7 +155,11 @@ impl<T> NuMatcher<'_, T> {
                 .count()
                 .saturating_sub(1)
         };
-        let haystack = haystack.trim_end_matches(QUOTES);
+        let haystack = if self.strip_quotes {
+            haystack.trim_end_matches(QUOTES)
+        } else {
+            haystack
+        };
         match &mut self.state {
             State::Unscored(matches) => {
                 let haystack_folded = if self.options.case_sensitive {
@@ -495,5 +517,33 @@ mod test {
         assert_eq!(matcher.check_match(haystack), Some(expected.clone()));
         assert!(matcher.add(haystack, haystack));
         assert_eq!(matcher.results(), vec![(haystack, expected)]);
+    }
+
+    #[test]
+    fn literal_matching_preserves_quotes() {
+        for match_algorithm in [
+            MatchAlgorithm::Prefix,
+            MatchAlgorithm::Substring,
+            MatchAlgorithm::Fuzzy,
+        ] {
+            for (needle, haystack, expected) in [
+                ("say\"", "say\"hi", vec![0, 1, 2, 3]),
+                ("\"q", "\"quoted", vec![0, 1]),
+                ("end\"", "end\"", vec![0, 1, 2, 3]),
+            ] {
+                let options = CompletionOptions {
+                    match_algorithm,
+                    ..Default::default()
+                };
+                let mut matcher = NuMatcher::literal(needle, &options, true);
+                assert!(!matcher.add("sayhello", ()));
+                assert!(matcher.add(haystack, ()));
+                assert_eq!(
+                    matcher.results(),
+                    vec![((), expected)],
+                    "{match_algorithm:?}: {needle:?}"
+                );
+            }
+        }
     }
 }

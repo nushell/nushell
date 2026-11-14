@@ -1454,6 +1454,153 @@ fn dont_use_dotnu_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+#[rstest]
+#[case::empty("", vec!["alpha", "beta"])]
+#[case::partial("al", vec!["alpha"])]
+#[case::full("alpha", vec!["alpha"])]
+#[case::hidden("hidden", vec![])]
+#[case::default_overlay("zero", vec![])]
+fn overlay_hide_completions(#[case] prefix: &str, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(
+        b"overlay new hidden; overlay hide hidden; overlay new alpha; overlay new beta",
+        &mut engine,
+        &mut stack,
+    )
+    .unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = format!("overlay hide {prefix}");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    match_suggestions(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        assert_eq!(
+            suggestion.span,
+            Span::new("overlay hide ".len(), line.len())
+        );
+        assert!(suggestion.append_whitespace);
+    }
+}
+
+#[rstest]
+#[case::space("with space", "with sp", "\"with space\"")]
+#[case::flag_like("-flag", "-f", "\"-flag\"")]
+#[case::keyword("true", "tr", "\"true\"")]
+#[case::quote("say\"hi", "say", "\"say\\\"hi\"")]
+#[case::backslash(r"path\ name", "path", r#""path\\ name""#)]
+fn overlay_hide_quoted_completions(
+    #[case] name: &str,
+    #[case] prefix: &str,
+    #[case] expected: &str,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let source = format!("overlay new {}", nu_utils::escape_quote_string(name));
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let line = format!("overlay hide \"{prefix}\"");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    match_suggestions(&vec![expected], &suggestions);
+    let suggestion = &suggestions[0];
+    assert_eq!(
+        suggestion.span,
+        Span::new("overlay hide ".len(), line.len())
+    );
+    let mut completed = line;
+    completed.replace_range(
+        suggestion.span.start..suggestion.span.end,
+        &suggestion.value,
+    );
+    support::merge_input(completed.as_bytes(), &mut engine, &mut stack).unwrap();
+    assert!(!stack.is_overlay_active(name));
+}
+
+#[rstest]
+#[case::single_open("say\"hi", r#"'say"h"#, 5)]
+#[case::single_closed("say\"hi", r#"'say"h'"#, 5)]
+#[case::double_open("say\"hi", r#""say\"h"#, 5)]
+#[case::double_closed("say\"hi", r#""say\"h""#, 5)]
+#[case::escaped_quote_at_end("say\"hi", r#""say\""#, 4)]
+#[case::backslash_open(r"path\name", r#""path\\n"#, 6)]
+#[case::backslash_closed(r"path\name", r#""path\\n""#, 6)]
+#[case::literal_backslash(r"path\name", r"'path\n", 6)]
+#[case::backtick("say\"hi", r#"`say"h"#, 5)]
+#[case::unicode("é\"toile", r#"'é"to"#, 4)]
+fn overlay_hide_escape_sensitive_prefixes(
+    #[case] name: &str,
+    #[case] prefix: &str,
+    #[case] matched_graphemes: usize,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let source = format!("overlay new {}", nu_utils::escape_quote_string(name));
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    support::merge_input(b"overlay new sayhello", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let mut line = format!("overlay hide {prefix}");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    assert_eq!(suggestions.len(), 1, "prefix {prefix:?}: {suggestions:?}");
+    let suggestion = &suggestions[0];
+    assert_eq!(suggestion.display_value(), name);
+    assert_eq!(
+        suggestion.span,
+        Span::new("overlay hide ".len(), line.len())
+    );
+    assert_eq!(
+        suggestion.match_indices,
+        Some((0..matched_graphemes).collect())
+    );
+    line.replace_range(
+        suggestion.span.start..suggestion.span.end,
+        &suggestion.value,
+    );
+    support::merge_input(line.as_bytes(), &mut engine, &mut stack).unwrap();
+    assert!(!stack.is_overlay_active(name));
+}
+
+#[test]
+fn overlay_hide_completion_replaces_only_the_name() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(b"overlay new alpha", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "'é'; overlay hide al --keep-custom";
+    let start = line.find("al ").unwrap();
+    let end = start + 2;
+    let suggestions = completer.complete_blocking(line, end);
+    match_suggestions(&vec!["alpha"], &suggestions);
+    assert_eq!(suggestions[0].span, Span::new(start, end));
+    let mut completed = line.to_string();
+    completed.replace_range(start..end, &suggestions[0].value);
+    assert_eq!(completed, "'é'; overlay hide alpha --keep-custom");
+}
+
+#[rstest]
+#[case::activated_in_block("if true { overlay new runtime }", vec!["runtime"])]
+#[case::hidden_in_block("overlay new runtime; if true { overlay hide runtime }", vec![])]
+fn overlay_hide_completions_follow_runtime_state(
+    #[case] source: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    let parser_active = engine
+        .active_overlay_names(&[])
+        .any(|name| name == b"runtime");
+    assert_ne!(parser_active, stack.is_overlay_active("runtime"));
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "overlay hide ";
+    match_suggestions(&expected, &completer.complete_blocking(line, line.len()));
+}
+
+#[rstest]
+#[case::help_flag("overlay hide --h", vec!["--help"])]
+#[case::partial_flag("overlay hide --keep-c", vec!["--keep-custom"])]
+#[case::flag_after_name("overlay hide alpha --keep-e", vec!["--keep-env"])]
+#[case::name_after_flag("overlay hide --keep-custom al", vec!["alpha"])]
+fn overlay_hide_flag_completions(#[case] line: &str, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(b"overlay new alpha", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    match_suggestions(&expected, &completer.complete_blocking(line, line.len()));
+}
+
 #[test]
 fn dotnu_completions() {
     // Create a new engine
