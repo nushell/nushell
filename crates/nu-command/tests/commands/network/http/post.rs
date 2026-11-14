@@ -286,7 +286,7 @@ fn http_post_allow_errors_invalid_body_type_still_errors() -> Result {
     let _mock = server.mock("POST", "/").with_status(200).create();
 
     let code = format!(
-        r#"http post -e -t application/json {url} {{|| 1}}"#,
+        "http post -e -t application/json {url} {{|| 1}}",
         url = server.url()
     );
 
