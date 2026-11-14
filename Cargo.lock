@@ -4750,6 +4750,7 @@ name = "nu-cmd-base"
 version = "0.117.1"
 dependencies = [
  "indexmap 2.14.1",
+ "log",
  "miette 7.6.0",
  "nu-engine",
  "nu-parser",

@@ -614,7 +614,7 @@ fn prepare_prompt(
     engine_state: &mut EngineState,
     stack: &Arc<Stack>,
 ) -> Box<dyn reedline::Prompt> {
-    prompt_update::update_prompt(config, engine_state, &mut Stack::with_parent(stack.clone()));
+    prompt_update::update_prompt(config, engine_state, &Stack::with_parent(stack.clone()));
 
     // Prompt errors have already been reported. Start the transient prompt and line editor
     // callbacks without carrying over the prompt's interruption.
@@ -622,11 +622,7 @@ fn prepare_prompt(
         engine_state.reset_signals();
     }
 
-    prompt_update::make_transient_prompt(
-        config,
-        engine_state,
-        &mut Stack::with_parent(stack.clone()),
-    )
+    prompt_update::make_transient_prompt(config, engine_state, &Stack::with_parent(stack.clone()))
 }
 
 /// Perform one iteration of the REPL loop

@@ -28,6 +28,7 @@ pub use key_spec::{
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
+pub use prompt::{DefaultPrompts, PromptConfig};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
 pub use shell_integration::ShellIntegrationConfig;
@@ -53,6 +54,7 @@ mod ls;
 mod output;
 mod plugin_gc;
 mod prelude;
+mod prompt;
 mod reedline;
 mod rm;
 mod shell_integration;
@@ -86,7 +88,6 @@ pub struct Config {
     pub show_banner: BannerKind,
     pub bracketed_paste: bool,
     pub auto_pairs: AutoPairsConfig,
-    pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
     /// Styles for the `tui` command family (`$env.config.tui`).
     pub tui: HashMap<String, Value>,
@@ -115,6 +116,7 @@ pub struct Config {
     pub plugins: HashMap<String, Value>,
     /// Configuration for plugin garbage collection.
     pub plugin_gc: PluginGcConfigs,
+    pub prompt: PromptConfig,
 }
 
 impl Default for Config {
@@ -157,8 +159,6 @@ impl Default for Config {
 
             shell_integration: ShellIntegrationConfig::default(),
 
-            render_right_prompt_on_last_line: false,
-
             hooks: Hooks::new(),
 
             menus: defaults::default_menus(),
@@ -181,6 +181,7 @@ impl Default for Config {
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
+            prompt: PromptConfig::default(),
         }
     }
 }
@@ -225,8 +226,14 @@ impl UpdateFromValue for Config {
                 "shell_integration" => self.shell_integration.update(val, current_path, errors),
                 "show_banner" => self.show_banner.update(val, current_path, errors),
                 "display_errors" => self.display_errors.update(val, current_path, errors),
+                // The old name of `prompt.render_right_on_last_line`. Writes are
+                // still accepted, silently, since the starship and oh-my-posh
+                // init scripts set it for every one of their users. Reads of
+                // the old name do fail: `$env.config` is rebuilt from `Config`
+                // after every update, which drops the key.
                 "render_right_prompt_on_last_line" => {
-                    self.render_right_prompt_on_last_line
+                    self.prompt
+                        .render_right_on_last_line
                         .update(val, current_path, errors)
                 }
                 "bracketed_paste" => self.bracketed_paste.update(val, current_path, errors),
@@ -240,6 +247,7 @@ impl UpdateFromValue for Config {
                 "duration_max_unit" => self.duration_max_unit.update(val, current_path, errors),
                 "plugins" => self.plugins.update(val, current_path, errors),
                 "plugin_gc" => self.plugin_gc.update(val, current_path, errors),
+                "prompt" => self.prompt.update(val, current_path, errors),
                 "abbreviations" => self.abbreviations.update(val, current_path, errors),
                 "hooks" => self.hooks.update(val, current_path, errors),
                 "datetime_format" => self.datetime_format.update(val, current_path, errors),
@@ -399,6 +407,28 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The starship and oh-my-posh init scripts write the old key, so it must
+    /// neither error nor warn. They append it to the existing record, which
+    /// puts it after `prompt`, so it also has to win over the new key there.
+    #[test]
+    fn the_old_render_right_prompt_key_still_sets_the_new_one() {
+        let old = Config::default();
+        let mut new = old.clone();
+
+        let result = new.update_from_value(
+            &old,
+            &Value::test_record(record! {
+                "prompt" => Value::test_record(record! {
+                    "render_right_on_last_line" => Value::test_bool(false),
+                }),
+                "render_right_prompt_on_last_line" => Value::test_bool(true),
+            }),
+        );
+
+        assert!(matches!(result, Ok(None)), "the old key should be silent");
+        assert!(new.prompt.render_right_on_last_line);
+    }
 
     /// Run one `$env.config.menus = [...]` assignment.
     fn assign_menus(config: &mut Config, old: &Config, menus: Vec<ParsedMenu>) {
