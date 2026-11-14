@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
 
-/// Source a file for environment variables.
+/// Include a script file in the current scope at parse time.
 #[derive(Clone)]
 pub struct Source;
 
@@ -23,11 +23,11 @@ impl Command for Source {
     }
 
     fn description(&self) -> &str {
-        "Runs a script file in the current context."
+        "Includes a script file in the current scope at parse time."
     }
 
     fn extra_description(&self) -> &str {
-        "This command is a parser keyword. For details, check:
+        "This command is a parser keyword. The file is read and parsed before the script runs, so the path must be a literal or a constant, not the value of a variable. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
@@ -111,12 +111,12 @@ impl Command for Source {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Runs foo.nu in the current context.",
+                description: "Includes foo.nu in the current scope.",
                 example: "source foo.nu",
                 result: None,
             },
             Example {
-                description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`.",
+                description: "Includes foo.nu in the current scope and calls the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`.",
                 example: "source ./foo.nu; say-hi",
                 result: None,
             },
