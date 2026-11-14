@@ -2,6 +2,7 @@ use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, ast::PathMember};
 use std::collections::HashSet;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone)]
 pub struct ToMd;
@@ -484,7 +485,7 @@ fn collect_headers(headers: &[String], escape_md: bool) -> (Vec<String>, Vec<usi
                 escape_md,
                 true,
             );
-            column_widths.push(escaped_header_string.len());
+            column_widths.push(escaped_header_string.width());
             escaped_headers.push(escaped_header_string);
         }
     } else {
@@ -548,7 +549,7 @@ fn table(
                         true,
                     );
 
-                    let new_column_width = escaped_string.len();
+                    let new_column_width = escaped_string.width();
                     escaped_row.push(escaped_string);
 
                     if column_widths[i] < new_column_width {
@@ -728,11 +729,8 @@ fn get_output_string(
 }
 
 fn get_centered_string(text: String, desired_length: usize, padding_character: char) -> String {
-    let total_padding = if text.len() > desired_length {
-        0
-    } else {
-        desired_length - text.len()
-    };
+    let width = text.width();
+    let total_padding = desired_length.saturating_sub(width);
 
     let repeat_left = total_padding / 2;
     let repeat_right = total_padding - repeat_left;
@@ -746,11 +744,8 @@ fn get_centered_string(text: String, desired_length: usize, padding_character: c
 }
 
 fn get_padded_string(text: String, desired_length: usize, padding_character: char) -> String {
-    let repeat_length = if text.len() > desired_length {
-        0
-    } else {
-        desired_length - text.len()
-    };
+    let width = text.width();
+    let repeat_length = desired_length.saturating_sub(width);
 
     format!(
         "{}{}",
@@ -781,6 +776,68 @@ mod tests {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(ToMd)
+    }
+
+    #[test]
+    fn render_table_pretty_aligns_wide_characters() {
+        // Regression: --pretty padded cells by UTF-8 byte length, so CJK text
+        // (2 display columns per char, 3 bytes per char) misaligned the borders.
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "a" => Value::test_string("你好"),
+                "b" => Value::test_string("z"),
+            }),
+            Value::test_record(record! {
+                "a" => Value::test_string("x"),
+                "b" => Value::test_string("long"),
+            }),
+        ]);
+
+        let out = table(
+            value.into_pipeline_data(),
+            true,
+            &None,
+            false,
+            false,
+            &Config::default(),
+        );
+
+        // Column separators must land on the same DISPLAY column on every line.
+        let bar_columns = |line: &str| -> Vec<usize> {
+            let mut column = 0usize;
+            let mut positions = Vec::new();
+            for ch in line.chars() {
+                if ch == '|' {
+                    positions.push(column);
+                }
+                column += unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+            }
+            positions
+        };
+
+        let lines: Vec<&str> = out.lines().collect();
+        assert!(lines.len() >= 4, "expected a table, got:\n{out}");
+        let expected = bar_columns(lines[0]);
+        assert!(!expected.is_empty(), "expected table borders, got:\n{out}");
+        for line in &lines {
+            assert_eq!(
+                bar_columns(line),
+                expected,
+                "markdown table borders must align by display width; got:\n{out}"
+            );
+        }
+
+        // Pin the exact rendering as well, so a uniform off-by-one in every
+        // line cannot slip through a purely relative alignment check.
+        assert_eq!(
+            out,
+            one("
+            | a    | b    |
+            | ---- | ---- |
+            | 你好 | z    |
+            | x    | long |
+            ")
+        );
     }
 
     #[test]
