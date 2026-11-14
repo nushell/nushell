@@ -75,7 +75,11 @@ fn semantic_markers_from_config(
 type RepaintCallback = Arc<dyn Fn() + Send + Sync>;
 
 /// Prepares the engine's prompt state and constructs the interactive view.
-/// Injects a live repainter only if background jobs are currently active.
+///
+/// Installs a live repainter only while a background job thread is running, since only a job
+/// thread can push a prompt while the line editor waits for input. Holding a repaint handle makes
+/// reedline poll for input instead of blocking, so the last job thread to end drops the repainter
+/// again (see `job spawn`).
 fn build_interactive_prompt(
     engine_state: &EngineState,
     line_editor: &mut Reedline,
@@ -83,22 +87,23 @@ fn build_interactive_prompt(
     // Recover from a poisoned jobs lock rather than silently disabling async
     // prompts: a background job holding the lock across a panic must not leave
     // `commandline set-prompt` a permanent no-op.
-    let jobs_active = {
-        let active_jobs = engine_state
-            .jobs
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        !active_jobs.is_empty()
-    };
+    let jobs = engine_state
+        .jobs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    let background_repainter = jobs_active.then(|| {
+    let background_repainter = jobs.has_thread_jobs().then(|| {
         let repaint_signal = line_editor.repaint_signal();
         Arc::new(move || repaint_signal.request_repaint()) as RepaintCallback
     });
 
+    // Install it before releasing the jobs lock. The last job thread drops the repainter under
+    // the same lock, so it can't end between the check above and this call and leave behind a
+    // repainter that nothing removes.
     engine_state
         .prompt_state
         .set_repainter(background_repainter);
+    drop(jobs);
 
     NushellPrompt::shared(engine_state.prompt_state.clone())
 }

@@ -126,6 +126,24 @@ mod unfreeze {
             .run("job unfreeze")
             .expect_error_code_eq("nu::shell::job::none_to_unfreeze")
     }
+
+    #[test]
+    #[cfg_attr(ci, serial)]
+    fn frozen_job_is_not_a_thread_job() -> Result {
+        let mut tester = test();
+        let _frozen = FrozenProcess::new(&mut tester, 1)?;
+
+        // A frozen job is a stopped external and can't run `commandline set-prompt`, so it must
+        // not keep the REPL's repainter installed.
+        let jobs = tester
+            .engine_state
+            .jobs
+            .lock()
+            .expect("jobs lock is poisoned");
+        assert!(!jobs.is_empty());
+        assert!(!jobs.has_thread_jobs());
+        Ok(())
+    }
 }
 
 #[rstest]
