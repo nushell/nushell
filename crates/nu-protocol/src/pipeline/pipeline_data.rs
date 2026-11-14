@@ -463,7 +463,9 @@ impl PipelineData {
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
+            PipelineData::ListStream(stream, ..) => stream
+                .into_value()?
+                .with_span(head)
                 .follow_cell_path(cell_path)
                 .map(Cow::into_owned),
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
@@ -995,6 +997,16 @@ enum PipelineIteratorInner {
 }
 
 pub struct PipelineIterator(PipelineIteratorInner);
+
+impl PipelineIterator {
+    /// Collects the items, unless one of them holds an error, which is returned instead.
+    ///
+    /// This is for commands that read everything before returning anything. An error left among
+    /// the items would disappear if the command, or the next one, dropped that item.
+    pub fn collect_values(self) -> Result<Vec<Value>, ShellError> {
+        self.map(Value::unwrap_error).collect()
+    }
+}
 
 impl IntoIterator for PipelineData {
     type Item = Value;

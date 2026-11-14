@@ -2,7 +2,7 @@
 use crate::database::QueryPlan;
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{Signals, shell_error::bridge::ShellErrorBridge};
 use std::{collections::VecDeque, io::Read};
 
 #[derive(Clone)]
@@ -213,6 +213,8 @@ fn last_helper(
 
             for row in iterator {
                 signals.check(&head)?;
+                // Every row gets read, so an error counts even in a row that won't be returned.
+                let row = row.unwrap_error()?;
                 if buf.len() == rows {
                     buf.pop_front();
                 }
@@ -354,7 +356,7 @@ fn last_helper(
                     let mut buf = VecDeque::new();
                     loop {
                         let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
-                            .map_err(|err| IoError::new(err, span, None))?;
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?;
                         if buf.len() > rows {
                             buf.drain(..(buf.len() - rows));
                         }

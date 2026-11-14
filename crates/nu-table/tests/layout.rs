@@ -1175,6 +1175,7 @@ impl ValueShape {
             TableMode::Rounded,
             0,
             false,
+            false,
             priorities,
         );
 

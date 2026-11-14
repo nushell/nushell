@@ -16,7 +16,7 @@ use reedline::{Prompt, PromptEditMode};
 /// Test that update_prompt with OSC 133 renders prompts correctly
 #[test]
 fn test_update_prompt_with_osc133() {
-    let mut tester = test()
+    let tester = test()
         .env("PROMPT_COMMAND", "❯ ")
         .env("PROMPT_INDICATOR", "> ")
         .env("PROMPT_COMMAND_RIGHT", "~/code")
@@ -25,7 +25,7 @@ fn test_update_prompt_with_osc133() {
     let config = tester.engine_state.get_config().clone();
 
     // Call the actual update_prompt function
-    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    update_prompt(&config, &tester.engine_state, &tester.stack);
 
     let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
 
@@ -44,11 +44,11 @@ fn test_update_prompt_with_osc133() {
 /// Test that update_prompt with OSC 633 renders prompts correctly
 #[test]
 fn test_update_prompt_with_osc633() {
-    let mut tester = test().env("PROMPT_COMMAND", "❯ ").env("PWD", "/test");
+    let tester = test().env("PROMPT_COMMAND", "❯ ").env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
 
     // Call the actual update_prompt function
-    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    update_prompt(&config, &tester.engine_state, &tester.stack);
 
     let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
     let left = prompt.render_prompt_left();
@@ -59,13 +59,13 @@ fn test_update_prompt_with_osc633() {
 /// Test that update_prompt correctly handles both left and right prompts
 #[test]
 fn test_update_prompt_left_and_right() {
-    let mut tester = test()
+    let tester = test()
         .env("PROMPT_COMMAND", "❯ ")
         .env("PROMPT_COMMAND_RIGHT", "~/code")
         .env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
 
-    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    update_prompt(&config, &tester.engine_state, &tester.stack);
 
     let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
     let left = prompt.render_prompt_left();
@@ -78,12 +78,12 @@ fn test_update_prompt_left_and_right() {
 /// Test that update_prompt correctly sets multiline indicator
 #[test]
 fn test_update_prompt_multiline() {
-    let mut tester = test()
+    let tester = test()
         .env("PROMPT_MULTILINE_INDICATOR", "... ")
         .env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
 
-    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    update_prompt(&config, &tester.engine_state, &tester.stack);
 
     let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
     let multiline = prompt.render_prompt_multiline_indicator();
@@ -94,11 +94,11 @@ fn test_update_prompt_multiline() {
 /// Test that update_prompt respects empty/missing prompt variables
 #[test]
 fn test_update_prompt_with_missing_vars() {
-    let mut tester = test().env("PWD", "/test");
+    let tester = test().env("PWD", "/test");
     let config = tester.engine_state.get_config().clone();
 
     // Call update_prompt without setting PROMPT_COMMAND env vars
-    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    update_prompt(&config, &tester.engine_state, &tester.stack);
 
     // Should still work, just with default/empty prompts
     let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());

@@ -81,9 +81,7 @@ pub(super) fn build_desc(comment_lines: &[&[u8]]) -> (String, String) {
         description.push_str(&comment_line);
     }
 
-    if let Some((brief_desc, extra_desc)) = description.split_once("\r\n\r\n") {
-        (brief_desc.to_string(), extra_desc.to_string())
-    } else if let Some((brief_desc, extra_desc)) = description.split_once("\n\n") {
+    if let Some((brief_desc, extra_desc)) = description.split_once("\n\n") {
         (brief_desc.to_string(), extra_desc.to_string())
     } else {
         (description, String::default())

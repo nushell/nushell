@@ -736,13 +736,13 @@ fn use_submodules() -> Result {
             .run("(voice animals cat) == 'woem'")
             .expect_value_eq(true)?;
 
-        // should also verify something unchanged if `use voice`.
+        // `use voice` by name picks up the change too.
         let mut tester = test().cwd(dirs.test());
         let () = tester.run("use voice.nu")?;
         let () = tester.run(r#""export def cat [] { 'meow' }" | save -f animals.nu"#)?;
         let () = tester.run("use voice")?;
         tester
-            .run("(voice animals cat) == 'woem'")
+            .run("(voice animals cat) == 'meow'")
             .expect_value_eq(true)?;
 
         // also verify something is changed when using members.
@@ -847,5 +847,784 @@ fn use_nested_submodules() -> Result {
         tester
             .run("(voice animals cat) == 'woem'")
             .expect_value_eq(true)
+    })
+}
+
+// `use <name>` reads the module's file again once it has changed, like `use <path>` does.
+#[rstest]
+#[case::prefixed("use_name_prefixed", "use spam.nu", "use spam", "spam foo")]
+#[case::glob("use_name_glob", "use spam.nu *", "use spam *", "foo")]
+#[case::member("use_name_member", "use spam.nu foo", "use spam foo", "foo")]
+#[case::member_list("use_name_list", "use spam.nu [foo]", "use spam [foo]", "foo")]
+fn use_by_name_reads_a_changed_file(
+    #[case] topic: &str,
+    #[case] first: &str,
+    #[case] again: &str,
+    #[case] call: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'old' }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run(first)?;
+        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+        // Nothing changes until the next `use`.
+        tester.run(call).expect_value_eq("old")?;
+        let () = tester.run(again)?;
+        tester.run(call).expect_value_eq("new")
+    })
+}
+
+#[rstest]
+#[case::mod_nu("use_name_dir_mod", "pkg/mod.nu")]
+#[case::imported("use_name_dir_import", "pkg/sub.nu")]
+fn use_by_name_reads_a_changed_directory_module(
+    #[case] topic: &str,
+    #[case] edited: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.mkdir("pkg").with_files(&[
+            FileWithContent("pkg/mod.nu", "export use sub.nu *"),
+            FileWithContent("pkg/sub.nu", "export def foo [] { 'old' }"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use pkg")?;
+        tester.run("pkg foo").expect_value_eq("old")?;
+        let () =
+            tester.run_with_data(format!("save -f {edited}"), "export def foo [] { 'new' }")?;
+        let () = tester.run("use pkg")?;
+        tester.run("pkg foo").expect_value_eq("new")
+    })
+}
+
+#[test]
+fn use_by_name_runs_a_changed_export_env() -> Result {
+    Playground::setup("use_name_export_env", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export-env { $env.SPAM = 'old' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        let () = tester.run(r#""export-env { $env.SPAM = 'new' }" | save -f spam.nu"#)?;
+        let () = tester.run("use spam")?;
+        tester.run("$env.SPAM").expect_value_eq("new")
+    })
+}
+
+// A module written at the prompt has no file to read, even if one with its name sits in the cwd.
+#[test]
+fn use_by_name_keeps_an_inline_module() -> Result {
+    Playground::setup("use_name_inline", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'file' }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("module spam { export def foo [] { 'inline' } }")?;
+        let () = tester.run("use spam")?;
+        tester.run("spam foo").expect_value_eq("inline")
+    })
+}
+
+#[test]
+fn use_by_name_keeps_the_module_when_its_file_is_gone() -> Result {
+    Playground::setup("use_name_deleted_file", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'old' }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        std::fs::remove_file(dirs.test().join("spam.nu"))?;
+        let () = tester.run("use spam")?;
+        tester.run("spam foo").expect_value_eq("old")
+    })
+}
+
+// Reloading drops what the new version no longer exports, however the module was imported.
+#[rstest]
+#[case::path_prefixed(
+    "deleted_path_prefixed",
+    "use spam.nu",
+    "use spam.nu",
+    "spam bar",
+    "spam foo"
+)]
+#[case::path_glob("deleted_path_glob", "use spam.nu *", "use spam.nu *", "bar", "foo")]
+#[case::name_prefixed(
+    "deleted_name_prefixed",
+    "use spam.nu",
+    "use spam",
+    "spam bar",
+    "spam foo"
+)]
+#[case::name_glob("deleted_name_glob", "use spam.nu *", "use spam *", "bar", "foo")]
+#[case::alias_prefixed(
+    "deleted_alias_prefixed",
+    "use spam.nu",
+    "use spam.nu",
+    "spam baz",
+    "spam foo"
+)]
+#[case::alias_glob("deleted_alias_glob", "use spam.nu *", "use spam.nu *", "baz", "foo")]
+#[case::main_prefixed(
+    "deleted_main_prefixed",
+    "use spam.nu",
+    "use spam.nu",
+    "spam",
+    "spam foo"
+)]
+#[case::main_glob("deleted_main_glob", "use spam.nu *", "use spam.nu *", "spam", "foo")]
+#[case::prefixed_then_glob("deleted_mixed", "use spam.nu", "use spam.nu *", "spam bar", "foo")]
+#[case::submodule(
+    "deleted_submodule",
+    "use spam.nu *",
+    "use spam.nu *",
+    "sub cmd",
+    "foo"
+)]
+fn deleted_definition_goes_away_on_reload(
+    #[case] topic: &str,
+    #[case] first: &str,
+    #[case] again: &str,
+    #[case] deleted: &str,
+    #[case] kept: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "
+            export module sub { export def cmd [] { 'cmd' } }
+            export def main [] { 'main' }
+            export def foo [] { 'old' }
+            export def bar [] { 'bar' }
+            export alias baz = echo 'baz'
+            ",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run(first)?;
+        let _: Value = tester.run(deleted)?;
+        let () = tester.run(r#""export def foo [] { 'new' }" | save -f spam.nu"#)?;
+        let () = tester.run(again)?;
+        tester.run(kept).expect_value_eq("new")?;
+        tester
+            .run(deleted)
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+#[test]
+fn deleted_type_alias_goes_away_on_reload() -> Result {
+    Playground::setup("deleted_type_alias", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export type Animal = string; export def foo [] { 'foo' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run("let a: Animal = 'cat'")?;
+        let () = tester.run(r#""export def foo [] { 'foo' }" | save -f spam.nu"#)?;
+        let () = tester.run("use spam.nu *")?;
+        tester
+            .run("let b: Animal = 'cat'")
+            .expect_error_code_eq("nu::parser::unknown_type")
+    })
+}
+
+#[test]
+fn reload_keeps_a_command_redefined_since_the_import() -> Result {
+    Playground::setup("reload_keeps_redefined", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'foo' }; export def bar [] { 'bar' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run("def bar [] { 'mine' }")?;
+        let () = tester.run(r#""export def foo [] { 'foo' }" | save -f spam.nu"#)?;
+        let () = tester.run("use spam.nu *")?;
+        tester.run("bar").expect_value_eq("mine")
+    })
+}
+
+// Dropping a re-export doesn't undo importing the same command from its own module.
+#[rstest]
+#[case::direct(
+    "dropped_reexport_direct",
+    "export use b.nu [foo bar]",
+    "export use b.nu [foo]"
+)]
+#[case::through_another_module(
+    "dropped_reexport_chain",
+    "export use c.nu [foo bar]",
+    "export use c.nu [foo]"
+)]
+fn reload_keeps_a_command_imported_from_its_own_module(
+    #[case] topic: &str,
+    #[case] first: &str,
+    #[case] edited: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent(
+                "b.nu",
+                "export def foo [] { 'foo' }; export def bar [] { 'bar' }",
+            ),
+            FileWithContent("c.nu", "export use b.nu [foo bar]"),
+            FileWithContent("a.nu", first),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use b.nu bar")?;
+        let () = tester.run("use a.nu *")?;
+        let () = tester.run_with_data("save -f a.nu", edited)?;
+        let () = tester.run("use a *")?;
+        tester.run("bar").expect_value_eq("bar")
+    })
+}
+
+#[test]
+fn reload_hides_a_dropped_reexport_you_only_got_through_the_module() -> Result {
+    Playground::setup("dropped_reexport_only", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent(
+                "b.nu",
+                "export def foo [] { 'foo' }; export def bar [] { 'bar' }",
+            ),
+            FileWithContent("a.nu", "export use b.nu [foo bar]"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use a.nu *")?;
+        let () = tester.run_with_data("save -f a.nu", "export use b.nu [foo]")?;
+        let () = tester.run("use a *")?;
+        tester.run("foo").expect_value_eq("foo")?;
+        tester
+            .run("bar")
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+// `use a.nu *` binds `b` when `a` has `export use b.nu`. That doesn't count as importing from `b`.
+#[test]
+fn reload_hides_a_deleted_command_of_a_module_the_glob_bound() -> Result {
+    Playground::setup("deleted_in_glob_bound", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent(
+                "b.nu",
+                "export def foo [] { 'foo' }; export def bar [] { 'bar' }",
+            ),
+            FileWithContent("a.nu", "export use b.nu"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use a.nu *")?;
+        let () = tester.run_with_data("save -f b.nu", "export def foo [] { 'new' }")?;
+        let () = tester.run("use a *")?;
+        tester.run("b foo").expect_value_eq("new")?;
+        tester
+            .run("b bar")
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+// A reload moves every name still showing the old version, not only the ones this `use` named.
+#[rstest]
+#[case::bare_after_prefixed(
+    "rebind_bare_after_prefixed",
+    &["use spam.nu *"],
+    "use spam",
+    "foo"
+)]
+#[case::member_after_another_member(
+    "rebind_member",
+    &["use spam.nu foo", "use spam.nu bar"],
+    "use spam foo",
+    "bar"
+)]
+#[case::prefixed_after_member(
+    "rebind_prefixed",
+    &["use spam.nu"],
+    "use spam foo",
+    "spam bar"
+)]
+#[case::by_path("rebind_by_path", &["use spam.nu foo", "use spam.nu bar"], "use spam.nu foo", "bar")]
+fn reload_moves_kept_names_to_the_new_version(
+    #[case] topic: &str,
+    #[case] first: &[&str],
+    #[case] again: &str,
+    #[case] call: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'old' }; export def bar [] { 'old' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        for command in first {
+            let () = tester.run(*command)?;
+        }
+        let () = tester.run_with_data(
+            "save -f spam.nu",
+            "export def foo [] { 'new' }; export def bar [] { 'new' }",
+        )?;
+        let () = tester.run(again)?;
+        tester.run(call).expect_value_eq("new")
+    })
+}
+
+#[test]
+fn reload_moves_kept_constants_and_submodules_to_the_new_version() -> Result {
+    Playground::setup("rebind_const_submodule", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export const X = 'old'; export module sub { export def x [] { 'old' } }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data(
+            "save -f spam.nu",
+            "export const X = 'new'; export module sub { export def x [] { 'new' } }",
+        )?;
+        let () = tester.run("use spam")?;
+        tester.run("$X").expect_value_eq("new")?;
+        let () = tester.run("use sub")?;
+        tester.run("sub x").expect_value_eq("new")
+    })
+}
+
+#[rstest]
+#[case::glob("deleted_const_glob", "use spam *")]
+#[case::prefixed("deleted_const_prefixed", "use spam")]
+#[case::by_path("deleted_const_path", "use spam.nu *")]
+fn deleted_constant_goes_away_on_reload(#[case] topic: &str, #[case] again: &str) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export const X = 'old'; export const Y = 'old'",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export const Y = 'new'")?;
+        let () = tester.run(again)?;
+        tester.run("$Y").expect_value_eq("new")?;
+        tester
+            .run("$X")
+            .expect_error_code_eq("nu::parser::variable_not_found")
+    })
+}
+
+#[test]
+fn reload_keeps_a_constant_redefined_since_the_import() -> Result {
+    Playground::setup("deleted_const_redefined", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export const X = 'old'; export const Y = 'old'",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run("const X = 'mine'")?;
+        let () = tester.run_with_data("save -f spam.nu", "export const Y = 'new'")?;
+        let () = tester.run("use spam *")?;
+        tester.run("$X").expect_value_eq("mine")
+    })
+}
+
+#[test]
+fn reload_keeps_a_constant_imported_from_its_own_module() -> Result {
+    Playground::setup("dropped_const_reexport", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("b.nu", "export const X = 'x'; export const Y = 'y'"),
+            FileWithContent("a.nu", "export use b.nu [X Y]"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use b.nu X")?;
+        let () = tester.run("use a.nu *")?;
+        let () = tester.run_with_data("save -f a.nu", "export use b.nu [Y]")?;
+        let () = tester.run("use a *")?;
+        tester.run("$X").expect_value_eq("x")
+    })
+}
+
+#[test]
+fn reload_keeps_a_type_alias_imported_from_its_own_module() -> Result {
+    Playground::setup("dropped_type_alias_reexport", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent(
+                "b.nu",
+                "export type Animal = string; export type Size = int",
+            ),
+            FileWithContent("a.nu", "export use b.nu [Animal Size]"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use b.nu Animal")?;
+        let () = tester.run("use a.nu *")?;
+        let () = tester.run_with_data("save -f a.nu", "export use b.nu [Size]")?;
+        let () = tester.run("use a *")?;
+        let () = tester.run("let a: Size = 1")?;
+        let () = tester.run("let b: Animal = 'cat'")?;
+        Ok(())
+    })
+}
+
+#[test]
+fn reload_moves_a_kept_type_alias_to_the_new_version() -> Result {
+    Playground::setup("rebind_type_alias", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", "export type Animal = string")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export type Animal = int")?;
+        let () = tester.run("use spam")?;
+        let () = tester.run("let a: Animal = 1")?;
+        tester
+            .run("let b: Animal = 'cat'")
+            .expect_error_code_eq("nu::parser::type_mismatch")
+    })
+}
+
+const SPAM_WITH_SUBMODULE: &str =
+    "export module sub { export def x [] { 'old' } }; export def foo [] { 'old' }";
+
+#[rstest]
+#[case::glob("deleted_sub_glob", "use spam.nu *", "use spam *")]
+#[case::prefixed_reload("deleted_sub_prefixed", "use spam.nu *", "use spam")]
+#[case::by_path("deleted_sub_path", "use spam.nu *", "use spam.nu *")]
+#[case::imported_by_name("deleted_sub_named", "use spam.nu sub", "use spam")]
+fn deleted_submodule_goes_away_on_reload(
+    #[case] topic: &str,
+    #[case] first: &str,
+    #[case] again: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", SPAM_WITH_SUBMODULE)]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run(first)?;
+        let () = tester.run("use sub")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        let () = tester.run(again)?;
+        tester
+            .run("use sub")
+            .expect_error_code_eq("nu::parser::module_not_found")?;
+        tester
+            .run("scope modules | where name == sub | is-empty")
+            .expect_value_eq(true)
+    })
+}
+
+#[test]
+fn deleted_submodule_goes_away_in_the_source_unit_of_the_reload() -> Result {
+    Playground::setup("deleted_sub_same_unit", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", SPAM_WITH_SUBMODULE)]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        tester
+            .run("use spam *; use sub")
+            .expect_error_code_eq("nu::parser::module_not_found")
+    })
+}
+
+// The file a deleted submodule came from can still be there, and importing it binds the name.
+#[rstest]
+#[case::same_source_unit("sub_again_same_unit", &["use spam *; use sub.nu; use sub"])]
+#[case::later_source_unit("sub_again_later_unit", &["use spam *", "use sub.nu"])]
+fn importing_a_deleted_submodule_again_brings_it_back(
+    #[case] topic: &str,
+    #[case] again: &[&str],
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("sub.nu", "export def x [] { 'sub' }"),
+            FileWithContent(
+                "spam.nu",
+                "export module sub.nu; export def foo [] { 'old' }",
+            ),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        for command in again {
+            let () = tester.run(*command)?;
+        }
+        let () = tester.run("use sub")?;
+        tester.run("sub x").expect_value_eq("sub")
+    })
+}
+
+#[test]
+fn importing_a_deleted_submodule_in_a_block_brings_it_back_there() -> Result {
+    Playground::setup("sub_again_block", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("sub.nu", "export def x [] { 'sub' }"),
+            FileWithContent(
+                "spam.nu",
+                "export module sub.nu; export def foo [] { 'old' }",
+            ),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        tester
+            .run("use spam *; do { use sub.nu; use sub; sub x }")
+            .expect_value_eq("sub")?;
+        tester
+            .run("use sub")
+            .expect_error_code_eq("nu::parser::module_not_found")
+    })
+}
+
+#[test]
+fn submodule_added_back_after_a_reload_is_found() -> Result {
+    Playground::setup("sub_added_back", |dirs, sandbox| {
+        let with_sub = "export module sub.nu; export def foo [] { 'old' }";
+        sandbox.with_files(&[
+            FileWithContent("sub.nu", "export def x [] { 'sub' }"),
+            FileWithContent("spam.nu", with_sub),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        let () = tester.run("use spam *")?;
+        let () = tester.run_with_data("save -f spam.nu", with_sub)?;
+        let () = tester.run("use spam *")?;
+        let () = tester.run("use sub")?;
+        tester.run("sub x").expect_value_eq("sub")
+    })
+}
+
+#[test]
+fn reload_keeps_your_own_module_with_a_dropped_name() -> Result {
+    Playground::setup("deleted_sub_own_module", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", SPAM_WITH_SUBMODULE)]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run("module sub { export def x [] { 'mine' } }")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        let () = tester.run("use spam *")?;
+        let () = tester.run("use sub")?;
+        tester.run("sub x").expect_value_eq("mine")
+    })
+}
+
+#[test]
+fn reload_in_a_block_hides_a_dropped_submodule_only_there() -> Result {
+    Playground::setup("deleted_sub_block", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", SPAM_WITH_SUBMODULE)]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        tester
+            .run("do { use spam *; use sub }")
+            .expect_error_code_eq("nu::parser::module_not_found")?;
+
+        let () = tester.run("do { use spam * }")?;
+        let () = tester.run("use sub")?;
+        tester.run("sub x").expect_value_eq("old")?;
+
+        let () = tester.run("use spam *")?;
+        tester
+            .run("use sub")
+            .expect_error_code_eq("nu::parser::module_not_found")
+    })
+}
+
+// Moving names doesn't undo what you did to them since the import.
+#[rstest]
+#[case::your_own_definition("rebind_keeps_own", "def foo [] { 'mine' }", "foo", "mine")]
+#[case::your_own_constant("rebind_keeps_const", "const X = 'mine'", "$X", "mine")]
+fn reload_leaves_your_own_definitions_alone(
+    #[case] topic: &str,
+    #[case] yours: &str,
+    #[case] call: &str,
+    #[case] expected: &str,
+) -> Result {
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'old' }; export const X = 'old'",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run(yours)?;
+        let () = tester.run_with_data(
+            "save -f spam.nu",
+            "export def foo [] { 'new' }; export const X = 'new'",
+        )?;
+        let () = tester.run("use spam")?;
+        tester.run(call).expect_value_eq(expected)
+    })
+}
+
+#[test]
+fn reload_leaves_a_hidden_command_hidden() -> Result {
+    Playground::setup("rebind_keeps_hidden", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'old' }; export def bar [] { 'old' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run("hide bar")?;
+        let () = tester.run_with_data(
+            "save -f spam.nu",
+            "export def foo [] { 'new' }; export def bar [] { 'new' }",
+        )?;
+        let () = tester.run("use spam")?;
+        tester.run("foo").expect_value_eq("new")?;
+        tester
+            .run("bar")
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+// `hide <module>` reaches a bare name imported before the reload, because the reload moved it.
+#[test]
+fn hide_after_a_prefixed_reload_hides_earlier_bare_names() -> Result {
+    Playground::setup("hide_after_prefixed_reload", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'old' }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu *")?;
+        let () = tester.run_with_data("save -f spam.nu", "export def foo [] { 'new' }")?;
+        let () = tester.run("use spam")?;
+        let () = tester.run("hide spam")?;
+        tester
+            .run("foo")
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+// A bare module name isn't a path, so `FILE_PWD` has to come from the module's file. This one had
+// no `export-env` to leak `FILE_PWD` into the environment the first time.
+#[test]
+fn use_by_name_reload_sets_file_pwd() -> Result {
+    Playground::setup("use_name_file_pwd", |dirs, sandbox| {
+        sandbox
+            .mkdir("mods")
+            .with_files(&[FileWithContent("mods/foo.nu", "export def v [] { 1 }")]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use mods/foo.nu")?;
+        let () = tester.run_with_data(
+            "save -f mods/foo.nu",
+            "export-env { $env.WHERE = ($env.FILE_PWD | path basename) }",
+        )?;
+        let () = tester.run("use foo")?;
+        tester.run("$env.WHERE").expect_value_eq("mods")
+    })
+}
+
+#[test]
+fn command_added_back_after_a_reload_is_visible() -> Result {
+    Playground::setup("reload_added_back", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'foo' }; export def bar [] { 'old' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        let () = tester.run(r#""export def foo [] { 'foo' }" | save -f spam.nu"#)?;
+        let () = tester.run("use spam.nu")?;
+        tester
+            .run("spam bar")
+            .expect_error_code_eq("nu::shell::external_command")?;
+        let () = tester.run(
+            r#""export def foo [] { 'foo' }; export def bar [] { 'new' }" | save -f spam.nu"#,
+        )?;
+        let () = tester.run("use spam.nu")?;
+        tester.run("spam bar").expect_value_eq("new")
+    })
+}
+
+// Undoing an edit brings back the earlier version, which is still cached.
+#[rstest]
+#[case::prefixed("reload_reverted_prefixed", "use spam.nu", "spam bar", "spam only_v2")]
+#[case::glob("reload_reverted_glob", "use spam.nu *", "bar", "only_v2")]
+fn reverting_a_file_restores_its_commands(
+    #[case] topic: &str,
+    #[case] import: &str,
+    #[case] in_v1: &str,
+    #[case] in_v2: &str,
+) -> Result {
+    const V1: &str = "export def foo [] { 'foo' }; export def bar [] { 'bar' }";
+    const V2: &str = "export def foo [] { 'foo' }; export def only_v2 [] { 'v2' }";
+
+    Playground::setup(topic, |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("spam.nu", V1)]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run(import)?;
+        let () = tester.run_with_data("save -f spam.nu", V2)?;
+        let () = tester.run(import)?;
+        let _: Value = tester.run(in_v2)?;
+        let () = tester.run_with_data("save -f spam.nu", V1)?;
+        let () = tester.run(import)?;
+        tester.run(in_v1).expect_value_eq("bar")?;
+        tester
+            .run(in_v2)
+            .expect_error_code_eq("nu::shell::external_command")?;
+        // The module's name now means this version again.
+        let () = tester.run("hide spam")?;
+        tester
+            .run(in_v1)
+            .expect_error_code_eq("nu::shell::external_command")
+    })
+}
+
+// Two files that share a module name are different modules, so neither one replaces the other.
+#[test]
+fn other_file_with_the_same_module_name_keeps_commands() -> Result {
+    Playground::setup("reload_other_file", |dirs, sandbox| {
+        sandbox.mkdir("a").mkdir("b").with_files(&[
+            FileWithContent("a/spam.nu", "export def only_a [] { 'a' }"),
+            FileWithContent("b/spam.nu", "export def only_b [] { 'b' }"),
+        ]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use a/spam.nu")?;
+        let () = tester.run("use b/spam.nu")?;
+        tester.run("spam only_a").expect_value_eq("a")?;
+        tester.run("spam only_b").expect_value_eq("b")
+    })
+}
+
+#[test]
+fn hide_after_a_reload_hides_every_command() -> Result {
+    Playground::setup("reload_then_hide", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            "export def foo [] { 'foo' }; export def bar [] { 'bar' }",
+        )]);
+
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        let () = tester.run(r#""export def foo [] { 'foo' }" | save -f spam.nu"#)?;
+        let () = tester.run("use spam.nu")?;
+        let () = tester.run("hide spam")?;
+        tester
+            .run("spam foo")
+            .expect_error_code_eq("nu::shell::external_command")?;
+        tester
+            .run("spam bar")
+            .expect_error_code_eq("nu::shell::external_command")
     })
 }

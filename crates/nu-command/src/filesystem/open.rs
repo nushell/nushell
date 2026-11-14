@@ -249,9 +249,9 @@ impl Command for Open {
                                 ));
                             }
 
-                            let open_call = ir::Call::build(converter_id, call_span).finish();
+                            let open_call = ir::Call::build(converter_id, call_span);
                             let command_output =
-                                eval_ir_call(engine_state, stack, &open_call, stream);
+                                eval_ir_call(engine_state, stack, open_call, stream);
                             output.push(command_output.map_err(|inner| {
                                 ShellError::Generic(
                                     GenericError::new(

@@ -3,7 +3,6 @@ mod argument;
 mod bracket_table;
 mod cached_file;
 mod call;
-mod call_info;
 mod closure;
 mod command;
 mod description;
@@ -29,7 +28,6 @@ pub use cached_file::CachedFile;
 
 pub use argument::*;
 pub use call::*;
-pub use call_info::*;
 pub use closure::*;
 pub use command::*;
 pub use engine_state::*;

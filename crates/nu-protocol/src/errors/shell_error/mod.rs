@@ -384,6 +384,8 @@ pub enum ShellError {
         envvar_name: String,
         #[label = "environment variable not found"]
         span: Span,
+        #[help]
+        help: Option<String>,
     },
 
     /// A referenced module was not found at runtime.
@@ -1506,6 +1508,11 @@ impl ShellError {
             return true;
         }
         matches!(self, Self::Interrupted { .. })
+    }
+
+    /// Whether this is `exit` asking to end the script, rather than something that went wrong.
+    pub fn is_exit(&self) -> bool {
+        matches!(self, Self::Exit { .. })
     }
 
     pub fn exit_code(&self) -> Option<i32> {

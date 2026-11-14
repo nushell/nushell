@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.117.0"
+# version = "0.117.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -216,6 +216,41 @@ $env.config.cursor_shape.helix_select = "inherit"
 # Default: "inherit"
 $env.config.cursor_shape.helix_insert = "inherit"
 
+# auto_pairs.enable (bool): Automatically insert the closing character when an opening character
+# from auto_pairs.pairs is typed. It is not inserted inside strings or comments, right after a
+# letter or digit, or in front of other text. auto_pairs.also allows pairs in those places.
+# Note: When bracketed_paste is off or unsupported (e.g. on Windows), pasted text is auto-paired too.
+# Default: false
+$env.config.auto_pairs.enable = false
+
+# auto_pairs.pairs (list): Pairs to auto-pair, each a string of its opening and closing characters.
+# Pairs in auto_pairs.also that are not listed here have no effect, and a warning is shown.
+# Default: ["()" "[]" "{}" '""' "''" "``"]
+$env.config.auto_pairs.pairs = ["()" "[]" "{}" '""' "''" "``"]
+
+# auto_pairs.also.in_string (list): Pairs from auto_pairs.pairs to also auto-pair inside strings.
+# Default: []
+$env.config.auto_pairs.also.in_string = []
+
+# auto_pairs.also.in_comment (list): Pairs from auto_pairs.pairs to also auto-pair inside comments.
+# Default: []
+$env.config.auto_pairs.also.in_comment = []
+
+# auto_pairs.also.after_word (list): Pairs from auto_pairs.pairs to also auto-pair right after
+# a letter or digit.
+# Default: []
+$env.config.auto_pairs.also.after_word = []
+
+# auto_pairs.also.before_text (list): Pairs from auto_pairs.pairs to also auto-pair in front of
+# other text. Whitespace, a quote inside a string, and the closing character of a pair from
+# auto_pairs.pairs with two different characters (like `)`) do not count as other text.
+# Default: []
+$env.config.auto_pairs.also.before_text = []
+
+# Example: Auto-pair brackets, but not quotes, inside strings and comments:
+# $env.config.auto_pairs.also.in_string = ["()" "[]" "{}"]
+# $env.config.auto_pairs.also.in_comment = ["()" "[]" "{}"]
+
 # --------------------
 # Completions Behavior
 # --------------------
@@ -238,6 +273,10 @@ $env.config.show_hints = true
 # Any closure error or unsupported return type yields no hint.
 # To use the built-in hinter instead, set hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
+# External commands run detached from the terminal, but can still receive input
+# from a pipeline. Their uncaptured output is discarded. `print` still writes to
+# the screen. `input`, `input list`, `input listen` and `term query` return an
+# error, which yields no hint unless caught.
 # Default: null
 $env.config.hinter.closure = null
 
@@ -343,9 +382,11 @@ $env.config.completions.use_ls_colors = true
 # 0: Disable the cache; every Tab recomputes.
 # A larger value remembers more prefixes (uses more memory).
 # A smaller value forgets sooner.
-# Closures on `$env.config.completions.external.completer` and custom
-# `@comp` / `@complete` completers are not stored, so an interactive picker
-# (fzf, `input list`) runs again on the next Tab.
+# Custom `@comp` / `@complete` and external completer answers are cached by
+# default. If their results depend on files, processes, or other state outside
+# the cache key, return `{completions: $items, options: {cache: false}}` to
+# recompute them on later prompts. Interactive pickers (`fzf`, `input list`)
+# are not cached. Plugin dynamic completions are also recomputed.
 # Default: 100
 $env.config.completions.cache_size = 100
 
@@ -391,7 +432,8 @@ $env.config.completions.external.max_results = 100
 #
 # Returns a list of suggestions (a string, or a record of {value, description?, style?,
 # span?, extra?}) or a record of {options, completions}. External/command-wide completers
-# are not filtered by default; parameter completers are. See `options.filter`.
+# are not filtered by default; parameter completers are. See `options.filter`
+# and `options.cache` above.
 # Default: null
 $env.config.completions.external.completer = null
 
@@ -660,12 +702,6 @@ $env.config.filesize.precision = 1
 # Miscellaneous Display
 # ---------------------
 
-# render_right_prompt_on_last_line (bool): Right prompt position with multi-line left prompt.
-# true: Right prompt appears on the last line of the left prompt.
-# false: Right prompt appears on the first line.
-# Default: false
-$env.config.render_right_prompt_on_last_line = false
-
 # float_precision (int): Decimal places for float values in structured output.
 # Default: 2
 $env.config.float_precision = 2
@@ -688,6 +724,125 @@ $env.config.ls.use_ls_colors = true
 # Note: This is now controlled by shell_integration.osc8.
 # Default: true
 $env.config.ls.clickable_links = true
+
+# ------
+# Prompt
+# ------
+# Everything the interactive prompt is built from. The line reads
+# left prompt, then the indicator for the line editor's current mode, with
+# the right prompt flushed to the other edge.
+#
+# prompt.left and prompt.right accept a string, used verbatim, or a closure,
+# evaluated once per prompt. The indicators are plain strings: which one is
+# shown depends on the editor mode, so unlike the prompt itself they cannot be
+# derived inside a closure.
+#
+# The legacy $env.PROMPT_COMMAND, $env.PROMPT_COMMAND_RIGHT,
+# $env.PROMPT_INDICATOR, $env.PROMPT_INDICATOR_VI_INSERT,
+# $env.PROMPT_INDICATOR_VI_NORMAL and $env.PROMPT_MULTILINE_INDICATOR
+# variables still take precedence when set, but are deprecated. Copies
+# inherited from a parent shell are ignored, and input --reedline reads only
+# $env.config.prompt.
+#
+# Indicators are colored by the line editor. To style one yourself, include
+# the escape codes in the value, e.g. $"(ansi light_red)> ".
+
+# prompt.left (string|closure|null): The main prompt.
+# null falls back to the line editor's built-in prompt.
+# Default: a closure showing the current directory. Read it with
+# view source $env.config.prompt.left
+# and build on it by keeping a reference:
+# let default_left = $env.config.prompt.left
+# $env.config.prompt.left = {|| $"[(do $default_left)] " }
+# $env.config.prompt.left = {|| $"(pwd) " }
+
+# prompt.right (string|closure|null): The right-aligned prompt.
+# Default: a closure showing the time and last exit code.
+# $env.config.prompt.right = {|| date now | format date "%d-%a %r" }
+
+# prompt.indicator (string): Shown in emacs mode and whenever no edit mode applies.
+# Default: "> "
+$env.config.prompt.indicator = "> "
+
+# prompt.vi_insert (string): Shown in vi insert mode.
+# Default: "> "
+$env.config.prompt.vi_insert = "> "
+
+# prompt.vi_normal (string): Shown in vi normal mode.
+# Default: ": "
+$env.config.prompt.vi_normal = ": "
+
+# prompt.vi_visual (string): Shown in vi visual mode.
+# Note: This key has no environment variable equivalent.
+# Default: "+ "
+$env.config.prompt.vi_visual = "+ "
+
+# prompt.multiline (string): Shown on continuation lines of a multiline entry.
+# Default: "::: "
+$env.config.prompt.multiline = "::: "
+
+# prompt.render_right_on_last_line (bool): Right prompt position with a
+# multi-line left prompt.
+# true: Right prompt appears on the last line of the left prompt.
+# false: Right prompt appears on the first line.
+# Renamed from $env.config.render_right_prompt_on_last_line. Assigning the old
+# name still sets this key, but it can no longer be read back.
+# Default: false
+$env.config.prompt.render_right_on_last_line = false
+
+# The transient prompt replaces the real one in scrollback once a line is
+# submitted, which is useful for condensing a multi-line prompt into something
+# compact. Every key below mirrors one above.
+#
+# Setting a key to null keeps whatever the live prompt showed, so only the
+# segments worth condensing need spelling out. The two keys defaulting to ""
+# below used to be environment variables seeded at startup, which meant
+# `hide-env TRANSIENT_PROMPT_COMMAND_RIGHT` was how you got the live value
+# back. Nothing is seeded any more, so set the key to null instead.
+#
+# The legacy $env.TRANSIENT_PROMPT_COMMAND,
+# $env.TRANSIENT_PROMPT_COMMAND_RIGHT, $env.TRANSIENT_PROMPT_INDICATOR,
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL and
+# $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR variables still take precedence
+# when set, but are deprecated. Copies of
+# $env.TRANSIENT_PROMPT_COMMAND_RIGHT and
+# $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR inherited from a parent shell are
+# ignored, as they always were. The other four are inherited.
+
+# prompt.transient.left (string|closure|null): Replaces prompt.left.
+# Default: null
+$env.config.prompt.transient.left = null
+
+# prompt.transient.right (string|closure|null): Replaces prompt.right.
+# Unlike the others this defaults to empty rather than null: a right prompt is
+# usually a timestamp, which is noise once the line has been submitted.
+# Default: ""
+$env.config.prompt.transient.right = ""
+
+# prompt.transient.indicator (string|null): Replaces prompt.indicator.
+# Default: null
+$env.config.prompt.transient.indicator = null
+
+# prompt.transient.vi_insert (string|null): Replaces prompt.vi_insert.
+# Default: null
+$env.config.prompt.transient.vi_insert = null
+
+# prompt.transient.vi_normal (string|null): Replaces prompt.vi_normal.
+# Default: null
+$env.config.prompt.transient.vi_normal = null
+
+# prompt.transient.vi_visual (string|null): Replaces prompt.vi_visual.
+# Note: This key has no environment variable equivalent.
+# Default: null
+$env.config.prompt.transient.vi_visual = null
+
+# prompt.transient.multiline (string|null): Replaces prompt.multiline.
+# Unlike the others this defaults to empty rather than null: dropping the
+# continuation marker keeps submitted multiline entries copyable out of
+# scrollback.
+# Default: ""
+$env.config.prompt.transient.multiline = ""
 
 # -----
 # Hooks
@@ -1529,71 +1684,38 @@ $env.config.tui.backdrop = { bg: default }
 # ------
 # PROMPT_ variables accept either a string or a closure that returns a string.
 
+# Every PROMPT_ variable below, transient ones included, is deprecated since
+# 0.118.0. They still take precedence when set, but $env.config.prompt is the
+# supported way to configure the prompt. See the "Prompt" section above.
+#
+# None of them is seeded at startup any more, so they now exist only if you set
+# one yourself. Code that *reads* a PROMPT_ variable to discover the current
+# prompt has to read $env.config.prompt instead; code that *writes* one to
+# install a prompt keeps working unchanged.
+
 # PROMPT_COMMAND: Defines the primary prompt.
-# Note: PROMPT_INDICATOR is appended to this value.
-# Default: A closure that displays the current directory with colors.
-$env.PROMPT_COMMAND = {||
-    let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
-        null => $env.PWD
-        '' => '~'
-        $relative_pwd => ([~ $relative_pwd] | path join)
-    }
-
-    let colors: record<path: string, separator: string> = match [(config use-colors), (is-admin)] {
-        [false, _] => {path: '', separator: ''}
-        [true, true] => {path: (ansi red_bold), separator: (ansi light_red_bold)}
-        [true, false] => {path: (ansi green_bold), separator: (ansi light_green_bold)}
-    }
-    let path_segment = $"($colors.path)($dir)(ansi reset)"
-
-    $path_segment | str replace --all (char path_sep) $"($colors.separator)(char path_sep)($colors.path)"
-}
-
-# Example: Static string prompt:
-# $env.PROMPT_COMMAND = "Nushell"
-
-# Example: Simple prompt showing just the current directory:
-# $env.PROMPT_COMMAND = {|| pwd }
+# Deprecated: use $env.config.prompt.left
+# $env.PROMPT_COMMAND = {|| $"(pwd) " }
 
 # PROMPT_COMMAND_RIGHT: Defines a right-aligned prompt.
-# Default: A closure that displays the date/time and last exit code.
-$env.PROMPT_COMMAND_RIGHT = {||
-    # create a right prompt in magenta with green separators and am/pm underlined
-    let colors: record<date: string, separator: string, ampm: string, fail: string> = if (config use-colors) {
-        {date: (ansi magenta), separator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}
-    } else {
-        {date: '', separator: '', ampm: '', fail: ''}
-    }
-    let time_segment = ([
-        (ansi reset)
-        $colors.date
-        (date now | format date '%x %X') # try to respect user's locale
-    ] | str join | str replace --regex --all "([/:])" $"($colors.separator)${1}($colors.date)" |
-        str replace --regex --all "([AP]M)" $"($colors.ampm)${1}")
-
-    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
-        $colors.fail
-        $env.LAST_EXIT_CODE
-    ] | str join)
-    } else { "" }
-
-    ([$last_exit_code, (char space), $time_segment] | str join)
-}
-
-# Example: Simple right prompt with just date/time:
+# Deprecated: use $env.config.prompt.right
 # $env.PROMPT_COMMAND_RIGHT = {|| date now | format date "%d-%a %r" }
 
 # PROMPT_INDICATOR: Characters shown after PROMPT_COMMAND in emacs mode.
-$env.PROMPT_INDICATOR = "> "
+# Deprecated: use $env.config.prompt.indicator
+# $env.PROMPT_INDICATOR = "> "
 
 # PROMPT_INDICATOR_VI_NORMAL: Prompt indicator in vi normal mode.
-$env.PROMPT_INDICATOR_VI_NORMAL = "> "
+# Deprecated: use $env.config.prompt.vi_normal
+# $env.PROMPT_INDICATOR_VI_NORMAL = "> "
 
 # PROMPT_INDICATOR_VI_INSERT: Prompt indicator in vi insert mode.
-$env.PROMPT_INDICATOR_VI_INSERT = ": "
+# Deprecated: use $env.config.prompt.vi_insert
+# $env.PROMPT_INDICATOR_VI_INSERT = ": "
 
 # PROMPT_MULTILINE_INDICATOR: Prompt indicator for multi-line commands.
-$env.PROMPT_MULTILINE_INDICATOR = "::: "
+# Deprecated: use $env.config.prompt.multiline
+# $env.PROMPT_MULTILINE_INDICATOR = "::: "
 
 # ----------------
 # Transient Prompt
@@ -1602,22 +1724,28 @@ $env.PROMPT_MULTILINE_INDICATOR = "::: "
 # Useful for condensing multi-line prompts in scrollback history.
 
 # TRANSIENT_PROMPT_COMMAND: Alternative prompt shown after command execution.
-$env.TRANSIENT_PROMPT_COMMAND = "🚀 "
+# Deprecated: use $env.config.prompt.transient.left
+# $env.TRANSIENT_PROMPT_COMMAND = "🚀 "
 
 # TRANSIENT_PROMPT_INDICATOR: Transient version of PROMPT_INDICATOR.
-$env.TRANSIENT_PROMPT_INDICATOR = ""
+# Deprecated: use $env.config.prompt.transient.indicator
+# $env.TRANSIENT_PROMPT_INDICATOR = ""
 
 # TRANSIENT_PROMPT_INDICATOR_VI_INSERT: Transient version of vi insert indicator.
-$env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT = ""
+# Deprecated: use $env.config.prompt.transient.vi_insert
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT = ""
 
 # TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: Transient version of vi normal indicator.
-$env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL = ""
+# Deprecated: use $env.config.prompt.transient.vi_normal
+# $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL = ""
 
 # TRANSIENT_PROMPT_MULTILINE_INDICATOR: Transient version of multiline indicator.
-$env.TRANSIENT_PROMPT_MULTILINE_INDICATOR = ""
+# Deprecated: use $env.config.prompt.transient.multiline
+# $env.TRANSIENT_PROMPT_MULTILINE_INDICATOR = ""
 
 # TRANSIENT_PROMPT_COMMAND_RIGHT: Transient version of right prompt.
-$env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
+# Deprecated: use $env.config.prompt.transient.right
+# $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
 
 # Tip: Removing transient multiline indicator and right-prompt can simplify copying from terminal.
 
