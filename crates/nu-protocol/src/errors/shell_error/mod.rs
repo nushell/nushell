@@ -384,6 +384,8 @@ pub enum ShellError {
         envvar_name: String,
         #[label = "environment variable not found"]
         span: Span,
+        #[help]
+        help: Option<String>,
     },
 
     /// A referenced module was not found at runtime.
