@@ -1,6 +1,7 @@
 //! This module manages the step of turning error types into printed error messages
 //!
 //! Relies on the `miette` crate for pretty layout
+use std::fmt::Write as _;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -47,6 +48,17 @@ impl<'src> CliError<'src> {
             working_set,
             default_code,
         }
+    }
+}
+
+struct ReportRenderer<'a> {
+    handler: &'a dyn ReportHandler,
+    diagnostic: &'a dyn miette::Diagnostic,
+}
+
+impl std::fmt::Debug for ReportRenderer<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.handler.debug(self.diagnostic, f)
     }
 }
 
@@ -179,13 +191,10 @@ fn report_error(
     error: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    let mut report = format!(
+    let report = format!(
         "Error: {:?}",
         CliError::new(stack, error, working_set, Some(default_code))
     );
-    if report.ends_with('\n') {
-        report.pop();
-    }
 
     if !SUPPRESS_REPORTING.load(Ordering::Relaxed) {
         // Avoid eprintln! since it panics on broken stderr, which double-panics
@@ -208,13 +217,10 @@ fn report_warning(
     warning: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    let mut report = format!(
+    let report = format!(
         "Warning: {:?}",
         CliError::new(stack, warning, working_set, Some(default_code))
     );
-    if report.ends_with('\n') {
-        report.pop();
-    }
 
     if !SUPPRESS_REPORTING.load(Ordering::Relaxed)
         && writeln!(std::io::stderr(), "{report}").is_err()
@@ -266,11 +272,16 @@ impl std::fmt::Debug for CliError<'_> {
             }
         };
 
+        let renderer = ReportRenderer {
+            handler: miette_handler.as_ref(),
+            diagnostic: self,
+        };
+
         // Ignore error to prevent format! panics. This can happen if span points at some
         // inaccessible location, for example by calling `report_error()` with wrong working set.
-        let _ = miette_handler.debug(self, f);
-
-        Ok(())
+        let mut rendered = String::new();
+        let _ = write!(rendered, "{:?}", renderer);
+        f.write_str(rendered.trim_end_matches('\n'))
     }
 }
 
