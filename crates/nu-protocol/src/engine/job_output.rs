@@ -49,10 +49,14 @@ impl JobOutput {
     /// the terminal is back in its normal mode.
     ///
     /// `write` runs under the lock and only when output is left, so a job writing at the same
-    /// time waits and its output lands after this.
+    /// time waits and its output lands after this. A partial line at the end gets its newline, so
+    /// what the shell prints next starts on a line of its own.
     pub fn release(&self, write: impl FnOnce(&[u8])) {
         let mut state = self.lock();
-        if let Some(leftover) = state.held.take().filter(|leftover| !leftover.is_empty()) {
+        if let Some(mut leftover) = state.held.take().filter(|leftover| !leftover.is_empty()) {
+            if !leftover.ends_with(b"\n") {
+                leftover.push(b'\n');
+            }
             write(&leftover);
         }
     }
@@ -102,6 +106,24 @@ impl JobOutput {
     pub fn job_running(self: &Arc<Self>) -> RunningJob {
         self.lock().running_jobs += 1;
         RunningJob(Arc::clone(self))
+    }
+}
+
+/// Drop the start of the queued partial line that a later carriage return writes over.
+///
+/// A job that redraws one line with `\r`, like a progress bar, never finishes it, so the line
+/// would wait in the queue and grow until the prompt is released. The terminal would only show
+/// what follows the last `\r` anyway. A `\r` that is the last byte stays, since the next write
+/// may make it part of a `\r\n` line ending.
+fn discard_overwritten(held: &mut Vec<u8>) {
+    let line_start = held
+        .iter()
+        .rposition(|&byte| byte == b'\n')
+        .map_or(0, |newline| newline + 1);
+    let partial = &held[line_start..held.len().saturating_sub(1).max(line_start)];
+    if let Some(carriage_return) = partial.iter().rposition(|&byte| byte == b'\r') {
+        // `\r` is ASCII, so this never cuts a UTF-8 character in two.
+        held.drain(line_start..line_start + carriage_return);
     }
 }
 
@@ -157,7 +179,10 @@ impl<W: Write> Write for JobOutputWriter<'_, W> {
         };
         let mut state = job_output.lock();
         match state.held.as_mut() {
-            Some(held) if self.reaches_terminal() => held.extend_from_slice(buf),
+            Some(held) if self.reaches_terminal() => {
+                held.extend_from_slice(buf);
+                discard_overwritten(held);
+            }
             // Write and flush under the lock, so `hold` can't hand the terminal to the line
             // editor halfway through.
             _ => {
@@ -348,8 +373,48 @@ mod tests {
 
         output.release(|leftover| written.extend_from_slice(leftover));
 
-        assert_eq!(written, b"left over");
+        assert_eq!(written, b"left over\n");
         assert_eq!(write(&output, true, b"after\n"), b"after\n");
+    }
+
+    #[test]
+    fn release_keeps_a_finished_line_as_is() {
+        let output = JobOutput::new();
+        output.hold();
+        write(&output, true, b"done\n");
+        let mut written = Vec::new();
+
+        output.release(|leftover| written.extend_from_slice(leftover));
+
+        assert_eq!(written, b"done\n");
+    }
+
+    #[test]
+    fn a_redrawn_partial_line_keeps_only_its_last_version() {
+        let output = Arc::new(JobOutput::new());
+        let _job = output.job_running();
+        output.hold();
+
+        write(&output, true, b"done\n\r10%");
+        write(&output, true, b"\r20%");
+        write(&output, true, b"\r30%");
+
+        assert_eq!(output.drain().as_deref(), Some("done\n"));
+        let mut written = Vec::new();
+        output.release(|leftover| written.extend_from_slice(leftover));
+        assert_eq!(written, b"\r30%\n");
+    }
+
+    #[test]
+    fn a_trailing_carriage_return_can_still_end_the_line() {
+        let output = Arc::new(JobOutput::new());
+        let _job = output.job_running();
+        output.hold();
+
+        write(&output, true, b"kept\r");
+        write(&output, true, b"\n");
+
+        assert_eq!(output.drain().as_deref(), Some("kept\r\n"));
     }
 
     #[test]
