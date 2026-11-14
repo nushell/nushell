@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
 
-/// Include a script file in the current scope at parse time.
+/// Include a script file in the current scope at parse time and run statements outside of custom commands.
 #[derive(Clone)]
 pub struct Source;
 
@@ -23,7 +23,7 @@ impl Command for Source {
     }
 
     fn description(&self) -> &str {
-        "Includes a script file in the current scope at parse time."
+        "Includes a script file in the current scope at parse time and runs statements outside of custom commands."
     }
 
     fn extra_description(&self) -> &str {
