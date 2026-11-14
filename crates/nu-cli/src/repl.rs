@@ -594,7 +594,7 @@ fn run_command(ctx: RunContext) -> Reedline {
 }
 
 /// Check whether `cmd` exists in the current directory or in `$env.PATH`
-fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
+pub(crate) fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
     let paths = nu_engine::env::path_str(engine_state, stack, Span::unknown()).ok();
     let cmd_os = OsStr::new(cmd);
     let paths_os = paths.as_deref().map(OsStr::new);

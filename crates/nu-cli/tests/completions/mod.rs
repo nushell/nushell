@@ -225,6 +225,7 @@ fn fuzzy_alpha_sort_completer() -> NuCompleter {
 }
 
 #[rstest]
+#[case::uppercase_subcommand_head("STR up", None, vec!["str upcase", "str uppercase"])]
 #[case::double_dash_long_flag("tst --", None, vec!["--help", "--mod"])]
 #[case::single_dash_all_flags("tst -", None, vec!["--help", "--mod", "-h", "-s"])]
 #[case::flags_after_cursor("tst -h", Some(5), vec!["--help", "--mod", "-h", "-s"])]
@@ -246,6 +247,28 @@ fn misc_command_argument_completions(
 ) {
     let suggestions = completer.complete_blocking(input, pos.unwrap_or(input.len()));
     match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+#[case::insensitive(false, vec!["Straße upcase"])]
+#[case::sensitive(true, vec![])]
+fn subcommand_head_case_sensitivity(#[case] case_sensitive: bool, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = format!(
+        r#"
+        $env.config.completions.case_sensitive = {case_sensitive}
+        def "Straße upcase" [] {{}}
+        "#
+    );
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let input = "STRASSE up";
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        assert_eq!(suggestion.span, Span::new(0, input.len()));
+    }
 }
 
 #[rstest]
@@ -613,6 +636,64 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     "foo test", None,
     vec!["foo test bar".into()],
     8
+)]
+#[case::fuzzy_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    def foo [i?: string] {}
+    def "foo bar" [] {}
+    alias f = foo"#,
+    "f b", None,
+    vec!["foo bar".into()],
+    3
+)]
+#[case::fuzzy_module_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { export def foo [i?: string] {}; export def "foo bar" [] {} }
+    use spam
+    alias s = spam foo"#,
+    "s b", None,
+    vec!["spam foo bar".into()],
+    3
+)]
+#[case::fuzzy_hidden_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    def foo [i?: string] {}
+    def "foo bar" [] {}
+    alias f = foo
+    hide foo"#,
+    "f b", None,
+    vec!["foo bar".into()],
+    3
+)]
+#[case::fuzzy_hidden_module_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { export def foo [i?: string] {}; export def "foo bar" [] {} }
+    use spam
+    def "foo bar" [] {}
+    alias f = spam foo
+    hide "spam foo""#,
+    "f b", None,
+    vec!["spam foo bar".into()],
+    3
+)]
+#[case::fuzzy_hidden_module_main_alias_subcommands(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { export def main [i?: string] {}; export def bar [] {} }
+    use spam
+    alias s = spam
+    hide spam main"#,
+    "s b", None,
+    vec!["spam bar".into()],
+    3
+)]
+#[case::fuzzy_private_module_alias_falls_back_to_files(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { def foo [i?: string] {}; export alias f = foo }
+    use spam f
+    def "foo test bar" [] {}"#,
+    "f test", None,
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b")],
+    4
 )]
 /// Custom function flags mixed with subcommands
 #[case::flags_and_subcommands(r#"
@@ -2659,13 +2740,23 @@ fn command_rm_with_globcompletion() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
-#[test]
-fn command_cp_with_globcompletion() {
-    let (_, _, engine, stack) = new_engine();
+#[rstest]
+#[case::cp_prefix("cp ", "prefix")]
+#[case::mv_fuzzy("mv ", "fuzzy")]
+#[case::alias_external_fuzzy("m ", "fuzzy")]
+fn command_with_globcompletion(#[case] target_dir: &str, #[case] algorithm: &str) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let commands = format!(
+        r#"
+        $env.config.completions.algorithm = "{algorithm}"
+        def "semver bump" [] {{}}
+        alias m = ^mv
+        "#
+    );
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let target_dir = "cp ";
     let suggestions = completer.complete_blocking(target_dir, target_dir.len());
 
     #[cfg(windows)]
@@ -2836,6 +2927,43 @@ fn subcommand_vs_external_completer() {
     let prefix = "foot bar";
     let suggestions = subcommand_completer.complete_blocking(prefix, prefix.len());
     match_suggestions(&vec!["external", "foo-test-command bar"], &suggestions);
+}
+
+#[rstest]
+#[case::unresolved("fod test", Some("food test"))]
+#[case::resolved_external("sleep test", None)]
+fn fuzzy_command_correction_keeps_file_completion(
+    #[case] input: &str,
+    #[case] correction: Option<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let commands = r#"
+        $env.config.completions.algorithm = "fuzzy"
+        hide sleep
+        def "food test" [] {}
+        def "asleep test" [] {}
+    "#;
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack).is_ok());
+    stack.add_env_var(
+        "PATH".into(),
+        Value::test_list(vec![Value::test_string(file(
+            FIXTURES.join("external_completions").join("path"),
+        ))]),
+    );
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking(input, input.len());
+
+    let mut expected = vec![folder("test_a"), folder("test_a_symlink"), folder("test_b")];
+    expected.extend(correction.map(str::to_owned));
+    match_suggestions_by_string(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        let start = if Some(suggestion.value.as_str()) == correction {
+            0
+        } else {
+            input.find(' ').unwrap() + 1
+        };
+        assert_eq!(suggestion.span, Span::new(start, input.len()));
+    }
 }
 
 #[rstest]

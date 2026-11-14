@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, DeclId, SuggestionKind,
     engine::{CommandType, StateWorkingSet},
 };
+use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
@@ -49,6 +50,8 @@ pub struct CommandCompletion {
     scope: CommandScope,
     /// Whether to quote space-separated internal command names.
     quote_internals: bool,
+    /// Restrict subcommands to these typed or resolved parent names before fuzzy matching.
+    parent_heads: Option<Vec<String>>,
 }
 
 impl CommandCompletion {
@@ -57,14 +60,23 @@ impl CommandCompletion {
         Self {
             scope,
             quote_internals: false,
+            parent_heads: None,
         }
     }
 
     /// Offer `scope`, quoting space-separated internal command names.
     pub(crate) fn quoted(scope: CommandScope) -> Self {
         Self {
-            scope,
             quote_internals: true,
+            ..Self::new(scope)
+        }
+    }
+
+    /// Offer only internal subcommands of one of the given parent names.
+    pub(crate) fn subcommands(parent_heads: Vec<String>) -> Self {
+        Self {
+            parent_heads: Some(parent_heads),
+            ..Self::new(CommandScope::InternalsOnly)
         }
     }
 
@@ -167,6 +179,22 @@ impl CommandCompletion {
             }
 
             let raw_name = String::from_utf8_lossy(name_bytes);
+            if self.parent_heads.as_ref().is_some_and(|heads| {
+                !heads.iter().any(|head| {
+                    let mut words = raw_name.split_ascii_whitespace();
+                    head.split_ascii_whitespace().all(|word| {
+                        words.next().is_some_and(|candidate| {
+                            if context.options.case_sensitive {
+                                candidate == word
+                            } else {
+                                candidate.eq_ignore_case(word)
+                            }
+                        })
+                    }) && words.next().is_some()
+                })
+            }) {
+                return;
+            }
             let name = match self.quote_internals && nu_utils::needs_quoting(&raw_name) {
                 true => nu_utils::escape_quote_string(&raw_name),
                 false => raw_name.into_owned(),
