@@ -1352,14 +1352,19 @@ fn flush_engine_state_repl_buffer(
     mut line_editor: Reedline,
 ) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-    line_editor.run_edit_commands(&[
-        EditCommand::Clear,
-        EditCommand::InsertString(repl.buffer.to_string()),
-        EditCommand::MoveToPosition {
-            position: repl.cursor_pos,
-            select: false,
-        },
-    ]);
+    let unchanged = repl.buffer == line_editor.current_buffer_contents()
+        && repl.cursor_pos == line_editor.current_insertion_point()
+        && repl.selection == line_editor.current_selection();
+    if !unchanged {
+        line_editor.run_edit_commands(&[
+            EditCommand::Clear,
+            EditCommand::InsertString(repl.buffer.to_string()),
+            EditCommand::MoveToPosition {
+                position: repl.cursor_pos,
+                select: false,
+            },
+        ]);
+    }
     if repl.accept {
         line_editor = line_editor.with_immediately_accept(true)
     }
