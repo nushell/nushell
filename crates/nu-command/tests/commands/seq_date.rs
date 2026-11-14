@@ -101,10 +101,36 @@ fn correct_amount_of_results_with_reverse_and_days(#[case] input: &str) -> Resul
     test().run(code).expect_value_eq(10)
 }
 
-#[test]
-fn correct_time() -> Result {
-    let code = "seq date --output-format '%H:%M' | first";
+#[rstest]
+#[case("")]
+#[case("--increment 1")]
+#[case("--increment 2")]
+#[case("--increment -1")]
+#[case("--increment 24hr")]
+#[case("--increment 48hr")]
+#[case("--increment -24hr")]
+#[case("--increment 172800sec")]
+fn midnight_time_with_whole_day_increments(#[case] input: &str) -> Result {
+    let code = format!("seq date --output-format '%H:%M' {} | first", input);
     test().run(code).expect_value_eq("00:00")
+}
+
+#[rstest]
+#[case("--increment 23hr")]
+#[case("--increment 25hr")]
+#[case("--increment 1ns")]
+#[case("--increment -1ns")]
+#[case("--increment 86400000000001ns")]
+#[case("--increment 86399999999999ns")]
+fn current_time_with_non_whole_day_increments(#[case] input: &str) -> Result {
+    let code = format!("seq date --output-format '%H:%M' {} | first", input);
+    let expected = "date now | format date '%H:%M'";
+
+    let times: String = test().run(code)?;
+    let expected: String = test().run(expected)?;
+
+    assert_eq!(times, expected);
+    Ok(())
 }
 
 #[rstest]

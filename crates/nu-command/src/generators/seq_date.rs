@@ -297,10 +297,16 @@ pub fn run_seq_dates(
     reverse: bool,
     call_span: Span,
 ) -> Result<Value, ShellError> {
-    let today = Local::now().date_naive().and_time(NaiveTime::MIN);
     // if cannot convert , it will return error
     let increment_span = increment.span();
     let mut step_size: i64 = i64::from_value(increment)?;
+
+    let now = Local::now().naive_local();
+    let today = if step_size % NANOSECONDS_IN_DAY == 0 {
+        now.date().and_time(NaiveTime::MIN)
+    } else {
+        now
+    };
 
     if step_size == 0 {
         return Err(ShellError::Generic(GenericError::new(
