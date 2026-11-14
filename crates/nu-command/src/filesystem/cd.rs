@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use nu_engine::command_prelude::*;
+use nu_path::AbsolutePathBuf;
 use nu_protocol::shell_error::{self, io::IoError};
 use nu_utils::filesystem::{PermissionResult, have_permission};
 
@@ -41,11 +42,17 @@ impl Command for Cd {
             .opt::<Spanned<String>>(engine_state, stack, 0)?
             .map(|p| p.map(nu_utils::strip_ansi_string_unlikely));
 
-        // If getting PWD failed, default to the home directory. The user can
-        // use `cd` to reset PWD to a good state.
+        // If `engine_state.cwd()` fails (e.g., `$env.PWD` points to a deleted
+        // directory), try parsing `$env.PWD` before falling back to home so
+        // relative targets like `cd ..` resolve against the old path rather than
+        // home's parent.
         let cwd = engine_state
             .cwd(Some(stack))
             .ok()
+            .or_else(|| {
+                let pwd = stack.get_env_var(engine_state, "PWD")?.as_str().ok()?;
+                AbsolutePathBuf::try_from(pwd).ok()
+            })
             .or_else(nu_path::home_dir)
             .map(|path| path.into_std_path_buf())
             .unwrap_or_default();
