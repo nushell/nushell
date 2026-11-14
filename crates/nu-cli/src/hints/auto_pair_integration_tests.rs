@@ -456,21 +456,22 @@ impl Drop for PtyChild {
 fn spawn_pty_child(scenario: &str) -> PtyChild {
     let mut master = -1;
     let mut slave = -1;
-    let size = libc::winsize {
+    let mut size = libc::winsize {
         ws_row: 24,
         ws_col: 80,
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
+    // macOS takes mutable termios/winsize pointers; Linux accepts them as const pointers.
     // SAFETY: openpty initializes both output descriptors and receives valid pointers to
-    // writable descriptor integers, an optional null name/termios, and a winsize value.
+    // writable descriptor integers, an optional null name/termios, and a writable winsize.
     let result = unsafe {
         libc::openpty(
             &mut master,
             &mut slave,
             std::ptr::null_mut(),
-            std::ptr::null(),
-            &size,
+            std::ptr::null_mut(),
+            &raw mut size,
         )
     };
     assert_eq!(
