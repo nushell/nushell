@@ -139,7 +139,9 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        if let Some(warning) = recover_cwd_if_needed(engine_state, &mut unique_stack) {
+        if let Some(warning) =
+            recover_cwd_if_needed(engine_state, &mut unique_stack, has_pending_terminal_input)
+        {
             report_shell_warning(Some(&unique_stack), engine_state, &warning);
         }
         engine_state.merge_env(&mut unique_stack)?;
@@ -622,14 +624,29 @@ fn is_usable_dir(path: &Path) -> bool {
     path.is_dir() && matches!(have_permission(path), PermissionResult::PermissionOk)
 }
 
+/// Returns `true` if terminal input is already queued (so recovery waits until after the pending
+/// line executes) or if polling fails (falling back to skipping recovery).
+fn has_pending_terminal_input() -> bool {
+    !matches!(crossterm::event::poll(Duration::from_millis(1)), Ok(false))
+}
+
 /// If `$env.PWD` is a valid absolute path whose directory was removed, replaced with a
 /// non-directory, or became inaccessible, recover by walking up logical ancestors to the nearest
 /// usable directory (falling back to `$nu.home-dir`) and return the corresponding warning.
 ///
+/// If `$env.PWD` needs recovery and `has_pending_input()` returns `true` (e.g., a typed-ahead
+/// command is already queued), recovery is skipped for this iteration so the queued command fails
+/// rather than executing in an ancestor directory. `has_pending_input` is only called when recovery
+/// is needed, keeping polling off normal prompts.
+///
 /// Malformed `$env.PWD` values (missing, non-string, relative, or invalid trailing slashes) are
 /// left untouched so `EngineState::cwd` reports their error normally. `$env.OLDPWD` is also left
 /// unchanged so `cd -` still targets the previous valid directory.
-fn recover_cwd_if_needed(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellWarning> {
+fn recover_cwd_if_needed(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    has_pending_input: impl FnOnce() -> bool,
+) -> Option<ShellWarning> {
     let pwd_val = stack.get_env_var(engine_state, "PWD")?;
     let pwd_str = pwd_val.as_str().ok()?;
     let path = AbsolutePathBuf::try_from(pwd_str).ok()?;
@@ -638,6 +655,10 @@ fn recover_cwd_if_needed(engine_state: &EngineState, stack: &mut Stack) -> Optio
     }
 
     if is_usable_dir(path.as_std_path()) {
+        return None;
+    }
+
+    if has_pending_input() {
         return None;
     }
 
@@ -661,6 +682,13 @@ fn recover_cwd_if_needed(engine_state: &EngineState, stack: &mut Stack) -> Optio
     })
 }
 
+/// Line editor cursor and buffer snapshot written to `EngineState::repl_state` before hooks run.
+#[derive(Default)]
+struct ReplBuffer {
+    cursor_pos: usize,
+    buffer: String,
+}
+
 /// Recover an invalid `$env.PWD` if needed, report any recovery warning, merge stack environment
 /// changes into `engine_state`, refresh terminal cwd/title shell integration on recovery, and
 /// run the `env_change` and `pre_prompt` hooks before building the prompt.
@@ -669,16 +697,16 @@ fn prepare_repl_iteration(
     stack: &mut Stack,
     hostname: Option<&str>,
     use_color: bool,
-    cursor_pos: usize,
-    buffer: String,
+    repl_buffer: ReplBuffer,
     emit_ansi: &mut impl FnMut(&str),
+    has_pending_input: impl FnOnce() -> bool,
 ) -> Option<ShellWarning> {
     use nu_cmd_base::hook;
 
     let mut start_time = Instant::now();
     // Before doing anything, recover a vanished/inaccessible $env.PWD and merge the environment
     // from the previous REPL iteration into the permanent state.
-    let recovered_warning = recover_cwd_if_needed(engine_state, stack);
+    let recovered_warning = recover_cwd_if_needed(engine_state, stack, has_pending_input);
     if let Some(warning) = &recovered_warning {
         report_shell_warning(Some(stack), engine_state, warning);
     }
@@ -717,8 +745,8 @@ fn prepare_repl_iteration(
 
     // Juhan said to do this :)
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-    repl.cursor_pos = cursor_pos;
-    repl.buffer = buffer;
+    repl.cursor_pos = repl_buffer.cursor_pos;
+    repl.buffer = repl_buffer.buffer;
     drop(repl);
 
     // Check all the environment variables they ask for
@@ -767,9 +795,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         &mut stack,
         hostname,
         use_color,
-        line_editor.current_insertion_point(),
-        line_editor.current_buffer_contents().to_string(),
+        ReplBuffer {
+            cursor_pos: line_editor.current_insertion_point(),
+            buffer: line_editor.current_buffer_contents().to_string(),
+        },
         &mut run_ansi_sequence,
+        has_pending_terminal_input,
     );
 
     let engine_reference = Arc::new(engine_state.clone());
@@ -2383,7 +2414,7 @@ mod test_auto_cd {
 
 #[cfg(test)]
 mod test_recover_cwd {
-    use super::{osc7_sequence, prepare_repl_iteration, recover_cwd_if_needed};
+    use super::{ReplBuffer, osc7_sequence, prepare_repl_iteration, recover_cwd_if_needed};
     use miette::Diagnostic;
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
@@ -2411,7 +2442,7 @@ mod test_recover_cwd {
         std::fs::remove_dir(&child).unwrap();
 
         assert_eq!(
-            recover_cwd_if_needed(&engine_state, &mut stack).map(|w| w.to_string()),
+            recover_cwd_if_needed(&engine_state, &mut stack, || false).map(|w| w.to_string()),
             Some(
                 ShellWarning::CwdRecovered {
                     old_cwd: child.as_std_path().to_string_lossy().into_owned(),
@@ -2449,7 +2480,7 @@ mod test_recover_cwd {
 
         std::fs::remove_dir_all(&a).unwrap();
 
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_some());
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack, || false).is_some());
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             root.as_std_path()
@@ -2470,7 +2501,7 @@ mod test_recover_cwd {
         std::fs::remove_dir(&target).unwrap();
         std::fs::write(&target, b"not a dir").unwrap();
 
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_some());
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack, || false).is_some());
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             parent.as_std_path()
@@ -2499,7 +2530,7 @@ mod test_recover_cwd {
             super::have_permission(&blocked),
             super::PermissionResult::PermissionOk
         );
-        let recovered = recover_cwd_if_needed(&engine_state, &mut stack).is_some();
+        let recovered = recover_cwd_if_needed(&engine_state, &mut stack, || false).is_some();
         let result_cwd = engine_state.cwd(Some(&stack)).unwrap();
         std::fs::set_permissions(&blocked, std::fs::Permissions::from_mode(0o755)).unwrap();
 
@@ -2515,11 +2546,13 @@ mod test_recover_cwd {
     fn leaves_valid_cwd_and_malformed_pwd_untouched() {
         let tempdir = tempdir().unwrap();
         let valid = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let never_poll =
+            || -> bool { panic!("pending-input check must not run when recovery is unnecessary") };
 
         let engine_state = EngineState::new();
         let mut stack = Stack::new();
         stack.set_cwd(valid).unwrap();
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             valid.as_std_path()
@@ -2530,12 +2563,12 @@ mod test_recover_cwd {
             "PWD".into(),
             Value::string("relative/path", Span::unknown()),
         );
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
         assert!(engine_state.cwd(Some(&stack)).is_err());
 
         // Non-string PWD
         stack.add_env_var("PWD".into(), Value::int(42, Span::unknown()));
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
         assert!(engine_state.cwd(Some(&stack)).is_err());
 
         // Trailing slash
@@ -2545,7 +2578,7 @@ mod test_recover_cwd {
             std::path::MAIN_SEPARATOR
         );
         stack.add_env_var("PWD".into(), Value::string(with_slash, Span::unknown()));
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack).is_none());
+        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
         assert!(engine_state.cwd(Some(&stack)).is_err());
     }
 
@@ -2578,9 +2611,9 @@ mod test_recover_cwd {
             &mut tester.stack,
             Some("host"),
             false,
-            0,
-            String::new(),
+            ReplBuffer::default(),
             &mut |seq| initial_osc.push(seq.to_string()),
+            || false,
         );
         assert!(initial_warning.is_none());
         assert!(initial_osc.is_empty());
@@ -2593,9 +2626,9 @@ mod test_recover_cwd {
             &mut tester.stack,
             Some("host"),
             false,
-            0,
-            String::new(),
+            ReplBuffer::default(),
             &mut |seq| emitted_osc.push(seq.to_string()),
+            || false,
         )
         .expect("expected ShellWarning::CwdRecovered");
 
@@ -2655,6 +2688,119 @@ mod test_recover_cwd {
         assert!(
             !emitted_osc.iter().any(|seq| seq.starts_with("\x1b]633;E;")),
             "unexpected OSC 633;E command marker on recovery: {emitted_osc:?}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn skips_recovery_while_input_is_pending_then_recovers_on_next_prompt()
+    -> nu_test_support::Result {
+        let tempdir = tempdir().unwrap();
+        let parent = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let child = parent.join("deleted-dir");
+        std::fs::create_dir(&child).unwrap();
+
+        let mut tester = nu_test_support::test();
+        let () = tester.run(
+            "
+            $env.PWD_HOOK_LOG = []
+            $env.config.hooks.env_change.PWD = [{|before, after|
+                $env.PWD_HOOK_LOG = ($env.PWD_HOOK_LOG | append [$before, $after])
+            }]
+            $env.config.shell_integration = {
+                osc2: true, osc7: true, osc8: false, osc9_9: true,
+                osc133: false, osc633: false, reset_application_mode: false
+            }
+            ",
+        )?;
+        tester.stack.set_cwd(&child)?;
+        let initial_warning = prepare_repl_iteration(
+            &mut tester.engine_state,
+            &mut tester.stack,
+            Some("host"),
+            false,
+            ReplBuffer::default(),
+            &mut |_| {},
+            || false,
+        );
+        assert!(initial_warning.is_none());
+        let log_len_before = tester
+            .stack
+            .get_env_var(&tester.engine_state, "PWD_HOOK_LOG")
+            .unwrap()
+            .clone()
+            .into_list()?
+            .len();
+
+        std::fs::remove_dir(&child).unwrap();
+
+        let mut queued_osc = Vec::new();
+        let skipped = prepare_repl_iteration(
+            &mut tester.engine_state,
+            &mut tester.stack,
+            Some("host"),
+            false,
+            ReplBuffer::default(),
+            &mut |seq| queued_osc.push(seq.to_string()),
+            || true,
+        );
+        assert!(skipped.is_none());
+        assert!(queued_osc.is_empty());
+        assert!(tester.engine_state.cwd(None).is_err());
+        assert_eq!(
+            tester
+                .stack
+                .get_env_var(&tester.engine_state, "PWD")
+                .unwrap()
+                .as_str()?,
+            child.as_std_path().to_string_lossy()
+        );
+        assert_eq!(
+            tester
+                .stack
+                .get_env_var(&tester.engine_state, "PWD_HOOK_LOG")
+                .unwrap()
+                .clone()
+                .into_list()?
+                .len(),
+            log_len_before
+        );
+
+        let mut recovered_osc = Vec::new();
+        let warning = prepare_repl_iteration(
+            &mut tester.engine_state,
+            &mut tester.stack,
+            Some("host"),
+            false,
+            ReplBuffer::default(),
+            &mut |seq| recovered_osc.push(seq.to_string()),
+            || false,
+        )
+        .expect("expected recovery once pending input drains");
+
+        assert_eq!(
+            warning.code().map(|c| c.to_string()).as_deref(),
+            Some("nu::shell::cwd_recovered")
+        );
+        assert_eq!(
+            tester.engine_state.cwd(None)?.as_std_path(),
+            parent.as_std_path()
+        );
+        assert!(!recovered_osc.is_empty());
+        let log = tester
+            .stack
+            .get_env_var(&tester.engine_state, "PWD_HOOK_LOG")
+            .unwrap()
+            .clone()
+            .into_list()?;
+        assert_eq!(log.len(), log_len_before + 2);
+        assert_eq!(
+            log[log.len() - 2].as_str()?,
+            child.as_std_path().to_string_lossy()
+        );
+        assert_eq!(
+            log[log.len() - 1].as_str()?,
+            parent.as_std_path().to_string_lossy()
         );
         Ok(())
     }
