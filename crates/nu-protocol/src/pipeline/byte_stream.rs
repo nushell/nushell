@@ -41,10 +41,12 @@ impl ByteStreamSource {
             ByteStreamSource::Read(read) => Some(SourceReader::Read(read)),
             ByteStreamSource::File(file) => Some(SourceReader::File(file)),
             #[cfg(feature = "os")]
-            ByteStreamSource::Child(mut child) => child.stdout.take().map(|stdout| match stdout {
-                ChildPipe::Pipe(pipe) => SourceReader::File(convert_file(pipe)),
-                ChildPipe::Tee(tee) => SourceReader::Read(tee),
-            }),
+            ByteStreamSource::Child(mut child) => {
+                child.take_stdout_to_read().map(|stdout| match stdout {
+                    ChildPipe::Pipe(pipe) => SourceReader::File(convert_file(pipe)),
+                    ChildPipe::Tee(tee) => SourceReader::Read(tee),
+                })
+            }
         }
     }
 
@@ -561,7 +563,8 @@ impl ByteStream {
     ///
     /// This will succeed if the [`ByteStreamSource`] of the [`ByteStream`] is either:
     /// - [`File`](ByteStreamSource::File)
-    /// - [`Child`](ByteStreamSource::Child) and the child has a stdout that is `Some(ChildPipe::Pipe(..))`.
+    /// - [`Child`](ByteStreamSource::Child) and the child has a stdout that is `Some(ChildPipe::Pipe(..))`,
+    ///   and the shell isn't feeding its stdin, because nothing would be left to report if that fails.
     ///
     /// All other cases return an `Err` with the original [`ByteStream`] in it.
     pub fn into_stdio(mut self) -> Result<Stdio, Self> {
@@ -570,11 +573,12 @@ impl ByteStream {
             ByteStreamSource::File(file) => Ok(file.into()),
             #[cfg(feature = "os")]
             ByteStreamSource::Child(child) => {
-                if let ChildProcess {
-                    stdout: Some(ChildPipe::Pipe(stdout)),
-                    stderr,
-                    ..
-                } = *child
+                if !child.is_stdin_fed()
+                    && let ChildProcess {
+                        stdout: Some(ChildPipe::Pipe(stdout)),
+                        stderr,
+                        ..
+                    } = *child
                 {
                     debug_assert!(stderr.is_none(), "stderr should not exist");
                     Ok(stdout.into())
@@ -616,10 +620,7 @@ impl ByteStream {
                         Ok(0) => break,
                         Ok(n) => buf.extend_from_slice(&chunk[..n]),
                         Err(e) if e.kind() == ErrorKind::Interrupted => continue,
-                        Err(e) => match ShellErrorBridge::try_from(e) {
-                            Ok(ShellErrorBridge(e)) => return Err(e),
-                            Err(e) => return Err(ShellError::Io(from_io_error(e))),
-                        },
+                        Err(e) => return Err(ShellErrorBridge::unpack(e, span)),
                     }
                 }
                 Ok(buf)
@@ -948,7 +949,7 @@ impl Iterator for Lines {
                     trim_end_newline(&mut string);
                     Some(Ok(string))
                 }
-                Err(err) => Some(Err(IoError::new(err, self.span, None).into())),
+                Err(err) => Some(Err(ShellErrorBridge::unpack(err, self.span))),
             }
         }
     }
@@ -986,14 +987,10 @@ impl Iterator for SplitRead {
         if self.signals.interrupted() {
             return None;
         }
-        self.internal.next().map(|r| {
-            r.map_err(|err| {
-                ShellError::Io(IoError::new_internal(
-                    err,
-                    "Could not get next value for SplitRead",
-                ))
-            })
-        })
+        let span = self.span;
+        self.internal
+            .next()
+            .map(|r| r.map_err(|err| ShellErrorBridge::unpack(err, span)))
     }
 }
 
@@ -1028,10 +1025,8 @@ impl Chunks {
     }
 
     fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, ShellError)> {
-        let from_io_error = |err: std::io::Error| match ShellErrorBridge::try_from(err) {
-            Ok(err) => err.0,
-            Err(err) => IoError::new(err, self.span, None).into(),
-        };
+        let span = self.span;
+        let from_io_error = |err: std::io::Error| ShellErrorBridge::unpack(err, span);
 
         // Get some data from the reader
         let buf = self
@@ -1113,7 +1108,7 @@ impl Iterator for Chunks {
                         Ok(buf) => buf,
                         Err(err) => {
                             self.error = true;
-                            return Some(Err(ShellError::Io(IoError::new(err, self.span, None))));
+                            return Some(Err(ShellErrorBridge::unpack(err, self.span)));
                         }
                     };
                     if !buf.is_empty() {
@@ -1241,10 +1236,7 @@ pub fn copy_with_signals(
             }
             Err(err) => {
                 let _ = writer.flush();
-                match ShellErrorBridge::try_from(err) {
-                    Ok(ShellErrorBridge(shell_error)) => Err(shell_error),
-                    Err(err) => Err(from_io_error(err).into()),
-                }
+                Err(ShellErrorBridge::unpack(err, span))
             }
         }
     } else {
@@ -1281,10 +1273,7 @@ fn generic_copy(
             Ok(0) => break,
             Ok(n) => n,
             Err(e) if e.kind() == ErrorKind::Interrupted => continue,
-            Err(e) => match ShellErrorBridge::try_from(e) {
-                Ok(ShellErrorBridge(e)) => return Err(e),
-                Err(e) => return Err(from_io_error(e).into()),
-            },
+            Err(e) => return Err(ShellErrorBridge::unpack(e, span)),
         };
         len += n;
         writer.write_all(&buf[..n]).map_err(&from_io_error)?;

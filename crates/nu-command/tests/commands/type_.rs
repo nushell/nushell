@@ -166,7 +166,7 @@ fn completer_on_the_right_is_an_error() -> Result {
         .run("type Color = string@[red green blue]")
         .expect_parse_error()?;
     assert!(
-        matches!(&err, ParseError::LabeledError(msg, ..) if msg == "Unexpected custom completer in type spec"),
+        matches!(&err, ParseError::LabeledErrorWithHelp { error, .. } if error == "Unexpected custom completer in type spec"),
         "unexpected error: {err:?}"
     );
     Ok(())
@@ -365,6 +365,7 @@ fn alias_is_not_imported(#[case] import: &str, #[case] code: &str) -> Result {
 #[case::module_member("use zoo Animal; hide zoo Animal")]
 #[case::module_member_list("use zoo [Animal feed]; hide zoo [Animal]")]
 #[case::module_glob("use zoo *; hide zoo *")]
+#[case::module_glob_hidden_by_name("use zoo *; hide zoo")]
 fn hidden_alias_is_unknown(#[case] code: &str) -> Result {
     test()
         .run(format!("{ZOO}\n{code}\nlet a: Animal = 'cat'"))

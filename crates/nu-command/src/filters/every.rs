@@ -72,7 +72,7 @@ impl Command for Every {
             .into_iter()
             .enumerate()
             .filter_map(move |(i, value)| {
-                if (i % stride != 0) == skip {
+                if (i % stride != 0) == skip || value.is_error() {
                     Some(value)
                 } else {
                     None

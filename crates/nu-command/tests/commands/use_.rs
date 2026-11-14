@@ -144,8 +144,8 @@ fn use_do_cd_file_relative() -> Result {
 }
 
 #[test]
-fn use_dont_cd_overlay() -> Result {
-    Playground::setup("use_dont_cd_overlay", |dirs, playground| {
+fn use_overlay_hide_keeps_cd() -> Result {
+    Playground::setup("use_overlay_hide_keeps_cd", |dirs, playground| {
         playground
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
@@ -163,7 +163,7 @@ fn use_dont_cd_overlay() -> Result {
         let () = tester.run("use test1/test2/spam.nu")?;
         tester
             .run("$env.PWD | path basename")
-            .expect_value_eq("use_dont_cd_overlay")
+            .expect_value_eq("test2")
     })
 }
 

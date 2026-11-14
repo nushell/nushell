@@ -462,11 +462,6 @@ impl fmt::Display for FmtPattern<'_> {
                 }
                 f.write_str("]")
             }
-            Pattern::Expression(expr) => {
-                let string =
-                    String::from_utf8_lossy(self.engine_state.get_span_contents(expr.span));
-                f.write_str(&string)
-            }
             Pattern::Value(value) => {
                 f.write_str(&value.to_parsable_string(", ", &self.engine_state.config))
             }

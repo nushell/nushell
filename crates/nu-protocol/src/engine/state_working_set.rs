@@ -170,11 +170,16 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn use_modules(&mut self, modules: Vec<(Vec<u8>, ModuleId)>) {
+        // Binding a module again undoes a `hide_module` of it in this frame.
+        self.delta
+            .last_scope_frame_mut()
+            .hidden_modules
+            .retain(|hidden| !modules.iter().any(|(_, id)| id == hidden));
+
         let overlay_frame = self.last_overlay_mut();
 
         for (name, module_id) in modules {
             overlay_frame.insert_module(name, module_id);
-            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
         }
     }
 
@@ -681,11 +686,19 @@ impl<'a> StateWorkingSet<'a> {
     /// and declarations from scopes existing only in [`StateDelta`].
     pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
         let mut removed_overlays = vec![];
+        // As in `find_variable`, a module hidden in the scope frame that binds it, or in a frame
+        // inside that one, isn't found.
+        let unless_hidden = |module_id: ModuleId, binding_frame: usize| {
+            let hidden = self.delta.scope[binding_frame..]
+                .iter()
+                .any(|scope_frame| scope_frame.hidden_modules.contains(&module_id));
+            (!hidden).then_some(module_id)
+        };
 
-        for scope_frame in self.delta.scope.iter().rev() {
+        for (frame_idx, scope_frame) in self.delta.scope.iter().enumerate().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(module_id) = overlay_frame.modules.get(name) {
-                    return Some(*module_id);
+                    return unless_hidden(*module_id, frame_idx);
                 }
             }
         }
@@ -696,11 +709,23 @@ impl<'a> StateWorkingSet<'a> {
             .rev()
         {
             if let Some(module_id) = overlay_frame.modules.get(name) {
-                return Some(*module_id);
+                return unless_hidden(*module_id, 0);
             }
         }
 
         None
+    }
+
+    /// Hide `module_id` for the rest of the current scope frame, because a reload found its name
+    /// gone from the file: [`find_module`](Self::find_module) no longer finds it under any name,
+    /// until it's bound again. At the top level, merging the delta removes it from the overlays,
+    /// so later source can't find it either. `hide <module>` doesn't do this, so that
+    /// `hide spam; use spam` works.
+    pub fn hide_module(&mut self, module_id: ModuleId) {
+        self.delta
+            .last_scope_frame_mut()
+            .hidden_modules
+            .push(module_id);
     }
 
     /// Find the [`TypeAliasId`] of the type alias `name` visible in the current scope.
@@ -954,9 +979,12 @@ impl<'a> StateWorkingSet<'a> {
     /// matching `exit_scope` (which discards that frame). Call sites:
     /// `parse_block_expression`, `parse_closure_expression`, and scoped `parse_block`.
     /// Keep those three call sites explicit so a new scoped construct is forced to opt in.
-    pub fn snapshot_scope_bindings(&self) -> Option<Arc<ScopeBindings>> {
+    pub fn snapshot_scope_bindings(&self, span: Span) -> Option<Arc<ScopeBindings>> {
         let frame = self.delta.last_scope_frame();
-        let mut bindings = ScopeBindings::default();
+        let mut bindings = ScopeBindings {
+            span: Some(span),
+            ..Default::default()
+        };
         let mut removed_overlays = vec![];
 
         for overlay in frame.active_overlays(&mut removed_overlays) {
@@ -973,13 +1001,14 @@ impl<'a> StateWorkingSet<'a> {
     /// The names the innermost scope frame bound since `before`, an earlier copy of that frame.
     ///
     /// Returns `None` if the frame changed in a way names don't describe: an overlay was activated
-    /// or removed, a declaration or type alias was hidden, or a variable was `unlet`. The parser's
-    /// block cache records this for an unscoped parse of a file (see [`BoundNames`]).
+    /// or removed, a declaration, type alias or module was hidden, or a variable was `unlet`. The
+    /// parser's block cache records this for an unscoped parse of a file (see [`BoundNames`]).
     pub fn names_bound_since(&self, before: &ScopeFrame) -> Option<BoundNames> {
         let after = self.delta.last_scope_frame();
         if after.active_overlays != before.active_overlays
             || after.removed_overlays != before.removed_overlays
             || after.hidden_vars.len() != before.hidden_vars.len()
+            || after.hidden_modules.len() != before.hidden_modules.len()
         {
             return None;
         }

@@ -135,7 +135,7 @@ impl Command for SortBy {
         let natural = call.has_flag(engine_state, stack, "natural")?;
         let custom = call.has_flag(engine_state, stack, "custom")?;
         let metadata = input.take_metadata();
-        let mut vec: Vec<_> = input.into_iter_strict(head)?.collect();
+        let mut vec = input.into_iter_strict(head)?.collect_values()?;
 
         if comparator_vals.is_empty() {
             return Err(ShellError::MissingParameter {

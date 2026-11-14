@@ -6,7 +6,6 @@ use nu_protocol::{
     engine::{EngineState, Redirection, Stack, StateWorkingSet},
     shell_error::generic::GenericError,
 };
-use std::sync::Arc;
 
 pub fn run_command_with_value(
     command: &str,
@@ -58,7 +57,7 @@ fn eval_source2(
     fname: &str,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let (mut block, delta) = {
+    let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
             &mut working_set,
@@ -67,10 +66,18 @@ fn eval_source2(
             false,
         );
 
+        // The pager prints an error's headline and nothing else, so that's where the reason goes.
         if let Some(err) = working_set.parse_errors.first() {
             return Err(ShellError::Generic(GenericError::new_internal(
-                "Parse error",
-                err.to_string(),
+                format!("Parse error: {err}"),
+                "",
+            )));
+        }
+
+        if let Some(err) = working_set.compile_errors.first() {
+            return Err(ShellError::Generic(GenericError::new_internal(
+                format!("Compile error: {err}"),
+                "",
             )));
         }
 
@@ -84,17 +91,8 @@ fn eval_source2(
         ));
     }
 
-    // eval_block outputs all expressions except the last to STDOUT;
-    // we don't won't that.
-    //
-    // So we LITERALLY ignore all expressions except the LAST.
-    if block.len() > 1 {
-        let range = ..block.pipelines.len() - 1;
-        // Note: `make_mut` will mutate `&mut block: &mut Arc<Block>`
-        // for the outer fn scope `eval_block`
-        Arc::make_mut(&mut block).pipelines.drain(range);
-    }
-
+    // Every pipeline runs, and only the last one's output comes back. These redirections apply only
+    // to the last one. The pager's stack discards the output of the others.
     let stack = &mut stack.push_redirection(
         Some(Redirection::Pipe(OutDest::PipeSeparate)),
         Some(Redirection::Pipe(OutDest::PipeSeparate)),
@@ -105,6 +103,38 @@ fn eval_source2(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_protocol::Span;
+
+    #[test]
+    fn run_nu_command_runs_every_pipeline() {
+        let output = run_nu_command(
+            &EngineState::new(),
+            &mut Stack::new(),
+            "$env.X = 2; $env.X * 3",
+            PipelineData::empty(),
+        )
+        .and_then(|data| data.into_value(Span::test_data()));
+
+        assert_eq!(output.ok(), Some(Value::test_int(6)));
+    }
+
+    #[test]
+    fn run_nu_command_names_the_compile_error() {
+        // An empty engine has no `run-external`, so this parses but doesn't compile.
+        let err = run_nu_command(
+            &EngineState::new(),
+            &mut Stack::new(),
+            "^echo hi",
+            PipelineData::empty(),
+        )
+        .err()
+        .map(|err| err.to_string());
+
+        assert_eq!(
+            err.as_deref(),
+            Some("Compile error: External calls are not supported.")
+        );
+    }
 
     #[test]
     fn is_ignored_command_cases() {

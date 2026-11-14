@@ -119,6 +119,8 @@ fn run_file_parse_error() -> Result {
     "#,
     "42pass[foo]30"
 )]
+#[nu_test_support::test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn eval_value_eq(#[case] source: &str, #[case] expected: impl IntoValue) -> Result {
     test().run(source).expect_value_eq(expected)
 }
