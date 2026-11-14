@@ -3,7 +3,10 @@ use crate::{
     network::{
         http::{
             resolver::{DnsLookupResolver, LookupError},
-            timeout_extractor_reader::UreqTimeoutExtractorReader,
+            timeout_extractor_reader::{
+                AllowErrorsReader, TransportErrorTracker, UreqTimeoutExtractorReader,
+                is_transport_io_error,
+            },
         },
         tls::tls_config,
     },
@@ -18,7 +21,7 @@ use multipart_rs::MultipartWriter;
 use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ByteStream, LabeledError, PipelineMetadata, Signals, ir,
+    ByteStream, DeclId, LabeledError, PipelineMetadata, Signals, ir,
     shell_error::{
         generic::GenericError,
         io::IoError,
@@ -337,7 +340,8 @@ pub fn response_to_buffer(
     response: Response,
     engine_state: &EngineState,
     span: Span,
-) -> PipelineData {
+    allow_errors: bool,
+) -> (PipelineData, TransportErrorTracker) {
     // Try to get the size of the file to be downloaded.
     // This is helpful to show the progress of the stream.
     let buffer_size = match response.header("content-length") {
@@ -366,26 +370,39 @@ pub fn response_to_buffer(
     let metadata =
         extract_response_metadata(&response, span).with_content_type(content_type_lowercase);
 
+    let tracker = TransportErrorTracker::new();
     let reader = UreqTimeoutExtractorReader {
         r: response.into_body().into_reader(),
     };
+    let reader = AllowErrorsReader::with_tracker(reader, allow_errors, tracker.clone());
 
     let byte_stream = ByteStream::read(reader, span, engine_state.signals().clone(), response_type);
 
-    PipelineData::byte_stream(byte_stream.with_known_size(buffer_size), Some(metadata))
+    (
+        PipelineData::byte_stream(byte_stream.with_known_size(buffer_size), Some(metadata)),
+        tracker,
+    )
 }
 
 /// Read and discard the response body so the HTTP exchange completes (timeouts, keep-alive).
 /// Used when only response headers are shown but the server may still send a body.
-pub(crate) fn discard_response_body(response: Response, span: Span) -> Result<(), ShellError> {
-    let mut reader = UreqTimeoutExtractorReader {
+/// When `allow_errors` is true, transport-level read errors are swallowed and the
+/// function returns Ok(()).
+pub(crate) fn discard_response_body(
+    response: Response,
+    span: Span,
+    allow_errors: bool,
+) -> Result<(), ShellError> {
+    let reader = UreqTimeoutExtractorReader {
         r: response.into_body().into_reader(),
     };
+    let mut reader = AllowErrorsReader::new(reader, allow_errors);
     let mut buf = [0u8; 8192];
     loop {
         match reader.read(&mut buf) {
             Ok(0) => return Ok(()),
             Ok(_) => {}
+            Err(e) if allow_errors && is_transport_io_error(&e) => return Ok(()),
             Err(e) => return Err(ShellError::Io(IoError::new(e, span, None))),
         }
     }
@@ -1113,9 +1130,54 @@ fn transform_response_using_content_type(
         }
     };
 
-    let output = response_to_buffer(resp, engine_state, span);
+    let (output, tracker) = response_to_buffer(resp, engine_state, span, flags.allow_errors);
+    // If --raw is set, return the raw stream.
     if flags.raw {
-        Ok(output)
+        return Ok(output);
+    }
+    // If --allow-errors is set and there's a converter, collect the stream first
+    // so we can fall back to the raw body if the converter fails on partial data.
+    let needs_converter = ext.as_ref().is_some_and(|ext| {
+        engine_state
+            .find_decl(format!("from {ext}").as_bytes(), &[])
+            .is_some()
+    });
+    if flags.allow_errors && needs_converter {
+        // Collect the stream into a Value first.
+        let value = output.into_value(span)?;
+        // Try the converter on the collected value.
+        if let Some(ext) = ext {
+            match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+                Some(converter_id) => {
+                    let decl = engine_state.get_decl(converter_id);
+                    if let Some(alias) = decl.as_alias() {
+                        return Err(crate::formats::alias_converter_error(
+                            engine_state,
+                            alias,
+                            "http",
+                            "convert the response",
+                            &format!("http ... --raw {requested_url} | {{}}"),
+                            span,
+                        ));
+                    }
+                    // Run converter on the collected value (as PipelineData).
+                    let pd = value.clone().into_pipeline_data();
+                    let ir_call = ir::Call::build(DeclId::new(0), span).finish();
+                    let call = Call::from(&ir_call);
+                    match decl.run(engine_state, stack, &call, pd) {
+                        Ok(result) => Ok(result),
+                        Err(_) if tracker.has_error() => {
+                            // Transport error occurred during read; return raw body.
+                            Ok(value.into_pipeline_data())
+                        }
+                        Err(err) => Err(err),
+                    }
+                }
+                None => Ok(value.into_pipeline_data()),
+            }
+        } else {
+            Ok(value.into_pipeline_data())
+        }
     } else if let Some(ext) = ext {
         match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
             Some(converter_id) => {
@@ -1168,6 +1230,75 @@ pub fn check_response_redirection(
     Ok(())
 }
 
+/// Converts the outcome of sending a request into a [`Response`], honoring
+/// `--allow-errors` for transport-level failures.
+///
+/// The `allow_errors` branch is otherwise only consulted in
+/// [`handle_response_status`], which runs after a response was received. A
+/// transport-level failure (timeout, DNS error, refused connection, …)
+/// therefore raised before that check, making `--allow-errors` useless for
+/// them. With `allow_errors` such a failure is swallowed and `None` is
+/// returned, so callers can emit an empty value instead of an error.
+///
+/// Only transport errors (I/O, network, DNS) are swallowed. Other errors
+/// (e.g., type mismatches in the request body) are propagated.
+pub(crate) fn handle_transport_error(
+    result: Result<Response, ShellError>,
+    allow_errors: bool,
+) -> Result<Option<Response>, ShellError> {
+    match result {
+        Ok(response) => Ok(Some(response)),
+        Err(ShellError::Io(_) | ShellError::Network(_) | ShellError::NetworkFailure { .. })
+            if allow_errors =>
+        {
+            Ok(None)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+/// Reads a response body [`PipelineData`] into a [`Value`], honoring `--allow-errors`.
+///
+/// Transport-level failures (e.g. timeouts) can also surface while the response
+/// body is read, after the headers were received. With `allow_errors` such a
+/// failure becomes [`Value::nothing`] instead of an error.
+///
+/// Only transport errors (I/O, network, DNS) are swallowed. Other errors
+/// (e.g., non-UTF-8 bodies) are propagated.
+pub(crate) fn read_body_allow_errors(
+    body: PipelineData,
+    span: Span,
+    allow_errors: bool,
+    tracker: TransportErrorTracker,
+) -> Result<PipelineData, ShellError> {
+    let metadata = body.metadata_ref().cloned();
+    let value = match body.into_value(span) {
+        Ok(value) => value,
+        Err(ShellError::Io(_) | ShellError::Network(_) | ShellError::NetworkFailure { .. })
+            if allow_errors =>
+        {
+            Value::nothing(span)
+        }
+        Err(err) => return Err(err),
+    };
+    // If a transport error occurred and the body is empty, return nothing.
+    // This handles the case where a timeout happens before any body data is received.
+    if allow_errors && tracker.has_error() && is_empty_body(&value) {
+        Ok(Value::nothing(span).into_pipeline_data_with_metadata(metadata))
+    } else {
+        Ok(value.into_pipeline_data_with_metadata(metadata))
+    }
+}
+
+/// Returns true if the value represents an empty body (empty string or empty binary).
+fn is_empty_body(value: &Value) -> bool {
+    match value {
+        Value::String { val, .. } => val.is_empty(),
+        Value::Binary { val, .. } => val.is_empty(),
+        _ => false,
+    }
+}
+
 pub(crate) fn handle_response_status(
     resp: &mut Response,
     redirect_mode: RedirectMode,
@@ -1213,16 +1344,25 @@ pub(crate) fn request_handle_response(
         let content_type = response.header("content-type").map(|s| s.to_owned());
 
         match content_type {
-            Some(content_type) => transform_response_using_content_type(
-                engine_state,
-                stack,
-                span,
-                requested_url,
-                &flags,
-                response,
-                &content_type,
-            ),
-            None => Ok(response_to_buffer(response, engine_state, span)),
+            Some(content_type) => {
+                let result = transform_response_using_content_type(
+                    engine_state,
+                    stack,
+                    span,
+                    requested_url,
+                    &flags,
+                    response,
+                    &content_type,
+                );
+                // transform_response_using_content_type doesn't return tracker directly
+                // but we can get it from response_to_buffer if needed
+                result.map(|pd| (pd, TransportErrorTracker::new()))
+            }
+            None => {
+                let (pd, tracker) =
+                    response_to_buffer(response, engine_state, span, flags.allow_errors);
+                Ok((pd, tracker))
+            }
         }
     };
     handle_response_status(
@@ -1256,7 +1396,9 @@ pub(crate) fn request_handle_response(
                 .collect(),
             span,
         );
-        let body = consume_response_body(resp)?.into_value(span)?;
+        let (body_pd, tracker) = consume_response_body(resp)?;
+        let body_pd = read_body_allow_errors(body_pd, span, flags.allow_errors, tracker)?;
+        let body = body_pd.into_value(span)?;
 
         let full_response = Value::record(
             record! {
@@ -1271,7 +1413,18 @@ pub(crate) fn request_handle_response(
 
         Ok(full_response.into_pipeline_data())
     } else {
-        Ok(consume_response_body(resp)?)
+        // For --allow-errors, eagerly read the body to convert transport errors
+        // to "nothing" (matching the original behavior). For other cases, return
+        // the stream directly.
+        if flags.allow_errors {
+            let (body_pd, tracker) = consume_response_body(resp)?;
+            let body_pd = read_body_allow_errors(body_pd, span, flags.allow_errors, tracker)?;
+            Ok(body_pd)
+        } else {
+            // Return the body as a stream.
+            let (pd, _tracker) = consume_response_body(resp)?;
+            Ok(pd)
+        }
     }
 }
 
