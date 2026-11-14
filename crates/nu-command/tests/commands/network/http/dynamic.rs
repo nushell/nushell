@@ -94,17 +94,49 @@ fn header_methods_keep_their_response_shape(#[case] method: &str) -> Result {
 #[case("get")]
 #[case("head")]
 #[case("options")]
-fn body_is_not_silently_discarded(
-    #[case] method: &str,
-    #[values(false, true)] pipeline: bool,
-) -> Result {
-    let code = if pipeline {
-        format!("'payload' | http --method '{method}' http://localhost")
-    } else {
-        format!("http --method '{method}' http://localhost 'payload'")
-    };
-    let err = test().run(code).expect_shell_error()?.generic_error()?;
+fn positional_body_is_rejected(#[case] method: &str) -> Result {
+    let err = test()
+        .run(format!(
+            "http --method '{method}' http://localhost 'payload'"
+        ))
+        .expect_shell_error()?
+        .generic_error()?;
     assert_contains("does not accept a request body", err);
+    Ok(())
+}
+
+#[rstest]
+#[case("get")]
+#[case("head")]
+#[case("options")]
+fn dynamic_method_ignores_pipeline_input_in_closures(#[case] method: &str) -> Result {
+    let mut server = Server::new();
+    let mock = server
+        .mock(method.to_ascii_uppercase().as_str(), "/")
+        .with_status(204)
+        .expect(2)
+        .create();
+    test()
+        .run(format!(
+            "[a b] | each {{|x| http --method '{method}' --full {} | get status }}",
+            server.url()
+        ))
+        .expect_value_eq([204, 204])?;
+    mock.assert();
+    Ok(())
+}
+
+#[test]
+fn dynamic_method_ignores_pipeline_input_from_wrapper() -> Result {
+    let mut server = Server::new();
+    let mock = server.mock("GET", "/").with_body("ignored").create();
+    test()
+        .run(format!(
+            "def api [method url] {{ http --method $method $url }}; [a] | each {{|u| api get {}}}",
+            server.url()
+        ))
+        .expect_value_eq(["ignored"])?;
+    mock.assert();
     Ok(())
 }
 
