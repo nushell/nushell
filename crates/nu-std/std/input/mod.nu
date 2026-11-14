@@ -32,7 +32,7 @@ def format-event [ ] {
 # input display --types [key mouse paste resize]
 export def display [
   --types(-t): list<string> # Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)
-  --raw(-r) # Add raw_code field with numeric value of keycode and raw_modifiers with bit mask flags
+  --raw(-r) # Add a raw_modifiers bit mask to key and mouse events, plus raw_code for character keys
 ] {
   let arg_types = if $types == null {
     [ key focus mouse paste resize ]
