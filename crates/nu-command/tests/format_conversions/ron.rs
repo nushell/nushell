@@ -16,12 +16,12 @@ fn ron_roundtrip_string() -> Result {
 
 #[test]
 fn ron_roundtrip_integer() -> Result {
-    let code = r#"
+    let code = "
         42
         | to ron
         | from ron
         | $in == 42
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -30,12 +30,12 @@ fn ron_roundtrip_integer() -> Result {
 
 #[test]
 fn ron_roundtrip_float() -> Result {
-    let code = r#"
+    let code = "
         3.14
         | to ron
         | from ron
         | $in == 3.14
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -44,12 +44,12 @@ fn ron_roundtrip_float() -> Result {
 
 #[test]
 fn ron_roundtrip_boolean() -> Result {
-    let code = r#"
+    let code = "
         true
         | to ron
         | from ron
         | $in == true
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -58,12 +58,12 @@ fn ron_roundtrip_boolean() -> Result {
 
 #[test]
 fn ron_roundtrip_record() -> Result {
-    let code = r#"
+    let code = "
         {a: 1 b: 2 c: 'qwe'}
         | to ron
         | from ron
         | $in == {a: 1 b: 2 c: 'qwe'}
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
     assert!(outcome);
     Ok(())
@@ -71,13 +71,13 @@ fn ron_roundtrip_record() -> Result {
 
 #[test]
 fn ron_roundtrip_map() -> Result {
-    let code = r#"
+    let code = "
         {a: 1 b: 2 c: 'qwe'}
         | into record
         | to ron
         | from ron
         | $in == {a: 1 b: 2 c: 'qwe'}
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
     assert!(outcome);
     Ok(())
@@ -85,12 +85,12 @@ fn ron_roundtrip_map() -> Result {
 
 #[test]
 fn ron_roundtrip_list() -> Result {
-    let code = r#"
+    let code = "
         [1 2 3 4]
         | to ron
         | from ron
         | $in == [1 2 3 4]
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
     assert!(outcome);
     Ok(())
@@ -98,12 +98,12 @@ fn ron_roundtrip_list() -> Result {
 
 #[test]
 fn ron_roundtrip_empty() -> Result {
-    let code = r#"
+    let code = "
         []
         | to ron
         | from ron
         | $in == []
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
     assert!(outcome);
     Ok(())
@@ -111,12 +111,12 @@ fn ron_roundtrip_empty() -> Result {
 
 #[test]
 fn ron_roundtrip_nested() -> Result {
-    let code = r#"
+    let code = "
         {a: 1 b: [2 3] c: {d: 4 e: 5}}
         | to ron
         | from ron
         | $in == {a: 1 b: [2 3] c: {d: 4 e: 5}}
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
     assert!(outcome);
     Ok(())
@@ -149,11 +149,11 @@ fn ron_explicit_map_to_nushell_record() -> Result {
 
 #[test]
 fn ron_option_some() -> Result {
-    let code = r#"
+    let code = "
         'Some(42)'
         | from ron
         | $in == 42
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
     assert!(outcome);
     Ok(())
@@ -161,11 +161,11 @@ fn ron_option_some() -> Result {
 
 #[test]
 fn ron_option_none() -> Result {
-    let code = r#"
+    let code = "
         'None'
         | from ron
         | $in == null
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
     assert!(outcome);
     Ok(())
@@ -173,14 +173,14 @@ fn ron_option_none() -> Result {
 
 #[test]
 fn ron_pipeline_roundtrip() -> Result {
-    let code = r#"
+    let code = "
         [1 2 3]
         | each { |value| $value * 2 }
         | to ron
         | from ron
         | math sum
         | $in == 12
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -228,7 +228,7 @@ fn ron_file_open_and_save() -> Result {
 
 #[test]
 fn ron_rejects_malformed_syntax() -> Result {
-    let code = r#"'[1, 2' | from ron"#;
+    let code = "'[1, 2' | from ron";
 
     assert!(test().run::<Value>(code).is_err());
     Ok(())
@@ -236,7 +236,7 @@ fn ron_rejects_malformed_syntax() -> Result {
 
 #[test]
 fn ron_rejects_unsupported_type() -> Result {
-    let code = r#"{|value| $value} | to ron"#;
+    let code = "{|value| $value} | to ron";
 
     assert!(test().run::<Value>(code).is_err());
     Ok(())
