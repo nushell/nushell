@@ -83,7 +83,7 @@ impl Command for Http {
             )
             .switch(
                 "allow-errors",
-                "Do not fail if the server returns an error code.",
+                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or a record with status: null and error field under --full).",
                 Some('e'),
             )
             .param(

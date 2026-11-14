@@ -1,8 +1,9 @@
 use crate::network::http::client::{
     HttpBody, RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
-    expand_unix_socket_path, http_client, http_client_pool, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_host_header, request_set_timeout, send_request,
+    expand_unix_socket_path, handle_transport_error, http_client, http_client_pool,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_host_header,
+    request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -72,7 +73,7 @@ impl Command for HttpPost {
             )
             .switch(
                 "allow-errors",
-                "Do not fail if the server returns an error code.",
+                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or a record with status: null and error field under --full).",
                 Some('e'),
             )
             .switch("pool", "Using a global pool as a client.", None)
@@ -289,7 +290,26 @@ fn helper(
         allow_errors: args.allow_errors,
     };
 
-    let response = response?;
+    let response = handle_transport_error(response, args.allow_errors)?;
+    let Some(response) = response else {
+        if args.full {
+            let error_record = Value::record(
+                record! {
+                    "status" => Value::nothing(span),
+                    "error" => Value::string("transport error (timeout, DNS failure, connection refused, etc.)", span),
+                    "body" => Value::nothing(span),
+                    "headers" => Value::record(record! {
+                        "request" => Value::nothing(span),
+                        "response" => Value::nothing(span),
+                    }, span),
+                    "urls" => Value::list(vec![], span),
+                },
+                span,
+            );
+            return Ok(error_record.into_pipeline_data());
+        }
+        return Ok(Value::nothing(span).into_pipeline_data());
+    };
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(

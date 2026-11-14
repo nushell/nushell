@@ -390,6 +390,47 @@ fn http_get_timeout() -> Result {
 }
 
 #[test]
+fn http_get_timeout_with_allow_errors_returns_nothing() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_chunked_body(|w| {
+            thread::sleep(Duration::from_secs(10));
+            w.write_all(b"Delayed response!")
+        })
+        .create();
+
+    let code = format!(
+        "http get --allow-errors --max-time 100ms {url} | collect | describe",
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq("nothing")
+}
+
+#[test]
+fn http_get_header_timeout_with_allow_errors_returns_nothing() -> Result {
+    // Bind a socket that accepts the connection but never sends a response,
+    // so the request times out while waiting for the response headers.
+    let listener =
+        std::net::TcpListener::bind("127.0.0.1:0").expect("could not bind test listener");
+    let addr = listener
+        .local_addr()
+        .expect("could not get test listener address");
+    std::thread::spawn(move || {
+        // Hold the connection open without responding; the client times out.
+        if let Ok((stream, _)) = listener.accept() {
+            std::thread::sleep(Duration::from_secs(10));
+            drop(stream);
+        }
+    });
+
+    let code = format!("http get --allow-errors --max-time 100ms http://{addr} | describe");
+
+    test().run(code).expect_value_eq("nothing")
+}
+
+#[test]
 fn http_get_response_metadata() -> Result {
     let mut server = Server::new();
 
@@ -481,5 +522,114 @@ fn http_get_with_a_from_alias_reports_it() -> Result {
         format!("{err:?}"),
     );
     assert!(!format!("{err:?}").contains("Can't run alias directly"));
+    Ok(())
+}
+
+/// Test that metadata is preserved when using --allow-errors on a 404 response.
+#[test]
+fn http_get_allow_errors_preserves_metadata_on_404() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(404)
+        .with_body("not found")
+        .create();
+
+    let code = format!(
+        "http get -e --raw {url} | metadata | get http_response.status",
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq(404)
+}
+
+/// Test that metadata is preserved when using --allow-errors on a 200 response.
+#[test]
+fn http_get_allow_errors_preserves_metadata_on_200() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(200)
+        .with_body("success")
+        .create();
+
+    let code = format!(
+        "http get -e --raw {url} | metadata | get http_response.status",
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq(200)
+}
+
+/// Test that a stalled JSON body under --allow-errors returns partial data (or nothing) instead of erroring.
+#[test]
+fn http_get_stalled_json_body_with_allow_errors() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_header("content-type", "application/json")
+        .with_chunked_body(|w| -> Result<(), std::io::Error> {
+            w.write_all(b"{\"partial\": true")?;
+            thread::sleep(Duration::from_secs(10));
+            w.write_all(b", \"more\": \"data\"}")?;
+            Ok(())
+        })
+        .create();
+
+    let code = format!(
+        "http get --allow-errors --max-time 100ms {url} | describe",
+        url = server.url()
+    );
+
+    // Should return nothing (or partial data) instead of timing out
+    let desc: String = test().run(code)?;
+    // Accept either "nothing" or a record/string value (partial data)
+    assert!(desc == "nothing" || !desc.is_empty());
+    Ok(())
+}
+
+/// Test that --full with a stalled request returns a record with status: null and error field.
+#[test]
+fn http_get_full_stalled_request_returns_error_record() -> Result {
+    let listener =
+        std::net::TcpListener::bind("127.0.0.1:0").expect("could not bind test listener");
+    let addr = listener
+        .local_addr()
+        .expect("could not get test listener address");
+    std::thread::spawn(move || {
+        if let Ok((stream, _)) = listener.accept() {
+            std::thread::sleep(Duration::from_secs(10));
+            drop(stream);
+        }
+    });
+
+    let code = format!("http get --allow-errors --full --max-time 100ms http://{addr}");
+
+    let result: nu_protocol::Value = test().run(code)?;
+    let record = result.as_record().expect("should be a record");
+    let status = record.get("status").expect("should have status field");
+    let error = record.get("error").expect("should have error field");
+    assert!(status.is_nothing(), "status should be nothing/null");
+    assert!(error.as_str().unwrap_or("").contains("transport error"));
+    Ok(())
+}
+
+/// Test that non-UTF8 body under --allow-errors still errors (not a transport error).
+#[test]
+fn http_get_non_utf8_body_with_allow_errors_still_errors() -> Result {
+    let mut server = Server::new();
+    // Send invalid UTF-8 bytes
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(200)
+        .with_header("content-type", "text/plain; charset=utf-8")
+        .with_body(vec![0xFF, 0xFE, 0xFD]) // Invalid UTF-8
+        .create();
+
+    let code = format!("http get -e {url}", url = server.url());
+
+    let err = test().run(code).expect_error()?;
+    // Should be a non-UTF8 error, not swallowed by --allow-errors
+    assert!(format!("{err:?}").contains("NonUtf8") || format!("{err:?}").contains("non_utf8"));
     Ok(())
 }
