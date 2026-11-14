@@ -189,9 +189,7 @@ impl NuTable {
         self.config.indent = indent;
 
         let pad = indent_sum(indent);
-        for w in &mut self.widths {
-            *w = pad;
-        }
+        self.widths.fill(pad);
     }
 
     /// Sets the theme. Tables drawn together can share one `Arc<TableTheme>`.
