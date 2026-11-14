@@ -726,11 +726,16 @@ fn eval_instruction<D: DebugContext>(
                 ctx.put_reg(*dst, PipelineExecutionData::from(new_value));
                 Ok(Continue)
             } else {
-                // Render the key as it would be written in a cell path
-                let member = if nu_utils::needs_quoting(key) {
-                    nu_utils::escape_quote_string(key)
-                } else {
+                // Display the key name as it would be written in a cell path: "bare" when
+                // it starts with a letter or `_` and holds only letters, digits, `_` and `-`
+                let bare = key.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+                    && key
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+                let member = if bare {
                     key.to_string()
+                } else {
+                    nu_utils::escape_quote_string(key)
                 };
                 Err(ShellError::EnvVarNotFoundAtRuntime {
                     envvar_name: key.into(),
