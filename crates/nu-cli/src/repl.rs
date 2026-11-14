@@ -28,7 +28,7 @@ use nu_protocol::{BannerKind, ShellIntegrationConfig, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
-    engine::{EngineState, Stack},
+    engine::{EngineState, JobOutput, Stack},
     report_shell_error,
 };
 use nu_utils::time::Instant;
@@ -41,7 +41,7 @@ use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
-    AutoPairs, CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs,
+    AutoPairs, CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, ExternalOutput,
     FileBackedHistory, HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers,
     Reedline, SemanticPromptMarkers, Vi,
 };
@@ -73,6 +73,30 @@ fn semantic_markers_from_config(
 }
 
 type RepaintCallback = Arc<dyn Fn() + Send + Sync>;
+
+/// Feeds the output background jobs queue in [`JobOutput`] to the line editor, which prints it
+/// above the prompt.
+struct JobOutputPrinter(Arc<JobOutput>);
+
+impl ExternalOutput for JobOutputPrinter {
+    fn drain(&mut self) -> io::Result<Vec<String>> {
+        Ok(self.0.drain().into_iter().collect())
+    }
+
+    /// Lets the line editor block on input, instead of waking every poll interval, once no job
+    /// thread is left to write.
+    fn needs_polling(&self) -> bool {
+        self.0.needs_polling()
+    }
+}
+
+/// Stop holding background job output and write what the line editor did not print to stderr,
+/// where the line editor would have printed it.
+fn write_released_job_output(engine_state: &EngineState) {
+    engine_state.job_output.release(|leftover| {
+        let _ = stderr_write_all_and_flush(leftover);
+    });
+}
 
 /// Prepares the engine's prompt state and constructs the interactive view.
 /// Injects a live repainter only if background jobs are currently active.
@@ -277,6 +301,8 @@ pub fn evaluate_repl(
                 }
             }
             Err(_) => {
+                // The panic may have skipped the release after `read_line`.
+                write_released_job_output(engine_state);
                 // line_editor is lost in the error case so reconstruct a new one
                 line_editor = get_line_editor(engine_state, use_color)?;
             }
@@ -693,6 +719,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     }
     perf!("pre-prompt hook", start_time, use_color);
 
+    // From here until `read_line` returns the line editor owns the terminal: the kitty protocol
+    // probe in the builder below does a round trip in raw mode, then `read_line` draws the prompt.
+    // Hold what background jobs write until the line editor can print it.
+    engine_state.job_output.hold();
+
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
 
@@ -896,8 +927,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     start_time = Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
 
+    // Install the printer on every prompt, since a job can start during `read_line` (from a
+    // completer or menu closure) and an editor rebuilt after an error has none. It only makes the
+    // editor poll while a job thread runs or output waits.
+    line_editor =
+        line_editor.with_external_printer(JobOutputPrinter(Arc::clone(&engine_state.job_output)));
     let interactive_prompt = build_interactive_prompt(engine_state, &mut line_editor);
     let input = line_editor.read_line(&interactive_prompt);
+    write_released_job_output(engine_state);
 
     // This lists all of the stack references that we have cleaned up
     line_editor = line_editor
@@ -1765,6 +1802,48 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('/')
         || orig.starts_with('\\')
         || orig.ends_with(std::path::MAIN_SEPARATOR)
+}
+
+#[cfg(test)]
+mod job_output_tests {
+    use super::JobOutputPrinter;
+    use nu_protocol::engine::{JobOutput, JobOutputWriter};
+    use reedline::ExternalOutput;
+    use std::{io::Write, sync::Arc};
+
+    fn queue(job_output: &JobOutput, text: &str) {
+        JobOutputWriter::new(Some(job_output), std::io::sink(), |_| true)
+            .write_all(text.as_bytes())
+            .expect("queueing job output");
+    }
+
+    #[test]
+    fn printer_drains_the_lines_jobs_queued() {
+        let job_output = Arc::new(JobOutput::new());
+        let _job = job_output.job_running();
+        job_output.hold();
+        queue(&job_output, "from a job\npartial");
+        let mut printer = JobOutputPrinter(Arc::clone(&job_output));
+
+        assert_eq!(
+            printer.drain().expect("draining job output"),
+            ["from a job\n"]
+        );
+        assert!(printer.drain().expect("draining job output").is_empty());
+    }
+
+    #[test]
+    fn printer_polls_only_while_a_job_runs() {
+        let job_output = Arc::new(JobOutput::new());
+        let printer = JobOutputPrinter(Arc::clone(&job_output));
+        assert!(!printer.needs_polling());
+
+        let job = job_output.job_running();
+        assert!(printer.needs_polling());
+
+        drop(job);
+        assert!(!printer.needs_polling());
+    }
 }
 
 #[cfg(test)]
