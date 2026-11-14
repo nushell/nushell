@@ -460,6 +460,19 @@ fn ensure_flag_arg_type(
     }
 }
 
+/// Parse a named flag's value, allowing `null` for every flag type.
+///
+/// Null flag values are handled according to the flag's signature at evaluation time: they omit
+/// flags whose type does not accept `nothing`, and are passed through otherwise.
+fn parse_flag_value(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+) -> Expression {
+    let nullable_shape = SyntaxShape::OneOf(vec![shape.clone(), SyntaxShape::Nothing]);
+    crate::parser::parse_value(working_set, span, &nullable_shape, None)
+}
+
 /// Result of attempting to parse a long flag.
 ///
 /// This enum indicates whether a declared long flag was found, an undeclared one was found,
@@ -505,7 +518,7 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg = crate::parser::parse_value(working_set, span, arg_shape, None);
+                        let arg = parse_flag_value(working_set, span, arg_shape);
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
                             long_name,
@@ -515,7 +528,7 @@ fn parse_long_flag(
                         );
                         LongFlagParseResult::FoundFlag(arg_name, Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                        let arg = crate::parser::parse_value(working_set, *arg, arg_shape, None);
+                        let arg = parse_flag_value(working_set, *arg, arg_shape);
 
                         *spans_idx += 1;
                         let (arg_name, val_expression) =
@@ -545,12 +558,7 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg = crate::parser::parse_value(
-                            working_set,
-                            span,
-                            &SyntaxShape::Boolean,
-                            None,
-                        );
+                        let arg = parse_flag_value(working_set, span, &SyntaxShape::Boolean);
 
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
@@ -1234,8 +1242,7 @@ pub fn parse_internal_call(
 
                         if let Some(arg_shape) = flag.arg {
                             if let Some(arg) = spans.get(spans_idx + 1) {
-                                let arg =
-                                    crate::parser::parse_value(working_set, *arg, &arg_shape, None);
+                                let arg = parse_flag_value(working_set, *arg, &arg_shape);
                                 let (arg_name, val_expression) = ensure_flag_arg_type(
                                     working_set,
                                     flag.long.clone(),
