@@ -54,3 +54,33 @@ fn rejects_non_table_stream_input() -> Result {
     );
     Ok(())
 }
+
+#[test]
+fn missing_columns_become_null() -> Result {
+    test()
+        .run("[{a: 1} {b: 2} {a: 3, c: 4}] | transpose | to nuon")
+        .expect_value_eq(
+            r#"[["column0", "column1", "column2", "column3"]; [a, 1, null, 3], [b, null, 2, null], [c, null, null, 4]]"#,
+        )
+}
+
+#[test]
+fn header_row_keeps_first_of_repeated_keys() -> Result {
+    test()
+        .run("[[key value other]; [foo 1 x] [bar 2 y] [foo 3 z]] | transpose -r | to nuon")
+        .expect_value_eq("[[foo, bar]; [1, 2], [x, y]]")
+}
+
+#[test]
+fn header_row_keep_last_with_interleaved_keys() -> Result {
+    test()
+        .run("[[key value]; [foo 1] [bar 2] [foo 3]] | transpose -r -l -d | to nuon")
+        .expect_value_eq("{foo: 3, bar: 2}")
+}
+
+#[test]
+fn header_row_keep_all_with_interleaved_keys() -> Result {
+    test()
+        .run("[[key value]; [foo 1] [bar 2] [foo 3] [foo 4]] | transpose -r -a -d | to nuon")
+        .expect_value_eq("{foo: [1, 3, 4], bar: 2}")
+}
