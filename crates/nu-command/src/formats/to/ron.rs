@@ -64,9 +64,7 @@ impl Command for ToRon {
             Example {
                 example: "{a: 1, b: \"hello\"} | to ron",
                 description: "Converts a Nushell record to a pretty-printed RON string.",
-                result: Some(Value::test_string(
-                    "{\n    \"a\": 1,\n    \"b\": \"hello\",\n}",
-                )),
+                result: Some(Value::test_string("{\n\t\"a\": 1,\n\t\"b\": \"hello\",\n}")),
             },
             Example {
                 example: "{a: 1, b: \"hello\"} | to ron --raw",
