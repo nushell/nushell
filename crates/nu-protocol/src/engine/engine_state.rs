@@ -1,7 +1,7 @@
 use crate::{
-    BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, TypeAlias,
-    TypeAliasId, Value, VarId, VirtualPathId,
+    BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
+    Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
+    TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -15,6 +15,7 @@ use crate::{
     shell_error::{generic::GenericError, io::IoError},
 };
 use fancy_regex::Regex;
+use itertools::Either;
 use lru::LruCache;
 use nu_config::NushellConfigDirs;
 use nu_path::AbsolutePathBuf;
@@ -160,6 +161,13 @@ pub struct EngineState {
     signals: Signals,
     pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
+    /// The overlays the last merged [`Stack`] had active, when they differ from [`Self::scope`]'s.
+    ///
+    /// An overlay command inside a block, such as `if $x { overlay use spam }`, stays in effect on
+    /// the stack, but the parser drops it when the block ends. Variables are stored under the
+    /// stack's overlays, so reading them through the parser's list would miss what they hold: `cd`
+    /// writes `PWD` to `spam`, and `cwd(None)` would keep finding the old value below it.
+    runtime_overlays: Option<Vec<String>>,
     pub previous_env_vars: Arc<HashMap<EnvName, Value>>,
     /// Live config. Replace it with [`Self::set_config`] so [`Self::config_epoch`] stays in sync.
     pub config: Arc<Config>,
@@ -168,11 +176,13 @@ pub struct EngineState {
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     /// Shared source of truth for the interactive prompt's rendered content. The
-    /// REPL fills it each cycle from `$env.PROMPT_COMMAND` and friends; a
+    /// REPL fills it each cycle from `$env.config.prompt` and friends; a
     /// background job's `commandline set-prompt` overwrites individual segments
     /// and triggers an in-place repaint. Shared with every job that clones this
     /// engine state.
     pub prompt_state: Arc<PromptState>,
+    /// The default prompt closures, once `nu-cli` has evaluated them at startup.
+    pub default_prompts: DefaultPrompts,
     pub table_decl_id: Option<DeclId>,
     /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it, so that
     /// cloning stays cheap; a clone that appends declarations while sharing it starts over with an
@@ -308,6 +318,7 @@ impl EngineState {
                     .into_iter()
                     .collect(),
             ),
+            runtime_overlays: None,
             previous_env_vars: Arc::new(HashMap::new()),
             config: Arc::new(Config::default()),
             config_epoch: 0,
@@ -318,6 +329,7 @@ impl EngineState {
                 accept: false,
             })),
             prompt_state: Arc::new(PromptState::new()),
+            default_prompts: DefaultPrompts::default(),
             table_decl_id: None,
             signature_cache: Arc::default(),
             #[cfg(feature = "plugin")]
@@ -477,6 +489,13 @@ impl EngineState {
             }
         }
 
+        // The same goes for a module that a reload dropped.
+        for module_id in &first.hidden_modules {
+            for (_, overlay) in &mut scope.overlays {
+                overlay.modules.retain(|_, bound| *bound != *module_id);
+            }
+        }
+
         // Overlays the delta added are in `scope` now, so their ids can be looked up
         let mut activated_ids = Self::translate_overlay_ids(scope, &first);
 
@@ -562,6 +581,13 @@ impl EngineState {
                 }
             }
         }
+
+        let same_overlays = stack
+            .active_overlays
+            .iter()
+            .map(String::as_bytes)
+            .eq(self.active_overlay_names(&[]));
+        self.runtime_overlays = (!same_overlays).then(|| stack.active_overlays.clone());
 
         if UPDATE_CWD.load(Ordering::Relaxed) {
             let cwd = self.cwd(Some(stack))?;
@@ -705,14 +731,30 @@ impl EngineState {
     pub fn render_env_vars(&self) -> HashMap<&str, &Value> {
         let mut result: HashMap<&str, &Value> = HashMap::new();
 
-        for overlay_name in self.active_overlay_names(&[]) {
-            let name = String::from_utf8_lossy(overlay_name);
-            if let Some(env_vars) = self.env_vars.get(name.as_ref()) {
+        for overlay_name in self.env_overlay_names() {
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
                 result.extend(env_vars.iter().map(|(k, v)| (k.as_str(), v)));
             }
         }
 
         result
+    }
+
+    /// The overlays to read environment variables through, lowest priority first.
+    fn env_overlay_names(&self) -> impl DoubleEndedIterator<Item = Cow<'_, str>> {
+        match &self.runtime_overlays {
+            Some(overlays) => Either::Left(overlays.iter().map(|name| Cow::from(name.as_str()))),
+            None => Either::Right(self.active_overlay_names(&[]).map(String::from_utf8_lossy)),
+        }
+    }
+
+    /// Forget the overlays [`Self::merge_env`] recorded, going back to the parser's list.
+    ///
+    /// For hosts that run the startup files on one [`Stack`], then discard it and evaluate on new
+    /// ones. A new stack only has the parser's overlays, and [`Self::add_env_var`] writes through
+    /// them too, so reading through the discarded stack's list would miss both.
+    pub fn clear_runtime_overlays(&mut self) {
+        self.runtime_overlays = None;
     }
 
     pub fn add_env_var(&mut self, name: String, val: Value) {
@@ -729,16 +771,11 @@ impl EngineState {
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
-        for overlay_id in self.scope.active_overlays.iter().rev() {
-            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
-                && let Some(val) = env_vars.get(&EnvName::from(name))
-            {
-                return Some(val);
-            }
-        }
+        let name = EnvName::from(name);
 
-        None
+        self.env_overlay_names()
+            .rev()
+            .find_map(|overlay_name| self.env_vars.get(overlay_name.as_ref())?.get(&name))
     }
 
     #[cfg(feature = "plugin")]

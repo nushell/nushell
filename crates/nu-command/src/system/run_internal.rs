@@ -126,19 +126,18 @@ impl Command for RunInternal {
                 .map(|()| false)
         };
         let BuiltinArguments { builder, stack, .. } = builtin_arguments;
-        let call = builder.finish();
 
         // Run it like a direct call, so its input is type checked and record spreads become flags.
-        let result = match help {
-            Ok(false) => eval_ir_call(engine_state, stack, &call, input),
-            Ok(true) => {
-                let help = get_full_help(engine_state.get_decl(decl_id), engine_state, stack, head);
-                Ok(Value::string(help, head).into_pipeline_data())
-            }
-            Err(err) => Err(err),
-        };
-        call.leave(stack);
-        result
+        if matches!(help, Ok(false)) {
+            return eval_ir_call(engine_state, stack, builder, input);
+        }
+
+        // The builtin won't run, so nothing else takes its arguments off the stack.
+        builder.finish().leave(stack);
+        help.map(|_| {
+            let help = get_full_help(engine_state.get_decl(decl_id), engine_state, stack, head);
+            Value::string(help, head).into_pipeline_data()
+        })
     }
 }
 

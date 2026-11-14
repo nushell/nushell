@@ -18,6 +18,7 @@ use crate::{
 use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
+use nu_cmd_base::prompt::FORMERLY_SEEDED_PROMPT_VARIABLES;
 use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_paths};
 use nu_engine::{
     convert_env_values,
@@ -591,6 +592,11 @@ fn main() -> Result<()> {
         #[cfg(feature = "mcp")]
         RunMode::Mcp => {
             start_time = nu_utils::time::Instant::now();
+            // Preserve the converted environment before MCP creates fresh configuration and
+            // evaluation stacks, including when configuration files are disabled.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
             let mcp_transport_kind = parsed_nu_cli_args
                 .mcp_transport
                 .as_ref()
@@ -611,6 +617,8 @@ fn main() -> Result<()> {
                     &mut stack,
                     parsed_nu_cli_args.login_shell.is_some(),
                 );
+                // The server discards this stack and evaluates on new ones.
+                engine_state.clear_runtime_overlays();
             }
             let transport = match mcp_transport_kind {
                 Some("http") => nu_mcp::McpTransport::http(
@@ -638,6 +646,10 @@ fn main() -> Result<()> {
         #[cfg(feature = "lsp")]
         RunMode::Lsp => {
             start_time = nu_utils::time::Instant::now();
+            // The language server reads configuration on a fresh stack.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
             run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time)
         }
 
@@ -648,6 +660,10 @@ fn main() -> Result<()> {
         #[cfg(feature = "dap")]
         RunMode::Dap => {
             start_time = nu_utils::time::Instant::now();
+            // Configuration loading and debug runs both start with fresh stacks.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
 
             // Debugged scripts should see the same shell the user has: aliases and
             // custom commands from config.nu, `$env` from env.nu, and `$env.config`
@@ -666,6 +682,8 @@ fn main() -> Result<()> {
                 if let Err(err) = engine_state.merge_env(&mut config_stack) {
                     report_shell_error(Some(&config_stack), &engine_state, &err);
                 }
+                // This has to follow `merge_env`, which records the stack's overlays again.
+                engine_state.clear_runtime_overlays();
             }
             perf!("dap setup_config", start_time, use_color);
 
@@ -676,27 +694,16 @@ fn main() -> Result<()> {
 
         RunMode::Repl => {
             // Environment variables that apply only when in REPL
-            engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
-            engine_state.add_env_var(
-                "PROMPT_INDICATOR_VI_NORMAL".to_string(),
-                Value::test_string("> "),
-            );
-            engine_state.add_env_var(
-                "PROMPT_INDICATOR_VI_INSERT".to_string(),
-                Value::test_string(": "),
-            );
-            engine_state.add_env_var(
-                "PROMPT_MULTILINE_INDICATOR".to_string(),
-                Value::test_string("::: "),
-            );
-            engine_state.add_env_var(
-                "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
-                Value::test_string(""),
-            );
-            engine_state.add_env_var(
-                "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
-                Value::test_string(""),
-            );
+            //
+            // No `PROMPT_*` variable is seeded here any more. Seeding one would pin
+            // every session to the variable, which still wins over the config key.
+            // The ones that used to be overwritten here are hidden instead: a
+            // parent nushell exports its string indicators, so without this a
+            // nested session would take the parent's over its own config. The
+            // other transient variables were always inherited and still are.
+            for name in FORMERLY_SEEDED_PROMPT_VARIABLES {
+                stack.hide_env_var(&engine_state, name);
+            }
             let mut shlvl = engine_state
                 .get_env_var("SHLVL")
                 .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))

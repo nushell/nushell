@@ -18,7 +18,7 @@ def format-event [ ] {
   }
 
   # Format into oneliner with `to nuon` and remove wrapping bracket pair
-  $record | to nuon | str substring 1..-1
+  $record | to nuon | str substring 1..-2
 }
 
 # Display user interface events
@@ -26,9 +26,13 @@ def format-event [ ] {
 # Press escape to stop
 #
 # To get individual events as records use "input listen"
+#
+# If focus events repeat endlessly, the terminal reports focus whenever focus
+# reporting is turned on. Leave focus out of --types to stop them:
+# input display --types [key mouse paste resize]
 export def display [
   --types(-t): list<string> # Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)
-  --raw(-r) # Add raw_code field with numeric value of keycode and raw_flags with bit mask flags
+  --raw(-r) # Add a raw_modifiers bit mask to key and mouse events, plus raw_code for character keys
 ] {
   let arg_types = if $types == null {
     [ key focus mouse paste resize ]

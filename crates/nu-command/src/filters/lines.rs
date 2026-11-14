@@ -61,8 +61,8 @@ impl Command for Lines {
                 let stream = stream.modify(|iter| {
                     iter.filter_map(move |value| {
                         let span = value.span();
-                        if let Value::String { val, .. } = value {
-                            Some(
+                        match value {
+                            Value::String { val, .. } => Some(
                                 val.lines()
                                     .filter_map(|s| {
                                         if skip_empty && s.trim().is_empty() {
@@ -72,9 +72,10 @@ impl Command for Lines {
                                         }
                                     })
                                     .collect::<Vec<_>>(),
-                            )
-                        } else {
-                            None
+                            ),
+                            // Propagate existing errors
+                            Value::Error { .. } => Some(vec![value]),
+                            _ => None,
                         }
                     })
                     .flatten()

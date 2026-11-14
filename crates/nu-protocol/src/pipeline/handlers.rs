@@ -79,7 +79,10 @@ impl Handlers {
 }
 
 #[inline]
-#[expect(unused, reason = "used in `Debug` impls")]
+// Only the derived `Debug` impls call this. Rust 1.97 leaves derived impls out of
+// dead-code analysis and flags it as unused, newer nightlies count the call, so
+// `expect` would fail on one toolchain or the other.
+#[allow(unused, reason = "used in `Debug` impls")]
 fn debug_fmt_handlers(handlers: &Mutex<Vec<(usize, Handler)>>) -> impl Display {
     fmt::from_fn(|f| match handlers.try_lock() {
         Err(err) => write!(f, "{err:?}"),

@@ -14,7 +14,7 @@ pub struct MenuLine(Arc<parking_lot::Mutex<Option<String>>>);
 impl MenuLine {
     /// Record current editor line.
     pub(crate) fn record(&self, line: &str) {
-        *self.0.lock() = Some(line.to_string());
+        *self.0.lock() = Some(line.to_owned());
     }
 
     /// Last recorded line.
@@ -23,13 +23,19 @@ impl MenuLine {
     }
 }
 
-/// How a menu source sees the editor line: `Diff` hands only the fragment typed
-/// since the menu opened (parse the recorded line), every other mode hands the
-/// live buffer. Classified once via [`SourceMode::of`]; both the completer and
-/// its wrapper store the result, so they cannot disagree (#19053).
+/// How a source receives input and whether its layout is a list.
+/// Reedline hands a fragment in Diff mode, so the source uses the recorded
+/// line for context. Other input modes supply their own command text.
+/// The wrapper and completer share this setting so they agree on the input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SourceMode {
     Diff,
+    /// List menus interpret selectors in the input they receive. Suggested
+    /// spans must explicitly cover a selector to remove it on acceptance.
+    List {
+        input_mode: InputMode,
+        suggested_span: bool,
+    },
     Live,
 }
 
@@ -41,6 +47,18 @@ impl SourceMode {
         }
     }
 
+    /// Whether the source uses the recorded line when it is available.
+    pub(crate) fn is_diff(self) -> bool {
+        matches!(
+            self,
+            Self::Diff
+                | Self::List {
+                    input_mode: InputMode::Diff,
+                    ..
+                }
+        )
+    }
+
     /// What the source parses, with a floored/clamped cursor.
     pub(crate) fn buffer(
         self,
@@ -49,11 +67,11 @@ impl SourceMode {
         pos: usize,
         replacing_start: usize,
     ) -> (String, usize) {
-        let buffer = match self {
-            Self::Diff => line
-                .read()
-                .unwrap_or_else(|| " ".repeat(replacing_start) + handed),
-            Self::Live => handed.to_owned(),
+        let buffer = if self.is_diff() {
+            line.read()
+                .unwrap_or_else(|| " ".repeat(replacing_start) + handed)
+        } else {
+            handed.to_owned()
         };
         let cursor = buffer.floor_char_boundary(pos.min(buffer.len()));
         (buffer, cursor)
@@ -71,6 +89,9 @@ pub struct SourcedMenu<M> {
     /// an empty answer means the typed text matches nothing, and the menu stays open
     /// to refill as the text changes (#19096).
     answered: bool,
+    /// A sourced list gets its first rows during the update before painting.
+    /// Until then, keep it active without showing its marker or cached rows.
+    awaiting_list_answer: bool,
 }
 
 impl<M> SourcedMenu<M> {
@@ -80,6 +101,7 @@ impl<M> SourcedMenu<M> {
             line: Some(line),
             mode,
             answered: false,
+            awaiting_list_answer: false,
         }
     }
 
@@ -90,6 +112,7 @@ impl<M> SourcedMenu<M> {
             line: None,
             mode: SourceMode::Live,
             answered: false,
+            awaiting_list_answer: false,
         }
     }
 
@@ -105,12 +128,12 @@ impl<M> SourcedMenu<M> {
     where
         M: Menu,
     {
-        if !self.menu.get_values().is_empty() {
+        if !self.get_values().is_empty() {
             self.answered = true;
         } else if self.menu.is_active()
             && !self.answered
             && !self.menu.results_are_provisional()
-            && !self.menu.is_awaiting_first_answer()
+            && !self.is_awaiting_first_answer()
         {
             self.menu.menu_event(MenuEvent::Deactivate);
         }
@@ -151,8 +174,13 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     }
 
     fn menu_event(&mut self, event: MenuEvent) {
-        if matches!(event, MenuEvent::Activate(_)) {
-            self.answered = false;
+        match event {
+            MenuEvent::Activate(_) => {
+                self.answered = false;
+                self.awaiting_list_answer = matches!(self.mode, SourceMode::List { .. });
+            }
+            MenuEvent::Deactivate => self.awaiting_list_answer = false,
+            _ => {}
         }
         self.menu.menu_event(event);
     }
@@ -171,7 +199,7 @@ impl<M: Menu> Menu for SourcedMenu<M> {
         let spliced = self
             .menu
             .can_partially_complete(values_updated, editor, completer);
-        if spliced && matches!((self.mode, &self.line), (SourceMode::Diff, Some(_))) {
+        if spliced && self.mode.is_diff() && self.line.is_some() {
             // The splice ran past this wrapper, so a `Diff` source would answer
             // with pre-splice spans without a refresh (#19053); anything else
             // already saw the spliced buffer through the handed line.
@@ -192,6 +220,7 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     fn update_values(&mut self, editor: &mut Editor, completer: &mut dyn Completer) {
         self.record(editor);
         self.menu.update_values(editor, completer);
+        self.awaiting_list_answer = false;
         self.abandon_if_empty();
     }
 
@@ -202,6 +231,9 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     fn reload(&mut self, updated: bool, editor: &mut Editor, completer: &mut dyn Completer) {
         self.record(editor);
         self.menu.reload(updated, editor, completer);
+        if !updated {
+            self.awaiting_list_answer = false;
+        }
         self.abandon_if_empty();
     }
 
@@ -213,6 +245,7 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     ) {
         self.record(editor);
         self.menu.update_working_details(editor, completer, painter);
+        self.awaiting_list_answer = false;
         self.abandon_if_empty();
     }
 
@@ -233,7 +266,11 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     }
 
     fn get_values(&self) -> &[Suggestion] {
-        self.menu.get_values()
+        if self.awaiting_list_answer {
+            &[]
+        } else {
+            self.menu.get_values()
+        }
     }
 
     fn results_are_provisional(&self) -> bool {
@@ -241,7 +278,7 @@ impl<M: Menu> Menu for SourcedMenu<M> {
     }
 
     fn is_awaiting_first_answer(&self) -> bool {
-        self.menu.is_awaiting_first_answer()
+        self.awaiting_list_answer || self.menu.is_awaiting_first_answer()
     }
 
     fn set_cursor_pos(&mut self, pos: (u16, u16)) {
@@ -252,7 +289,10 @@ impl<M: Menu> Menu for SourcedMenu<M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reedline::{ColumnarMenu, CompletionResult, MenuBuilder, MenuEvent, UndoBehavior};
+    use reedline::{
+        ColumnarMenu, CompletionResult, ListMenu, MenuBuilder, MenuEvent, UndoBehavior,
+    };
+    use rstest::rstest;
 
     #[derive(Default)]
     struct Recorder {
@@ -306,6 +346,60 @@ mod tests {
         menu.menu_event(MenuEvent::Activate(false));
         assert!(menu.is_active());
         (editor, menu)
+    }
+
+    #[rstest]
+    #[case::diff(InputMode::Diff)]
+    #[case::cursor_prefix(InputMode::CursorPrefix)]
+    #[case::full_buffer(InputMode::FullBuffer)]
+    fn a_list_waits_for_its_first_answer_on_each_activation(#[case] input_mode: InputMode) {
+        let mut editor = Editor::default();
+        let mut completer = Recorder::default();
+        let mut menu = SourcedMenu::new(
+            ListMenu::default().with_input_mode(input_mode),
+            MenuLine::default(),
+            SourceMode::List {
+                input_mode,
+                suggested_span: true,
+            },
+        );
+
+        menu.menu_event(MenuEvent::Activate(false));
+        assert!(!menu.can_partially_complete(true, &mut editor, &mut completer));
+        assert!(
+            completer.seen.is_empty(),
+            "the opening probe must not fetch"
+        );
+        assert!(menu.is_active());
+        assert!(
+            !menu.is_visible(),
+            "hide the marker until the source answers"
+        );
+        menu.update_values(&mut editor, &mut completer);
+        assert_eq!(completer.seen.len(), 1);
+        assert!(menu.is_visible());
+
+        menu.menu_event(MenuEvent::Edit(false));
+        menu.update_values(&mut editor, &mut Empty);
+        assert!(
+            menu.is_visible(),
+            "a later empty result keeps the list open"
+        );
+        menu.update_values(&mut editor, &mut completer);
+        assert!(!menu.get_values().is_empty());
+
+        menu.menu_event(MenuEvent::Deactivate);
+        menu.menu_event(MenuEvent::Activate(false));
+        assert!(
+            menu.get_values().is_empty(),
+            "hide rows from the last activation"
+        );
+        assert!(!menu.can_partially_complete(true, &mut editor, &mut Empty));
+        assert!(menu.is_active());
+        assert!(!menu.is_visible());
+        menu.update_values(&mut editor, &mut Empty);
+        assert!(!menu.is_active(), "a first empty answer closes the list");
+        assert!(!menu.is_visible());
     }
 
     #[test]

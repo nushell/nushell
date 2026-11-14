@@ -365,3 +365,27 @@ fn test_to_json_content_type_metadata() -> Result {
 
     test().run(code).expect_value_eq("application/json")
 }
+
+#[test]
+fn to_json_escapes_control_characters() -> Result {
+    let code = r#""a\u{1}b\u{1b}[31mc\u{1f}" | to json"#;
+    test()
+        .run(code)
+        .expect_value_eq(r#""a\u0001b\u001b[31mc\u001f""#)
+}
+
+#[test]
+fn to_json_escapes_control_characters_in_keys_and_nested_values() -> Result {
+    let code = r#"{"k\u{7}": ["v\u{0}"]} | to json --indent 0"#;
+    test()
+        .run(code)
+        .expect_value_eq("{\n\"k\\u0007\": [\n\"v\\u0000\"\n]\n}")
+}
+
+#[test]
+fn to_json_matches_raw_for_control_characters() -> Result {
+    let code = "
+        0..0xa0 | each {|n| char --integer $n } | all {|s| ($s | to json) == ($s | to json --raw) and ($s | to json | from json) == $s }
+    ";
+    test().run(code).expect_value_eq(true)
+}
