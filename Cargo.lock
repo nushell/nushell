@@ -11397,8 +11397,3 @@ checksum = "ec5f41c76397b7da451efd19915684f727d7e1d516384ca6bd0ec43ec94de23c"
 dependencies = [
  "zune-core",
 ]
-
-[[patch.unused]]
-name = "reedline"
-version = "0.52.1"
-source = "git+https://github.com/nushell/reedline?branch=main#39db5e3d2ffb75369b3b78d72fc91c9ba1be9938"
