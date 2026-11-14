@@ -3,6 +3,7 @@ use nu_test_support::prelude::*;
 use rstest::*;
 
 mod delete;
+mod dynamic;
 mod get;
 mod head;
 mod options;
