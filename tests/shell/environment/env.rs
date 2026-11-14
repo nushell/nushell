@@ -255,6 +255,7 @@ fn hides_env_in_block() -> Result {
 
 #[rstest]
 #[case::plain("$env.FOO", "FOO", "$env.FOO?")]
+#[case::digit("$env.P4PORT", "P4PORT", "$env.P4PORT?")]
 #[case::needs_quoting(r#"$env."MY VAR""#, "MY VAR", r#"$env."MY VAR"?"#)]
 fn missing_env_var_suggests_optional_access(
     #[case] code: &str,
