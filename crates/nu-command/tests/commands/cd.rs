@@ -368,3 +368,30 @@ fn pwd_recovery() -> Result {
 
     test().run_with_data(code, ctx).expect_value_eq("/")
 }
+
+#[test]
+fn cd_dot_dot_from_deleted_cwd() -> Result {
+    Playground::setup("cd_deleted_parent", |dirs, sandbox| {
+        sandbox.mkdir("a/b");
+        let a = dirs.test().join("a");
+        let b = a.join("b");
+        std::fs::remove_dir(&b)?;
+
+        test().cwd(&b).run("cd ..; $env.PWD").expect_value_eq(&*a)?;
+
+        // When both parent and child are gone, `cd ..` errors instead of
+        // silently resolving from `$nu.home-dir`.
+        std::fs::remove_dir(&a)?;
+        let err = test().cwd(&b).run("cd ..").expect_io_error()?;
+        assert!(matches!(
+            err.kind,
+            nu_protocol::shell_error::io::ErrorKind::DirectoryNotFound
+        ));
+
+        // Traversing high enough to reach an existing ancestor still works.
+        test()
+            .cwd(&b)
+            .run("cd ../..; $env.PWD")
+            .expect_value_eq(dirs.test())
+    })
+}
