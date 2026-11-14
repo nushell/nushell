@@ -826,6 +826,18 @@ mod tests {
                 "markdown table borders must align by display width; got:\n{out}"
             );
         }
+
+        // Pin the exact rendering as well, so a uniform off-by-one in every
+        // line cannot slip through a purely relative alignment check.
+        assert_eq!(
+            out,
+            one("
+            | a    | b    |
+            | ---- | ---- |
+            | 你好 | z    |
+            | x    | long |
+            ")
+        );
     }
 
     #[test]
