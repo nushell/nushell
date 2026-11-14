@@ -131,6 +131,16 @@ impl Command for JobSpawn {
                     let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
 
                     jobs.remove_job(id);
+
+                    // The REPL's repainter lets job threads repaint the prompt, and while it is
+                    // installed the line editor polls for input instead of blocking. Once the
+                    // last job thread ends nothing can repaint, so drop it. This runs under the
+                    // jobs lock, which the REPL also holds while it installs the repainter.
+                    // Check even when `remove_job` found nothing: `job kill` takes a job out of
+                    // the table before its thread ends.
+                    if !jobs.has_thread_jobs() {
+                        job_state.prompt_state.set_repainter(None);
+                    }
                 }
             });
 

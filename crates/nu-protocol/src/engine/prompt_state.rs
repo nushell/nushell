@@ -122,8 +122,8 @@ pub struct PromptState {
     /// The pending pushes share the lock so a push can't slip between them and the contents.
     data: RwLock<PromptData>,
 
-    /// Kept in its own lock: it is installed/cleared by the REPL and read by
-    /// [`PromptState::apply`], never together with `data`.
+    /// Kept in its own lock: it is installed/cleared by the REPL, cleared by the last job thread
+    /// to end, and read by [`PromptState::apply`], never together with `data`.
     #[debug(skip)]
     repainter: Mutex<Option<Repainter>>,
 }
@@ -220,6 +220,10 @@ impl PromptState {
     }
 
     /// Install or remove the line editor's repainter mechanism.
+    ///
+    /// The REPL installs one for each prompt while a background job thread is running, and the
+    /// last job thread to end removes it, both under the jobs lock. While installed, the line
+    /// editor polls for input instead of blocking, so it must not outlive the jobs that use it.
     pub fn set_repainter(&self, new_repainter: Option<Repainter>) {
         *self.acquire_repainter_lock() = new_repainter;
     }
