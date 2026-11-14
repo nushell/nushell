@@ -797,6 +797,15 @@ fn process_pipeline(
         }
     }
 
+    // Lists, streamed or not, are collected item by item like everything
+    // else, so remember which results were one: a lone item is only the value
+    // itself when the pipeline did not produce a list. Unwrapped, `[{a: 1}]`
+    // would come back as `{a: 1}`.
+    let is_list = matches!(
+        pipeline_execution_data.body,
+        PipelineData::ListStream(..) | PipelineData::Value(Value::List { .. }, ..)
+    );
+
     let mut values = Vec::new();
     for item in pipeline_execution_data.body {
         if let Value::Error { error, .. } = &item {
@@ -810,7 +819,7 @@ fn process_pipeline(
     }
 
     let value_to_store = match values.len() {
-        1 => values.pop().unwrap_or_else(|| Value::nothing(span)),
+        1 if !is_list => values.pop().unwrap_or_else(|| Value::nothing(span)),
         _ => Value::list(values, span),
     };
 
@@ -1023,6 +1032,28 @@ mod tests {
             ),
             "list field should remain a list, got: {result_nuon}"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_item_list_stays_a_list() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        for source in ["[{a: 1}]", "$history.0"] {
+            let result_nuon = evaluator.eval(source)?;
+            let result = nuon::from_nuon(&result_nuon, None)?;
+            let output = result
+                .into_record()?
+                .remove("output")
+                .ok_or("missing output field in evaluate response")?;
+            assert_eq!(
+                output.into_list()?.len(),
+                1,
+                "`{source}` should give a list of one record, got: {result_nuon}"
+            );
+        }
 
         Ok(())
     }
