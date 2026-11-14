@@ -21,10 +21,9 @@ use crate::JobId;
 pub struct Jobs {
     next_job_id: usize,
 
-    // this is the ID of the most recently added frozen job in the jobs table.
-    // the methods of this struct must ensure the invariant of this always
-    // being None or pointing to a valid job in the table
-    last_frozen_job_id: Option<JobId>,
+    // Frozen jobs in the order they were last frozen. Re-freezing a job keeps its
+    // ID, so job IDs alone cannot determine which frozen job is most recent.
+    frozen_job_ids: Vec<JobId>,
     jobs: HashMap<JobId, Job>,
 }
 
@@ -32,7 +31,7 @@ impl Default for Jobs {
     fn default() -> Self {
         Self {
             next_job_id: 1,
-            last_frozen_job_id: None,
+            frozen_job_ids: Vec::new(),
             jobs: HashMap::default(),
         }
     }
@@ -63,23 +62,16 @@ impl Jobs {
     }
 
     pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
-        if self.last_frozen_job_id.is_some_and(|last| id == last) {
-            self.last_frozen_job_id = None;
-        }
-
+        self.frozen_job_ids.retain(|frozen_id| *frozen_id != id);
         self.jobs.remove(&id)
-    }
-
-    fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
-        if let Job::Frozen(_) = job {
-            self.last_frozen_job_id = Some(id);
-        }
     }
 
     pub fn add_job(&mut self, job: Job) -> JobId {
         let this_id = self.next_id();
 
-        self.assign_last_frozen_id_if_frozen(this_id, &job);
+        if let Job::Frozen(_) = job {
+            self.frozen_job_ids.push(this_id);
+        }
 
         self.jobs.insert(this_id, job);
         self.next_job_id += 1;
@@ -87,15 +79,16 @@ impl Jobs {
         this_id
     }
 
-    pub fn most_recent_frozen_job_id(&mut self) -> Option<JobId> {
-        self.last_frozen_job_id
+    pub fn most_recent_frozen_job_id(&self) -> Option<JobId> {
+        self.frozen_job_ids.last().copied()
     }
 
     // this is useful when you want to remove a job from the list and add it back later
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
-        self.assign_last_frozen_id_if_frozen(id, &job);
-
         if let Entry::Vacant(e) = self.jobs.entry(id) {
+            if let Job::Frozen(_) = job {
+                self.frozen_job_ids.push(id);
+            }
             e.insert(job);
             Ok(())
         } else {
@@ -124,7 +117,7 @@ impl Jobs {
     /// It returns an error if any of the job killing attempts fails, but always
     /// succeeds in removing the jobs from the table.
     pub fn kill_all(&mut self) -> shell_error::io::Result<()> {
-        self.last_frozen_job_id = None;
+        self.frozen_job_ids.clear();
 
         let first_err = self
             .iter()

@@ -194,6 +194,50 @@ fn lex_comment() {
 }
 
 #[test]
+fn lex_comment_crlf() {
+    let file = b"let x = 300 # a comment \r\n $x + 444";
+
+    let output = lex(file, 0, &[], &[], false);
+
+    assert_eq!(
+        output.0.get(4).unwrap(),
+        &Token {
+            contents: TokenContents::Comment,
+            span: Span::new(12, 24)
+        }
+    );
+    assert_eq!(
+        output.0.get(5).unwrap(),
+        &Token {
+            contents: TokenContents::Eol,
+            span: Span::new(25, 26)
+        }
+    );
+}
+
+#[test]
+fn lex_comment_empty_crlf() {
+    let file = b"let x = 300 #\r\n $x + 444";
+
+    let output = lex(file, 0, &[], &[], false);
+
+    assert_eq!(
+        output.0.get(4).unwrap(),
+        &Token {
+            contents: TokenContents::Comment,
+            span: Span::new(12, 13)
+        }
+    );
+    assert_eq!(
+        output.0.get(5).unwrap(),
+        &Token {
+            contents: TokenContents::Eol,
+            span: Span::new(14, 15)
+        }
+    );
+}
+
+#[test]
 fn lex_not_comment_needs_space_in_front_of_hashtag() {
     let file = b"1..10 | each {echo test#testing }";
 

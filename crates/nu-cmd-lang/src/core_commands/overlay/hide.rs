@@ -78,6 +78,7 @@ This command is a parser keyword. For details, check:
                         return Err(ShellError::EnvVarNotFoundAtRuntime {
                             envvar_name: name.item,
                             span: name.span,
+                            help: None,
                         });
                     }
                 }
