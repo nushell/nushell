@@ -136,7 +136,11 @@ fn main() -> Result<()> {
                 .with_context(|| format!("at {}:{}:{}", loc.file(), loc.line(), loc.column()));
         }
         if let Err(err) = report.with_context(|| "Main thread panicked.".to_string()) {
-            let _ = writeln!(std::io::stderr(), "Error: {err:?}");
+            let mut err = format!("{err:?}");
+            if err.ends_with('\n') {
+                err.pop();
+            }
+            let _ = writeln!(std::io::stderr(), "Error: {err}");
         }
     }));
 
