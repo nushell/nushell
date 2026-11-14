@@ -2,7 +2,7 @@ use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
     EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
-    OperatorCompletion, VariableCompletion,
+    OperatorCompletion, OverlayCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
@@ -2162,6 +2162,7 @@ impl<'engine> CompletionEngine<'engine> {
                 arg_value.complete_module_exports(context, context.working_set)
             }
             BuiltinCompletion::EnvVar => EnvVarCompletion.fetch(context),
+            BuiltinCompletion::Overlay => OverlayCompletion.fetch(context),
             BuiltinCompletion::Command { internal_only } => {
                 let scope = if internal_only {
                     CommandScope::InternalsOnly
@@ -2971,6 +2972,32 @@ mod completer_tests {
                 .collect(),
         );
         assert_eq!(expected, settled);
+    }
+
+    #[test]
+    fn overlay_hide_completions_follow_changes_across_prompts() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        let mut stack = Stack::new();
+        let cache = NarrowingCache::default();
+        let line = "overlay hide ";
+
+        for (source, expected) in [
+            ("overlay new alpha", vec!["alpha"]),
+            ("overlay hide alpha", vec![]),
+            ("overlay use alpha", vec!["alpha"]),
+            ("overlay new beta", vec!["alpha", "beta"]),
+        ] {
+            apply_source(&mut engine, &mut stack, source.as_bytes());
+            let mut completer = NuCompleter::with_cache(
+                Arc::new(engine.clone()),
+                Arc::new(stack.clone()),
+                cache.clone(),
+            );
+            let suggestions = completer.complete_blocking(line, line.len());
+            let values: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
+            assert_eq!(values, expected, "after {source}");
+            assert!(cache.fresh(&q(line), completer.cache_env).is_none());
+        }
     }
 
     /// A cache handed to a new per-prompt completer must still answer the previous prompt's
