@@ -7,6 +7,7 @@ use prelude::*;
 use std::collections::HashMap;
 
 pub use ansi_coloring::UseAnsiColoring;
+pub use auto_pairs::{AutoPair, AutoPairsAlso, AutoPairsConfig};
 pub use clip::ClipConfig;
 pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
@@ -35,6 +36,7 @@ pub use status_line::StatusLineConfig;
 pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
 
 mod ansi_coloring;
+mod auto_pairs;
 mod clip;
 mod completions;
 mod datetime_format;
@@ -85,6 +87,7 @@ pub struct Config {
     pub buffer_editor: Value,
     pub show_banner: BannerKind,
     pub bracketed_paste: bool,
+    pub auto_pairs: AutoPairsConfig,
     pub explore: HashMap<String, Value>,
     /// Styles for the `tui` command family (`$env.config.tui`).
     pub tui: HashMap<String, Value>,
@@ -148,6 +151,7 @@ impl Default for Config {
             buffer_editor: Value::nothing(Span::unknown()),
             use_ansi_coloring: UseAnsiColoring::default(),
             bracketed_paste: true,
+            auto_pairs: AutoPairsConfig::default(),
             edit_mode: EditBindings::default(),
             show_hints: true,
             hinter: HinterConfig::default(),
@@ -233,6 +237,7 @@ impl UpdateFromValue for Config {
                         .update(val, current_path, errors)
                 }
                 "bracketed_paste" => self.bracketed_paste.update(val, current_path, errors),
+                "auto_pairs" => self.auto_pairs.update(val, current_path, errors),
                 "use_kitty_protocol" => self.use_kitty_protocol.update(val, current_path, errors),
                 "highlight_resolved_externals" => {
                     self.highlight_resolved_externals

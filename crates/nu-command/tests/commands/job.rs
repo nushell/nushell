@@ -5,6 +5,129 @@ use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::time::Duration;
 
+#[cfg(unix)]
+mod unfreeze {
+    use super::*;
+    use nu_protocol::engine::{FrozenJob, Job};
+    use nu_system::{ForegroundChild, ForegroundWaitStatus};
+    use nu_test_support::tester::NuTester;
+    use std::{
+        process::{Command, Stdio},
+        sync::Arc,
+    };
+
+    // Keep ownership of the child so failures also kill and reap stopped processes.
+    struct FrozenProcess(ForegroundChild);
+
+    impl FrozenProcess {
+        fn new(tester: &mut NuTester, freezes: usize) -> Result<Self> {
+            let mut command = Command::new("sh");
+            command
+                .args(["-c", &"kill -STOP $$;".repeat(freezes)])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+
+            // A dedicated process group allows unfreeze to send SIGCONT without
+            // needing an interactive terminal or touching the test runner's group.
+            let mut process = Self(ForegroundChild::spawn(
+                command,
+                false,
+                true,
+                &Arc::default(),
+            )?);
+            let ForegroundWaitStatus::Frozen(unfreeze) = process.0.wait()? else {
+                panic!("test process exited before stopping");
+            };
+
+            tester
+                .engine_state
+                .jobs
+                .lock()
+                .expect("jobs lock is poisoned")
+                .add_job(Job::Frozen(FrozenJob {
+                    unfreeze,
+                    description: None,
+                }));
+            Ok(process)
+        }
+    }
+
+    impl Drop for FrozenProcess {
+        fn drop(&mut self) {
+            let child = self.0.as_mut();
+            // A successful unfreeze already reaps the child. Only kill children
+            // that are still ours and running or stopped.
+            if matches!(child.try_wait(), Ok(None)) {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+
+    #[rstest]
+    #[case("job kill 3")]
+    #[case("job unfreeze 3")]
+    #[nu_test_support::test]
+    #[cfg_attr(ci, serial)]
+    fn resumes_remaining_jobs_after_latest_is_removed(#[case] remove: &str) -> Result {
+        let mut tester = test();
+        let _first = FrozenProcess::new(&mut tester, 1)?;
+        let _second = FrozenProcess::new(&mut tester, 1)?;
+        let _third = FrozenProcess::new(&mut tester, 1)?;
+
+        tester.run::<()>(remove)?;
+        tester.run::<()>("job unfreeze")?;
+        tester.run("job list | get id").expect_value_eq([1])?;
+        tester.run::<()>("job unfreeze")?;
+        tester.run("job list | is-empty").expect_value_eq(true)?;
+        tester
+            .run("job unfreeze")
+            .expect_error_code_eq("nu::shell::job::none_to_unfreeze")
+    }
+
+    #[test]
+    #[cfg_attr(ci, serial)]
+    fn resumes_jobs_in_refreeze_order() -> Result {
+        let mut tester = test();
+        let _first = FrozenProcess::new(&mut tester, 2)?;
+        let _second = FrozenProcess::new(&mut tester, 2)?;
+        let _third = FrozenProcess::new(&mut tester, 1)?;
+
+        // Re-freezing preserves job IDs, but changes their recency to 3, 2, 1.
+        tester.run::<()>("job unfreeze 2; job unfreeze 1")?;
+        tester.run::<()>("job unfreeze")?;
+        tester
+            .run("job list | get id | sort")
+            .expect_value_eq([2, 3])?;
+        tester.run::<()>("job unfreeze")?;
+        tester.run("job list | get id").expect_value_eq([3])?;
+        tester.run::<()>("job unfreeze")?;
+        tester.run("job list | is-empty").expect_value_eq(true)
+    }
+
+    #[test]
+    #[cfg_attr(ci, serial)]
+    fn skips_removed_older_jobs_and_thread_jobs() -> Result {
+        let mut tester = test();
+        let _first = FrozenProcess::new(&mut tester, 1)?;
+        let _second = FrozenProcess::new(&mut tester, 1)?;
+        let _third = FrozenProcess::new(&mut tester, 1)?;
+
+        tester.run::<()>("job kill 2; let background = job spawn { job recv }")?;
+        tester.run::<()>("job unfreeze")?;
+        tester
+            .run("job list | get id | sort")
+            .expect_value_eq([1, 4])?;
+        tester.run::<()>("job unfreeze")?;
+        tester.run("job list | get id").expect_value_eq([4])?;
+        tester.run::<()>("job kill $background")?;
+        tester
+            .run("job unfreeze")
+            .expect_error_code_eq("nu::shell::job::none_to_unfreeze")
+    }
+}
+
 #[rstest]
 #[case(None)]
 #[case(Some("-k"))]

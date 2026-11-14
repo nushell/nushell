@@ -3,8 +3,9 @@ use nu_protocol::engine::{PromptContents, PromptState};
 use nu_utils::enable_vt_processing;
 use reedline::PromptHelixMode;
 use reedline::{
-    DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
-    PromptViMode,
+    Color, DEFAULT_INDICATOR_COLOR, DEFAULT_PROMPT_COLOR, DEFAULT_PROMPT_MULTILINE_COLOR,
+    DEFAULT_PROMPT_RIGHT_COLOR, DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch,
+    PromptHistorySearchStatus, PromptViMode,
 };
 use std::{borrow::Cow, sync::Arc};
 
@@ -119,6 +120,37 @@ impl Prompt for NushellPrompt {
         ))
     }
 
+    // The left and right prompt keep the terminal foreground when the user
+    // supplies them, so their own styling (e.g. starship) isn't tinted, while
+    // the built-in fallback keeps nushell's default color.
+    fn get_prompt_color(&self) -> Color {
+        if self.with_contents(|c| c.left.is_some()) {
+            Color::Default
+        } else {
+            DEFAULT_PROMPT_COLOR
+        }
+    }
+
+    // The indicators are nushell's own rather than the user's prompt generator,
+    // thus they always keep the default color. Styling one means putting the
+    // escapes in the indicator value. These override the trait defaults on
+    // purpose, so nushell's appearance doesn't follow reedline's.
+    fn get_prompt_multiline_color(&self) -> Color {
+        DEFAULT_PROMPT_MULTILINE_COLOR
+    }
+
+    fn get_indicator_color(&self) -> Color {
+        DEFAULT_INDICATOR_COLOR
+    }
+
+    fn get_prompt_right_color(&self) -> Color {
+        if self.with_contents(|c| c.right.is_some()) {
+            Color::Default
+        } else {
+            DEFAULT_PROMPT_RIGHT_COLOR
+        }
+    }
+
     fn right_prompt_on_last_line(&self) -> bool {
         self.with_contents(|c| c.render_right_on_last_line)
     }
@@ -212,5 +244,42 @@ mod tests {
             indicator_for(&contents, PromptEditMode::Vi(PromptViMode::Visual)),
             "visual> "
         );
+    }
+
+    /// A `PromptState` holding only the given left and right prompt.
+    fn prompt_with(left: Option<&str>, right: Option<&str>) -> NushellPrompt {
+        let state = Arc::new(PromptState::new());
+        state.set_contents(PromptContents {
+            left: left.map(Into::into),
+            right: right.map(Into::into),
+            ..Default::default()
+        });
+        NushellPrompt::shared(state)
+    }
+
+    #[test]
+    fn a_supplied_prompt_keeps_the_terminal_foreground() {
+        let prompt = prompt_with(Some("left"), Some("right"));
+
+        assert_eq!(prompt.get_prompt_color(), Color::Default);
+        assert_eq!(prompt.get_prompt_right_color(), Color::Default);
+    }
+
+    #[test]
+    fn the_fallback_prompt_keeps_the_default_colors() {
+        let prompt = prompt_with(None, None);
+
+        assert_eq!(prompt.get_prompt_color(), DEFAULT_PROMPT_COLOR);
+        assert_eq!(prompt.get_prompt_right_color(), DEFAULT_PROMPT_RIGHT_COLOR);
+    }
+
+    /// The sides are judged separately: supplying only a left prompt must not
+    /// strip the color from the built-in right one.
+    #[test]
+    fn each_side_is_judged_on_its_own() {
+        let prompt = prompt_with(Some("left"), None);
+
+        assert_eq!(prompt.get_prompt_color(), Color::Default);
+        assert_eq!(prompt.get_prompt_right_color(), DEFAULT_PROMPT_RIGHT_COLOR);
     }
 }

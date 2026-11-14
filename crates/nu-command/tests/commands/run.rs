@@ -181,7 +181,11 @@ fn run_script_with_exported_env_main_uses_main_entrypoint_without_leaking_env() 
                 .run(r#""hello" | run exported_env_main.nu"#)
                 .expect_value_eq("HELLO")?;
             match tester.run("$env.RUN_LOCAL").expect_shell_error()? {
-                ShellError::CantFindColumn { col_name, .. } if col_name == "RUN_LOCAL" => Ok(()),
+                ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. }
+                    if envvar_name == "RUN_LOCAL" =>
+                {
+                    Ok(())
+                }
                 err => Err(err.into()),
             }
         },
@@ -226,7 +230,11 @@ fn run_does_not_leak_env_from_script_without_main() -> Result {
                 .run(r#""hello" | run set_env.nu"#)
                 .expect_value_eq("hello")?;
             match tester.run("$env.RUN_LOCAL").expect_shell_error()? {
-                ShellError::CantFindColumn { col_name, .. } if col_name == "RUN_LOCAL" => Ok(()),
+                ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. }
+                    if envvar_name == "RUN_LOCAL" =>
+                {
+                    Ok(())
+                }
                 err => Err(err.into()),
             }
         },
@@ -251,7 +259,11 @@ fn run_does_not_leak_env_from_script_main() -> Result {
             .run(r#""hello" | run set_env_main.nu"#)
             .expect_value_eq("hello")?;
         match tester.run("$env.RUN_LOCAL").expect_shell_error()? {
-            ShellError::CantFindColumn { col_name, .. } if col_name == "RUN_LOCAL" => Ok(()),
+            ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. }
+                if envvar_name == "RUN_LOCAL" =>
+            {
+                Ok(())
+            }
             err => Err(err.into()),
         }
     })

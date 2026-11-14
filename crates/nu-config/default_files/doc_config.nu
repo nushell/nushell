@@ -216,6 +216,41 @@ $env.config.cursor_shape.helix_select = "inherit"
 # Default: "inherit"
 $env.config.cursor_shape.helix_insert = "inherit"
 
+# auto_pairs.enable (bool): Automatically insert the closing character when an opening character
+# from auto_pairs.pairs is typed. It is not inserted inside strings or comments, right after a
+# letter or digit, or in front of other text. auto_pairs.also allows pairs in those places.
+# Note: When bracketed_paste is off or unsupported (e.g. on Windows), pasted text is auto-paired too.
+# Default: false
+$env.config.auto_pairs.enable = false
+
+# auto_pairs.pairs (list): Pairs to auto-pair, each a string of its opening and closing characters.
+# Pairs in auto_pairs.also that are not listed here have no effect, and a warning is shown.
+# Default: ["()" "[]" "{}" '""' "''" "``"]
+$env.config.auto_pairs.pairs = ["()" "[]" "{}" '""' "''" "``"]
+
+# auto_pairs.also.in_string (list): Pairs from auto_pairs.pairs to also auto-pair inside strings.
+# Default: []
+$env.config.auto_pairs.also.in_string = []
+
+# auto_pairs.also.in_comment (list): Pairs from auto_pairs.pairs to also auto-pair inside comments.
+# Default: []
+$env.config.auto_pairs.also.in_comment = []
+
+# auto_pairs.also.after_word (list): Pairs from auto_pairs.pairs to also auto-pair right after
+# a letter or digit.
+# Default: []
+$env.config.auto_pairs.also.after_word = []
+
+# auto_pairs.also.before_text (list): Pairs from auto_pairs.pairs to also auto-pair in front of
+# other text. Whitespace, a quote inside a string, and the closing character of a pair from
+# auto_pairs.pairs with two different characters (like `)`) do not count as other text.
+# Default: []
+$env.config.auto_pairs.also.before_text = []
+
+# Example: Auto-pair brackets, but not quotes, inside strings and comments:
+# $env.config.auto_pairs.also.in_string = ["()" "[]" "{}"]
+# $env.config.auto_pairs.also.in_comment = ["()" "[]" "{}"]
+
 # --------------------
 # Completions Behavior
 # --------------------
@@ -347,9 +382,11 @@ $env.config.completions.use_ls_colors = true
 # 0: Disable the cache; every Tab recomputes.
 # A larger value remembers more prefixes (uses more memory).
 # A smaller value forgets sooner.
-# Closures on `$env.config.completions.external.completer` and custom
-# `@comp` / `@complete` completers are not stored, so an interactive picker
-# (fzf, `input list`) runs again on the next Tab.
+# Custom `@comp` / `@complete` and external completer answers are cached by
+# default. If their results depend on files, processes, or other state outside
+# the cache key, return `{completions: $items, options: {cache: false}}` to
+# recompute them on later prompts. Interactive pickers (`fzf`, `input list`)
+# are not cached. Plugin dynamic completions are also recomputed.
 # Default: 100
 $env.config.completions.cache_size = 100
 
@@ -395,7 +432,8 @@ $env.config.completions.external.max_results = 100
 #
 # Returns a list of suggestions (a string, or a record of {value, description?, style?,
 # span?, extra?}) or a record of {options, completions}. External/command-wide completers
-# are not filtered by default; parameter completers are. See `options.filter`.
+# are not filtered by default; parameter completers are. See `options.filter`
+# and `options.cache` above.
 # Default: null
 $env.config.completions.external.completer = null
 
