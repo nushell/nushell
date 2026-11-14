@@ -5,11 +5,10 @@ use std::{
 
 /// What background jobs write to the terminal while the REPL holds it.
 ///
-/// The line editor keeps the terminal in raw mode while it reads a line, and raw mode turns off
-/// the output processing that moves a `\n` back to the first column. Output a background job wrote
-/// straight to the terminal then would come out as a staircase and land on top of the prompt.
-/// While the REPL holds the terminal, that output waits here instead, and the line editor prints
-/// it above the prompt. Jobs write through a [`JobOutputWriter`].
+/// Output a background job writes straight to the terminal while the line editor reads a line
+/// lands on top of the prompt, and the editor's next repaint erases it. While the REPL holds the
+/// terminal, that output waits here instead, and the line editor prints it above the prompt. Jobs
+/// write through a [`JobOutputWriter`].
 ///
 /// Shared, like [`PromptState`](super::PromptState), with every job that clones the engine state.
 #[derive(Debug, Default)]
@@ -38,9 +37,10 @@ impl JobOutput {
             .unwrap_or_else(|poisoned_error| poisoned_error.into_inner())
     }
 
-    /// Start queueing: the REPL is about to put the terminal into raw mode.
+    /// Start queueing: the REPL is about to hand the terminal to the line editor.
     ///
-    /// Waits for a job's write in progress, so it can't land after raw mode starts.
+    /// Waits for a job's write in progress, so it can't land once the line editor has the
+    /// terminal.
     pub fn hold(&self) {
         self.lock().held.get_or_insert_with(Vec::new);
     }
@@ -158,8 +158,8 @@ impl<W: Write> Write for JobOutputWriter<'_, W> {
         let mut state = job_output.lock();
         match state.held.as_mut() {
             Some(held) if self.reaches_terminal() => held.extend_from_slice(buf),
-            // Write and flush under the lock, so `hold` can't switch the terminal to raw mode
-            // halfway through.
+            // Write and flush under the lock, so `hold` can't hand the terminal to the line
+            // editor halfway through.
             _ => {
                 self.inner.write_all(buf)?;
                 self.inner.flush()?;

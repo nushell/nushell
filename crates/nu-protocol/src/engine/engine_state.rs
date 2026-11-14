@@ -182,8 +182,8 @@ pub struct EngineState {
     /// and triggers an in-place repaint. Shared with every job that clones this
     /// engine state.
     pub prompt_state: Arc<PromptState>,
-    /// Text background jobs write to the terminal while the REPL holds it in raw mode. Shared with
-    /// every job that clones this engine state.
+    /// Text background jobs write to the terminal while the REPL waits for input. Shared with every
+    /// job that clones this engine state.
     pub job_output: Arc<JobOutput>,
     /// The default prompt closures, once `nu-cli` has evaluated them at startup.
     pub default_prompts: DefaultPrompts,

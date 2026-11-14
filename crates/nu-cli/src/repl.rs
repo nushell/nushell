@@ -719,8 +719,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     }
     perf!("pre-prompt hook", start_time, use_color);
 
-    // From here until `read_line` returns the terminal may be in raw mode: the kitty protocol
-    // probe in the builder below switches to it for a round trip, and `read_line` keeps it there.
+    // From here until `read_line` returns the line editor owns the terminal: the kitty protocol
+    // probe in the builder below does a round trip in raw mode, then `read_line` draws the prompt.
     // Hold what background jobs write until the line editor can print it.
     engine_state.job_output.hold();
 
