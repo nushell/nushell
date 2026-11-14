@@ -81,27 +81,57 @@ fn days_ignored_with_days_zero() -> Result {
 }
 
 #[rstest]
-#[case("--end-date ((date now) + 10day | format date '%Y-%m-%d')")]
-#[case("--end-date ((date now) - 10day | format date '%Y-%m-%d')")]
-#[case("--begin-date ((date now) + 10day | format date '%Y-%m-%d')")]
-#[case("--begin-date ((date now) - 10day | format date '%Y-%m-%d')")]
-fn correct_amount_of_results_with_end_or_begin_date(#[case] input: &str) -> Result {
-    let code = format!("seq date {} | length", input);
-    test().run(code).expect_value_eq(11)
+#[case("+ 10day")]
+#[case("- 10day")]
+fn correct_result_with_end_date(#[case] input: &str) -> Result {
+    let last = format!("(date now) {} | format date '%Y-%m-%d'", input);
+    let last: String = test().run(last)?;
+
+    let code = format!("seq date --end-date {} | length", last);
+    test().run(code).expect_value_eq(11)?;
+
+    let code = format!("seq date --end-date {} | last", last);
+    let date: String = test().run(code)?;
+    assert_eq!(date, last);
+
+    Ok(())
 }
 
 #[rstest]
-#[case("--days 10")]
-#[case("--days -10")]
-#[case("--days 10 --reverse")]
-#[case("--days -10 --reverse")]
-#[case("--periods 10")]
-#[case("--periods -10")]
-#[case("--periods 10 --reverse")]
-#[case("--periods -10 --reverse")]
-fn correct_amount_of_results_with_reverse_and_days(#[case] input: &str) -> Result {
-    let code = format!("seq date {} | length", input);
-    test().run(code).expect_value_eq(10)
+#[case("+ 10day")]
+#[case("- 10day")]
+fn correct_result_with_begin_date(#[case] input: &str) -> Result {
+    let now = "date now | format date '%Y-%m-%d'";
+    let now: String = test().run(now)?;
+
+    let first = format!("(date now) {} | format date '%Y-%m-%d'", input);
+    let first: String = test().run(first)?;
+
+    let code = format!("seq date --begin-date {} | length", first);
+    test().run(code).expect_value_eq(11)?;
+
+    let code = format!("seq date --begin-date {} | last", first);
+    let date: String = test().run(code)?;
+    assert_eq!(date, now);
+
+    Ok(())
+}
+
+#[rstest]
+#[case("--days 10", "2020-01-10")]
+#[case("--days -10", "2019-12-23")]
+#[case("--days 10 --reverse", "2019-12-23")]
+#[case("--days -10 --reverse", "2020-01-10")]
+#[case("--periods 10", "2020-01-10")]
+#[case("--periods -10", "2019-12-23")]
+#[case("--periods 10 --reverse", "2019-12-23")]
+#[case("--periods -10 --reverse", "2020-01-10")]
+fn correct_result_with_reverse_and_days(#[case] input: &str, #[case] expected: &str) -> Result {
+    let code = format!("seq date --begin-date 2020-01-01 {} | length", input);
+    test().run(code).expect_value_eq(10)?;
+
+    let code = format!("seq date --begin-date 2020-01-01 {} | last", input);
+    test().run(code).expect_value_eq(expected)
 }
 
 #[rstest]
