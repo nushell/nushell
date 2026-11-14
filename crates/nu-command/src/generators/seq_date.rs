@@ -1,6 +1,7 @@
 use chrono::{Duration, Local, NaiveDate, NaiveDateTime, NaiveTime};
 use nu_engine::command_prelude::*;
 use nu_protocol::{FromValue, shell_error::generic::GenericError};
+use num_traits::Zero;
 
 use std::fmt::Write;
 
@@ -372,12 +373,11 @@ pub fn run_seq_dates(
         _ => today,
     };
 
+    let mut return_empty = false;
     let (mut days_to_output, days_to_output_span) = match day_count {
         Some(i) => {
             let days = i.as_int()?;
-            if days == 0 {
-                return Ok(Value::list(Vec::new(), call_span));
-            }
+            return_empty = days.is_zero() && period_count.is_none();
             (days, Some(i.span()))
         }
         None => (0, None),
@@ -386,13 +386,15 @@ pub fn run_seq_dates(
     let (mut periods_to_output, periods_to_output_span) = match period_count {
         Some(i) => {
             let periods = i.as_int()?;
-            if periods == 0 {
-                return Ok(Value::list(Vec::new(), call_span));
-            }
+            return_empty = periods.is_zero();
             (periods, Some(i.span()))
         }
         None => (0, None),
     };
+
+    if return_empty {
+        return Ok(Value::list(Vec::new(), call_span));
+    }
 
     let days_too_large = || {
         ShellError::Generic(GenericError::new(

@@ -65,6 +65,18 @@ fn reverse_ignores_days_when_periods_is_set() -> Result {
     Ok(())
 }
 
+#[test]
+fn days_ignored_with_days_zero() -> Result {
+    let code = "seq date --days 0 --periods 3";
+    let expected = "seq date --periods 3";
+
+    let dates: Vec<String> = test().run(code)?;
+    let expected: Vec<String> = test().run(expected)?;
+
+    assert_eq!(dates, expected);
+    Ok(())
+}
+
 #[rstest]
 #[case("--end-date ((date now) + 10day | format date '%Y-%m-%d')")]
 #[case("--end-date ((date now) - 10day | format date '%Y-%m-%d')")]
