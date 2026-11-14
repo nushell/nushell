@@ -30,6 +30,170 @@ fn direct_external_prefixes(#[case] prefix: &str) {}
 
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn internal_environment_is_not_exported(prefix: &str) -> Result {
+    let names = [
+        "CMD_DURATION_MS",
+        "LAST_EXIT_CODE",
+        "FILE_PWD",
+        "CURRENT_FILE",
+        "PROCESS_PATH",
+        "PROMPT_COMMAND",
+        "PROMPT_COMMAND_RIGHT",
+        "PROMPT_INDICATOR",
+        "PROMPT_INDICATOR_VI_INSERT",
+        "PROMPT_INDICATOR_VI_NORMAL",
+        "PROMPT_MULTILINE_INDICATOR",
+        "TRANSIENT_PROMPT_COMMAND",
+        "TRANSIENT_PROMPT_COMMAND_RIGHT",
+        "TRANSIENT_PROMPT_INDICATOR",
+        "TRANSIENT_PROMPT_INDICATOR_VI_INSERT",
+        "TRANSIENT_PROMPT_INDICATOR_VI_NORMAL",
+        "TRANSIENT_PROMPT_MULTILINE_INDICATOR",
+        "pRoMpT_iNdIcAtOr",
+    ];
+
+    for name in names {
+        test()
+            .env(name, "internal-sentinel")
+            .run(format!(
+                "let internal = $env.{name};
+                let exported = ({prefix}echo_env {name} | str trim);
+                [$internal $exported]"
+            ))
+            .expect_value_eq(["internal-sentinel", ""])?;
+    }
+    Ok(())
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn nu_version_is_still_exported(prefix: &str) -> Result {
+    for name in ["NU_VERSION", "nU_vErSiOn"] {
+        test()
+            .env(name, "version-sentinel")
+            .run(format!("{prefix}echo_env {name}"))
+            .expect_value_eq("version-sentinel")?;
+    }
+    Ok(())
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn library_directory_environment_is_still_exported(prefix: &str) -> Result {
+    for name in [
+        "NU_LIB_DIRS",
+        "NU_PLUGIN_DIRS",
+        "nU_lIb_DiRs",
+        "nU_pLuGiN_dIrS",
+    ] {
+        test()
+            .env(name, "directory-sentinel")
+            .run(format!("{prefix}echo_env {name}"))
+            .expect_value_eq("directory-sentinel")?;
+    }
+    Ok(())
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn internal_environment_is_filtered_after_conversion(prefix: &str) -> Result {
+    test()
+        .env("PROMPT_INDICATOR", "internal-sentinel")
+        .env("EXPORT_TEST", "exported-sentinel")
+        .run(format!(
+            "$env.ENV_CONVERSIONS = {{
+                PROMPT_INDICATOR: {{from_string: {{|value| $value}}, to_string: {{ 'converted-sentinel' }} }}
+            }};
+            {prefix}echo_env PROMPT_INDICATOR EXPORT_TEST"
+        ))
+        .expect_value_eq("exported-sentinel")
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn internal_environment_conversion_errors_are_preserved(prefix: &str) -> Result {
+    test()
+        .env("PROMPT_INDICATOR", "internal-sentinel")
+        .run(format!(
+            "$env.ENV_CONVERSIONS = {{
+                PROMPT_INDICATOR: {{from_string: {{|value| $value}}, to_string: {{ error make {{msg: 'conversion failed'}} }} }}
+            }};
+            try {{ {prefix}echo_env PROMPT_INDICATOR }} catch {{|error| $error.msg }}"
+        ))
+        .expect_value_eq("conversion failed")
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn ordinary_environment_is_still_exported(prefix: &str) -> Result {
+    test()
+        .env("EXPORT_TEST", "inherited")
+        .env("PROMPT_COMMAND_CUSTOM", "custom-prompt")
+        .env("NU_VERSION_CUSTOM", "custom-version")
+        .run(format!(
+            "let inherited = ({prefix}echo_env EXPORT_TEST | str trim);
+            let scoped = (with-env {{EXPORT_TEST: scoped}} {{ {prefix}echo_env EXPORT_TEST }} | str trim);
+            let shorthand = (EXPORT_TEST=shorthand {prefix}echo_env EXPORT_TEST | str trim);
+            let custom = ({prefix}echo_env PROMPT_COMMAND_CUSTOM NU_VERSION_CUSTOM | lines);
+            [$inherited $scoped $shorthand ...$custom]"
+        ))
+        .expect_value_eq(["inherited", "scoped", "shorthand", "custom-prompt", "custom-version"])
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn ordinary_environment_conversions_are_still_run(prefix: &str) -> Result {
+    test()
+        .run(format!(
+            "$env.EXPORT_TEST = [one two];
+            $env.ENV_CONVERSIONS = {{EXPORT_TEST: {{to_string: {{|value| $value | str join ':'}} }} }};
+            {prefix}echo_env EXPORT_TEST"
+        ))
+        .expect_value_eq("one:two")
+}
+
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn scoped_internal_environment_stays_internal() -> Result {
+    test()
+        .run(
+            "
+            with-env {PROMPT_INDICATOR: scoped} {
+                let exported = (echo_env PROMPT_INDICATOR | str trim)
+                [$env.PROMPT_INDICATOR $exported]
+            }
+        ",
+        )
+        .expect_value_eq(["scoped", ""])
+}
+
+#[nu_test_support::test]
+fn debug_env_preserves_internal_environment() -> Result {
+    test()
+        .env("PROMPT_INDICATOR", "internal-sentinel")
+        .env("EXPORT_TEST", "exported-sentinel")
+        .run(
+            "
+            let exported = debug env
+            [$exported.PROMPT_INDICATOR $exported.EXPORT_TEST $env.PROMPT_INDICATOR]
+        ",
+        )
+        .expect_value_eq([
+            "internal-sentinel",
+            "exported-sentinel",
+            "internal-sentinel",
+        ])
+}
+
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
 #[deps(TESTBIN_COCOCO)]
 fn better_empty_redirection(prefix: &str) -> Result {
     let code = format!("ls | each {{ |it| {prefix}cococo $it.name }} | ignore");
