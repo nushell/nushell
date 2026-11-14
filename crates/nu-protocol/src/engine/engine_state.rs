@@ -5,8 +5,8 @@ use crate::{
     ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
-        ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, JobOutput, JobOutputWriter,
+        OverlayFrame, PromptState, ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
         signature_cache::SignatureCache,
     },
@@ -23,6 +23,7 @@ use nu_utils::time::Instant;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    io::{IsTerminal, Write},
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
@@ -182,6 +183,9 @@ pub struct EngineState {
     /// and triggers an in-place repaint. Shared with every job that clones this
     /// engine state.
     pub prompt_state: Arc<PromptState>,
+    /// Text background jobs write to the terminal while the REPL waits for input. Shared with every
+    /// job that clones this engine state.
+    pub job_output: Arc<JobOutput>,
     /// The default prompt closures, once `nu-cli` has evaluated them at startup.
     pub default_prompts: DefaultPrompts,
     pub table_decl_id: Option<DeclId>,
@@ -331,6 +335,7 @@ impl EngineState {
                 selection: None,
             })),
             prompt_state: Arc::new(PromptState::new()),
+            job_output: Arc::new(JobOutput::new()),
             default_prompts: DefaultPrompts::default(),
             table_decl_id: None,
             signature_cache: Arc::default(),
@@ -1504,6 +1509,7 @@ impl EngineState {
         self.repl_state = Default::default();
         self.report_log = Default::default();
         self.prompt_state = Arc::new(PromptState::new());
+        self.job_output = Arc::new(JobOutput::new());
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),
@@ -1537,6 +1543,31 @@ impl EngineState {
     // Determines whether the current state is being held by a background job
     pub fn is_background_job(&self) -> bool {
         self.current_job.background_thread_job.is_some()
+    }
+
+    /// A writer for this thread's output to `stream`, the process's stdout or stderr.
+    ///
+    /// While the REPL holds the terminal, a background job's output to it waits in [`JobOutput`],
+    /// and the line editor prints it above the prompt. The line editor paints on stderr, so this
+    /// only happens when both `stream` and stderr are terminals.
+    pub fn job_output_writer<W: Write + IsTerminal>(&self, stream: W) -> JobOutputWriter<'_, W> {
+        self.job_output_writer_with(stream, |stream| {
+            stream.is_terminal() && std::io::stderr().is_terminal()
+        })
+    }
+
+    /// [`Self::job_output_writer`] with the terminal check passed in.
+    fn job_output_writer_with<W: Write>(
+        &self,
+        stream: W,
+        is_terminal: fn(&W) -> bool,
+    ) -> JobOutputWriter<'_, W> {
+        JobOutputWriter::new(
+            &self.job_output,
+            self.is_background_job(),
+            stream,
+            is_terminal,
+        )
     }
 
     // Gets the thread job entry
@@ -1617,6 +1648,81 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    fn background_job_state() -> EngineState {
+        let mut engine_state = EngineState::new();
+        let (sender, _receiver) = channel();
+        engine_state.current_job.background_thread_job =
+            Some(ThreadJob::new(Signals::empty(), None, false, sender));
+        engine_state
+    }
+
+    /// Write `text` as `engine_state` would to a terminal, or to a file when `to_terminal` is
+    /// false, and return what reached the stream instead of the queue.
+    fn write_output(engine_state: &EngineState, to_terminal: bool, text: &str) -> String {
+        let mut written = Vec::new();
+        let is_terminal = if to_terminal {
+            |_: &_| true
+        } else {
+            |_: &_| false
+        };
+        engine_state
+            .job_output_writer_with(&mut written, is_terminal)
+            .write_all(text.as_bytes())
+            .expect("writing to a Vec");
+        String::from_utf8(written).expect("UTF-8 output")
+    }
+
+    #[test]
+    fn job_output_to_the_terminal_is_queued_while_held() {
+        let engine_state = background_job_state();
+        engine_state.job_output.hold();
+
+        assert_eq!(write_output(&engine_state, true, "from a job\n"), "");
+
+        assert_eq!(
+            engine_state.job_output.drain().as_deref(),
+            Some("from a job\n")
+        );
+    }
+
+    #[test]
+    fn main_thread_output_is_written_directly_while_held() {
+        let engine_state = EngineState::new();
+        engine_state.job_output.hold();
+
+        assert_eq!(write_output(&engine_state, true, "main\n"), "main\n");
+        assert_eq!(engine_state.job_output.drain(), None);
+    }
+
+    #[test]
+    fn job_output_to_a_file_is_written_directly_while_held() {
+        let engine_state = background_job_state();
+        engine_state.job_output.hold();
+
+        assert_eq!(
+            write_output(&engine_state, false, "to a file\n"),
+            "to a file\n"
+        );
+        assert_eq!(engine_state.job_output.drain(), None);
+    }
+
+    #[test]
+    fn job_output_is_shared_with_clones() {
+        let engine_state = EngineState::new();
+        let mut job_side = engine_state.clone();
+        let (sender, _receiver) = channel();
+        job_side.current_job.background_thread_job =
+            Some(ThreadJob::new(Signals::empty(), None, false, sender));
+        engine_state.job_output.hold();
+
+        write_output(&job_side, true, "from a clone\n");
+
+        assert_eq!(
+            engine_state.job_output.drain().as_deref(),
+            Some("from a clone\n")
+        );
     }
 
     /// An engine that appends declarations to a signature cache it shares with a clone starts

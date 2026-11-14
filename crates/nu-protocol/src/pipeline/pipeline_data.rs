@@ -736,7 +736,7 @@ impl PipelineData {
         match self {
             // Print byte streams directly as long as they aren't binary.
             PipelineData::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
-                stream.print(to_stderr)
+                write_std(engine_state, to_stderr, |out, _| stream.write_to(out))
             }
             _ => {
                 // If the table function is in the declarations, then we can use it
@@ -772,24 +772,9 @@ impl PipelineData {
     ) -> Result<(), ShellError> {
         let span = self.span();
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
-            if to_stderr {
-                write_all_and_flush(
-                    bytes.as_slice(),
-                    &mut std::io::stderr().lock(),
-                    "stderr",
-                    span,
-                    engine_state.signals(),
-                )?;
-            } else {
-                write_all_and_flush(
-                    bytes.as_slice(),
-                    &mut std::io::stdout().lock(),
-                    "stdout",
-                    span,
-                    engine_state.signals(),
-                )?;
-            }
-            Ok(())
+            write_std(engine_state, to_stderr, |mut out, name| {
+                write_all_and_flush(bytes, &mut out, name, span, engine_state.signals())
+            })
         } else {
             self.write_all_and_flush(engine_state, no_newline, to_stderr)
         }
@@ -804,7 +789,7 @@ impl PipelineData {
         let span = self.span();
         if let PipelineData::ByteStream(stream, ..) = self {
             // Copy ByteStreams directly
-            stream.print(to_stderr)
+            write_std(engine_state, to_stderr, |out, _| stream.write_to(out))
         } else {
             let config = engine_state.get_config();
             for item in self {
@@ -818,23 +803,9 @@ impl PipelineData {
                     out.push('\n');
                 }
 
-                if to_stderr {
-                    write_all_and_flush(
-                        out,
-                        &mut std::io::stderr().lock(),
-                        "stderr",
-                        span,
-                        engine_state.signals(),
-                    )?;
-                } else {
-                    write_all_and_flush(
-                        out,
-                        &mut std::io::stdout().lock(),
-                        "stdout",
-                        span,
-                        engine_state.signals(),
-                    )?;
-                }
+                write_std(engine_state, to_stderr, |mut dest, name| {
+                    write_all_and_flush(out, &mut dest, name, span, engine_state.signals())
+                })?;
             }
 
             Ok(())
@@ -920,6 +891,28 @@ impl CompareTypes<Type> for PipelineData {
             PipelineData::Value(value, _) => return value.is_assignable_to(dst),
         };
         self_ty.is_assignable_to(dst)
+    }
+}
+
+/// Run `write` on this thread's stderr or stdout, passing the stream's name for error messages.
+///
+/// A background job's output waits for the line editor while the REPL holds the terminal (see
+/// [`EngineState::job_output_writer`]).
+fn write_std<T>(
+    engine_state: &EngineState,
+    to_stderr: bool,
+    write: impl FnOnce(&mut dyn Write, &str) -> T,
+) -> T {
+    if to_stderr {
+        write(
+            &mut engine_state.job_output_writer(std::io::stderr()),
+            "stderr",
+        )
+    } else {
+        write(
+            &mut engine_state.job_output_writer(std::io::stdout()),
+            "stdout",
+        )
     }
 }
 

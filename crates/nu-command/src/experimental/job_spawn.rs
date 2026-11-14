@@ -110,9 +110,14 @@ impl Command for JobSpawn {
             id
         };
 
+        // Counted from before the thread starts until it returns, so the line editor keeps
+        // checking for the job's output, even after `job kill` took the job out of the table.
+        let running = job_state.job_output.job_running();
+
         let result = thread::Builder::new()
             .name(format!("background job {}", id.get()))
             .spawn(move || {
+                let _running = running;
                 let mut stack = job_stack.reset_pipes();
                 let stack = stack.push_redirection(
                     Some(Redirection::Pipe(OutDest::Null)),
