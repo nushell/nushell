@@ -9,7 +9,7 @@ impl Command for HistorySession {
     }
 
     fn description(&self) -> &str {
-        "Get the command history session."
+        "Get the current history session id (0 when history isolation is off)."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -33,6 +33,12 @@ impl Command for HistorySession {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::int(engine_state.history_session_id, call.head).into_pipeline_data())
+        // The id is only recorded on history rows when isolation is on; report
+        // 0 otherwise so callers can't mistake the startup id for a real session.
+        let session_id = match engine_state.history_config() {
+            Some(history) if history.isolation => engine_state.history_session_id,
+            _ => 0,
+        };
+        Ok(Value::int(session_id, call.head).into_pipeline_data())
     }
 }
