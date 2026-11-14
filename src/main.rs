@@ -592,6 +592,11 @@ fn main() -> Result<()> {
         #[cfg(feature = "mcp")]
         RunMode::Mcp => {
             start_time = nu_utils::time::Instant::now();
+            // Preserve the converted environment before MCP creates fresh configuration and
+            // evaluation stacks, including when configuration files are disabled.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
             let mcp_transport_kind = parsed_nu_cli_args
                 .mcp_transport
                 .as_ref()
@@ -641,6 +646,10 @@ fn main() -> Result<()> {
         #[cfg(feature = "lsp")]
         RunMode::Lsp => {
             start_time = nu_utils::time::Instant::now();
+            // The language server reads configuration on a fresh stack.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
             run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time)
         }
 
@@ -651,6 +660,10 @@ fn main() -> Result<()> {
         #[cfg(feature = "dap")]
         RunMode::Dap => {
             start_time = nu_utils::time::Instant::now();
+            // Configuration loading and debug runs both start with fresh stacks.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
 
             // Debugged scripts should see the same shell the user has: aliases and
             // custom commands from config.nu, `$env` from env.nu, and `$env.config`
