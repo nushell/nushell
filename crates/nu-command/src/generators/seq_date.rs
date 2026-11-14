@@ -285,6 +285,18 @@ pub fn parse_date_string(s: &str, format: &str) -> Result<NaiveDateTime, &'stati
     })
 }
 
+fn error_out_of_range(msg: &'static str, span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new("Value is out of range", msg, span))
+}
+
+fn error_large_days(span: Span) -> ShellError {
+    error_out_of_range("The number of days is too large or too small", span)
+}
+
+fn error_large_increment(span: Span) -> ShellError {
+    error_out_of_range("The period increment is too large or too small", span)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn run_seq_dates(
     output_format: Option<Value>,
@@ -310,19 +322,15 @@ pub fn run_seq_dates(
 
     if step_size == 0 {
         return Err(ShellError::Generic(GenericError::new(
-            "increment cannot be 0",
-            "increment cannot be 0",
+            "Increment cannot be 0",
+            "Increment cannot be 0",
             increment_span,
         )));
     }
 
     // The sign of the step gets flipped below, and `i64::MIN` has no positive counterpart.
     if step_size == i64::MIN {
-        return Err(ShellError::Generic(GenericError::new(
-            "increment is too large",
-            "increment is too large",
-            increment_span,
-        )));
+        return Err(error_large_increment(increment_span));
     }
 
     let in_format = match input_format {
@@ -402,31 +410,20 @@ pub fn run_seq_dates(
         return Ok(Value::list(Vec::new(), call_span));
     }
 
-    let days_too_large = || {
-        ShellError::Generic(GenericError::new(
-            "int value too large",
-            "int value too large",
-            days_to_output_span.unwrap_or(call_span),
-        ))
-    };
-    let periods_too_large = || {
-        ShellError::Generic(GenericError::new(
-            "incrementing by the number of periods is too large",
-            "incrementing by the number of periods is too large",
-            periods_to_output_span.unwrap_or(call_span),
-        ))
-    };
-
     // Make the signs opposite if we're created dates in reverse direction
     if reverse {
         step_size = -step_size;
         // --days is ignored when --periods is set, so only flip it when it's used
         if periods_to_output == 0 {
-            days_to_output = days_to_output.checked_neg().ok_or_else(days_too_large)?;
+            let span = days_to_output_span.unwrap_or(call_span);
+            days_to_output = days_to_output
+                .checked_neg()
+                .ok_or_else(|| error_large_days(span))?;
         }
+        let span = periods_to_output_span.unwrap_or(call_span);
         periods_to_output = periods_to_output
             .checked_neg()
-            .ok_or_else(periods_too_large)?;
+            .ok_or_else(|| error_large_increment(span))?;
     }
 
     // --days is ignored when --periods is set
@@ -436,13 +433,14 @@ pub fn run_seq_dates(
             .and_then(|val| val.checked_mul(step_size.abs()))
             .map(Duration::nanoseconds)
             .and_then(|inc| start_date.checked_add_signed(inc))
-            .ok_or_else(periods_too_large)?;
+            .ok_or_else(|| error_large_increment(call_span))?;
     } else if days_to_output != 0 {
+        let span = days_to_output_span.unwrap_or(call_span);
         end_date = days_to_output
             .checked_sub(days_to_output.signum())
             .and_then(Duration::try_days)
             .and_then(|days| start_date.checked_add_signed(days))
-            .ok_or_else(days_too_large)?;
+            .ok_or_else(|| error_large_days(span))?;
     }
 
     // conceptually counting down with a positive step or counting up with a negative step
