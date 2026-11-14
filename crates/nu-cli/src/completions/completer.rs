@@ -14,7 +14,7 @@ use nu_protocol::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
     },
-    engine::{ArgType, Closure, Command, EngineState, Stack, StateWorkingSet},
+    engine::{ArgType, Closure, Command, EngineState, OverlayFrame, Stack, StateWorkingSet},
 };
 use nu_utils::time::Instant;
 use reedline::{
@@ -1506,14 +1506,30 @@ impl<'engine> CompletionEngine<'engine> {
         let resolved_head = working_set
             .find_decl_name(call.decl_id)
             .or_else(|| {
-                // A hidden target still runs through its alias. Recover the original
-                // head, retaining module qualification instead of using signature.name.
-                let alias_id = working_set.find_decl(working_set.get_span_contents(call.head))?;
-                let alias = working_set.get_decl(alias_id).as_alias()?;
-                let Expr::Call(target) = &alias.wrapped_call.expr else {
-                    return None;
-                };
-                Some(working_set.get_span_contents(target.head))
+                // `hide` only flips a decl's visibility, so its name stays in the overlay.
+                // A module's private command was never added here and stays unresolved.
+                fn registered(overlay: &OverlayFrame, decl_id: DeclId) -> Option<&[u8]> {
+                    overlay
+                        .decls
+                        .iter()
+                        .find(|(_, id)| **id == decl_id)
+                        .map(|(name, _)| name.as_slice())
+                }
+                let mut removed = vec![];
+                for frame in working_set.delta.scope.iter().rev() {
+                    let found = frame
+                        .active_overlays(&mut removed)
+                        .rev()
+                        .find_map(|overlay| registered(overlay, call.decl_id));
+                    if found.is_some() {
+                        return found;
+                    }
+                }
+                working_set
+                    .permanent_state
+                    .active_overlays(&removed)
+                    .rev()
+                    .find_map(|overlay| registered(overlay, call.decl_id))
             })
             .map(String::from_utf8_lossy);
         let subcommands = self.subcommand_suggestions(

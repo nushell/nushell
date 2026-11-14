@@ -686,6 +686,15 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
     vec!["spam bar".into()],
     3
 )]
+#[case::fuzzy_private_module_alias_falls_back_to_files(r#"
+    $env.config.completions.algorithm = "fuzzy"
+    module spam { def foo [i?: string] {}; export alias f = foo }
+    use spam f
+    def "foo test bar" [] {}"#,
+    "f test", None,
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b")],
+    4
+)]
 /// Custom function flags mixed with subcommands
 #[case::flags_and_subcommands(r#"
     def foo [--test: directory] {}
