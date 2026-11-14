@@ -65,66 +65,40 @@ fn reverse_ignores_days_when_periods_is_set() -> Result {
     Ok(())
 }
 
-#[test]
-fn correct_amount_of_results_with_end_or_begin_date() -> Result {
-    test()
-        .run("seq date --end-date ((date now) + 10day | format date '%Y-%m-%d') | length")
-        .expect_value_eq(11)?;
-
-    test()
-        .run("seq date --end-date ((date now) - 10day | format date '%Y-%m-%d') | length")
-        .expect_value_eq(11)?;
-
-    test()
-        .run("seq date --begin-date ((date now) + 10day | format date '%Y-%m-%d') | length")
-        .expect_value_eq(11)?;
-
-    test()
-        .run("seq date --begin-date ((date now) - 10day | format date '%Y-%m-%d') | length")
-        .expect_value_eq(11)?;
-
-    Ok(())
+#[rstest]
+#[case("--end-date ((date now) + 10day | format date '%Y-%m-%d')")]
+#[case("--end-date ((date now) - 10day | format date '%Y-%m-%d')")]
+#[case("--begin-date ((date now) + 10day | format date '%Y-%m-%d')")]
+#[case("--begin-date ((date now) - 10day | format date '%Y-%m-%d')")]
+fn correct_amount_of_results_with_end_or_begin_date(#[case] input: &str) -> Result {
+    let code = format!("seq date {} | length", input);
+    test().run(code).expect_value_eq(11)
 }
 
-#[test]
-fn correct_amount_of_results_with_reverse_and_days() -> Result {
-    test()
-        .run("seq date --days 10 | length")
-        .expect_value_eq(10)?;
-
-    test()
-        .run("seq date --days 10 --reverse | length")
-        .expect_value_eq(10)?;
-
-    test()
-        .run("seq date --periods 10 | length")
-        .expect_value_eq(10)?;
-
-    test()
-        .run("seq date --periods 10 --reverse | length")
-        .expect_value_eq(10)?;
-
-    Ok(())
+#[rstest]
+#[case("--days 10")]
+#[case("--days -10")]
+#[case("--days 10 --reverse")]
+#[case("--days -10 --reverse")]
+#[case("--periods 10")]
+#[case("--periods -10")]
+#[case("--periods 10 --reverse")]
+#[case("--periods -10 --reverse")]
+fn correct_amount_of_results_with_reverse_and_days(#[case] input: &str) -> Result {
+    let code = format!("seq date {} | length", input);
+    test().run(code).expect_value_eq(10)
 }
 
 #[test]
 fn correct_time() -> Result {
-    test()
-        .run("seq date --output-format '%H:%M' | first")
-        .expect_value_eq("00:00")?;
-
-    Ok(())
+    let code = "seq date --output-format '%H:%M' | first";
+    test().run(code).expect_value_eq("00:00")
 }
 
-#[test]
-fn zero_results_with_days_zero() -> Result {
-    test()
-        .run("seq date --days 0 | length")
-        .expect_value_eq(0)?;
-
-    test()
-        .run("seq date --periods 0 | length")
-        .expect_value_eq(0)?;
-
-    Ok(())
+#[rstest]
+#[case("--days 0")]
+#[case("--periods 0")]
+fn zero_results_with_days_zero(#[case] input: &str) -> Result {
+    let code = format!("seq date {} | length", input);
+    test().run(code).expect_value_eq(0)
 }
