@@ -741,7 +741,7 @@ fn eval_instruction<D: DebugContext>(
                     envvar_name: key.into(),
                     span: *span,
                     help: Some(format!(
-                        "use `$env.{member}?` to get `null` if it isn't set, or `$env.{member}? | default <value>` to fall back to a default"
+                        "use `$env.{member}?` to get `null` if it isn't set (add `?` after any members that follow it, too), or pipe it to `default <value>`"
                     )),
                 })
             }

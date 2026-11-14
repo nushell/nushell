@@ -257,6 +257,7 @@ fn hides_env_in_block() -> Result {
 #[case::plain("$env.FOO", "FOO", "$env.FOO?")]
 #[case::digit("$env.P4PORT", "P4PORT", "$env.P4PORT?")]
 #[case::needs_quoting(r#"$env."MY VAR""#, "MY VAR", r#"$env."MY VAR"?"#)]
+#[case::nested("$env.FOO.bar", "FOO", "$env.FOO?")]
 fn missing_env_var_suggests_optional_access(
     #[case] code: &str,
     #[case] name: &str,
@@ -272,6 +273,10 @@ fn missing_env_var_suggests_optional_access(
             assert!(
                 help.contains(&format!("`{suggestion}`")),
                 "help should suggest {suggestion}, got: {help}"
+            );
+            assert!(
+                help.contains("add `?` after any members that follow it"),
+                "help should cover members after the key, got: {help}"
             );
             Ok(())
         }
