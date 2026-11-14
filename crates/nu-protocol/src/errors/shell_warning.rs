@@ -70,6 +70,14 @@ pub enum ShellWarning {
         )
     )]
     LastResultIncomplete,
+    /// `$env.PWD` pointed to a directory that no longer exists or is inaccessible, so the REPL
+    /// fell back to an existing ancestor directory (or home).
+    #[error("$env.PWD ('{old_cwd}') is no longer valid; changed directory to '{new_cwd}'.")]
+    #[diagnostic(
+        code(nu::shell::cwd_recovered),
+        help("The previous working directory was removed, moved, or became inaccessible.")
+    )]
+    CwdRecovered { old_cwd: String, new_cwd: String },
 }
 
 impl Reportable for ShellWarning {
@@ -81,6 +89,7 @@ impl Reportable for ShellWarning {
             ShellWarning::BackgroundJobsRunning { .. } => ReportMode::EveryUse,
             // Once-per-access is handled by a stack flag.
             ShellWarning::LastResultIncomplete => ReportMode::EveryUse,
+            ShellWarning::CwdRecovered { .. } => ReportMode::EveryUse,
         }
     }
 }
@@ -104,6 +113,10 @@ impl Hash for ShellWarning {
                 limit_bytes.hash(state);
             }
             ShellWarning::LastResultIncomplete => {}
+            ShellWarning::CwdRecovered { old_cwd, new_cwd } => {
+                old_cwd.hash(state);
+                new_cwd.hash(state);
+            }
         }
     }
 }
