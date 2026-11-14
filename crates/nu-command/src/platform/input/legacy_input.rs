@@ -28,7 +28,14 @@ struct HeldJobOutput<'a>(Option<&'a JobOutput>);
 impl<'a> HeldJobOutput<'a> {
     fn hold(engine_state: &'a EngineState) -> Self {
         let job_output = &*engine_state.job_output;
-        Self((!engine_state.is_background_job() && job_output.hold()).then_some(job_output))
+        let held = !engine_state.is_background_job() && job_output.hold();
+        if held {
+            // The prompt goes after a job's unfinished line, not into it.
+            job_output.end_job_line(|newline| {
+                let _ = std::io::stdout().write_all(newline);
+            });
+        }
+        Self(held.then_some(job_output))
     }
 }
 

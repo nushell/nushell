@@ -723,6 +723,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // probe in the builder below does a round trip in raw mode, then `read_line` draws the prompt.
     // Hold what background jobs write until the line editor can print it.
     engine_state.job_output.hold();
+    engine_state.job_output.end_job_line(|newline| {
+        let _ = stderr_write_all_and_flush(newline);
+    });
 
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
@@ -1812,7 +1815,7 @@ mod job_output_tests {
     use std::{io::Write, sync::Arc};
 
     fn queue(job_output: &JobOutput, text: &str) {
-        JobOutputWriter::new(Some(job_output), std::io::sink(), |_| true)
+        JobOutputWriter::new(job_output, true, std::io::sink(), |_| true)
             .write_all(text.as_bytes())
             .expect("queueing job output");
     }

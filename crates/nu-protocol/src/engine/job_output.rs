@@ -32,6 +32,9 @@ struct State {
     running_jobs: usize,
     /// When output was last queued, to tell a finished partial line from one still being written.
     last_queued: Option<Instant>,
+    /// A job's last write straight to the terminal left its line unfinished, so the shell's next
+    /// output there starts with a newline instead of continuing that line.
+    job_left_mid_line: bool,
 }
 
 impl JobOutput {
@@ -122,6 +125,16 @@ impl JobOutput {
         state.running_jobs > 0 || state.held.as_ref().is_some_and(|held| !held.is_empty())
     }
 
+    /// Pass a newline to `write` if a job's write straight to the terminal left its line
+    /// unfinished, so a prompt drawn next starts on a line of its own.
+    ///
+    /// Call it after [`Self::hold`], once job output can't reach the terminal directly anymore.
+    pub fn end_job_line(&self, write: impl FnOnce(&[u8])) {
+        if std::mem::take(&mut self.lock().job_left_mid_line) {
+            write(b"\n");
+        }
+    }
+
     /// Count a background job thread as running until the returned guard is dropped, so the line
     /// editor keeps checking for its output.
     ///
@@ -164,26 +177,34 @@ impl Drop for RunningJob {
 }
 
 /// Writes a thread's output to stdout or stderr. While the REPL holds the terminal, a background
-/// job's output to it waits in [`JobOutput`] instead.
+/// job's output to it waits in [`JobOutput`] instead. The shell's own output starts on a new line
+/// when a job's output left the terminal mid-line.
 ///
-/// A background job writes under the [`JobOutput`] lock, so [`JobOutput::hold`] waits for a write
-/// in progress and [`JobOutput::release`] writes the leftover before any later write.
+/// Every write happens under the [`JobOutput`] lock, so [`JobOutput::hold`] waits for a write in
+/// progress and [`JobOutput::release`] writes the leftover before any later write.
 pub struct JobOutputWriter<'a, W> {
-    /// The queue, for a background job's output. `None` writes straight to `inner`.
-    job_output: Option<&'a JobOutput>,
+    job_output: &'a JobOutput,
+    /// Whether this writes a background job's output, rather than the shell's own.
+    from_job: bool,
     inner: W,
     /// Whether `inner` reaches the terminal the line editor paints on.
     is_terminal: fn(&W) -> bool,
-    /// `is_terminal`'s answer, asked only once the REPL holds the terminal during a write.
+    /// `is_terminal`'s answer, asked only once a write depends on it.
     reaches_terminal: Option<bool>,
 }
 
 impl<'a, W: Write> JobOutputWriter<'a, W> {
-    /// Write to `inner`, queueing in `job_output` while the REPL holds the terminal and
-    /// `is_terminal` says `inner` reaches it.
-    pub fn new(job_output: Option<&'a JobOutput>, inner: W, is_terminal: fn(&W) -> bool) -> Self {
+    /// Write to `inner`. A background job's output (`from_job`) waits in `job_output` while the
+    /// REPL holds the terminal and `is_terminal` says `inner` reaches it.
+    pub fn new(
+        job_output: &'a JobOutput,
+        from_job: bool,
+        inner: W,
+        is_terminal: fn(&W) -> bool,
+    ) -> Self {
         Self {
             job_output,
+            from_job,
             inner,
             is_terminal,
             reaches_terminal: None,
@@ -199,22 +220,35 @@ impl<'a, W: Write> JobOutputWriter<'a, W> {
 
 impl<W: Write> Write for JobOutputWriter<'_, W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let Some(job_output) = self.job_output else {
-            return self.inner.write(buf);
-        };
-        let mut state = job_output.lock();
+        let mut state = self.job_output.lock();
         let state = &mut *state;
-        match state.held.as_mut() {
-            Some(held) if self.reaches_terminal() => {
-                held.extend_from_slice(buf);
-                discard_overwritten(held);
-                state.last_queued = Some(Instant::now());
+
+        if !self.from_job {
+            if state.job_left_mid_line && !buf.is_empty() && self.reaches_terminal() {
+                self.inner.write_all(b"\n")?;
+                state.job_left_mid_line = false;
             }
-            // Write and flush under the lock, so `hold` can't hand the terminal to the line
-            // editor halfway through.
-            _ => {
-                self.inner.write_all(buf)?;
-                self.inner.flush()?;
+            self.inner.write_all(buf)?;
+            return Ok(buf.len());
+        }
+
+        if let Some(held) = state.held.as_mut()
+            && self.reaches_terminal()
+        {
+            held.extend_from_slice(buf);
+            discard_overwritten(held);
+            state.last_queued = Some(Instant::now());
+            return Ok(buf.len());
+        }
+
+        // Write and flush under the lock, so `hold` can't hand the terminal to the line editor
+        // halfway through.
+        self.inner.write_all(buf)?;
+        self.inner.flush()?;
+        if let Some(&last) = buf.last() {
+            let mid_line = last != b'\n';
+            if mid_line != state.job_left_mid_line && self.reaches_terminal() {
+                state.job_left_mid_line = mid_line;
             }
         }
         Ok(buf.len())
@@ -229,10 +263,26 @@ impl<W: Write> Write for JobOutputWriter<'_, W> {
 mod tests {
     use super::*;
 
+    /// Write `bytes` as a background job's output, and return what reached the stream.
     fn write(output: &JobOutput, reaches_terminal: bool, bytes: &[u8]) -> Vec<u8> {
+        write_as(output, true, reaches_terminal, bytes)
+    }
+
+    /// Write `bytes` as the shell's own output, and return what reached the stream.
+    fn write_from_shell(output: &JobOutput, reaches_terminal: bool, bytes: &[u8]) -> Vec<u8> {
+        write_as(output, false, reaches_terminal, bytes)
+    }
+
+    fn write_as(
+        output: &JobOutput,
+        from_job: bool,
+        reaches_terminal: bool,
+        bytes: &[u8],
+    ) -> Vec<u8> {
         let mut written = Vec::new();
         JobOutputWriter::new(
-            Some(output),
+            output,
+            from_job,
             &mut written,
             if reaches_terminal {
                 |_| true
@@ -280,7 +330,7 @@ mod tests {
         output.hold();
         let mut written = Vec::new();
 
-        JobOutputWriter::new(None, &mut written, |_| true)
+        JobOutputWriter::new(&output, false, &mut written, |_| true)
             .write_all(b"main\n")
             .expect("writing to a Vec");
 
@@ -306,7 +356,7 @@ mod tests {
     fn job_output_is_written_under_the_lock() {
         let output = JobOutput::new();
 
-        JobOutputWriter::new(Some(&output), AssertLocked(&output), |_| true)
+        JobOutputWriter::new(&output, true, AssertLocked(&output), |_| true)
             .write_all(b"direct\n")
             .expect("writing");
     }
@@ -318,7 +368,7 @@ mod tests {
         let mut leftover = Vec::new();
 
         {
-            let mut writer = JobOutputWriter::new(Some(&output), &mut written, |_| true);
+            let mut writer = JobOutputWriter::new(&output, true, &mut written, |_| true);
             writer.write_all(b"before\n").expect("writing");
             output.hold();
             writer.write_all(b"held\n").expect("writing");
@@ -447,6 +497,54 @@ mod tests {
         assert!(!output.hold());
         output.release(|_| ());
         assert!(output.hold());
+    }
+
+    #[test]
+    fn shell_output_after_a_job_left_mid_line_starts_a_new_line() {
+        let output = JobOutput::new();
+        write(&output, true, b"1 ");
+
+        assert_eq!(write_from_shell(&output, true, b"11\n"), b"\n11\n");
+        assert_eq!(write_from_shell(&output, true, b"12\n"), b"12\n");
+    }
+
+    #[test]
+    fn shell_output_after_a_finished_job_line_gets_no_newline() {
+        let output = JobOutput::new();
+        write(&output, true, b"1 ");
+        write(&output, true, b"done\n");
+
+        assert_eq!(write_from_shell(&output, true, b"11\n"), b"11\n");
+    }
+
+    #[test]
+    fn shell_output_elsewhere_gets_no_newline() {
+        let output = JobOutput::new();
+        write(&output, true, b"1 ");
+
+        assert_eq!(write_from_shell(&output, false, b"to a file"), b"to a file");
+        assert_eq!(write_from_shell(&output, true, b"11\n"), b"\n11\n");
+    }
+
+    #[test]
+    fn a_job_line_ended_elsewhere_is_not_tracked() {
+        let output = JobOutput::new();
+        write(&output, false, b"to a file");
+
+        assert_eq!(write_from_shell(&output, true, b"11\n"), b"11\n");
+    }
+
+    #[test]
+    fn end_job_line_ends_an_unfinished_job_line_once() {
+        let output = JobOutput::new();
+        write(&output, true, b"1 ");
+        output.hold();
+        let mut written = Vec::new();
+
+        output.end_job_line(|newline| written.extend_from_slice(newline));
+        output.end_job_line(|newline| written.extend_from_slice(newline));
+
+        assert_eq!(written, b"\n");
     }
 
     #[test]

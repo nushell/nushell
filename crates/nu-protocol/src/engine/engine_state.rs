@@ -1559,8 +1559,12 @@ impl EngineState {
         stream: W,
         is_terminal: fn(&W) -> bool,
     ) -> JobOutputWriter<'_, W> {
-        let job_output = self.is_background_job().then_some(&*self.job_output);
-        JobOutputWriter::new(job_output, stream, is_terminal)
+        JobOutputWriter::new(
+            &self.job_output,
+            self.is_background_job(),
+            stream,
+            is_terminal,
+        )
     }
 
     // Gets the thread job entry
