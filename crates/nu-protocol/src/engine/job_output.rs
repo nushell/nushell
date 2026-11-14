@@ -1,7 +1,15 @@
+use nu_utils::time::Instant;
 use std::{
     io::{self, Write},
     sync::{Arc, Mutex, MutexGuard},
+    time::Duration,
 };
+
+/// How long a partial line waits for more output before [`JobOutput::drain`] takes it anyway.
+///
+/// Separate `print -n` calls get lines of their own, while the chunks of one stream, which
+/// arrive back to back, stay together.
+const PARTIAL_LINE_IDLE: Duration = Duration::from_millis(100);
 
 /// What background jobs write to the terminal while the REPL holds it.
 ///
@@ -22,6 +30,8 @@ struct State {
     held: Option<Vec<u8>>,
     /// Background job threads still running. A killed job counts until its thread returns.
     running_jobs: usize,
+    /// When output was last queued, to tell a finished partial line from one still being written.
+    last_queued: Option<Instant>,
 }
 
 impl JobOutput {
@@ -40,9 +50,13 @@ impl JobOutput {
     /// Start queueing: the REPL is about to hand the terminal to the line editor.
     ///
     /// Waits for a job's write in progress, so it can't land once the line editor has the
-    /// terminal.
-    pub fn hold(&self) {
-        self.lock().held.get_or_insert_with(Vec::new);
+    /// terminal. Returns whether this call started holding, so a caller nested in a hold, like
+    /// `input` run from a keybinding, can leave its release to whoever started it.
+    pub fn hold(&self) -> bool {
+        let mut state = self.lock();
+        let started = state.held.is_none();
+        state.held.get_or_insert_with(Vec::new);
+        started
     }
 
     /// Stop queueing and pass the output the line editor has not printed yet to `write`, now that
@@ -63,26 +77,37 @@ impl JobOutput {
 
     /// Take the queued lines for the line editor to print, and keep queueing.
     ///
-    /// The line editor prints what it gets as whole lines, so a line still being written stays
-    /// queued until its newline arrives. Once no job thread is running nothing can finish it, and
-    /// it is taken too.
+    /// Whoever prints it puts each drained piece on lines of its own, so a line still being
+    /// written stays queued while more of it may follow: until its newline arrives, or no job
+    /// thread is running, or no output was queued for [`PARTIAL_LINE_IDLE`].
     pub fn drain(&self) -> Option<String> {
         let mut state = self.lock();
         let jobs_running = state.running_jobs > 0;
+        let partial_done = !jobs_running
+            || state
+                .last_queued
+                .is_none_or(|queued| queued.elapsed() >= PARTIAL_LINE_IDLE);
         let held = state.held.as_mut()?;
-        let end = if jobs_running {
-            held.iter()
-                .rposition(|&byte| byte == b'\n')
-                .map_or(0, |newline| newline + 1)
+        let line_start = held
+            .iter()
+            .rposition(|&byte| byte == b'\n')
+            .map_or(0, |newline| newline + 1);
+        let end = if partial_done {
+            // Keep a character a stream has only written part of, since its job may finish it.
+            match std::str::from_utf8(&held[line_start..]) {
+                Err(err) if err.error_len().is_none() && jobs_running => {
+                    line_start + err.valid_up_to()
+                }
+                _ => held.len(),
+            }
         } else {
-            held.len()
+            line_start
         };
         if end == 0 {
             return None;
         }
 
         let rest = held.split_off(end);
-        // Splitting after a newline never cuts a UTF-8 character in two.
         let lines = std::mem::replace(held, rest);
         Some(match String::from_utf8(lines) {
             Ok(lines) => lines,
@@ -178,10 +203,12 @@ impl<W: Write> Write for JobOutputWriter<'_, W> {
             return self.inner.write(buf);
         };
         let mut state = job_output.lock();
+        let state = &mut *state;
         match state.held.as_mut() {
             Some(held) if self.reaches_terminal() => {
                 held.extend_from_slice(buf);
                 discard_overwritten(held);
+                state.last_queued = Some(Instant::now());
             }
             // Write and flush under the lock, so `hold` can't hand the terminal to the line
             // editor halfway through.
@@ -375,6 +402,51 @@ mod tests {
 
         assert_eq!(written, b"left over\n");
         assert_eq!(write(&output, true, b"after\n"), b"after\n");
+    }
+
+    /// Make the queued output look as if nothing was written for [`PARTIAL_LINE_IDLE`].
+    fn go_idle(output: &JobOutput) {
+        output.lock().last_queued = Instant::now().checked_sub(PARTIAL_LINE_IDLE);
+    }
+
+    #[test]
+    fn an_idle_partial_line_is_drained_while_a_job_runs() {
+        let output = Arc::new(JobOutput::new());
+        let _job = output.job_running();
+        output.hold();
+        write(&output, true, b"done\n1 ");
+        assert_eq!(output.drain().as_deref(), Some("done\n"));
+
+        go_idle(&output);
+
+        assert_eq!(output.drain().as_deref(), Some("1 "));
+        assert_eq!(output.drain(), None);
+    }
+
+    #[test]
+    fn an_idle_partial_line_keeps_a_character_cut_in_two() {
+        let output = Arc::new(JobOutput::new());
+        let _job = output.job_running();
+        output.hold();
+        let bytes = "aé".as_bytes();
+        write(&output, true, &bytes[..2]);
+
+        go_idle(&output);
+        assert_eq!(output.drain().as_deref(), Some("a"));
+
+        write(&output, true, &bytes[2..]);
+        go_idle(&output);
+        assert_eq!(output.drain().as_deref(), Some("é"));
+    }
+
+    #[test]
+    fn hold_reports_whether_it_started_holding() {
+        let output = JobOutput::new();
+
+        assert!(output.hold());
+        assert!(!output.hold());
+        output.release(|_| ());
+        assert!(output.hold());
     }
 
     #[test]
