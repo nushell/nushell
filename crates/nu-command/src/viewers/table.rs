@@ -86,12 +86,16 @@ impl Command for Table {
                 "An expand limit of recursion which will take place, must be used with --expand.",
                 Some('d'),
             )
-            .switch("flatten", "Flatten simple arrays.", None)
+            .switch(
+                "flatten",
+                "Flatten simple arrays.",
+                Some('f')
+            )
             .named(
                 "flatten-separator",
                 SyntaxShape::String,
                 "Sets a separator when 'flatten' is used.",
-                None,
+                Some('s'),
             )
             .switch(
                 "collapse",
