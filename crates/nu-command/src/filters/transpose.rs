@@ -1,5 +1,6 @@
 use nu_engine::{column::get_columns, command_prelude::*};
 use nu_protocol::shell_error::generic::GenericError;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Transpose;
@@ -233,14 +234,45 @@ pub fn transpose(
         }
     }
 
-    let mut descs = descs.into_iter();
-    if args.header_row {
-        descs.next();
+    // Gather every cell into a column-major grid in one pass over the input,
+    // instead of a linear key lookup per (column, row), which was quadratic.
+    let num_rows = input.len();
+    let col_index: HashMap<&str, usize> = descs
+        .iter()
+        .enumerate()
+        .map(|(i, desc)| (desc.as_str(), i))
+        .collect();
+    let mut cells: Vec<Option<Value>> = vec![None; descs.len() * num_rows];
+    for (row, value) in input.into_iter().enumerate() {
+        if let Value::Record { val, .. } = value {
+            for (key, x) in val.into_owned() {
+                if let Some(&col) = col_index.get(key.as_str()) {
+                    // Later duplicates win, like `Record::get`.
+                    cells[col * num_rows + row] = Some(x);
+                }
+            }
+        }
     }
+
+    // Map each header position to its field index in the output records, so
+    // repeated headers can be merged without searching the record.
+    let mut seen: HashMap<&str, usize> = HashMap::with_capacity(headers.len());
+    let slots: Vec<usize> = headers
+        .iter()
+        .map(|header| {
+            let next = seen.len();
+            *seen.entry(header.as_str()).or_insert(next)
+        })
+        .collect();
+
+    let first_col = usize::from(args.header_row);
     let mut result_data = descs
-        .map(|desc| {
+        .iter()
+        .enumerate()
+        .skip(first_col)
+        .map(|(col, desc)| {
             let mut column_num: usize = 0;
-            let mut record = Record::new();
+            let mut record = Record::with_capacity(seen.len());
 
             if !args.ignore_titles && !args.header_row {
                 record.push(
@@ -250,28 +282,29 @@ pub fn transpose(
                 column_num += 1
             }
 
-            for i in input.iter() {
-                let x = i
-                    .get_data_by_key(&desc)
+            for row in 0..num_rows {
+                let x = cells[col * num_rows + row]
+                    .take()
                     .unwrap_or_else(|| Value::nothing(name));
-                match record.get_mut(&headers[column_num]) {
-                    None => {
-                        record.push(headers[column_num].clone(), x);
-                    }
-                    Some(val) => {
-                        if args.keep_all {
-                            let current_span = val.span();
-                            match val {
-                                Value::List { vals, .. } => {
-                                    vals.to_mut().push(x);
-                                }
-                                v => {
-                                    *v = Value::list(vec![std::mem::take(v), x], current_span);
-                                }
-                            };
-                        } else if args.keep_last {
-                            *val = x;
-                        }
+                let slot = slots[column_num];
+                if slot == record.len() {
+                    record.push(headers[column_num].clone(), x);
+                } else {
+                    let (_, val) = record
+                        .get_index_mut(slot)
+                        .expect("slot refers to an existing field");
+                    if args.keep_all {
+                        let current_span = val.span();
+                        match val {
+                            Value::List { vals, .. } => {
+                                vals.to_mut().push(x);
+                            }
+                            v => {
+                                *v = Value::list(vec![std::mem::take(v), x], current_span);
+                            }
+                        };
+                    } else if args.keep_last {
+                        *val = x;
                     }
                 }
 
