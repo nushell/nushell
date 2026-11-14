@@ -52,9 +52,11 @@ impl Command for ToRon {
             help: Some(err.to_string()),
         })?;
 
-        Ok(Value::string(output_string, span).into_pipeline_data_with_metadata(
-            metadata.map(|md| md.with_content_type(Some("application/x-ron".into()))),
-        ))
+        Ok(
+            Value::string(output_string, span).into_pipeline_data_with_metadata(
+                metadata.map(|md| md.with_content_type(Some("application/x-ron".into()))),
+            ),
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
