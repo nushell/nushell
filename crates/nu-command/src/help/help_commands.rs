@@ -21,7 +21,7 @@ impl Command for HelpCommands {
                 PositionalArg::new("rest", SyntaxShape::String)
                     .desc("The name of command to get help on.")
                     .completion(Completion::Builtin(BuiltinCompletion::Command {
-                        internal_only: false,
+                        internal_only: true,
                     })),
             ))
             .named(
