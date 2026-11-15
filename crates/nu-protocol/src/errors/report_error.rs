@@ -11,8 +11,8 @@ use crate::{
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use miette::{
-    LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
-    SourceCode,
+    GraphicalTheme, LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler,
+    RgbColors, Severity, SourceCode, ThemeCharacters,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -254,6 +254,20 @@ impl std::fmt::Debug for CliError<'_> {
                     .context_lines(error_lines as usize)
                     .with_cause_chain();
                 match style {
+                    ErrorStyle::Thin if ansi_support => {
+                        let mut theme = GraphicalTheme::unicode();
+                        theme.characters.ltop = '┌';
+                        theme.characters.rtop = '┐';
+                        theme.characters.lbot = '└';
+                        theme.characters.rbot = '┘';
+                        Box::new(handler.graphical_theme(theme).build())
+                    }
+                    ErrorStyle::Ascii => Box::new(handler.unicode(false).build()),
+                    ErrorStyle::Emoji if ansi_support => {
+                        let mut theme = GraphicalTheme::unicode();
+                        theme.characters = ThemeCharacters::emoji();
+                        Box::new(handler.graphical_theme(theme).build())
+                    }
                     ErrorStyle::Nested => Box::new(handler.show_related_errors_as_nested().build()),
                     _ => Box::new(handler.build()),
                 }

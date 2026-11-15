@@ -1889,7 +1889,7 @@ fn table_mode_accepts_all_valid_modes() -> TestResult {
 // Test for error-style with all valid values
 #[test]
 fn error_style_accepts_all_valid_styles() -> TestResult {
-    let styles = ["fancy", "plain", "short"];
+    let styles = ["fancy", "thin", "ascii", "emoji", "plain", "short"];
 
     for style in styles {
         let mut cmd = Command::new(cargo_bin!());
@@ -1907,6 +1907,69 @@ fn error_style_accepts_all_valid_styles() -> TestResult {
         assert!(output.status.success(), "Failed for error style: {}", style);
     }
 
+    Ok(())
+}
+
+#[test]
+fn error_style_controls_characters() -> TestResult {
+    for (style, corners, other_corners, error_symbol) in [
+        ("fancy", "╭╰", "┌└", "×"),
+        ("thin", "┌└", "╭╰", "×"),
+        ("ascii", ",`", "╭╰┌└", "x"),
+        ("emoji", "╭╰", "┌└", "💥"),
+    ] {
+        for use_flag in [false, true] {
+            let mut cmd = Command::new(cargo_bin!());
+            cmd.args(["--no-config-file", "--no-std-lib"])
+                .env("FORCE_COLOR", "1")
+                .env("NO_GRAPHICS", "0");
+            let script = if use_flag {
+                cmd.args(["--error-style", style]);
+                "1 / 0".to_string()
+            } else {
+                format!("$env.config.error_style = '{style}'; 1 / 0")
+            };
+            let output = cmd.args(["-c", &script]).output()?;
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            assert!(!output.status.success());
+            assert!(stderr.contains("Division by zero"), "{stderr}");
+            assert!(stderr.contains(error_symbol), "{style}: {stderr}");
+            for corner in corners.chars() {
+                assert!(stderr.contains(corner), "{style}: {stderr}");
+            }
+            for corner in other_corners.chars() {
+                assert!(!stderr.contains(corner), "{style}: {stderr}");
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn error_style_preserves_ascii_fallback() -> TestResult {
+    for style in ["fancy", "thin", "ascii", "emoji"] {
+        let output = Command::new(cargo_bin!())
+            .env_remove("FORCE_COLOR")
+            .env("NO_COLOR", "1")
+            .env("NO_GRAPHICS", "0")
+            .args([
+                "--no-config-file",
+                "--no-std-lib",
+                "--error-style",
+                style,
+                "-c",
+                "1 / 0",
+            ])
+            .output()?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(!output.status.success());
+        assert!(stderr.contains("Division by zero"), "{style}: {stderr}");
+        assert!(stderr.contains(",-["), "{style}: {stderr}");
+        assert!(stderr.is_ascii(), "{style}: {stderr}");
+        assert!(!stderr.contains('\u{1b}'), "{style}: {stderr}");
+    }
     Ok(())
 }
 

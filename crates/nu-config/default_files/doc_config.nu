@@ -545,10 +545,14 @@ $env.config.use_ansi_coloring = "auto"
 # Error Display Settings
 # ----------------------
 
-# error_style (string): One of "fancy", "plain", "short" or "nested"
+# error_style (string): One of "fancy", "thin", "ascii", "emoji", "plain", "short" or "nested"
 # Plain: Display plain-text errors for screen-readers
 # Fancy: Display errors using line-drawing characters to point to the span in which the
 #        problem occurred.
+# Thin: Same as Fancy but with square corners.
+# Ascii: Display graphical errors using ASCII characters, with color when enabled.
+# Emoji: Same as Fancy but with emoji symbols for errors, warnings, and advice.
+# Fancy, Thin, and Emoji use ASCII characters when use_ansi_coloring is disabled.
 # Short: Display errors as concise, single-line messages similar to classic shells.
 # Nested: Same as Fancy but with nesting for related errors.
 $env.config.error_style = "fancy"

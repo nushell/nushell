@@ -42,7 +42,7 @@ const TABLE_MODE_VALUES: &[&str] = &[
     "single",
     "double",
 ];
-const ERROR_STYLE_VALUES: &[&str] = &["fancy", "plain", "short"];
+const ERROR_STYLE_VALUES: &[&str] = &["fancy", "thin", "ascii", "emoji", "plain", "short"];
 const LOG_LEVEL_VALUES: &[&str] = &["error", "warn", "info", "debug", "trace", "perf"];
 const LOG_TARGET_VALUES: &[&str] = &["stdout", "stderr", "mixed", "file"];
 #[cfg(feature = "mcp")]
@@ -240,7 +240,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         "error-style",
         None,
         ValueHint::String,
-        "the error style to use (fancy or plain). default: fancy",
+        "the error style to use (fancy, thin, ascii, emoji, plain or short). default: fancy",
         CliCategory::Startup,
         "nu --error-style plain",
     ),

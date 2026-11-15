@@ -6,6 +6,9 @@ use crate::{self as nu_protocol};
 pub enum ErrorStyle {
     #[default]
     Fancy,
+    Thin,
+    Ascii,
+    Emoji,
     Plain,
     Short,
     Nested,
@@ -17,10 +20,13 @@ impl FromStr for ErrorStyle {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "fancy" => Ok(Self::Fancy),
+            "thin" => Ok(Self::Thin),
+            "ascii" => Ok(Self::Ascii),
+            "emoji" => Ok(Self::Emoji),
             "plain" => Ok(Self::Plain),
             "short" => Ok(Self::Short),
             "nested" => Ok(Self::Nested),
-            _ => Err("'fancy', 'plain', 'short' or 'nested'"),
+            _ => Err("'fancy', 'thin', 'ascii', 'emoji', 'plain', 'short' or 'nested'"),
         }
     }
 }
