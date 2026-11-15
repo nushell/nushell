@@ -1555,6 +1555,63 @@ fn overlay_hide_escape_sensitive_prefixes(
     assert!(!stack.is_overlay_active(name));
 }
 
+#[rstest]
+#[case::before_escape("say\"hi", r#""say"#, 3)]
+#[case::trailing_backslash("say\"hi", r#""say\"#, 3)]
+#[case::unicode_start("say\"hi", r#""say\u"#, 3)]
+#[case::unicode_brace("say\"hi", r#""say\u{"#, 3)]
+#[case::unicode_digit("say\"hi", r#""say\u{2"#, 3)]
+#[case::complete_unicode("say\"hi", r#""say\u{22}"#, 4)]
+#[case::hex_start("say\"hi", r#""say\x"#, 3)]
+#[case::hex_digit("say\"hi", r#""say\x2"#, 3)]
+#[case::complete_hex("say\"hi", r#""say\x22"#, 4)]
+#[case::paired_backslashes(r"path\name", r#""path\\"#, 5)]
+#[case::odd_backslashes(r"path\name", r#""path\\\"#, 5)]
+#[case::single_quoted(r"path\name", r"'path\", 5)]
+#[case::backtick(r"path\name", r"`path\", 5)]
+#[case::escaped_unicode_introducer(r"say\u{name", r#""say\\u{"#, 6)]
+fn overlay_hide_incomplete_escape_prefixes(
+    #[case] name: &str,
+    #[case] prefix: &str,
+    #[case] matched_graphemes: usize,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let source = format!("overlay new {}", nu_utils::escape_quote_string(name));
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let mut line = format!("overlay hide {prefix}");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    assert_eq!(suggestions.len(), 1, "prefix {prefix:?}: {suggestions:?}");
+    let suggestion = &suggestions[0];
+    assert_eq!(suggestion.display_value(), name);
+    assert_eq!(
+        suggestion.span,
+        Span::new("overlay hide ".len(), line.len())
+    );
+    assert_eq!(
+        suggestion.match_indices,
+        Some((0..matched_graphemes).collect())
+    );
+    line.replace_range(
+        suggestion.span.start..suggestion.span.end,
+        &suggestion.value,
+    );
+    support::merge_input(line.as_bytes(), &mut engine, &mut stack).unwrap();
+    assert!(!stack.is_overlay_active(name));
+}
+
+#[rstest]
+#[case(r#""say\q"#)]
+#[case(r#""say\xZ"#)]
+#[case(r#""say\u{ZZ"#)]
+fn overlay_hide_invalid_escape_prefixes(#[case] prefix: &str) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(b"overlay new sayhello", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = format!("overlay hide {prefix}");
+    assert!(completer.complete_blocking(&line, line.len()).is_empty());
+}
+
 #[test]
 fn overlay_hide_completion_replaces_only_the_name() {
     let (_, _, mut engine, mut stack) = new_engine();
@@ -1572,9 +1629,11 @@ fn overlay_hide_completion_replaces_only_the_name() {
 }
 
 #[rstest]
-#[case::activated_in_block("if true { overlay new runtime }", vec!["runtime"])]
+#[case::activated_in_block("if true { overlay new runtime }", vec![])]
 #[case::hidden_in_block("overlay new runtime; if true { overlay hide runtime }", vec![])]
-fn overlay_hide_completions_follow_runtime_state(
+#[case::runtime_only_with_valid("overlay new valid; if true { overlay new runtime }", vec!["valid"])]
+#[case::parser_only_with_valid("overlay new runtime; overlay new valid; if true { overlay hide runtime }", vec!["valid"])]
+fn overlay_hide_completions_require_parser_and_runtime_state(
     #[case] source: &str,
     #[case] expected: Vec<&str>,
 ) {
@@ -1584,9 +1643,15 @@ fn overlay_hide_completions_follow_runtime_state(
         .active_overlay_names(&[])
         .any(|name| name == b"runtime");
     assert_ne!(parser_active, stack.is_overlay_active("runtime"));
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
     let line = "overlay hide ";
-    match_suggestions(&expected, &completer.complete_blocking(line, line.len()));
+    let suggestions = completer.complete_blocking(line, line.len());
+    match_suggestions(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        let command = format!("overlay hide {}", suggestion.value);
+        support::merge_input(command.as_bytes(), &mut engine, &mut stack).unwrap();
+        assert!(!stack.is_overlay_active(&suggestion.value));
+    }
 }
 
 #[rstest]

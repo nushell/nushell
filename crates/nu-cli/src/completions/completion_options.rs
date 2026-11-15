@@ -34,6 +34,7 @@ pub enum MatchAlgorithm {
 pub struct NuMatcher<'a, T> {
     options: &'a CompletionOptions,
     should_sort: bool,
+    /// Trim quotes around each haystack, as `new` does to the needle. `literal` keeps them.
     strip_quotes: bool,
     needle: String,
     state: State<T>,

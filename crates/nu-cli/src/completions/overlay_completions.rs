@@ -13,6 +13,7 @@ impl Completer for OverlayCompletion {
         // The parser's unquoting helper expects a closing quote, even while the
         // user is still typing. An escaped double quote is part of the name.
         let mut prefix = ctx.prefix.to_vec();
+        truncate_incomplete_escape(&mut prefix);
         if let Some(&quote @ (b'\'' | b'"' | b'`')) = prefix.first() {
             let escaped = quote == b'"'
                 && prefix[..prefix.len() - 1]
@@ -33,10 +34,14 @@ impl Completer for OverlayCompletion {
         let mut matcher = NuMatcher::literal(prefix, ctx.options, true);
         let span = to_reedline_span(ctx.span, ctx.offset);
 
-        // Parsing `overlay hide` can already remove its target from the working set.
-        // Use the runtime list, as `overlay list` does, rather than that speculative state.
+        // Use permanent parser state: the completion parse can already hide its target.
+        let engine_state = ctx.working_set.permanent_state;
         for name in &ctx.stack.active_overlays {
-            if name == DEFAULT_OVERLAY_NAME {
+            if name == DEFAULT_OVERLAY_NAME
+                || !engine_state
+                    .active_overlay_names(&[])
+                    .any(|parsed| parsed == name.as_bytes())
+            {
                 continue;
             }
             let (value, display_override) =
@@ -59,5 +64,34 @@ impl Completer for OverlayCompletion {
 
         // Overlay activation can change between prompts without adding declarations.
         Fetched::answering(matcher.suggestion_results()).without_cache()
+    }
+}
+
+/// Match the complete part of a double-quoted prefix while an escape is still being typed.
+fn truncate_incomplete_escape(prefix: &mut Vec<u8>) {
+    if prefix.first() != Some(&b'"') {
+        return;
+    }
+
+    let mut index = 1;
+    while index < prefix.len() {
+        if prefix[index] != b'\\' {
+            index += 1;
+            continue;
+        }
+        let incomplete = match &prefix[index + 1..] {
+            [] | [b'u'] | [b'x'] => true,
+            [b'x', digit] => digit.is_ascii_hexdigit(),
+            [b'u', b'{', digits @ ..] => {
+                digits.len() <= 6 && digits.iter().all(u8::is_ascii_hexdigit)
+            }
+            _ => false,
+        };
+        if incomplete {
+            prefix.truncate(index);
+            return;
+        }
+        // Skip an escaped character so a literal backslash cannot start another escape.
+        index += 2;
     }
 }

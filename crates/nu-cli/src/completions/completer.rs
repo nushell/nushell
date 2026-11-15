@@ -1999,6 +1999,29 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
+        // The lexer can split a trailing escape out of its unclosed quoted argument.
+        if matches!(argument, Argument::Positional(expression) if matches!(expression.expr, Expr::Garbage))
+            && working_set.get_span_contents(argument.span()) == b"\\"
+            && let Some(previous_index) = argument_index.checked_sub(1)
+            && let Some(previous) = site.call.arguments.get(previous_index)
+            && matches!(previous, Argument::Positional(_))
+            && previous.span().end == argument.span().start
+            && working_set.parse_errors.iter().any(|error| {
+                matches!(error, nu_protocol::ParseError::Unclosed(delimiter, opener, _, _)
+                    if delimiter == "\"" && opener.start == previous.span().start)
+            })
+        {
+            return CompletionSite::at(
+                absolute_position,
+                SiteKind::Positional {
+                    site,
+                    sig_positional: count_positionals(site.call, previous_index),
+                    arg_slot: previous_index,
+                },
+                Span::new(previous.span().start, argument.span().end),
+            );
+        }
+
         let sig_positional = count_positionals(site.call, argument_index);
         let flag_name = SiteKind::FlagName {
             site,
@@ -2972,6 +2995,43 @@ mod completer_tests {
                 .collect(),
         );
         assert_eq!(expected, settled);
+    }
+
+    #[test]
+    fn dangling_escape_stays_with_its_unclosed_argument() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        apply_source(
+            &mut engine,
+            &mut Stack::new(),
+            b"def sample [name?: string] {}",
+        );
+        for (line, index, token) in [
+            (r#"sample "say\"#, 0, r#""say\"#),
+            (r#"sample "say\\\"#, 0, r#""say\\\"#),
+            (r#"sample "say" \"#, 1, r"\"),
+            (r"sample say\", 0, r"say\"),
+        ] {
+            let mut working_set = StateWorkingSet::new(&engine);
+            let offset = working_set.next_span_start();
+            let block = parse(&mut working_set, None, line.as_bytes(), false);
+            let site = CompletionEngine::resolve_completion_site(
+                &block,
+                &working_set,
+                Buffer { text: line, offset },
+                line,
+            );
+            assert_eq!(
+                site.kind.resolved(),
+                ResolvedCursor::Positional { index },
+                "{line:?}"
+            );
+            assert_eq!(site.typed_prefix, token, "{line:?}");
+            assert_eq!(
+                site.span,
+                Span::new(offset + line.len() - token.len(), offset + line.len()),
+                "{line:?}"
+            );
+        }
     }
 
     #[test]
