@@ -419,6 +419,7 @@ fn spread_full_reparse(run_args: &[engine::Argument]) -> Result<bool, ShellError
 /// The parser parses these arguments without `main`'s signature, so a bare `23` is an `int` even
 /// where `main` takes a `string`, which a call to `main` would convert. A variable, a
 /// subexpression or a record has the same type in a call to `main`, so its error gets no hint.
+/// The hint goes before any help the type check already gave, such as a missing record field.
 fn with_conversion_hint(
     engine_state: &EngineState,
     err: ShellError,
@@ -428,11 +429,11 @@ fn with_conversion_hint(
         ShellError::CantConvert {
             to_type,
             from_type,
-            help: None,
+            help: detail,
             ..
         } => {
             let text = engine_state.get_span_contents(value_span);
-            let help = (!matches!(text.first(), Some(b'$' | b'(' | b'{'))).then(|| {
+            let hint = (!matches!(text.first(), Some(b'$' | b'(' | b'{'))).then(|| {
                 if to_type == "string" {
                     "`run` doesn't convert script arguments; quote the value to pass a string"
                         .to_owned()
@@ -442,6 +443,10 @@ fn with_conversion_hint(
                     )
                 }
             });
+            let help = match (hint, detail) {
+                (Some(hint), Some(detail)) => Some(format!("{hint}\n{detail}")),
+                (hint, detail) => hint.or(detail),
+            };
             ShellError::CantConvert {
                 to_type,
                 from_type,
@@ -481,9 +486,18 @@ impl ArgumentTarget for MainArguments<'_> {
         value: Value,
         span: Span,
     ) -> Result<(), ShellError> {
+        // A spread record's field error points at the field's value and names the flag it
+        // doesn't match, so it stays as is. A list item's error gets the hint, as a positional does.
+        let is_record = matches!(value, Value::Record { .. });
         self.call_eval
             .add_spread(signature, value, span)
-            .map_err(|err| with_conversion_hint(self.engine_state, err, span))?;
+            .map_err(|err| {
+                if is_record {
+                    err
+                } else {
+                    with_conversion_hint(self.engine_state, err, span)
+                }
+            })?;
         Ok(())
     }
 
@@ -501,7 +515,7 @@ impl ArgumentTarget for MainArguments<'_> {
                     to_type: flag_type.to_string(),
                     from_type: value.get_type().to_string(),
                     span: *value_span,
-                    help: None,
+                    help: value.explain_type_mismatch(&flag_type),
                 };
                 return Err(with_conversion_hint(self.engine_state, err, *value_span));
             }

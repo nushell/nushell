@@ -111,13 +111,17 @@ pub fn expand_flag_record(
             {
                 let expected = shape.to_type();
                 if !val.is_assignable_to(&expected) {
+                    let mut help =
+                        format!("spread field `{key}` does not match the type of `--{key}`");
+                    if let Some(detail) = val.explain_type_mismatch(&expected) {
+                        help.push('\n');
+                        help.push_str(&detail);
+                    }
                     return Err(ShellError::CantConvert {
                         to_type: expected.to_string(),
                         from_type: val.get_type().to_string(),
                         span: val.span(),
-                        help: Some(format!(
-                            "spread field `{key}` does not match the type of `--{key}`"
-                        )),
+                        help: Some(help),
                     });
                 }
             }
