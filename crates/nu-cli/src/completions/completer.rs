@@ -2188,6 +2188,11 @@ impl<'engine> CompletionEngine<'engine> {
             BuiltinCompletion::Overlay => OverlayCompletion.fetch(context),
             BuiltinCompletion::Command { internal_only } => {
                 if internal_only {
+                    // For commands like `help` where multiple positional rest arguments form
+                    // a single command path (e.g. `help str join`), complete words after the
+                    // first as subcommands of earlier words. Starting the replacement span at
+                    // the first rest word ensures the suggestion replaces the full sub-path
+                    // (e.g. `str ca` -> `str camel-case`).
                     let earlier_positionals: Vec<_> = arg_value
                         .call
                         .arguments
