@@ -2,11 +2,11 @@ use crate::{
     BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
     Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
     TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
-    ast::{Block, Expr},
+    ast::{Block, Expr, Traverse},
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
-        ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
+        ScopeFrame, Stack, StateDelta, StateWorkingSet, Variable, VisibilityStack,
         description::{Doccomments, build_desc},
         signature_cache::SignatureCache,
     },
@@ -466,6 +466,12 @@ impl EngineState {
                 for item in delta_overlay.vars.into_iter() {
                     existing_overlay.insert_variable(item.0, item.1);
                 }
+                // The loop above only sees each name's last binding. A binding the same source
+                // shadowed (the first `$x` in `let x = 1; let x = 2`) was recorded in the delta,
+                // so carry it over, or `cleanup_stack_variables` never frees its value.
+                existing_overlay
+                    .shadowed_vars
+                    .extend(delta_overlay.shadowed_vars);
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
@@ -610,7 +616,10 @@ impl EngineState {
     }
 
     /// Clean up unused variables from a Stack to prevent memory leaks.
-    /// This removes variables that are no longer referenced by any overlay or alias.
+    ///
+    /// This removes the values of variables recorded as shadowed since the last cleanup, unless
+    /// some overlay still binds the variable by name, or an alias or custom command still
+    /// references it.
     pub fn cleanup_stack_variables(&mut self, stack: &mut Stack) {
         // Only take the scope for writing when there is something to drain.
         if self
@@ -627,20 +636,54 @@ impl EngineState {
             shadowed_vars.extend(frame.shadowed_vars.drain(..));
         }
 
-        // Collect VarIds still referenced by alias definitions so we don't
-        // remove them — doing so would cause a VariableNotFoundAtRuntime error
-        // when the alias is invoked after the variable has been re-bound.
-        let mut alias_var_ids = HashSet::new();
-        for decl in self.decls.iter() {
-            if let Some(alias) = decl.as_alias() {
-                collect_alias_var_ids(&alias.wrapped_call, &mut alias_var_ids);
+        // A shadowed variable can be bound by name again, as when `source` of a file it already
+        // read binds that file's names to the same variables. Check every overlay, since a hidden
+        // one can be brought back.
+        for (_, frame) in &self.scope.overlays {
+            for var_id in frame.vars.values() {
+                shadowed_vars.remove(var_id);
             }
         }
 
-        // Remove variables from stack that are shadowed and not referenced by any alias
-        stack.vars.retain(|(var_id, _)| {
-            !shadowed_vars.contains(var_id) || alias_var_ids.contains(var_id)
-        });
+        // When none of the shadowed variables has a value on the stack, there is nothing to
+        // remove, so skip the scan of every declaration below.
+        if !stack
+            .vars
+            .iter()
+            .any(|(var_id, _)| shadowed_vars.contains(var_id))
+        {
+            return;
+        }
+
+        // Collect VarIds still referenced by alias definitions and custom command bodies so we
+        // don't remove them. Both read these variables from the caller's stack when invoked (a
+        // `def` body through its captures), so removing one would cause a
+        // VariableNotFoundAtRuntime error after the variable has been re-bound.
+        let working_set = StateWorkingSet::new(self);
+        let mut referenced_var_ids = Vec::new();
+        for decl in self.decls.iter() {
+            if let Some(alias) = decl.as_alias() {
+                // Walks into subexpressions and blocks too, as in `alias foo = echo ($x + 1)`.
+                alias.wrapped_call.flat_map(
+                    &working_set,
+                    &|expr| match expr.expr {
+                        Expr::Var(var_id) => vec![var_id],
+                        _ => vec![],
+                    },
+                    &mut referenced_var_ids,
+                );
+            } else if let Some(block_id) = decl.block_id() {
+                let captures = &self.get_block(block_id).captures;
+                referenced_var_ids.extend(captures.iter().map(|(var_id, _)| *var_id));
+            }
+        }
+        for var_id in &referenced_var_ids {
+            shadowed_vars.remove(var_id);
+        }
+
+        stack
+            .vars
+            .retain(|(var_id, _)| !shadowed_vars.contains(var_id));
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -1542,36 +1585,6 @@ impl EngineState {
     // Gets the thread job entry
     pub fn current_thread_job(&self) -> Option<&ThreadJob> {
         self.current_job.background_thread_job.as_ref()
-    }
-}
-
-/// Collect all `VarId`s referenced by `Expr::Var` nodes in `expr`.
-/// This is used by [`EngineState::cleanup_stack_variables`] to avoid removing
-/// variables that are still referenced by alias definitions.
-fn collect_alias_var_ids(expr: &crate::ast::Expression, var_ids: &mut HashSet<VarId>) {
-    let mut queue = vec![expr];
-
-    while let Some(e) = queue.pop() {
-        match &e.expr {
-            Expr::Var(id) => {
-                var_ids.insert(*id);
-            }
-            Expr::Call(call) => {
-                for arg in &call.arguments {
-                    if let Some(sub_expr) = arg.expr() {
-                        queue.push(sub_expr);
-                    }
-                }
-            }
-            Expr::ExternalCall(head, args) => {
-                queue.push(head);
-                for arg in args.iter() {
-                    queue.push(arg.expr());
-                }
-            }
-            Expr::FullCellPath(fcp) => queue.push(&fcp.head),
-            _ => {}
-        }
     }
 }
 
