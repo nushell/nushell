@@ -1020,6 +1020,33 @@ fn which_command_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// Help completes both internals and externals
+#[test]
+fn help_command_completions() {
+    let engine = new_external_engine();
+    let mut completer = NuCompleter::new(
+        Arc::new(engine),
+        Arc::new(nu_protocol::engine::Stack::new()),
+    );
+    // commands after help
+    let completion_str = "help sleep";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<_> = vec!["sleep", "sleep.exe"];
+    #[cfg(not(windows))]
+    let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    // commands after help commands
+    let completion_str = "help commands sleep";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    #[cfg(windows)]
+    let expected: Vec<_> = vec!["sleep", "sleep.exe"];
+    #[cfg(not(windows))]
+    let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn which_command_quoted_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
