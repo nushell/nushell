@@ -112,11 +112,16 @@ impl CallEval {
             let param_type = param.shape.to_type();
             if !value.is_subtype_of(&param_type) {
                 self.reset_arguments();
+                let help = if matches!(value.as_ref(), Value::List { .. }) {
+                    Some("try using the spread operator `...` to pass items individually".into())
+                } else {
+                    None
+                };
                 return Err(ShellError::CantConvert {
                     to_type: param_type.to_string(),
                     from_type: value.get_type().to_string(),
                     span: value.span(),
-                    help: None,
+                    help,
                 });
             }
 
@@ -146,11 +151,16 @@ impl CallEval {
         let param_type = rest_positional.shape.to_type();
         if !value.is_subtype_of(&param_type) {
             self.reset_arguments();
+            let help = if matches!(value.as_ref(), Value::List { .. }) {
+                Some("try using the spread operator `...` to pass items individually".into())
+            } else {
+                None
+            };
             return Err(ShellError::CantConvert {
                 to_type: param_type.to_string(),
                 from_type: value.get_type().to_string(),
                 span: value.span(),
-                help: None,
+                help,
             });
         }
 

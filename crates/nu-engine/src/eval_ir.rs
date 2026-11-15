@@ -2027,12 +2027,19 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error.clone()),
         _ if val.is_assignable_to(ty) => Ok(()),
-        _ => Err(ShellError::CantConvert {
-            to_type: ty.to_string(),
-            from_type: val.get_type().to_string(),
-            span: val.span(),
-            help: None,
-        }),
+        _ => {
+            let help = if matches!(val, Value::List { .. }) {
+                Some("try using the spread operator `...` to pass items individually".into())
+            } else {
+                None
+            };
+            Err(ShellError::CantConvert {
+                to_type: ty.to_string(),
+                from_type: val.get_type().to_string(),
+                span: val.span(),
+                help,
+            })
+        }
     }
 }
 
