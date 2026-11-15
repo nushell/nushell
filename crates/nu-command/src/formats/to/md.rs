@@ -788,6 +788,13 @@ mod tests {
                 "b" => Value::test_string("z"),
             }),
             Value::test_record(record! {
+                // An emoji presentation sequence: display width 2 but six
+                // UTF-8 bytes. This exposes byte-length padding in
+                // get_padded_string.
+                "a" => Value::test_string("❤️"),
+                "b" => Value::test_string("y"),
+            }),
+            Value::test_record(record! {
                 "a" => Value::test_string("x"),
                 "b" => Value::test_string("long"),
             }),
@@ -802,39 +809,14 @@ mod tests {
             &Config::default(),
         );
 
-        // Column separators must land on the same DISPLAY column on every line.
-        let bar_columns = |line: &str| -> Vec<usize> {
-            let mut column = 0usize;
-            let mut positions = Vec::new();
-            for ch in line.chars() {
-                if ch == '|' {
-                    positions.push(column);
-                }
-                column += unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
-            }
-            positions
-        };
-
-        let lines: Vec<&str> = out.lines().collect();
-        assert!(lines.len() >= 4, "expected a table, got:\n{out}");
-        let expected = bar_columns(lines[0]);
-        assert!(!expected.is_empty(), "expected table borders, got:\n{out}");
-        for line in &lines {
-            assert_eq!(
-                bar_columns(line),
-                expected,
-                "markdown table borders must align by display width; got:\n{out}"
-            );
-        }
-
-        // Pin the exact rendering as well, so a uniform off-by-one in every
-        // line cannot slip through a purely relative alignment check.
+        // The exact rendering below pins every border position.
         assert_eq!(
             out,
             one("
             | a    | b    |
             | ---- | ---- |
             | 你好 | z    |
+            | ❤️   | y    |
             | x    | long |
             ")
         );
