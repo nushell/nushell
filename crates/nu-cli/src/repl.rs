@@ -99,7 +99,11 @@ fn write_released_job_output(engine_state: &EngineState) {
 }
 
 /// Prepares the engine's prompt state and constructs the interactive view.
-/// Injects a live repainter only if background jobs are currently active.
+///
+/// Installs a live repainter only while a background job thread is running, since only a job
+/// thread can push a prompt while the line editor waits for input. Holding a repaint handle makes
+/// reedline poll for input instead of blocking, so the last job thread to end drops the repainter
+/// again (see `job spawn`).
 fn build_interactive_prompt(
     engine_state: &EngineState,
     line_editor: &mut Reedline,
@@ -107,22 +111,23 @@ fn build_interactive_prompt(
     // Recover from a poisoned jobs lock rather than silently disabling async
     // prompts: a background job holding the lock across a panic must not leave
     // `commandline set-prompt` a permanent no-op.
-    let jobs_active = {
-        let active_jobs = engine_state
-            .jobs
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        !active_jobs.is_empty()
-    };
+    let jobs = engine_state
+        .jobs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    let background_repainter = jobs_active.then(|| {
+    let background_repainter = jobs.has_thread_jobs().then(|| {
         let repaint_signal = line_editor.repaint_signal();
         Arc::new(move || repaint_signal.request_repaint()) as RepaintCallback
     });
 
+    // Install it before releasing the jobs lock. The last job thread drops the repainter under
+    // the same lock, so it can't end between the check above and this call and leave behind a
+    // repainter that nothing removes.
     engine_state
         .prompt_state
         .set_repainter(background_repainter);
+    drop(jobs);
 
     NushellPrompt::shared(engine_state.prompt_state.clone())
 }
@@ -489,6 +494,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     repl.cursor_pos = line_editor.current_insertion_point();
     repl.buffer = line_editor.current_buffer_contents().to_string();
+    repl.selection = line_editor.current_selection();
     drop(repl);
 
     if shell_integration.osc633 {
@@ -620,7 +626,7 @@ fn run_command(ctx: RunContext) -> Reedline {
 }
 
 /// Check whether `cmd` exists in the current directory or in `$env.PATH`
-fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
+pub(crate) fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
     let paths = nu_engine::env::path_str(engine_state, stack, Span::unknown()).ok();
     let cmd_os = OsStr::new(cmd);
     let paths_os = paths.as_deref().map(OsStr::new);
@@ -699,6 +705,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     repl.cursor_pos = line_editor.current_insertion_point();
     repl.buffer = line_editor.current_buffer_contents().to_string();
+    repl.selection = line_editor.current_selection();
     drop(repl);
 
     // Check all the environment variables they ask for
@@ -1451,20 +1458,26 @@ fn flush_engine_state_repl_buffer(
     mut line_editor: Reedline,
 ) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-    line_editor.run_edit_commands(&[
-        EditCommand::Clear,
-        EditCommand::InsertString(repl.buffer.to_string()),
-        EditCommand::MoveToPosition {
-            position: repl.cursor_pos,
-            select: false,
-        },
-    ]);
+    let unchanged = repl.buffer == line_editor.current_buffer_contents()
+        && repl.cursor_pos == line_editor.current_insertion_point()
+        && repl.selection == line_editor.current_selection();
+    if !unchanged {
+        line_editor.run_edit_commands(&[
+            EditCommand::Clear,
+            EditCommand::InsertString(repl.buffer.to_string()),
+            EditCommand::MoveToPosition {
+                position: repl.cursor_pos,
+                select: false,
+            },
+        ]);
+    }
     if repl.accept {
         line_editor = line_editor.with_immediately_accept(true)
     }
     repl.accept = false;
     repl.buffer = "".to_string();
     repl.cursor_pos = 0;
+    repl.selection = None;
     line_editor
 }
 

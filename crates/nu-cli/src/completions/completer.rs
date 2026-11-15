@@ -1,8 +1,8 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
-    EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher, OperatorCompletion,
-    VariableCompletion,
+    EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
+    OperatorCompletion, OverlayCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
@@ -14,7 +14,7 @@ use nu_protocol::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
     },
-    engine::{ArgType, Closure, Command, EngineState, Stack, StateWorkingSet},
+    engine::{ArgType, Closure, Command, EngineState, OverlayFrame, Stack, StateWorkingSet},
 };
 use nu_utils::time::Instant;
 use reedline::{
@@ -1463,14 +1463,43 @@ impl<'engine> CompletionEngine<'engine> {
             });
 
         // Subcommands extending this call suppress the file fallback.
-        let subcommands =
-            self.subcommand_suggestions(working_set, buffer, external_call.span.start, site.cursor);
+        let resolved_head = match &head.expr {
+            Expr::String(name) | Expr::GlobPattern(name, _) => Some(name.as_str()),
+            _ => None,
+        };
+        let subcommands = self.subcommand_suggestions(
+            working_set,
+            buffer,
+            Span::new(external_call.span.start, site.cursor),
+            head.span,
+            resolved_head,
+        );
 
         // Add file completion when the source leaves the slot open.
         let wants_file = subcommands.is_empty()
             && (!dispatched.answered() || (!external_answered && dispatched.is_empty()));
         if wants_file {
             dispatched.merge(self.suggestions_at(&mut FileCompletion, completion_context));
+        }
+
+        // An unresolved bare head may be a typo, not an external command. Offer
+        // corrections without letting them suppress files, but keep aliases, sigils,
+        // and executable names intact. Exact subcommands already identify a parent.
+        if subcommands.is_empty()
+            && self.options.match_algorithm != MatchAlgorithm::Prefix
+            && head.span.start == external_call.span.start
+            && let Some(name) = resolved_head
+            && working_set.get_span_contents(head.span) == name.as_bytes()
+            && working_set.find_decl(name.as_bytes()).is_none()
+            && !name.contains(is_separator)
+            && !crate::repl::editor_is_resolved(self.engine_state, &self.stack, name)
+        {
+            dispatched.merge(self.command_completion_helper(
+                working_set,
+                buffer,
+                Span::new(external_call.span.start, site.cursor),
+                CommandCompletion::new(CommandScope::InternalsOnly),
+            ));
         }
 
         dispatched.merge(subcommands);
@@ -1495,9 +1524,44 @@ impl<'engine> CompletionEngine<'engine> {
 
         let signature = working_set.get_decl(call.decl_id).signature();
 
-        // Subcommands are always offered and suppress the file-path fallback.
-        let subcommands =
-            self.subcommand_suggestions(working_set, buffer, call.head.start, site.cursor);
+        // Module declarations keep their unqualified signature name, but subcommands
+        // must extend the name visible in this scope, including when reached via an alias.
+        let resolved_head = working_set
+            .find_decl_name(call.decl_id)
+            .or_else(|| {
+                // `hide` only flips a decl's visibility, so its name stays in the overlay.
+                // A module's private command was never added here and stays unresolved.
+                fn registered(overlay: &OverlayFrame, decl_id: DeclId) -> Option<&[u8]> {
+                    overlay
+                        .decls
+                        .iter()
+                        .find(|(_, id)| **id == decl_id)
+                        .map(|(name, _)| name.as_slice())
+                }
+                let mut removed = vec![];
+                for frame in working_set.delta.scope.iter().rev() {
+                    let found = frame
+                        .active_overlays(&mut removed)
+                        .rev()
+                        .find_map(|overlay| registered(overlay, call.decl_id));
+                    if found.is_some() {
+                        return found;
+                    }
+                }
+                working_set
+                    .permanent_state
+                    .active_overlays(&removed)
+                    .rev()
+                    .find_map(|overlay| registered(overlay, call.decl_id))
+            })
+            .map(String::from_utf8_lossy);
+        let subcommands = self.subcommand_suggestions(
+            working_set,
+            buffer,
+            Span::new(call.head.start, site.cursor),
+            call.head,
+            resolved_head.as_deref(),
+        );
 
         // Value kinds share one shape; only the `ArgType`, completer lookup, and the
         // `declared_shape` used for the empty-slot fallback differ.
@@ -1935,6 +1999,29 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
+        // The lexer can split a trailing escape out of its unclosed quoted argument.
+        if matches!(argument, Argument::Positional(expression) if matches!(expression.expr, Expr::Garbage))
+            && working_set.get_span_contents(argument.span()) == b"\\"
+            && let Some(previous_index) = argument_index.checked_sub(1)
+            && let Some(previous) = site.call.arguments.get(previous_index)
+            && matches!(previous, Argument::Positional(_))
+            && previous.span().end == argument.span().start
+            && working_set.parse_errors.iter().any(|error| {
+                matches!(error, nu_protocol::ParseError::Unclosed(delimiter, opener, _, _)
+                    if delimiter == "\"" && opener.start == previous.span().start)
+            })
+        {
+            return CompletionSite::at(
+                absolute_position,
+                SiteKind::Positional {
+                    site,
+                    sig_positional: count_positionals(site.call, previous_index),
+                    arg_slot: previous_index,
+                },
+                Span::new(previous.span().start, argument.span().end),
+            );
+        }
+
         let sig_positional = count_positionals(site.call, argument_index);
         let flag_name = SiteKind::FlagName {
             site,
@@ -2098,6 +2185,7 @@ impl<'engine> CompletionEngine<'engine> {
                 arg_value.complete_module_exports(context, context.working_set)
             }
             BuiltinCompletion::EnvVar => EnvVarCompletion.fetch(context),
+            BuiltinCompletion::Overlay => OverlayCompletion.fetch(context),
             BuiltinCompletion::Command { internal_only } => {
                 let scope = if internal_only {
                     CommandScope::InternalsOnly
@@ -2167,24 +2255,30 @@ impl<'engine> CompletionEngine<'engine> {
         })
     }
 
-    /// Internal commands whose name extends the line so far (`foo test⌶` also offers
-    /// `foo test bar`); externals are excluded, since a multi-word line names only
-    /// internal subcommands.
+    /// Internal subcommands extending this call's typed or resolved head. Restrict
+    /// candidates before fuzzy matching so unrelated names cannot suppress file completion.
     fn subcommand_suggestions(
         &self,
         working_set: &StateWorkingSet,
         buffer: Buffer,
-        command_start: usize,
-        cursor: usize,
+        span: Span,
+        head: Span,
+        resolved_head: Option<&str>,
     ) -> Fetched {
-        if cursor <= command_start {
+        if span.end <= span.start {
             return Fetched::default();
         }
+        let typed_head = String::from_utf8_lossy(working_set.get_span_contents(head));
+        let heads = std::iter::once(typed_head.as_ref())
+            .chain(resolved_head)
+            .filter(|head| !head.trim_ascii().is_empty())
+            .map(str::to_owned)
+            .collect();
         self.command_completion_helper(
             working_set,
             buffer,
-            Span::new(command_start, cursor),
-            CommandCompletion::new(CommandScope::InternalsOnly),
+            span,
+            CommandCompletion::subcommands(heads),
         )
     }
 
@@ -2901,6 +2995,69 @@ mod completer_tests {
                 .collect(),
         );
         assert_eq!(expected, settled);
+    }
+
+    #[test]
+    fn dangling_escape_stays_with_its_unclosed_argument() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        apply_source(
+            &mut engine,
+            &mut Stack::new(),
+            b"def sample [name?: string] {}",
+        );
+        for (line, index, token) in [
+            (r#"sample "say\"#, 0, r#""say\"#),
+            (r#"sample "say\\\"#, 0, r#""say\\\"#),
+            (r#"sample "say" \"#, 1, r"\"),
+            (r"sample say\", 0, r"say\"),
+        ] {
+            let mut working_set = StateWorkingSet::new(&engine);
+            let offset = working_set.next_span_start();
+            let block = parse(&mut working_set, None, line.as_bytes(), false);
+            let site = CompletionEngine::resolve_completion_site(
+                &block,
+                &working_set,
+                Buffer { text: line, offset },
+                line,
+            );
+            assert_eq!(
+                site.kind.resolved(),
+                ResolvedCursor::Positional { index },
+                "{line:?}"
+            );
+            assert_eq!(site.typed_prefix, token, "{line:?}");
+            assert_eq!(
+                site.span,
+                Span::new(offset + line.len() - token.len(), offset + line.len()),
+                "{line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_hide_completions_follow_changes_across_prompts() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        let mut stack = Stack::new();
+        let cache = NarrowingCache::default();
+        let line = "overlay hide ";
+
+        for (source, expected) in [
+            ("overlay new alpha", vec!["alpha"]),
+            ("overlay hide alpha", vec![]),
+            ("overlay use alpha", vec!["alpha"]),
+            ("overlay new beta", vec!["alpha", "beta"]),
+        ] {
+            apply_source(&mut engine, &mut stack, source.as_bytes());
+            let mut completer = NuCompleter::with_cache(
+                Arc::new(engine.clone()),
+                Arc::new(stack.clone()),
+                cache.clone(),
+            );
+            let suggestions = completer.complete_blocking(line, line.len());
+            let values: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
+            assert_eq!(values, expected, "after {source}");
+            assert!(cache.fresh(&q(line), completer.cache_env).is_none());
+        }
     }
 
     /// A cache handed to a new per-prompt completer must still answer the previous prompt's
