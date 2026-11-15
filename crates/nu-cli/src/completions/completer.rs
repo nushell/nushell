@@ -767,6 +767,11 @@ fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Optio
         return Some(SiteCompleter::Decl(decl_id));
     }
 
+    command_wide_completer(&signature)
+}
+
+/// The command-wide completer that `signature` declares with `@complete`.
+fn command_wide_completer(signature: &Signature) -> Option<SiteCompleter> {
     match signature.complete {
         Some(CommandWideCompleter::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
         Some(CommandWideCompleter::External) => Some(SiteCompleter::External),
@@ -1188,7 +1193,16 @@ impl<'engine> CompletionEngine<'engine> {
 
     /// Whether the completer that would run first at `site` is interactive.
     fn site_is_interactive(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
-        match site_completer(site, working_set) {
+        self.completer_is_interactive(site_completer(site, working_set), working_set)
+    }
+
+    /// Whether `completer` is an `@interactive` command or an external completer that runs one.
+    fn completer_is_interactive(
+        &self,
+        completer: Option<SiteCompleter>,
+        working_set: &StateWorkingSet,
+    ) -> bool {
+        match completer {
             Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
             Some(SiteCompleter::External) => self
                 .stack
@@ -1563,9 +1577,15 @@ impl<'engine> CompletionEngine<'engine> {
             resolved_head.as_deref(),
         );
 
-        // Value kinds share one shape; only the `ArgType`, completer lookup, and the
-        // `declared_shape` used for the empty-slot fallback differ.
-        let argument_value = |engine: &Self, arg_type, custom, arg_slot, declared_shape| {
+        // Value kinds share one shape; only the `ArgType`, completer lookup, the
+        // `declared_shape` used for the empty-slot fallback, and a command-wide result
+        // computed ahead differ.
+        let argument_value = |engine: &Self,
+                              arg_type,
+                              custom,
+                              arg_slot,
+                              declared_shape,
+                              command_wide: &mut Option<Fetched>| {
             engine.complete_argument_value(
                 custom,
                 ArgValueCompletion {
@@ -1578,6 +1598,7 @@ impl<'engine> CompletionEngine<'engine> {
                 },
                 completion_context,
                 &signature,
+                command_wide,
             )
         };
 
@@ -1592,20 +1613,43 @@ impl<'engine> CompletionEngine<'engine> {
                     signature.allows_unknown_args && positional.completion.is_some()
                 }) {
                 // `def --wrapped` binds an unknown `--x` to a positional, so its declared
-                // completer answers next to the flags (#19097); it already falls back to
-                // the command-wide one. An undeclared one would only list files.
+                // completer answers next to the flags (#19097). An undeclared one would only
+                // list files.
+                //
+                // The command-wide completer, such as an external one, knows the flags the
+                // signature doesn't declare, so its flags join even when the positional
+                // completer answers. It runs once: computed here, it is also the positional
+                // completer's fallback. When either completer is `@interactive`, it only runs
+                // as that fallback: an `@interactive` command-wide one isn't the site's first
+                // completer, and an `@interactive` positional one's answer, a pick or a
+                // cancel, isn't mixed with the command-wide flags.
                 Some(positional) => {
+                    let runs_alongside = !self.site_is_interactive(site, working_set)
+                        && !self.completer_is_interactive(
+                            command_wide_completer(&signature),
+                            working_set,
+                        );
+                    let mut command_wide = runs_alongside.then(|| {
+                        self.command_wide_completion_helper(&signature, completion_context)
+                    });
                     let mut flags = FlagCompletion {
                         decl_id: call.decl_id,
                     }
                     .fetch(completion_context);
-                    flags.merge(argument_value(
+                    // Without the declared flags it repeats, as the command-wide fallback
+                    // may.
+                    flags.merge_new(argument_value(
                         self,
                         ArgType::Positional(*sig_positional),
                         positional.completion.clone(),
                         *arg_slot,
                         Some(positional.shape.clone()),
+                        &mut command_wide,
                     ));
+                    // Left over when the positional completer answered without it.
+                    if let Some(command_wide) = command_wide {
+                        flags.merge_new(command_wide);
+                    }
                     flags
                 }
                 None => self.complete_flag_names(call.decl_id, completion_context, &signature),
@@ -1618,6 +1662,7 @@ impl<'engine> CompletionEngine<'engine> {
                     resolved.as_ref().and_then(|flag| flag.completion.clone()),
                     *arg_slot,
                     resolved.as_ref().and_then(|flag| flag.arg.clone()),
+                    &mut None,
                 )
             }
             SiteKind::Positional {
@@ -1632,6 +1677,7 @@ impl<'engine> CompletionEngine<'engine> {
                     positional.and_then(|positional| positional.completion.clone()),
                     *arg_slot,
                     positional.map(|positional| positional.shape.clone()),
+                    &mut None,
                 )
             }
             _ => Fetched::default(),
@@ -2102,12 +2148,19 @@ impl<'engine> CompletionEngine<'engine> {
 
         CompletionSite::at(absolute_position, kind, Span::point(absolute_position))
     }
+
+    /// Completes an argument's value: its own completer first, then, if that declines, the
+    /// command-wide completer, then its type.
+    ///
+    /// A `command_wide` result computed ahead stands in for running the command-wide
+    /// completer, and is taken only when it is needed.
     fn complete_argument_value(
         &self,
         custom: Option<Completion>,
         mut arg_value: ArgValueCompletion,
         context: &Context,
         signature: &Signature,
+        command_wide: &mut Option<Fetched>,
     ) -> Fetched {
         // Neutral seed: answered until a source declines, unreusable until one keeps.
         let mut results = Fetched::default();
@@ -2137,7 +2190,10 @@ impl<'engine> CompletionEngine<'engine> {
             }
         }
 
-        if results.absorb(self.command_wide_completion_helper(signature, context)) {
+        let command_wide = command_wide
+            .take()
+            .unwrap_or_else(|| self.command_wide_completion_helper(signature, context));
+        if results.absorb(command_wide) {
             return results;
         }
 
