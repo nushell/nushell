@@ -2836,7 +2836,9 @@ mod test_recover_cwd {
         let pwd_value = Value::string(with_slash.clone(), Span::unknown());
         std::sync::Arc::make_mut(&mut tester.engine_state.previous_env_vars)
             .insert("PWD".into(), pwd_value.clone());
-        tester.engine_state.add_env_var("PWD".into(), pwd_value.clone());
+        tester
+            .engine_state
+            .add_env_var("PWD".into(), pwd_value.clone());
         tester.stack.add_env_var("PWD".into(), pwd_value);
 
         let mut emitted_osc = Vec::new();
