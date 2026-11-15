@@ -4715,6 +4715,7 @@ dependencies = [
  "crossterm",
  "fancy-regex",
  "is_executable",
+ "libc",
  "log",
  "lru 0.19.0",
  "lscolors",
@@ -4755,6 +4756,7 @@ name = "nu-cmd-base"
 version = "0.117.1"
 dependencies = [
  "indexmap 2.14.1",
+ "log",
  "miette 7.6.0",
  "nu-engine",
  "nu-parser",
@@ -5339,6 +5341,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "typetag",
+ "unicode-segmentation",
  "web-time",
  "windows 0.62.2",
  "windows-sys 0.61.2",
@@ -7822,8 +7825,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.53.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b061d8059603bc95c569166a79ca60c01ccc8f8b6065035aed66a3753fdb06c"
+source = "git+https://github.com/nushell/reedline?branch=main#d850931ef0cb7b8bed54e0252ecf77cb0083f78e"
 dependencies = [
  "arboard",
  "crossterm",

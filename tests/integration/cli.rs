@@ -710,6 +710,117 @@ fn mcp_flag_runs_when_enabled() -> TestResult {
     Ok(())
 }
 
+#[cfg(any(feature = "mcp", feature = "lsp", feature = "dap"))]
+#[test]
+fn server_startup_files_receive_converted_path() -> TestResult {
+    for flag in [
+        #[cfg(feature = "mcp")]
+        "--mcp",
+        #[cfg(feature = "lsp")]
+        "--lsp",
+        #[cfg(feature = "dap")]
+        "--dap",
+    ] {
+        for startup_file in ["env.nu", "config.nu"] {
+            let config_home = tempfile::tempdir()?;
+            let kept_path = config_home.path().join("keep");
+            let excluded_path = config_home.path().join("mcp-path-excluded");
+            let output_path = config_home.path().join("path.json");
+            std::fs::write(config_home.path().join("env.nu"), "")?;
+            std::fs::write(config_home.path().join("config.nu"), "")?;
+            std::fs::write(
+                config_home.path().join(startup_file),
+                r#"
+                $env.PATH = $env.PATH | where $it !~ "mcp-path-excluded"
+                $env.PATH | to json | save --force $env.MCP_PATH_OUTPUT
+                if $nu.is-mcp {
+                    ^$nu.current-exe --no-config-file --no-std-lib -c "'startup output'"
+                }
+            "#,
+            )?;
+
+            let output = assert_cmd::Command::new(cargo_bin!())
+                .args(["--no-std-lib", flag, "--config-home"])
+                .arg(config_home.path())
+                .env("PATH", std::env::join_paths([&kept_path, &excluded_path])?)
+                .env("MCP_PATH_OUTPUT", &output_path)
+                .timeout(std::time::Duration::from_secs(30))
+                .output()?;
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            if flag == "--lsp" {
+                // LSP reports a disconnected channel when stdin closes before initialization.
+                assert!(stderr.contains("disconnected channel"), "{flag}: {stderr}");
+            } else {
+                assert!(output.status.success(), "{flag} {startup_file}: {stderr}");
+            }
+            assert!(
+                output.stdout.is_empty(),
+                "{flag} {startup_file} leaked startup output: {:?}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            assert!(
+                output_path.exists(),
+                "{flag} {startup_file} did not finish: {stderr}"
+            );
+            let path: serde_json::Value = serde_json::from_slice(&std::fs::read(output_path)?)?;
+            assert_eq!(
+                path,
+                serde_json::json!([kept_path]),
+                "{flag} {startup_file}"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "mcp")]
+#[test]
+fn mcp_evaluate_receives_converted_path_without_config() -> TestResult {
+    use serde_json::json;
+
+    let session: String = [
+        json!({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25", "capabilities": {},
+                "clientInfo": { "name": "test", "version": "1" }
+            }
+        }),
+        json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
+        json!({
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": { "name": "evaluate", "arguments": {
+                "input": "$env.PATH | describe --detailed | get type"
+            } }
+        }),
+    ]
+    .iter()
+    .map(|message| format!("{message}\n"))
+    .collect();
+    let config_home = tempfile::tempdir()?;
+    let output = assert_cmd::Command::new(cargo_bin!())
+        .args(["--no-config-file", "--no-std-lib", "--mcp"])
+        .env("PATH", std::env::join_paths([config_home.path()])?)
+        .write_stdin(session)
+        .timeout(std::time::Duration::from_secs(30))
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    let responses: Vec<serde_json::Value> = stdout
+        .lines()
+        .map(serde_json::from_str)
+        .collect::<Result<_, _>>()?;
+    let response = responses
+        .iter()
+        .find(|response| response["id"] == 2)
+        .ok_or_else(|| format!("missing evaluate response: {stdout}\n{stderr}"))?;
+    assert_eq!(response["result"]["structuredContent"]["output"], "list");
+    Ok(())
+}
+
 /// Runs `nu <flag>` in `<root>/start` with `config` as its `config.nu` and an empty `env.nu`,
 /// writes `session` to its stdin, closes it and returns stdout once the server exits.
 ///

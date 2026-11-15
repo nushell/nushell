@@ -36,7 +36,7 @@ impl Command for InputListen {
             )
             .switch(
                 "raw",
-                "Add raw_code field with numeric value of keycode and raw_modifiers with bit mask flags.",
+                "Add a raw_modifiers bit mask to key and mouse events, plus raw_code with the numeric value of the keycode for character keys.",
                 Some('r'),
             )
             .named(

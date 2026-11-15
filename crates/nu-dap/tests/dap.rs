@@ -1370,6 +1370,23 @@ fn external_command_gets_empty_stdin() -> nu_test_support::Result {
 
 #[test]
 #[deps(NU)]
+fn debuggee_receives_converted_path_without_config() -> nu_test_support::Result {
+    Playground::setup("nu_dap_converted_path", |dirs, _| {
+        let script = dirs.test().join("path.nu");
+        std::fs::write(
+            &script,
+            "$env.PATH | describe --detailed | get type | print\n",
+        )?;
+        let mut dap = Dap::spawn_with_env("PATH", dirs.test().join("keep"));
+        dap.start(&script.to_string_lossy(), json!({}), &[]);
+        let output = dap.output_until_terminated();
+        assert!(output.lines().any(|line| line.trim() == "list"), "{output}");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
 fn startup_config_reaches_the_debuggee() -> nu_test_support::Result {
     // The adapter evaluates the user's startup files before serving, so a
     // debugged script sees the same shell the user has: custom commands and

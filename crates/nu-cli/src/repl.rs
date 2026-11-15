@@ -41,9 +41,9 @@ use reedline::Helix;
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
-    CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
-    SemanticPromptMarkers, Vi,
+    AutoPairs, CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs,
+    FileBackedHistory, HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers,
+    Reedline, SemanticPromptMarkers, Vi,
 };
 use std::ffi::OsStr;
 use std::sync::atomic::Ordering;
@@ -463,6 +463,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     repl.cursor_pos = line_editor.current_insertion_point();
     repl.buffer = line_editor.current_buffer_contents().to_string();
+    repl.selection = line_editor.current_selection();
     drop(repl);
 
     if shell_integration.osc633 {
@@ -594,7 +595,7 @@ fn run_command(ctx: RunContext) -> Reedline {
 }
 
 /// Check whether `cmd` exists in the current directory or in `$env.PATH`
-fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
+pub(crate) fn editor_is_resolved(engine_state: &EngineState, stack: &Stack, cmd: &str) -> bool {
     let paths = nu_engine::env::path_str(engine_state, stack, Span::unknown()).ok();
     let cmd_os = OsStr::new(cmd);
     let paths_os = paths.as_deref().map(OsStr::new);
@@ -614,7 +615,7 @@ fn prepare_prompt(
     engine_state: &mut EngineState,
     stack: &Arc<Stack>,
 ) -> Box<dyn reedline::Prompt> {
-    prompt_update::update_prompt(config, engine_state, &mut Stack::with_parent(stack.clone()));
+    prompt_update::update_prompt(config, engine_state, &Stack::with_parent(stack.clone()));
 
     // Prompt errors have already been reported. Start the transient prompt and line editor
     // callbacks without carrying over the prompt's interruption.
@@ -622,11 +623,7 @@ fn prepare_prompt(
         engine_state.reset_signals();
     }
 
-    prompt_update::make_transient_prompt(
-        config,
-        engine_state,
-        &mut Stack::with_parent(stack.clone()),
-    )
+    prompt_update::make_transient_prompt(config, engine_state, &Stack::with_parent(stack.clone()))
 }
 
 /// Perform one iteration of the REPL loop
@@ -677,6 +674,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     repl.cursor_pos = line_editor.current_insertion_point();
     repl.buffer = line_editor.current_buffer_contents().to_string();
+    repl.selection = line_editor.current_selection();
     drop(repl);
 
     // Check all the environment variables they ask for
@@ -766,6 +764,18 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         } else {
             MouseClickMode::Disabled
         });
+
+    line_editor = if config.auto_pairs.enable {
+        line_editor.with_auto_pairs(AutoPairs::new(
+            config
+                .auto_pairs
+                .pairs
+                .iter()
+                .map(|pair| (pair.open, pair.close)),
+        ))
+    } else {
+        line_editor.disable_auto_pairs()
+    };
 
     perf!("reedline builder", start_time, use_color);
 
@@ -1406,20 +1416,26 @@ fn flush_engine_state_repl_buffer(
     mut line_editor: Reedline,
 ) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-    line_editor.run_edit_commands(&[
-        EditCommand::Clear,
-        EditCommand::InsertString(repl.buffer.to_string()),
-        EditCommand::MoveToPosition {
-            position: repl.cursor_pos,
-            select: false,
-        },
-    ]);
+    let unchanged = repl.buffer == line_editor.current_buffer_contents()
+        && repl.cursor_pos == line_editor.current_insertion_point()
+        && repl.selection == line_editor.current_selection();
+    if !unchanged {
+        line_editor.run_edit_commands(&[
+            EditCommand::Clear,
+            EditCommand::InsertString(repl.buffer.to_string()),
+            EditCommand::MoveToPosition {
+                position: repl.cursor_pos,
+                select: false,
+            },
+        ]);
+    }
     if repl.accept {
         line_editor = line_editor.with_immediately_accept(true)
     }
     repl.accept = false;
     repl.buffer = "".to_string();
     repl.cursor_pos = 0;
+    repl.selection = None;
     line_editor
 }
 

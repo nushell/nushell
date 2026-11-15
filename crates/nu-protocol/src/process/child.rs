@@ -492,7 +492,7 @@ impl ChildProcess {
                         .spawn(move || consume_pipe(stderr))
                 })
                 .transpose()
-                .map_err(&from_io_error)?;
+                .map_err(from_io_error)?;
 
             let res = consume_pipe(stdout);
 
@@ -507,12 +507,12 @@ impl ChildProcess {
                             self.span,
                         )),
                     })?
-                    .map_err(&from_io_error)?;
+                    .map_err(from_io_error)?;
             }
 
-            res.map_err(&from_io_error)?;
+            res.map_err(from_io_error)?;
         } else if let Some(stderr) = self.stderr.take() {
-            consume_pipe(stderr).map_err(&from_io_error)?;
+            consume_pipe(stderr).map_err(from_io_error)?;
         }
         self.check_exit()
     }
@@ -630,14 +630,14 @@ fn collect_pipes(
 
     Ok(match (stdout, stderr) {
         (None, None) => (None, None),
-        (None, Some(stderr)) => (None, Some(collect_bytes(stderr).map_err(&from_io_error)?)),
-        (Some(stdout), None) => (Some(collect_bytes(stdout).map_err(&from_io_error)?), None),
+        (None, Some(stderr)) => (None, Some(collect_bytes(stderr).map_err(from_io_error)?)),
+        (Some(stdout), None) => (Some(collect_bytes(stdout).map_err(from_io_error)?), None),
         (Some(stdout), Some(stderr)) => {
             let stderr = thread::Builder::new()
                 .spawn(move || collect_bytes(stderr))
-                .map_err(&from_io_error)?;
+                .map_err(from_io_error)?;
 
-            let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
+            let stdout = collect_bytes(stdout).map_err(from_io_error)?;
 
             let stderr = stderr
                 .join()
@@ -649,7 +649,7 @@ fn collect_pipes(
                         span,
                     )),
                 })?
-                .map_err(&from_io_error)?;
+                .map_err(from_io_error)?;
 
             (Some(stdout), Some(stderr))
         }
