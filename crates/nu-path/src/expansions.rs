@@ -8,6 +8,8 @@ use super::dots::{expand_dots, expand_ndots};
 use super::tilde::expand_tilde;
 
 // Join a path relative to another path. Paths starting with tilde are considered as absolute.
+// On Windows, a drive-relative path like `C:foo` is first resolved with [`resolve_drive_relative`]:
+// against `relative_to` when it is on the same drive, otherwise through `std::path::absolute`.
 fn join_path_relative<P, Q>(path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
 where
     P: AsRef<Path>,
@@ -102,6 +104,10 @@ pub fn expand_path(path: impl AsRef<Path>, need_expand_tilde: bool) -> PathBuf {
 /// version if the expansion is not possible.
 ///
 /// Furthermore, unlike canonicalize(), it does not use sys calls (such as readlink).
+/// The one exception is a Windows drive-relative path like `D:foo` on a drive other than the
+/// one of `relative_to`: it is resolved with `std::path::absolute`, which reads the per-drive
+/// current directory Windows tracks (see [`resolve_drive_relative`]). On the same drive it is
+/// resolved against `relative_to`.
 ///
 /// Converts to absolute form but does not resolve symlinks.
 /// The input path is specified relative to another path

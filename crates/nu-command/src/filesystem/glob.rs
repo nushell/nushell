@@ -389,6 +389,8 @@ fn run_dc_glob(
     let glob_pattern = nu_path::expand_tilde(glob_pattern)
         .to_string_lossy()
         .to_string();
+    #[cfg(windows)]
+    let glob_pattern = resolve_drive_relative_glob(glob_pattern, &cwd_for_matches);
 
     let matches =
         nu_glob::dc_glob::glob_with(&cwd_for_matches, &glob_pattern, &options).map_err(|err| {
@@ -568,6 +570,28 @@ fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<S
             ))
         }
         _ => Ok(glob_pattern),
+    }
+}
+
+/// Resolve a drive-relative prefix like `C:` in `C:*.txt` against `cwd` the way `ls` does, so
+/// the walk doesn't start in the process's directory for that drive.
+#[cfg(windows)]
+fn resolve_drive_relative_glob(glob_pattern: String, cwd: &std::path::Path) -> String {
+    let mut chars = glob_pattern.chars();
+    match (chars.next(), chars.next(), chars.next()) {
+        (Some(drive), Some(':'), next)
+            if drive.is_ascii_alphabetic() && !matches!(next, Some('/' | '\\')) =>
+        {
+            let (drive, rest) = glob_pattern.split_at(2);
+            let base = nu_path::resolve_drive_relative(std::path::Path::new(drive), cwd);
+            let base = nu_glob::dc_glob::escape(&base.to_string_lossy());
+            if rest.is_empty() {
+                base
+            } else {
+                format!("{base}/{rest}")
+            }
+        }
+        _ => glob_pattern,
     }
 }
 

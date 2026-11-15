@@ -1091,8 +1091,7 @@ fn parse_operation(
         orig = trim_quotes_str(&orig).to_string()
     }
 
-    let target = nu_path::resolve_drive_relative(Path::new(&orig), Path::new(&cwd));
-    let path = nu_path::expand_path_with(&target, &cwd, true);
+    let path = nu_path::expand_path_with(&orig, &cwd, true);
     if (engine_state.get_config().auto_cd_implicit || looks_like_path(&orig))
         && path.is_dir()
         && tokens.0.len() == 1
