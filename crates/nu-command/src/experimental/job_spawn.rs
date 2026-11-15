@@ -113,6 +113,27 @@ impl Command for JobSpawn {
         let result = thread::Builder::new()
             .name(format!("background job {}", id.get()))
             .spawn(move || {
+                // This also runs when the closure panics, so it recovers a poisoned jobs lock
+                // instead of panicking: a panic while unwinding would abort the shell.
+                scopeguard::defer! {
+                    let mut jobs = job_state
+                        .jobs
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+                    jobs.remove_job(id);
+
+                    // The REPL's repainter lets job threads repaint the prompt, and while it is
+                    // installed the line editor polls for input instead of blocking. Once the
+                    // last job thread ends nothing can repaint, so drop it. This runs under the
+                    // jobs lock, which the REPL also holds while it installs the repainter.
+                    // Check even when `remove_job` found nothing: `job kill` takes a job out of
+                    // the table before its thread ends.
+                    if !jobs.has_thread_jobs() {
+                        job_state.prompt_state.set_repainter(None);
+                    }
+                }
+
                 let mut stack = job_stack.reset_pipes();
                 let stack = stack.push_redirection(
                     Some(Redirection::Pipe(OutDest::Null)),
@@ -126,12 +147,6 @@ impl Command for JobSpawn {
                             report_shell_error(None, &job_state, &err);
                         }
                     });
-
-                {
-                    let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
-
-                    jobs.remove_job(id);
-                }
             });
 
         match result {
