@@ -73,7 +73,7 @@ fn hides_env() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -118,7 +118,7 @@ fn hide_env_affects_stack_and_engine_state() -> Result {
     "#;
     let () = tester.run(code)?;
     match tester.run("$env.AAAA").expect_shell_error()? {
-        ShellError::CantFindColumn { col_name, .. } if col_name == "AAAA" => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "AAAA" => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -197,7 +197,7 @@ fn hides_env_in_scope_1() -> Result {
         }
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -227,7 +227,7 @@ fn hides_env_in_scope_3() -> Result {
         }
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -289,7 +289,7 @@ fn hide_env_twice_allowed() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -425,7 +425,7 @@ fn hides_env_import_1() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -451,7 +451,7 @@ fn hides_def_and_env_import_1() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -522,7 +522,7 @@ fn hides_all_envs_within_scope() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }

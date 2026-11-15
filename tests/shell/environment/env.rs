@@ -203,7 +203,7 @@ fn hides_environment_from_child() -> Result {
         .run(r#"nu -c 'hide-env TEST; nu -c "$env.TEST"' | complete"#)?;
 
     assert!(result.stdout.is_empty());
-    assert!(result.stderr.contains("column_not_found") || result.stderr.contains("name_not_found"));
+    assert!(result.stderr.contains("env_variable_not_found"));
     Ok(())
 }
 
@@ -246,11 +246,42 @@ fn hides_env_in_block() -> Result {
 
     test()
         .run(pipelines.join("; "))
-        .expect_error_code_eq("nu::shell::column_not_found")?;
+        .expect_error_code_eq("nu::shell::env_variable_not_found")?;
 
     test()
         .run_multiple(pipelines)
-        .expect_error_code_eq("nu::shell::column_not_found")
+        .expect_error_code_eq("nu::shell::env_variable_not_found")
+}
+
+#[rstest]
+#[case::plain("$env.FOO", "FOO", "$env.FOO?")]
+#[case::digit("$env.P4PORT", "P4PORT", "$env.P4PORT?")]
+#[case::needs_quoting(r#"$env."MY VAR""#, "MY VAR", r#"$env."MY VAR"?"#)]
+#[case::nested("$env.FOO.bar", "FOO", "$env.FOO?")]
+fn missing_env_var_suggests_optional_access(
+    #[case] code: &str,
+    #[case] name: &str,
+    #[case] suggestion: &str,
+) -> Result {
+    match test().run(code).expect_shell_error()? {
+        ShellError::EnvVarNotFoundAtRuntime {
+            envvar_name,
+            help: Some(help),
+            ..
+        } => {
+            assert_eq!(envvar_name, name);
+            assert!(
+                help.contains(&format!("`{suggestion}`")),
+                "help should suggest {suggestion}, got: {help}"
+            );
+            assert!(
+                help.contains("add `?` after any members that follow it"),
+                "help should cover members after the key, got: {help}"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]

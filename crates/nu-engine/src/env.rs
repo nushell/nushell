@@ -255,6 +255,7 @@ pub fn path_str(
                 "PATH".to_string()
             },
             span,
+            help: None,
         }),
     }?;
 

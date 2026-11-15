@@ -20,7 +20,7 @@ fn push_from_a_job_started_for_the_prompt_survives_the_baseline() -> Result {
         "job spawn { commandline set-prompt 'pushed> '; 'done' | job send 0 }; job recv --timeout 1min | ignore",
     )?;
     let config = tester.engine_state.get_config().clone();
-    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    update_prompt(&config, &tester.engine_state, &tester.stack);
 
     let left = tester.engine_state.prompt_state.contents().left;
     assert_eq!(left.as_deref(), Some("pushed> "));
@@ -47,7 +47,7 @@ fn push_from_a_job_spawned_by_an_earlier_job_does_not_survive_the_baseline() -> 
         earlier,
     )?;
     let config = tester.engine_state.get_config().clone();
-    update_prompt(&config, &tester.engine_state, &mut tester.stack);
+    update_prompt(&config, &tester.engine_state, &tester.stack);
 
     let left = tester.engine_state.prompt_state.contents().left;
     assert_eq!(left.as_deref(), Some("baseline> "));

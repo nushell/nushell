@@ -116,7 +116,7 @@ fn source_env_eval_export_env_hide() -> Result {
         test()
             .cwd(dirs.test())
             .run("$env.FOO = 'foo'; source-env spam.nu; $env.FOO")
-            .expect_error_code_eq("nu::shell::column_not_found")
+            .expect_error_code_eq("nu::shell::env_variable_not_found")
     })
 }
 

@@ -267,7 +267,10 @@ fn mutate_env_hides_variable() -> Result {
 
     let result: CompleteResult = test().run_with_data(NU_RUNNER, code)?;
     assert_eq!(result.stdout, "hello world\n");
-    assert_contains("Cannot find column 'TEST_ENV_VAR'", result.stderr);
+    assert_contains(
+        "Environment variable 'TEST_ENV_VAR' not found",
+        result.stderr,
+    );
     Ok(())
 }
 
@@ -286,7 +289,10 @@ fn mutate_env_hides_variable_in_parent_scope() -> Result {
 
     let result: CompleteResult = test().run_with_data(NU_RUNNER, code)?;
     assert_eq!(result.stdout, "hello world\n");
-    assert_contains("Cannot find column 'TEST_ENV_VAR", result.stderr);
+    assert_contains(
+        "Environment variable 'TEST_ENV_VAR' not found",
+        result.stderr,
+    );
     Ok(())
 }
 
@@ -295,7 +301,7 @@ fn unlet_env_variable() -> Result {
     let err = test()
         .run(r#"$env.TEST_VAR = "hello world"; hide-env TEST_VAR; $env.TEST_VAR"#)
         .expect_error()?;
-    assert_matches!(err, ShellError::CantFindColumn {col_name, ..} if col_name == "TEST_VAR");
+    assert_matches!(err, ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "TEST_VAR");
     Ok(())
 }
 
@@ -326,7 +332,7 @@ fn mutate_env_doesnt_leak() -> Result {
     let err = test()
         .run(r#"do { $env.xyz = "my message" }; $env.xyz"#)
         .expect_error()?;
-    assert_matches!(err, ShellError::CantFindColumn { col_name, .. } if col_name == "xyz");
+    assert_matches!(err, ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "xyz");
     Ok(())
 }
 
@@ -454,7 +460,7 @@ fn load_env_doesnt_leak() -> Result {
     let err = test()
         .run(r#"do { echo { name: xyz, value: "my message" } | load-env }; $env.xyz"#)
         .expect_error()?;
-    assert_matches!(err, ShellError::CantFindColumn { col_name, .. } if col_name == "xyz");
+    assert_matches!(err, ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "xyz");
     Ok(())
 }
 

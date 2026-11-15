@@ -662,3 +662,10 @@ fn nothing_type_annotation() -> Result {
         .run("help commands | where name == foo | get input_output.0.output.0")
         .expect_value_eq("nothing")
 }
+
+#[test]
+fn help_has_no_trailing_newline() -> Result {
+    test()
+        .run(r#"help drop column | str ends-with "\n""#)
+        .expect_value_eq(false)
+}

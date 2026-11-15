@@ -5,7 +5,7 @@ use pretty_assertions::assert_matches;
 fn capture_errors_works() -> Result {
     test()
         .run("do -c {$env.use}")
-        .expect_error_code_eq("nu::shell::column_not_found")
+        .expect_error_code_eq("nu::shell::env_variable_not_found")
 }
 
 #[test]
