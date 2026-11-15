@@ -159,6 +159,7 @@ pub fn evaluate_repl(
 
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
+    let has_prerun = prerun_command.is_some();
     if let Some(s) = prerun_command {
         eval_source(
             engine_state,
@@ -168,11 +169,14 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        if let Some(warning) =
-            recover_cwd_if_needed(engine_state, &mut unique_stack, has_pending_terminal_input)
-        {
-            report_shell_warning(Some(&unique_stack), engine_state, &warning);
-        }
+    }
+    let startup_recovery =
+        recover_cwd_if_needed(engine_state, &mut unique_stack, has_pending_terminal_input);
+    let startup_cwd_changed = startup_recovery.changed();
+    if let Some(warning) = startup_recovery.into_warning() {
+        report_shell_warning(Some(&unique_stack), engine_state, &warning);
+    }
+    if has_prerun || startup_cwd_changed {
         engine_state.merge_env(&mut unique_stack)?;
     }
 
@@ -658,53 +662,94 @@ fn has_pending_terminal_input() -> bool {
     !matches!(crossterm::event::poll(Duration::from_millis(1)), Ok(false))
 }
 
-/// If `$env.PWD` is a valid absolute path whose directory was removed, replaced with a
-/// non-directory, or became inaccessible, recover by walking up logical ancestors to the nearest
-/// usable directory (falling back to `$nu.home-dir`) and return the corresponding warning.
+/// Outcome of checking and normalizing/recovering `$env.PWD` for a REPL prompt.
+#[derive(Debug)]
+enum CwdRecovery {
+    /// `$env.PWD` was unchanged (already valid, non-recoverable, or skipped due to pending input).
+    Unchanged,
+    /// Stripped trailing slash(es) from an otherwise usable `$env.PWD`.
+    Normalized,
+    /// `$env.PWD` pointed to a missing, non-directory, or inaccessible path and fell back to an
+    /// ancestor directory (or home).
+    Recovered(ShellWarning),
+}
+
+impl CwdRecovery {
+    fn changed(&self) -> bool {
+        !matches!(self, Self::Unchanged)
+    }
+
+    fn into_warning(self) -> Option<ShellWarning> {
+        match self {
+            Self::Recovered(warning) => Some(warning),
+            Self::Unchanged | Self::Normalized => None,
+        }
+    }
+}
+
+/// Normalize trailing slashes on a valid `$env.PWD`, or recover to an ancestor if `$env.PWD` is
+/// missing, not a directory, or inaccessible.
 ///
-/// If `$env.PWD` needs recovery and `has_pending_input()` returns `true` (e.g., a typed-ahead
-/// command is already queued), recovery is skipped for this iteration so the queued command fails
-/// rather than executing in an ancestor directory. `has_pending_input` is only called when recovery
-/// is needed, keeping polling off normal prompts.
+/// When `$env.PWD` is an existing directory with a trailing slash (e.g. `/Users/name/`), it is
+/// normalized silently via [`Stack::set_cwd`] without warning or polling for pending input, since
+/// the target directory itself has not changed.
 ///
-/// Malformed `$env.PWD` values (missing, non-string, relative, or invalid trailing slashes) are
-/// left untouched so `EngineState::cwd` reports their error normally. `$env.OLDPWD` is also left
-/// unchanged so `cd -` still targets the previous valid directory.
+/// When `$env.PWD` is missing, replaced with a non-directory, or inaccessible, it walks up logical
+/// ancestors (`ancestors().skip(1)`, falling back to `$nu.home-dir`) and returns
+/// [`CwdRecovery::Recovered`] with [`ShellWarning::CwdRecovered`]. If `has_pending_input()` returns
+/// `true` (e.g., a typed-ahead command is already queued), ancestor recovery is skipped for this
+/// iteration so the queued command fails rather than executing in an ancestor directory.
+/// `has_pending_input` is only called when ancestor recovery is needed.
+///
+/// Other malformed `$env.PWD` values (missing, non-string, or relative) are left untouched so
+/// `EngineState::cwd` reports their error normally. `$env.OLDPWD` is also left unchanged so
+/// `cd -` still targets the previous valid directory.
 fn recover_cwd_if_needed(
     engine_state: &EngineState,
     stack: &mut Stack,
     has_pending_input: impl FnOnce() -> bool,
-) -> Option<ShellWarning> {
-    let pwd_val = stack.get_env_var(engine_state, "PWD")?;
-    let pwd_str = pwd_val.as_str().ok()?;
-    let path = AbsolutePathBuf::try_from(pwd_str).ok()?;
-    if path.parent().is_some() && nu_path::has_trailing_slash(path.as_ref()) {
-        return None;
-    }
+) -> CwdRecovery {
+    let Some(pwd_val) = stack.get_env_var(engine_state, "PWD") else {
+        return CwdRecovery::Unchanged;
+    };
+    let Ok(pwd_str) = pwd_val.as_str() else {
+        return CwdRecovery::Unchanged;
+    };
+    let Ok(path) = AbsolutePathBuf::try_from(pwd_str) else {
+        return CwdRecovery::Unchanged;
+    };
 
-    if is_usable_dir(path.as_std_path()) {
-        return None;
+    let had_trailing_slash = path.parent().is_some() && nu_path::has_trailing_slash(path.as_ref());
+    let stripped = nu_path::strip_trailing_slash(path.as_std_path());
+
+    if is_usable_dir(&stripped) {
+        if had_trailing_slash && stack.set_cwd(&stripped).is_ok() {
+            return CwdRecovery::Normalized;
+        }
+        return CwdRecovery::Unchanged;
     }
 
     if has_pending_input() {
-        return None;
+        return CwdRecovery::Unchanged;
     }
 
     let old_cwd = pwd_str.to_string();
     let home = nu_path::home_dir();
-    let recovered = path
-        .as_std_path()
+    let Some(recovered) = stripped
         .ancestors()
         .skip(1)
         .chain(home.as_ref().map(|h| h.as_std_path()))
         .find(|candidate| is_usable_dir(candidate))
-        .map(Path::to_path_buf)?;
+        .map(Path::to_path_buf)
+    else {
+        return CwdRecovery::Unchanged;
+    };
 
     if stack.set_cwd(&recovered).is_err() {
-        return None;
+        return CwdRecovery::Unchanged;
     }
 
-    Some(ShellWarning::CwdRecovered {
+    CwdRecovery::Recovered(ShellWarning::CwdRecovered {
         old_cwd,
         new_cwd: recovered.to_string_lossy().into_owned(),
     })
@@ -734,9 +779,11 @@ fn prepare_repl_iteration(
     use nu_cmd_base::hook;
 
     let mut start_time = Instant::now();
-    // Before doing anything, recover a vanished/inaccessible $env.PWD and merge the environment
+    // Before doing anything, normalize/recover an invalid $env.PWD and merge the environment
     // from the previous REPL iteration into the permanent state.
-    let recovered_warning = recover_cwd_if_needed(engine_state, stack, has_pending_input);
+    let recovery = recover_cwd_if_needed(engine_state, stack, has_pending_input);
+    let cwd_changed = recovery.changed();
+    let recovered_warning = recovery.into_warning();
     if let Some(warning) = &recovered_warning {
         report_shell_warning(Some(stack), engine_state, warning);
     }
@@ -745,7 +792,7 @@ fn prepare_repl_iteration(
     }
     perf!("merge env", start_time, use_color);
 
-    if recovered_warning.is_some() {
+    if cwd_changed {
         let shell_integration = engine_state.get_config().shell_integration;
         emit_cwd_shell_integration(
             &shell_integration,
@@ -2515,7 +2562,9 @@ mod test_auto_cd {
 
 #[cfg(test)]
 mod test_recover_cwd {
-    use super::{ReplBuffer, osc7_sequence, prepare_repl_iteration, recover_cwd_if_needed};
+    use super::{
+        CwdRecovery, ReplBuffer, osc7_sequence, prepare_repl_iteration, recover_cwd_if_needed,
+    };
     use miette::Diagnostic;
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
@@ -2543,7 +2592,9 @@ mod test_recover_cwd {
         std::fs::remove_dir(&child).unwrap();
 
         assert_eq!(
-            recover_cwd_if_needed(&engine_state, &mut stack, || false).map(|w| w.to_string()),
+            recover_cwd_if_needed(&engine_state, &mut stack, || false)
+                .into_warning()
+                .map(|w| w.to_string()),
             Some(
                 ShellWarning::CwdRecovered {
                     old_cwd: child.as_std_path().to_string_lossy().into_owned(),
@@ -2581,7 +2632,11 @@ mod test_recover_cwd {
 
         std::fs::remove_dir_all(&a).unwrap();
 
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack, || false).is_some());
+        assert!(
+            recover_cwd_if_needed(&engine_state, &mut stack, || false)
+                .into_warning()
+                .is_some()
+        );
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             root.as_std_path()
@@ -2602,7 +2657,11 @@ mod test_recover_cwd {
         std::fs::remove_dir(&target).unwrap();
         std::fs::write(&target, b"not a dir").unwrap();
 
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack, || false).is_some());
+        assert!(
+            recover_cwd_if_needed(&engine_state, &mut stack, || false)
+                .into_warning()
+                .is_some()
+        );
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             parent.as_std_path()
@@ -2631,7 +2690,9 @@ mod test_recover_cwd {
             super::have_permission(&blocked),
             super::PermissionResult::PermissionOk
         );
-        let recovered = recover_cwd_if_needed(&engine_state, &mut stack, || false).is_some();
+        let recovered = recover_cwd_if_needed(&engine_state, &mut stack, || false)
+            .into_warning()
+            .is_some();
         let result_cwd = engine_state.cwd(Some(&stack)).unwrap();
         std::fs::set_permissions(&blocked, std::fs::Permissions::from_mode(0o755)).unwrap();
 
@@ -2653,7 +2714,10 @@ mod test_recover_cwd {
         let engine_state = EngineState::new();
         let mut stack = Stack::new();
         stack.set_cwd(valid).unwrap();
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
+        assert!(matches!(
+            recover_cwd_if_needed(&engine_state, &mut stack, never_poll),
+            CwdRecovery::Unchanged
+        ));
         assert_eq!(
             engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
             valid.as_std_path()
@@ -2664,23 +2728,153 @@ mod test_recover_cwd {
             "PWD".into(),
             Value::string("relative/path", Span::unknown()),
         );
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
+        assert!(matches!(
+            recover_cwd_if_needed(&engine_state, &mut stack, never_poll),
+            CwdRecovery::Unchanged
+        ));
         assert!(engine_state.cwd(Some(&stack)).is_err());
 
         // Non-string PWD
         stack.add_env_var("PWD".into(), Value::int(42, Span::unknown()));
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
+        assert!(matches!(
+            recover_cwd_if_needed(&engine_state, &mut stack, never_poll),
+            CwdRecovery::Unchanged
+        ));
         assert!(engine_state.cwd(Some(&stack)).is_err());
+    }
 
-        // Trailing slash
+    #[test]
+    fn normalizes_trailing_slash_cwd_silently_without_polling() {
+        let tempdir = tempdir().unwrap();
+        let valid = AbsolutePath::try_new(tempdir.path()).unwrap();
         let with_slash = format!(
             "{}{}",
             valid.as_std_path().display(),
             std::path::MAIN_SEPARATOR
         );
+        let never_poll = || -> bool {
+            panic!("pending-input check must not run when only stripping trailing slashes")
+        };
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
         stack.add_env_var("PWD".into(), Value::string(with_slash, Span::unknown()));
-        assert!(recover_cwd_if_needed(&engine_state, &mut stack, never_poll).is_none());
-        assert!(engine_state.cwd(Some(&stack)).is_err());
+
+        assert!(matches!(
+            recover_cwd_if_needed(&engine_state, &mut stack, never_poll),
+            CwdRecovery::Normalized
+        ));
+        assert_eq!(
+            engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
+            valid.as_std_path()
+        );
+    }
+
+    #[test]
+    fn recovers_to_parent_when_trailing_slash_cwd_is_deleted() {
+        let tempdir = tempdir().unwrap();
+        let parent = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let child = parent.join("deleted-dir");
+        std::fs::create_dir(&child).unwrap();
+        let with_slash = format!(
+            "{}{}",
+            child.as_std_path().display(),
+            std::path::MAIN_SEPARATOR
+        );
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            "PWD".into(),
+            Value::string(with_slash.clone(), Span::unknown()),
+        );
+        std::fs::remove_dir(&child).unwrap();
+
+        assert!(matches!(
+            recover_cwd_if_needed(&engine_state, &mut stack, || true),
+            CwdRecovery::Unchanged
+        ));
+        assert_eq!(
+            recover_cwd_if_needed(&engine_state, &mut stack, || false)
+                .into_warning()
+                .map(|w| w.to_string()),
+            Some(
+                ShellWarning::CwdRecovered {
+                    old_cwd: with_slash,
+                    new_cwd: parent.as_std_path().to_string_lossy().into_owned(),
+                }
+                .to_string()
+            )
+        );
+        assert_eq!(
+            engine_state.cwd(Some(&stack)).unwrap().as_std_path(),
+            parent.as_std_path()
+        );
+    }
+
+    #[test]
+    fn prepare_repl_iteration_normalizes_trailing_slash_silently_and_updates_osc()
+    -> nu_test_support::Result {
+        let tempdir = tempdir().unwrap();
+        let valid = AbsolutePath::try_new(tempdir.path()).unwrap();
+        let valid_str = valid.as_std_path().to_string_lossy();
+        let with_slash = format!("{valid_str}{}", std::path::MAIN_SEPARATOR);
+
+        let mut tester = nu_test_support::test();
+        let () = tester.run(
+            "
+            $env.PWD_HOOK_LOG = []
+            $env.config.hooks.env_change.PWD = [{|before, after|
+                $env.PWD_HOOK_LOG = ($env.PWD_HOOK_LOG | append [$before, $after])
+            }]
+            $env.config.shell_integration = {
+                osc2: true, osc7: true, osc8: false, osc9_9: true,
+                osc133: false, osc633: false, reset_application_mode: false
+            }
+            ",
+        )?;
+        let pwd_value = Value::string(with_slash.clone(), Span::unknown());
+        std::sync::Arc::make_mut(&mut tester.engine_state.previous_env_vars)
+            .insert("PWD".into(), pwd_value.clone());
+        tester.engine_state.add_env_var("PWD".into(), pwd_value.clone());
+        tester.stack.add_env_var("PWD".into(), pwd_value);
+
+        let mut emitted_osc = Vec::new();
+        let warning = prepare_repl_iteration(
+            &mut tester.engine_state,
+            &mut tester.stack,
+            Some("host"),
+            false,
+            ReplBuffer::default(),
+            &mut |seq| emitted_osc.push(seq.to_string()),
+            || panic!("pending-input check must not run when only stripping trailing slashes"),
+        );
+        assert!(warning.is_none());
+        assert_eq!(
+            tester.engine_state.cwd(None)?.as_std_path(),
+            valid.as_std_path()
+        );
+
+        let log = tester
+            .stack
+            .get_env_var(&tester.engine_state, "PWD_HOOK_LOG")
+            .unwrap()
+            .clone()
+            .into_list()?;
+        assert!(log.len() >= 2);
+        assert_eq!(log[log.len() - 2].as_str()?, with_slash);
+        assert_eq!(log[log.len() - 1].as_str()?, valid_str.as_ref());
+
+        let expected_osc7 = osc7_sequence(Some("host"), valid.as_std_path()).unwrap();
+        assert!(
+            emitted_osc
+                .iter()
+                .any(|seq| seq.starts_with("\x1b]2;") && seq.contains(valid_str.as_ref())),
+            "missing OSC 2 sequence for normalized cwd in {emitted_osc:?}"
+        );
+        assert!(emitted_osc.contains(&expected_osc7));
+        assert!(emitted_osc.contains(&format!("\x1b]9;9;{valid_str}\x1b\\")));
+        Ok(())
     }
 
     #[test]

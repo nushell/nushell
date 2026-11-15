@@ -44,11 +44,13 @@ fn current_exe_directory() -> PathBuf {
     path
 }
 
-/// Get the current working directory from the environment.
-fn current_dir_from_environment() -> PathBuf {
-    let cwd = std::env::current_dir();
-    let pwd = std::env::var("PWD");
-    match (cwd, pwd) {
+/// Resolve the initial working directory from OS `current_dir` and `PWD`, stripping any
+/// non-root trailing slashes so `EngineState::cwd` invariants hold on startup.
+fn resolve_current_dir(
+    cwd: std::io::Result<PathBuf>,
+    pwd: std::result::Result<String, std::env::VarError>,
+) -> PathBuf {
+    let dir = match (cwd, pwd) {
         // If current_dir and PWD are the same then use PWD
         // so the path isn't unnecessarily canonicalized on Unix systems.
         (Ok(cwd), Ok(pwd)) => {
@@ -68,7 +70,13 @@ fn current_dir_from_environment() -> PathBuf {
                 current_exe_directory()
             }
         }
-    }
+    };
+    nu_path::strip_trailing_slash(&dir).into_owned()
+}
+
+/// Get the current working directory from the environment.
+fn current_dir_from_environment() -> PathBuf {
+    resolve_current_dir(std::env::current_dir(), std::env::var("PWD"))
 }
 
 /// Mirror of miette's private `Panic` diagnostic so we keep the
@@ -756,5 +764,42 @@ fn main() -> Result<()> {
             // Scripts exit when done, even with `-i`: their jobs must not outlive Nu.
             kill_jobs_and_exit(&engine_state, 0)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_current_dir;
+    use std::path::Path;
+
+    #[test]
+    fn resolve_current_dir_strips_trailing_slash_from_inherited_pwd() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let canonical = tempdir.path().canonicalize().unwrap();
+        let with_slash = format!("{}{}", canonical.display(), std::path::MAIN_SEPARATOR);
+
+        assert_eq!(
+            resolve_current_dir(Ok(canonical.clone()), Ok(with_slash)),
+            canonical
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_current_dir_preserves_root_and_symlink_without_trailing_slash() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let real = tempdir.path().join("real");
+        let link = tempdir.path().join("link");
+        std::fs::create_dir(&real).unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        assert_eq!(
+            resolve_current_dir(Ok(real), Ok(format!("{}/", link.display()))),
+            link
+        );
+        assert_eq!(
+            resolve_current_dir(Ok(Path::new("/").to_path_buf()), Ok("/".to_string())),
+            Path::new("/")
+        );
     }
 }
