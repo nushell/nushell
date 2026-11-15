@@ -88,27 +88,37 @@ fn glob_subdirs_dc_glob() -> Result {
     })
 }
 
-/// A drive-relative pattern like `C:*.txt` matches in `$env.PWD`, not the process's directory.
+/// A drive-relative pattern like `C:*.txt` matches in `$env.PWD`, not the process's directory,
+/// even when `$env.PWD` has glob characters like `[` in it.
 #[cfg(windows)]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_drive_relative_pattern_dc_glob() -> Result {
     Playground::setup("glob_drive_relative_dc_glob", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("yehuda.txt"), EmptyFile("jttxt")]);
-        sandbox.within("sub").with_files(&[EmptyFile("andres.txt")]);
+        sandbox
+            .within("work [old]")
+            .with_files(&[EmptyFile("yehuda.txt"), EmptyFile("jttxt")]);
+        sandbox
+            .within("work [old]/sub")
+            .with_files(&[EmptyFile("andres.txt")]);
+        let pwd = dirs.test().join("work [old]");
 
         // e.g. `C:`, the drive `$env.PWD` is on
         let drive = dirs.test().as_std_path().components().next().unwrap();
         let drive = drive.as_os_str().to_string_lossy();
 
         test()
-            .cwd(dirs.test())
+            .cwd(&pwd)
             .run(format!("glob {drive}*.txt | path basename"))
             .expect_value_eq(["yehuda.txt"])?;
         test()
-            .cwd(dirs.test())
+            .cwd(&pwd)
             .run(format!("glob {drive}sub/*.txt | path basename"))
-            .expect_value_eq(["andres.txt"])
+            .expect_value_eq(["andres.txt"])?;
+        test()
+            .cwd(&pwd)
+            .run(format!("glob {drive} | path basename"))
+            .expect_value_eq(["work [old]"])
     })
 }
 
