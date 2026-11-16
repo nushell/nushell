@@ -616,7 +616,7 @@ fn named_flag_record_spread_without_named_params_is_parse_error() -> Result {
 #[test]
 fn list_to_scalar_suggests_spread_operator() -> Result {
     let err = test()
-        .run("def f [x: string] {}; let x = [a b]; f $x")
+        .run("def f [x: string] {}; f (echo [a b])")
         .expect_shell_error()?;
     assert_matches!(err, ShellError::CantConvert { .. });
     assert!(
