@@ -185,7 +185,21 @@ impl Command for UCp {
         ));
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
-        if target.item.as_ref().ends_with(MAIN_SEPARATOR) && !target_path.is_dir() {
+        // A trailing separator means "copy into this directory". Reject that before
+        // source globbing when the copy is not recursive, or when the destination
+        // exists and is not a directory. Whether a recursive copy onto a missing
+        // destination is allowed depends on the expanded sources, below.
+        // `exists`/`is_dir` on the expanded path follow a trailing separator, so a
+        // file looks missing; the separator-stripped path is what actually exists.
+        let target_ends_with_separator = target.item.as_ref().ends_with(MAIN_SEPARATOR);
+        let destination_missing = target_ends_with_separator
+            && nu_path::strip_trailing_slash(&target_path)
+                .symlink_metadata()
+                .is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound);
+        if target_ends_with_separator
+            && !target_path.is_dir()
+            && (!recursive || !destination_missing)
+        {
             return Err(ShellError::Generic(GenericError::new(
                 "is not a directory",
                 "is not a directory",
@@ -251,6 +265,29 @@ impl Command for UCp {
             }
         }
         let sources: Vec<PathBuf> = sources.into_iter().flat_map(|x| x.0).collect();
+
+        // `expand_path_with` keeps the trailing separator. Strip it only when this
+        // is a recursive copy of exactly one directory onto a path that does not
+        // exist yet, so `uu_cp` receives the same path as the no-slash command and
+        // creates that directory. Any other missing trailing-separator destination
+        // is still "copy into this directory". Recursive copies never dereference
+        // source symlinks, so the directory check must not follow them either.
+        let target_path = if target_ends_with_separator
+            && destination_missing
+            && recursive
+            && sources.len() == 1
+            && source_path_is_dir(&sources[0], false)
+        {
+            nu_path::strip_trailing_slash(&target_path).into_owned()
+        } else if target_ends_with_separator && destination_missing {
+            return Err(ShellError::Generic(GenericError::new(
+                "is not a directory",
+                "is not a directory",
+                target.span,
+            )));
+        } else {
+            target_path
+        };
 
         let attributes = make_attributes(preserve)?;
 
