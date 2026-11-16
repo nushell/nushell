@@ -614,7 +614,9 @@ fn get_command_documentation(
         }
     }
 
-    long_desc.push('\n');
+    if long_desc.ends_with('\n') {
+        long_desc.pop();
+    }
 }
 
 fn update_ansi_from_config(

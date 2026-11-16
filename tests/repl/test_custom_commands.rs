@@ -89,11 +89,13 @@ fn custom_flag_with_type_checking(
     (type_sig, value): (&str, &str),
     #[values("--dry-run", "-d")] flag: &str,
 ) -> Result {
-    let code = format! {"
+    let code = format!(
+        "
         def florb [{flag}: {type_sig}] {{}}
         let y = {value}
         florb {flag} $y
-    "};
+    "
+    );
 
     test()
         .run(code)
@@ -104,11 +106,13 @@ fn custom_flag_with_type_checking(
 /// (same as not passing it) rather than type-mismatching.
 #[rstest]
 fn custom_flag_null_is_omitted(#[values("--dry-run", "-d")] flag: &str) -> Result {
-    let code = format! {"
+    let code = format!(
+        "
         def florb [--dry-run (-d): int] {{ $dry_run }}
         let y = null
         florb {flag} $y
-    "};
+    "
+    );
 
     test().run(code).expect_value_eq(())
 }

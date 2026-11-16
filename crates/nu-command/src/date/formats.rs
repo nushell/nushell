@@ -224,7 +224,7 @@ pub(crate) fn parse_date_text(input: &str) -> Option<DateTime<FixedOffset>> {
     }
     // RFC 9557: 2025-04-18T04:04:32-05:00[America/Chicago]
     if input.ends_with(']') {
-        return zoned_to_chrono(&input.parse::<jiff::Zoned>().ok()?);
+        return zoned_to_chrono(&input.parse::<jiff::ZonedDateTime>().ok()?);
     }
     parse_relative(input)
 }
@@ -234,7 +234,14 @@ fn parse_relative(input: &str) -> Option<DateTime<FixedOffset>> {
     if !RELATIVE.is_match(input).unwrap_or(false) {
         return None;
     }
-    zoned_to_chrono(&parse_datetime::parse_datetime(input).ok()?.into_zoned()?)
+    // parse_datetime returns jiff 0.2's `Zoned`, so its parts cross over, not the type.
+    let zoned = parse_datetime::parse_datetime(input).ok()?.into_zoned()?;
+    let timestamp = zoned.timestamp();
+    instant_to_chrono(
+        zoned.offset().seconds(),
+        timestamp.as_second(),
+        timestamp.subsec_nanosecond(),
+    )
 }
 
 /// Relative dates are read by parse_datetime, which nu-command depends on only with the `os`
@@ -564,7 +571,7 @@ fn build(
         )
         .ok()?;
         let zone = jiff::tz::TimeZone::get(name).ok()?;
-        return zoned_to_chrono(&civil.to_zoned(zone).ok()?);
+        return zoned_to_chrono(&civil.to_zoned_datetime(zone).ok()?);
     }
     let offset = match zone.and_then(|z| z.offset()) {
         Some(offset) => Some(FixedOffset::east_opt(offset.seconds())?),
@@ -594,13 +601,27 @@ fn with_offset(naive: NaiveDateTime, offset: Option<FixedOffset>) -> Option<Date
     }
 }
 
-/// jiff's `Zoned` as nushell's date value, keeping the instant and the offset.
-fn zoned_to_chrono(zoned: &jiff::Zoned) -> Option<DateTime<FixedOffset>> {
-    let offset = FixedOffset::east_opt(zoned.offset().seconds())?;
+/// jiff's `ZonedDateTime` as nushell's date value, keeping the instant and the offset.
+fn zoned_to_chrono(zoned: &jiff::ZonedDateTime) -> Option<DateTime<FixedOffset>> {
     let timestamp = zoned.timestamp();
-    let (seconds, nanoseconds) = match timestamp.subsec_nanosecond() {
-        n if n < 0 => (timestamp.as_second() - 1, n + 1_000_000_000),
-        n => (timestamp.as_second(), n),
+    instant_to_chrono(
+        zoned.offset().seconds(),
+        timestamp.as_second(),
+        timestamp.subsec_nanosecond(),
+    )
+}
+
+/// The instant `seconds` + `nanoseconds` after the Unix epoch at `offset_seconds`, as nushell's
+/// date value. jiff gives a negative `nanoseconds` for instants before the epoch.
+fn instant_to_chrono(
+    offset_seconds: i32,
+    seconds: i64,
+    nanoseconds: i32,
+) -> Option<DateTime<FixedOffset>> {
+    let offset = FixedOffset::east_opt(offset_seconds)?;
+    let (seconds, nanoseconds) = match nanoseconds {
+        n if n < 0 => (seconds - 1, n + 1_000_000_000),
+        n => (seconds, n),
     };
     let utc = DateTime::from_timestamp(seconds, u32::try_from(nanoseconds).ok()?)?;
     Some(utc.with_timezone(&offset))
@@ -745,11 +766,11 @@ const SAMPLE_ZONE: &str = "Asia/Kolkata";
 
 /// The date-time the layout examples show: Friday 2025-04-18 16:04:32.5 at +05:30. The day is
 /// past 12, so a day-first example isn't read month-first.
-fn sample() -> Option<jiff::Zoned> {
+fn sample() -> Option<jiff::ZonedDateTime> {
     let offset = jiff::tz::Offset::from_seconds(5 * 3600 + 30 * 60).ok()?;
     jiff::civil::DateTime::new(2025, 4, 18, 16, 4, 32, 500_000_000)
         .ok()?
-        .to_zoned(jiff::tz::TimeZone::fixed(offset))
+        .to_zoned_datetime(jiff::tz::TimeZone::fixed(offset))
         .ok()
 }
 
@@ -779,7 +800,7 @@ fn listed_layouts() -> impl Iterator<Item = (&'static str, &'static str, String)
 }
 
 /// `layout`'s example: [`sample`] written in `context`.
-fn layout_example(layout: &str, context: &str, sample: Option<&jiff::Zoned>) -> String {
+fn layout_example(layout: &str, context: &str, sample: Option<&jiff::ZonedDateTime>) -> String {
     if let Some((_, example)) = EXAMPLES.iter().find(|(l, _)| *l == layout) {
         return example.to_string();
     }
@@ -1062,11 +1083,11 @@ mod tests {
     }
 
     /// `date` as a jiff time at the same offset, to write it through a layout.
-    fn to_zoned(date: DateTime<FixedOffset>) -> Option<jiff::Zoned> {
+    fn to_zoned(date: DateTime<FixedOffset>) -> Option<jiff::ZonedDateTime> {
         let offset = jiff::tz::Offset::from_seconds(date.offset().local_minus_utc()).ok()?;
         let nanos = i32::try_from(date.timestamp_subsec_nanos()).ok()?;
         let timestamp = jiff::Timestamp::new(date.timestamp(), nanos).ok()?;
-        Some(timestamp.to_zoned(jiff::tz::TimeZone::fixed(offset)))
+        Some(timestamp.to_zoned_datetime(jiff::tz::TimeZone::fixed(offset)))
     }
 
     /// Each layout's example reads back as that layout: written through it again, it comes out

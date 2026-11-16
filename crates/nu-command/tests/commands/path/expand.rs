@@ -124,4 +124,26 @@ mod windows {
             Ok(())
         })
     }
+
+    #[test]
+    fn expands_drive_relative_path_against_pwd() -> Result {
+        Playground::setup("path_expand_drive_relative", |dirs, sandbox| {
+            sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
+
+            // e.g. `C:`, the drive `$env.PWD` is on
+            let drive = dirs.test().as_std_path().components().next().unwrap();
+            let drive = drive.as_os_str().to_string_lossy();
+
+            let outcome: String = test()
+                .cwd(dirs.test())
+                .run(format!("'{drive}' | path expand"))?;
+            assert_eq!(Path::new(&outcome), dirs.test());
+
+            let outcome: String = test()
+                .cwd(dirs.test())
+                .run(format!("'{drive}menu' | path expand"))?;
+            assert_eq!(Path::new(&outcome), dirs.test().join("menu"));
+            Ok(())
+        })
+    }
 }

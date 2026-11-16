@@ -184,12 +184,7 @@ impl Expression {
             Expr::Filepath(_, _) => false,
             Expr::Directory(_, _) => false,
             Expr::Float(_) => false,
-            Expr::FullCellPath(full_cell_path) => {
-                if full_cell_path.head.has_in_variable(working_set) {
-                    return true;
-                }
-                false
-            }
+            Expr::FullCellPath(full_cell_path) => full_cell_path.head.has_in_variable(working_set),
             Expr::Garbage => false,
             Expr::Nothing => false,
             Expr::GlobPattern(_, _) => false,

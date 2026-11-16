@@ -62,15 +62,10 @@ impl Command for Cd {
                     // Trim whitespace from the end of path.
                     let path_no_whitespace =
                         v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-                    // On Windows, resolve drive-relative paths like `d:` or `d:foo` the way cmd does.
-                    let target = nu_path::resolve_drive_relative(
-                        std::path::Path::new(path_no_whitespace),
-                        &cwd,
-                    );
 
                     // If `--physical` is specified, canonicalize the path; otherwise expand the path.
                     if physical {
-                        if let Ok(path) = nu_path::canonicalize_with(&target, &cwd) {
+                        if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                             if !path.is_dir() {
                                 return Err(shell_error::io::IoError::new(
                                     shell_error::io::ErrorKind::from_std(
@@ -91,7 +86,7 @@ impl Command for Cd {
                             .into());
                         }
                     } else {
-                        let path = nu_path::expand_path_with(&target, &cwd, true);
+                        let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
                         if !path.exists() {
                             return Err(shell_error::io::IoError::new(
                                 ErrorKind::DirectoryNotFound,

@@ -7,11 +7,13 @@ use rstest::rstest;
 #[nu_test_support::test]
 #[deps(NU_PLUGIN_INC)]
 fn chooses_highest_increment_if_given_more_than_one(#[case] args: &str) -> Result {
-    let code = format! {"
+    let code = format!(
+        "
         open cargo_sample.toml
         | inc package.version {args}
         | get package.version
-    "};
+    "
+    );
 
     test()
         .cwd("tests/fixtures/formats")
@@ -73,11 +75,13 @@ fn semantic_version_inc(#[case] topic: &str, #[case] args: &str, #[case] expecte
             "#,
         )]);
 
-        let code = format! {"
+        let code = format!(
+            "
             open sample.toml
             | inc package.version {args}
             | get package.version
-        "};
+        "
+        );
 
         test().cwd(dirs.test()).run(code).expect_value_eq(expected)
     })

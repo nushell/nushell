@@ -2,7 +2,7 @@ use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
     EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
-    OperatorCompletion, VariableCompletion,
+    OperatorCompletion, OverlayCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
@@ -1999,6 +1999,29 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
+        // The lexer can split a trailing escape out of its unclosed quoted argument.
+        if matches!(argument, Argument::Positional(expression) if matches!(expression.expr, Expr::Garbage))
+            && working_set.get_span_contents(argument.span()) == b"\\"
+            && let Some(previous_index) = argument_index.checked_sub(1)
+            && let Some(previous) = site.call.arguments.get(previous_index)
+            && matches!(previous, Argument::Positional(_))
+            && previous.span().end == argument.span().start
+            && working_set.parse_errors.iter().any(|error| {
+                matches!(error, nu_protocol::ParseError::Unclosed(delimiter, opener, _, _)
+                    if delimiter == "\"" && opener.start == previous.span().start)
+            })
+        {
+            return CompletionSite::at(
+                absolute_position,
+                SiteKind::Positional {
+                    site,
+                    sig_positional: count_positionals(site.call, previous_index),
+                    arg_slot: previous_index,
+                },
+                Span::new(previous.span().start, argument.span().end),
+            );
+        }
+
         let sig_positional = count_positionals(site.call, argument_index);
         let flag_name = SiteKind::FlagName {
             site,
@@ -2162,6 +2185,7 @@ impl<'engine> CompletionEngine<'engine> {
                 arg_value.complete_module_exports(context, context.working_set)
             }
             BuiltinCompletion::EnvVar => EnvVarCompletion.fetch(context),
+            BuiltinCompletion::Overlay => OverlayCompletion.fetch(context),
             BuiltinCompletion::Command { internal_only } => {
                 let scope = if internal_only {
                     CommandScope::InternalsOnly
@@ -2971,6 +2995,69 @@ mod completer_tests {
                 .collect(),
         );
         assert_eq!(expected, settled);
+    }
+
+    #[test]
+    fn dangling_escape_stays_with_its_unclosed_argument() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        apply_source(
+            &mut engine,
+            &mut Stack::new(),
+            b"def sample [name?: string] {}",
+        );
+        for (line, index, token) in [
+            (r#"sample "say\"#, 0, r#""say\"#),
+            (r#"sample "say\\\"#, 0, r#""say\\\"#),
+            (r#"sample "say" \"#, 1, r"\"),
+            (r"sample say\", 0, r"say\"),
+        ] {
+            let mut working_set = StateWorkingSet::new(&engine);
+            let offset = working_set.next_span_start();
+            let block = parse(&mut working_set, None, line.as_bytes(), false);
+            let site = CompletionEngine::resolve_completion_site(
+                &block,
+                &working_set,
+                Buffer { text: line, offset },
+                line,
+            );
+            assert_eq!(
+                site.kind.resolved(),
+                ResolvedCursor::Positional { index },
+                "{line:?}"
+            );
+            assert_eq!(site.typed_prefix, token, "{line:?}");
+            assert_eq!(
+                site.span,
+                Span::new(offset + line.len() - token.len(), offset + line.len()),
+                "{line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_hide_completions_follow_changes_across_prompts() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        let mut stack = Stack::new();
+        let cache = NarrowingCache::default();
+        let line = "overlay hide ";
+
+        for (source, expected) in [
+            ("overlay new alpha", vec!["alpha"]),
+            ("overlay hide alpha", vec![]),
+            ("overlay use alpha", vec!["alpha"]),
+            ("overlay new beta", vec!["alpha", "beta"]),
+        ] {
+            apply_source(&mut engine, &mut stack, source.as_bytes());
+            let mut completer = NuCompleter::with_cache(
+                Arc::new(engine.clone()),
+                Arc::new(stack.clone()),
+                cache.clone(),
+            );
+            let suggestions = completer.complete_blocking(line, line.len());
+            let values: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
+            assert_eq!(values, expected, "after {source}");
+            assert!(cache.fresh(&q(line), completer.cache_env).is_none());
+        }
     }
 
     /// A cache handed to a new per-prompt completer must still answer the previous prompt's

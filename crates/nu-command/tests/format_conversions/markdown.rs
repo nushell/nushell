@@ -42,6 +42,26 @@ fn md_table_pretty() -> Result {
 }
 
 #[test]
+fn md_table_pretty_aligns_wide_header() -> Result {
+    // The wide header must be the widest cell in its column; otherwise
+    // .len() in collect_headers produces the same width as .width().
+    let code = "[[名前 b]; [x y]] | to md --pretty";
+    test()
+        .run(code)
+        .expect_value_eq("| 名前 | b   |\n| ---- | --- |\n| x    | y   |")
+}
+
+#[test]
+fn md_table_pretty_centers_wide_cell() -> Result {
+    // The centered wide cell must be narrower than the column set by `abcdef`;
+    // otherwise .len() in get_centered_string gives the same padding.
+    let code = "[{a: 你, b: z} {a: abcdef, b: long}] | to md --pretty --center [a]";
+    test().run(code).expect_value_eq(
+        "|   a    | b    |\n|:------:| ---- |\n|   你   | z    |\n| abcdef | long |",
+    )
+}
+
+#[test]
 fn md_table_keeps_row_order_with_missing_columns() -> Result {
     let code = "[{a: 1, b: 2} {a: 3} {b: 4} {a: 5}] | to md";
     test()
