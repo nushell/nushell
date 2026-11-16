@@ -7,6 +7,7 @@ mod into_value;
 mod range;
 #[cfg(test)]
 mod test_derive;
+mod type_mismatch;
 
 #[doc(hidden)]
 pub mod macros;

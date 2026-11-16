@@ -2028,11 +2028,10 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
         Value::Error { error, .. } => Err(*error.clone()),
         _ if val.is_assignable_to(ty) => Ok(()),
         _ => {
-            let help = if matches!(val, Value::List { .. }) {
-                Some("try using the spread operator `...` to pass items individually".into())
-            } else {
-                None
-            };
+            let help = val.explain_type_mismatch(ty).or_else(|| {
+                matches!(val, Value::List { .. })
+                    .then(|| "try using the spread operator `...` to pass items individually".into())
+            });
             Err(ShellError::CantConvert {
                 to_type: ty.to_string(),
                 from_type: val.get_type().to_string(),
@@ -2070,6 +2069,10 @@ fn check_assignment_type(
                 format!("expected {expected}, got {actual}"),
                 assignment_span,
             );
+
+            if let Some(help) = val.explain_type_mismatch(target_ty) {
+                err = err.with_help(help);
+            }
 
             Err(ShellError::LabeledError(err.into()))
         }

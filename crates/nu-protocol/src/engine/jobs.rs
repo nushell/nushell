@@ -53,6 +53,12 @@ impl Jobs {
         self.jobs.is_empty()
     }
 
+    /// Whether any job runs on a background thread. Frozen jobs don't count: they are stopped
+    /// external processes and can't run nushell code, such as `commandline set-prompt`.
+    pub fn has_thread_jobs(&self) -> bool {
+        self.jobs.values().any(|job| matches!(job, Job::Thread(_)))
+    }
+
     pub fn lookup(&self, id: JobId) -> Option<&Job> {
         self.jobs.get(&id)
     }
@@ -454,6 +460,20 @@ impl IgnoredMail {
 mod tests {
     use super::*;
     use std::sync::{atomic::AtomicBool, mpsc};
+
+    #[test]
+    fn has_thread_jobs_tracks_thread_jobs() {
+        let (sender, _) = mpsc::channel();
+        let signals = Signals::new(Arc::new(AtomicBool::new(false)));
+        let mut jobs = Jobs::default();
+        assert!(!jobs.has_thread_jobs());
+
+        let id = jobs.add_job(Job::Thread(ThreadJob::new(signals, None, false, sender)));
+        assert!(jobs.has_thread_jobs());
+
+        jobs.remove_job(id);
+        assert!(!jobs.has_thread_jobs());
+    }
 
     #[test]
     fn interrupted_job_does_not_spawn() {

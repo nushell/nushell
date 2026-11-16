@@ -669,10 +669,7 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
 }
 
 fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
-    if folders.iter().any(|p| path.starts_with(p.as_path())) {
-        return true;
-    }
-    false
+    folders.iter().any(|p| path.starts_with(p.as_path()))
 }
 
 #[cfg(unix)]
