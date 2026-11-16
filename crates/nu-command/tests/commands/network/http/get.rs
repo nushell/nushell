@@ -53,6 +53,26 @@ fn http_get_failed_due_to_server_error_with_json_body(#[case] content_type: &str
 }
 
 #[test]
+fn http_get_failed_with_empty_json_body_reports_reason() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(401)
+        .with_header("content-type", "application/json; charset=utf-8")
+        .create();
+    let err = test()
+        .run_with_data("http get $in", server.url())
+        .expect_shell_error()?;
+    match err {
+        ShellError::HttpError { msg, .. } => {
+            assert_eq!(msg, "Unauthorized");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
 fn http_get_with_accept_errors() -> Result {
     let mut server = Server::new();
 
