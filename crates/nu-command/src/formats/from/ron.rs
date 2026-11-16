@@ -17,7 +17,7 @@ impl Command for FromRon {
 
     fn description(&self) -> &str {
         "Parse text as Rusty Object Notation (RON) and create structured data. \
-        NOTE: cannot parse enums, and Some evaluates to the value it contains"
+        NOTE: cannot parse enums, and Some evaluates to the value it contains."
     }
 
     fn run(
