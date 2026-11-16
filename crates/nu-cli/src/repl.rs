@@ -187,7 +187,7 @@ pub fn evaluate_repl(
 
     confirm_stdin_is_terminal()?;
 
-    let hostname = System::host_name();
+    let hostname = System::host_name().ok();
     if shell_integration_osc2 {
         run_shell_integration_osc2(None, engine_state, &mut unique_stack, use_color);
     }

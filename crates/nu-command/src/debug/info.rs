@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use sysinfo::{MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 
 const ENV_PATH_SEPARATOR_CHAR: char = {
@@ -41,7 +42,7 @@ impl Command for DebugInfo {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(all_columns(call.head).into_pipeline_data())
+        Ok(all_columns(call.head)?.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -53,13 +54,21 @@ impl Command for DebugInfo {
     }
 }
 
-fn all_columns(span: Span) -> Value {
+fn all_columns(span: Span) -> Result<Value, ShellError> {
     let rk = RefreshKind::nothing()
         .with_processes(ProcessRefreshKind::everything())
         .with_memory(MemoryRefreshKind::everything());
 
     // only get information requested
-    let sys = System::new_with_specifics(rk);
+    // sysinfo errors when it doesn't support the platform, such as wasm. This module builds
+    // without the `os` feature, so it can't use the `sys` commands' `sysinfo_error`.
+    let sys = System::new_with_specifics(rk).map_err(|err| {
+        ShellError::Generic(GenericError::new(
+            "Unable to read system information",
+            err.to_string(),
+            span,
+        ))
+    })?;
 
     let pid = Pid::from(std::process::id() as usize);
     let ppid = {
@@ -156,7 +165,7 @@ fn all_columns(span: Span) -> Value {
         Value::nothing(span)
     };
 
-    Value::record(
+    Ok(Value::record(
         record! {
             "thread_id" => Value::int(get_thread_id() as i64, span),
             "pid" => Value::int(pid.as_u32().into(), span),
@@ -165,7 +174,7 @@ fn all_columns(span: Span) -> Value {
             "process" => process,
         },
         span,
-    )
+    ))
 }
 
 fn get_thread_id() -> u64 {

@@ -1,4 +1,4 @@
-use super::trim_cstyle_null;
+use super::{sysinfo_error, trim_cstyle_null};
 use nu_engine::command_prelude::*;
 use sysinfo::{CpuRefreshKind, MINIMUM_CPU_UPDATE_INTERVAL, System};
 
@@ -34,7 +34,7 @@ impl Command for SysCpu {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let long = call.has_flag(engine_state, stack, "long")?;
-        Ok(cpu(long, call.head).into_pipeline_data())
+        Ok(cpu(long, call.head)?.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -46,15 +46,15 @@ impl Command for SysCpu {
     }
 }
 
-fn cpu(long: bool, span: Span) -> Value {
-    let mut sys = System::new();
+fn cpu(long: bool, span: Span) -> Result<Value, ShellError> {
+    let mut sys = System::new().map_err(|err| sysinfo_error(err, span))?;
     if long {
         sys.refresh_cpu_specifics(CpuRefreshKind::everything());
         // We must refresh the CPU twice a while apart to get valid usage data.
         // In theory we could just sleep MINIMUM_CPU_UPDATE_INTERVAL, but I've noticed that
         // that gives poor results (error of ~5%). Decided to wait 2x that long, somewhat arbitrarily
         std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL * 2);
-        sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
+        sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_usage());
     } else {
         sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_frequency());
     }
@@ -63,7 +63,8 @@ fn cpu(long: bool, span: Span) -> Value {
         .cpus()
         .iter()
         .map(|cpu| {
-            let load_avg = System::load_average();
+            // Platforms without a load average (Windows since sysinfo 0.40) show zeros.
+            let load_avg = System::load_average().unwrap_or_default();
             let load_avg = format!(
                 "{:.2}, {:.2}, {:.2}",
                 load_avg.one, load_avg.five, load_avg.fifteen
@@ -80,7 +81,7 @@ fn cpu(long: bool, span: Span) -> Value {
             if long {
                 // sysinfo CPU usage numbers are not very precise unless you wait a long time between refreshes.
                 // Round to 1DP (chosen somewhat arbitrarily) so people aren't misled by high-precision floats.
-                let rounded_usage = (f64::from(cpu.cpu_usage()) * 10.0).round() / 10.0;
+                let rounded_usage = (f64::from(cpu.usage()) * 10.0).round() / 10.0;
                 record.push("cpu_usage", rounded_usage.into_value(span));
             }
 
@@ -88,5 +89,5 @@ fn cpu(long: bool, span: Span) -> Value {
         })
         .collect();
 
-    Value::list(cpus, span)
+    Ok(Value::list(cpus, span))
 }
