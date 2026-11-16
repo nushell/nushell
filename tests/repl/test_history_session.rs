@@ -1,8 +1,8 @@
 //! The history session id reported while the startup config is evaluated (#18321).
+#![cfg(not(windows))]
 
 use nu_test_support::prelude::*;
 use std::fs;
-#[cfg(not(windows))]
 use std::process::{Command, Stdio};
 
 /// Regression test for #18321: the history session id is created when the
@@ -12,7 +12,6 @@ use std::process::{Command, Stdio};
 /// `run_repl` evaluates the config before `evaluate_repl` checks for a TTY,
 /// so driving the binary with a closed stdin prints the id and then fails
 /// with the "STDIN is not a TTY" error; only stdout matters here.
-#[cfg(not(windows))]
 #[test]
 #[deps(NU)]
 fn history_session_id_reported_during_startup_config() -> Result {

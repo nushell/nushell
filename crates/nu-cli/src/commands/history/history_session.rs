@@ -29,15 +29,22 @@ impl Command for HistorySession {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // The id is only recorded on history rows when isolation is on; report
         // 0 otherwise so callers can't mistake the startup id for a real session.
-        let session_id = match engine_state.history_config() {
-            Some(history) if history.isolation => engine_state.history_session_id,
-            _ => 0,
+        // Read the stack's config: `$env.config` changes made earlier in the same
+        // config file aren't merged into engine_state until the file finishes.
+        let history = &stack.get_config(engine_state).history;
+        let session_id = if engine_state.history_enabled
+            && history.isolation
+            && history.path != nu_protocol::HistoryPath::Disabled
+        {
+            engine_state.history_session_id
+        } else {
+            0
         };
         Ok(Value::int(session_id, call.head).into_pipeline_data())
     }

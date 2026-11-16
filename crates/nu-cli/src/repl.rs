@@ -1404,13 +1404,7 @@ fn setup_history(
     };
 
     if let Some(path) = history.file_path(&engine_state.config_dirs.config_home) {
-        return update_line_editor_history(
-            engine_state,
-            path,
-            history,
-            line_editor,
-            history_session_id,
-        );
+        return update_line_editor_history(path, history, line_editor, history_session_id);
     };
     Ok(line_editor)
 }
@@ -1492,7 +1486,6 @@ fn warn_history_unavailable(history_path: &std::path::Path, err: &impl std::fmt:
 }
 
 fn update_line_editor_history(
-    _engine_state: &mut EngineState,
     history_path: PathBuf,
     history: HistoryConfig,
     line_editor: Reedline,
@@ -1871,7 +1864,6 @@ fn dangling_history_symlink_does_not_fail_setup() {
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let result = update_line_editor_history(
-        engine_state,
         history_path.clone(),
         history,
         line_editor,
