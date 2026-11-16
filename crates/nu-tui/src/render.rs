@@ -153,10 +153,11 @@ pub fn render_to_string(session: &mut Session, width: u16, height: u16) -> Resul
     use ratatui::{Terminal, backend::TestBackend};
 
     let backend = TestBackend::new(width, height);
-    let mut terminal = Terminal::new(backend).map_err(|e| e.to_string())?;
+    // The test backend is infallible, so neither operation can return an error.
+    let mut terminal = Terminal::new(backend).unwrap_or_else(|err| match err {});
     terminal
         .draw(|frame| render(frame, session))
-        .map_err(|e| e.to_string())?;
+        .unwrap_or_else(|err| match err {});
     let buffer = terminal.backend().buffer();
     let mut output = String::new();
     for y in 0..height {
