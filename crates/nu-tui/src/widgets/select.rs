@@ -166,19 +166,20 @@ impl TuiWidget for SelectWidget {
             format!("{name} ({})", rows.len())
         };
         let block = super::framed(&title, focused, session, id);
-        let inner = block.inner(area);
+        let inner = super::capped(block.inner(area), theme);
         frame.render_widget(block, area);
+        let scroll = list.scroll_for(inner.height as usize);
+        let glyphs = &theme.glyphs;
         let lines: Vec<Line> = rows
             .iter()
             .enumerate()
-            .skip(list.scroll_for(inner.height as usize))
+            .skip(scroll)
             .take(inner.height as usize)
             .map(|(i, item)| {
-                let mark = match (self.multi, list.checked.contains(&i), i == list.selected) {
-                    (true, true, _) => "[x] ",
-                    (true, false, _) => "[ ] ",
-                    (false, _, true) => "(•) ",
-                    (false, _, false) => "( ) ",
+                let mark = if self.multi {
+                    glyphs.check.get(list.checked.contains(&i))
+                } else {
+                    glyphs.radio.get(i == list.selected)
                 };
                 let style = if i == list.selected {
                     theme.text().patch(theme.selected())
@@ -186,12 +187,16 @@ impl TuiWidget for SelectWidget {
                     theme.text()
                 };
                 Line::from(vec![
-                    TSpan::styled(mark, style),
+                    TSpan::styled(format!("{mark} "), style),
                     TSpan::styled(self.label(item, session), style),
                 ])
             })
             .collect();
         frame.render_widget(Paragraph::new(Text::from(lines)).style(theme.text()), inner);
+        if !rows.is_empty() {
+            let y = inner.top() + list.selected.saturating_sub(scroll) as u16;
+            super::draw_selected_caps(frame, inner, y, theme.text(), theme);
+        }
     }
 
     fn value(&self, id: &str, state: &WidgetState, session: &Session) -> Value {

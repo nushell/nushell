@@ -12,6 +12,7 @@ mod commands;
 mod default_context;
 mod filter;
 mod hooks;
+mod image;
 mod keys;
 mod layout;
 mod render;

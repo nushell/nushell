@@ -45,13 +45,29 @@ impl Command for TuiTable {
                     "A chord pressed on the focused table becomes the filter query.",
                     None,
                 )
-                .switch("index", "Select row indexes instead of rows.", Some('i')),
+                .switch("index", "Select row indexes instead of rows.", Some('i'))
+                .switch(
+                    "icons",
+                    "Put each path cell's file icon before it, as `table --icons` does (needs a Nerd Font).",
+                    Some('o'),
+                )
+                .named(
+                    "path-columns",
+                    SyntaxShape::List(Box::new(SyntaxShape::String)),
+                    "Columns to color and icon as paths (directories blue, executables green, images yellow, …; `$env.config.tui.file_styles`), as `metadata set --path-columns` marks them: for a column of bare names beside the data's own `name`.",
+                    None,
+                ),
         )
         .input_output_types(builder_io_types())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
+            Example {
+                description: "List files with their icons, the names shown bare but colored and iconed as paths",
+                example: "ls | insert file { $in.name | path basename } | tui table --columns [file size] --icons --path-columns [file] | tui run",
+                result: None,
+            },
             Example {
                 description: "Show a small table and pick a row",
                 example: "[{name: foo, size: 1}, {name: bar, size: 2}] | tui table --columns [name size] | tui debug --keys down,enter | get selected.name",
@@ -94,6 +110,8 @@ impl Command for TuiTable {
                 capture_keys: call.has_flag(engine_state, stack, "capture-keys")?,
                 multi: call.has_flag(engine_state, stack, "multi")?,
                 index: call.has_flag(engine_state, stack, "index")?,
+                icons: call.has_flag(engine_state, stack, "icons")?,
+                path_columns: flag_strings(engine_state, stack, call, "path-columns")?,
             };
             push_widget(
                 engine_state,

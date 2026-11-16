@@ -5,6 +5,7 @@ use crate::widget::{Caps, TuiWidget, WidgetState};
 use nu_protocol::{Record, Span, Value};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
+use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use serde::{Deserialize, Serialize};
 
@@ -79,15 +80,40 @@ impl TuiWidget for LabelWidget {
         _focused: bool,
     ) {
         let theme = &session.theme;
+        let glyphs = &theme.glyphs;
+        // A bar fills its line; with caps it is a pill (or one per
+        // segment) on the surface instead, as yazi's mode and tabs.
         let para = match self.slot {
-            Slot::Title => {
-                Paragraph::new(format!(" {} ", self.text(id, session))).style(theme.title())
-            }
+            Slot::Title => match &glyphs.title_caps {
+                Some(caps) => {
+                    let text = format!(" {} ", self.text(id, session));
+                    Paragraph::new(Line::from(super::pill(caps, text, theme.title(), theme)))
+                        .style(theme.text())
+                }
+                None => {
+                    Paragraph::new(format!(" {} ", self.text(id, session))).style(theme.title())
+                }
+            },
             Slot::Content => Paragraph::new(super::ansi_to_text(&self.text(id, session), theme))
                 .style(theme.text()),
-            Slot::Status => {
-                Paragraph::new(format!(" {} ", session.status_text())).style(theme.status())
-            }
+            Slot::Status => match &glyphs.status_caps {
+                Some(caps) => {
+                    let mut line = Line::default();
+                    for (i, segment) in session.status_segments().into_iter().enumerate() {
+                        if i > 0 {
+                            line.push_span(" ");
+                        }
+                        for span in super::pill(caps, format!(" {segment} "), theme.status(), theme)
+                        {
+                            line.push_span(span);
+                        }
+                    }
+                    Paragraph::new(line).style(theme.text())
+                }
+                None => {
+                    Paragraph::new(format!(" {} ", session.status_text())).style(theme.status())
+                }
+            },
         };
         frame.render_widget(para, area);
     }

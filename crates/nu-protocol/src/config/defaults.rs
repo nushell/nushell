@@ -18,6 +18,14 @@ fn str(s: &str) -> Value {
     Value::string(s, span())
 }
 
+fn list(vals: Vec<Value>) -> Value {
+    Value::list(vals, span())
+}
+
+fn strs(items: &[&str]) -> Value {
+    list(items.iter().copied().map(str).collect())
+}
+
 fn bool(b: bool) -> Value {
     Value::bool(b, span())
 }
@@ -324,6 +332,7 @@ pub fn default_tui() -> HashMap<String, Value> {
         ("border", rec(record! { "fg" => str("dark_gray") })),
         ("border_focused", rec(record! { "fg" => str("cyan") })),
         ("border_type", str("single")),
+        ("image_protocol", str("auto")),
         ("selected", rec(record! { "attr" => str("r") })),
         (
             "header",
@@ -346,6 +355,65 @@ pub fn default_tui() -> HashMap<String, Value> {
         ),
         ("surface", rec(record! { "bg" => str("default") })),
         ("backdrop", rec(record! { "bg" => str("default") })),
+        // How path cells look, the first matching rule winning.
+        (
+            "file_styles",
+            list(vec![
+                rec(record! { "kind" => str("dir"), "fg" => str("blue") }),
+                rec(record! { "kind" => str("orphan"), "bg" => str("red") }),
+                rec(record! { "kind" => str("symlink"), "fg" => str("cyan") }),
+                rec(record! { "kind" => str("file"), "mode" => str("??x*"), "fg" => str("green") }),
+                rec(record! { "mime_type" => str("image/*"), "fg" => str("yellow") }),
+                rec(record! {
+                    "mime_type" => strs(&["audio/*", "video/*"]),
+                    "fg" => str("magenta"),
+                }),
+                rec(record! {
+                    "mime_type" => strs(&[
+                        "application/*zip*",
+                        "application/*rar*",
+                        "application/x-7z*",
+                        "application/*tar",
+                        "application/x-xz",
+                        "application/*zstd",
+                        "application/x-lzma",
+                        "application/x-compress*",
+                        "application/x-cpio",
+                        "application/x-arj",
+                        "application/x-xar",
+                        "application/vnd.ms-cab*",
+                    ]),
+                    "fg" => str("red"),
+                }),
+                rec(record! {
+                    "mime_type" => strs(&[
+                        "application/pdf",
+                        "application/msword",
+                        "application/rtf",
+                        "application/*wordprocessingml*",
+                    ]),
+                    "fg" => str("cyan"),
+                }),
+            ]),
+        ),
+        // Glyphs: caps round the bars and tabs (`title_caps`, `status_caps`,
+        // `selected_caps` are unset: the bars fill their line), marks,
+        // tree arrows, and the gauge fill.
+        (
+            "tab_caps",
+            rec(record! { "open" => str(""), "close" => str("") }),
+        ),
+        (
+            "check",
+            rec(record! { "on" => str("[x]"), "off" => str("[ ]") }),
+        ),
+        (
+            "radio",
+            rec(record! { "on" => str("(•)"), "off" => str("( )") }),
+        ),
+        ("tree_open", str("▾")),
+        ("tree_closed", str("▸")),
+        ("progress_fill", str("█")),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))

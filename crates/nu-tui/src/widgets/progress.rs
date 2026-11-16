@@ -4,7 +4,7 @@ use crate::widget::{Caps, TuiWidget, WidgetState};
 use nu_protocol::{Record, Span, Value};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
-use ratatui::widgets::Gauge;
+use ratatui::widgets::LineGauge;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,10 +86,16 @@ impl TuiWidget for ProgressWidget {
             }
             None => format!("{:.0}%", fraction * 100.0),
         };
-        let gauge = Gauge::default()
+        // The label, then the bar: `progress_fill` glyphs in the progress
+        // color as far as the value reaches, muted ones for the rest.
+        let fill = theme.glyphs.progress_fill.as_str();
+        let gauge = LineGauge::default()
             .ratio(fraction)
             .label(label)
-            .gauge_style(theme.progress())
+            .filled_symbol(fill)
+            .unfilled_symbol(fill)
+            .filled_style(theme.progress())
+            .unfilled_style(theme.muted())
             .style(theme.text());
         frame.render_widget(gauge, area);
     }
