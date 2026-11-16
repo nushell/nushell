@@ -5599,7 +5599,7 @@ dependencies = [
  "devicons",
  "image",
  "mime_guess",
- "nix 0.31.3",
+ "nix 0.32.0",
  "nu-ansi-term",
  "nu-cmd-lang",
  "nu-color-config",
@@ -9885,7 +9885,7 @@ dependencies = [
  "scopeguard",
  "urlencoding",
  "windows 0.62.2",
- "windows-core",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
