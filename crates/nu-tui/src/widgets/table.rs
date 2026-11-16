@@ -1,6 +1,6 @@
 //! `tui table`: navigable rows from the data list.
 use crate::keys::KeyPress;
-use crate::session::Session;
+use crate::session::{Rows, Session};
 use crate::widget::{Caps, Effect, ListState, TuiWidget, WidgetState};
 use nu_protocol::{Record, Span, Value};
 use ratatui::Frame;
@@ -48,38 +48,55 @@ pub(crate) fn is_reserved_chord(chord: &str) -> bool {
     )
 }
 
-/// The `selected` value of a list widget: checked rows for `--multi`, the
-/// highlighted row otherwise, or indexes when `index` is set.
-pub(crate) fn list_selection(state: &ListState, rows: &[Value], multi: bool, index: bool) -> Value {
+/// The `selected` value of a table or select: checked rows for `--multi`,
+/// the highlighted row otherwise, or indexes when `index` is set. `rows`
+/// are the rows shown, `source` the unfiltered list that checks and
+/// indexes count in, so checked rows the filter hides are still picked.
+pub(crate) fn list_selection(
+    state: &ListState,
+    rows: &Rows,
+    source: &[Value],
+    multi: bool,
+    index: bool,
+) -> Value {
     let span = Span::unknown();
     let pick = |i: usize| -> Option<Value> {
         if index {
-            rows.get(i).map(|_| Value::int(i as i64, span))
+            source.get(i).map(|_| Value::int(i as i64, span))
         } else {
-            rows.get(i).cloned()
+            source.get(i).cloned()
         }
     };
+    let highlighted = || state.highlighted(rows).and_then(|(_, source)| pick(source));
     if multi {
         let picked: Vec<Value> = if state.checked.is_empty() {
-            pick(state.selected).into_iter().collect()
+            highlighted().into_iter().collect()
         } else {
             state.checked.iter().filter_map(|i| pick(*i)).collect()
         };
         Value::list(picked, span)
     } else {
-        pick(state.selected).unwrap_or_else(|| Value::nothing(span))
+        highlighted().unwrap_or_else(|| Value::nothing(span))
     }
 }
 
-/// The `values` entry of a list widget.
-pub(crate) fn list_value(state: &ListState, rows: &[Value], multi: bool) -> Value {
+/// The `values` entry of a table or select. `index` and `checked` count
+/// rows of the unfiltered `source`, like the selection.
+pub(crate) fn list_value(state: &ListState, rows: &Rows, source: &[Value], multi: bool) -> Value {
     let span = Span::unknown();
+    let highlighted = state.highlighted(rows);
     let mut rec = Record::new();
-    rec.insert("index", Value::int(state.selected as i64, span));
+    rec.insert(
+        "index",
+        Value::int(
+            highlighted.map_or(state.highlight, |(_, source)| source) as i64,
+            span,
+        ),
+    );
     rec.insert(
         "row",
-        rows.get(state.selected)
-            .cloned()
+        highlighted
+            .and_then(|(pos, _)| rows.get(pos).cloned())
             .unwrap_or_else(|| Value::nothing(span)),
     );
     if multi {
@@ -89,7 +106,7 @@ pub(crate) fn list_value(state: &ListState, rows: &[Value], multi: bool) -> Valu
                 state
                     .checked
                     .iter()
-                    .filter_map(|i| rows.get(*i).cloned())
+                    .filter_map(|i| source.get(*i).cloned())
                     .collect(),
                 span,
             ),
@@ -98,66 +115,84 @@ pub(crate) fn list_value(state: &ListState, rows: &[Value], multi: bool) -> Valu
     Value::record(rec, span)
 }
 
-/// Shared key handling for tables and selects: movement, Space to check,
-/// and mouse wheel.
+/// Space on a `--multi` table or select: toggle the highlighted row's
+/// check, kept under its position in the unfiltered list. `None` for any
+/// other chord, or when the widget is not `--multi`.
+pub(crate) fn check_key(
+    list: &mut ListState,
+    chord: &str,
+    rows: &Rows,
+    multi: bool,
+) -> Option<Vec<Effect>> {
+    if !multi || chord != "space" {
+        return None;
+    }
+    if let Some((_, source)) = list.highlighted(rows) {
+        list.toggle(source);
+    }
+    Some(Vec::new())
+}
+
+/// Shared movement keys for tables, selects, and trees, also used by the
+/// mouse wheel.
 pub(crate) fn list_key(
     id: &str,
     list: &mut ListState,
     chord: &str,
-    len: usize,
+    rows: &Rows,
     page: usize,
-    multi: bool,
 ) -> Option<Vec<Effect>> {
-    if multi && chord == "space" {
-        if len > 0 {
-            list.toggle(list.selected);
-        }
-        return Some(Vec::new());
-    }
-    let before = list.selected;
-    if !list.navigate(chord, len, page) {
+    let before = list.highlight;
+    if !list.navigate(chord, rows, page) {
         return None;
     }
-    list.ensure_visible(page);
-    Some(if list.selected != before {
+    list.ensure_visible(rows, page);
+    Some(if list.highlight != before {
         vec![Effect::Selected(id.to_string())]
     } else {
         Vec::new()
     })
 }
 
-/// A click on visible row `row` (counted from the top of the list area).
-/// `page` is the rows of room, so the click maps through the offset the
-/// list is actually drawn with.
+/// A click on visible row `row` (counted from the top of the list area;
+/// `None` above it, on a border or header). `page` is the rows of room, so
+/// the click maps through the offset the list is actually drawn with. A
+/// click above the rows highlights the first one on screen, a click past
+/// them the last row. Returns the effects, and whether the click landed on
+/// a row.
 pub(crate) fn list_click(
     id: &str,
     list: &mut ListState,
-    row: usize,
-    len: usize,
+    row: Option<usize>,
+    rows: &Rows,
     page: usize,
-) -> Vec<Effect> {
+) -> (Vec<Effect>, bool) {
     let mut effects = vec![Effect::Focus(id.to_string())];
-    if len > 0 {
-        list.scroll = list.scroll_for(page);
-        let next = (list.scroll + row).min(len - 1);
-        if next != list.selected {
-            list.selected = next;
-            effects.push(Effect::Selected(id.to_string()));
-        }
+    let Some(last) = rows.len().checked_sub(1) else {
+        return (effects, false);
+    };
+    list.scroll = list.scroll_for(rows, page);
+    let target = list.scroll + row.unwrap_or(0);
+    let hit = row.is_some_and(|row| row < page) && target <= last;
+    if let Some(source) = rows.source(target.min(last))
+        && source != list.highlight
+    {
+        list.highlight = source;
+        effects.push(Effect::Selected(id.to_string()));
     }
-    effects
+    (effects, hit)
 }
 
 pub(crate) fn list_scroll(
     id: &str,
     list: &mut ListState,
     delta: i32,
-    len: usize,
+    rows: &Rows,
     page: usize,
 ) -> Vec<Effect> {
     let chord = if delta < 0 { "up" } else { "down" };
     let mut effects = vec![Effect::Focus(id.to_string())];
-    effects.extend(list_key(id, list, chord, len, page, false).unwrap_or_default());
+    effects.extend(list_key(id, list, chord, rows, page).unwrap_or_default());
     effects
 }
 
@@ -197,10 +232,12 @@ impl TuiWidget for TableWidget {
         key: &KeyPress,
         session: &Session,
     ) -> Option<Vec<Effect>> {
-        let len = session.rows(id).len();
+        let rows = session.rows(id);
         let page = super::inner_rows(session.areas.get(id), 3);
         let list = state.as_list_mut()?;
-        if let Some(effects) = list_key(id, list, &key.chord, len, page, self.multi) {
+        if let Some(effects) = check_key(list, &key.chord, &rows, self.multi)
+            .or_else(|| list_key(id, list, &key.chord, &rows, page))
+        {
             return Some(effects);
         }
         if self.capture_keys && !is_reserved_chord(&key.chord) {
@@ -218,11 +255,12 @@ impl TuiWidget for TableWidget {
         y: u16,
         session: &Session,
     ) -> Vec<Effect> {
-        let len = session.rows(id).len();
+        let rows = session.rows(id);
         let page = super::inner_rows(Some(&area), 3);
-        let row = y.saturating_sub(area.y).saturating_sub(2) as usize;
+        let row = y.checked_sub(area.y).and_then(|y| y.checked_sub(2));
+        let row = row.map(usize::from);
         match state.as_list_mut() {
-            Some(list) => list_click(id, list, row, len, page),
+            Some(list) => list_click(id, list, row, &rows, page).0,
             None => Vec::new(),
         }
     }
@@ -234,10 +272,10 @@ impl TuiWidget for TableWidget {
         delta: i32,
         session: &Session,
     ) -> Vec<Effect> {
-        let len = session.rows(id).len();
+        let rows = session.rows(id);
         let page = super::inner_rows(session.areas.get(id), 3);
         match state.as_list_mut() {
-            Some(list) => list_scroll(id, list, delta, len, page),
+            Some(list) => list_scroll(id, list, delta, &rows, page),
             None => Vec::new(),
         }
     }
@@ -260,8 +298,8 @@ impl TuiWidget for TableWidget {
         // Only the rows on screen are built and styled; a list of a hundred
         // thousand rows must not cost a hundred thousand cells a frame.
         let height = area.height.saturating_sub(3).max(1) as usize;
-        let selected = list.selected.min(count.saturating_sub(1));
-        let scroll = list.scroll_for(height);
+        let highlight = list.position(&rows_data);
+        let scroll = list.scroll_for(&rows_data, height);
         let mut header_cells: Vec<Cell> = Vec::new();
         let mut widths: Vec<Constraint> = Vec::new();
         if self.multi {
@@ -281,11 +319,10 @@ impl TuiWidget for TableWidget {
             .map(|(i, row)| {
                 let mut cells: Vec<Cell> = Vec::new();
                 if self.multi {
-                    let mark = if list.checked.contains(&i) {
-                        "[x]"
-                    } else {
-                        "[ ]"
-                    };
+                    let checked = rows_data
+                        .source(i)
+                        .is_some_and(|source| list.checked.contains(&source));
+                    let mark = if checked { "[x]" } else { "[ ]" };
                     cells.push(Cell::from(mark).style(theme.highlight()));
                 }
                 for col in &columns {
@@ -308,29 +345,33 @@ impl TuiWidget for TableWidget {
             .row_highlight_style(theme.selected())
             .highlight_symbol("▶ ");
         let mut table_state = TableState::default();
-        if count > 0 {
-            table_state.select(Some(selected - scroll));
-        }
+        table_state.select(highlight.map(|pos| pos.saturating_sub(scroll)));
         frame.render_stateful_widget(table, area, &mut table_state);
     }
 
     fn value(&self, id: &str, state: &WidgetState, session: &Session) -> Value {
         match state.as_list() {
-            Some(list) => list_value(list, &session.rows(id), self.multi),
+            Some(list) => list_value(list, &session.rows(id), session.source_rows(id), self.multi),
             None => Value::nothing(Span::unknown()),
         }
     }
 
     fn selection(&self, id: &str, state: &WidgetState, session: &Session) -> Value {
         match state.as_list() {
-            Some(list) => list_selection(list, &session.rows(id), self.multi, self.index),
+            Some(list) => list_selection(
+                list,
+                &session.rows(id),
+                session.source_rows(id),
+                self.multi,
+                self.index,
+            ),
             None => Value::nothing(Span::unknown()),
         }
     }
 
     fn current_row(&self, id: &str, state: &WidgetState, session: &Session) -> Option<Value> {
-        let list = state.as_list()?;
-        session.rows(id).get(list.selected).cloned()
+        let rows = session.rows(id);
+        rows.get(state.as_list()?.position(&rows)?).cloned()
     }
 
     fn debug(&self, id: &str, _state: &WidgetState, session: &Session, rec: &mut Record) {

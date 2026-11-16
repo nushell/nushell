@@ -95,7 +95,7 @@ impl TuiWidget for SearchWidget {
                     Some(vec![Effect::Query])
                 }
             }
-            // Enter submits the row highlighted in the list this box filters.
+            // Enter submits the selection of the list this box filters.
             "enter" => Some(vec![Effect::SubmitCurrent]),
             _ => {
                 if apply_edit(key.event, &mut text.text, &mut text.cursor) {
@@ -162,7 +162,7 @@ impl TuiWidget for SearchWidget {
     }
 
     fn selection(&self, _id: &str, _state: &WidgetState, session: &Session) -> Value {
-        session.current_row()
+        session.current_selection()
     }
 
     fn debug(&self, _id: &str, state: &WidgetState, _session: &Session, rec: &mut Record) {
