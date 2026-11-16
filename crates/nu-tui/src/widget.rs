@@ -10,7 +10,7 @@
 //! one place.
 
 use crate::keys::KeyPress;
-use crate::session::Session;
+use crate::session::{Rows, Session};
 use crate::stream::Feed;
 use crate::widgets::{
     r#box::BoxWidget, button::ButtonWidget, label::LabelWidget, log::LogWidget, menu::MenuWidget,
@@ -223,7 +223,8 @@ pub enum Effect {
     /// Leave the focused text input for the first non-text focusable widget.
     LeaveText,
     Submit(Value),
-    /// Submit the row highlighted in the focused (or first) row source.
+    /// Submit the selection of the focused (or first) row source: its
+    /// checked rows under `--multi`, else its highlighted row (or index).
     /// Widgets cannot compute it themselves while their state is checked
     /// out of the session.
     SubmitCurrent,
@@ -361,68 +362,102 @@ impl WidgetState {
 /// Highlight, scroll offset, and check marks of a table, tree, or select.
 #[derive(Debug, Clone, Default)]
 pub struct ListState {
-    pub selected: usize,
+    /// The highlighted row, by position in the unfiltered list (see
+    /// [`Rows::source`]), so a filter cannot move it to another row. A
+    /// tree's rows are its visible nodes, so there it is a position in them.
+    pub highlight: usize,
+    /// The first shown row on screen, by position in the shown rows.
     pub scroll: usize,
-    /// Rows toggled with Space when the widget is `--multi`.
+    /// Rows toggled with Space on a `--multi` table or select, by position
+    /// in the unfiltered list, like the highlight. Always empty on a tree,
+    /// which keeps its checks by node path in [`TreeState::checked`]; the
+    /// session still clamps it there, against a length it never uses.
     pub checked: BTreeSet<usize>,
     /// The chord stored by `--capture-keys`; doubles as this widget's filter.
     pub captured: String,
 }
 
 impl ListState {
+    /// Where the highlight is among the shown `rows` (see
+    /// [`Rows::nearest`]). `None` when nothing is shown.
+    pub fn position(&self, rows: &Rows) -> Option<usize> {
+        rows.nearest(self.highlight)
+    }
+
+    /// The highlighted row as `(shown position, position in the unfiltered
+    /// list)`. `None` when nothing is shown.
+    pub fn highlighted(&self, rows: &Rows) -> Option<(usize, usize)> {
+        let pos = self.position(rows)?;
+        Some((pos, rows.source(pos)?))
+    }
+
     /// Move the highlight for a navigation chord. Returns `false` when the
     /// chord is not a navigation key.
-    pub fn navigate(&mut self, chord: &str, len: usize, page: usize) -> bool {
-        let last = len.saturating_sub(1);
+    pub fn navigate(&mut self, chord: &str, rows: &Rows, page: usize) -> bool {
+        let pos = self.position(rows).unwrap_or(0);
+        let last = rows.len().saturating_sub(1);
         let next = match chord {
-            "up" | "k" => self.selected.saturating_sub(1),
-            "down" | "j" => (self.selected + 1).min(last),
-            "pageup" => self.selected.saturating_sub(page),
-            "pagedown" => (self.selected + page).min(last),
+            "up" | "k" => pos.saturating_sub(1),
+            "down" | "j" => (pos + 1).min(last),
+            "pageup" => pos.saturating_sub(page),
+            "pagedown" => (pos + page).min(last),
             "home" => 0,
             "end" => last,
             _ => return false,
         };
-        self.selected = if len == 0 { 0 } else { next };
+        if let Some(source) = rows.source(next) {
+            self.highlight = source;
+        }
         true
     }
 
-    /// Keep `selected` on screen given `visible` rows of room.
-    pub fn ensure_visible(&mut self, visible: usize) {
-        self.scroll = self.scroll_for(visible);
+    /// Keep the highlight on screen given `visible` rows of room.
+    pub fn ensure_visible(&mut self, rows: &Rows, visible: usize) {
+        self.scroll = self.scroll_for(rows, visible);
     }
 
-    /// The scroll offset that shows `selected` given `visible` rows of
+    /// The scroll offset that shows the highlight given `visible` rows of
     /// room: the stored one when it already does, else the nearest that
     /// does. Renderers use it so a highlight is never drawn off screen.
-    pub fn scroll_for(&self, visible: usize) -> usize {
+    pub fn scroll_for(&self, rows: &Rows, visible: usize) -> usize {
         let visible = visible.max(1);
-        if self.selected < self.scroll {
-            self.selected
-        } else if self.selected >= self.scroll + visible {
-            self.selected + 1 - visible
+        let pos = self.position(rows).unwrap_or(0);
+        if pos < self.scroll {
+            pos
+        } else if pos >= self.scroll + visible {
+            pos + 1 - visible
         } else {
             self.scroll
         }
     }
 
-    /// Keep every index inside `len` rows. The scroll offset follows the
-    /// highlight down, so a filter that shrinks the rows cannot leave the
-    /// viewport past the end of them.
-    pub fn clamp(&mut self, len: usize) {
-        self.selected = if len == 0 {
-            0
-        } else {
-            self.selected.min(len - 1)
-        };
-        self.scroll = self.scroll.min(self.selected);
-        self.checked.retain(|i| *i < len);
+    /// Put the highlight on a shown row (see [`Rows::nearest`]) and keep
+    /// the checks inside the `total` rows of the unfiltered list. The
+    /// scroll offset follows the highlight up, so a filter that shrinks the
+    /// rows cannot leave the viewport past the end of them; checks on rows
+    /// the filter hides are kept. With nothing shown, the highlight stays
+    /// where it was, so it comes back when the filter shows the row again.
+    pub fn clamp(&mut self, rows: &Rows, total: usize) {
+        match self.highlighted(rows) {
+            Some((pos, source)) => {
+                self.highlight = source;
+                self.scroll = self.scroll.min(pos);
+            }
+            None => {
+                self.highlight = self.highlight.min(total.saturating_sub(1));
+                self.scroll = 0;
+            }
+        }
+        self.checked.retain(|i| *i < total);
     }
 
-    /// The first `n` rows were dropped: move every index so it still names
-    /// the same row. Checked rows that were dropped are forgotten.
+    /// The first `n` rows of the unfiltered list were dropped: move the
+    /// highlight and checks so they still name the same rows. Checked rows
+    /// that were dropped are forgotten. The scroll offset counts shown
+    /// rows, so under a filter it can move further than the rows did;
+    /// [`ListState::scroll_for`] keeps the highlight on screen regardless.
     pub fn drop_front(&mut self, n: usize) {
-        self.selected = self.selected.saturating_sub(n);
+        self.highlight = self.highlight.saturating_sub(n);
         self.scroll = self.scroll.saturating_sub(n);
         self.checked = self
             .checked
@@ -431,6 +466,7 @@ impl ListState {
             .collect();
     }
 
+    /// Check row `index` of the unfiltered list, or uncheck it.
     pub fn toggle(&mut self, index: usize) {
         if !self.checked.remove(&index) {
             self.checked.insert(index);
@@ -498,6 +534,18 @@ pub struct TreeState {
     pub expanded: HashSet<String>,
     /// Directory listings read on expand, keyed by node path.
     pub cache: HashMap<String, Vec<Value>>,
+    /// Paths of the nodes checked with Space under `--multi`. A path names
+    /// its node, so collapsing a parent or filtering cannot move a check.
+    pub checked: HashSet<String>,
+}
+
+impl TreeState {
+    /// Check the node at `path`, or uncheck it.
+    pub fn toggle(&mut self, path: &str) {
+        if !self.checked.remove(path) {
+            self.checked.insert(path.to_string());
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]

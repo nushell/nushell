@@ -39,30 +39,118 @@ pub fn flatten(
         cache,
     };
     let mut out = Vec::new();
-    match root {
-        Value::List { vals, .. } => {
-            for (i, val) in vals.iter().enumerate() {
-                flatten_node(
-                    val,
-                    &i.to_string(),
-                    0,
-                    item_label(val, column),
-                    &ctx,
-                    &mut out,
-                );
-            }
-        }
-        Value::Record { val, .. } if is_ls_style_row(val) => {
-            flatten_node(root, "root", 0, node_label(root, column), &ctx, &mut out);
-        }
-        Value::Record { val, .. } => {
-            for (key, child) in val.iter() {
-                flatten_node(child, key, 0, field_label(key, child), &ctx, &mut out);
-            }
-        }
-        other => flatten_node(other, "0", 0, node_label(other, column), &ctx, &mut out),
+    for (path, label, value) in top_nodes(root, column) {
+        flatten_node(value, &path, 0, label, &ctx, &mut out);
     }
     out
+}
+
+/// The values of the nodes at `paths`, in tree order, whether or not their
+/// parents are expanded: what a `--multi` tree submits. A path that names
+/// no node any more is skipped. Only nodes on the way to a checked path are
+/// opened, and directory listings come from `cache`, so nothing is read
+/// from disk.
+pub fn values_at(
+    root: &Value,
+    paths: &HashSet<String>,
+    walk: bool,
+    column: &str,
+    cwd: &Path,
+    cache: &HashMap<String, Vec<Value>>,
+) -> Vec<Value> {
+    let mut out = Vec::new();
+    visit_at(root, paths, walk, column, cwd, cache, &mut |_, value| {
+        out.push(value.clone())
+    });
+    out
+}
+
+/// The paths in `paths` that still name a node, found the way
+/// [`values_at`] finds them. A tree whose data was replaced keeps only
+/// these checks.
+pub fn existing_paths(
+    root: &Value,
+    paths: &HashSet<String>,
+    walk: bool,
+    column: &str,
+    cwd: &Path,
+    cache: &HashMap<String, Vec<Value>>,
+) -> HashSet<String> {
+    let mut out = HashSet::new();
+    visit_at(root, paths, walk, column, cwd, cache, &mut |path, _| {
+        out.insert(path.to_string());
+    });
+    out
+}
+
+/// Call `visit` with the path and value of every node at `paths`, in tree
+/// order. The walk behind [`values_at`] and [`existing_paths`].
+fn visit_at(
+    root: &Value,
+    paths: &HashSet<String>,
+    walk: bool,
+    column: &str,
+    cwd: &Path,
+    cache: &HashMap<String, Vec<Value>>,
+    visit: &mut dyn FnMut(&str, &Value),
+) {
+    if paths.is_empty() {
+        return;
+    }
+    // `children` does not look at expansion.
+    let expanded = HashSet::new();
+    let ctx = Ctx {
+        expanded: &expanded,
+        walk,
+        column,
+        cwd,
+        cache,
+    };
+    for (path, _, value) in top_nodes(root, column) {
+        visit_node(value, &path, paths, &ctx, visit);
+    }
+}
+
+/// Visit the node at `path` if it is in `paths`, then the children of it
+/// that lead to another path in `paths`.
+fn visit_node<'a>(
+    value: &'a Value,
+    path: &str,
+    paths: &HashSet<String>,
+    ctx: &Ctx<'a>,
+    visit: &mut dyn FnMut(&str, &Value),
+) {
+    if paths.contains(path) {
+        visit(path, value);
+    }
+    let prefix = format!("{path}/");
+    if !paths.iter().any(|p| p.starts_with(&prefix)) {
+        return;
+    }
+    for (key, child) in children(value, path, ctx) {
+        visit_node(child, &child_path(path, &key), paths, ctx, visit);
+    }
+}
+
+/// The top-level nodes of a tree as (path, label, value): the items of a
+/// list, the fields of a record, or the root itself for an `ls` row or a
+/// scalar.
+fn top_nodes<'a>(root: &'a Value, column: &str) -> Vec<(String, String, &'a Value)> {
+    match root {
+        Value::List { vals, .. } => vals
+            .iter()
+            .enumerate()
+            .map(|(i, val)| (i.to_string(), item_label(val, column), val))
+            .collect(),
+        Value::Record { val, .. } if is_ls_style_row(val) => {
+            vec![("root".into(), node_label(root, column), root)]
+        }
+        Value::Record { val, .. } => val
+            .iter()
+            .map(|(key, child)| (escape_key(key), field_label(key, child), child))
+            .collect(),
+        other => vec![("0".into(), node_label(other, column), other)],
+    }
 }
 
 fn flatten_node<'a>(
@@ -137,12 +225,38 @@ fn children<'a>(value: &'a Value, path: &str, ctx: &Ctx<'a>) -> Vec<(String, &'a
     }
 }
 
+/// The path of child `key` of the node at `parent`. A node path joins its
+/// keys with `/`, each escaped by [`escape_key`], so two nodes never share
+/// a path: not a key `a/b` and key `b` inside key `a`, nor child `x` of an
+/// empty key and a top-level `x`.
 fn child_path(parent: &str, key: &str) -> String {
-    if parent.is_empty() {
-        key.to_string()
-    } else {
-        format!("{parent}/{key}")
+    format!("{parent}/{}", escape_key(key))
+}
+
+/// `key` as one segment of a node path: `\` and `/` get a `\` before them.
+fn escape_key(key: &str) -> String {
+    let mut out = String::with_capacity(key.len());
+    for c in key.chars() {
+        if matches!(c, '\\' | '/') {
+            out.push('\\');
+        }
+        out.push(c);
     }
+    out
+}
+
+/// A node path as `values.<id>.path` shows it: the keys joined with `/`,
+/// without the escapes that keep paths apart.
+pub fn display_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut chars = path.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => out.extend(chars.next()),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 fn field_label(key: &str, value: &Value) -> String {
@@ -381,6 +495,35 @@ mod tests {
             "dir rows hide fields: {labels:?}"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn escaped_keys_read_back_and_keep_paths_apart() {
+        for key in ["plain", "a/b", r"a\b", r"ends\", "", r"\/"] {
+            assert_eq!(display_path(&escape_key(key)), key, "{key:?}");
+        }
+        // Key `a/b` and key `b` inside key `a`.
+        assert_ne!(escape_key("a/b"), child_path("a", "b"));
+        // Child `x` of an empty key and a top-level `x`.
+        assert_ne!(child_path("", "x"), escape_key("x"));
+        // Key `b` inside key `a\` and key `a\/b`.
+        assert_ne!(child_path(&escape_key(r"a\"), "b"), escape_key(r"a\/b"));
+    }
+
+    #[test]
+    fn values_at_tells_a_slash_key_from_a_nested_one() {
+        let mut inner = Record::new();
+        inner.insert("b", Value::test_int(2));
+        let mut rec = Record::new();
+        rec.insert("a/b", Value::test_int(1));
+        rec.insert("a", Value::test_record(inner));
+        let root = Value::test_record(rec);
+        let values = |paths: &[String]| {
+            let set: HashSet<String> = paths.iter().cloned().collect();
+            values_at(&root, &set, false, "name", Path::new("."), &HashMap::new())
+        };
+        assert_eq!(values(&[child_path("a", "b")]), vec![Value::test_int(2)]);
+        assert_eq!(values(&[escape_key("a/b")]), vec![Value::test_int(1)]);
     }
 
     #[test]
