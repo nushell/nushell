@@ -2243,6 +2243,54 @@ impl<'engine> CompletionEngine<'engine> {
             BuiltinCompletion::EnvVar => EnvVarCompletion.fetch(context),
             BuiltinCompletion::Overlay => OverlayCompletion.fetch(context),
             BuiltinCompletion::Command { internal_only } => {
+                if internal_only {
+                    // For commands like `help` where multiple positional rest arguments form
+                    // a single command path (e.g. `help str join`), complete words after the
+                    // first as subcommands of earlier words. Starting the replacement span at
+                    // the first rest word ensures the suggestion replaces the full sub-path
+                    // (e.g. `str ca` -> `str camel-case`).
+                    let earlier_positionals: Vec<_> = arg_value
+                        .call
+                        .arguments
+                        .iter()
+                        .take(arg_value.arg_idx)
+                        .filter_map(|arg| match arg {
+                            Argument::Positional(expr) | Argument::Unknown(expr) => Some(expr),
+                            _ => None,
+                        })
+                        .collect();
+
+                    if !earlier_positionals.is_empty() {
+                        let first_span = earlier_positionals[0].span;
+                        if first_span.start <= context.span.end {
+                            let span = Span::new(first_span.start, context.span.end);
+                            let prefix = context.working_set.get_span_contents(span);
+                            let sub_context = Context {
+                                span,
+                                prefix,
+                                ..*context
+                            };
+                            let parent_heads = vec![
+                                earlier_positionals
+                                    .iter()
+                                    .map(|expr| match &expr.expr {
+                                        Expr::String(s) => s.as_str(),
+                                        _ => {
+                                            let bytes =
+                                                context.working_set.get_span_contents(expr.span);
+                                            std::str::from_utf8(bytes).unwrap_or_default()
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(" "),
+                            ];
+
+                            return CommandCompletion::subcommands(parent_heads)
+                                .fetch(&sub_context);
+                        }
+                    }
+                }
+
                 let scope = if internal_only {
                     CommandScope::InternalsOnly
                 } else {

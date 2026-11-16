@@ -1020,6 +1020,39 @@ fn which_command_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// Help completes internal commands and subcommands
+#[test]
+fn help_command_completions() {
+    let engine = new_external_engine();
+    let mut completer = NuCompleter::new(
+        Arc::new(engine),
+        Arc::new(nu_protocol::engine::Stack::new()),
+    );
+    // commands after help
+    let completion_str = "help sleep";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    // commands after help commands
+    let completion_str = "help commands sleep";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    // subcommands after help
+    let completion_str = "help str jo";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["str join"];
+    match_suggestions(&expected, &suggestions);
+
+    // subcommands after help commands
+    let completion_str = "help commands str jo";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["str join"];
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn which_command_quoted_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
