@@ -676,6 +676,17 @@ fn split_sizes_take_cells_percent_and_fractions() -> Result {
     Ok(())
 }
 
+/// Forty `1fr` children once left ratatui's solver looping forever.
+#[test]
+fn split_of_many_children_lays_out() -> Result {
+    let widths: Vec<i64> = test().run(
+        "tui split (0..<40 | each { [a] | tui table }) | tui debug --size [400 8] | get widgets.0.children.rect.width",
+    )?;
+    assert_eq!(widths.len(), 40);
+    assert_eq!(widths.iter().sum::<i64>(), 400 - 39, "{widths:?}");
+    Ok(())
+}
+
 #[test]
 fn tree_expands_nested_record() -> Result {
     let screen: String = test().run(
