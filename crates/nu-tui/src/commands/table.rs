@@ -1,6 +1,6 @@
 use super::{
-    WidgetKind, border_flag, builder_io_types, flag_strings, push_widget, selectable_flags,
-    title_flag, with_app,
+    WidgetKind, border_flag, builder_io_types, flag_sizes, flag_strings, push_widget,
+    selectable_flags, title_flag, with_app,
 };
 use crate::widgets::table::TableWidget;
 use nu_engine::command_prelude::*;
@@ -40,6 +40,12 @@ impl Command for TuiTable {
                     "Columns to show. Defaults to the columns of the input table.",
                     None,
                 )
+                .named(
+                    "column-sizes",
+                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    "One width per shown column, as in `tui split --sizes`; missing entries are \"1fr\".",
+                    None,
+                )
                 .switch(
                     "capture-keys",
                     "A chord pressed on the focused table becomes the filter query.",
@@ -60,6 +66,11 @@ impl Command for TuiTable {
             Example {
                 description: "Rename the border title; the row count stays",
                 example: "ls | tui table --title files | tui debug | get screen",
+                result: None,
+            },
+            Example {
+                description: "A narrow first column; the second takes the rest",
+                example: "[{time: '12:34:56', entry: 'A very long entry'}] | tui table --column-sizes [10 1fr] | tui debug | get screen",
                 result: None,
             },
             Example {
@@ -88,9 +99,11 @@ impl Command for TuiTable {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let source = call.opt(engine_state, stack, 0)?;
+        let column_sizes = flag_sizes(engine_state, stack, call, "column-sizes")?;
         with_app(call, input, |app| {
             let widget = TableWidget {
                 columns: flag_strings(engine_state, stack, call, "columns")?,
+                column_sizes,
                 capture_keys: call.has_flag(engine_state, stack, "capture-keys")?,
                 multi: call.has_flag(engine_state, stack, "multi")?,
                 index: call.has_flag(engine_state, stack, "index")?,

@@ -688,6 +688,58 @@ fn split_of_many_children_lays_out() -> Result {
 }
 
 #[test]
+fn size_flags_accept_dynamic_scalars() -> Result {
+    let sizes: Vec<Vec<i64>> = test().run(
+        "
+            let width: any = 10
+            [
+                (tui split --sizes $width [(tui label x)] | get widgets.0.sizes)
+                (tui table --column-sizes $width | get widgets.0.column_sizes)
+            ]
+        ",
+    )?;
+    assert_eq!(sizes, vec![vec![10], vec![10]]);
+    Ok(())
+}
+
+#[test]
+fn table_column_sizes_set_column_widths() -> Result {
+    let screen: String = test().run(
+        "[{a: x, b: 'a very long entry'}] | tui table --multi --column-sizes [3] | tui debug --size [30 5] | get screen",
+    )?;
+    assert_contains("[ ] x   a very long entry", &screen);
+    Ok(())
+}
+
+#[test]
+fn table_column_sizes_reject_invalid_sizes() -> Result {
+    let err = test()
+        .run("tui table --column-sizes [wide]")
+        .expect_error()?;
+    assert_contains("expected a size", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn table_of_many_columns_lays_out() -> Result {
+    for (flags, sizes) in [
+        ("", "[10]"),
+        ("--multi", "([10] ++ (1..<40 | each { '1fr' }))"),
+    ] {
+        let screen: String = test().run(format!(
+            r#"
+                [(0..<40 | each {{|i| {{name: $"c($i)", value: x}}}} | transpose -rd)]
+                | tui table {flags} --column-sizes {sizes}
+                | tui debug --size [200 5]
+                | get screen
+            "#,
+        ))?;
+        assert_eq!(screen.matches('x').count(), 40, "{screen}");
+    }
+    Ok(())
+}
+
+#[test]
 fn tree_expands_nested_record() -> Result {
     let screen: String = test().run(
         r#"

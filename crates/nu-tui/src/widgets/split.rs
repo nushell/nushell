@@ -249,64 +249,9 @@ impl TuiWidget for SplitWidget {
     }
 }
 
-/// Parse `--sizes` entries: an int is cells, `"30%"`, `"1fr"`, `"min:10"`,
-/// `"max:40"`.
-pub fn parse_size(value: &Value) -> Result<Size, nu_protocol::ShellError> {
-    let bad = |what: &str| nu_protocol::ShellError::TypeMismatch {
-        err_message: format!(
-            "expected a size like 12, \"30%\", \"1fr\", \"min:10\" or \"max:40\", found {what}"
-        ),
-        span: value.span(),
-    };
-    match value {
-        Value::Int { val, .. } => Ok(Size::Length((*val).clamp(0, u16::MAX as i64) as u16)),
-        Value::String { val, .. } => {
-            let s = val.trim().to_ascii_lowercase();
-            let num = |t: &str| t.trim().parse::<u16>().map_err(|_| bad(val));
-            if let Some(p) = s.strip_suffix('%') {
-                Ok(Size::Percent(num(p)?.min(100)))
-            } else if let Some(f) = s.strip_suffix("fr") {
-                Ok(Size::Fill(if f.is_empty() { 1 } else { num(f)?.max(1) }))
-            } else if let Some(m) = s.strip_prefix("min:") {
-                Ok(Size::Min(num(m)?))
-            } else if let Some(m) = s.strip_prefix("max:") {
-                Ok(Size::Max(num(m)?))
-            } else {
-                Ok(Size::Length(num(&s)?))
-            }
-        }
-        other => Err(bad(&other.get_type().to_string())),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn sizes_parse_every_form() {
-        assert_eq!(
-            parse_size(&Value::test_int(12)).ok(),
-            Some(Size::Length(12))
-        );
-        assert_eq!(
-            parse_size(&Value::test_string("30%")).ok(),
-            Some(Size::Percent(30))
-        );
-        assert_eq!(
-            parse_size(&Value::test_string("2fr")).ok(),
-            Some(Size::Fill(2))
-        );
-        assert_eq!(
-            parse_size(&Value::test_string("fr")).ok(),
-            Some(Size::Fill(1))
-        );
-        assert_eq!(
-            parse_size(&Value::test_string("min:10")).ok(),
-            Some(Size::Min(10))
-        );
-        assert!(parse_size(&Value::test_string("wide")).is_err());
-    }
 
     #[test]
     fn many_fill_children_share_the_split_by_weight() {

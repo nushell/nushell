@@ -1914,6 +1914,7 @@ mod tests {
             id,
             WidgetKind::Table(TableWidget {
                 columns: columns.iter().map(|s| s.to_string()).collect(),
+                column_sizes: Vec::new(),
                 capture_keys: false,
                 multi: false,
                 index: false,
@@ -2171,6 +2172,7 @@ mod tests {
             "table-0",
             WidgetKind::Table(TableWidget {
                 columns: vec!["name".into()],
+                column_sizes: Vec::new(),
                 capture_keys: true,
                 multi: false,
                 index: false,
@@ -2772,6 +2774,7 @@ mod tests {
         let mut capturing = table("table-0", &["a"]);
         capturing.kind = WidgetKind::Table(TableWidget {
             columns: vec!["a".into()],
+            column_sizes: Vec::new(),
             capture_keys: true,
             multi: false,
             index: false,
@@ -3012,6 +3015,7 @@ mod tests {
                 "table-0",
                 WidgetKind::Table(TableWidget {
                     columns: vec!["item".into()],
+                    column_sizes: Vec::new(),
                     capture_keys: false,
                     multi: true,
                     index: false,
@@ -3293,6 +3297,7 @@ mod tests {
             "table-1",
             WidgetKind::Table(TableWidget {
                 columns: vec!["name".into()],
+                column_sizes: Vec::new(),
                 capture_keys: false,
                 multi: true,
                 index: false,
