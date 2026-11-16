@@ -611,6 +611,10 @@ fn eval_inner(
     } = &mut state;
 
     let result = eval_on_state(engine_state, stack, history, nu_source);
+    // Like the REPL after each line, free the values this evaluation shadowed, or a long session
+    // keeps every one of them. The state is kept even when the evaluation failed, so clean up
+    // either way.
+    engine_state.cleanup_stack_variables(stack);
     (state, result)
 }
 
@@ -1283,6 +1287,29 @@ mod tests {
             output.contains("hello_repl"),
             "Env var should be 'hello_repl', got: {output}"
         );
+    }
+
+    /// Like the REPL, the session frees a value once a later binding shadows it.
+    #[test]
+    fn shadowed_variable_is_cleaned_up() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        evaluator.eval(r#"let x = "first"; let x = "second""#)?;
+
+        let first_kept = evaluator
+            .state
+            .blocking_lock()
+            .stack
+            .vars
+            .iter()
+            .any(|(_, value)| value.as_str().is_ok_and(|s| s == "first"));
+        assert!(!first_kept, "the shadowed value is still on the stack");
+
+        let result = evaluator.eval("$x")?;
+        assert!(
+            result.contains("second"),
+            "$x should be second, got: {result}"
+        );
+        Ok(())
     }
 
     /// An evaluator with a documented `foo bar`, an alias `fb` of it, and a module command that

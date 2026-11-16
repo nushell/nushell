@@ -131,6 +131,26 @@ fn generates_a_subcommand_only() -> Result {
         .expect_value_eq(["export extern \"tool build\" ["])
 }
 
+/// With `--tool-help`, `cococo --help` and `cococo -h` run `cococo`, which prints its own help,
+/// instead of showing nushell's help for the extern.
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn tool_help_leaves_help_to_the_command() -> Result {
+    Playground::setup("generate_completions_tool_help", |dirs, _| {
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run(
+            "generate completions cococo --source help --tool-help | save cococo-completions.nu",
+        )?;
+        tester
+            .run(
+                "use cococo-completions.nu *
+                [(cococo --help | complete) (cococo -h | complete)]
+                | each { $in.stdout | str contains 'Usage: cococo [ARGS...]' }",
+            )
+            .expect_value_eq([true, true])
+    })
+}
+
 #[test]
 #[deps(TESTBIN_COCOCO)]
 fn runs_the_command_for_its_help() -> Result {

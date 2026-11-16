@@ -20,6 +20,7 @@ impl Command for AttrStructured {
                     vec![
                         ("args".into(), Type::list(Type::String)),
                         ("decode".into(), Type::Closure),
+                        ("pipe_only".into(), Type::Bool),
                     ]
                     .into(),
                 ),
@@ -35,6 +36,11 @@ impl Command for AttrStructured {
                 SyntaxShape::Block,
                 "Turns that output, given as `$in`, into data.",
             )
+            .switch(
+                "pipe-only",
+                "Only decode when nushell uses the output; at the terminal run as written, keeping the command's terminal, help and watch modes.",
+                None,
+            )
             .category(Category::Core)
     }
 
@@ -44,17 +50,36 @@ impl Command for AttrStructured {
 
     fn extra_description(&self) -> &str {
         "When the output of the extern is used by nushell (piped into an internal command or \
-collected into a variable), the arguments are added right after the command's name and the \
-output is decoded with the block. When the output goes to the terminal, `print`, a file, \
-`ignore`, `save`, `tee`, `complete` or another external command (`run-external` included), \
-the command runs as written. The same holds when the extern is the last command of a `do` \
-block or a custom command. Calling the command with a caret, like `^git status`, always runs \
-it as written.
+collected into a variable) or is the result shown in the terminal (the last statement at the \
+prompt or of a script), the arguments are added right after the command's name and the output \
+is decoded with the block. When the output goes to `print`, a file, `ignore`, `save`, `tee`, \
+`complete` or another external command (`run-external` included), the command runs as \
+written. The same holds when the extern is the last command of a `do` block or a custom \
+command. A statement whose result is discarded, one followed by `;` or a newline, a loop body \
+or a hook, also runs as written, so the command prints its own text. With `--pipe-only`, \
+output shown in the terminal is not decoded either, so only output nushell uses is. Calling \
+the command with a caret, like `^git status`, always runs it as written.
 
-The arguments come before the user's own, so a format flag the user passes can override them \
-and break the decode, as in `kubectl get pods -o wide`. Use a caret call for that. `tee` \
-passes the command's own output on to the commands after it. When an extern has more than \
-one `@structured`, the last one is used.
+Decoding at the terminal has costs. The arguments come before the user's own at the terminal \
+too, so a call they don't fit is decoded as well and comes out mangled: `pip list --help` \
+shows its usage text as a record, and a format flag the user passes, as in \
+`kubectl get pods -o wide`, can override them and break the decode. The command's output is \
+captured instead of going to the terminal, so a command that checks for one leaves out its \
+colors, pager and progress output. A block that collects its input, like `from json`, shows \
+nothing until the command exits, which holds back watch modes such as `kubectl get pods -w`. \
+For one call, use a caret call, like `^pip list --help`. For a command whose terminal output \
+should stay its own, define the extern with `--pipe-only`.
+
+When the command exits with a non-zero code, the error is reported as for any external \
+command, following `display_errors.exit_code`. The block's input fails before the block sees \
+the output, so a block that reads it as text shows nothing from a failing command. For a \
+command whose output is still useful when it exits non-zero, start the block with `complete`, \
+which gives the `stdout` and `exit_code` without failing. The exit code is then up to the \
+block, and isn't reported. Only stdout reaches the block: a command's stderr goes to the \
+terminal.
+
+`tee` passes the command's own output on to the commands after it. When an extern has more \
+than one `@structured`, the last one is used.
 
 Like a `def` body, the block can read `$in`, `$env`, constants and the `let` variables \
 declared before the extern, but not `mut` variables."
@@ -69,10 +94,8 @@ declared before the extern, but not `mut` variables."
     ) -> Result<PipelineData, ShellError> {
         let args: Value = call.req(engine_state, stack, 0)?;
         let decode: Value = call.req(engine_state, stack, 1)?;
-        Ok(
-            Value::record(record! { "args" => args, "decode" => decode }, call.head)
-                .into_pipeline_data(),
-        )
+        let pipe_only = call.has_flag(engine_state, stack, "pipe-only")?;
+        Ok(structured_record(args, decode, pipe_only, call.head).into_pipeline_data())
     }
 
     fn run_const(
@@ -84,10 +107,8 @@ declared before the extern, but not `mut` variables."
     ) -> Result<PipelineData, ShellError> {
         let args: Value = call.req_const(working_set, stack, 0)?;
         let decode: Value = call.req_const(working_set, stack, 1)?;
-        Ok(
-            Value::record(record! { "args" => args, "decode" => decode }, call.head)
-                .into_pipeline_data(),
-        )
+        let pipe_only = call.has_flag_const(working_set, stack, "pipe-only")?;
+        Ok(structured_record(args, decode, pipe_only, call.head).into_pipeline_data())
     }
 
     fn is_const(&self) -> bool {
@@ -124,6 +145,32 @@ declared before the extern, but not `mut` variables."
     kubectl get pods | where status.phase != Running"#,
                 result: None,
             },
+            Example {
+                description: "Get the outdated npm packages, although `npm outdated` exits with 1 when there are any.",
+                example: r#"@structured [--json] { complete | get stdout | from json }
+    extern "npm outdated" []
+    npm outdated | columns"#,
+                result: None,
+            },
+            Example {
+                description: "Show `pip list` as a table only when piped, keeping pip's own text, `--help` and colors in the terminal.",
+                example: r#"@structured --pipe-only [--format=json] { from json }
+    extern "pip list" []
+    pip list"#,
+                result: None,
+            },
         ]
     }
+}
+
+/// The record an `@structured` attribute evaluates to, read back as `StructuredOutput`.
+fn structured_record(args: Value, decode: Value, pipe_only: bool, span: Span) -> Value {
+    Value::record(
+        record! {
+            "args" => args,
+            "decode" => decode,
+            "pipe_only" => Value::bool(pipe_only, span),
+        },
+        span,
+    )
 }

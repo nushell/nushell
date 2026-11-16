@@ -4,6 +4,7 @@ use nu_engine::{
 use nu_parser::trim_quotes_str;
 use nu_protocol::{ModuleId, ast::Expr, engine::CommandType};
 
+use super::keep_cwd;
 use std::path::Path;
 
 #[derive(Clone)]
@@ -44,14 +45,18 @@ impl Command for OverlayUse {
             )
             .switch(
                 "reload",
-                "If the overlay already exists, reload its definitions and environment.",
+                "If the overlay already exists, load its definitions and run its `export-env` again, even if its file didn't change.",
                 Some('r'),
             )
             .category(Category::Core)
     }
 
     fn extra_description(&self) -> &str {
-        "This command is a parser keyword. For details, check:
+        "Running `overlay use` again reads the module's file again if it changed. Commands, constants and submodules deleted from the file go away.
+
+The current directory stays the same unless the module's `export-env` changes it.
+
+This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
@@ -123,17 +128,17 @@ impl Command for OverlayUse {
             // b) refreshing an active overlay (the origin module changed)
 
             let module = engine_state.get_module(module_id);
-            // in such case, should also make sure that PWD is not restored in old overlays.
-            let cwd = caller_stack.get_env_var(engine_state, "PWD").cloned();
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
+                // A bare overlay name isn't a path, but the module remembers its file.
                 let maybe_file_path_or_dir = find_in_dirs_env(
                     name_arg_item,
                     engine_state,
                     caller_stack,
                     get_dirs_var_from_call(caller_stack, call),
-                )?;
+                )?
+                .or_else(|| module.real_file().map(Path::to_path_buf));
                 let block = engine_state.get_block(block_id);
                 let mut callee_stack = caller_stack
                     .gather_captures(engine_state, &block.captures)
@@ -168,23 +173,21 @@ impl Command for OverlayUse {
                 let _ = eval_block(engine_state, &mut callee_stack, block, input)?;
 
                 // The export-env block should see the env vars *before* activating this overlay
-                caller_stack.add_overlay(overlay_name);
-                // make sure that PWD is not restored in old overlays.
-                if let Some(cwd) = cwd {
-                    caller_stack.add_env_var("PWD".to_string(), cwd);
-                }
+                keep_cwd(engine_state, caller_stack, |stack| {
+                    stack.add_overlay(overlay_name)
+                });
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
             } else {
-                caller_stack.add_overlay(overlay_name);
-                // make sure that PWD is not restored in old overlays.
-                if let Some(cwd) = cwd {
-                    caller_stack.add_env_var("PWD".to_string(), cwd);
-                }
+                keep_cwd(engine_state, caller_stack, |stack| {
+                    stack.add_overlay(overlay_name)
+                });
             }
         } else {
-            caller_stack.add_overlay(overlay_name);
+            keep_cwd(engine_state, caller_stack, |stack| {
+                stack.add_overlay(overlay_name)
+            });
             caller_stack.update_config(engine_state)?;
         }
 

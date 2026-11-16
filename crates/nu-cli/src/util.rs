@@ -4,23 +4,23 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return, exit::kill_jobs_and_exit};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals,
-    Span, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, ListStream, PipelineData, PipelineMetadata,
+    Reader, ShellError, Signals, Span, Value, ValueIterator,
     ast::Block,
     block_is_bare_last_result_with,
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, LastResultSink, LastResultTruncation, Stack, StateWorkingSet},
     process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
-    shell_error::{generic::GenericError, io::IoError},
-    truncate_value_to_budget, value_from_bytes, value_is_error_only,
+    shell_error::generic::GenericError,
+    truncate_list_item, truncate_value_to_budget, value_from_bytes, value_is_error_only,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::time::Instant;
 use nu_utils::{escape_quote_string, perf};
-use std::path::Path;
+use std::{io::Read, path::Path};
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
@@ -397,8 +397,9 @@ pub(crate) fn evaluate_parsed_block(
     // Update engine_state with deleted variables
     engine_state.merge_deletions(stack);
 
-    // Capture interactive last-result before display_output transforms/prints the value.
-    // Only for true REPL user lines (`capture_repl_last_result`), not config/env/banner.
+    // Set up interactive last-result before display_output transforms/prints the result. A value
+    // is stored here. A stream is copied as display reads it and stored when it is dropped, after
+    // display_output. Only for true REPL user lines (`capture_repl_last_result`), not config/env/banner.
     if engine_state.is_interactive && engine_state.capture_repl_last_result {
         pipeline_data = maybe_store_last_result(engine_state, stack, block, pipeline_data);
     }
@@ -420,8 +421,9 @@ pub(crate) fn evaluate_parsed_block(
 
 /// Store the successful interactive pipeline result as last-result when appropriate.
 ///
-/// Skips bare last-result retrievals. May wrap streams so a prefix is retained for
-/// the last-result variable without fully collecting the stream just for storage.
+/// Skips bare last-result retrievals. Values are stored right away. Streams are wrapped in a tee
+/// that keeps them lazy, so they reach display as they are produced and `$ans.last` is stored
+/// once they end.
 fn maybe_store_last_result(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -442,8 +444,6 @@ fn maybe_store_last_result(
         return pipeline_data;
     }
 
-    let signals = engine_state.signals().clone();
-
     match pipeline_data {
         PipelineData::Empty => {
             stack.set_last_result(Value::nothing(Span::unknown()), None, budget);
@@ -455,95 +455,270 @@ fn maybe_store_last_result(
             }
             PipelineData::Value(value, metadata)
         }
-        PipelineData::ListStream(stream, metadata) => {
-            store_list_stream_prefix(stack, stream, metadata, budget, signals)
+        PipelineData::ListStream(stream, metadata) => tee_list_stream(
+            stack,
+            stream,
+            metadata,
+            budget,
+            engine_state.signals().clone(),
+        ),
+        PipelineData::ByteStream(stream, metadata) => tee_byte_stream(
+            stack,
+            stream,
+            metadata,
+            budget,
+            engine_state.signals().clone(),
+        ),
+    }
+}
+
+/// The part of a stream tee that stores its copy in `$ans.last`.
+///
+/// The copy is stored when the tee is dropped, however the stream ended: `$ans.last` is what passed
+/// through, flagged as truncated if it went over budget or some was left unread (a display hook
+/// that stops early, an error, Ctrl-C). If nothing was read at all, the previous `$ans.last` stays.
+///
+/// The previous `$ans.last` stays readable while the stream runs, so its lazy closures can still
+/// use it, until it and the copy no longer fit in the budget together. It is freed then, so the
+/// two never hold more than the budget between them.
+struct StreamCapture {
+    sink: LastResultSink,
+    metadata: Option<PipelineMetadata>,
+    signals: Signals,
+    span: Span,
+    budget: usize,
+    /// [`Value::memory_size`] of the previous `$ans.last`, or `0` once it is freed.
+    previous_size: usize,
+    /// Part of the stream did not fit in the copy.
+    overflowed: bool,
+    /// The source ran out, so nothing was left unread.
+    exhausted: bool,
+}
+
+impl StreamCapture {
+    fn new(
+        stack: &Stack,
+        metadata: Option<PipelineMetadata>,
+        signals: Signals,
+        span: Span,
+        budget: usize,
+    ) -> Self {
+        Self {
+            sink: stack.last_result_sink(),
+            metadata,
+            signals,
+            span,
+            budget,
+            previous_size: stack.last_result_memory_size(),
+            overflowed: false,
+            exhausted: false,
         }
-        PipelineData::ByteStream(stream, metadata) => {
-            store_byte_stream_prefix(stack, stream, metadata, budget)
+    }
+
+    /// The source has no more to give. An interrupted source says the same, but it wasn't done.
+    fn source_ended(&mut self) {
+        self.exhausted |= !self.signals.interrupted();
+    }
+
+    /// Call before the copy grows to `size`: frees the previous `$ans.last` if both wouldn't fit.
+    fn make_room(&mut self, size: usize) {
+        if self.previous_size > 0 && self.previous_size.saturating_add(size) > self.budget {
+            self.sink.clear_payload();
+            self.previous_size = 0;
+        }
+    }
+
+    /// Whether a tee with an empty copy read nothing at all, rather than an empty stream.
+    fn nothing_read(&self, copy_is_empty: bool) -> bool {
+        copy_is_empty && !self.overflowed && !self.exhausted
+    }
+
+    /// Store `copy` as `$ans.last`, flagged with why it is less than the whole stream, if it is.
+    ///
+    /// Going over budget wins when both apply, since raising the limit is what the user can act on.
+    fn store(&mut self, copy: Value) {
+        let (stored, cut) = truncate_value_to_budget(copy, self.budget);
+        if value_is_error_only(&stored) {
+            return;
+        }
+        let truncation = if self.overflowed || cut {
+            Some(LastResultTruncation::OverBudget)
+        } else if self.exhausted {
+            None
+        } else {
+            Some(LastResultTruncation::UnfinishedStream)
+        };
+        self.sink.store(stored, self.metadata.take(), truncation);
+    }
+}
+
+/// Copies a list stream into `$ans.last` as its items pass through to the consumer.
+///
+/// Items are pulled only when the consumer asks for them, so capture never holds up display. See
+/// [`StreamCapture`] for what gets stored and when.
+struct ListStreamTee {
+    iter: ValueIterator,
+    capture: StreamCapture,
+    kept: Vec<Value>,
+    /// [`Value::memory_size`] of a list holding `kept`.
+    used: usize,
+}
+
+impl ListStreamTee {
+    /// Keep a copy of `item` if it fits. The first that doesn't ends the copy, the same way it ends
+    /// a list cut down by [`truncate_value_to_budget`].
+    fn copy_item(&mut self, item: &Value) {
+        if self.capture.overflowed {
+            return;
+        }
+
+        let budget = self.capture.budget;
+        let used = self.used.saturating_add(item.memory_size());
+        if used <= budget {
+            self.capture.make_room(used);
+            self.used = used;
+            self.kept.push(item.clone());
+        } else {
+            self.capture.overflowed = true;
+            self.capture.make_room(budget);
+            let remaining = budget.saturating_sub(self.used);
+            self.kept.extend(truncate_list_item(item, remaining));
         }
     }
 }
 
-/// Tee a list stream: accumulate `$ans.last` under budget while rebuilding a print stream.
-///
-/// Under budget with a fully drained stream, avoids double-cloning into a separate print
-/// buffer. Overflowing items stop storage (whole rows for tables; optional partial last
-/// scalar for non-tables via [`truncate_value_to_budget`]).
-fn store_list_stream_prefix(
-    stack: &mut Stack,
+impl Iterator for ListStreamTee {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Value> {
+        let item = self.iter.next();
+        match &item {
+            Some(item) => self.copy_item(item),
+            None => self.capture.source_ended(),
+        }
+        item
+    }
+}
+
+impl Drop for ListStreamTee {
+    fn drop(&mut self) {
+        if !self.capture.nothing_read(self.kept.is_empty()) {
+            let copy = Value::list(std::mem::take(&mut self.kept), self.capture.span);
+            self.capture.store(copy);
+        }
+    }
+}
+
+/// Wrap a list stream in a [`ListStreamTee`].
+fn tee_list_stream(
+    stack: &Stack,
     stream: ListStream,
     metadata: Option<PipelineMetadata>,
     budget: usize,
     signals: Signals,
 ) -> PipelineData {
     let span = stream.span();
-    let mut kept: Vec<Value> = Vec::new();
-    let mut used = Value::list(vec![], span).memory_size();
-    let mut truncated = false;
-    let mut overflow_item: Option<Value> = None;
-
-    let mut iter = stream.into_iter();
-    for item in iter.by_ref() {
-        let item_size = item.memory_size();
-        if used.saturating_add(item_size) <= budget {
-            used += item_size;
-            kept.push(item);
-            continue;
-        }
-
-        // Item does not fit whole.
-        truncated = true;
-        let table_like = matches!(item, Value::Record { .. })
-            && (kept.is_empty() || kept.iter().all(|v| matches!(v, Value::Record { .. })));
-
-        if table_like {
-            // Prefer whole rows so table-like `$ans.last` still renders with columns.
-            overflow_item = Some(item);
-            break;
-        }
-
-        // Non-table: allow a partial last scalar/string/binary/list like Value path.
-        let remaining = budget.saturating_sub(used);
-        if remaining > 0 {
-            let (partial, _) = truncate_value_to_budget(item.clone(), remaining);
-            if !matches!(partial, Value::Nothing { .. })
-                && used.saturating_add(partial.memory_size()) <= budget
-            {
-                kept.push(partial);
-            }
-        }
-        overflow_item = Some(item);
-        break;
-    }
-
-    let stored = Value::list(kept.clone(), span);
-    let (stored, more_trunc) = if stored.memory_size() > budget {
-        truncate_value_to_budget(stored, budget)
-    } else {
-        (stored, false)
-    };
-    if !value_is_error_only(&stored) {
-        stack.store_last_result_raw(stored, metadata.clone(), truncated || more_trunc);
-    }
-
-    // Print stream: under-budget full drain reuses `kept` without a second buffer of clones.
-    let print_iter: Box<dyn Iterator<Item = Value> + Send> = match overflow_item {
-        None => Box::new(kept.into_iter()),
-        Some(item) => Box::new(kept.into_iter().chain(std::iter::once(item)).chain(iter)),
-    };
-
-    PipelineData::ListStream(ListStream::new(print_iter, span, signals), metadata)
+    let capture = StreamCapture::new(stack, metadata.clone(), signals, span, budget);
+    let stream = stream.modify(|iter| ListStreamTee {
+        iter,
+        capture,
+        kept: Vec::new(),
+        used: Value::list(vec![], span).memory_size(),
+    });
+    PipelineData::ListStream(stream, metadata)
 }
 
-fn store_byte_stream_prefix(
-    stack: &mut Stack,
+/// Copies a byte stream into `$ans.last` as its bytes pass through to the consumer.
+///
+/// See [`StreamCapture`] for what gets stored and when.
+struct ByteStreamTee {
+    reader: Reader,
+    capture: StreamCapture,
+    type_: ByteStreamType,
+    trim_trailing_newline: bool,
+    /// How much of the budget can hold bytes, once the value that wraps them is paid for.
+    max_bytes: usize,
+    prefix: Vec<u8>,
+}
+
+impl ByteStreamTee {
+    fn new(
+        reader: Reader,
+        capture: StreamCapture,
+        type_: ByteStreamType,
+        trim_trailing_newline: bool,
+    ) -> Self {
+        Self {
+            reader,
+            type_,
+            trim_trailing_newline,
+            max_bytes: capture.budget.saturating_sub(std::mem::size_of::<Value>()),
+            capture,
+            prefix: Vec::new(),
+        }
+    }
+
+    /// Append to `prefix`, growing it like [`Vec`] does but never past `max_bytes`.
+    fn copy_bytes(&mut self, bytes: &[u8]) {
+        let needed = self.prefix.len() + bytes.len();
+        if needed > self.prefix.capacity() {
+            let capacity = needed.max(self.prefix.capacity() * 2).min(self.max_bytes);
+            self.capture
+                .make_room(capacity.saturating_add(std::mem::size_of::<Value>()));
+            self.prefix.reserve_exact(capacity - self.prefix.len());
+        }
+        self.prefix.extend_from_slice(bytes);
+    }
+}
+
+impl Read for ByteStreamTee {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.reader.read(buf)?;
+        if n == 0 && !buf.is_empty() {
+            self.capture.source_ended();
+        }
+
+        let copied = n.min(self.max_bytes.saturating_sub(self.prefix.len()));
+        self.capture.overflowed |= copied < n;
+        self.copy_bytes(&buf[..copied]);
+        Ok(n)
+    }
+}
+
+impl Drop for ByteStreamTee {
+    fn drop(&mut self) {
+        if self.capture.nothing_read(self.prefix.is_empty()) {
+            return;
+        }
+
+        // `Value::memory_size` counts capacity, so spare capacity would use up the budget.
+        let mut prefix = std::mem::take(&mut self.prefix);
+        prefix.shrink_to_fit();
+
+        // Decode for `$ans.last` the same way collecting a byte stream does:
+        // Binary stays binary; String/Unknown become string when UTF-8, else binary.
+        let whole = self.capture.exhausted && !self.capture.overflowed;
+        let copy = value_from_bytes(
+            prefix,
+            self.capture.span,
+            self.type_,
+            self.trim_trailing_newline && whole,
+        );
+        self.capture.store(copy);
+    }
+}
+
+/// Wrap a byte stream in a [`ByteStreamTee`], unless it has nothing to capture.
+fn tee_byte_stream(
+    stack: &Stack,
     stream: ByteStream,
     metadata: Option<PipelineMetadata>,
     budget: usize,
+    signals: Signals,
 ) -> PipelineData {
     let span = stream.span();
     let type_ = stream.type_();
-    let signals = stream.signals().clone();
+    let stream_signals = stream.signals().clone();
     // Externals (and file-backed streams) trim a single trailing newline when
     // decoded to string, matching [`ByteStream::into_value`].
     let trim_trailing_newline = stream.source().is_external();
@@ -560,101 +735,49 @@ fn store_byte_stream_prefix(
         return PipelineData::ByteStream(stream, metadata);
     }
 
-    // Only clear payload after we successfully obtain a reader — `reader()` consumes the stream.
-    let Some(mut reader) = stream.reader() else {
+    let Some(reader) = stream.reader() else {
         // Defensive: source said stdout exists but reader failed. Prior `$ans` left intact;
         // nothing left to print.
         return PipelineData::Empty;
     };
 
-    // Drop prior `.last` only; keep exit_code/duration until REPL snapshot refreshes them.
-    stack.clear_last_result_payload();
-
-    let max_bytes = budget.saturating_sub(std::mem::size_of::<Value>());
-    let mut prefix = Vec::new();
-    let mut buf = [0u8; 8192];
-    let mut truncated = false;
-
-    while prefix.len() < max_bytes {
-        // Honor Ctrl-C while filling the budget (large streams can take a while).
-        if signals.check(&span).is_err() {
-            truncated = true;
-            break;
-        }
-        let to_read = (max_bytes - prefix.len()).min(buf.len());
-        match std::io::Read::read(&mut reader, &mut buf[..to_read]) {
-            Ok(0) => break,
-            Ok(n) => prefix.extend_from_slice(&buf[..n]),
-            // EINTR: retry like ByteStream::into_bytes.
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(_) => break,
-        }
-    }
-
-    // Peek whether more data remains (truncation), unless we already stopped for interrupt.
-    let mut trailing: Option<u8> = None;
-    if !truncated && prefix.len() >= max_bytes {
-        if signals.check(&span).is_err() {
-            truncated = true;
-        } else {
-            match std::io::Read::read(&mut reader, &mut buf[..1]) {
-                Ok(0) => {}
-                Ok(1..) => {
-                    truncated = true;
-                    trailing = Some(buf[0]);
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
-                    // Treat as "may have more" without consuming a peek byte.
-                    truncated = true;
-                }
-                _ => {}
-            }
-        }
-    }
-
-    // Decode for `$ans.last` the same way collecting a byte stream does:
-    // Binary stays binary; String/Unknown become string when UTF-8, else binary.
-    // Display still uses the raw rebuilt byte stream below.
-    let stored = value_from_bytes(
-        prefix.clone(),
-        span,
-        type_,
-        trim_trailing_newline && !truncated,
-    );
-    let (stored, more) = if stored.memory_size() > budget {
-        truncate_value_to_budget(stored, budget)
-    } else {
-        (stored, false)
-    };
-    stack.store_last_result_raw(stored, metadata.clone(), truncated || more);
-
-    // Rebuild stream: stored prefix bytes + optional peek byte + remaining reader.
-    let prefix_for_print = prefix;
-    let rebuilt = ByteStream::from_result_iter(
-        std::iter::once(Ok::<Vec<u8>, ShellError>(prefix_for_print))
-            .chain(trailing.map(|b| Ok(vec![b])))
-            .chain(std::iter::from_fn(move || {
-                let mut chunk = vec![0u8; 8192];
-                match std::io::Read::read(&mut reader, &mut chunk) {
-                    Ok(0) => None,
-                    Ok(n) => {
-                        chunk.truncate(n);
-                        Some(Ok(chunk))
-                    }
-                    Err(err) => Some(Err(ShellError::from(IoError::new(err, span, None)))),
-                }
-            })),
-        span,
-        signals,
-        type_,
-    );
-
-    PipelineData::ByteStream(rebuilt, metadata)
+    let capture = StreamCapture::new(stack, metadata.clone(), signals, span, budget);
+    let tee = ByteStreamTee::new(reader, capture, type_, trim_trailing_newline);
+    PipelineData::ByteStream(ByteStream::read(tee, span, stream_signals, type_), metadata)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::LAST_VARIABLE_ID;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+
+    #[test]
+    fn byte_stream_tee_keeps_a_read_failure() {
+        let stack = Stack::new();
+        let exit = ShellError::Exit {
+            code: 7,
+            abort: false,
+        };
+        let stream = ByteStream::from_result_iter(
+            [Ok(b"1\n".to_vec()), Err(exit), Ok(b"3\n".to_vec())],
+            Span::test_data(),
+            Signals::empty(),
+            ByteStreamType::String,
+        );
+
+        let PipelineData::ByteStream(rebuilt, _) =
+            tee_byte_stream(&stack, stream, None, 1024, Signals::empty())
+        else {
+            panic!("a byte stream should stay a byte stream");
+        };
+
+        let err = rebuilt.into_bytes().expect_err("the failure should remain");
+        assert!(err.is_exit());
+    }
 
     #[test]
     fn test_gather_env_vars() {
@@ -706,5 +829,328 @@ mod test {
                 .is_some()
         );
         Ok(())
+    }
+
+    const ROOMY_BUDGET: usize = 1024 * 1024;
+
+    /// `$ans.last` as currently stored, if any.
+    fn stored_last(stack: &Stack) -> Option<Value> {
+        stack
+            .get_var(LAST_VARIABLE_ID, Span::test_data())
+            .ok()?
+            .get_data_by_key("last")
+    }
+
+    fn test_ints(range: std::ops::Range<i64>) -> Value {
+        Value::test_list(range.map(Value::test_int).collect())
+    }
+
+    /// A list stream of `0..len`, tee'd, and a count of the items pulled from its source.
+    fn teed_list_stream(stack: &Stack, len: i64, budget: usize) -> (ListStream, Arc<AtomicUsize>) {
+        let pulled = Arc::new(AtomicUsize::new(0));
+        let counter = pulled.clone();
+        let source = (0..len).map(move |i| {
+            counter.fetch_add(1, Ordering::Relaxed);
+            Value::test_int(i)
+        });
+        let source = ListStream::new(source, Span::test_data(), Signals::empty());
+        match tee_list_stream(stack, source, None, budget, Signals::empty()) {
+            PipelineData::ListStream(stream, _) => (stream, pulled),
+            other => panic!("expected a list stream, got {other:?}"),
+        }
+    }
+
+    /// A byte stream of `chunks`, tee'd, and a count of the chunks pulled from its source.
+    fn teed_byte_stream(
+        stack: &Stack,
+        chunks: &'static [&'static str],
+        budget: usize,
+    ) -> (Reader, Arc<AtomicUsize>) {
+        let pulled = Arc::new(AtomicUsize::new(0));
+        let counter = pulled.clone();
+        let source = chunks.iter().map(move |chunk| {
+            counter.fetch_add(1, Ordering::Relaxed);
+            *chunk
+        });
+        let source = ByteStream::from_iter(
+            source,
+            Span::test_data(),
+            Signals::empty(),
+            ByteStreamType::String,
+        );
+        match tee_byte_stream(stack, source, None, budget, Signals::empty()) {
+            PipelineData::ByteStream(stream, _) => {
+                (stream.reader().expect("a readable stream"), pulled)
+            }
+            other => panic!("expected a byte stream, got {other:?}"),
+        }
+    }
+
+    /// One `read` from `reader`, as a string.
+    fn read_chunk(reader: &mut Reader) -> String {
+        let mut buf = [0; 64];
+        let n = reader.read(&mut buf).expect("read should succeed");
+        String::from_utf8_lossy(&buf[..n]).into_owned()
+    }
+
+    #[test]
+    fn list_tee_pulls_only_what_the_consumer_asks_for() {
+        let stack = Stack::new();
+        let (mut stream, pulled) = teed_list_stream(&stack, 3, ROOMY_BUDGET);
+        assert_eq!(pulled.load(Ordering::Relaxed), 0);
+
+        assert_eq!(stream.next_value(), Some(Value::test_int(0)));
+        assert_eq!(pulled.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            stored_last(&stack),
+            None,
+            "stored only once the stream ends"
+        );
+
+        while stream.next_value().is_some() {}
+        drop(stream);
+        assert_eq!(stored_last(&stack), Some(test_ints(0..3)));
+        assert!(!stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn list_tee_over_budget_still_passes_everything_through() {
+        let stack = Stack::new();
+        let budget = test_ints(0..2).memory_size();
+        let (stream, _) = teed_list_stream(&stack, 5, budget);
+
+        assert_eq!(stream.into_iter().count(), 5);
+        assert_eq!(stored_last(&stack), Some(test_ints(0..2)));
+        assert!(stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn list_tee_stopped_early_stores_what_passed_through() {
+        let stack = Stack::new();
+        let (mut stream, pulled) = teed_list_stream(&stack, 5, ROOMY_BUDGET);
+
+        stream.next_value();
+        stream.next_value();
+        drop(stream);
+        assert_eq!(pulled.load(Ordering::Relaxed), 2);
+        assert_eq!(stored_last(&stack), Some(test_ints(0..2)));
+        assert!(stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn list_tee_dropped_unread_keeps_the_previous_result() {
+        let mut stack = Stack::new();
+        stack.set_last_result(Value::test_int(42), None, ROOMY_BUDGET);
+
+        let (stream, pulled) = teed_list_stream(&stack, 5, ROOMY_BUDGET);
+        drop(stream);
+        assert_eq!(pulled.load(Ordering::Relaxed), 0);
+        assert_eq!(stored_last(&stack), Some(Value::test_int(42)));
+        assert!(!stack.last_result_was_truncated());
+    }
+
+    /// An interrupted source ends like one that ran out, but there may have been more of it.
+    #[test]
+    fn list_tee_interrupted_stores_what_passed_through_as_truncated() {
+        let stack = Stack::new();
+        let signals = Signals::new(Arc::new(AtomicBool::new(false)));
+        let source = ListStream::new(
+            (0..5).map(Value::test_int),
+            Span::test_data(),
+            signals.clone(),
+        );
+        let PipelineData::ListStream(mut stream, _) =
+            tee_list_stream(&stack, source, None, ROOMY_BUDGET, signals.clone())
+        else {
+            panic!("expected a list stream");
+        };
+
+        stream.next_value();
+        stream.next_value();
+        signals.trigger();
+        assert_eq!(stream.next_value(), None);
+        drop(stream);
+        assert_eq!(stored_last(&stack), Some(test_ints(0..2)));
+        assert!(stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn list_tee_frees_the_previous_result_once_both_do_not_fit() {
+        let mut stack = Stack::new();
+        // A list costs as much as an int, so this is room for 5 ints: the previous result takes 3.
+        let budget = test_ints(0..4).memory_size();
+        stack.set_last_result(test_ints(10..12), None, budget);
+
+        let (mut stream, _) = teed_list_stream(&stack, 4, budget);
+        stream.next_value();
+        assert_eq!(
+            stored_last(&stack),
+            Some(test_ints(10..12)),
+            "both still fit"
+        );
+
+        stream.next_value();
+        assert_eq!(stored_last(&stack), None, "both no longer fit");
+
+        while stream.next_value().is_some() {}
+        drop(stream);
+        assert_eq!(stored_last(&stack), Some(test_ints(0..4)));
+        assert!(!stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn byte_tee_reads_only_what_the_consumer_asks_for() {
+        let stack = Stack::new();
+        let (mut reader, pulled) = teed_byte_stream(&stack, &["ab", "cd"], ROOMY_BUDGET);
+        assert_eq!(pulled.load(Ordering::Relaxed), 0);
+
+        assert_eq!(read_chunk(&mut reader), "ab");
+        assert_eq!(pulled.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            stored_last(&stack),
+            None,
+            "stored only once the stream ends"
+        );
+
+        assert_eq!(read_chunk(&mut reader), "cd");
+        assert_eq!(read_chunk(&mut reader), "");
+        drop(reader);
+        assert_eq!(stored_last(&stack), Some(Value::test_string("abcd")));
+        assert!(!stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn byte_tee_over_budget_still_passes_everything_through() {
+        let stack = Stack::new();
+        let budget = std::mem::size_of::<Value>() + 3;
+        let (mut reader, _) = teed_byte_stream(&stack, &["ab", "cd", "ef"], budget);
+
+        let mut seen = String::new();
+        reader
+            .read_to_string(&mut seen)
+            .expect("read should succeed");
+        assert_eq!(seen, "abcdef");
+        drop(reader);
+        assert_eq!(stored_last(&stack), Some(Value::test_string("abc")));
+        assert!(stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn byte_tee_stopped_early_stores_what_passed_through() {
+        let stack = Stack::new();
+        let (mut reader, pulled) = teed_byte_stream(&stack, &["ab", "cd"], ROOMY_BUDGET);
+
+        assert_eq!(read_chunk(&mut reader), "ab");
+        drop(reader);
+        assert_eq!(pulled.load(Ordering::Relaxed), 1);
+        assert_eq!(stored_last(&stack), Some(Value::test_string("ab")));
+        assert!(stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn byte_tee_dropped_unread_keeps_the_previous_result() {
+        let mut stack = Stack::new();
+        stack.set_last_result(Value::test_int(42), None, ROOMY_BUDGET);
+
+        let (reader, pulled) = teed_byte_stream(&stack, &["ab"], ROOMY_BUDGET);
+        drop(reader);
+        assert_eq!(pulled.load(Ordering::Relaxed), 0);
+        assert_eq!(stored_last(&stack), Some(Value::test_int(42)));
+        assert!(!stack.last_result_was_truncated());
+    }
+
+    /// `Value::memory_size` counts capacity, so what's left over from growing mustn't be kept.
+    #[test]
+    fn byte_tee_copy_that_fits_is_not_flagged_for_its_spare_capacity() {
+        let stack = Stack::new();
+        let budget = std::mem::size_of::<Value>() + 7;
+        let (mut reader, _) = teed_byte_stream(&stack, &["ab", "cd", "ef"], budget);
+
+        let mut seen = String::new();
+        reader
+            .read_to_string(&mut seen)
+            .expect("read should succeed");
+        drop(reader);
+        assert_eq!(stored_last(&stack), Some(Value::test_string("abcdef")));
+        assert!(!stack.last_result_was_truncated());
+        assert_eq!(
+            stack.last_result_memory_size(),
+            std::mem::size_of::<Value>() + 6
+        );
+    }
+
+    /// The reader checks for an interrupt before it reads, so one that lands during the read looks
+    /// like the end of the stream.
+    #[test]
+    fn byte_tee_interrupted_during_a_read_stores_what_passed_through_as_truncated() {
+        let stack = Stack::new();
+        let signals = Signals::new(Arc::new(AtomicBool::new(false)));
+        let interrupt = signals.clone();
+        let source = std::iter::once("ab").chain(std::iter::from_fn(move || {
+            interrupt.trigger();
+            None
+        }));
+        let source = ByteStream::from_iter(
+            source,
+            Span::test_data(),
+            Signals::empty(),
+            ByteStreamType::String,
+        );
+        let PipelineData::ByteStream(stream, _) =
+            tee_byte_stream(&stack, source, None, ROOMY_BUDGET, signals)
+        else {
+            panic!("expected a byte stream");
+        };
+        let mut reader = stream.reader().expect("a readable stream");
+
+        assert_eq!(read_chunk(&mut reader), "ab");
+        assert_eq!(read_chunk(&mut reader), "");
+        drop(reader);
+        assert_eq!(stored_last(&stack), Some(Value::test_string("ab")));
+        assert!(stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn byte_tee_frees_the_previous_result_once_both_do_not_fit() {
+        let mut stack = Stack::new();
+        let previous = Value::test_string("x".repeat(50));
+        let budget = previous.memory_size() + std::mem::size_of::<Value>() + 50;
+        stack.set_last_result(previous.clone(), None, budget);
+
+        let chunks = &["0123456789012345678901234567890123456789012345678 ", "tail"];
+        let (mut reader, _) = teed_byte_stream(&stack, chunks, budget);
+        read_chunk(&mut reader);
+        assert_eq!(stored_last(&stack), Some(previous), "both still fit");
+
+        read_chunk(&mut reader);
+        assert_eq!(stored_last(&stack), None, "both no longer fit");
+
+        read_chunk(&mut reader);
+        drop(reader);
+        assert_eq!(
+            stored_last(&stack),
+            Some(Value::test_string(chunks.concat()))
+        );
+        assert!(!stack.last_result_was_truncated());
+    }
+
+    #[test]
+    fn byte_tee_copy_never_grows_past_the_budget() {
+        let stack = Stack::new();
+        let source = ByteStream::from_iter(
+            ["x".repeat(60), "x".repeat(20), "x".repeat(60)],
+            Span::test_data(),
+            Signals::empty(),
+            ByteStreamType::String,
+        );
+        let reader = source.reader().expect("a readable stream");
+        let budget = std::mem::size_of::<Value>() + 100;
+        let capture = StreamCapture::new(&stack, None, Signals::empty(), Span::test_data(), budget);
+        let mut tee = ByteStreamTee::new(reader, capture, ByteStreamType::String, false);
+
+        let mut buf = [0; 64];
+        while tee.read(&mut buf).expect("read should succeed") > 0 {}
+        assert_eq!(tee.prefix.len(), 100);
+        assert_eq!(tee.prefix.capacity(), 100);
     }
 }

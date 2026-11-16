@@ -29,13 +29,13 @@ pub fn truncate_value_to_budget(value: Value, budget: usize) -> (Value, bool) {
 
     let span = value.span();
     match value {
-        Value::List { vals, .. } => truncate_list(vals.into_owned(), budget, span),
+        Value::List { vals, .. } => truncate_list(&vals, budget, span),
         Value::Record { val, .. } => truncate_record(val.into_owned(), budget, span),
-        Value::String { val, .. } => truncate_string(val, budget, span),
-        Value::Binary { val, .. } => truncate_binary(val.into_owned(), budget, span),
+        Value::String { val, .. } => truncate_string(&val, budget, span),
+        Value::Binary { val, .. } => truncate_binary(&val, budget, span),
         Value::Glob { val, .. } => {
             // Truncated globs become plain strings (prefix of the pattern).
-            truncate_string(val, budget, span)
+            truncate_string(&val, budget, span)
         }
         other => {
             // Cannot partially shrink; store nothing and mark truncated.
@@ -45,66 +45,45 @@ pub fn truncate_value_to_budget(value: Value, budget: usize) -> (Value, bool) {
     }
 }
 
-fn truncate_list(vals: Vec<Value>, budget: usize, span: Span) -> (Value, bool) {
+fn truncate_list(vals: &[Value], budget: usize, span: Span) -> (Value, bool) {
     // Base cost of the list shell; keep adding items while they fit.
     let base = Value::list(vec![], span).memory_size();
     if base > budget {
         return (Value::nothing(span), true);
     }
 
-    let original_len = vals.len();
-    // Table-like lists must keep whole rows so `table` still expands columns.
-    let table_like = !vals.is_empty() && vals.iter().all(|v| matches!(v, Value::Record { .. }));
-
     let mut kept = Vec::new();
     let mut used = base;
-    let mut truncated = false;
 
     for item in vals {
         let item_size = item.memory_size();
-        if used.saturating_add(item_size) <= budget {
-            used += item_size;
-            kept.push(item);
-            continue;
+        if used.saturating_add(item_size) > budget {
+            kept.extend(truncate_list_item(item, budget.saturating_sub(used)));
+            return (Value::list(kept, span), true);
         }
-
-        // Item does not fit whole.
-        truncated = true;
-
-        if table_like {
-            // Drop this row and stop — do not emit a partial record or `nothing`.
-            break;
-        }
-
-        // For non-table lists, allow a partial last scalar/string/binary only.
-        // Never push `nothing` or empty placeholders that change list shape.
-        let remaining = budget.saturating_sub(used);
-        if remaining > 0 && can_partially_truncate_list_item(&item) {
-            let (partial, _) = truncate_value_to_budget(item, remaining);
-            if !matches!(partial, Value::Nothing { .. })
-                && used.saturating_add(partial.memory_size()) <= budget
-            {
-                kept.push(partial);
-            }
-        }
-        break;
+        used += item_size;
+        kept.push(item.clone());
     }
 
-    if kept.len() < original_len {
-        truncated = true;
-    }
-
-    let out = Value::list(kept, span);
-    let still_over = out.memory_size() > budget;
-    (out, truncated || still_over)
+    (Value::list(kept, span), false)
 }
 
-/// Whether a list item is a type we are willing to partially shrink as the last element.
-fn can_partially_truncate_list_item(item: &Value) -> bool {
-    matches!(
-        item,
-        Value::String { .. } | Value::Binary { .. } | Value::Glob { .. } | Value::List { .. }
-    )
+/// What to keep of `item`, the first in a list that doesn't fit whole in the `remaining` bytes.
+///
+/// Strings, binaries, globs and nested lists keep what fits, and only that part gets copied.
+/// Anything else is dropped rather than replaced with a placeholder that changes the list's shape.
+/// That includes records, so a table keeps whole rows and `table` still expands its columns.
+pub fn truncate_list_item(item: &Value, remaining: usize) -> Option<Value> {
+    let span = item.span();
+    let (partial, _) = match item {
+        Value::String { val, .. } | Value::Glob { val, .. } => {
+            truncate_string(val, remaining, span)
+        }
+        Value::Binary { val, .. } => truncate_binary(val, remaining, span),
+        Value::List { vals, .. } => truncate_list(vals, remaining, span),
+        _ => return None,
+    };
+    (!matches!(partial, Value::Nothing { .. })).then_some(partial)
 }
 
 fn truncate_record(record: crate::Record, budget: usize, span: Span) -> (Value, bool) {
@@ -150,22 +129,8 @@ fn truncate_record(record: crate::Record, budget: usize, span: Span) -> (Value, 
     (Value::record(out, span), truncated)
 }
 
-fn truncate_string(val: String, budget: usize, span: Span) -> (Value, bool) {
+fn truncate_string(val: &str, budget: usize, span: Span) -> (Value, bool) {
     // memory_size for string is size_of::<Value>() + capacity.
-    let whole = Value::string(val, span);
-    if whole.memory_size() <= budget {
-        return (whole, false);
-    }
-
-    let val = match whole {
-        Value::String { val, .. } => val,
-        other => {
-            // Only strings are passed here; fall back without panicking.
-            drop(other);
-            return (Value::nothing(span), true);
-        }
-    };
-
     if std::mem::size_of::<Value>() > budget {
         return (Value::nothing(span), true);
     }
@@ -194,20 +159,7 @@ fn truncate_string(val: String, budget: usize, span: Span) -> (Value, bool) {
     }
 }
 
-fn truncate_binary(val: Vec<u8>, budget: usize, span: Span) -> (Value, bool) {
-    let whole = Value::binary(val, span);
-    if whole.memory_size() <= budget {
-        return (whole, false);
-    }
-
-    let val = match whole {
-        Value::Binary { val, .. } => val,
-        other => {
-            drop(other);
-            return (Value::nothing(span), true);
-        }
-    };
-
+fn truncate_binary(val: &[u8], budget: usize, span: Span) -> (Value, bool) {
     if std::mem::size_of::<Value>() > budget {
         return (Value::nothing(span), true);
     }

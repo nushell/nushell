@@ -1,4 +1,4 @@
-use super::trim_cstyle_null;
+use super::{sysinfo_error, trim_cstyle_null};
 use nu_engine::command_prelude::*;
 use sysinfo::Networks;
 
@@ -28,7 +28,7 @@ impl Command for SysNet {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(net(call.head).into_pipeline_data())
+        Ok(net(call.head)?.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -40,8 +40,9 @@ impl Command for SysNet {
     }
 }
 
-fn net(span: Span) -> Value {
+fn net(span: Span) -> Result<Value, ShellError> {
     let networks = Networks::new_with_refreshed_list()
+        .map_err(|err| sysinfo_error(err, span))?
         .iter()
         .map(|(iface, data)| {
             let ip_addresses = data
@@ -64,7 +65,7 @@ fn net(span: Span) -> Value {
                 })
                 .collect();
             let record = record! {
-                "name" => Value::string(trim_cstyle_null(iface), span),
+                "name" => Value::string(trim_cstyle_null(iface.to_string_lossy()), span),
                 "mac" => Value::string(data.mac_address().to_string(), span),
                 "ip" => Value::list(ip_addresses, span),
                 "sent" => Value::filesize(data.total_transmitted() as i64, span),
@@ -75,5 +76,5 @@ fn net(span: Span) -> Value {
         })
         .collect();
 
-    Value::list(networks, span)
+    Ok(Value::list(networks, span))
 }

@@ -87,7 +87,11 @@ impl Command for Explore {
             &cwd,
         );
 
-        let result = run_pager(engine_state, &mut stack.clone(), input, config);
+        // The pager owns the terminal. `:nu` and `:try` discard any output that no pipe takes, like an
+        // external's in an earlier pipeline, instead of writing it over the screen. Externals also
+        // stay off the terminal, so one that reads input can't wait behind a prompt nobody can see.
+        let mut stack = stack.clone().suppress_output().suppress_stdin();
+        let result = run_pager(engine_state, &mut stack, input, config);
 
         match result {
             Ok(Some(value)) => Ok(PipelineData::value(value, None)),

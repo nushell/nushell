@@ -89,8 +89,19 @@ impl ListStream {
 
     /// Collect the values of a [`ListStream`] into a [`Value::List`], preserving [Value::Error]
     /// items for debugging purposes.
-    pub fn into_debug_value(self) -> Value {
-        Value::list(self.stream.collect(), self.span)
+    ///
+    /// An item that holds an `exit` is returned as an error instead, since it isn't something that
+    /// went wrong to look at: it ends the script.
+    pub fn into_debug_value(self) -> Result<Value, ShellError> {
+        Ok(Value::list(
+            self.stream
+                .map(|value| match value {
+                    Value::Error { error, .. } if error.is_exit() => Err(*error),
+                    value => Ok(value),
+                })
+                .collect::<Result<_, _>>()?,
+            self.span,
+        ))
     }
 
     /// Consume all values in the stream, returning an error if any of the values is a `Value::Error`.

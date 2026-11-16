@@ -1,3 +1,4 @@
+use super::sysinfo_error;
 use nu_engine::command_prelude::*;
 use sysinfo::Components;
 
@@ -31,7 +32,7 @@ impl Command for SysTemp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(temp(call.head).into_pipeline_data())
+        Ok(temp(call.head)?.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -43,8 +44,9 @@ impl Command for SysTemp {
     }
 }
 
-fn temp(span: Span) -> Value {
+fn temp(span: Span) -> Result<Value, ShellError> {
     let components = Components::new_with_refreshed_list()
+        .map_err(|err| sysinfo_error(err, span))?
         .iter()
         .map(|component| {
             let mut record = record! {
@@ -61,5 +63,5 @@ fn temp(span: Span) -> Value {
         })
         .collect();
 
-    Value::list(components, span)
+    Ok(Value::list(components, span))
 }

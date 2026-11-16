@@ -255,6 +255,11 @@ impl Iterator for UpdateCellIterator {
     fn next(&mut self) -> Option<Self::Item> {
         let mut value = self.iter.next()?;
 
+        // An item that holds an error has no cells to update, and replacing it would lose the error.
+        if value.is_error() {
+            return Some(value);
+        }
+
         let result = if let Value::Record { val, .. } = &mut value {
             let val = val.to_mut();
             update_record(

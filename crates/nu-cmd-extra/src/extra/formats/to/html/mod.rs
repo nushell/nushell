@@ -196,7 +196,7 @@ fn to_html(
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
     let config = &stack.get_config(engine_state);
 
-    let vec_of_values = input.into_iter().collect::<Vec<Value>>();
+    let vec_of_values = input.into_iter().collect_values()?;
     let headers = merge_descriptors(&vec_of_values);
     let headers = Some(headers)
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()));

@@ -46,3 +46,52 @@ fn no_argument_reads_block_input() -> Result {
 
     test().run(code).expect_value_eq("text/plain")
 }
+
+// A variable captured by a closure keeps the span it was defined with.
+#[rstest]
+#[case::closure("let x = 'abc'; do { let s = (metadata $x).span; view span $s.start $s.end }")]
+#[case::nested_closure(
+    "let x = 'abc'; do { do { let s = (metadata $x).span; view span $s.start $s.end } }"
+)]
+#[case::each(
+    "let x = 'abc'; [1] | each { let s = (metadata $x).span; view span $s.start $s.end } | first"
+)]
+#[case::closure_in_def(
+    "let x = 'abc'; def f [] { do { let s = (metadata $x).span; view span $s.start $s.end } }; f"
+)]
+#[case::constant("const x = 'abc'; do { let s = (metadata $x).span; view span $s.start $s.end }")]
+fn captured_variable_keeps_definition_span(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("'abc'")
+}
+
+#[test]
+fn captured_argument_keeps_definition_span() -> Result {
+    let code = "
+        def f [arg] { do { let s = (metadata $arg).span; view span $s.start $s.end } }
+        f foobar
+    ";
+    test().run(code).expect_value_eq("foobar")
+}
+
+// A plain read inside the closure still gets the use site span.
+#[test]
+fn captured_variable_read_gets_use_site_span() -> Result {
+    let code =
+        "let x = 'abc'; do { let y = $x; let s = (metadata $y).span; view span $s.start $s.end }";
+    test().run(code).expect_value_eq("$x")
+}
+
+#[test]
+fn row_condition_capture_keeps_definition_span() -> Result {
+    let code = r#"let x = 'abc'; [1] | where { let s = (metadata $x).span; (view span $s.start $s.end) == "'abc'" } | length"#;
+    test().run(code).expect_value_eq(1)
+}
+
+// A value with no source span of its own takes the use site, so a label doesn't land in the host
+// env vars.
+#[test]
+fn captured_value_without_source_span_gets_use_site_span() -> Result {
+    let code =
+        "def f [x] { do { let s = (metadata $x).span; view span $s.start $s.end } }; f $nu.pid";
+    test().run(code).expect_value_eq("$x")
+}

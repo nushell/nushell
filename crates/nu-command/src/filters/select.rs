@@ -362,7 +362,10 @@ impl Iterator for NthIterator {
                 return self.input.next();
             } else {
                 self.current += 1;
-                let _ = self.input.next()?;
+                let skipped = self.input.next()?;
+                if skipped.is_error() {
+                    return Some(skipped);
+                }
                 continue;
             }
         }

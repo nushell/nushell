@@ -28,6 +28,50 @@ fn http_get_failed_due_to_server_error() -> Result {
     }
 }
 
+#[rstest::rstest]
+#[case::with_charset("application/json; charset=utf-8")]
+#[case::problem_json("application/problem+json")]
+#[case::charset_no_space("application/json;charset=UTF-8")]
+fn http_get_failed_due_to_server_error_with_json_body(#[case] content_type: &str) -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(400)
+        .with_header("content-type", content_type)
+        .with_body(r#"{"msg": "boom"}"#)
+        .create();
+    let err = test()
+        .run_with_data("http get $in", server.url())
+        .expect_shell_error()?;
+    match err {
+        ShellError::HttpError { msg, .. } => {
+            assert_contains(r#"{"msg": "boom"}"#, msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn http_get_failed_with_empty_json_body_reports_reason() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(401)
+        .with_header("content-type", "application/json; charset=utf-8")
+        .create();
+    let err = test()
+        .run_with_data("http get $in", server.url())
+        .expect_shell_error()?;
+    match err {
+        ShellError::HttpError { msg, .. } => {
+            assert_eq!(msg, "Unauthorized");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
 #[test]
 fn http_get_with_accept_errors() -> Result {
     let mut server = Server::new();
@@ -371,7 +415,10 @@ fn http_get_timeout() -> Result {
     let _mock = server
         .mock("GET", "/")
         .with_chunked_body(|w| {
-            thread::sleep(Duration::from_secs(10));
+            // Keep this well above `--max-time 100ms` so the client still times out. Mockito joins
+            // the chunked-body thread on drop, so a multi-second sleep stalls the Test step for
+            // every timeout case (get/post/put/patch/delete/options).
+            thread::sleep(Duration::from_millis(500));
             w.write_all(b"Delayed response!")
         })
         .create();

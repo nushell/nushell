@@ -58,7 +58,9 @@ This command is a parser keyword. For details, check:
             caller_stack.add_overlay(name_arg.item);
             redirect_env(engine_state, caller_stack, &callee_stack);
         } else {
-            caller_stack.add_overlay(name_arg.item);
+            super::keep_cwd(engine_state, caller_stack, |stack| {
+                stack.add_overlay(name_arg.item)
+            });
         }
 
         Ok(PipelineData::empty())

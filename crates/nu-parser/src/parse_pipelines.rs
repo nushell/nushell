@@ -241,7 +241,7 @@ pub fn parse_block(
     }
 
     if scoped {
-        block.scope_bindings = working_set.snapshot_scope_bindings();
+        block.scope_bindings = working_set.snapshot_scope_bindings(span);
         working_set.exit_scope();
     }
 

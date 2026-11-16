@@ -1,14 +1,159 @@
+use chrono::DateTime;
+use nu_protocol::casing::Casing;
+use nu_protocol::{ast::PathMember, record};
+
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 // Tests happy paths
 
-#[test]
-fn into_datetime_from_record_cell_path() -> Result {
-    test()
-        .run("{d: '2021'} | into datetime d | get d | into record | get year")
-        .expect_value_eq(2021)
+const TEST_DATETIME_FMT: &str = "%Y-%m-%dT%H:%M:%S%z";
+
+#[rstest]
+#[case::string(
+    "{
+        name: 'foo',
+        start_time: '2021-02-27T14:55:40+01:00',
+        stop_time: '2021-02-27T15:55:40+01:00',
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T14:55:40+01:00",
+        "stop_time" => "2021-02-27T15:55:40+01:00",
+    },
+)]
+#[case::record(
+    "{
+        name: 'foo',
+        start_time: {
+            year: 2021,
+            month: 2,
+            day: 27,
+            hour: 14,
+            minute: 55,
+            second: 40,
+            timezone: '+01:00',
+        },
+        stop_time: {
+            year: 2021,
+            month: 2,
+            day: 27,
+            hour: 15,
+            minute: 55,
+            second: 40,
+            timezone: '+01:00',
+        },
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T14:55:40+01:00",
+        "stop_time" => "2021-02-27T15:55:40+01:00",
+    },
+)]
+#[case::duration(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T13:55:40+00:00",
+        "stop_time" => "2021-02-27T14:55:40+00:00",
+    },
+)]
+#[case::duration_negative(
+    "{
+        name: 'foo',
+        start_time: -2day,
+        stop_time: -1day,
+    }",
+    _,
+    test_record! {
+        "name" => "foo",
+        "start_time" => "1969-12-30T00:00:00+00:00",
+        "stop_time" => "1969-12-31T00:00:00+00:00",
+    },
+)]
+#[case::duration_with_timezone(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    "--timezone utc",
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T13:55:40+00:00",
+        "stop_time" => "2021-02-27T14:55:40+00:00",
+    },
+)]
+#[case::duration_with_timezone(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    "--timezone America/New_York",
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T08:55:40-05:00",
+        "stop_time" => "2021-02-27T09:55:40-05:00",
+    },
+)]
+#[case::duration_with_offset(
+    "{
+        name: 'foo',
+        start_time: 1_614_434_140_000ms,
+        stop_time: 1_614_437_740sec,
+    }",
+    "--offset -6",
+    test_record! {
+        "name" => "foo",
+        "start_time" => "2021-02-27T07:55:40-06:00",
+        "stop_time" => "2021-02-27T08:55:40-06:00",
+    },
+)]
+fn into_datetime_cell_path(
+    #[case] input: &str,
+    #[case(opt)] args: Option<&str>,
+    #[case] mut expected: Value,
+) -> Result {
+    for col in ["start_time", "stop_time"] {
+        expected.update_cell_path(
+            &[PathMember::test_string(col, false, Casing::Sensitive)],
+            Box::new(|val| {
+                Value::test_date(
+                    DateTime::parse_from_str(val.as_str().unwrap(), TEST_DATETIME_FMT).unwrap(),
+                )
+            }),
+        )?;
+    }
+
+    let code = format!(
+        "$in | from nuon | into datetime start_time stop_time {}",
+        args.unwrap_or("")
+    );
+
+    let actual = test().run_with_data(code, input);
+
+    actual.clone().expect_value_eq(expected.clone())?;
+
+    let actual = actual?;
+
+    for col in ["start_time", "stop_time"] {
+        let actual_date = actual.get_data_by_key(col).unwrap().as_date()?;
+        let expected_date = expected.get_data_by_key(col).unwrap().as_date()?;
+
+        assert_eq!(expected_date.timezone(), actual_date.timezone());
+        assert_eq!(expected_date.offset(), actual_date.offset());
+    }
+
+    Ok(())
 }
 
 #[test]
@@ -17,17 +162,17 @@ fn into_datetime_from_record() -> Result {
         "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5, millisecond: 6, microsecond: 7, nanosecond: 8, timezone: '+01:00'} | into datetime | into record",
     )
     .expect_value_eq(
-        nu_protocol::record! {
-            "year" => nu_protocol::Value::test_int(2023),
-            "month" => nu_protocol::Value::test_int(1),
-            "day" => nu_protocol::Value::test_int(2),
-            "hour" => nu_protocol::Value::test_int(3),
-            "minute" => nu_protocol::Value::test_int(4),
-            "second" => nu_protocol::Value::test_int(5),
-            "millisecond" => nu_protocol::Value::test_int(6),
-            "microsecond" => nu_protocol::Value::test_int(7),
-            "nanosecond" => nu_protocol::Value::test_int(8),
-            "timezone" => nu_protocol::Value::test_string("+01:00"),
+        record! {
+            "year" => Value::test_int(2023),
+            "month" => Value::test_int(1),
+            "day" => Value::test_int(2),
+            "hour" => Value::test_int(3),
+            "minute" => Value::test_int(4),
+            "second" => Value::test_int(5),
+            "millisecond" => Value::test_int(6),
+            "microsecond" => Value::test_int(7),
+            "nanosecond" => Value::test_int(8),
+            "timezone" => Value::test_string("+01:00"),
         },
     )
 }

@@ -67,33 +67,12 @@ jobs:
         with:
           workspaces: ${{ env.working-directory }} -> target
           cache-all-crates: true
-          cache-workspace-crates: true
+          # Workspace crates are recompiled after an exact cache hit anyway (fingerprint
+          # mismatch), while restoring them dominates Cache Rust on Windows (~2.8 GB, ~54s).
+          # Cache dependencies only so restores stay small and useful.
+          cache-workspace-crates: false
 
-      - &step_fmt
-        name: Fmt
-        working-directory: ${{ env.working-directory }}
-        run: |
-          rustup component add rustfmt
-          cargo fmt --all --check
-
-      - &step_check
-        name: Check
-        working-directory: ${{ env.working-directory }}
-        run: >-
-          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          check ${{ env.cargo-options }} 
-          --profile ${{ env.profile }}
-
-      - &step_clippy
-        name: Clippy
-        working-directory: ${{ env.working-directory }}
-        run: >-
-          rustup component add clippy
-
-          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          clippy ${{ env.cargo-options }} 
-          --profile ${{ env.profile }} 
-          -- -D warnings
+      # Fmt and Clippy run in the parallel lint job so they stay off the build/test critical path.
 
       - &step_build
         name: Build
@@ -170,6 +149,46 @@ jobs:
         shell: bash
         run: test -z "$(git status --porcelain)"
 
+  # Fmt + Clippy on their own runners so root can build/test without waiting on them.
+  # Same platforms, same cargo-options/profile, same warning-deny via CARGO_BUILD_WARNINGS.
+  lint:
+    name: ${{ matrix.platform.name }} / lint
+    runs-on: ${{ matrix.platform.runner }}
+    if: *job_if
+    env:
+      build-target: ${{ matrix.platform.target }}
+      working-directory: ${{ github.workspace }}
+      cargo-options: --workspace --all-targets
+      profile: ci
+    strategy:
+      matrix:
+        platform: *platforms
+    steps:
+      - *step_checkout_repo
+      - *step_setup_rust_toolchain
+      - *step_cache_rust
+
+      - &step_fmt
+        name: Fmt
+        working-directory: ${{ env.working-directory }}
+        run: |
+          rustup component add rustfmt
+          cargo fmt --all --check
+
+      - &step_clippy
+        name: Clippy
+        env:
+          CARGO_BUILD_WARNINGS: deny
+        working-directory: ${{ env.working-directory }}
+        run: >-
+          rustup component add clippy
+
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
+          clippy ${{ env.cargo-options }} 
+          --profile ${{ env.profile }}
+
+      - *step_assert_clean_repo
+
   root_wasm:
     name: WASM / root
     runs-on: *runner_linux
@@ -204,7 +223,13 @@ jobs:
       - *step_checkout_repo
       - *step_setup_rust_toolchain
       - *step_cache_rust
-      - *step_check
+      - name: Check
+        working-directory: ${{ env.working-directory }}
+        run: >-
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml"
+          check ${{ env.cargo-options }}
+          --profile ${{ env.profile }}
+
       - *step_build
       - *step_assert_clean_repo
 
@@ -228,6 +253,5 @@ jobs:
       - *step_setup_rust_toolchain
       - *step_cache_rust
       - *step_fmt
-      - *step_check
       - *step_clippy
       - *step_assert_clean_repo

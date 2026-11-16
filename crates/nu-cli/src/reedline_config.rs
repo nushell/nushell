@@ -126,9 +126,8 @@ fn menu_with_source<M: Menu + 'static>(
     span: Span,
     stack: &Stack,
     engine_state: Arc<EngineState>,
-    input_mode: InputMode,
+    mode: SourceMode,
 ) -> ReedlineMenu {
-    let mode = SourceMode::of(&input_mode);
     let line = MenuLine::default();
     let completer = NuMenuCompleter::new(
         source.block_id,
@@ -160,17 +159,13 @@ fn resolve_input_mode(menu: &ParsedMenu, config: &Config) -> Result<InputMode, S
 
 /// Apply the optional reedline #1071 `output_mode`. Unset preserves
 /// reedline's default (`suggested_span`).
-fn apply_output_mode<M: MenuBuilder>(
-    menu: M,
-    parsed: &ParsedMenu,
-    config: &Config,
-) -> Result<M, ShellError> {
-    Ok(match parsed.output_mode(config)? {
+fn apply_output_mode<M: MenuBuilder>(menu: M, output_mode: Option<MenuOutputMode>) -> M {
+    match output_mode {
         Some(MenuOutputMode::SuggestedSpan) => menu.with_output_mode(OutputMode::SuggestedSpan),
         Some(MenuOutputMode::FullBuffer) => menu.with_output_mode(OutputMode::FullBuffer),
         Some(MenuOutputMode::ExtendToEnd) => menu.with_output_mode(OutputMode::ExtendToEnd),
         None => menu,
-    })
+    }
 }
 
 // Adds a columnar menu to the editor engine
@@ -235,7 +230,7 @@ pub(crate) fn add_columnar_menu(
 
     let input_mode = resolve_input_mode(menu, config)?;
     columnar_menu = columnar_menu.with_input_mode(input_mode);
-    columnar_menu = apply_output_mode(columnar_menu, menu, config)?;
+    columnar_menu = apply_output_mode(columnar_menu, menu.output_mode(config)?);
 
     let completer = if let Some(closure) = &menu.source {
         menu_with_source(
@@ -244,7 +239,7 @@ pub(crate) fn add_columnar_menu(
             span,
             stack,
             engine_state,
-            input_mode,
+            SourceMode::of(&input_mode),
         )
     } else {
         ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(columnar_menu)))
@@ -288,11 +283,16 @@ pub(crate) fn add_list_menu(
     list_menu = list_menu.with_marker(&marker);
 
     let input_mode = resolve_input_mode(menu, &config)?;
+    let output_mode = menu.output_mode(&config)?;
     list_menu = list_menu.with_input_mode(input_mode);
-    list_menu = apply_output_mode(list_menu, menu, &config)?;
+    list_menu = apply_output_mode(list_menu, output_mode);
 
     let completer = if let Some(closure) = &menu.source {
-        menu_with_source(list_menu, closure, span, stack, engine_state, input_mode)
+        let mode = SourceMode::List {
+            input_mode,
+            suggested_span: matches!(output_mode, None | Some(MenuOutputMode::SuggestedSpan)),
+        };
+        menu_with_source(list_menu, closure, span, stack, engine_state, mode)
     } else {
         ReedlineMenu::HistoryMenu(Box::new(list_menu))
     };
@@ -454,10 +454,17 @@ pub(crate) fn add_ide_menu(
 
     let input_mode = resolve_input_mode(menu, &config)?;
     ide_menu = ide_menu.with_input_mode(input_mode);
-    ide_menu = apply_output_mode(ide_menu, menu, &config)?;
+    ide_menu = apply_output_mode(ide_menu, menu.output_mode(&config)?);
 
     let completer = if let Some(closure) = &menu.source {
-        menu_with_source(ide_menu, closure, span, stack, engine_state, input_mode)
+        menu_with_source(
+            ide_menu,
+            closure,
+            span,
+            stack,
+            engine_state,
+            SourceMode::of(&input_mode),
+        )
     } else {
         ReedlineMenu::EngineCompleter(Box::new(SourcedMenu::abandoning(ide_menu)))
     };
@@ -526,7 +533,7 @@ pub(crate) fn add_description_menu(
 
     let input_mode = resolve_input_mode(menu, &config)?;
     description_menu = description_menu.with_input_mode(input_mode);
-    description_menu = apply_output_mode(description_menu, menu, &config)?;
+    description_menu = apply_output_mode(description_menu, menu.output_mode(&config)?);
 
     let completer = if let Some(closure) = &menu.source {
         menu_with_source(
@@ -535,7 +542,7 @@ pub(crate) fn add_description_menu(
             span,
             stack,
             engine_state,
-            input_mode,
+            SourceMode::of(&input_mode),
         )
     } else {
         let menu_completer = NuHelpCompleter::new(engine_state, config);

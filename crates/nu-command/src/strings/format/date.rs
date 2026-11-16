@@ -196,8 +196,8 @@ fn run(
 /// says to ignore when the implementation has none, but chrono implements
 /// neither and reports a format error instead. `th_TH` and `lo_LA` both carry
 /// `%Ey` (Buddhist era) in their `d_fmt`, so every `format date` under those
-/// locales failed, including the one in `default_env.nu` that greets you at
-/// startup (#15266).
+/// locales failed, including the one in the default right prompt that greets
+/// you at startup (#15266).
 ///
 /// Doing the expansion here keeps the locale's own field order — `th_TH` still
 /// renders `27/08/26` rather than the `08/27/26` a fallback locale would give —

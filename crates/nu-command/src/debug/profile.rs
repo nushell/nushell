@@ -99,7 +99,7 @@ For a better understanding of how instructions map to source code, see the `view
 
 Note: In some cases, the ordering of pipeline elements might not be intuitive. For example,
 `[ a bb cc ] | each { $in | str length }` involves some implicit collects and lazy evaluation
-confusing the id/parent_id hierarchy. The --expr flag is helpful for investigating these issues."#
+confusing the id/parent_id hierarchy."#
     }
 
     fn run(
@@ -111,7 +111,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
     ) -> Result<PipelineData, ShellError> {
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let collect_spans = call.has_flag(engine_state, stack, "spans")?;
-        let collect_expanded_source = call.has_flag(engine_state, stack, "expanded-source")?;
+        let collect_expanded_source = call.has_flag(engine_state, stack, "expand-source")?;
         let collect_values = call.has_flag(engine_state, stack, "values")?;
         let collect_lines = call.has_flag(engine_state, stack, "lines")?;
         let duration_values = call.has_flag(engine_state, stack, "duration-values")?;
@@ -130,7 +130,6 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
                 collect_source: true,
                 collect_expanded_source,
                 collect_values,
-                collect_exprs: false,
                 collect_instructions: true,
                 collect_lines,
                 duration_mode,
@@ -155,17 +154,18 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             .map_err(lock_err)?;
 
         let result = ClosureEvalOnce::try_new(engine_state, stack, closure, call.head)
-            .and_then(|eval| eval.run_with_input(input));
+            .and_then(|eval| eval.run_with_input(input))
+            // Collect the output
+            .map(|pipeline_data| {
+                let _ = pipeline_data.into_value(call.span());
+            });
 
-        // Return potential errors
-        let pipeline_data = result?;
+        // Stop profiling before returning any error, so a failed closure can't leave the job in
+        // debugging mode.
+        let debugger = engine_state.deactivate_debugger().map_err(lock_err)?;
+        result?;
 
-        // Collect the output
-        let _ = pipeline_data.into_value(call.span());
-
-        Ok(engine_state
-            .deactivate_debugger()
-            .map_err(lock_err)?
+        Ok(debugger
             .report(engine_state, call.span())?
             .into_pipeline_data())
     }

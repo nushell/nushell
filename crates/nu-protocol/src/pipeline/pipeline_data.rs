@@ -463,7 +463,9 @@ impl PipelineData {
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
+            PipelineData::ListStream(stream, ..) => stream
+                .into_value()?
+                .with_span(head)
                 .follow_cell_path(cell_path)
                 .map(Cow::into_owned),
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
@@ -734,7 +736,7 @@ impl PipelineData {
         match self {
             // Print byte streams directly as long as they aren't binary.
             PipelineData::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
-                stream.print(to_stderr)
+                write_std(engine_state, to_stderr, |out, _| stream.write_to(out))
             }
             _ => {
                 // If the table function is in the declarations, then we can use it
@@ -770,24 +772,9 @@ impl PipelineData {
     ) -> Result<(), ShellError> {
         let span = self.span();
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
-            if to_stderr {
-                write_all_and_flush(
-                    bytes.as_slice(),
-                    &mut std::io::stderr().lock(),
-                    "stderr",
-                    span,
-                    engine_state.signals(),
-                )?;
-            } else {
-                write_all_and_flush(
-                    bytes.as_slice(),
-                    &mut std::io::stdout().lock(),
-                    "stdout",
-                    span,
-                    engine_state.signals(),
-                )?;
-            }
-            Ok(())
+            write_std(engine_state, to_stderr, |mut out, name| {
+                write_all_and_flush(bytes, &mut out, name, span, engine_state.signals())
+            })
         } else {
             self.write_all_and_flush(engine_state, no_newline, to_stderr)
         }
@@ -802,7 +789,7 @@ impl PipelineData {
         let span = self.span();
         if let PipelineData::ByteStream(stream, ..) = self {
             // Copy ByteStreams directly
-            stream.print(to_stderr)
+            write_std(engine_state, to_stderr, |out, _| stream.write_to(out))
         } else {
             let config = engine_state.get_config();
             for item in self {
@@ -816,23 +803,9 @@ impl PipelineData {
                     out.push('\n');
                 }
 
-                if to_stderr {
-                    write_all_and_flush(
-                        out,
-                        &mut std::io::stderr().lock(),
-                        "stderr",
-                        span,
-                        engine_state.signals(),
-                    )?;
-                } else {
-                    write_all_and_flush(
-                        out,
-                        &mut std::io::stdout().lock(),
-                        "stdout",
-                        span,
-                        engine_state.signals(),
-                    )?;
-                }
+                write_std(engine_state, to_stderr, |mut dest, name| {
+                    write_all_and_flush(out, &mut dest, name, span, engine_state.signals())
+                })?;
             }
 
             Ok(())
@@ -921,6 +894,28 @@ impl CompareTypes<Type> for PipelineData {
     }
 }
 
+/// Run `write` on this thread's stderr or stdout, passing the stream's name for error messages.
+///
+/// A background job's output waits for the line editor while the REPL holds the terminal (see
+/// [`EngineState::job_output_writer`]).
+fn write_std<T>(
+    engine_state: &EngineState,
+    to_stderr: bool,
+    write: impl FnOnce(&mut dyn Write, &str) -> T,
+) -> T {
+    if to_stderr {
+        write(
+            &mut engine_state.job_output_writer(std::io::stderr()),
+            "stderr",
+        )
+    } else {
+        write(
+            &mut engine_state.job_output_writer(std::io::stdout()),
+            "stdout",
+        )
+    }
+}
+
 pub fn write_all_and_flush<T>(
     data: T,
     destination: &mut impl Write,
@@ -1002,6 +997,16 @@ enum PipelineIteratorInner {
 }
 
 pub struct PipelineIterator(PipelineIteratorInner);
+
+impl PipelineIterator {
+    /// Collects the items, unless one of them holds an error, which is returned instead.
+    ///
+    /// This is for commands that read everything before returning anything. An error left among
+    /// the items would disappear if the command, or the next one, dropped that item.
+    pub fn collect_values(self) -> Result<Vec<Value>, ShellError> {
+        self.map(Value::unwrap_error).collect()
+    }
+}
 
 impl IntoIterator for PipelineData {
     type Item = Value;

@@ -1,3 +1,4 @@
+use crate::filters::utils::take_by_closure;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{engine::Closure, test_table, test_value};
 
@@ -79,26 +80,16 @@ impl Command for TakeUntil {
 
         let metadata = input.take_metadata();
 
-        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
-        let predicate = move |value: &Value| {
-            closure
-                .run_with_value(value.clone())
-                .and_then(|data| data.into_value(head))
-                .map(|cond| cond.is_false())
-                .unwrap_or(false)
-        };
+        let closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
-        let it = input.into_iter_strict(head)?;
-
-        Ok(match include {
-            0 => it.take_while(predicate).into_pipeline_data_with_metadata(
-                head,
-                engine_state.signals().clone(),
-                metadata,
-            ),
-            n => super::take_while_include::take_while_include_n(it, predicate, n)
-                .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata),
-        })
+        Ok(take_by_closure(
+            input.into_iter_strict(head)?,
+            closure,
+            head,
+            Value::is_false,
+            include,
+        )
+        .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

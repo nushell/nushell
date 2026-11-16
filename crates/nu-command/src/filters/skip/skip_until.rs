@@ -1,3 +1,4 @@
+use crate::filters::utils::skip_by_closure;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
 
@@ -77,19 +78,16 @@ impl Command for SkipUntil {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
+        let closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
         let metadata = input.take_metadata();
-        Ok(input
-            .into_iter_strict(head)?
-            .skip_while(move |value| {
-                closure
-                    .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head))
-                    .map(|cond| cond.is_false())
-                    .unwrap_or(false)
-            })
-            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
+        Ok(skip_by_closure(
+            input.into_iter_strict(head)?,
+            closure,
+            head,
+            Value::is_false,
+        )
+        .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

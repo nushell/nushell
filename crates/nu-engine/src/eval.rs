@@ -80,6 +80,15 @@ impl CallEval {
         signature: &Signature,
         value: Cow<Value>,
     ) -> Result<&mut Self, ShellError> {
+        // An `exit` that arrives as a stream item ends the script. Nothing can catch it, and code
+        // that ran with it as input could simply ignore it.
+        if let Value::Error { error, .. } = value.as_ref()
+            && error.is_exit()
+        {
+            self.reset_arguments();
+            return Err((**error).clone());
+        }
+
         // After a rest spread, further positionals always go to rest (IR parity).
         if self.always_spread {
             return self.push_rest(signature, value);
@@ -107,7 +116,7 @@ impl CallEval {
                     to_type: param_type.to_string(),
                     from_type: value.get_type().to_string(),
                     span: value.span(),
-                    help: None,
+                    help: value.explain_type_mismatch(&param_type),
                 });
             }
 
@@ -141,7 +150,7 @@ impl CallEval {
                 to_type: param_type.to_string(),
                 from_type: value.get_type().to_string(),
                 span: value.span(),
-                help: None,
+                help: value.explain_type_mismatch(&param_type),
             });
         }
 

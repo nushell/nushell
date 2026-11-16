@@ -1,3 +1,4 @@
+use crate::filters::utils::closure_result;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::{Closure, CommandType};
 
@@ -69,15 +70,12 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
         let metadata = input.take_metadata();
         Ok(input
             .into_iter_strict(head)?
-            .filter_map(move |value| {
-                match closure
-                    .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head))
-                {
+            .filter_map(
+                move |value| match closure_result(&mut closure, &value, head) {
                     Ok(cond) => cond.is_true().then_some(value),
                     Err(err) => Some(Value::error(err, head)),
-                }
-            })
+                },
+            )
             .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 

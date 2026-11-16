@@ -20,7 +20,7 @@ use crate::parse_def::{
 use crate::parse_type_alias::parse_type_alias;
 
 use nu_protocol::{
-    BlockId, Module, ModuleId, ParseError, Span, Type,
+    BlockId, Module, ModuleId, ParseError, ResolvedImportPattern, Span, Type,
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline,
@@ -693,44 +693,55 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
-/// Returns true if any module reachable from `module_id` (through submodules or imports)
-/// has changed on disk since it was parsed.
-///
-/// Each module is checked at most once per call: modules are commonly reachable through many
-/// paths (e.g. a utility module imported by most siblings), and without the `seen` set the walk
-/// re-reads the same files once per path, which is very slow where file opens are expensive.
-fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
-    /// Returns true if the module's file has changed on disk. Modules without a file, and files
-    /// that can no longer be read, count as unchanged.
-    fn file_changed(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
-        let Some((file_path, file_id)) = &working_set.get_module(module_id).file else {
-            return false;
-        };
-        matches!(
-            (working_set.get_contents_of_file(*file_id), file_path.read(working_set)),
-            (Some(existing), Some(new)) if existing != new
-        )
-    }
+/// Returns true if the module's file has changed on disk. Modules without a file, and files
+/// that can no longer be read, count as unchanged.
+fn file_changed(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    let Some((file_path, file_id)) = &working_set.get_module(module_id).file else {
+        return false;
+    };
+    matches!(
+        (working_set.get_contents_of_file(*file_id), file_path.read(working_set)),
+        (Some(existing), Some(new)) if existing != new
+    )
+}
 
-    /// Recursive step. A module already in `seen` is skipped: `any()` stops at the first change,
-    /// so a module reached again has already been found unchanged.
+/// The modules reachable from `module_id` through submodules or imports.
+///
+/// Each module is listed once: modules are commonly reachable through many paths (e.g. a utility
+/// module imported by most siblings).
+fn reachable_modules(working_set: &StateWorkingSet, module_id: ModuleId) -> Vec<ModuleId> {
     fn walk(
         working_set: &StateWorkingSet,
         module_id: ModuleId,
         seen: &mut HashSet<ModuleId>,
-    ) -> bool {
+        found: &mut Vec<ModuleId>,
+    ) {
         let module = working_set.get_module(module_id);
-        module
+        for id in module
             .submodules
             .iter()
             .map(|(_, id)| *id)
             .chain(module.imported_modules.iter().copied())
-            .any(|id| {
-                seen.insert(id) && (file_changed(working_set, id) || walk(working_set, id, seen))
-            })
+        {
+            if seen.insert(id) {
+                found.push(id);
+                walk(working_set, id, seen, found);
+            }
+        }
     }
 
-    walk(working_set, module_id, &mut HashSet::new())
+    let mut found = vec![];
+    walk(working_set, module_id, &mut HashSet::new(), &mut found);
+    found
+}
+
+/// Returns true if any module reachable from `module_id` has changed on disk since it was parsed.
+///
+/// Each file is read at most once per call, which matters where file opens are expensive.
+fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    reachable_modules(working_set, module_id)
+        .into_iter()
+        .any(|id| file_changed(working_set, id))
 }
 
 fn parse_module_file(
@@ -764,27 +775,202 @@ fn parse_module_file(
     let file_id = working_set.add_file(&path.path().to_string_lossy(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
-    if let Some(module_id) = working_set.find_module_by_span(new_span)
+    let previous = working_set.find_module(module_name.as_bytes());
+
+    let module_id = if let Some(module_id) = working_set.find_module_by_span(new_span)
         && !module_needs_reloading(working_set, module_id)
     {
-        return Some(module_id);
+        module_id
+    } else {
+        if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
+            working_set.error(e);
+            return None;
+        }
+
+        let (block, mut module, module_comments) =
+            parse_module_block(working_set, new_span, module_name.as_bytes());
+
+        working_set.files.pop();
+
+        let _ = working_set.add_block(Arc::new(block));
+        module.file = Some((path, file_id));
+        working_set.add_module(&module_name, module, module_comments)
+    };
+
+    if let Some(previous) = previous
+        && previous != module_id
+        && same_module_file(working_set, previous, module_id)
+    {
+        refresh_imports(working_set, previous, module_id, path_span);
+        // Point the name at this version: one found in the cache wasn't added above.
+        working_set.use_modules(vec![(module_name.into_bytes(), module_id)]);
     }
-
-    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
-        working_set.error(e);
-        return None;
-    }
-
-    let (block, mut module, module_comments) =
-        parse_module_block(working_set, new_span, module_name.as_bytes());
-
-    working_set.files.pop();
-
-    let _ = working_set.add_block(Arc::new(block));
-    module.file = Some((path, file_id));
-    let module_id = working_set.add_module(&module_name, module, module_comments);
 
     Some(module_id)
+}
+
+/// Re-reads a module that was found by name if its file, or a file it imports, changed on disk.
+///
+/// Returns the module to use: the new version, or `module_id` itself when nothing changed, when
+/// the module wasn't loaded from a file, or while the highlighter is skipping module loads.
+///
+/// A module added during this parse was only just read, so it isn't checked. That keeps the
+/// `export module x.nu; export use x` idiom from walking the disk once per module in a tree.
+fn reload_changed_module(
+    working_set: &mut StateWorkingSet,
+    module_id: ModuleId,
+    span: Span,
+) -> ModuleId {
+    let added_in_this_parse = module_id.get() >= working_set.permanent().num_modules();
+    if working_set.skip_module_load
+        || added_in_this_parse
+        || !(file_changed(working_set, module_id) || module_needs_reloading(working_set, module_id))
+    {
+        return module_id;
+    }
+
+    let module = working_set.get_module(module_id);
+    let Some((path, _)) = module.file.clone() else {
+        return module_id;
+    };
+    let name = String::from_utf8_lossy(&module.name).to_string();
+
+    parse_module_file(working_set, path, span, Some(name)).unwrap_or(module_id)
+}
+
+/// Whether two modules came from the same file, which makes one a newer version of the other.
+fn same_module_file(working_set: &StateWorkingSet, first: ModuleId, second: ModuleId) -> bool {
+    match (
+        &working_set.get_module(first).file,
+        &working_set.get_module(second).file,
+    ) {
+        (Some((first, _)), Some((second, _))) => first == second,
+        _ => false,
+    }
+}
+
+/// What `use <module> *` brings into scope.
+fn glob_exports(
+    working_set: &StateWorkingSet,
+    module_id: ModuleId,
+    span: Span,
+) -> ResolvedImportPattern {
+    let (exports, _) = working_set.get_module(module_id).resolve_import_pattern(
+        working_set,
+        module_id,
+        &[ImportPatternMember::Glob { span }],
+        None,
+        span,
+        &mut vec![],
+    );
+    exports
+}
+
+/// Compares what two versions of a module export. Returns the names to point at the new version,
+/// which are the ones still showing the old one, and the ids of the exports the new one dropped,
+/// apart from any in `keep`.
+fn compare_exports<Id: Copy + PartialEq>(
+    old: &[(Vec<u8>, Id)],
+    new: &[(Vec<u8>, Id)],
+    keep: &[(Vec<u8>, Id)],
+    find: impl Fn(&[u8]) -> Option<Id>,
+) -> (Vec<(Vec<u8>, Id)>, Vec<Id>) {
+    let mut kept = vec![];
+    let mut dropped = vec![];
+
+    for (name, old_id) in old {
+        match new.iter().find(|(new_name, _)| new_name == name) {
+            Some((_, new_id)) => {
+                if new_id != old_id && find(name) == Some(*old_id) {
+                    kept.push((name.clone(), *new_id));
+                }
+            }
+            None => {
+                if !keep.iter().any(|(_, id)| id == old_id) {
+                    dropped.push(*old_id);
+                }
+            }
+        }
+    }
+
+    (kept, dropped)
+}
+
+/// Brings what was imported from `old` up to date with `new`, the version of the module that was
+/// just read from the same file, however it was imported and whichever names this `use` asked for.
+///
+/// A name still showing the old version moves to the new one, and an export the new version
+/// dropped is hidden, so a command deleted from the file goes away. Both go by the old definitions'
+/// ids, so a command you've since defined with the same name stays.
+fn refresh_imports(working_set: &mut StateWorkingSet, old: ModuleId, new: ModuleId, span: Span) {
+    // `use <module> *` names everything except the prefixed names `use <module>` brings in.
+    let all_decls = |module_id: ModuleId, exports: &ResolvedImportPattern| {
+        let module = working_set.get_module(module_id);
+        let mut decls = module.decls_with_head(&module.name);
+        decls.extend_from_slice(&exports.decls);
+        decls
+    };
+
+    let old_exports = glob_exports(working_set, old, span);
+    let new_exports = glob_exports(working_set, new, span);
+
+    // A re-export this module dropped can also be what you imported straight from its own module,
+    // which is still there. A module counts if you can name it, unless it's only in scope because
+    // `use <module> *` bound it as a submodule.
+    let mut direct = ResolvedImportPattern::new(vec![], vec![], vec![], vec![], vec![]);
+    for id in reachable_modules(working_set, old) {
+        if let Some(id) = working_set.find_module(&working_set.get_module(id).name)
+            && id != old
+            && !old_exports.modules.iter().any(|(_, bound)| *bound == id)
+        {
+            let exports = glob_exports(working_set, id, span);
+            direct.decls.extend(exports.decls);
+            direct.constants.extend(exports.constants);
+            direct.type_aliases.extend(exports.type_aliases);
+        }
+    }
+
+    let (decls, dropped_decls) = compare_exports(
+        &all_decls(old, &old_exports),
+        &all_decls(new, &new_exports),
+        &direct.decls,
+        |name| working_set.find_decl(name),
+    );
+    let (type_aliases, dropped_type_aliases) = compare_exports(
+        &old_exports.type_aliases,
+        &new_exports.type_aliases,
+        &direct.type_aliases,
+        |name| working_set.find_type_alias(name),
+    );
+    let (constants, dropped_constants) = compare_exports(
+        &old_exports.constants,
+        &new_exports.constants,
+        &direct.constants,
+        |name| working_set.find_variable(name),
+    );
+    let (modules, dropped_modules) =
+        compare_exports(&old_exports.modules, &new_exports.modules, &[], |name| {
+            working_set.find_module(name)
+        });
+
+    working_set.use_decls(decls);
+    working_set.use_type_aliases(type_aliases);
+    working_set.use_variables(constants);
+    working_set.use_modules(modules);
+
+    for id in dropped_constants {
+        working_set.hide_variable(id);
+    }
+    for id in dropped_modules {
+        working_set.hide_module(id);
+    }
+    let visibility = &mut working_set.last_overlay_mut().visibility;
+    for id in dropped_decls {
+        visibility.hide_decl_id(&id);
+    }
+    for id in dropped_type_aliases {
+        visibility.hide_type_alias_id(&id);
+    }
 }
 
 fn find_in_dirs(
@@ -1228,6 +1414,7 @@ pub fn parse_use(
     };
 
     let (mut import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
+        let module_id = reload_changed_module(working_set, module_id, import_pattern.head.span);
         let module = working_set.get_module(module_id).clone();
         (
             ImportPattern {
@@ -1464,17 +1651,17 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
             parse_string(working_set, *span);
         }
 
-        let (is_module, module) =
+        let (module_id, module) =
             if let Some(module_id) = working_set.find_module(&import_pattern.head.name) {
-                (true, working_set.get_module(module_id).clone())
+                (Some(module_id), working_set.get_module(module_id).clone())
             } else if import_pattern.members.is_empty() {
                 if let Some(id) = working_set.find_decl(&import_pattern.head.name) {
                     let mut module = Module::new(b"tmp".to_vec());
                     module.add_decl(import_pattern.head.name.clone(), id);
 
-                    (false, module)
+                    (None, module)
                 } else {
-                    (false, Module::new(b"tmp".to_vec()))
+                    (None, Module::new(b"tmp".to_vec()))
                 }
             } else {
                 working_set.error(ParseError::ModuleNotFound(
@@ -1487,12 +1674,25 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         // A type alias comes after aliases and commands in `hide`'s priority: a bare name hides
         // the type alias of that name only when it doesn't name an alias or a command.
         let (decls_to_hide, type_aliases_to_hide) = if import_pattern.members.is_empty() {
-            if is_module {
-                // `use <module>` doesn't import type aliases, so there are none to hide.
-                (
-                    module.decl_names_with_head(&import_pattern.head.name),
-                    vec![],
-                )
+            if let Some(module_id) = module_id {
+                // `use <module>` brings in `<module> cmd` and `use <module> *` brings in `cmd`, so
+                // hide whichever happened. A bare name counts only while it's still the module's:
+                // a command of your own with that name stays. Only the glob form imports type
+                // aliases.
+                let mut decls = module.decl_names_with_head(&import_pattern.head.name);
+                let exports = glob_exports(working_set, module_id, spans[1]);
+                for (name, id) in exports.decls {
+                    if working_set.find_decl(&name) == Some(id) && !decls.contains(&name) {
+                        decls.push(name);
+                    }
+                }
+                let type_aliases = exports
+                    .type_aliases
+                    .into_iter()
+                    .filter(|(name, id)| working_set.find_type_alias(name) == Some(*id))
+                    .map(|(name, _)| name)
+                    .collect();
+                (decls, type_aliases)
             } else {
                 let decls = module.decl_names();
                 let type_aliases = if decls.is_empty() {
@@ -1748,6 +1948,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             let module_id = overlay_frame.origin;
 
             if let Some(new_module_id) = working_set.find_module(overlay_name.as_bytes()) {
+                let new_module_id =
+                    reload_changed_module(working_set, new_module_id, overlay_name_span);
                 if !do_reload && (module_id == new_module_id) {
                     (
                         overlay_name,
@@ -1764,11 +1966,20 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     )
                 }
             } else {
-                let module_name = overlay_name.as_bytes().to_vec();
-                (overlay_name, Module::new(module_name), module_id, true)
+                // The overlay's name isn't bound to a module here, as when the overlay was renamed
+                // or its module was imported in another overlay. Its origin still knows the file.
+                let new_module_id =
+                    reload_changed_module(working_set, module_id, overlay_name_span);
+                let module = if new_module_id == module_id {
+                    Module::new(overlay_name.as_bytes().to_vec())
+                } else {
+                    working_set.get_module(new_module_id).clone()
+                };
+                (overlay_name, module, new_module_id, true)
             }
         } else {
             if let Some(module_id) = working_set.find_module(overlay_name.as_bytes()) {
+                let module_id = reload_changed_module(working_set, module_id, overlay_name_span);
                 (
                     new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
                     working_set.get_module(module_id).clone(),
@@ -1838,12 +2049,25 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     };
 
     if errors.is_empty() {
+        let previous_origin = working_set
+            .find_overlay(final_overlay_name.as_bytes())
+            .map(|overlay| overlay.origin);
+
         working_set.add_overlay(
             final_overlay_name.as_bytes().to_vec(),
             origin_module_id,
             definitions,
             has_prefix,
         );
+
+        // The overlay keeps its old definitions, including while it was hidden. Now that it's on
+        // top, hiding the ones its module dropped takes effect.
+        if let Some(previous_origin) = previous_origin
+            && previous_origin != origin_module_id
+            && same_module_file(working_set, previous_origin, origin_module_id)
+        {
+            refresh_imports(working_set, previous_origin, origin_module_id, call.head);
+        }
     } else {
         working_set.parse_errors.extend(errors);
     }

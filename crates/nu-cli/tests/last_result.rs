@@ -13,13 +13,15 @@
 
 use nu_cli::eval_source;
 use nu_protocol::{
-    Filesize, FilesizeUnit, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, PipelineData, Span, Value,
+    Filesize, FilesizeUnit, LAST_RESULT_VAR_NAME, LAST_VARIABLE_ID, PipelineData, ShellWarning,
+    Span, Value,
     ast::Expr,
     engine::{EngineState, Stack},
     record,
 };
 use nu_test_support::prelude::*;
 use nu_test_support::tester::PATH_ENV_AUTO_LOAD;
+use nu_utils::consts::LINE_SEPARATOR_STR;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -108,6 +110,12 @@ impl Interactive {
             duration,
             self.last_source.clone(),
         );
+    }
+
+    /// The warning that reading `$ans` would report about the stored `.last`.
+    fn truncation_warning(&self) -> Option<ShellWarning> {
+        self.stack
+            .last_result_truncation_warning(&self.engine_state, Span::test_data())
     }
 
     /// `$ans.command` (or empty string when `$ans` is unset or has no `command` field).
@@ -877,6 +885,199 @@ fn error_only_list_stream_does_not_clobber_last() -> Result {
     // Range + each yields a list stream of records; str length maps it to error values.
     session.run("1..2 | each {|i| {name: $i}} | str length");
     assert_eq!(session.last_payload()?, original);
+    Ok(())
+}
+
+// A display hook that stops reading shows whether capture ran ahead of display: a stream drained
+// up front would store every row, whatever the hook goes on to read.
+// https://github.com/nushell/nushell/issues/19472
+#[test]
+fn list_stream_is_not_drained_ahead_of_display() -> Result {
+    let mut session = Interactive::new();
+    session.run("$env.config.hooks.display_output = 'first 1'");
+    session.run("1..100 | each {|i| $i}");
+    assert_eq!(
+        session.last_payload()?,
+        Value::test_list(vec![Value::test_int(1)])
+    );
+    assert!(session.stack.last_result_was_truncated());
+    Ok(())
+}
+
+#[test]
+fn byte_stream_is_not_drained_ahead_of_display() -> Result {
+    let mut session = Interactive::new();
+    session.run("$env.config.hooks.display_output = 'lines | first 1'");
+    session.run("1..100 | each {|i| $i} | to text");
+    let last = session.last_payload()?;
+    let Value::String { val, .. } = &last else {
+        panic!("expected string last payload, got {last:?}");
+    };
+    assert!(
+        val.starts_with(&format!("1{LINE_SEPARATOR_STR}")),
+        "got {val:?}"
+    );
+    assert!(!val.contains("100"), "the whole stream was read: {val:?}");
+    assert!(session.stack.last_result_was_truncated());
+    Ok(())
+}
+
+#[test]
+fn truncation_warning_blames_the_limit_for_an_oversized_result() -> Result {
+    let budget = Value::test_list(vec![]).memory_size() + Value::test_int(0).memory_size() * 2;
+    let mut session = Interactive::new().with_max_last_result_size(Filesize::new(budget as i64));
+    let list_stream = "1..100 | each {|i| $i}";
+
+    let big_value = format!("\"{}\"", "x".repeat(10_000));
+    for source in [
+        big_value.as_str(),
+        list_stream,
+        "1..100 | each {|i| $i} | to text",
+    ] {
+        session.run(source);
+        let warning = session.truncation_warning();
+        assert!(
+            matches!(warning, Some(ShellWarning::LastResultTruncated { .. })),
+            "for {source}: {warning:?}"
+        );
+    }
+
+    // Stopping early too doesn't change it: the limit was still hit, and can be raised.
+    session.run("$env.config.hooks.display_output = 'first 5'");
+    session.run(list_stream);
+    let warning = session.truncation_warning();
+    assert!(
+        matches!(warning, Some(ShellWarning::LastResultTruncated { .. })),
+        "{warning:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn truncation_warning_blames_the_stream_when_display_stops_early() -> Result {
+    for (hook, source) in [
+        ("first 1", "1..100 | each {|i| $i}"),
+        ("lines | first 1", "1..100 | each {|i| $i} | to text"),
+    ] {
+        let mut session = Interactive::new();
+        session.run(&format!("$env.config.hooks.display_output = '{hook}'"));
+        session.run(source);
+
+        let warning = session.truncation_warning().expect("a truncation warning");
+        assert!(
+            matches!(warning, ShellWarning::LastResultIncomplete),
+            "for {source}: {warning:?}"
+        );
+        // Raising the limit wouldn't help, so neither text should point at it.
+        let help = miette::Diagnostic::help(&warning)
+            .expect("help text")
+            .to_string();
+        assert!(!warning.to_string().contains("max_last_result_size"));
+        assert!(!help.contains("max_last_result_size"), "{help}");
+    }
+    Ok(())
+}
+
+#[test]
+fn whole_result_has_no_truncation_warning() -> Result {
+    let mut session = Interactive::new();
+    session.run("1..3 | each {|i| $i}");
+    assert!(session.truncation_warning().is_none());
+    Ok(())
+}
+
+#[test]
+fn display_hook_that_fails_keeps_prior_last() -> Result {
+    let mut session = Interactive::new();
+    // Doesn't parse, so the hook fails without reading its input: no part of the stream was seen.
+    session.run("$env.config.hooks.display_output = '$nope'");
+    session.run("42");
+    session.run("1..3 | each {|i| $i}");
+    assert_eq!(session.last_payload()?, Value::test_int(42));
+    Ok(())
+}
+
+#[test]
+fn byte_stream_is_stored_whole_under_budget() -> Result {
+    let mut session = Interactive::new();
+    session.run("[a b] | each {|x| $x} | to text");
+    assert_eq!(
+        session.last_payload()?,
+        Value::test_string(format!("a{LINE_SEPARATOR_STR}b{LINE_SEPARATOR_STR}"))
+    );
+    assert!(!session.stack.last_result_was_truncated());
+    Ok(())
+}
+
+#[test]
+fn list_stream_keeps_pipeline_metadata() -> Result {
+    let mut session = Interactive::new();
+    session.run("1..2 | each {|i| {name: $i}} | metadata set --path-columns [name]");
+    let meta = session
+        .stack
+        .last_result_metadata()
+        .expect("last-result should keep pipeline metadata");
+    assert_eq!(meta.path_columns, vec!["name".to_string()]);
+    Ok(())
+}
+
+#[test]
+fn byte_stream_can_read_prior_last_while_running() -> Result {
+    // `.last` is replaced when the stream is done, so its lazy closures still see the old one.
+    let mut session = Interactive::new();
+    session.run("42");
+    session.run("1..2 | each {|i| $ans.last} | to text");
+    assert_eq!(
+        session.last_payload()?,
+        Value::test_string(format!("42{LINE_SEPARATOR_STR}42{LINE_SEPARATOR_STR}"))
+    );
+    Ok(())
+}
+
+// A stream's error must reach the user even though the tee is reading it.
+#[test]
+fn byte_stream_error_reaches_the_user_and_keeps_what_passed_through() -> Result {
+    let mut session = Interactive::new();
+    let code = session.run(
+        "1..3 | each {|x| if $x == 2 { error make {msg: boom} } else { 0x[61] } } | bytes collect",
+    );
+    assert_ne!(code, 0, "the error should fail the command");
+    assert_eq!(session.last_payload()?, Value::test_binary(b"a".to_vec()));
+    assert!(matches!(
+        session.truncation_warning(),
+        Some(ShellWarning::LastResultIncomplete)
+    ));
+    Ok(())
+}
+
+// The same result must cut down the same way, whichever way it reached the REPL.
+#[test]
+fn stream_and_value_cut_down_to_the_same_last() -> Result {
+    let budget = Value::test_int(0).memory_size() * 4;
+    let long_string = "x".repeat(200);
+    let long_binary = "ff".repeat(200);
+    for items in [
+        // The rows that fit, as a table never ends in a partial row.
+        "[{a: 1} {a: 1, b: 2, c: 3}]".to_string(),
+        // A record is dropped after anything else, too.
+        "[1 {a: 1, b: 2, c: 3}]".to_string(),
+        "[{a: 1, b: 2, c: 3}]".to_string(),
+        // These keep the part that fits.
+        format!("[1 '{long_string}']"),
+        format!("[1 0x[{long_binary}]]"),
+        "[1 [1 2 3 4 5 6 7]]".to_string(),
+        // A scalar that doesn't fit is dropped, not replaced with a placeholder.
+        "[1 2 3 4 5 6 7]".to_string(),
+    ] {
+        let mut session =
+            Interactive::new().with_max_last_result_size(Filesize::new(budget as i64));
+        session.run(&items);
+        let from_value = session.last_payload()?;
+
+        session.run(&format!("{items} | each {{|x| $x}}"));
+        assert_eq!(session.last_payload()?, from_value, "for {items}");
+        assert!(session.stack.last_result_was_truncated(), "for {items}");
+    }
     Ok(())
 }
 

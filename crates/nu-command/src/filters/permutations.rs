@@ -39,7 +39,7 @@ impl Command for Permutations {
         let head = call.head;
         let metadata = input.take_metadata();
 
-        let vals: Vec<Value> = input.into_iter().collect();
+        let vals = input.into_iter().collect_values()?;
         let signals = engine_state.signals().clone();
 
         if vals.is_empty() {

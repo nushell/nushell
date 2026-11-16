@@ -93,7 +93,10 @@ fn http_options_timeout() -> Result {
     let _mock = server
         .mock("OPTIONS", "/")
         .with_chunked_body(|w| {
-            thread::sleep(Duration::from_secs(10));
+            // Keep this well above `--max-time 100ms` so the client still times out. Mockito joins
+            // the chunked-body thread on drop, so a multi-second sleep stalls the Test step for
+            // every timeout case (get/post/put/patch/delete/options).
+            thread::sleep(Duration::from_millis(500));
             w.write_all(b"Delayed response!")
         })
         .create();

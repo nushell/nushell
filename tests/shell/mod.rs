@@ -1,5 +1,5 @@
 use nu_test_support::{
-    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed},
     prelude::*,
 };
 use pretty_assertions::assert_eq;
@@ -582,6 +582,88 @@ fn script_with_hash_arg_is_not_treated_as_comment() -> Result {
         assert!(result.stderr.is_empty());
         Ok(())
     })
+}
+
+// regression test for https://github.com/nushell/nushell/issues/19484
+#[rstest]
+#[case::flag_name_with_semicolon(&["--x;print INJECTED"])]
+#[case::flag_name_with_semicolon_and_value(&["--x;print INJECTED=1"])]
+#[case::help_flag_with_semicolon(&["--help;print INJECTED"])]
+#[case::flag_name_with_newline(&["--x\nprint INJECTED"])]
+#[case::flag_name_with_redirection(&["--x>out.txt"])]
+#[case::flag_name_with_variable_and_value(&["--x$nu=1"])]
+#[case::stdout_redirection(&["o>", "out.txt"])]
+#[case::stderr_append_redirection(&["e>>", "out.txt"])]
+#[case::combined_redirection(&["out+err>", "out.txt"])]
+#[case::spread(&["...$env.PATH"])]
+#[case::range_with_variable(&["0..$nu.pid"])]
+#[case::assignment(&["="])]
+#[case::and_and(&["&&"])]
+#[case::closing_paren(&["a)"])]
+#[nu_test_support::test]
+#[deps(NU)]
+fn script_args_are_passed_as_strings(#[case] args: &[&str]) -> Result {
+    Playground::setup("script_args_as_strings", |dirs, sandbox| -> Result {
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            "def main [--x, ...args] { $args | to json --raw }",
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run_with_data("nu -n script.nu ...$in | from json", args.to_vec())
+            .expect_value_eq(args.to_vec())?;
+        assert!(!dirs.test().join("out.txt").exists());
+        Ok(())
+    })
+}
+
+// `nu -c <commands> <args>` builds its `main` call with the same escaping.
+#[test]
+#[deps(NU)]
+fn commands_main_args_are_passed_as_strings() -> Result {
+    let args = vec!["--help;print INJECTED", "...$env.PATH"];
+
+    test()
+        .run_with_data(
+            "nu -n -c 'def main [...args] { $args | to json --raw }' ...$in | from json",
+            args.clone(),
+        )
+        .expect_value_eq(args)
+}
+
+// An argument quoted only to keep it from running as code still globs like a bare word.
+#[rstest]
+#[case::dollar("a$")]
+#[case::closing_paren("a)")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn script_glob_args_still_expand(#[case] prefix: &str) -> Result {
+    Playground::setup("script_glob_args_expand", |dirs, sandbox| -> Result {
+        let files = [format!("{prefix}1.txt"), format!("{prefix}2.txt")];
+        sandbox.with_files(&[
+            EmptyFile(&files[0]),
+            EmptyFile(&files[1]),
+            FileWithContent(
+                "script.nu",
+                "def main [g: glob] { ls $g | get name | sort | to json --raw }",
+            ),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run_with_data("nu -n script.nu $in | from json", format!("{prefix}*.txt"))
+            .expect_value_eq(files.to_vec())
+    })
+}
+
+// The same argument still expands `~` for a `path` parameter.
+#[test]
+#[deps(NU)]
+fn script_path_arg_with_dollar_expands_tilde() -> Result {
+    test()
+        .run(r#"nu -n -c 'def main [p: path] { $p | str starts-with "~" }' '~/a$b' | from json"#)
+        .expect_value_eq(false)
 }
 
 // regression test for https://github.com/nushell/nushell/issues/17719

@@ -5,6 +5,7 @@ use crate::{
 
 use crate::parser_path::ParserPath;
 use indexmap::IndexMap;
+use std::path::Path;
 
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
@@ -102,6 +103,14 @@ impl Module {
 
     pub fn add_env_block(&mut self, block_id: BlockId) {
         self.env_block = Some(block_id);
+    }
+
+    /// The file the module was read from, unless that's a virtual file.
+    pub fn real_file(&self) -> Option<&Path> {
+        match &self.file {
+            Some((ParserPath::RealPath(path), _)) => Some(path),
+            _ => None,
+        }
     }
 
     pub fn track_imported_modules(&mut self, module_id: &[ModuleId]) {

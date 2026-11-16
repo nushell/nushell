@@ -1,12 +1,13 @@
 use crate::{
-    BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, TypeAlias,
-    TypeAliasId, Value, VarId, VirtualPathId,
-    ast::{Block, Expr},
+    BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
+    Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
+    TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
+    ast::{Block, Expr, Traverse},
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
-        ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, JobOutput, JobOutputWriter,
+        OverlayFrame, PromptState, ScopeFrame, Stack, StateDelta, StateWorkingSet, Variable,
+        VisibilityStack,
         description::{Doccomments, build_desc},
         signature_cache::SignatureCache,
     },
@@ -15,6 +16,7 @@ use crate::{
     shell_error::{generic::GenericError, io::IoError},
 };
 use fancy_regex::Regex;
+use itertools::Either;
 use lru::LruCache;
 use nu_config::NushellConfigDirs;
 use nu_path::AbsolutePathBuf;
@@ -22,6 +24,7 @@ use nu_utils::time::Instant;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    io::{IsTerminal, Write},
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
@@ -59,6 +62,7 @@ pub struct ReplState {
     pub cursor_pos: usize,
     /// Immediately accept the buffer on the next loop.
     pub accept: bool,
+    pub selection: Option<(usize, usize)>,
 }
 
 #[derive(Debug)]
@@ -160,6 +164,13 @@ pub struct EngineState {
     signals: Signals,
     pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
+    /// The overlays the last merged [`Stack`] had active, when they differ from [`Self::scope`]'s.
+    ///
+    /// An overlay command inside a block, such as `if $x { overlay use spam }`, stays in effect on
+    /// the stack, but the parser drops it when the block ends. Variables are stored under the
+    /// stack's overlays, so reading them through the parser's list would miss what they hold: `cd`
+    /// writes `PWD` to `spam`, and `cwd(None)` would keep finding the old value below it.
+    runtime_overlays: Option<Vec<String>>,
     pub previous_env_vars: Arc<HashMap<EnvName, Value>>,
     /// Live config. Replace it with [`Self::set_config`] so [`Self::config_epoch`] stays in sync.
     pub config: Arc<Config>,
@@ -168,11 +179,16 @@ pub struct EngineState {
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     /// Shared source of truth for the interactive prompt's rendered content. The
-    /// REPL fills it each cycle from `$env.PROMPT_COMMAND` and friends; a
+    /// REPL fills it each cycle from `$env.config.prompt` and friends; a
     /// background job's `commandline set-prompt` overwrites individual segments
     /// and triggers an in-place repaint. Shared with every job that clones this
     /// engine state.
     pub prompt_state: Arc<PromptState>,
+    /// Text background jobs write to the terminal while the REPL waits for input. Shared with every
+    /// job that clones this engine state.
+    pub job_output: Arc<JobOutput>,
+    /// The default prompt closures, once `nu-cli` has evaluated them at startup.
+    pub default_prompts: DefaultPrompts,
     pub table_decl_id: Option<DeclId>,
     /// Signatures of [`Self::decls`], built on first use by the parser. Clones share it, so that
     /// cloning stays cheap; a clone that appends declarations while sharing it starts over with an
@@ -308,6 +324,7 @@ impl EngineState {
                     .into_iter()
                     .collect(),
             ),
+            runtime_overlays: None,
             previous_env_vars: Arc::new(HashMap::new()),
             config: Arc::new(Config::default()),
             config_epoch: 0,
@@ -316,8 +333,11 @@ impl EngineState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
                 accept: false,
+                selection: None,
             })),
             prompt_state: Arc::new(PromptState::new()),
+            job_output: Arc::new(JobOutput::new()),
+            default_prompts: DefaultPrompts::default(),
             table_decl_id: None,
             signature_cache: Arc::default(),
             #[cfg(feature = "plugin")]
@@ -452,6 +472,12 @@ impl EngineState {
                 for item in delta_overlay.vars.into_iter() {
                     existing_overlay.insert_variable(item.0, item.1);
                 }
+                // The loop above only sees each name's last binding. A binding the same source
+                // shadowed (the first `$x` in `let x = 1; let x = 2`) was recorded in the delta,
+                // so carry it over, or `cleanup_stack_variables` never frees its value.
+                existing_overlay
+                    .shadowed_vars
+                    .extend(delta_overlay.shadowed_vars);
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
@@ -474,6 +500,13 @@ impl EngineState {
         for var_id in &first.hidden_vars {
             for (_, overlay) in &mut scope.overlays {
                 overlay.vars.retain(|_, bound| *bound != *var_id);
+            }
+        }
+
+        // The same goes for a module that a reload dropped.
+        for module_id in &first.hidden_modules {
+            for (_, overlay) in &mut scope.overlays {
+                overlay.modules.retain(|_, bound| *bound != *module_id);
             }
         }
 
@@ -563,6 +596,13 @@ impl EngineState {
             }
         }
 
+        let same_overlays = stack
+            .active_overlays
+            .iter()
+            .map(String::as_bytes)
+            .eq(self.active_overlay_names(&[]));
+        self.runtime_overlays = (!same_overlays).then(|| stack.active_overlays.clone());
+
         if UPDATE_CWD.load(Ordering::Relaxed) {
             let cwd = self.cwd(Some(stack))?;
             std::env::set_current_dir(cwd)
@@ -582,7 +622,10 @@ impl EngineState {
     }
 
     /// Clean up unused variables from a Stack to prevent memory leaks.
-    /// This removes variables that are no longer referenced by any overlay or alias.
+    ///
+    /// This removes the values of variables recorded as shadowed since the last cleanup, unless
+    /// some overlay still binds the variable by name, or an alias or custom command still
+    /// references it.
     pub fn cleanup_stack_variables(&mut self, stack: &mut Stack) {
         // Only take the scope for writing when there is something to drain.
         if self
@@ -599,20 +642,54 @@ impl EngineState {
             shadowed_vars.extend(frame.shadowed_vars.drain(..));
         }
 
-        // Collect VarIds still referenced by alias definitions so we don't
-        // remove them — doing so would cause a VariableNotFoundAtRuntime error
-        // when the alias is invoked after the variable has been re-bound.
-        let mut alias_var_ids = HashSet::new();
-        for decl in self.decls.iter() {
-            if let Some(alias) = decl.as_alias() {
-                collect_alias_var_ids(&alias.wrapped_call, &mut alias_var_ids);
+        // A shadowed variable can be bound by name again, as when `source` of a file it already
+        // read binds that file's names to the same variables. Check every overlay, since a hidden
+        // one can be brought back.
+        for (_, frame) in &self.scope.overlays {
+            for var_id in frame.vars.values() {
+                shadowed_vars.remove(var_id);
             }
         }
 
-        // Remove variables from stack that are shadowed and not referenced by any alias
-        stack.vars.retain(|(var_id, _)| {
-            !shadowed_vars.contains(var_id) || alias_var_ids.contains(var_id)
-        });
+        // When none of the shadowed variables has a value on the stack, there is nothing to
+        // remove, so skip the scan of every declaration below.
+        if !stack
+            .vars
+            .iter()
+            .any(|(var_id, _)| shadowed_vars.contains(var_id))
+        {
+            return;
+        }
+
+        // Collect VarIds still referenced by alias definitions and custom command bodies so we
+        // don't remove them. Both read these variables from the caller's stack when invoked (a
+        // `def` body through its captures), so removing one would cause a
+        // VariableNotFoundAtRuntime error after the variable has been re-bound.
+        let working_set = StateWorkingSet::new(self);
+        let mut referenced_var_ids = Vec::new();
+        for decl in self.decls.iter() {
+            if let Some(alias) = decl.as_alias() {
+                // Walks into subexpressions and blocks too, as in `alias foo = echo ($x + 1)`.
+                alias.wrapped_call.flat_map(
+                    &working_set,
+                    &|expr| match expr.expr {
+                        Expr::Var(var_id) => vec![var_id],
+                        _ => vec![],
+                    },
+                    &mut referenced_var_ids,
+                );
+            } else if let Some(block_id) = decl.block_id() {
+                let captures = &self.get_block(block_id).captures;
+                referenced_var_ids.extend(captures.iter().map(|(var_id, _)| *var_id));
+            }
+        }
+        for var_id in &referenced_var_ids {
+            shadowed_vars.remove(var_id);
+        }
+
+        stack
+            .vars
+            .retain(|(var_id, _)| !shadowed_vars.contains(var_id));
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -705,14 +782,30 @@ impl EngineState {
     pub fn render_env_vars(&self) -> HashMap<&str, &Value> {
         let mut result: HashMap<&str, &Value> = HashMap::new();
 
-        for overlay_name in self.active_overlay_names(&[]) {
-            let name = String::from_utf8_lossy(overlay_name);
-            if let Some(env_vars) = self.env_vars.get(name.as_ref()) {
+        for overlay_name in self.env_overlay_names() {
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
                 result.extend(env_vars.iter().map(|(k, v)| (k.as_str(), v)));
             }
         }
 
         result
+    }
+
+    /// The overlays to read environment variables through, lowest priority first.
+    fn env_overlay_names(&self) -> impl DoubleEndedIterator<Item = Cow<'_, str>> {
+        match &self.runtime_overlays {
+            Some(overlays) => Either::Left(overlays.iter().map(|name| Cow::from(name.as_str()))),
+            None => Either::Right(self.active_overlay_names(&[]).map(String::from_utf8_lossy)),
+        }
+    }
+
+    /// Forget the overlays [`Self::merge_env`] recorded, going back to the parser's list.
+    ///
+    /// For hosts that run the startup files on one [`Stack`], then discard it and evaluate on new
+    /// ones. A new stack only has the parser's overlays, and [`Self::add_env_var`] writes through
+    /// them too, so reading through the discarded stack's list would miss both.
+    pub fn clear_runtime_overlays(&mut self) {
+        self.runtime_overlays = None;
     }
 
     pub fn add_env_var(&mut self, name: String, val: Value) {
@@ -729,16 +822,11 @@ impl EngineState {
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
-        for overlay_id in self.scope.active_overlays.iter().rev() {
-            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
-                && let Some(val) = env_vars.get(&EnvName::from(name))
-            {
-                return Some(val);
-            }
-        }
+        let name = EnvName::from(name);
 
-        None
+        self.env_overlay_names()
+            .rev()
+            .find_map(|overlay_name| self.env_vars.get(overlay_name.as_ref())?.get(&name))
     }
 
     #[cfg(feature = "plugin")]
@@ -1444,6 +1532,7 @@ impl EngineState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
                 accept: false,
+                selection: None,
             }));
         }
         if Mutex::is_poisoned(&self.jobs) {
@@ -1464,6 +1553,7 @@ impl EngineState {
         self.repl_state = Default::default();
         self.report_log = Default::default();
         self.prompt_state = Arc::new(PromptState::new());
+        self.job_output = Arc::new(JobOutput::new());
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),
@@ -1499,39 +1589,30 @@ impl EngineState {
         self.current_job.background_thread_job.is_some()
     }
 
+    /// A writer for this thread's output to `stream`, the process's stdout or stderr.
+    ///
+    /// While the REPL holds the terminal, a background job's output to it waits in [`JobOutput`],
+    /// and the line editor prints it above the prompt. The line editor paints on stderr, so this
+    /// only happens when both `stream` and stderr are terminals.
+    pub fn job_output_writer<W: Write + IsTerminal>(&self, stream: W) -> JobOutputWriter<'_, W> {
+        self.job_output_writer_with(stream, |stream| {
+            stream.is_terminal() && std::io::stderr().is_terminal()
+        })
+    }
+
+    /// [`Self::job_output_writer`] with the terminal check passed in.
+    fn job_output_writer_with<W: Write>(
+        &self,
+        stream: W,
+        is_terminal: fn(&W) -> bool,
+    ) -> JobOutputWriter<'_, W> {
+        let job_output = self.is_background_job().then_some(&*self.job_output);
+        JobOutputWriter::new(job_output, stream, is_terminal)
+    }
+
     // Gets the thread job entry
     pub fn current_thread_job(&self) -> Option<&ThreadJob> {
         self.current_job.background_thread_job.as_ref()
-    }
-}
-
-/// Collect all `VarId`s referenced by `Expr::Var` nodes in `expr`.
-/// This is used by [`EngineState::cleanup_stack_variables`] to avoid removing
-/// variables that are still referenced by alias definitions.
-fn collect_alias_var_ids(expr: &crate::ast::Expression, var_ids: &mut HashSet<VarId>) {
-    let mut queue = vec![expr];
-
-    while let Some(e) = queue.pop() {
-        match &e.expr {
-            Expr::Var(id) => {
-                var_ids.insert(*id);
-            }
-            Expr::Call(call) => {
-                for arg in &call.arguments {
-                    if let Some(sub_expr) = arg.expr() {
-                        queue.push(sub_expr);
-                    }
-                }
-            }
-            Expr::ExternalCall(head, args) => {
-                queue.push(head);
-                for arg in args.iter() {
-                    queue.push(arg.expr());
-                }
-            }
-            Expr::FullCellPath(fcp) => queue.push(&fcp.head),
-            _ => {}
-        }
     }
 }
 
@@ -1577,6 +1658,81 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    fn background_job_state() -> EngineState {
+        let mut engine_state = EngineState::new();
+        let (sender, _receiver) = channel();
+        engine_state.current_job.background_thread_job =
+            Some(ThreadJob::new(Signals::empty(), None, false, sender));
+        engine_state
+    }
+
+    /// Write `text` as `engine_state` would to a terminal, or to a file when `to_terminal` is
+    /// false, and return what reached the stream instead of the queue.
+    fn write_output(engine_state: &EngineState, to_terminal: bool, text: &str) -> String {
+        let mut written = Vec::new();
+        let is_terminal = if to_terminal {
+            |_: &_| true
+        } else {
+            |_: &_| false
+        };
+        engine_state
+            .job_output_writer_with(&mut written, is_terminal)
+            .write_all(text.as_bytes())
+            .expect("writing to a Vec");
+        String::from_utf8(written).expect("UTF-8 output")
+    }
+
+    #[test]
+    fn job_output_to_the_terminal_is_queued_while_held() {
+        let engine_state = background_job_state();
+        engine_state.job_output.hold();
+
+        assert_eq!(write_output(&engine_state, true, "from a job\n"), "");
+
+        assert_eq!(
+            engine_state.job_output.drain().as_deref(),
+            Some("from a job\n")
+        );
+    }
+
+    #[test]
+    fn main_thread_output_is_written_directly_while_held() {
+        let engine_state = EngineState::new();
+        engine_state.job_output.hold();
+
+        assert_eq!(write_output(&engine_state, true, "main\n"), "main\n");
+        assert_eq!(engine_state.job_output.drain(), None);
+    }
+
+    #[test]
+    fn job_output_to_a_file_is_written_directly_while_held() {
+        let engine_state = background_job_state();
+        engine_state.job_output.hold();
+
+        assert_eq!(
+            write_output(&engine_state, false, "to a file\n"),
+            "to a file\n"
+        );
+        assert_eq!(engine_state.job_output.drain(), None);
+    }
+
+    #[test]
+    fn job_output_is_shared_with_clones() {
+        let engine_state = EngineState::new();
+        let mut job_side = engine_state.clone();
+        let (sender, _receiver) = channel();
+        job_side.current_job.background_thread_job =
+            Some(ThreadJob::new(Signals::empty(), None, false, sender));
+        engine_state.job_output.hold();
+
+        write_output(&job_side, true, "from a clone\n");
+
+        assert_eq!(
+            engine_state.job_output.drain().as_deref(),
+            Some("from a clone\n")
+        );
     }
 
     /// An engine that appends declarations to a signature cache it shares with a clone starts

@@ -976,24 +976,33 @@ pub fn request_set_host_header<B>(
     request.header("Host", &value)
 }
 
+/// Returns true for `application/json` and `application/*+json`, ignoring case and parameters.
+fn is_json_content_type(content_type: &str) -> bool {
+    mime::Mime::from_str(content_type).is_ok_and(|m| {
+        m.type_() == mime::APPLICATION
+            && (m.subtype() == "json" || m.suffix().is_some_and(|s| s == "json"))
+    })
+}
+
 fn handle_status_error(span: Span, requested_url: &str, response: &mut Response) -> ShellError {
-    let msg = if response.header("content-type") == Some("application/json") {
+    let reason = response.status().canonical_reason().unwrap_or("");
+    let msg = if response
+        .header("content-type")
+        .is_some_and(is_json_content_type)
+    {
         // We use a json response as a heuristic to mean the body will contain a relevant error message.
         // This can be widened if the assumption is wrong.
-        response
-            .body_mut()
-            .read_to_string()
-            .unwrap_or("Cannot read body".to_string())
+        match response.body_mut().read_to_string() {
+            Ok(body) if body.trim().is_empty() => reason.to_string(),
+            Ok(body) => body,
+            Err(_) => "Cannot read body".to_string(),
+        }
     } else {
-        response
-            .status()
-            .canonical_reason()
-            .unwrap_or("")
-            .to_string()
+        reason.to_string()
     };
     ShellError::HttpError {
         code: response.status().as_u16(),
-        reason: response.status().canonical_reason().unwrap_or(""),
+        reason,
         url: requested_url.to_string(),
         msg,
         span,
@@ -1140,8 +1149,8 @@ fn transform_response_using_content_type(
                     ),
                     other => other,
                 };
-                let call = ir::Call::build(converter_id, span).finish();
-                eval_ir_call(engine_state, stack, &call, output)
+                let call = ir::Call::build(converter_id, span);
+                eval_ir_call(engine_state, stack, call, output)
             }
             None => Ok(output),
         }

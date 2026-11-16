@@ -236,7 +236,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation",
- "parking_lot",
+ "parking_lot 0.12.5",
  "percent-encoding",
  "windows-sys 0.61.2",
  "wl-clipboard-rs",
@@ -893,20 +893,19 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.72.1"
+version = "0.73.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "993776b509cfb49c750f11b8f07a46fa23e0a1386ffc01fb1e7d343efc387895"
+checksum = "787ef8ef523575546b106a58213d6e6b06198a05c2f757258c68a74273670cfa"
 dependencies = [
  "bitflags 2.13.1",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash",
- "shlex",
- "syn 2.0.117",
+ "shlex 2.0.1",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -1010,9 +1009,9 @@ checksum = "36f64beae40a84da1b4b26ff2761a5b895c12adc41dc25aaee1c4f2bbfe97a6e"
 
 [[package]]
 name = "bracoxide"
-version = "0.1.8"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daeb5b71668c934a1db0c7b07317a3564f2558c5e9155c70d7d6823c01f2ddcd"
+checksum = "74ca487aa0a5f028c11c19ee0acc2db41e41c71bbf0b0ebdd0ba4354c60c48db"
 
 [[package]]
 name = "brotli"
@@ -1196,7 +1195,7 @@ dependencies = [
  "find-msvc-tools",
  "jobserver",
  "libc",
- "shlex",
+ "shlex 1.3.0",
 ]
 
 [[package]]
@@ -1216,9 +1215,9 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "cfg_aliases"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
+checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
 name = "chacha20"
@@ -1693,8 +1692,8 @@ dependencies = [
  "document-features",
  "filedescriptor",
  "mio",
- "parking_lot",
- "rustix 1.1.4",
+ "parking_lot 0.12.5",
+ "rustix 1.1.6",
  "serde",
  "signal-hook 0.3.18",
  "signal-hook-mio",
@@ -1959,6 +1958,17 @@ name = "deranged"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
+
+[[package]]
+name = "derive-new"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cdc8d50f426189eef89dac62fabfa0abb27d5cc008f25bf4156a0203325becc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "derive_more"
@@ -2321,7 +2331,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "env_filter",
- "jiff",
+ "jiff 0.2.23",
  "log",
 ]
 
@@ -2446,7 +2456,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ce92ff622d6dadf7349484f42c93271a0d49b7cc4d466a936405bacbe10aa78"
 dependencies = [
  "cfg-if",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.59.0",
 ]
 
@@ -2513,7 +2523,7 @@ dependencies = [
  "memmap2",
  "neo_frizbee",
  "notify 9.0.0-rc.4",
- "parking_lot",
+ "parking_lot 0.12.5",
  "pathdiff",
  "rayon",
  "regex",
@@ -2700,7 +2710,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e72ed92b67c146290f88e9c89d60ca163ea417a446f61ffd7b72df3e7f1dfd5"
 dependencies = [
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.61.2",
 ]
 
@@ -2852,7 +2862,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bd49230192a3797a9a4d6abe9b3eed6f7fa4c8a8a4947977c6f80025f92cbd8"
 dependencies = [
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-link",
 ]
 
@@ -3706,15 +3716,6 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -3743,13 +3744,38 @@ version = "0.2.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a3546dc96b6d42c5f24902af9e2538e82e39ad350b0c766eb3fbf2d8f3d8359"
 dependencies = [
- "jiff-static",
- "jiff-tzdb-platform",
+ "jiff-static 0.2.23",
+ "jiff-tzdb-platform 0.1.3",
  "log",
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "jiff"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cc767b5763de45e810109520123bb2829a653f3a7ed9be40b2bc4f81158f595"
+dependencies = [
+ "jiff-core",
+ "jiff-static 1.0.0",
+ "jiff-tzdb-platform 1.0.0",
+ "log",
+ "portable-atomic",
+ "portable-atomic-util",
+ "serde_core",
+ "windows-link",
+]
+
+[[package]]
+name = "jiff-core"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "894f7ac42105f584100691b3bf6e6b92dd12fcfa225f6c397f95c8a94b47b68f"
+dependencies = [
+ "log",
 ]
 
 [[package]]
@@ -3764,10 +3790,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "jiff-static"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "955491488dc99b572ea6d67b172dcd98787d00744b1fb44a5689b4e6413695a6"
+dependencies = [
+ "jiff-core",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.4",
+]
+
+[[package]]
 name = "jiff-tzdb"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c900ef84826f1338a557697dc8fc601df9ca9af4ac137c7fb61d4c6f2dfd3076"
+
+[[package]]
+name = "jiff-tzdb"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12e71a1b68a875a44a33bb7a1dd84392cb77145a3367a552a3cfe6a4f5cf3afc"
 
 [[package]]
 name = "jiff-tzdb-platform"
@@ -3775,7 +3819,16 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "875a5a69ac2bab1a891711cf5eccbec1ce0341ea805560dcd90b7a2e925132e8"
 dependencies = [
- "jiff-tzdb",
+ "jiff-tzdb 0.1.6",
+]
+
+[[package]]
+name = "jiff-tzdb-platform"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc65b284afcfa8f6cf189c7274c805505314a7ab975c60e1f548bff56525420e"
+dependencies = [
+ "jiff-tzdb 1.0.0",
 ]
 
 [[package]]
@@ -3964,9 +4017,9 @@ checksum = "803ec87c9cfb29b9d2633f20cba1f488db3fd53f2158b1024cbefb47ba05d413"
 
 [[package]]
 name = "libc"
-version = "0.2.189"
+version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
 name = "libflate"
@@ -4018,9 +4071,9 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "libproc"
-version = "0.14.11"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a54ad7278b8bc5301d5ffd2a94251c004feb971feba96c971ea4063645990757"
+checksum = "564c269d134dc8276288e18bf00b30e7fe2136ff8f0974f9bf65477cd5ad82fe"
 dependencies = [
  "bindgen",
  "errno",
@@ -4038,9 +4091,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.39.1"
+version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3"
+checksum = "b06e69070b7e12262b0cd90832f0a7396f142a2b330181255562decf9f0c6215"
 dependencies = [
  "cc",
  "pkg-config",
@@ -4137,6 +4190,15 @@ name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
+dependencies = [
+ "scopeguard",
+]
+
+[[package]]
+name = "lock_api"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65d91b22da179613dcf4d6ec8349563f52a363f6849e03b00dd0a185ec4a59af"
 dependencies = [
  "scopeguard",
 ]
@@ -4605,6 +4667,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77730ed34f01f4990cb2ea67fec715ecebc6fab9a6396cf83c5529b13f581bdc"
+dependencies = [
+ "bitflags 2.13.1",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4709,7 +4783,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "assert_cmd",
  "crossterm",
@@ -4721,7 +4795,7 @@ dependencies = [
  "log",
  "miette 7.6.0",
  "multipart-rs",
- "nix 0.31.3",
+ "nix 0.32.0",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-extra",
@@ -4772,12 +4846,13 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "crossterm",
  "fancy-regex",
  "is_executable",
+ "libc",
  "log",
  "lru 0.19.0",
  "lscolors",
@@ -4799,12 +4874,12 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "nucleo-matcher",
- "parking_lot",
+ "parking_lot 0.13.0",
  "percent-encoding",
  "reedline",
  "rstest",
  "strum",
- "sysinfo",
+ "sysinfo 0.40.3",
  "tempfile",
  "unicode-segmentation",
  "unicode-width 0.2.2",
@@ -4815,9 +4890,10 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "indexmap 2.14.1",
+ "log",
  "miette 7.6.0",
  "nu-engine",
  "nu-parser",
@@ -4827,7 +4903,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -4855,7 +4931,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "miette 7.6.0",
@@ -4874,7 +4950,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "nu-engine",
@@ -4885,7 +4961,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -4897,7 +4973,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "aegis-password-generator",
  "alphanumeric-sort",
@@ -4934,7 +5010,7 @@ dependencies = [
  "indicatif",
  "indoc",
  "itertools 0.15.0",
- "jiff",
+ "jiff 1.0.0",
  "kdl 6.7.1",
  "log",
  "lscolors",
@@ -4946,7 +5022,7 @@ dependencies = [
  "multipart-rs",
  "native-tls",
  "ndarray",
- "nix 0.31.3",
+ "nix 0.32.0",
  "notify-debouncer-full",
  "nu-ansi-term",
  "nu-cmd-base",
@@ -4974,7 +5050,7 @@ dependencies = [
  "oem_cp",
  "open",
  "os_pipe",
- "parse_datetime",
+ "parse_datetime 0.17.0",
  "pathdiff",
  "percent-encoding",
  "pretty_assertions",
@@ -4999,7 +5075,7 @@ dependencies = [
  "serde_urlencoded",
  "sha2 0.11.0",
  "strum",
- "sysinfo",
+ "sysinfo 0.40.3",
  "tabled",
  "tempfile",
  "toml",
@@ -5032,7 +5108,7 @@ dependencies = [
 
 [[package]]
 name = "nu-config"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "derive_more 2.1.1",
  "derive_setters",
@@ -5046,7 +5122,7 @@ dependencies = [
 
 [[package]]
 name = "nu-dap"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "derive_more 2.1.1",
@@ -5060,7 +5136,7 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pretty_assertions",
  "rstest",
  "serde",
@@ -5071,7 +5147,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "heck",
  "proc-macro-error3",
@@ -5082,7 +5158,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "log",
@@ -5097,7 +5173,7 @@ dependencies = [
 
 [[package]]
 name = "nu-experimental"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "thiserror 2.0.20",
@@ -5105,7 +5181,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -5135,7 +5211,7 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "anyhow",
  "doc-comment",
@@ -5146,7 +5222,7 @@ dependencies = [
 
 [[package]]
 name = "nu-heavy-utils"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "base64 0.23.1",
  "better_default",
@@ -5168,7 +5244,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -5185,7 +5261,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -5215,7 +5291,7 @@ dependencies = [
 
 [[package]]
 name = "nu-mcp"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "bytes",
  "chrono",
@@ -5223,7 +5299,7 @@ dependencies = [
  "hyper-util",
  "indoc",
  "miette 7.6.0",
- "nix 0.31.3",
+ "nix 0.32.0",
  "nu-cmd-lang",
  "nu-engine",
  "nu-json",
@@ -5242,7 +5318,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "itertools 0.15.0",
@@ -5262,7 +5338,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "dirs 7.0.0",
  "omnipath",
@@ -5272,10 +5348,10 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "log",
- "nix 0.31.3",
+ "nix 0.32.0",
  "nu-engine",
  "nu-plugin-core",
  "nu-plugin-protocol",
@@ -5288,7 +5364,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "interprocess",
  "log",
@@ -5303,7 +5379,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "log",
  "nu-engine",
@@ -5319,7 +5395,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -5331,7 +5407,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -5349,7 +5425,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -5358,7 +5434,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "brotli 9.1.1",
  "bstr",
@@ -5378,7 +5454,7 @@ dependencies = [
  "lru 0.19.0",
  "memchr",
  "miette 7.6.0",
- "nix 0.31.3",
+ "nix 0.32.0",
  "nu-config",
  "nu-derive-value",
  "nu-experimental",
@@ -5401,6 +5477,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "typetag",
+ "unicode-segmentation",
  "web-time",
  "windows 0.62.2",
  "windows-sys 0.61.2",
@@ -5409,7 +5486,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "log",
  "miette 7.6.0",
@@ -5420,18 +5497,18 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "itertools 0.15.0",
  "libc",
  "libproc",
  "log",
  "mach2",
- "nix 0.31.3",
+ "nix 0.32.0",
  "ntapi",
  "nu-utils",
  "procfs",
- "sysinfo",
+ "sysinfo 0.40.3",
  "uucore",
  "web-time",
  "windows 0.62.2",
@@ -5439,7 +5516,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -5452,7 +5529,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.2",
@@ -5460,7 +5537,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "bytes",
  "derive_more 2.1.1",
@@ -5491,7 +5568,7 @@ dependencies = [
  "nu-tui",
  "nu-utils",
  "num-format",
- "parking_lot",
+ "parking_lot 0.13.0",
  "pastey",
  "rstest",
  "serde_json",
@@ -5502,7 +5579,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support-macros"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "heck",
  "nu-experimental",
@@ -5514,7 +5591,7 @@ dependencies = [
 
 [[package]]
 name = "nu-tui"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "ansi-str",
  "base64 0.23.1",
@@ -5545,7 +5622,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "byteyarn",
  "crossterm",
@@ -5556,9 +5633,9 @@ dependencies = [
  "log",
  "lscolors",
  "memchr",
- "nix 0.31.3",
+ "nix 0.32.0",
  "num-format",
- "parking_lot",
+ "parking_lot 0.13.0",
  "serde",
  "serde_json",
  "strip-ansi-escapes",
@@ -5569,7 +5646,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_custom_values"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "nu-plugin",
  "nu-plugin-test-support",
@@ -5580,7 +5657,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -5590,7 +5667,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -5605,7 +5682,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -5615,7 +5692,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -5624,7 +5701,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -5665,7 +5742,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -5680,7 +5757,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "interprocess",
  "serde",
@@ -5819,7 +5896,7 @@ dependencies = [
 
 [[package]]
 name = "nuon"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -5963,7 +6040,7 @@ dependencies = [
  "hyper",
  "itertools 0.14.0",
  "md-5 0.10.6",
- "parking_lot",
+ "parking_lot 0.12.5",
  "percent-encoding",
  "quick-xml 0.39.4",
  "rand 0.10.2",
@@ -6203,8 +6280,18 @@ version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
- "lock_api",
- "parking_lot_core",
+ "lock_api 0.4.14",
+ "parking_lot_core 0.9.12",
+]
+
+[[package]]
+name = "parking_lot"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9cf937ca4e1d0b7578784559063422fc39ae7c5a00f02471f2614d5486fd226"
+dependencies = [
+ "lock_api 0.5.0",
+ "parking_lot_core 0.10.0",
 ]
 
 [[package]]
@@ -6215,7 +6302,19 @@ checksum = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall",
+ "redox_syscall 0.5.18",
+ "smallvec",
+ "windows-link",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cfff060068cc18aa7815010fcaf80c68c7fb9e85fc7f5c0f9bf142c21d19826"
+dependencies = [
+ "libc",
+ "redox_syscall 0.9.5",
  "smallvec",
  "windows-link",
 ]
@@ -6232,7 +6331,18 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "503fd4c8b0685e5eb32a8276533611f63e3b44768e9e8724e73f6852c2542f82"
 dependencies = [
- "jiff",
+ "jiff 0.2.23",
+ "num-traits",
+ "winnow 1.0.4",
+]
+
+[[package]]
+name = "parse_datetime"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb51967a779ef73b125a243688e53e4bb2474f91cae72734ee5051e857fb2645"
+dependencies = [
+ "jiff 0.2.23",
  "num-traits",
  "winnow 1.0.4",
 ]
@@ -6679,7 +6789,7 @@ dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-utils",
- "parking_lot",
+ "parking_lot 0.12.5",
  "pin-project-lite",
  "polars-config",
  "polars-error",
@@ -6802,7 +6912,7 @@ checksum = "8f6995c2121c31687704fae5281517e29bbd34838fcf8dd15c8e8ae526bb6624"
 dependencies = [
  "avro-schema",
  "object_store",
- "parking_lot",
+ "parking_lot 0.12.5",
  "polars-arrow-format",
  "regex",
  "signal-hook 0.4.3",
@@ -6863,7 +6973,7 @@ dependencies = [
  "memmap2",
  "num-traits",
  "object_store",
- "parking_lot",
+ "parking_lot 0.12.5",
  "percent-encoding",
  "polars-arrow",
  "polars-buffer",
@@ -7176,7 +7286,7 @@ dependencies = [
  "futures",
  "memchr",
  "num-traits",
- "parking_lot",
+ "parking_lot 0.12.5",
  "percent-encoding",
  "polars-arrow",
  "polars-async",
@@ -7262,7 +7372,7 @@ dependencies = [
  "serde_stacker",
  "slotmap",
  "stacker",
- "sysinfo",
+ "sysinfo 0.39.6",
  "tokio",
  "uuid",
  "version_check",
@@ -7419,7 +7529,7 @@ dependencies = [
  "chrono",
  "flate2",
  "procfs-core",
- "rustix 1.1.4",
+ "rustix 1.1.6",
 ]
 
 [[package]]
@@ -7590,9 +7700,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.14"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "addec6a0dcad8a8d96a771f815f0eaf55f9d1805756410b39f5fa81332574cbd"
+checksum = "af66907df18639dcf4db56ca65490cabc4b27a97dbadd96f2926cca73298f016"
 dependencies = [
  "cfg_aliases",
  "libc",
@@ -7916,6 +8026,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox_syscall"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "580c875845b41ecb1564ad1ae4703044cef774145e3d7a94dc2b3fa7c97868fd"
+dependencies = [
+ "bitflags 2.13.1",
+]
+
+[[package]]
 name = "redox_users"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7940,8 +8059,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.53.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b061d8059603bc95c569166a79ca60c01ccc8f8b6065035aed66a3753fdb06c"
+source = "git+https://github.com/nushell/reedline?branch=main#f1d606951809d4698e3d0c8fd2ca9680195da457"
 dependencies = [
  "arboard",
  "crossterm",
@@ -7949,7 +8067,7 @@ dependencies = [
  "fd-lock",
  "nu-ansi-term",
  "rusqlite",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "strip-ansi-escapes",
@@ -8189,11 +8307,10 @@ dependencies = [
 
 [[package]]
 name = "rsqlite-vfs"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c51c9ae4df8a7fba42103df5c621fa3c37eccf3a3c650879e90fc48b11cc192c"
+checksum = "353b74f9810d5b085b6c42c9d86a5f0fdb795553235cdd48753b32e3809d18a7"
 dependencies = [
- "hashbrown 0.16.1",
  "thiserror 2.0.20",
 ]
 
@@ -8236,9 +8353,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.41.1"
+version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
+checksum = "f172c4812a19b26d1c23cdb0070e69db335503dfa378b910eb857386e5b8beba"
 dependencies = [
  "bitflags 2.13.1",
  "chrono",
@@ -8296,9 +8413,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.4"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190"
+checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
 dependencies = [
  "bitflags 2.13.1",
  "errno",
@@ -8717,7 +8834,7 @@ checksum = "1dd39b4b2077bd36e60ca28c31d494046e747759cb9b507a7d177bb64787c39e"
 dependencies = [
  "const_format",
  "is_debug",
- "jiff",
+ "jiff 0.2.23",
 ]
 
 [[package]]
@@ -8747,6 +8864,12 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "shlex"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-hook"
@@ -8877,9 +9000,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.15.1"
+version = "1.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+checksum = "149309498a5f7334b12ddae0cad8aba81ce785fe91755068867e017cf98fee46"
 
 [[package]]
 name = "smol_str"
@@ -8918,26 +9041,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "socks"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0c3dbbd9ae980613c6dd8e28a9407b50509d3803b57624d5dfe8315218cd58b"
-dependencies = [
- "byteorder",
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "sqlite-wasm-rs"
-version = "0.5.5"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc3efc0da82635d7e1ced0053bbbfa8c7ab9645d0bf36ceb4f7127bb85315d75"
+checksum = "a6cd504cecbfe7eef649988840f9a6cb768d11085efec138f8e99f160632d867"
 dependencies = [
  "cc",
- "js-sys",
  "rsqlite-vfs",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -9038,7 +9148,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a18596f8c785a729f2819c0f6a7eae6ebeebdfffbfe4214ae6b087f690e31901"
 dependencies = [
  "new_debug_unreachable",
- "parking_lot",
+ "parking_lot 0.12.5",
  "phf_shared 0.13.1",
  "precomputed-hash",
  "serde",
@@ -9051,7 +9161,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffa8a5dbe8b3f0bbe29d4c3225daafaeead63afdc1b65fc4c01a1384166038e6"
 dependencies = [
  "new_debug_unreachable",
- "parking_lot",
+ "parking_lot 0.12.5",
  "phf_shared 0.14.0",
  "precomputed-hash",
 ]
@@ -9252,6 +9362,20 @@ dependencies = [
  "ntapi",
  "objc2-core-foundation",
  "objc2-io-kit",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.40.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a86bac2f7d06e6384984118ad727f5694110f0ec44d924d05c8fdec3d030bee6"
+dependencies = [
+ "libc",
+ "memchr",
+ "ntapi",
+ "objc2-core-foundation",
+ "objc2-io-kit",
  "objc2-open-directory",
  "windows 0.62.2",
 ]
@@ -9305,7 +9429,7 @@ dependencies = [
  "fastrand",
  "getrandom 0.4.2",
  "once_cell",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.61.2",
 ]
 
@@ -9334,7 +9458,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b8cb979cb11c32ce1603f8137b22262a9d131aaa5c37b5678025f22b8becd0"
 dependencies = [
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "windows-sys 0.60.2",
 ]
 
@@ -9346,7 +9470,7 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
 name = "testbins"
-version = "0.117.0"
+version = "0.117.1"
 dependencies = [
  "indoc",
  "lexopt",
@@ -9520,7 +9644,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot",
+ "parking_lot 0.12.5",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.6.3",
@@ -9575,9 +9699,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.1.4+spec-1.1.0"
+version = "1.1.6+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3aace63f4bbcdfc2c965b059de67119c89c4017a70d633be6c104910f67056f5"
+checksum = "920602543f0911ab71da12c50d59701da54c196d1a2bf5cb4b75667f137a406a"
 dependencies = [
  "indexmap 2.14.1",
  "serde_core",
@@ -9747,9 +9871,9 @@ dependencies = [
 
 [[package]]
 name = "trash"
-version = "5.2.9"
+version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be89b3fe156965d29ac4f8522f3a640c655affdd9f21cb4f36857f0c92c00317"
+checksum = "1e13ed7a76ae8b9053f33493745ebb4cd2e5ee1cccd9823bb96ec97b78ec4844"
 dependencies = [
  "chrono",
  "libc",
@@ -9761,6 +9885,7 @@ dependencies = [
  "scopeguard",
  "urlencoding",
  "windows 0.62.2",
+ "windows-core",
 ]
 
 [[package]]
@@ -9987,9 +10112,9 @@ checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
 
 [[package]]
 name = "ureq"
-version = "3.4.0"
+version = "3.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "972d7902c8735f2695410b8aed7df6ed12a47394aa1c8d7af49f0497b731a94d"
+checksum = "3ac5cecf619ca81f66a96482db09687c9f7465af65f4300a8c30cca05bd5a59d"
 dependencies = [
  "base64 0.23.1",
  "cookie_store",
@@ -10004,7 +10129,6 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "socks",
  "ureq-proto",
  "utf8-zero",
  "webpki-root-certs",
@@ -10013,9 +10137,9 @@ dependencies = [
 
 [[package]]
 name = "ureq-proto"
-version = "0.6.1"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da5f78b09e6941e1a0f2e30e695e4b120377b54d5e0aec11b594bb57b3971613"
+checksum = "622dce33c252115466d83f63e9744a18f12b4406aae51a01c15ad8fcf1185eb3"
 dependencies = [
  "base64 0.23.1",
  "http",
@@ -10077,7 +10201,7 @@ dependencies = [
  "indicatif",
  "libc",
  "nix 0.31.3",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "uucore",
  "walkdir",
@@ -10092,7 +10216,7 @@ checksum = "665e031110e8de62ebe483eb50b21c19f57c6f02c571e3c57cfb6cf344209370"
 dependencies = [
  "clap",
  "fluent",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "uucore",
 ]
 
@@ -10122,7 +10246,7 @@ dependencies = [
  "libc",
  "nix 0.31.3",
  "rustc-hash",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "uucore",
  "windows-sys 0.61.2",
@@ -10137,10 +10261,10 @@ dependencies = [
  "clap",
  "filetime",
  "fluent",
- "jiff",
+ "jiff 0.2.23",
  "libc",
- "parse_datetime",
- "rustix 1.1.4",
+ "parse_datetime 0.16.0",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "uucore",
  "windows-sys 0.61.2",
@@ -10166,7 +10290,7 @@ checksum = "c1267f81972136719195877c21cefd2fb1bc821c8fb692d16f8b0ce4b717108c"
 dependencies = [
  "clap",
  "fluent",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "uucore",
  "windows-sys 0.61.2",
 ]
@@ -10190,7 +10314,7 @@ dependencies = [
  "os_display",
  "procfs",
  "rustc-hash",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "unic-langid",
  "unicode-width 0.2.2",
@@ -10228,15 +10352,18 @@ dependencies = [
 
 [[package]]
 name = "v_escape-base"
-version = "0.1.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1212fce830b75af194b578e55b3db9049f2c8c45f58d397fb25602fdb50fb3d"
+checksum = "be17d1ebd0a2a1acc817577248ebe21bad513adf35b5bad71ab6adfd74a6de35"
+dependencies = [
+ "derive-new",
+]
 
 [[package]]
 name = "v_htmlescape"
-version = "0.17.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "befb3d53c9e3ec641417685896cbc8cc5bd264d6a2e190c56aaef1af24740d99"
+checksum = "70210eadf6232ce4de5cc24c46500ba6f1ae59308ea445a865b1dff3396c4f7a"
 dependencies = [
  "v_escape-base",
 ]
@@ -10495,7 +10622,7 @@ checksum = "aa75f400b7f719bcd68b3f47cd939ba654cedeef690f486db71331eec4c6a406"
 dependencies = [
  "cc",
  "downcast-rs",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "smallvec",
  "wayland-sys",
 ]
@@ -10507,7 +10634,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab51d9f7c071abeee76007e2b742499e535148035bb835f97aaed1338cf516c3"
 dependencies = [
  "bitflags 2.13.1",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "wayland-backend",
  "wayland-scanner",
 ]
@@ -11317,7 +11444,7 @@ dependencies = [
  "libc",
  "log",
  "os_pipe",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "thiserror 2.0.20",
  "tree_magic_mini",
  "wayland-backend",
@@ -11348,7 +11475,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9993aa5be5a26815fe2c3eacfc1fde061fc1a1f094bf1ad2a18bf9c495dd7414"
 dependencies = [
  "gethostname",
- "rustix 1.1.4",
+ "rustix 1.1.6",
  "x11rb-protocol",
 ]
 
@@ -11360,12 +11487,12 @@ checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
 
 [[package]]
 name = "xattr"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156"
+checksum = "963d6fab92d5504b971dc8bd90ca743c2575e590bc8071ea5bc571598667ae08"
 dependencies = [
  "libc",
- "rustix 1.1.4",
+ "rustix 1.1.6",
 ]
 
 [[package]]

@@ -361,7 +361,7 @@ fn build_vertical_array(vals: Vec<Value>, config: &Config) -> Node {
     Node::Column(map)
 }
 
-fn is_valid_record(vals: &[Value]) -> bool {
+pub(crate) fn is_valid_record(vals: &[Value]) -> bool {
     if vals.is_empty() {
         return true;
     }

@@ -73,7 +73,7 @@ fn hides_env() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -118,7 +118,7 @@ fn hide_env_affects_stack_and_engine_state() -> Result {
     "#;
     let () = tester.run(code)?;
     match tester.run("$env.AAAA").expect_shell_error()? {
-        ShellError::CantFindColumn { col_name, .. } if col_name == "AAAA" => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "AAAA" => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -197,7 +197,7 @@ fn hides_env_in_scope_1() -> Result {
         }
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -227,7 +227,7 @@ fn hides_env_in_scope_3() -> Result {
         }
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -289,7 +289,7 @@ fn hide_env_twice_allowed() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -425,7 +425,7 @@ fn hides_env_import_1() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -451,7 +451,7 @@ fn hides_def_and_env_import_1() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -522,7 +522,7 @@ fn hides_all_envs_within_scope() -> Result {
         $env.myfoosymbol
     "#;
     match test().run(code).expect_shell_error()? {
-        ShellError::CantFindColumn { .. } => Ok(()),
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
         err => Err(err.into()),
     }
 }
@@ -557,4 +557,51 @@ fn hides_main_import_4() -> TestResult {
         r#"module myspammodule { export def main [] { "myfoosymbol" } }; use myspammodule; hide myspammodule *; myspammodule"#,
         "external_command",
     )
+}
+
+// `hide <module>` undoes a glob import as well as a prefixed one.
+#[rstest]
+#[case::def(r#"module spam { export def foo [] { "foo" } }; use spam *; hide spam; foo"#)]
+#[case::alias(r#"module spam { export alias foo = echo "foo" }; use spam *; hide spam; foo"#)]
+#[case::main(r#"module spam { export def main [] { "foo" } }; use spam *; hide spam; spam"#)]
+#[case::submodule(
+    r#"module spam { export module sub { export def foo [] { "foo" } } }; use spam *; hide spam; sub foo"#
+)]
+#[case::both_prefixed(
+    r#"module spam { export def foo [] { "foo" } }; use spam; use spam *; hide spam; spam foo"#
+)]
+#[case::both_bare(
+    r#"module spam { export def foo [] { "foo" } }; use spam; use spam *; hide spam; foo"#
+)]
+fn hide_module_hides_glob_import(#[case] code: &str) -> TestResult {
+    fail_test(code, "external_command")
+}
+
+// A command of yours with the same name as one of the module's isn't the module's to hide.
+#[rstest]
+#[case::prefixed_import(
+    r#"module spam { export def foo [] { "spam" } }; use spam; def foo [] { "mine" }; hide spam; foo"#
+)]
+#[case::defined_after_glob(
+    r#"module spam { export def foo [] { "spam" } }; use spam *; def foo [] { "mine" }; hide spam; foo"#
+)]
+#[case::outer_scope_main(
+    r#"module spam { export def main [] { "spam" } }; def spam [] { "mine" }; do { use spam; hide spam; spam }"#
+)]
+fn hide_module_keeps_own_definitions(#[case] code: &str) -> TestResult {
+    run_test(code, "mine")
+}
+
+// Hooks run `hide <module>` over and over, so hiding what's already gone stays quiet.
+#[rstest]
+#[case::prefixed(
+    r#"module spam { export def foo [] { "foo" } }; use spam; hide spam; hide spam; "ok""#
+)]
+#[case::glob(
+    r#"module spam { export def foo [] { "foo" } }; use spam *; hide spam; hide spam; "ok""#
+)]
+#[case::never_imported(r#"module spam { export def foo [] { "foo" } }; hide spam; "ok""#)]
+#[case::unknown(r#"hide nothing_here; "ok""#)]
+fn hide_with_nothing_left_is_silent(#[case] code: &str) -> TestResult {
+    run_test(code, "ok")
 }

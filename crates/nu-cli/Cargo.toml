@@ -26,6 +26,9 @@ nu-test-support = { path = "../nu-test-support", features = ["os"] }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
 
+[target.'cfg(unix)'.dev-dependencies]
+libc.workspace = true
+
 [dependencies]
 nu-cmd-base.workspace = true
 nu-command = { workspace = true, features = ["os"] }
