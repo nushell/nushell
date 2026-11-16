@@ -2112,16 +2112,21 @@ fn command_wide_completion_sees_every_word_of_an_extern() {
     match_suggestions(&vec![r#"["tool issue list", --state, ""]"#], &suggestions);
 }
 
-#[test]
-fn command_wide_completion_external_skips_declared_flags() {
+#[rstest]
+#[case::same_value("[--short --porcelain]")]
+// carapace ends a value with a space so that one follows it.
+#[case::trailing_space(r#"["--short " --porcelain]"#)]
+fn command_wide_completion_external_skips_declared_flags(#[case] external: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
     // Carapace and other external completers list the flags the signature declares too.
-    let setup = /* lang=nu */ r#"
-        $env.config.completions.external.completer = {|buffer| [--short --porcelain] }
+    let setup = format!(
+        r#"
+        $env.config.completions.external.completer = {{|buffer| {external} }}
 
         @complete external
         extern "gs" [--short(-s)]
-    "#;
+    "#
+    );
     assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -2323,11 +2328,11 @@ fn wrapped_rest_completer_completes_flag_tokens() {
     match_suggestions(&vec!["--bbb"], &suggestions);
 }
 
-/// A wrapped `--x` token binds to the rest parameter, so it follows the positional chain:
-/// the rest completer overrides `@complete` unless it declines (`null`) or contributes
-/// (`fallback: true`).
+/// A wrapped `--x` token binds to the rest parameter, so the rest completer answers it. The
+/// flags of `@complete` join whatever the rest completer answers, since the command-wide
+/// completer knows the flags the signature doesn't declare.
 #[rstest]
-#[case::answers("[aaa --bbb]", vec!["--bbb"])]
+#[case::answers("[aaa --bbb]", vec!["--bbb", "--wide"])]
 #[case::contributes("{completions: [aaa --bbb], fallback: true}", vec!["--bbb", "--wide"])]
 #[case::declines("null", vec!["--wide"])]
 fn wrapped_rest_completer_chains_to_command_wide_on_flag_tokens(
@@ -2342,6 +2347,87 @@ fn wrapped_rest_completer_chains_to_command_wide_on_flag_tokens(
         def "nu-complete wide" [] {{ ["--wide"] }}
         @complete "nu-complete wide"
         def --wrapped both [...args: string@"nu-complete rest"] {{}}
+        both --"#
+    );
+
+    let suggestions = completer.complete_blocking(&sample, sample.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+/// An extern's argument completer, such as one `generate completions` writes for hosts,
+/// doesn't hide the flags that the external completer lists at a flag token, whether it
+/// answers, declines, or contributes. A value the external completer returns with a trailing
+/// space is still the declared flag. Arguments keep their own completer.
+#[rstest]
+#[case::flag_answers("[alpha beta]", "tool sub -", vec!["--foo", "-h", "--help"])]
+#[case::flag_declines("null", "tool sub -", vec!["--foo", "-h", "--help"])]
+#[case::flag_contributes(
+    "{completions: [alpha beta], fallback: true}",
+    "tool sub -",
+    vec!["--foo", "-h", "--help"]
+)]
+#[case::argument("[alpha beta]", "tool sub ", vec!["alpha", "beta"])]
+fn extern_argument_completer_keeps_external_flags(
+    #[case] hosts: &str,
+    #[case] input: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let setup = format!(
+        r#"
+        $env.config.completions.external.completer = {{|token|
+            if ($token.text | str starts-with "-") {{ ["--foo " --help] }} else {{ [gamma] }}
+        }}
+        def "nu-complete tool hosts" [] {{ {hosts} }}
+
+        @complete external
+        extern "tool sub" [--foo, -h, ...args: external_arg@"nu-complete tool hosts"]
+    "#
+    );
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+/// An `@interactive` command-wide completer takes over the terminal, so at a flag token where
+/// the rest completer runs first and answers, it isn't run alongside.
+#[test]
+fn interactive_command_wide_completer_waits_behind_a_rest_completer() {
+    let mut completer = custom_completer();
+
+    let sample = r#"
+        @interactive
+        def "nu-complete picker" [token] { [--picked] }
+        def "nu-complete rest" [] { [--bbb] }
+        @complete "nu-complete picker"
+        def --wrapped both [...args: string@"nu-complete rest"] {}
+        both --"#;
+
+    let suggestions = completer.complete_blocking(sample, sample.len());
+    match_suggestions(&vec!["--bbb"], &suggestions);
+}
+
+/// An `@interactive` rest completer takes over the terminal, so at a flag token the
+/// command-wide completer doesn't run ahead of it, and the picker's answer, a pick or a
+/// cancel, isn't mixed with the command-wide flags.
+#[rstest]
+#[case::picked("[--picked]", vec!["--picked"])]
+#[case::cancelled("null", vec![])]
+fn command_wide_completer_waits_behind_an_interactive_rest_completer(
+    #[case] picker_output: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let mut completer = custom_completer();
+
+    let sample = format!(
+        r#"
+        @interactive
+        def "nu-complete picker" [] {{ {picker_output} }}
+        def "nu-complete wide" [] {{ ["--wide"] }}
+        @complete "nu-complete wide"
+        def --wrapped both [...args: string@"nu-complete picker"] {{}}
         both --"#
     );
 
