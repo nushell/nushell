@@ -71,6 +71,11 @@ impl Command for MathSum {
                 result: Some(Value::test_int(6)),
             },
             Example {
+                description: "Sum an empty list by prepending 0.",
+                example: "[] | prepend 0 | math sum",
+                result: Some(Value::test_int(0)),
+            },
+            Example {
                 description: "Get the disk usage for the current directory.",
                 example: "ls | get size | math sum",
                 result: None,
