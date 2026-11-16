@@ -976,16 +976,25 @@ pub fn request_set_host_header<B>(
     request.header("Host", &value)
 }
 
+/// Returns true for `application/json` and `application/*+json`, ignoring case and parameters.
+fn is_json_content_type(content_type: &str) -> bool {
+    mime::Mime::from_str(content_type).is_ok_and(|m| {
+        m.type_() == mime::APPLICATION
+            && (m.subtype() == "json" || m.suffix().is_some_and(|s| s == "json"))
+    })
+}
+
 fn handle_status_error(span: Span, requested_url: &str, response: &mut Response) -> ShellError {
-    let msg = if response.header("content-type").is_some_and(|s| {
-        s == "application/json" || s.to_lowercase() == "application/json; charset=utf-8"
-    }) {
+    let msg = if response
+        .header("content-type")
+        .is_some_and(is_json_content_type)
+    {
         // We use a json response as a heuristic to mean the body will contain a relevant error message.
         // This can be widened if the assumption is wrong.
         response
             .body_mut()
             .read_to_string()
-            .unwrap_or("Cannot read body".to_string())
+            .unwrap_or_else(|_| "Cannot read body".to_string())
     } else {
         response
             .status()
