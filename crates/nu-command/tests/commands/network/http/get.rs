@@ -633,3 +633,111 @@ fn http_get_non_utf8_body_with_allow_errors_still_errors() -> Result {
     assert!(format!("{err:?}").contains("NonUtf8") || format!("{err:?}").contains("non_utf8"));
     Ok(())
 }
+/// A custom `def` converter should run correctly under `--allow-errors`.
+/// Before the fix this errored with "can't run custom command with 'run'".
+#[test]
+fn http_get_allow_errors_with_def_converter() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/x.foo")
+        .with_status(200)
+        .with_header("content-type", "text/plain")
+        .with_body("ok")
+        .create();
+
+    let url = format!("{}/x.foo", server.url());
+    let code = format!(r#"def "from foo" [] {{ str upcase }}; http get -e {url}"#);
+    test().run(code).expect_value_eq("OK")
+}
+
+/// A binary converter should receive bytes under `--allow-errors` even when the
+/// response is served as text/plain; charset=utf-8.
+#[test]
+fn http_get_allow_errors_binary_converter_receives_bytes() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/x.msgpack")
+        .with_status(200)
+        .with_header("content-type", "text/plain; charset=utf-8")
+        .with_body(vec![0x93, 0x01, 0x02, 0x03])
+        .create();
+
+    let url = format!("{}/x.msgpack", server.url());
+    let code = format!("http get -e {url} | to nuon");
+    test().run(code).expect_value_eq("[1, 2, 3]")
+}
+
+/// An empty or stalled body with a Content-Type header should return nothing
+/// under `--allow-errors`, not an empty string.
+#[test]
+fn http_get_allow_errors_empty_typed_body_returns_nothing() -> Result {
+    let listener =
+        std::net::TcpListener::bind("127.0.0.1:0").expect("could not bind test listener");
+    let addr = listener
+        .local_addr()
+        .expect("could not get test listener address");
+    std::thread::spawn(move || {
+        if let Ok((mut stream, _)) = listener.accept() {
+            use std::io::Write;
+            let _ = stream.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\n",
+            );
+            std::thread::sleep(Duration::from_secs(10));
+            drop(stream);
+        }
+    });
+
+    let code = format!("http get --allow-errors --max-time 100ms http://{addr} | describe");
+    test().run(code).expect_value_eq("nothing")
+}
+
+/// A stalled body after headers with --full and --allow-errors must return the
+/// error record (status: null + error), not a status 200 record.
+#[test]
+fn http_get_allow_errors_full_stalled_typed_body_returns_error_record() -> Result {
+    let listener =
+        std::net::TcpListener::bind("127.0.0.1:0").expect("could not bind test listener");
+    let addr = listener
+        .local_addr()
+        .expect("could not get test listener address");
+    std::thread::spawn(move || {
+        if let Ok((mut stream, _)) = listener.accept() {
+            use std::io::Write;
+            let _ = stream.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\n",
+            );
+            std::thread::sleep(Duration::from_secs(10));
+            drop(stream);
+        }
+    });
+
+    let code = format!("http get --allow-errors --full --max-time 100ms http://{addr}");
+
+    let result: nu_protocol::Value = test().run(code)?;
+    let record = result.as_record().expect("should be a record");
+    let status = record.get("status").expect("should have status field");
+    let error = record.get("error").expect("should have error field");
+    assert!(status.is_nothing(), "status should be nothing/null");
+    assert!(error.as_str().unwrap_or("").contains("transport error"));
+    Ok(())
+}
+
+/// Converted (JSON) responses under --allow-errors must preserve http_response
+/// metadata when going through the converter branch (no --raw).
+#[test]
+fn http_get_allow_errors_preserves_metadata_through_converter() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"a": 1}"#)
+        .create();
+
+    let code = format!(
+        "http get -e {url} | metadata | get http_response.status",
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq(200)
+}

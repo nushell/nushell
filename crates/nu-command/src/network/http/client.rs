@@ -21,7 +21,7 @@ use multipart_rs::MultipartWriter;
 use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ByteStream, DeclId, LabeledError, PipelineMetadata, Signals, ir,
+    ByteStream, LabeledError, PipelineMetadata, Signals, ir,
     shell_error::{
         generic::GenericError,
         io::IoError,
@@ -1097,7 +1097,7 @@ fn transform_response_using_content_type(
     flags: &RequestFlags,
     resp: Response,
     content_type: &str,
-) -> Result<PipelineData, ShellError> {
+) -> Result<(PipelineData, TransportErrorTracker), ShellError> {
     let content_type = mime::Mime::from_str(content_type)
         // there are invalid content types in the wild, so we try to recover
         // Example: `Content-Type: "text/plain"; charset="utf8"` (note the quotes)
@@ -1133,17 +1133,31 @@ fn transform_response_using_content_type(
     let (output, tracker) = response_to_buffer(resp, engine_state, span, flags.allow_errors);
     // If --raw is set, return the raw stream.
     if flags.raw {
-        return Ok(output);
+        return Ok((output, tracker));
     }
-    // If --allow-errors is set and there's a converter, collect the stream first
-    // so we can fall back to the raw body if the converter fails on partial data.
     let needs_converter = ext.as_ref().is_some_and(|ext| {
         engine_state
             .find_decl(format!("from {ext}").as_bytes(), &[])
             .is_some()
     });
+    // A `charset=utf-8` response is typed as a string, but a converter picked by the
+    // URL's extension, like `from xlsx`, may want binary. Hand it the bytes untyped,
+    // as `open` does. Do this once so it covers both the `-e` and non-`-e` paths.
+    let output = if needs_converter {
+        match output {
+            PipelineData::ByteStream(stream, metadata) => {
+                PipelineData::byte_stream(stream.with_type(ByteStreamType::Unknown), metadata)
+            }
+            other => other,
+        }
+    } else {
+        output
+    };
+    // If --allow-errors is set and there's a converter, collect the stream first
+    // so we can fall back to the raw body if the converter fails on partial data.
     if flags.allow_errors && needs_converter {
         // Collect the stream into a Value first.
+        let metadata = output.metadata_ref().cloned();
         let value = output.into_value(span)?;
         // Try the converter on the collected value.
         if let Some(ext) = ext {
@@ -1162,21 +1176,25 @@ fn transform_response_using_content_type(
                     }
                     // Run converter on the collected value (as PipelineData).
                     let pd = value.clone().into_pipeline_data();
-                    let ir_call = ir::Call::build(DeclId::new(0), span).finish();
-                    let call = Call::from(&ir_call);
-                    match decl.run(engine_state, stack, &call, pd) {
-                        Ok(result) => Ok(result),
+                    let ir_call = ir::Call::build(converter_id, span);
+                    match eval_ir_call(engine_state, stack, ir_call, pd) {
+                        Ok(mut result) => {
+                            if let Some(metadata) = metadata {
+                                result = result.set_metadata(Some(metadata));
+                            }
+                            Ok((result, tracker))
+                        }
                         Err(_) if tracker.has_error() => {
                             // Transport error occurred during read; return raw body.
-                            Ok(value.into_pipeline_data())
+                            Ok((value.into_pipeline_data_with_metadata(metadata), tracker))
                         }
                         Err(err) => Err(err),
                     }
                 }
-                None => Ok(value.into_pipeline_data()),
+                None => Ok((value.into_pipeline_data_with_metadata(metadata), tracker)),
             }
         } else {
-            Ok(value.into_pipeline_data())
+            Ok((value.into_pipeline_data_with_metadata(metadata), tracker))
         }
     } else if let Some(ext) = ext {
         match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
@@ -1192,23 +1210,13 @@ fn transform_response_using_content_type(
                         span,
                     ));
                 }
-                // A `charset=utf-8` response is typed as a string, but a converter picked by the
-                // URL's extension, like `from xlsx`, may want binary. Hand it the bytes untyped,
-                // as `open` does.
-                let output = match output {
-                    PipelineData::ByteStream(stream, metadata) => PipelineData::byte_stream(
-                        stream.with_type(ByteStreamType::Unknown),
-                        metadata,
-                    ),
-                    other => other,
-                };
                 let call = ir::Call::build(converter_id, span);
-                eval_ir_call(engine_state, stack, call, output)
+                eval_ir_call(engine_state, stack, call, output).map(|pd| (pd, tracker))
             }
-            None => Ok(output),
+            None => Ok((output, tracker)),
         }
     } else {
-        Ok(output)
+        Ok((output, tracker))
     }
 }
 
@@ -1257,6 +1265,36 @@ pub(crate) fn handle_transport_error(
     }
 }
 
+/// Builds the pipeline data returned when a transport-level failure is swallowed
+/// under `--allow-errors`. With `--full` this is a record carrying `status: null`
+/// and an `error` field; otherwise `nothing`.
+pub(crate) fn transport_error_response(full: bool, span: Span) -> PipelineData {
+    if full {
+        Value::record(
+            record! {
+                "status" => Value::nothing(span),
+                "error" => Value::string(
+                    "transport error (timeout, DNS failure, connection refused, etc.)",
+                    span,
+                ),
+                "body" => Value::nothing(span),
+                "headers" => Value::record(
+                    record! {
+                        "request" => Value::nothing(span),
+                        "response" => Value::nothing(span),
+                    },
+                    span,
+                ),
+                "urls" => Value::list(vec![], span),
+            },
+            span,
+        )
+        .into_pipeline_data()
+    } else {
+        Value::nothing(span).into_pipeline_data()
+    }
+}
+
 /// Reads a response body [`PipelineData`] into a [`Value`], honoring `--allow-errors`.
 ///
 /// Transport-level failures (e.g. timeouts) can also surface while the response
@@ -1270,7 +1308,7 @@ pub(crate) fn read_body_allow_errors(
     span: Span,
     allow_errors: bool,
     tracker: TransportErrorTracker,
-) -> Result<PipelineData, ShellError> {
+) -> Result<(PipelineData, TransportErrorTracker), ShellError> {
     let metadata = body.metadata_ref().cloned();
     let value = match body.into_value(span) {
         Ok(value) => value,
@@ -1284,9 +1322,12 @@ pub(crate) fn read_body_allow_errors(
     // If a transport error occurred and the body is empty, return nothing.
     // This handles the case where a timeout happens before any body data is received.
     if allow_errors && tracker.has_error() && is_empty_body(&value) {
-        Ok(Value::nothing(span).into_pipeline_data_with_metadata(metadata))
+        Ok((
+            Value::nothing(span).into_pipeline_data_with_metadata(metadata),
+            tracker,
+        ))
     } else {
-        Ok(value.into_pipeline_data_with_metadata(metadata))
+        Ok((value.into_pipeline_data_with_metadata(metadata), tracker))
     }
 }
 
@@ -1344,25 +1385,21 @@ pub(crate) fn request_handle_response(
         let content_type = response.header("content-type").map(|s| s.to_owned());
 
         match content_type {
-            Some(content_type) => {
-                let result = transform_response_using_content_type(
-                    engine_state,
-                    stack,
-                    span,
-                    requested_url,
-                    &flags,
-                    response,
-                    &content_type,
-                );
-                // transform_response_using_content_type doesn't return tracker directly
-                // but we can get it from response_to_buffer if needed
-                result.map(|pd| (pd, TransportErrorTracker::new()))
-            }
-            None => {
-                let (pd, tracker) =
-                    response_to_buffer(response, engine_state, span, flags.allow_errors);
-                Ok((pd, tracker))
-            }
+            Some(content_type) => transform_response_using_content_type(
+                engine_state,
+                stack,
+                span,
+                requested_url,
+                &flags,
+                response,
+                &content_type,
+            ),
+            None => Ok(response_to_buffer(
+                response,
+                engine_state,
+                span,
+                flags.allow_errors,
+            )),
         }
     };
     handle_response_status(
@@ -1397,8 +1434,13 @@ pub(crate) fn request_handle_response(
             span,
         );
         let (body_pd, tracker) = consume_response_body(resp)?;
-        let body_pd = read_body_allow_errors(body_pd, span, flags.allow_errors, tracker)?;
+        let (body_pd, tracker) =
+            read_body_allow_errors(body_pd, span, flags.allow_errors, tracker)?;
         let body = body_pd.into_value(span)?;
+
+        if flags.allow_errors && tracker.has_error() {
+            return Ok(transport_error_response(true, span));
+        }
 
         let full_response = Value::record(
             record! {
@@ -1418,7 +1460,8 @@ pub(crate) fn request_handle_response(
         // the stream directly.
         if flags.allow_errors {
             let (body_pd, tracker) = consume_response_body(resp)?;
-            let body_pd = read_body_allow_errors(body_pd, span, flags.allow_errors, tracker)?;
+            let (body_pd, _tracker) =
+                read_body_allow_errors(body_pd, span, flags.allow_errors, tracker)?;
             Ok(body_pd)
         } else {
             // Return the body as a stream.
