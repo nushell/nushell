@@ -2,7 +2,7 @@ use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 pub const SUPPORTED_UNITS: &[&str] = &[
-    "ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk", "month", "yr", "dec",
+    "ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk", "month", "yr", "dec", "iso8601",
 ];
 
 struct Arguments {
@@ -38,7 +38,7 @@ impl Command for FormatDuration {
             .allow_variants_without_examples(true)
             .param(Parameter::Required(
                 PositionalArg::new("format value", SyntaxShape::String)
-                    .desc("The unit in which to display the duration.")
+                    .desc("The unit in which to display the duration, or iso8601 for an ISO 8601 string.")
                     .completion(Completion::new_list(SUPPORTED_UNITS)),
             ))
             .rest(
@@ -50,7 +50,7 @@ impl Command for FormatDuration {
     }
 
     fn description(&self) -> &str {
-        "Outputs duration with a specified unit of time."
+        "Outputs duration with a specified unit of time or as an ISO 8601 string."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -124,6 +124,16 @@ impl Command for FormatDuration {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
+                description: "Format a duration as an ISO 8601 string.",
+                example: "1hr + 59sec | format duration iso8601",
+                result: Some(Value::test_string("PT1H59S")),
+            },
+            Example {
+                description: "Format a negative duration as an ISO 8601 string, using hours for days.",
+                example: "-3day | format duration iso8601",
+                result: Some(Value::test_string("-PT72H")),
+            },
+            Example {
                 description: "Convert µs duration to the requested second duration as a string.",
                 example: "1000000µs | format duration sec",
                 result: Some(Value::test_string("1 sec")),
@@ -150,6 +160,12 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     match val {
         Value::Duration { val: inner, .. } => {
             let duration = *inner;
+            if arg.format_value.item == "iso8601" {
+                return Value::string(
+                    jiff::SignedDuration::from_nanos(duration).to_string(),
+                    inner_span,
+                );
+            }
             let float_precision = arg.float_precision;
             match convert_inner_to_unit(duration, &arg.format_value.item, arg.format_value.span) {
                 Ok(d) => {

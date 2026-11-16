@@ -179,6 +179,7 @@ human-date-parser = "0.3.1"
 humantime = "2.3.0"
 indexmap = "2.14.1"
 indicatif = "0.18.6"
+jiff = { version = "0.2.23", default-features = false, features = ["alloc"] }
 indoc = "2"
 interprocess = "2.4.3"
 is_executable = "1.0.6"
