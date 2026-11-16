@@ -522,7 +522,11 @@ impl OverlayFrame {
 
     pub fn insert_variable(&mut self, name: Vec<u8>, variable_id: VarId) -> Option<VarId> {
         let res = self.vars.insert(name, variable_id);
-        if let Some(old_id) = res {
+        // Binding a name to the variable it already has (`source` of a file read before) shadows
+        // nothing.
+        if let Some(old_id) = res
+            && old_id != variable_id
+        {
             self.shadowed_vars.push(old_id);
         }
         res
