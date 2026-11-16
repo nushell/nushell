@@ -170,6 +170,8 @@ arboard = { version = "3.6.0", default-features = false, features = ["wayland-da
 # enables rustix/process for that feature, so also enable `fs` (rustix/fs).
 uucore = { workspace = true, features = ["fs", "mode"] }
 fff-search = { workspace = true, optional = true, default-features = false }
+# Version pin for fff-search's notify dependency; see the workspace Cargo.toml.
+notify = { workspace = true, optional = true, default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
@@ -207,6 +209,7 @@ os = [
 	"nu-protocol/os",
 	"nu-utils/os",
 	"dep:fff-search",
+	"dep:notify",
 
 	# os-dependant dependencies
 	"crossterm",

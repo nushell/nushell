@@ -206,6 +206,11 @@ mockito = { version = "1.7.2", default-features = false }
 multipart-rs = "0.2.3"
 native-tls = "0.2.18"
 nix = { version = "0.32.0", default-features = false }
+# Not used directly. fff-search 0.11.0 pulls in fff-notify-debouncer-full 0.9.4, whose
+# `notify = "9.0.0-rc.4"` also matches later release candidates, and it fails to compile
+# against rc.9. This exact pin keeps builds without `--locked` on rc.4. Drop it once
+# fff pins notify or supports a newer release.
+notify = { version = "=9.0.0-rc.4", default-features = false }
 notify-debouncer-full = { version = "0.7.0", default-features = false }
 nu-ansi-term = "0.50.3"
 nucleo-matcher = "0.3"
