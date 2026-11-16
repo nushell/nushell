@@ -289,6 +289,68 @@ fn source_circular() -> Result {
         .expect_error_code_eq("nu::parser::circular_import")
 }
 
+#[test]
+fn source_circular_through_parent_dir() -> Result {
+    Playground::setup(
+        "source_circular_through_parent_dir",
+        |dirs, sandbox| -> Result {
+            sandbox.mkdir("sub").with_files(&[
+                Stub::FileWithContent("a.nu", "source sub/b.nu"),
+                Stub::FileWithContent("sub/b.nu", "source ../a.nu"),
+            ]);
+
+            test()
+                .cwd(dirs.test())
+                .run("source a.nu")
+                .expect_error_code_eq("nu::parser::circular_import")
+        },
+    )
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn source_circular_through_symlink() -> Result {
+    Playground::setup(
+        "source_circular_through_symlink",
+        |dirs, sandbox| -> Result {
+            sandbox
+                .with_files(&[Stub::FileWithContent("a.nu", "source link/a.nu")])
+                .symlink("./", "link");
+
+            test()
+                .cwd(dirs.test())
+                .run("source a.nu")
+                .expect_error_code_eq("nu::parser::circular_import")
+        },
+    )
+}
+
+/// A file sources others relative to the directory it was reached in, so one file reached
+/// through a symlink in another directory sources different files and isn't circular.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn source_symlinked_file_from_two_dirs_is_not_circular() -> Result {
+    Playground::setup(
+        "source_symlinked_file_two_dirs",
+        |dirs, sandbox| -> Result {
+            sandbox
+                .mkdir("d1")
+                .mkdir("d2")
+                .with_files(&[
+                    Stub::FileWithContent("d2/f.nu", "source sib.nu"),
+                    Stub::FileWithContent("d1/sib.nu", "source ../d2/f.nu"),
+                    Stub::FileWithContent("d2/sib.nu", "'d2 sib'"),
+                ])
+                .symlink("d2/f.nu", "d1/f.nu");
+
+            test()
+                .cwd(dirs.test())
+                .run("source d1/f.nu")
+                .expect_value_eq("d2 sib")
+        },
+    )
+}
+
 /// A UTF-8 byte-order mark at the start of a file, as Windows editors can write, is skipped by
 /// every command that reads a script.
 #[rstest]

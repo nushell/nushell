@@ -585,6 +585,26 @@ fn module_dir_circular_import_through_parent_dir() -> Result {
     })
 }
 
+/// Standard library paths like `std/log/mod.nu` are virtual, so a real file at the same
+/// relative path under the directory nu was started in is a different file.
+#[test]
+#[deps(NU)]
+fn module_wrapping_std_module_of_same_path_is_not_circular() -> Result {
+    Playground::setup("module_wrapping_std_module", |dirs, sandbox| -> Result {
+        sandbox
+            .mkdir("std/log")
+            .with_files(&[FileWithContent("std/log/mod.nu", "export use std/log *")]);
+
+        // The child nu is started in the playground, where `std/log/mod.nu` is a real file.
+        let result: CompleteResult = test()
+            .cwd(dirs.test())
+            .run(r#"nu -n -c "use ./std/log; 'imported'" | complete"#)?;
+
+        assert_eq!(result.stdout.trim(), "imported", "{result:?}");
+        Ok(())
+    })
+}
+
 #[test]
 fn module_dir_name_keeps_dots() -> Result {
     Playground::setup("module_dir_name_keeps_dots", |dirs, sandbox| -> Result {
