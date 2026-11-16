@@ -770,7 +770,6 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::resolve_current_dir;
-    use std::path::Path;
 
     #[test]
     fn resolve_current_dir_strips_trailing_slash_from_inherited_pwd() {
@@ -787,6 +786,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn resolve_current_dir_preserves_root_and_symlink_without_trailing_slash() {
+        use std::path::Path;
+
         let tempdir = tempfile::tempdir().unwrap();
         let real = tempdir.path().join("real");
         let link = tempdir.path().join("link");
