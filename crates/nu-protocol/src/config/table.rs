@@ -385,7 +385,7 @@ impl UpdateFromValue for TableIndent {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TableConfig {
     pub mode: TableMode,
     pub index_mode: TableIndexMode,
@@ -393,6 +393,11 @@ pub struct TableConfig {
     pub padding: TableIndent,
     pub trim: TrimStrategy,
     pub header_on_separator: bool,
+    /// Whether every other data row is drawn on a background of its own.
+    pub striped: bool,
+    /// How much white or black is blended into the terminal background to make
+    /// the background of a striped row: from 0.0, none, to 1.0, all of it.
+    pub stripe_blend: f64,
     pub abbreviated_row_count: Option<usize>,
     pub footer_inheritance: bool,
     pub missing_value_symbol: String,
@@ -414,6 +419,8 @@ impl IntoValue for TableConfig {
             "padding" => self.padding.into_value(span),
             "trim" => self.trim.into_value(span),
             "header_on_separator" => self.header_on_separator.into_value(span),
+            "striped" => self.striped.into_value(span),
+            "stripe_blend" => self.stripe_blend.into_value(span),
             "abbreviated_row_count" => abbv_count,
             "footer_inheritance" => self.footer_inheritance.into_value(span),
             "missing_value_symbol" => self.missing_value_symbol.into_value(span),
@@ -432,6 +439,8 @@ impl Default for TableConfig {
             show_empty: true,
             trim: TrimStrategy::default(),
             header_on_separator: false,
+            striped: false,
+            stripe_blend: 0.08,
             padding: TableIndent::default(),
             abbreviated_row_count: None,
             footer_inheritance: false,
@@ -462,6 +471,12 @@ impl UpdateFromValue for TableConfig {
                 "show_empty" => self.show_empty.update(val, path, errors),
                 "trim" => self.trim.update(val, path, errors),
                 "header_on_separator" => self.header_on_separator.update(val, path, errors),
+                "striped" => self.striped.update(val, path, errors),
+                "stripe_blend" => match val.coerce_float() {
+                    Ok(blend) if (0.0..=1.0).contains(&blend) => self.stripe_blend = blend,
+                    Ok(_) => errors.invalid_value(path, "a number from 0.0 to 1.0", val),
+                    Err(_) => errors.type_mismatch(path, Type::Float, val),
+                },
                 "padding" => self.padding.update(val, path, errors),
                 "abbreviated_row_count" => match val {
                     Value::Nothing { .. } => self.abbreviated_row_count = None,

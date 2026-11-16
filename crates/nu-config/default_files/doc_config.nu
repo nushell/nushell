@@ -634,6 +634,26 @@ $env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true
 # Default: false
 $env.config.table.header_on_separator = false
 
+# table.striped (bool): Draw every other row on a background of its own.
+# true: The second row of a table, then every other one, gets a background of its
+#   own: a little lighter than the terminal's on a dark terminal, a little darker on
+#   a light one (see `table.stripe_blend`). The terminal is asked for its background
+#   at the prompt, the first time and whenever `$env.config` is assigned to: assign
+#   to it after changing the colors of the terminal. There are no stripes when the
+#   terminal does not answer unless `color_config.row_stripe_alt` sets their color.
+# false: Every row has the same background.
+# Applies to `table` and `explore`, not to `table --collapse` or the markup modes.
+# Default: false
+$env.config.table.striped = false
+
+# table.stripe_blend (float): Strength of the stripes made from the terminal background.
+# How much white (on a dark terminal) or black (on a light one) is blended into the
+# terminal background, from 0.0 to 1.0: 0.0 is no stripe, 1.0 is plain white or
+# black. With `color_config.row_stripe_bg`, that is the background blended into.
+# Not used when `color_config.row_stripe_alt` is set.
+# Default: 0.08
+$env.config.table.stripe_blend = 0.08
+
 # table.abbreviated_row_count (int|null): Abbreviate large tables.
 # (int): Show first N and last N rows with ellipsis.
 # null: Show all rows.
@@ -1496,6 +1516,17 @@ $env.config.color_config.header = "green_bold"
 # color_config.separator: Style for table/list/record borders.
 # Default: default
 $env.config.color_config.separator = "default"
+
+# color_config.row_stripe_bg: Background of the first row and every other one,
+# when `table.striped` is on. A color: a name or "#rrggbb".
+# Default: not set, which is the terminal's own background
+# $env.config.color_config.row_stripe_bg = "#282c34"
+
+# color_config.row_stripe_alt: Background of the rows between them, when
+# `table.striped` is on. A color: a name or "#rrggbb".
+# Default: not set, which is a color made with `table.stripe_blend` from
+# `row_stripe_bg` when that is "#rrggbb", else from the terminal's background
+# $env.config.color_config.row_stripe_alt = "#393d44"
 
 # color_config.row_index: Style for the index (#) column in tables and lists.
 # Default: green_bold

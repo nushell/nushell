@@ -47,7 +47,7 @@ use reedline::{
     Reedline, SemanticPromptMarkers, Vi,
 };
 use std::ffi::OsStr;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{
     collections::HashMap,
     env::temp_dir,
@@ -657,6 +657,23 @@ fn is_usable_dir(path: &Path) -> bool {
     path.is_dir() && matches!(have_permission(path), PermissionResult::PermissionOk)
 }
 
+/// Asks the terminal for its background color, which striped tables are drawn
+/// from, when the config changed since it was last asked.
+///
+/// It is asked here, before the line editor reads the terminal, so that no
+/// table drawn while it does (by a completer or a hint) has to ask. Assigning
+/// to `$env.config` is also how to have a terminal that changed its colors
+/// asked again.
+fn update_terminal_background(engine_state: &EngineState) {
+    static ASKED_AT_EPOCH: AtomicU64 = AtomicU64::new(u64::MAX);
+
+    let epoch = engine_state.config_epoch();
+    if ASKED_AT_EPOCH.swap(epoch, Ordering::Relaxed) != epoch {
+        let wanted = nu_table::common::needs_terminal_background(engine_state.get_config());
+        nu_utils::update_terminal_background(wanted);
+    }
+}
+
 /// Returns `true` if terminal input is already queued (so recovery waits until after the pending
 /// line executes) or if polling fails (falling back to skipping recovery).
 fn has_pending_terminal_input() -> bool {
@@ -887,6 +904,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // probe in the builder below does a round trip in raw mode, then `read_line` draws the prompt.
     // Hold what background jobs write until the line editor can print it.
     engine_state.job_output.hold();
+    update_terminal_background(engine_state);
+
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
 

@@ -21,6 +21,7 @@ mod shared_cow;
 mod split_read;
 pub mod strings;
 pub mod sync;
+mod terminal_background;
 pub mod time;
 pub mod utils;
 
@@ -43,6 +44,7 @@ pub use nu_cow::NuCow;
 pub use quoting::{as_raw_string, escape_quote_string, needs_quoting};
 pub use shared_cow::SharedCow;
 pub use split_read::SplitRead;
+pub use terminal_background::{Rgb, terminal_background, update_terminal_background};
 
 #[cfg(unix)]
 pub use filesystem::users;

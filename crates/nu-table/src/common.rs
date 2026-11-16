@@ -2,12 +2,13 @@ use crate::{
     TableOutput, TableTheme, clean_charset, colorize_space_str, string_truncate, string_width,
     string_wrap,
 };
-use nu_color_config::{Alignment, StyleComputer, TextStyle};
+use nu_ansi_term::{Color, Style};
+use nu_color_config::{Alignment, StyleComputer, TextStyle, lookup_ansi_color_style};
 use nu_protocol::{
-    Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value,
+    Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, UseAnsiColoring, Value,
     shell_error::generic::GenericError,
 };
-use nu_utils::terminal_size;
+use nu_utils::{Rgb, terminal_background, terminal_size};
 use std::sync::Arc;
 
 pub type NuText = (String, TextStyle);
@@ -46,6 +47,10 @@ pub(crate) fn configure_table_with_theme(
     out.table
         .set_border_header(config.table.header_on_separator && !is_markup);
     out.table.set_border_color(lookup_separator_color(comp));
+    // A background is no markup.
+    if !is_markup {
+        out.table.set_stripes(row_stripes(config));
+    }
 }
 
 pub(crate) fn is_footer_needed(config: &Config, out: &TableOutput) -> bool {
@@ -228,6 +233,87 @@ fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style
     style_computer.compute("separator", &Value::nothing(Span::unknown()))
 }
 
+/// The backgrounds of the data rows of a striped table: of the first row and
+/// every other one after it, then of the rows between them. `None` is the
+/// background the terminal already has.
+pub type RowStripes = [Option<Style>; 2];
+
+/// The backgrounds of the rows of a table: none when tables are not striped.
+///
+/// Without `row_stripe_alt` (see [`stripe_colors`]), it is made from
+/// `row_stripe_bg`, or from the background of the terminal when that is not set
+/// or is a named color,
+/// and `table.stripe_blend` (see [`stripe_over`]); the rows between have no
+/// background of their own when the terminal does not tell its background
+/// either.
+pub fn row_stripes(config: &Config) -> RowStripes {
+    let Some((bg, alt)) = stripe_colors(config) else {
+        return [None; 2];
+    };
+    let alt = alt.or_else(|| {
+        let background = match bg {
+            Some(Color::Rgb(red, green, blue)) => [red, green, blue],
+            _ => terminal_background()?,
+        };
+        Some(stripe_over(background, config.table.stripe_blend as f32))
+    });
+    [bg, alt].map(|color| color.map(|color| Style::new().on(color)))
+}
+
+/// Whether [`row_stripes`] makes a background from the terminal's own, which
+/// the terminal has to be asked for.
+pub fn needs_terminal_background(config: &Config) -> bool {
+    matches!(stripe_colors(config), Some((bg, None)) if !matches!(bg, Some(Color::Rgb(..))))
+}
+
+/// The colors `color_config` sets, or `None` when tables are not striped, which
+/// is when `table.striped` is off, or colors are: `row_stripe_bg` for the first
+/// row and every other one, `row_stripe_alt` for the rows between.
+fn stripe_colors(config: &Config) -> Option<(Option<Color>, Option<Color>)> {
+    if !config.table.striped || config.use_ansi_coloring == UseAnsiColoring::False {
+        return None;
+    }
+
+    let color = |key: &str| {
+        let color = config.color_config.get(key)?.as_str().ok()?;
+        lookup_ansi_color_style(color).foreground
+    };
+    Some((color("row_stripe_bg"), color("row_stripe_alt")))
+}
+
+/// The stripe that stands out from `background`: white laid over a dark
+/// background, black over a light one, at `opacity` (from 0 to 1).
+///
+/// The background is dark when white contrasts with it more than black does,
+/// by the WCAG 2 contrast ratio. The overlay is composited "source over" on
+/// the sRGB values, as CSS does for a translucent color.
+fn stripe_over(background: Rgb, opacity: f32) -> Color {
+    /// The relative luminance at which black and white contrast the same.
+    const MIDDLE_LUMINANCE: f32 = 0.179;
+
+    let linear = |channel: u8| {
+        let channel = f32::from(channel) / 255.0;
+        if channel <= 0.04045 {
+            channel / 12.92
+        } else {
+            ((channel + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    let [red, green, blue] = background;
+    let luminance = 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
+    let overlay = if luminance > MIDDLE_LUMINANCE {
+        0.0
+    } else {
+        255.0
+    };
+
+    let mix = |channel: u8| {
+        let channel = f32::from(channel);
+        (channel + (overlay - channel) * opacity).round() as u8
+    };
+    Color::Rgb(mix(red), mix(green), mix(blue))
+}
+
 fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {
     with_header && need_footer(config, count_records as u64)
 }
@@ -255,5 +341,41 @@ pub fn check_value(value: &Value) -> Result<(), ShellError> {
     match value {
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stripe_is_lighter_on_dark_and_darker_on_light() {
+        assert_eq!(
+            stripe_over([0x28, 0x2c, 0x34], 0.08),
+            Color::Rgb(57, 61, 68)
+        );
+        assert_eq!(stripe_over([0, 0, 0], 0.08), Color::Rgb(20, 20, 20));
+        assert_eq!(
+            stripe_over([255, 255, 255], 0.08),
+            Color::Rgb(235, 235, 235)
+        );
+        // Mid gray is light by contrast: black stands out more on it than white.
+        assert_eq!(
+            stripe_over([128, 128, 128], 0.08),
+            Color::Rgb(118, 118, 118)
+        );
+        // From the background itself to the white or black laid over it.
+        assert_eq!(
+            stripe_over([0x28, 0x2c, 0x34], 0.0),
+            Color::Rgb(0x28, 0x2c, 0x34)
+        );
+        assert_eq!(
+            stripe_over([0x28, 0x2c, 0x34], 0.16),
+            Color::Rgb(74, 78, 84)
+        );
+        assert_eq!(
+            stripe_over([0x28, 0x2c, 0x34], 1.0),
+            Color::Rgb(255, 255, 255)
+        );
     }
 }

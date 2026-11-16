@@ -42,6 +42,7 @@ nu-protocol = { workspace = true, features = ["os"] }
 nu-config.workspace = true
 nu-utils.workspace = true
 nu-color-config.workspace = true
+nu-table.workspace = true
 nu-experimental.workspace = true
 nu-ansi-term.workspace = true
 reedline = { workspace = true, features = ["bashisms"] }

@@ -1,4 +1,6 @@
-use crate::{convert_style, is_color_empty, string_width, table_theme::TableTheme};
+use crate::{
+    common::RowStripes, convert_style, is_color_empty, string_width, table_theme::TableTheme,
+};
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::{TableIndent, TrimStrategy};
@@ -92,6 +94,7 @@ impl NuTable {
                 header_on_border: false,
                 expand: false,
                 border_color: None,
+                stripes: [None; 2],
                 width_priority_columns: vec![],
             },
         }
@@ -217,6 +220,11 @@ impl NuTable {
         self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
+    /// Sets the backgrounds the data rows are drawn on.
+    pub fn set_stripes(&mut self, stripes: RowStripes) {
+        self.config.stripes = stripes;
+    }
+
     pub fn set_width_priority_columns(&mut self, columns: &[usize]) {
         self.config.width_priority_columns.clear();
 
@@ -239,6 +247,7 @@ impl NuTable {
 
     pub fn clear_all_colors(&mut self) {
         self.clear_border_color();
+        self.config.stripes = [None; 2];
         self.styles.cell_colors.clear();
     }
 
@@ -476,6 +485,8 @@ pub struct TableConfig {
     theme: Arc<TableTheme>,
     trim: TrimStrategy,
     border_color: Option<Style>,
+    /// The backgrounds of the data rows, when rows are striped.
+    stripes: RowStripes,
     expand: bool,
     structure: TableStructure,
     header_on_border: bool,
@@ -662,7 +673,161 @@ fn draw_table(
     }
 
     let string = table.to_string();
-    Some(string)
+    Some(match t.config.stripes {
+        [None, None] => string,
+        stripes => stripe_rows(&table, &string, &structure, stripes),
+    })
+}
+
+/// Draws the data rows of `text`, the drawn `table`, on the `stripes`
+/// backgrounds, one for the first row and every other one, one for the rows
+/// between. Header and footer rows are left
+/// as they are.
+///
+/// A row is painted between the left and right borders of the table, or from
+/// and to the end of its lines in a theme without them. Text that goes back to
+/// the default background would end the stripe there (see [`keep_background`]).
+fn stripe_rows(
+    table: &Table,
+    text: &str,
+    structure: &TableStructure,
+    stripes: RowStripes,
+) -> String {
+    let count_rows = table.count_rows();
+    let first = structure.with_header as usize;
+    let last = count_rows - (structure.with_header && structure.with_footer) as usize;
+
+    // The escape sequence that turns on the background of each line of `text`.
+    let on = stripes.map(|stripe| stripe.map(|stripe| stripe.prefix().to_string()));
+    let mut backgrounds = Vec::new();
+    for row in 0..count_rows {
+        if table.get_config().has_horizontal(row, count_rows) {
+            backgrounds.push(None);
+        }
+        let height = (0..table.count_columns())
+            .map(|col| table.get_records().count_lines(Position::new(row, col)))
+            .max()
+            .unwrap_or(1);
+        let background = (first..last)
+            .contains(&row)
+            .then(|| on[(row - first) % 2].as_deref())
+            .flatten();
+        backgrounds.extend(std::iter::repeat_n(background, height));
+    }
+
+    let count_columns = table.count_columns();
+    let has_left = table.get_config().has_vertical(0, count_columns);
+    let has_right = table
+        .get_config()
+        .has_vertical(count_columns, count_columns);
+    text.split('\n')
+        .enumerate()
+        .map(|(line, text)| match backgrounds.get(line) {
+            Some(&Some(on)) => {
+                let (left, rest) = text.split_at(if has_left { first_border_end(text) } else { 0 });
+                let (inside, right) = rest.split_at(if has_right {
+                    last_border_start(rest)
+                } else {
+                    rest.len()
+                });
+                format!("{left}{on}{}{RESET}{right}", keep_background(inside, on))
+            }
+            _ => text.to_owned(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Where the border that starts `line` ends: after its character and the
+/// escape sequences that color it.
+fn first_border_end(line: &str) -> usize {
+    let start = leading_escapes(line);
+    let end = start + line[start..].chars().next().map_or(0, char::len_utf8);
+    end + leading_escapes(&line[end..])
+}
+
+/// Where the border that ends `line` starts: before its character and the
+/// escape sequences that color it.
+fn last_border_start(line: &str) -> usize {
+    let end = trailing_escapes(line);
+    let start = end - line[..end].chars().next_back().map_or(0, char::len_utf8);
+    trailing_escapes(&line[..start])
+}
+
+/// `text` with the `on` background turned on again after every escape sequence
+/// that goes back to the default one, so that text on the default background is
+/// on the `on` one. A background of its own stays.
+fn keep_background(text: &str, on: &str) -> String {
+    let mut kept = String::with_capacity(text.len() + on.len());
+    let mut rest = text;
+    while let Some(start) = rest.find(CSI)
+        && let Some(len) = control_sequence_len(&rest[start..])
+    {
+        let (sequence, after) = rest[start..].split_at(len);
+        kept.push_str(&rest[..start]);
+        kept.push_str(sequence);
+        if let Some(codes) = sequence[CSI.len()..].strip_suffix('m')
+            && ends_on_default_background(codes)
+        {
+            kept.push_str(on);
+        }
+        rest = after;
+    }
+    kept + rest
+}
+
+/// Whether the `SGR` sequence with these codes ends on the default background:
+/// its last background code is a reset (`0`, or no code) or the default
+/// background (`49`). The numbers of an extended color (`38;5;49`) are no codes.
+fn ends_on_default_background(codes: &str) -> bool {
+    let mut is_default = false;
+    let mut codes = codes.split(';');
+    while let Some(code) = codes.next() {
+        match code.trim_start_matches('0') {
+            "" | "49" => is_default = true,
+            // An extended color: `5;index` or `2;red;green;blue` follows.
+            extended @ ("38" | "48" | "58") => {
+                is_default &= extended != "48";
+                match codes.next() {
+                    Some("5") => codes.next(),
+                    Some("2") => codes.nth(2),
+                    _ => None,
+                };
+            }
+            code => is_default &= !matches!(code.parse(), Ok(40..=47 | 100..=107)),
+        }
+    }
+    is_default
+}
+
+/// Start of a control sequence: the control sequence introducer.
+const CSI: &str = "\x1b[";
+
+/// Length of the control sequence (`CSI ... final byte`) `text` starts with,
+/// when it starts with one.
+fn control_sequence_len(text: &str) -> Option<usize> {
+    let end = text.strip_prefix(CSI)?.find(|c| ('@'..='~').contains(&c))?;
+    Some(CSI.len() + end + 1)
+}
+
+/// Length of the control sequences `text` starts with.
+fn leading_escapes(text: &str) -> usize {
+    let mut len = 0;
+    while let Some(sequence) = control_sequence_len(&text[len..]) {
+        len += sequence;
+    }
+    len
+}
+
+/// Where the control sequences `text` ends with start.
+fn trailing_escapes(text: &str) -> usize {
+    let mut end = text.len();
+    while let Some(start) = text[..end].rfind(CSI)
+        && leading_escapes(&text[start..end]) == end - start
+    {
+        end = start;
+    }
+    end
 }
 
 fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
@@ -1621,6 +1786,91 @@ mod tests {
              \x1b[31m│\x1b[0m a \x1b[31m│\x1b[0m b \x1b[31m│\x1b[0m\n\
              \x1b[31m│\x1b[0m c \x1b[31m│\x1b[0m d \x1b[31m│\x1b[0m\n\
              \x1b[31m╰───┴───╯\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn stripes_every_other_data_row_and_survive_resets() {
+        let rows: &[&[&str]] = &[&["h"], &["a"], &["b\nc"], &["d"], &["e"]];
+        let mut table = colored_table(TableTheme::rounded(), rows);
+        table.clear_border_color();
+        table.set_structure(false, true, false);
+        table.insert_style(
+            (2, 0),
+            TextStyle::new().style(nu_ansi_term::Color::Red.normal()),
+        );
+        table.set_stripes([None, Some(Style::new().on(nu_ansi_term::Color::Fixed(8)))]);
+        // The header is no data row, and a row of two lines is striped on both,
+        // inside the borders.
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "╭───╮\n\
+             │ h │\n\
+             ├───┤\n\
+             │ a │\n\
+             │\x1b[48;5;8m \x1b[31mb\x1b[0m\x1b[48;5;8m \x1b[0m│\n\
+             │\x1b[48;5;8m \x1b[31mc\x1b[0m\x1b[48;5;8m \x1b[0m│\n\
+             │ d │\n\
+             │\x1b[48;5;8m e \x1b[0m│\n\
+             ╰───╯"
+        );
+    }
+
+    #[test]
+    fn stripes_stay_inside_colored_borders_and_reach_the_ends_without_them() {
+        let stripe = Style::new().on(nu_ansi_term::Color::Fixed(8));
+        let mut table = colored_table(TableTheme::rounded(), &[&["a"], &["b"]]);
+        table.set_border_color(nu_ansi_term::Color::Red.normal());
+        table.set_stripes([None, Some(stripe)]);
+        assert_eq!(
+            table.draw(80).expect("fits").lines().nth(2),
+            Some("\x1b[31m│\x1b[0m\x1b[48;5;8m b \x1b[0m\x1b[31m│\x1b[0m")
+        );
+
+        let mut table = colored_table(TableTheme::none(), &[&["a", "b"], &["c", "d"]]);
+        table.clear_border_color();
+        table.set_stripes([None, Some(stripe)]);
+        assert_eq!(
+            table.draw(80).expect("fits").lines().nth(1),
+            Some("\x1b[48;5;8m c   d \x1b[0m")
+        );
+    }
+
+    #[test]
+    fn rows_alternate_between_two_backgrounds() {
+        let mut table = colored_table(TableTheme::none(), &[&["a"], &["b"], &["c"]]);
+        table.clear_border_color();
+        table.set_stripes([
+            Some(Style::new().on(nu_ansi_term::Color::Fixed(1))),
+            Some(Style::new().on(nu_ansi_term::Color::Fixed(2))),
+        ]);
+        assert_eq!(
+            table.draw(80).expect("fits"),
+            "\x1b[48;5;1m a \x1b[0m\n\x1b[48;5;2m b \x1b[0m\n\x1b[48;5;1m c \x1b[0m"
+        );
+    }
+
+    #[test]
+    fn stripe_comes_back_after_the_default_background() {
+        let keep = |text| keep_background(text, "<on>");
+        // A reset, the default background, and a reset with other codes.
+        assert_eq!(keep("\x1b[31ma\x1b[0m b"), "\x1b[31ma\x1b[0m<on> b");
+        assert_eq!(keep("\x1b[m\x1b[49;39ma"), "\x1b[m<on>\x1b[49;39m<on>a");
+        assert_eq!(keep("\x1b[0;1;31ma"), "\x1b[0;1;31m<on>a");
+        // No background code, a background of its own, a color numbered 49.
+        assert_eq!(keep("\x1b[1;32ma\x1b[39m"), "\x1b[1;32ma\x1b[39m");
+        assert_eq!(
+            keep("\x1b[0;41ma\x1b[48;5;186;38;5;16mb"),
+            "\x1b[0;41ma\x1b[48;5;186;38;5;16mb"
+        );
+        assert_eq!(
+            keep("\x1b[38;5;49ma\x1b[38;2;0;49;0mb"),
+            "\x1b[38;5;49ma\x1b[38;2;0;49;0mb"
+        );
+        // Sequences that are no colors, or not whole.
+        assert_eq!(
+            keep("\x1b[2Ka\x1b]8;;\x1b\\b\x1b[0"),
+            "\x1b[2Ka\x1b]8;;\x1b\\b\x1b[0"
         );
     }
 
