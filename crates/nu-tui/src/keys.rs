@@ -100,11 +100,26 @@ pub fn normalize_bind(s: &str) -> String {
 /// `{modifier: control, keycode: char_s}` as used in `$env.config.keybindings`.
 pub fn chord_from_value(value: &Value) -> Result<String, ShellError> {
     match value {
-        Value::String { val, .. } => Ok(val
+        Value::String { val, .. } => val
             .split_whitespace()
-            .map(normalize_bind)
-            .collect::<Vec<_>>()
-            .join(" ")),
+            .map(|token| match normalize_bind(token) {
+                // No key of its own: `ctrl + s` was meant as `ctrl+s`.
+                chord if matches!(chord.as_str(), "ctrl" | "alt" | "shift" | "super") => {
+                    Err(ShellError::Generic(
+                        GenericError::new(
+                            "a modifier is not a key",
+                            format!("`{token}` stands alone in `{val}`"),
+                            value.span(),
+                        )
+                        .with_help(
+                            "spaces separate the keys of a sequence; write a chord without them, like `ctrl+s`",
+                        ),
+                    ))
+                }
+                chord => Ok(chord),
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(|chords| chords.join(" ")),
         Value::Record { val, .. } => {
             let modifier = val
                 .get("modifier")

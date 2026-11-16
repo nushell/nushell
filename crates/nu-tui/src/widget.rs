@@ -479,6 +479,9 @@ pub struct MenuState {
 pub struct PreviewState {
     /// The previewed file's name, or empty when nothing is previewed.
     pub title: String,
+    /// The previewed file's full path: what tells it from another file of
+    /// the same name.
+    pub path: Option<std::path::PathBuf>,
     /// The pane text, or a one-line summary while an image is shown.
     pub text: String,
     pub scroll: usize,

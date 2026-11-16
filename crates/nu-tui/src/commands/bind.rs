@@ -26,7 +26,7 @@ impl Command for TuiBind {
          \n\
          `{action: suspend, hook: {|state| ... }}` lends the terminal to the hook: raw mode and mouse capture go off, the normal screen comes back, and a full-screen program (an editor, fzf) can run; what the hook returns is then applied as above, so a list replaces the data and nothing leaves things as they were. Add `area: <widget id>` to keep the TUI on screen round the hook's output instead: the cursor starts at that widget's top-left corner and `$state.area` holds its `{x, y, width, height}`, for a program that can draw in a region (fzf with `--height` and `--margin`).\n\
          \n\
-         A key cannot both fire on its own and start a sequence: `tui bind m` beside `tui bind \"m s\"` (with the same `--when`) is an error.\n\
+         A key cannot both fire on its own and start a sequence: `tui bind m` beside `tui bind \"m s\"` is an error when both have the same `--when`, or either has none and so is live whatever is focused.\n\
          \n\
          `--when <id>` scopes the bind to the time that widget is focused; an id no widget has is an error when the TUI starts. If the hook then returns nothing, the key goes on to the widget as if the bind were not there, so a bind can claim a key for some rows and leave it for others.\n\
          \n\
@@ -113,11 +113,11 @@ impl Command for TuiBind {
         with_app(call, input, |app| {
             app.binds.retain(|b| !(b.chord == chord && b.when == when));
             // A key that fires alone would swallow every sequence it starts.
-            if let Some(other) = app
-                .binds
-                .iter()
-                .find(|b| b.when == when && shadows(&b.chord, &chord))
-            {
+            // A bind without `--when` is live whatever is focused, so it
+            // meets every scoped bind too.
+            if let Some(other) = app.binds.iter().find(|b| {
+                (b.when.is_none() || when.is_none() || b.when == when) && shadows(&b.chord, &chord)
+            }) {
                 return Err(ShellError::Generic(
                     GenericError::new(
                         "key bound both alone and as a sequence",

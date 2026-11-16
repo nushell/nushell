@@ -112,11 +112,26 @@ fn bind_rejects_a_key_shadowing_a_sequence_and_an_unknown_when_id() -> Result {
             .expect_error()?;
         assert_contains("both alone and as a sequence", &format!("{err:?}"));
     }
-    // Scoped to different widgets, the two never meet.
-    let rows: i64 = test().run(
-        r#"[a] | tui table --id t | tui bind m {|| null } | tui bind --when t "m s" {|| null } | tui debug | get rows"#,
+    // A bind without `--when` is live whatever is focused, so it meets a
+    // scoped one too; binds scoped to different widgets never meet.
+    let err = test()
+        .run(r#"[a] | tui table --id t | tui bind m {|| null } | tui bind --when t "m s" {|| null }"#)
+        .expect_error()?;
+    assert_contains("both alone and as a sequence", &format!("{err:?}"));
+    let selected: String = test().run(
+        r#"
+            [a] | tui split [(tui table --id t) (tui table --id u)]
+            | tui bind --when u m {|| {action: quit} }
+            | tui bind --when t "m s" {|| {action: submit, selected: seq} }
+            | tui debug --keys [m s] | get selected
+        "#,
     )?;
-    assert_eq!(rows, 1);
+    assert_eq!(selected, "seq");
+    // A modifier on its own is a chord typed with spaces, not a key.
+    let err = test()
+        .run("[a] | tui table | tui bind 'ctrl + s' {|| null }")
+        .expect_error()?;
+    assert_contains("a modifier is not a key", &format!("{err:?}"));
     let err = test()
         .run("[a] | tui table | tui bind --when nope x {|| null } | tui debug")
         .expect_error()?;
@@ -583,6 +598,16 @@ fn preview_shows_file_contents_on_selection() -> Result {
             ",
         )?;
         assert_contains("TWO-FILE-BODY", &screen);
+
+        // Text that starts with an image's magic number is still text.
+        let text: String = test().cwd(dirs.test()).run(
+            r#"
+                "BMW notes" | save -f bmw.txt
+                [[name]; [bmw.txt]] | tui split [(tui table --id t) (tui preview --id v)]
+                | tui debug | get values.v.text
+            "#,
+        )?;
+        assert_eq!(text, "BMW notes");
         Ok(())
     })
 }
@@ -1437,6 +1462,33 @@ fn context_is_shared_by_hooks_and_split_per_view() -> Result {
             &out,
         );
         assert_contains("`nope` is not a widget", &out);
+
+        // Two files of one name are two files: `--on-change` runs for the
+        // second, so it does not inherit the first one's page.
+        let from: String = test().cwd(dirs.test()).run(
+            r#"
+                mkdir a b; "alpha" | save -f a/notes.txt; "beta" | save -f b/notes.txt
+                [{name: a/notes.txt} {name: b/notes.txt}]
+                | tui split [(tui table --id t) (tui preview --id v --on-change {|s| {page: 1, from: $s.values.v.row.name} })]
+                | tui bind x {|| {action: context, id: v, value: {page: 2}} }
+                | tui debug --keys [x down]
+                | $"($in.values.v.text) ($in.values.v.context | to nuon)"
+            "#,
+        )?;
+        assert_eq!(from, r#"beta {page: 1, from: "b/notes.txt"}"#);
+
+        // A `--from` closure never sees the context, so a change to it
+        // does not run the closure again.
+        let runs: String = test().cwd(dirs.test()).run(
+            "
+                [a b]
+                | tui split [(tui table --id files) (tui log --id d --from files {|row| 'x' | save --append count.txt; [$row] })]
+                | tui bind x {|| {action: context, value: {k: (random int)}} }
+                | tui debug --keys [x x] | ignore
+                open count.txt
+            ",
+        )?;
+        assert_eq!(runs, "x");
         Ok(())
     })
 }
@@ -1628,6 +1680,15 @@ fn a_suspended_hook_gets_its_area_and_its_result_is_applied() -> Result {
         "#,
     )?;
     assert_contains("`nope` is not a widget on screen", &bad);
+    // In a list, what follows a `suspend` is applied after its hook.
+    let focused: String = test().run(
+        "
+            [a] | tui split [(tui table --id a) (tui table --id b)]
+            | tui bind x {|| [{action: suspend, hook: {|| {action: focus, id: a} }} {action: focus, id: b}] }
+            | tui debug --keys [x] | get focused
+        ",
+    )?;
+    assert_eq!(focused, "b");
     Ok(())
 }
 
@@ -1688,6 +1749,20 @@ fn icons_go_before_path_cells_and_path_columns_mark_bare_names() -> Result {
         )?;
         assert!(!plain.contains(rust), "{plain}");
         assert_contains("main.rs", &plain);
+
+        // A bare name stands for the row's own file, not for whatever has
+        // that name in the starting directory (here a directory `lib.rs`).
+        let screen: String = test().cwd(dirs.test()).run(
+            "
+                mkdir deep lib.rs; 'x' | save -f deep/lib.rs
+                [{name: deep/lib.rs, file: lib.rs}]
+                | tui table --columns [file] --icons --path-columns [file]
+                | tui debug --size [30 6] | get screen
+            ",
+        )?;
+        let folder = devicons::icon_for_file(&dirs.test().join("lib.rs"), &None).icon;
+        assert_ne!(rust, folder);
+        assert_contains(format!("{rust} lib.rs"), &screen);
         Ok(())
     })
 }

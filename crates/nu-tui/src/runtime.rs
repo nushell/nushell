@@ -153,9 +153,12 @@ fn images_for(
         stdio: query_stdio(),
         ..QueryStdioOptions::default()
     };
-    let images = match Picker::from_query_stdio_with_options(options) {
-        Ok(picker) => Images::new(picker),
-        Err(_) => Images::headless(),
+    // On Windows the query is written to stdout whatever `stdio` says, so
+    // with stdout piped it would land in the pipeline's input: do not ask.
+    let piped = cfg!(windows) && !stdout().is_terminal();
+    let images = match (!piped).then(|| Picker::from_query_stdio_with_options(options)) {
+        Some(Ok(picker)) => Images::new(picker),
+        _ => Images::headless(),
     };
     Some(match forced {
         Some(protocol) => images.with_protocol(protocol),

@@ -18,6 +18,7 @@ use ratatui_image::Image;
 use ratatui_image::protocol::Protocol;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -51,19 +52,21 @@ pub struct PreviewWidget {
 /// An image on show: decoded once per source, re-encoded whenever the pane
 /// or the terminal's protocol needs it.
 pub struct PreviewImage {
-    /// What `source` was decoded from: the file path, or `<binary>` for
-    /// bytes a closure returned. A resize re-encodes without decoding again.
+    /// What `source` was decoded from (see [`image_key`]). A resize
+    /// re-encodes without decoding again.
     pub key: String,
     pub source: Arc<DynamicImage>,
     pub format: String,
     pub protocol: Protocol,
+    /// Whether `protocol` was transmitted through shared memory.
+    pub shared_memory: bool,
 }
 
 impl Drop for PreviewImage {
     /// An image dropped before it was drawn (a zoom step the next one
     /// overtook) may hold a shared memory object the terminal never read.
     fn drop(&mut self) {
-        image::release_untransmitted(&self.protocol);
+        image::release_untransmitted(&self.protocol, self.shared_memory);
     }
 }
 
@@ -215,7 +218,7 @@ impl Job {
                     });
                 }
                 Body::Image(bytes) => {
-                    self.key = image_key(source.row.as_ref(), bytes.len());
+                    self.key = image_key(source.row.as_ref(), &bytes);
                     self.input = match self.shown.take().filter(|i| i.key == self.key) {
                         Some(same) => Input::Decoded(same.source.clone(), same.format.clone()),
                         None => Input::Bytes(bytes),
@@ -252,9 +255,13 @@ impl Job {
         };
         let mut view = self.view;
         let encoded = images.encode(&source, &self.options, self.pane, &mut view, self.kitty_id);
-        // Cancelled while encoding: the result is dropped, which releases
-        // whatever the transmission holds outside the process.
+        let shared_memory = images.uses_shared_memory();
+        // Cancelled while encoding: nothing will draw the transmission, so
+        // release what it holds outside the process.
         if token.strong_count() == 0 {
+            if let Ok(protocol) = &encoded {
+                image::release_untransmitted(protocol, shared_memory);
+            }
             return None;
         }
         Some(match encoded {
@@ -264,6 +271,7 @@ impl Job {
                     source,
                     format,
                     protocol,
+                    shared_memory,
                 }),
                 text: summary,
                 view,
@@ -286,7 +294,7 @@ enum Body {
 
 impl PreviewWidget {
     /// Compute the pane for `row` and store it, resetting scroll when the
-    /// title changed.
+    /// file changed.
     /// `stack` carries `TUI_WIDTH` / `TUI_HEIGHT` for the closure (see
     /// [`Session::closure_stack`]).
     /// `context` is what the closure sees as `$ctx`; the session has run
@@ -319,13 +327,14 @@ impl PreviewWidget {
             },
             None => false,
         };
-        let title = title_of(row);
-        let same_file = preview.title == title;
+        let path = row.and_then(|row| file_path(row, &session.cwd));
+        let same_file = preview.path == path;
         if !same_file {
             preview.scroll = 0;
             preview.view.reset();
         }
-        preview.title = title;
+        preview.title = title_of(row);
+        preview.path = path;
         if self.threads && row.is_some() {
             // The same file again (a resize) keeps its image up while the
             // source is read again; a new one shows the pane text.
@@ -368,7 +377,7 @@ impl PreviewWidget {
                 preview.image = None;
             }
             Body::Image(bytes) => {
-                let key = image_key(row, bytes.len());
+                let key = image_key(row, &bytes);
                 self.show_image(id, preview, key, bytes, session)
             }
         }
@@ -382,11 +391,12 @@ impl PreviewWidget {
 
     /// Whether `row` (from [`Self::shown_row`]) names another file than
     /// the one on show: when `--on-change` runs and the pane's context,
-    /// scroll, and zoom start over.
-    pub fn file_changed(&self, state: &WidgetState, row: Option<&Value>) -> bool {
+    /// scroll, and zoom start over. Files are told apart by their path
+    /// under `cwd`, as two directories may each have a `notes.txt`.
+    pub fn file_changed(&self, state: &WidgetState, row: Option<&Value>, cwd: &Path) -> bool {
         state
             .as_preview()
-            .is_some_and(|preview| preview.title != title_of(row))
+            .is_some_and(|preview| preview.path != row.and_then(|row| file_path(row, cwd)))
     }
 
     /// Show the image in `bytes`: decode it, unless it is the source already
@@ -767,23 +777,13 @@ impl TuiWidget for PreviewWidget {
     }
 }
 
-/// The path a row names, resolved against `cwd`, for the transform's
-/// `content_type`.
-fn file_path(title: &str, row: &Value, cwd: &Path) -> Option<PathBuf> {
-    if title.is_empty() {
-        return None;
-    }
-    let name = row_path(row)?;
-    let path = Path::new(&name);
-    Some(if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        cwd.join(path)
-    })
+/// The path a row names, resolved against `cwd`: what tells one previewed
+/// file from another, and the transform's `content_type`.
+fn file_path(row: &Value, cwd: &Path) -> Option<PathBuf> {
+    let name = row_path(row).filter(|name| !name.is_empty())?;
+    Some(cwd.join(name))
 }
 
-/// The pane title for a path: its file name, or the path itself when it
-/// has none.
 /// The pane's title for a row: its file name, or empty for no row.
 fn title_of(row: Option<&Value>) -> String {
     row.and_then(row_path)
@@ -792,6 +792,8 @@ fn title_of(row: Option<&Value>) -> String {
         .unwrap_or_default()
 }
 
+/// The pane title for a path: its file name, or the path itself when it
+/// has none.
 fn file_title(name: &str) -> String {
     Path::new(name)
         .file_name()
@@ -803,7 +805,7 @@ fn file_title(name: &str) -> String {
 /// Bytes from a `--data`/`tui image` binary or a closure: an image when
 /// they look like one, else text.
 fn body_from_bytes(bytes: &[u8]) -> Body {
-    if ::image::guess_format(bytes).is_ok() {
+    if image::is_image(bytes) {
         Body::Image(bytes.to_vec())
     } else {
         Body::Text {
@@ -886,26 +888,29 @@ fn source_body(
             Some(closure),
             Some((engine_state, stack)),
             Some(row),
-        ) => {
-            let title = row_path(row).as_deref().map(file_title).unwrap_or_default();
-            apply_transform(
-                engine_state,
-                stack,
-                closure.clone(),
-                wants_row.then_some(row),
-                context,
-                &text,
-                file_path(&title, row, cwd).as_deref(),
-            )
-        }
+        ) => apply_transform(
+            engine_state,
+            stack,
+            closure.clone(),
+            wants_row.then_some(row),
+            context,
+            &text,
+            file_path(row, cwd).as_deref(),
+        ),
         (body, ..) => body,
     }
 }
 
-/// The source path and byte count identify a decoded image; a closure's
-/// bytes have no path, only their count.
-fn image_key(row: Option<&Value>, len: usize) -> String {
-    format!("{}:{len}", row.and_then(row_path).unwrap_or_default())
+/// The source path and a hash of the bytes identify a decoded image; a
+/// closure's bytes have no path, only their hash.
+fn image_key(row: Option<&Value>, bytes: &[u8]) -> String {
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    format!(
+        "{}:{:x}",
+        row.and_then(row_path).unwrap_or_default(),
+        hasher.finish()
+    )
 }
 
 /// Give a cloned engine its own signals and job, as `job spawn` does, so a
@@ -1036,7 +1041,7 @@ fn read_file_preview(path: &Path, max_bytes: usize, file_len: u64) -> Body {
     // Read until the cap or the end of the file: one `read` may return
     // less than asked (a pipe, a network file system).
     let mut buf = Vec::with_capacity(max_bytes.min(file_len as usize));
-    if let Err(err) = file.take(max_bytes as u64).read_to_end(&mut buf) {
+    if let Err(err) = (&file).take(max_bytes as u64).read_to_end(&mut buf) {
         return plain(format!("cannot read: {err}"));
     }
     let n = buf.len();
@@ -1044,13 +1049,15 @@ fn read_file_preview(path: &Path, max_bytes: usize, file_len: u64) -> Body {
         if file_len > MAX_IMAGE_BYTES {
             return plain(format!("(image, {file_len} bytes: too large to preview)"));
         }
-        if file_len as usize > n {
-            match std::fs::read(path) {
-                Ok(whole) => buf = whole,
-                Err(err) => return plain(format!("cannot read: {err}")),
-            }
+        // The rest comes from the same handle, so nothing is read twice.
+        if let Err(err) = (&file).read_to_end(&mut buf) {
+            return plain(format!("cannot read: {err}"));
         }
-        return Body::Image(buf);
+        if image::is_image(&buf) {
+            return Body::Image(buf);
+        }
+        // Text that only starts like an image (`BMW notes`).
+        buf.truncate(n);
     }
     if buf.contains(&0) {
         return plain(format!("(binary file, {file_len} bytes)"));
@@ -1153,13 +1160,28 @@ mod tests {
             .run(&Arc::downgrade(&token))
             .expect("result");
         assert_eq!(loaded.text, "image 8x4 png");
-        assert_eq!(loaded.image.expect("image").key, format!("{path}:131"));
+        let image = loaded.image.expect("image");
+        assert!(image.key.starts_with(&format!("{path}:")), "{}", image.key);
+
+        // Text behind an image's magic number is still text.
+        let (source, _) = file_source("bmw.txt", b"BMW notes\n");
+        let loaded = job(Input::Source(Box::new(source)))
+            .run(&Arc::downgrade(&token))
+            .expect("result");
+        assert!(loaded.image.is_none());
+        assert_eq!(loaded.text, "BMW notes\n");
 
         // Cancelled before it ran: no file is read for nobody.
         let (source, _) = file_source("late.txt", b"x");
         let weak = Arc::downgrade(&token);
         drop(token);
         assert!(job(Input::Source(Box::new(source))).run(&weak).is_none());
+    }
+
+    #[test]
+    fn images_of_one_length_have_their_own_keys() {
+        assert_ne!(image_key(None, b"wide"), image_key(None, b"tall"));
+        assert_eq!(image_key(None, b"wide"), image_key(None, b"wide"));
     }
 
     #[test]

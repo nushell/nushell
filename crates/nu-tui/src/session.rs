@@ -78,6 +78,8 @@ pub struct Suspend {
     pub hook: Closure,
     /// Where its output starts; the TUI stays on screen round it.
     pub area: Option<Rect>,
+    /// What followed it in a list of actions, applied after the hook.
+    pub rest: Vec<HookOutcome>,
 }
 
 /// The floating window of `tui run --dialog`.
@@ -158,7 +160,8 @@ pub struct Session {
     derived: HashMap<String, Value>,
     /// The (source id, source row, pane size, view context) each derived
     /// value was computed from, so unchanged selections do not re-run
-    /// closures, and a resize or a context write does.
+    /// closures, and a resize or a context write does. Only a preview's
+    /// closure sees the context; for other widgets it is nothing.
     derived_key: HashMap<String, (String, Value, (u16, u16), Value)>,
     pub page: usize,
     pub focused: Option<String>,
@@ -795,25 +798,28 @@ impl Session {
     /// Recompute what `id` shows from the highlighted row of `source`.
     fn refresh_one(&mut self, id: &str, source: Option<&str>) -> bool {
         let row = source.and_then(|src| self.row_of(src));
+        let Some(widget) = self.widget(id).cloned() else {
+            return false;
+        };
         let mut key = (
             source.unwrap_or_default().to_string(),
             row.clone()
                 .unwrap_or_else(|| Value::nothing(Span::unknown())),
             self.inner_size(id),
-            self.view_context(id),
+            match widget.kind {
+                WidgetKind::Preview(_) => self.view_context(id),
+                _ => Value::nothing(Span::unknown()),
+            },
         );
         if self.derived_key.get(id) == Some(&key) {
             return false;
         }
-        let Some(widget) = self.widget(id).cloned() else {
-            return false;
-        };
         let stack = self.closure_stack(id);
         if let WidgetKind::Preview(preview) = &widget.kind {
             let shown = preview.shown_row(row.as_ref()).cloned();
             let changed = self
                 .state(id)
-                .is_some_and(|state| preview.file_changed(state, shown.as_ref()));
+                .is_some_and(|state| preview.file_changed(state, shown.as_ref(), &self.cwd));
             if changed {
                 // A new file: the pane's part of the context starts over
                 // from what `--on-change` returns, and the key takes it so
@@ -1011,8 +1017,16 @@ impl Session {
                 self.apply_action(action);
             }
             HookOutcome::Many(items) => {
-                for item in items {
+                let mut items = items.into_iter();
+                while let Some(item) = items.next() {
                     if self.outcome.is_some() {
+                        break;
+                    }
+                    // A suspended hook runs once the runtime has handed the
+                    // terminal over; what follows it waits its turn.
+                    if let Some(suspend) = &mut self.suspend {
+                        suspend.rest.push(item);
+                        suspend.rest.extend(items);
                         break;
                     }
                     self.apply_outcome(item);
@@ -1071,13 +1085,13 @@ impl Session {
                 let area = area.map(|id| (self.areas.get(&id).copied(), id));
                 match area {
                     Some((None, id)) => self.error = not_a(&id, "widget on screen"),
-                    Some((Some(rect), _)) => {
+                    area => {
                         self.suspend = Some(Suspend {
                             hook,
-                            area: Some(rect),
+                            area: area.and_then(|(rect, _)| rect),
+                            rest: Vec::new(),
                         })
                     }
-                    None => self.suspend = Some(Suspend { hook, area: None }),
                 }
             }
             HookAction::Select(id, index) => {
@@ -1105,7 +1119,8 @@ impl Session {
     }
 
     /// Run a suspended hook, the terminal being its to use, and apply what
-    /// it returns. The state record gains `area` when the hook has one,
+    /// it returns, then the actions that followed it in its list. The state
+    /// record gains `area` when the hook has one,
     /// with the whole laid-out `screen` inside it for margins.
     pub fn run_suspended(&mut self, suspend: Suspend) {
         let Some((engine_state, stack)) = self.engine.clone() else {
@@ -1134,6 +1149,7 @@ impl Session {
             Value::record(state, span),
         );
         self.apply_outcome(outcome);
+        self.apply_outcome(HookOutcome::Many(suspend.rest));
     }
 
     /// Forget every preview's picture so it is decoded and sent again:
@@ -1776,25 +1792,28 @@ impl Session {
         column == "name" && row.as_record().ok().and_then(|r| r.get("type")).is_some()
     }
 
-    /// The file a path cell stands for: `path` under `cwd` when that
-    /// exists, else the row's `name` (a `--path-columns` column of bare names
-    /// beside the full paths `ls` gives), else `path` as given. Icons and
-    /// colors look at the file itself where they can.
+    /// The file a path cell stands for: the row's `name` when `path` is its
+    /// file name (a `--path-columns` column of bare names beside the full
+    /// paths `ls` gives), else `path` under `cwd` when that exists, else the
+    /// row's `name`, else `path` as given. Icons and colors look at the
+    /// file itself where they can.
     fn disk_path(&self, row: &Value, path: &str) -> PathBuf {
         // `symlink_metadata`, not `exists`: a symlink with no target is on
         // disk too, and is colored as an orphan.
         let on_disk = |path: &PathBuf| path.symlink_metadata().is_ok();
         let full = self.cwd.join(path);
-        if on_disk(&full) {
-            return full;
-        }
-        row.as_record()
+        let named = row
+            .as_record()
             .ok()
             .and_then(|r| r.get("name"))
             .and_then(|name| name.as_str().ok())
             .map(|name| self.cwd.join(name))
-            .filter(on_disk)
-            .unwrap_or(full)
+            .filter(on_disk);
+        match named {
+            Some(named) if named.file_name() == Some(path.as_ref()) => named,
+            _ if on_disk(&full) => full,
+            named => named.unwrap_or(full),
+        }
     }
 
     /// What the `file_styles` rules see of the file a path cell stands
@@ -2246,7 +2265,6 @@ pub fn as_list(value: &Value) -> &[Value] {
     }
 }
 
-/// A context patch: records merge key by key, anything else replaces.
 fn digit_page(chord: &str) -> Option<usize> {
     let c = single_char(chord)?;
     (c.is_ascii_digit() && c != '0').then(|| (c as u8 - b'1') as usize)

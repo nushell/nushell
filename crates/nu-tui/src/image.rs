@@ -306,6 +306,19 @@ impl Images {
     }
 }
 
+/// Whether `bytes` are an image rather than text: a known magic number,
+/// followed by a header that gives the image's size. The magic alone is
+/// not enough, as text starting with `BM` or `P2` passes for a BMP or a
+/// PNM. Bytes that are not text either still count, so a damaged image is
+/// reported as one by [`decode`].
+pub fn is_image(bytes: &[u8]) -> bool {
+    image::guess_format(bytes).is_ok()
+        && (std::str::from_utf8(bytes).is_err()
+            || image::ImageReader::new(std::io::Cursor::new(bytes))
+                .with_guessed_format()
+                .is_ok_and(|reader| reader.into_dimensions().is_ok()))
+}
+
 /// Decode an image. `None` when the bytes are not in a recognised format,
 /// so the caller shows them as text or a binary note instead.
 pub fn decode(bytes: &[u8]) -> Option<Result<(DynamicImage, String), String>> {
@@ -318,8 +331,6 @@ pub fn decode(bytes: &[u8]) -> Option<Result<(DynamicImage, String), String>> {
     )
 }
 
-/// The sequence that frees Kitty images `ids`, placements and data, from
-/// the terminal's memory. Wrapped for tmux passthrough when `tmux`.
 /// Free what a Kitty transmission that never reached the terminal still
 /// holds. With shared memory (`t=s`) the pixels sit in a POSIX shm object
 /// that the terminal unlinks once it has read them; a protocol that is
@@ -329,17 +340,22 @@ pub fn decode(bytes: &[u8]) -> Option<Result<(DynamicImage, String), String>> {
 /// Base64 and non-Kitty transmissions hold nothing outside the process,
 /// and a protocol that was drawn emits its transmission only once, so
 /// drawing it again here yields nothing for one the terminal already has.
-/// Returns the name of the object it unlinked.
-pub fn release_untransmitted(protocol: &Protocol) -> Option<String> {
+/// `shared_memory` is [`Images::uses_shared_memory`] for the run: without
+/// it there is nothing to look for. Returns the name of the object it
+/// unlinked.
+pub fn release_untransmitted(protocol: &Protocol, shared_memory: bool) -> Option<String> {
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::widgets::Widget;
-    let Protocol::Kitty(_) = protocol else {
+    if !shared_memory || !matches!(protocol, Protocol::Kitty(_)) {
         return None;
-    };
+    }
     // The transmission is prefixed to the first placeholder cell drawn.
+    // Clipping lets an image larger than this one cell draw at all.
     let mut buf = Buffer::empty(Rect::new(0, 0, 1, 1));
-    ratatui_image::Image::new(protocol).render(buf.area, &mut buf);
+    ratatui_image::Image::new(protocol)
+        .allow_clipping(true)
+        .render(buf.area, &mut buf);
     let name = shm_name(buf[(0, 0)].symbol())?;
     #[cfg(unix)]
     {
@@ -361,6 +377,8 @@ fn shm_name(transmission: &str) -> Option<String> {
     String::from_utf8(name).ok()
 }
 
+/// The sequence that frees Kitty images `ids`, placements and data, from
+/// the terminal's memory. Wrapped for tmux passthrough when `tmux`.
 pub fn kitty_delete(ids: &[u32], tmux: bool) -> String {
     let mut out = String::new();
     for id in ids {
@@ -445,6 +463,17 @@ pub(crate) mod tests {
             (8, 4, "png")
         );
         assert!(decode(b"hello world").is_none());
+    }
+
+    #[test]
+    fn a_magic_number_alone_is_no_image() {
+        assert!(is_image(&image_fixture()));
+        // `BM` opens a BMP and `P2` a PNM, but no header follows.
+        assert!(!is_image(b"BMW notes\nmore text\n"));
+        assert!(!is_image(b"P2P design\nmore text\n"));
+        assert!(!is_image(b"hello world"));
+        // A damaged image is still one, for `decode` to report.
+        assert!(is_image(&image_fixture()[..9]));
     }
 
     #[test]
@@ -560,10 +589,11 @@ pub(crate) mod tests {
         use nix::sys::mman::shm_open;
         use nix::sys::stat::Mode;
         let (image, _) = decode(&image_fixture()).expect("png").expect("decodes");
-        let protocol = Kitty::new(image, Size::new(1, 1), 7, false, false, true)
+        // Larger than the one cell it is drawn into to find the object.
+        let protocol = Kitty::new(image, Size::new(4, 2), 7, false, false, true)
             .map(Protocol::Kitty)
             .expect("kitty");
-        let name = release_untransmitted(&protocol).expect("an object was unlinked");
+        let name = release_untransmitted(&protocol, true).expect("an object was unlinked");
         assert!(name.starts_with("/rtui-"), "{name}");
         assert!(
             shm_open(name.as_str(), OFlag::O_RDONLY, Mode::empty()).is_err(),
@@ -571,12 +601,12 @@ pub(crate) mod tests {
         );
         // Drawn protocols emit their transmission once, so nothing is left
         // to release; a half-block protocol never had anything.
-        assert_eq!(release_untransmitted(&protocol), None);
+        assert_eq!(release_untransmitted(&protocol, true), None);
         let (image, _) = decode(&image_fixture()).expect("png").expect("decodes");
         let blocks = Halfblocks::new(image, Size::new(1, 1))
             .map(Protocol::Halfblocks)
             .expect("halfblocks");
-        assert_eq!(release_untransmitted(&blocks), None);
+        assert_eq!(release_untransmitted(&blocks, true), None);
     }
 
     /// An 8x4 PNG, red on the left and blue on the right.
