@@ -1,3 +1,4 @@
+use super::sysinfo_error;
 use nu_engine::command_prelude::*;
 use sysinfo::System;
 
@@ -27,7 +28,7 @@ impl Command for SysMem {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(mem(call.head).into_pipeline_data())
+        Ok(mem(call.head)?.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -39,8 +40,8 @@ impl Command for SysMem {
     }
 }
 
-fn mem(span: Span) -> Value {
-    let mut sys = System::new();
+fn mem(span: Span) -> Result<Value, ShellError> {
+    let mut sys = System::new().map_err(|err| sysinfo_error(err, span))?;
     sys.refresh_memory();
 
     let record = record! {
@@ -53,5 +54,5 @@ fn mem(span: Span) -> Value {
         "swap used" => Value::filesize(sys.used_swap() as i64, span),
     };
 
-    Value::record(record, span)
+    Ok(Value::record(record, span))
 }

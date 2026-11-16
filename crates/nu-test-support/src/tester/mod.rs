@@ -19,7 +19,7 @@ use nu_protocol::{
     shell_error::{io::IoError, network::NetworkError},
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
-use parking_lot::{RwLock, const_rwlock};
+use parking_lot::RwLock;
 
 use crate::harness::group::GroupKey;
 
@@ -98,11 +98,11 @@ pub struct PluginAutoLoader {
 }
 
 /// Paths to be loaded into the PATH env variable of a [`NuTester`].
-pub static PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = const_rwlock(Vec::new());
+pub static PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = RwLock::new(Vec::new());
 
 /// Plugins to be automatically loaded into a [`NuTester`].
 #[cfg(feature = "plugin")]
-pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::new());
+pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = RwLock::new(Vec::new());
 
 /// Parse `source` as the contents of the file at `path`, the way `source` parses a file: the path
 /// is pushed on the working set's file stack while it parses, so that relative `use` and `source`

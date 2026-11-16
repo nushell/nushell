@@ -7,6 +7,8 @@ mod sys_;
 mod temp;
 mod users;
 
+use nu_protocol::{ShellError, Span, shell_error::generic::GenericError};
+
 pub use cpu::SysCpu;
 pub use disks::SysDisks;
 pub use host::SysHost;
@@ -18,4 +20,15 @@ pub use users::SysUsers;
 
 fn trim_cstyle_null(s: impl AsRef<str>) -> String {
     s.as_ref().trim_matches('\0').into()
+}
+
+/// Turns a [`sysinfo::Error`] into a [`ShellError`].
+///
+/// sysinfo returns these when it doesn't support the current platform.
+pub(crate) fn sysinfo_error(err: sysinfo::Error, span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "Unable to read system information",
+        err.to_string(),
+        span,
+    ))
 }
