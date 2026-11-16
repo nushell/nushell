@@ -429,6 +429,17 @@ fn copy_recursive_directory_to_missing_dest_with_trailing_slash(
         assert_ne!(result.exit_code, 0);
         assert_contains("is not a directory", result.stderr);
         assert!(!cwd.join("missing").exists());
+
+        let code = format!("cp {progress_flag} -r day00 a.txt{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
+
+        let code = format!("cp {progress_flag} -r day00 nope{MAIN_SEPARATOR}new{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
+        assert!(!cwd.join("nope").exists());
         Ok(())
     })
 }
@@ -442,12 +453,8 @@ fn copy_recursive_directory_symlink_to_missing_dest_with_trailing_slash(
     #[case] progress_flag: &str,
 ) -> Result {
     Playground::setup("ucp_recursive_symlink_trailing_slash", |dirs, sandbox| {
-        sandbox.mkdir("src").mkdir("nested");
+        sandbox.mkdir("src").mkdir("nested").symlink("src", "link");
         let cwd = dirs.test();
-        #[cfg(unix)]
-        std::os::unix::fs::symlink("src", cwd.join("link"))?;
-        #[cfg(windows)]
-        std::os::windows::fs::symlink_dir("src", cwd.join("link"))?;
 
         let code = format!("cp {progress_flag} -r link nested/dest{MAIN_SEPARATOR}");
         let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;

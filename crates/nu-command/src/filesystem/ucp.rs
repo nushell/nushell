@@ -187,24 +187,24 @@ impl Command for UCp {
         let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
         // A trailing separator means "copy into this directory". Reject that before
         // source globbing when the copy is not recursive, or when the destination
-        // exists and is not a directory. Whether a recursive copy onto a missing
-        // destination is allowed depends on the expanded sources, below.
+        // exists and is not a directory, or its parent directory is missing.
+        // Whether a recursive copy onto a missing destination is allowed depends
+        // on the expanded sources, below.
         // `exists`/`is_dir` on the expanded path follow a trailing separator, so a
         // file looks missing; the separator-stripped path is what actually exists.
         let target_ends_with_separator = target.item.as_ref().ends_with(MAIN_SEPARATOR);
-        let destination_missing = target_ends_with_separator
-            && nu_path::strip_trailing_slash(&target_path)
+        let destination_missing = target_ends_with_separator && {
+            let stripped = nu_path::strip_trailing_slash(&target_path);
+            stripped
                 .symlink_metadata()
-                .is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound);
+                .is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
+                && stripped.parent().is_some_and(Path::is_dir)
+        };
         if target_ends_with_separator
             && !target_path.is_dir()
             && (!recursive || !destination_missing)
         {
-            return Err(ShellError::Generic(GenericError::new(
-                "is not a directory",
-                "is not a directory",
-                target.span,
-            )));
+            return Err(not_a_directory(target.span));
         };
 
         // paths now contains the sources
@@ -266,27 +266,17 @@ impl Command for UCp {
         }
         let sources: Vec<PathBuf> = sources.into_iter().flat_map(|x| x.0).collect();
 
-        // `expand_path_with` keeps the trailing separator. Strip it only when this
-        // is a recursive copy of exactly one directory onto a path that does not
-        // exist yet, so `uu_cp` receives the same path as the no-slash command and
-        // creates that directory. Any other missing trailing-separator destination
-        // is still "copy into this directory". Recursive copies never dereference
-        // source symlinks, so the directory check must not follow them either.
-        let target_path = if target_ends_with_separator
-            && destination_missing
-            && recursive
-            && sources.len() == 1
-            && source_path_is_dir(&sources[0], false)
-        {
-            nu_path::strip_trailing_slash(&target_path).into_owned()
-        } else if target_ends_with_separator && destination_missing {
-            return Err(ShellError::Generic(GenericError::new(
-                "is not a directory",
-                "is not a directory",
-                target.span,
-            )));
-        } else {
+        // `expand_path_with` keeps the trailing separator. Strip it only for a
+        // copy of exactly one directory onto a path that does not exist yet, so
+        // `uu_cp` receives the same path as the no-slash command and creates that
+        // directory. Any other missing destination is still "copy into this
+        // directory". The directory check must not follow source symlinks.
+        let target_path = if !destination_missing {
             target_path
+        } else if sources.len() == 1 && source_path_is_dir(&sources[0], false) {
+            nu_path::strip_trailing_slash(&target_path).into_owned()
+        } else {
+            return Err(not_a_directory(target.span));
         };
 
         let attributes = make_attributes(preserve)?;
@@ -364,6 +354,14 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
         // https://docs.rs/uu_cp/latest/uu_cp/struct.Attributes.html
         Ok(uu_cp::Attributes::NONE)
     }
+}
+
+fn not_a_directory(span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "is not a directory",
+        "is not a directory",
+        span,
+    ))
 }
 
 fn source_path_is_dir(path: &Path, follow_symlink: bool) -> bool {
