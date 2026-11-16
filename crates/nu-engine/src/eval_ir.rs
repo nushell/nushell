@@ -2029,8 +2029,9 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
         _ if val.is_assignable_to(ty) => Ok(()),
         _ => {
             let help = val.explain_type_mismatch(ty).or_else(|| {
-                matches!(val, Value::List { .. })
-                    .then(|| "try using the spread operator `...` to pass items individually".into())
+                matches!(val, Value::List { .. }).then(|| {
+                    "try using the spread operator `...` to pass items individually".into()
+                })
             });
             Err(ShellError::CantConvert {
                 to_type: ty.to_string(),

@@ -113,8 +113,9 @@ impl CallEval {
             if !value.is_subtype_of(&param_type) {
                 self.reset_arguments();
                 let help = value.explain_type_mismatch(&param_type).or_else(|| {
-                    matches!(value.as_ref(), Value::List { .. })
-                        .then(|| "try using the spread operator `...` to pass items individually".into())
+                    matches!(value.as_ref(), Value::List { .. }).then(|| {
+                        "try using the spread operator `...` to pass items individually".into()
+                    })
                 });
                 return Err(ShellError::CantConvert {
                     to_type: param_type.to_string(),
@@ -151,8 +152,9 @@ impl CallEval {
         if !value.is_subtype_of(&param_type) {
             self.reset_arguments();
             let help = value.explain_type_mismatch(&param_type).or_else(|| {
-                matches!(value.as_ref(), Value::List { .. })
-                    .then(|| "try using the spread operator `...` to pass items individually".into())
+                matches!(value.as_ref(), Value::List { .. }).then(|| {
+                    "try using the spread operator `...` to pass items individually".into()
+                })
             });
             return Err(ShellError::CantConvert {
                 to_type: param_type.to_string(),
