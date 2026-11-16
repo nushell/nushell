@@ -112,3 +112,20 @@ fn unknown_flag_in_flag_value_is_reported(#[case] code: &str) -> Result {
     );
     Ok(())
 }
+
+#[rstest]
+#[case::short("-f null")]
+#[case::long("--format null")]
+#[case::equals("--format=null")]
+fn known_external_does_not_omit_bare_null_flag_value(#[case] flag: &str) -> Result {
+    let err = test()
+        .run(format!(
+            "extern foo [--format (-f): string, ...rest]; foo {flag} -"
+        ))
+        .expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::ExpectedWithStringMsg(expected, _) if expected == "string"
+    );
+    Ok(())
+}
