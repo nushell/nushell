@@ -2,7 +2,7 @@ use crate::network::http::client::{
     HttpBody, RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
     expand_unix_socket_path, http_client, http_client_pool, http_parse_redirect_mode,
     http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    request_handle_response, request_set_host_header, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -247,7 +247,7 @@ fn helper(
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let Spanned {
-        item: (requested_url, _),
+        item: requested_url,
         span: request_span,
     } = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
@@ -271,6 +271,7 @@ fn helper(
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
+    request = request_set_host_header(&requested_url, request);
 
     let (response, request_headers) = send_request(
         engine_state,

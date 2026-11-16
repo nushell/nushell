@@ -353,13 +353,15 @@ impl Serialize for YamlValue<'_> {
             OPTIONS.with_borrow(|options| match &options.non_roundtrip {
                 NonRoundtrip::Null => serializer.serialize_unit(),
                 NonRoundtrip::Lossy { engine_state } => {
-                    let block = engine_state.get_block(closure.block_id);
-                    if let Some(span) = block.span {
+                    let block = engine_state.try_get_block(closure.block_id);
+                    if let Some(span) = block.and_then(|block| block.span) {
                         let contents = engine_state.get_span_contents(span);
                         let contents = String::from_utf8_lossy(contents);
                         serialize_with_tag(serializer, tag, contents)
-                    } else {
+                    } else if block.is_some() {
                         Err(S::Error::custom(SerializeError::CLOSURE_SPAN_NOT_FOUND))
+                    } else {
+                        Err(S::Error::custom(SerializeError::CLOSURE_BLOCK_NOT_FOUND))
                     }
                 }
                 NonRoundtrip::Error => {

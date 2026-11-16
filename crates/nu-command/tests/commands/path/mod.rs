@@ -40,3 +40,11 @@ fn const_path_relative_to() -> Result {
     let code = "'/home/viking' | path relative-to '/home'";
     test().run(code).expect_value_eq("viking")
 }
+
+#[test]
+fn const_path_relative_to_walk_up() -> Result {
+    let code = "const x = '/a/b' | path relative-to '/a/c' --walk-up; $x";
+    test()
+        .run(code)
+        .expect_value_eq(join_path_sep(&["..", "b"]))
+}

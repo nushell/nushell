@@ -331,7 +331,7 @@ fn run_closure(
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
     }
 
-    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
     for events in iter {
         for event in events? {
             let matches_glob = glob_filter(glob_pattern.as_ref(), &event);

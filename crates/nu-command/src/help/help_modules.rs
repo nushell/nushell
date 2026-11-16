@@ -16,7 +16,7 @@ impl Command for HelpModules {
     }
 
     fn extra_description(&self) -> &str {
-        "When requesting help for a single module, its commands and aliases will be highlighted if they
+        "When requesting help for a single module, its commands, aliases and type aliases will be highlighted if they
 are also available in the current scope. Commands/aliases that were imported under a different name
 (such as with a prefix after `use some-module`) will be highlighted in parentheses."
     }
@@ -212,6 +212,33 @@ pub fn help_modules(
 
             write!(long_desc, "{G}Exported aliases{RESET}:\n  {aliases_str}")
                 .expect("writing to a String is infallible");
+            long_desc.push_str("\n\n");
+        }
+
+        if !module.type_aliases.is_empty() {
+            let mut module_type_aliases: Vec<_> = module.type_aliases.iter().collect();
+            module_type_aliases.sort_by(|a, b| a.0.cmp(b.0));
+
+            // A type alias is only ever imported under its own name, never with the module name
+            // as a prefix, so it is either in scope as listed or not at all.
+            let type_aliases_str = module_type_aliases
+                .iter()
+                .map(|(name_bytes, id)| {
+                    let name = String::from_utf8_lossy(name_bytes);
+                    if engine_state.find_type_alias(name_bytes, &[]) == Some(**id) {
+                        format!("{CB}{name}{RESET}")
+                    } else {
+                        format!("{name}")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            write!(
+                long_desc,
+                "{G}Exported type aliases{RESET}:\n  {type_aliases_str}"
+            )
+            .expect("writing to a String is infallible");
             long_desc.push_str("\n\n");
         }
 

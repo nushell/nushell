@@ -1,14 +1,18 @@
 //! This is used for both NetBSD and OpenBSD, because they are fairly similar.
 
 use itertools::{EitherOrBoth, Itertools};
-use libc::{CTL_HW, CTL_KERN, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV, sysctl};
+use libc::{
+    CTL_HW, CTL_KERN, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV, KERN_PROC_ENV, sysctl,
+};
 use std::{
     io,
     mem::{self, MaybeUninit},
     ptr,
-    time::Duration,
+    time::{Duration, UNIX_EPOCH},
 };
 
+use crate::process::{ProcessInfo, name_and_command};
+use crate::unix::{UserNames, c_string, split_nul};
 use nu_utils::time::Instant;
 
 #[cfg(target_os = "netbsd")]
@@ -16,25 +20,27 @@ type KInfoProc = libc::kinfo_proc2;
 #[cfg(target_os = "openbsd")]
 type KInfoProc = libc::kinfo_proc;
 
-#[derive(Debug)]
-pub struct ProcessInfo {
-    pub pid: i32,
-    pub ppid: i32,
-    pub argv: Vec<u8>,
-    pub stat: i8,
-    pub percent_cpu: f64,
-    pub mem_resident: u64, // in bytes
-    pub mem_virtual: u64,  // in bytes
-}
+/// The kernel stores `p_nice` offset by `NZERO` (from `<sys/param.h>`), so that it fits in an
+/// unsigned byte. libc only defines `NZERO` for FreeBSD, where it is 0.
+const NZERO: i64 = 20;
 
-pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
-    compare_procs(interval).unwrap_or_else(|err| {
+/// The `kern.proc_args.<pid>.cwd` sysctl from NetBSD's `<sys/sysctl.h>`, which libc doesn't
+/// define.
+#[cfg(target_os = "netbsd")]
+const KERN_PROC_CWD: i32 = 6;
+
+/// Lists every process, measuring CPU usage over `interval`. When `long` is false, the details
+/// only `ps --long` shows aren't read, so they are `None`.
+///
+/// The environment is only readable for the current user's processes (or as root).
+pub fn collect_proc(interval: Duration, long: bool) -> Vec<ProcessInfo> {
+    compare_procs(interval, long).unwrap_or_else(|err| {
         log::warn!("Failed to get processes: {}", err);
         vec![]
     })
 }
 
-fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
+fn compare_procs(interval: Duration, long: bool) -> io::Result<Vec<ProcessInfo>> {
     let pagesize = get_pagesize()? as u64;
 
     // Compare two full snapshots of all of the processes over the interval
@@ -45,45 +51,106 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
     let true_interval = Instant::now().saturating_duration_since(now);
     let true_interval_sec = true_interval.as_secs_f64();
 
+    let mut user_names = UserNames::default();
+
     // Join the processes between the two snapshots
     Ok(procs_a
         .into_iter()
-        .merge_join_by(procs_b.into_iter(), |a, b| a.p_pid.cmp(&b.p_pid))
-        .map(|proc| {
-            // Take both snapshotted processes if we can, but if not then just keep the one that
-            // exists and set prev_proc to None
-            let (prev_proc, proc) = match proc {
+        .merge_join_by(procs_b, |a, b| a.p_pid.cmp(&b.p_pid))
+        .filter_map(|procs| {
+            let (prev_proc, proc) = match procs {
                 EitherOrBoth::Both(a, b) => (Some(a), b),
-                EitherOrBoth::Left(a) => (None, a),
+                // Started during the sample, so there's nothing to compare against.
                 EitherOrBoth::Right(b) => (None, b),
+                // Exited during the sample.
+                EitherOrBoth::Left(_) => return None,
             };
+
+            // The kernel only reports the run and start times (`p_u*`) of a process that isn't
+            // a zombie (`p_uvalid`), and OpenBSD leaves the start time out for one that is exiting.
+            let rtime =
+                |proc: &KInfoProc| proc.p_rtime_sec as f64 + proc.p_rtime_usec as f64 / 1_000_000.0;
+            let start_time = (proc.p_uvalid != 0 && proc.p_ustart_sec != 0).then(|| {
+                UNIX_EPOCH
+                    + Duration::from_secs(proc.p_ustart_sec as u64)
+                    + Duration::from_micros(proc.p_ustart_usec as u64)
+            });
 
             // The percentage CPU is the ratio of how much runtime occurred for the process out of
-            // the true measured interval that occurred.
-            let percent_cpu = if let Some(prev_proc) = prev_proc {
-                let prev_rtime =
-                    prev_proc.p_rtime_sec as f64 + prev_proc.p_rtime_usec as f64 / 1_000_000.0;
-                let rtime = proc.p_rtime_sec as f64 + proc.p_rtime_usec as f64 / 1_000_000.0;
-                100. * (rtime - prev_rtime).max(0.) / true_interval_sec
-            } else {
-                0.0
+            // the true measured interval that occurred. A different start time means the pid was
+            // reused.
+            let same_process = |prev: &KInfoProc| {
+                start_time.is_none()
+                    || (prev.p_ustart_sec, prev.p_ustart_usec)
+                        == (proc.p_ustart_sec, proc.p_ustart_usec)
             };
+            let percent_cpu = prev_proc.filter(same_process).map(|prev_proc| {
+                100. * (rtime(&proc) - rtime(&prev_proc)).max(0.) / true_interval_sec
+            });
 
-            Ok(ProcessInfo {
+            #[allow(clippy::unnecessary_cast, reason = "`c_char` is `u8` on some targets")]
+            let comm = proc.p_comm.map(|c| c as u8);
+            // Keep the process even when its arguments can't be read (a zombie, say).
+            let (name, command) = name_and_command(
+                &get_proc_args(proc.p_pid, KERN_PROC_ARGV).unwrap_or_default(),
+                c_string(&comm).unwrap_or_default(),
+            );
+
+            Some(ProcessInfo {
                 pid: proc.p_pid,
                 ppid: proc.p_ppid,
-                argv: get_proc_args(proc.p_pid, KERN_PROC_ARGV)?,
-                stat: proc.p_stat,
-                percent_cpu,
-                mem_resident: proc.p_vm_rssize.max(0) as u64 * pagesize,
+                name,
+                command: command.filter(|_| long),
                 #[cfg(target_os = "netbsd")]
-                mem_virtual: proc.p_vm_msize.max(0) as u64 * pagesize,
+                exe: long
+                    .then(|| get_proc_args(proc.p_pid, libc::KERN_PROC_PATHNAME).ok())
+                    .flatten()
+                    .and_then(|path| c_string(&path)),
+                // OpenBSD doesn't expose the path of a process's executable.
                 #[cfg(target_os = "openbsd")]
-                mem_virtual: proc.p_vm_map_size.max(0) as u64 * pagesize,
+                exe: None,
+                user: user_names.get(proc.p_uid),
+                user_id: Some(proc.p_uid),
+                status: Some(process_status(proc.p_stat)),
+                cpu_usage: percent_cpu,
+                cpu_time: (proc.p_uvalid != 0).then(|| Duration::from_secs_f64(rtime(&proc))),
+                mem_size: Some(proc.p_vm_rssize.max(0) as u64 * pagesize),
+                #[cfg(target_os = "netbsd")]
+                virtual_size: Some(proc.p_vm_msize.max(0) as u64 * pagesize),
+                // OpenBSD never fills in `p_vm_map_size`, so add up the text, data and stack
+                // segments, as its `ps` and `top` do.
+                #[cfg(target_os = "openbsd")]
+                virtual_size: Some(
+                    (proc.p_vm_tsize.max(0) as u64
+                        + proc.p_vm_dsize.max(0) as u64
+                        + proc.p_vm_ssize.max(0) as u64)
+                        * pagesize,
+                ),
+                // The kernel only reports a process's total resident size (`p_vm_rssize`) and
+                // the virtual sizes of its segments, nothing about what is private.
+                private_size: None,
+                // `kinfo_proc` counts storage I/O in blocks (`p_uru_inblock`, `p_uru_oublock`),
+                // not bytes, and the kernel keeps no byte count to report.
+                disk_read: None,
+                disk_written: None,
+                start_time,
+                process_group_id: Some(proc.p__pgid),
+                session_id: Some(proc.p_sid.into()),
+                priority: Some(proc.p_priority as i64),
+                nice: Some(i64::from(proc.p_nice) - NZERO),
+                #[cfg(target_os = "netbsd")]
+                thread_count: Some(proc.p_nlwps as i64),
+                // OpenBSD's `kinfo_proc` has no thread count; counting threads means listing
+                // them with `KERN_PROC_SHOW_THREADS`.
+                #[cfg(target_os = "openbsd")]
+                thread_count: None,
+                cwd: long.then(|| get_cwd(proc.p_pid)).flatten(),
+                environ: long
+                    .then(|| get_proc_args(proc.p_pid, KERN_PROC_ENV).ok())
+                    .flatten()
+                    .map(|env| split_nul(&env)),
             })
         })
-        // Remove errors from the list - probably just processes that are gone now
-        .flat_map(|result: io::Result<_>| result.ok())
         .collect())
 }
 
@@ -260,6 +327,28 @@ fn get_proc_args(pid: i32, what: i32) -> io::Result<Vec<u8>> {
     }
 }
 
+/// The working directory, from the `kern.proc_args.<pid>.cwd` (NetBSD) or `kern.proc_cwd.<pid>`
+/// (OpenBSD) sysctl.
+fn get_cwd(pid: i32) -> Option<String> {
+    #[cfg(target_os = "netbsd")]
+    let ctl_name = [CTL_KERN, KERN_PROC_ARGS, pid, KERN_PROC_CWD];
+    #[cfg(target_os = "openbsd")]
+    let ctl_name = [CTL_KERN, libc::KERN_PROC_CWD, pid];
+    let mut buf = vec![0u8; libc::PATH_MAX as usize];
+    let mut len = buf.len();
+    // SAFETY: `buf` is writable for `len` bytes.
+    check(unsafe {
+        sysctl_get(
+            ctl_name.as_ptr(),
+            ctl_name.len() as u32,
+            buf.as_mut_ptr().cast(),
+            &mut len,
+        )
+    })
+    .ok()?;
+    c_string(buf.get(..len)?)
+}
+
 /// For getting simple values from the sysctl interface
 ///
 /// # Safety
@@ -299,71 +388,22 @@ fn get_pagesize() -> io::Result<libc::c_int> {
     unsafe { get_ctl(&[CTL_HW, HW_PAGESIZE]) }
 }
 
-impl ProcessInfo {
-    /// PID of process
-    pub fn pid(&self) -> i32 {
-        self.pid
-    }
-
-    /// Parent PID of process
-    pub fn ppid(&self) -> i32 {
-        self.ppid
-    }
-
-    /// Name of command
-    pub fn name(&self) -> String {
-        self.argv
-            .split(|b| *b == 0)
-            .next()
-            .map(String::from_utf8_lossy)
-            .unwrap_or_default()
-            .into_owned()
-    }
-
-    /// Full name of command, with arguments
-    pub fn command(&self) -> String {
-        if let Some(last_nul) = self.argv.iter().rposition(|b| *b == 0) {
-            // The command string is NUL separated
-            // Take the string up to the last NUL, then replace the NULs with spaces
-            String::from_utf8_lossy(&self.argv[0..last_nul]).replace("\0", " ")
-        } else {
-            "".into()
-        }
-    }
-
-    /// Get the status of the process
-    pub fn status(&self) -> String {
-        // see sys/proc.h (OpenBSD), sys/lwp.h (NetBSD)
-        // the names given here are the NetBSD ones, starting with LS*, but the OpenBSD ones are
-        // the same, just starting with S* instead
-        match self.stat {
-            1 /* LSIDL */ => "",
-            2 /* LSRUN */ => "Waiting",
-            3 /* LSSLEEP */ => "Sleeping",
-            4 /* LSSTOP */ => "Stopped",
-            5 /* LSZOMB */ => "Zombie",
-            #[cfg(target_os = "openbsd")] // removed in NetBSD
-            6 /* LSDEAD */ => "Dead",
-            7 /* LSONPROC */ => "Running",
-            #[cfg(target_os = "netbsd")] // doesn't exist in OpenBSD
-            8 /* LSSUSPENDED */ => "Suspended",
-            _ => "Unknown",
-        }
-        .into()
-    }
-
-    /// CPU usage as a percent of total
-    pub fn cpu_usage(&self) -> f64 {
-        self.percent_cpu
-    }
-
-    /// Memory size in number of bytes
-    pub fn mem_size(&self) -> u64 {
-        self.mem_resident
-    }
-
-    /// Virtual memory size in bytes
-    pub fn virtual_size(&self) -> u64 {
-        self.mem_virtual
+/// Names a process state (`p_stat`), from `<sys/lwp.h>` on NetBSD and `<sys/proc.h>` on
+/// OpenBSD. The names given here are the NetBSD ones, starting with LS*; the OpenBSD ones are the
+/// same, just starting with S* instead.
+fn process_status(stat: i8) -> &'static str {
+    match stat {
+        1 /* LSIDL */ => "",
+        2 /* LSRUN */ => "Waiting",
+        3 /* LSSLEEP */ => "Sleeping",
+        4 /* LSSTOP */ => "Stopped",
+        5 /* LSZOMB */ => "Zombie",
+        // OpenBSD's zombies are SDEAD (its SZOMB is unused), which its `ps` shows as `Z`.
+        #[cfg(target_os = "openbsd")] // removed in NetBSD
+        6 /* LSDEAD */ => "Zombie",
+        7 /* LSONPROC */ => "Running",
+        #[cfg(target_os = "netbsd")] // doesn't exist in OpenBSD
+        8 /* LSSUSPENDED */ => "Suspended",
+        _ => "Unknown",
     }
 }

@@ -140,6 +140,7 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         "build",
         "branch",
         "commit_hash",
+        "build_pr",
         "build_os",
         "build_target",
         "rust_version",
@@ -167,6 +168,10 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
 
     if let Some(commit_hash) = option_env!("NU_COMMIT_HASH") {
         record.push("commit_hash", Value::string(commit_hash, span));
+    }
+
+    if let Some(pr) = option_env!("NU_BUILD_PR") {
+        record.push("build_pr", Value::string(pr, span));
     }
 
     push_non_empty(&mut record, "build_os", build::BUILD_OS, span);
@@ -244,6 +249,15 @@ fn global_allocator() -> &'static str {
 
 #[cfg(test)]
 mod test {
+    use nu_test_support::prelude::*;
+
+    #[test]
+    fn build_pr_matches_compile_time_metadata() -> nu_test_support::Result {
+        test()
+            .run("version | get -o build_pr")
+            .expect_value_eq(option_env!("NU_BUILD_PR"))
+    }
+
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::Version;

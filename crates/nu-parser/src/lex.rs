@@ -1,4 +1,5 @@
-use nu_protocol::{ParseError, Span};
+use nu_protocol::{ParseError, Span, engine::BracketTable};
+use std::cell::{Cell, RefCell};
 
 #[path = "delimiter_diagnostics.rs"]
 mod delimiter_diagnostics;
@@ -59,6 +60,7 @@ pub(crate) struct OpenFrame {
 // A baseline token is terminated if it's not nested inside of a paired
 // delimiter and the next character is one of: `|`, `;` or any
 // whitespace.
+#[inline]
 fn is_item_terminator(
     block_level: &[OpenFrame],
     c: u8,
@@ -86,6 +88,7 @@ pub fn is_assignment_operator(bytes: &[u8]) -> bool {
 // when parsing a signature you may want to have `:` be able to separate tokens and also
 // to be handled as its own token to notify you you're about to parse a type in the example
 // `foo:bar`
+#[inline]
 fn is_special_item(block_level: &[OpenFrame], c: u8, special_tokens: &[u8]) -> bool {
     block_level.is_empty() && special_tokens.contains(&c)
 }
@@ -144,13 +147,277 @@ pub(crate) fn interp_subexpr_step<T>(stack: &mut Vec<(u8, T)>, byte: u8, open: T
     false
 }
 
-pub fn lex_item(
+/// What the lexer knows, or learns, about where groups close (see [`crate::lex_once`]).
+///
+/// A file's first lex scans every group in it, so it records where each one closes
+/// ([`RecordBrackets`]). Later lexes of parts of the file are given the resulting [`BracketTable`]
+/// and jump from an opening bracket straight past its closer. Everything else uses [`NoBrackets`],
+/// which does neither, so that instantiation of the lexer is the plain scan. The default methods
+/// neither know nor record anything.
+pub(crate) trait Brackets: Copy {
+    /// Whether [`close_of`](Self::close_of) can ever answer.
+    const JUMPS: bool = false;
+
+    /// The absolute position of the closer of the opening bracket at the absolute position given,
+    /// if it is known.
+    #[inline(always)]
+    fn close_of(self, _open: usize) -> Option<usize> {
+        None
+    }
+
+    /// The scan found that the group opened at the first absolute position given is closed at the
+    /// second.
+    #[inline(always)]
+    fn record(self, _open: usize, _close: usize) {}
+
+    /// The scan found a matched hint-relevant delimiter opened at the first absolute position and
+    /// closed at the second. Dense bracket tables intentionally ignore these extra pairs.
+    #[inline(always)]
+    fn record_hint_pair(self, _open: usize, _close: usize) {}
+
+    /// Observe bytes inside an interpolated expression. Sparse collectors can use the existing
+    /// quote/paren stack to collect additional bracket pairs without changing parser lexing.
+    #[inline(always)]
+    fn collect_interpolation_byte(self, _byte: u8, _position: usize, _stack: &[(u8, Span)]) {}
+}
+
+/// The lexer without a bracket table: every group is scanned.
+#[derive(Clone, Copy)]
+pub(crate) struct NoBrackets;
+
+impl Brackets for NoBrackets {}
+
+impl Brackets for &BracketTable {
+    const JUMPS: bool = true;
+
+    #[inline]
+    fn close_of(self, open: usize) -> Option<usize> {
+        BracketTable::close_of(self, open)
+    }
+}
+
+#[derive(Default)]
+struct DelimiterCollector {
+    pairs: Vec<(usize, usize)>,
+    interpolation_brackets: Vec<EmbeddedDelimiter>,
+    invalid: bool,
+}
+
+struct EmbeddedDelimiter {
+    expected: u8,
+    open: usize,
+    paren_depth: usize,
+}
+
+impl DelimiterCollector {
+    fn record(&mut self, open: usize, close: usize) {
+        if !self.invalid {
+            self.pairs.push((open, close));
+        }
+    }
+
+    fn invalidate(&mut self) {
+        self.invalid = true;
+        self.pairs.clear();
+        self.interpolation_brackets.clear();
+    }
+
+    fn interpolation_byte(&mut self, byte: u8, position: usize, stack: &[(u8, Span)]) {
+        if self.invalid || stack.last().is_some_and(|(expected, _)| *expected != b')') {
+            return;
+        }
+
+        // The lexer and parser have specialized handling for comments and raw strings. Do not
+        // duplicate those scanners here; leave delimiter mapping unavailable for such candidates.
+        if byte == b'#' {
+            self.invalidate();
+            return;
+        }
+
+        // A quote stack top returns above, so every remaining entry is a parenthesis.
+        let paren_depth = stack.len();
+        match byte {
+            b'[' | b'{' => self.interpolation_brackets.push(EmbeddedDelimiter {
+                expected: if byte == b'[' { b']' } else { b'}' },
+                open: position,
+                paren_depth,
+            }),
+            b']' | b'}' => {
+                let expected = byte;
+                if let Some(open) = self.interpolation_brackets.last()
+                    && open.expected == expected
+                    && open.paren_depth == paren_depth
+                {
+                    if let Some(open) = self.interpolation_brackets.pop() {
+                        self.record(open.open, position);
+                    } else {
+                        self.invalidate();
+                    }
+                } else {
+                    self.invalidate();
+                }
+            }
+            b')' if self
+                .interpolation_brackets
+                .last()
+                .is_some_and(|open| open.paren_depth >= paren_depth) =>
+            {
+                self.invalidate();
+            }
+            _ => {}
+        }
+    }
+
+    fn into_pairs(mut self) -> Vec<(usize, usize)> {
+        if !self.interpolation_brackets.is_empty() {
+            self.invalidate();
+        }
+        self.pairs
+    }
+}
+
+/// Collects matched delimiter positions without allocating an entry for every input byte.
+///
+/// Unlike [`RecordBrackets`], this collector is not used to accelerate later lexer passes. It is
+/// intended for callers that need the matched positions from one lexing pass.
+impl Brackets for &RefCell<DelimiterCollector> {
+    #[inline]
+    fn record(self, open: usize, close: usize) {
+        self.borrow_mut().record(open, close);
+    }
+
+    #[inline]
+    fn record_hint_pair(self, open: usize, close: usize) {
+        self.borrow_mut().record(open, close);
+    }
+
+    #[inline]
+    fn collect_interpolation_byte(self, byte: u8, position: usize, stack: &[(u8, Span)]) {
+        self.borrow_mut().interpolation_byte(byte, position, stack);
+    }
+}
+
+/// Rescans a token without jumping (see [`lex_item`]). It is its own type, rather than
+/// [`NoBrackets`], so that the plain lexer's scan keeps a single caller and stays inlined into it.
+#[derive(Clone, Copy)]
+struct Rescan;
+
+impl Brackets for Rescan {}
+
+/// Scans every group, recording where each closes into the `close` array of a [`BracketTable`]
+/// whose covered span starts at `start`.
+#[derive(Clone, Copy)]
+pub(crate) struct RecordBrackets<'a> {
+    pub start: usize,
+    pub close: &'a [Cell<u32>],
+}
+
+impl Brackets for RecordBrackets<'_> {
+    #[inline]
+    fn record(self, open: usize, close: usize) {
+        if let Some(entry) = open
+            .checked_sub(self.start)
+            .and_then(|index| self.close.get(index))
+        {
+            entry.set((close - self.start + 1) as u32);
+        }
+    }
+}
+
+/// Byte classes for the fast path in [`lex_item`] (see `NESTED_FAST_CLASS`).
+const CLASS_SLOW: u8 = 0;
+const CLASS_ORDINARY: u8 = 1;
+const CLASS_SPACE_TAB: u8 = 2;
+const CLASS_R: u8 = 3;
+const CLASS_NEWLINE: u8 = 4;
+
+/// Classifies bytes for the nested-content fast path of [`lex_item`].
+///
+/// While the lexer is inside a paired delimiter (and not inside a quote or comment), the only
+/// bytes that change its state machine are quotes, `#`, the delimiters themselves, `<`/`>`
+/// (signatures), `|` (closer hints) and `r` (possible raw string). Every other non-whitespace
+/// byte only records itself as the last significant byte; space and tab do nothing once real
+/// content has been seen; a newline only resets the line tracking. The table lets [`lex_item`]
+/// skip runs of such bytes with one lookup per byte instead of the full branch chain. Other
+/// ASCII whitespace (form feed) is left on the slow path because it clears `at_line_start`
+/// without being significant.
+const NESTED_FAST_CLASS: [u8; 256] = {
+    let mut table = [CLASS_ORDINARY; 256];
+    let slow: &[u8] = b"\'\"`#[]{}()<>|\x0c";
+    let mut i = 0;
+    while i < slow.len() {
+        table[slow[i] as usize] = CLASS_SLOW;
+        i += 1;
+    }
+    table[b' ' as usize] = CLASS_SPACE_TAB;
+    table[b'\t' as usize] = CLASS_SPACE_TAB;
+    table[b'r' as usize] = CLASS_R;
+    table[b'\n' as usize] = CLASS_NEWLINE;
+    table[b'\r' as usize] = CLASS_NEWLINE;
+    table
+};
+
+/// What the lexer is reading, for the few rules that depend on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LexMode {
+    /// Code.
+    Code,
+    /// A signature, where `<` and `>` nest like brackets.
+    Signature,
+    /// The inside of a list literal, without its own brackets. A `]` that closes no `[` there
+    /// would close the list's `[` before the list ends (`[1 2]]`), so it is an error instead of
+    /// part of a bare word.
+    ListItems,
+}
+
+fn lex_item<B: Brackets>(
     input: &[u8],
     curr_offset: &mut usize,
     span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
-    in_signature: bool,
+    mode: LexMode,
+    brackets: B,
+) -> (Token, Option<ParseError>) {
+    let token_start = *curr_offset;
+    let (token, err) = lex_item_scan(
+        input,
+        curr_offset,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        mode,
+        brackets,
+    );
+    if B::JUMPS && err.is_some() {
+        // A jump leaves the bookkeeping that only chooses where an error is labeled (line
+        // continuation and missing-closer hints) as it was before the skipped group. The group
+        // itself cannot contain the error, so rescanning the token without jumping reports the
+        // error exactly as the plain scan does. (A token that jumped over nothing scans the same
+        // way again.)
+        *curr_offset = token_start;
+        return lex_item_scan(
+            input,
+            curr_offset,
+            span_offset,
+            additional_whitespace,
+            special_tokens,
+            mode,
+            Rescan,
+        );
+    }
+    (token, err)
+}
+
+/// Scan one item (see [`lex_item`]), jumping over the groups whose closers `brackets` knows.
+fn lex_item_scan<B: Brackets>(
+    input: &[u8],
+    curr_offset: &mut usize,
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    mode: LexMode,
+    brackets: B,
 ) -> (Token, Option<ParseError>) {
     // Tracks the opening quote character and its span while inside a string.
     let mut quote_start: Option<(u8, Span)> = None;
@@ -204,6 +471,121 @@ pub fn lex_item(
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
 
+        // Fast paths: consume a run of bytes that cannot start or end anything in the current
+        // state, then fall through to the full state machine below for the byte that stopped
+        // the run. Each run mirrors the "plain byte" arms of that machine: non-whitespace bytes
+        // become `last_sig_char` and clear `at_line_start`, space/tab inside a paired delimiter
+        // leave the state alone, and `previous_char` tracks the last byte consumed. The bytes
+        // that open or close a string or comment still go through the slow path; only the
+        // bodies are skipped here.
+        if let Some((start, _)) = quote_start {
+            // Inside a plain (non-subexpression) part of a string only the closing quote, an
+            // escape in a double-quoted string, and `(` in an interpolated string matter; every
+            // other byte is significant content.
+            if interp_expr_level.is_empty() {
+                let run_start = *curr_offset;
+                let rest = &input[run_start..];
+                let stop = match (start, quote_is_interp) {
+                    (b'"', true) => memchr::memchr3(b'"', b'\\', b'(', rest),
+                    (b'"', false) => memchr::memchr2(b'"', b'\\', rest),
+                    (_, true) => memchr::memchr2(start, b'(', rest),
+                    (_, false) => memchr::memchr(start, rest),
+                };
+                let idx = run_start + stop.unwrap_or(rest.len());
+                if idx > run_start {
+                    last_sig_char = Some(input[idx - 1]);
+                    at_line_start = false;
+                    previous_char = Some(input[idx - 1]);
+                    *curr_offset = idx;
+                    continue;
+                }
+            }
+        } else if in_comment {
+            // A comment runs to the end of the line; its bytes change nothing but
+            // `previous_char`. At the top level of the token the item terminators still apply
+            // (checked by the slow path), so the run stops at them too.
+            let run_start = *curr_offset;
+            let mut idx = run_start;
+            if block_level.is_empty() {
+                while let Some(&b) = input.get(idx) {
+                    if b == b'\n'
+                        || b == b'\r'
+                        || is_item_terminator(
+                            &block_level,
+                            b,
+                            additional_whitespace,
+                            special_tokens,
+                        )
+                    {
+                        break;
+                    }
+                    idx += 1;
+                }
+            } else {
+                let rest = &input[run_start..];
+                idx += memchr::memchr2(b'\n', b'\r', rest).unwrap_or(rest.len());
+            }
+            if idx > run_start {
+                previous_char = Some(input[idx - 1]);
+                *curr_offset = idx;
+                continue;
+            }
+        } else {
+            let run_start = *curr_offset;
+            let mut idx = run_start;
+            let mut last_ordinary = None;
+            if block_level.is_empty() {
+                // Top level of the token: whitespace, `;` and the caller's extra whitespace or
+                // special bytes end the token, so a run stops at any of them (the slow path then
+                // decides how). `|` and `#` are already in the slow class.
+                while let Some(&b) = input.get(idx) {
+                    let ordinary = match NESTED_FAST_CLASS[b as usize] {
+                        CLASS_ORDINARY => true,
+                        CLASS_R => input.get(idx + 1) != Some(&b'#'),
+                        _ => false,
+                    };
+                    if !ordinary
+                        || b == b';'
+                        || additional_whitespace.contains(&b)
+                        || special_tokens.contains(&b)
+                    {
+                        break;
+                    }
+                    last_ordinary = Some(b);
+                    idx += 1;
+                }
+            } else {
+                while let Some(&b) = input.get(idx) {
+                    match NESTED_FAST_CLASS[b as usize] {
+                        CLASS_ORDINARY => last_ordinary = Some(b),
+                        CLASS_SPACE_TAB => {}
+                        CLASS_R if input.get(idx + 1) != Some(&b'#') => last_ordinary = Some(b),
+                        // Same line bookkeeping as the newline arm below; inside a delimiter a
+                        // newline never ends the token. `\r\n` is committed once, on the `\n`.
+                        CLASS_NEWLINE if b == b'\n' || input.get(idx + 1) != Some(&b'\n') => {
+                            let last_sig = last_ordinary.or(last_sig_char);
+                            prev_line_continue = last_sig.is_some_and(continues_onto_next_line);
+                            at_line_start = true;
+                            last_sig_char = None;
+                            last_ordinary = None;
+                        }
+                        CLASS_NEWLINE => {}
+                        _ => break,
+                    }
+                    idx += 1;
+                }
+            }
+            if idx > run_start {
+                if let Some(b) = last_ordinary {
+                    last_sig_char = Some(b);
+                    at_line_start = false;
+                }
+                previous_char = Some(input[idx - 1]);
+                *curr_offset = idx;
+                continue;
+            }
+        }
+
         if let Some((start, open_span)) = quote_start {
             if !interp_expr_level.is_empty() {
                 // Inside a subexpression of an interpolated string; the shared
@@ -211,6 +593,15 @@ pub fn lex_item(
                 // same rules, so the token ends where the parser ends the
                 // string.
                 let open = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
+                brackets.collect_interpolation_byte(
+                    c,
+                    span_offset + *curr_offset,
+                    &interp_expr_level,
+                );
+                let matched_open = interp_expr_level
+                    .last()
+                    .filter(|(expected, _)| *expected == c)
+                    .map(|(_, open)| open.start);
                 if interp_subexpr_step(&mut interp_expr_level, c, open)
                     && input.get(*curr_offset + 1).is_some()
                 {
@@ -220,6 +611,9 @@ pub fn lex_item(
                     previous_char = Some(c);
                     at_line_start = false;
                     continue;
+                }
+                if let Some(open) = matched_open {
+                    brackets.record_hint_pair(open, span_offset + *curr_offset);
                 }
                 last_sig_char = Some(c);
                 at_line_start = false;
@@ -263,6 +657,7 @@ pub fn lex_item(
             // string, we're done with the current string.
             if c == start {
                 // Also need to check to make sure we aren't escaped
+                brackets.record_hint_pair(open_span.start, span_offset + *curr_offset);
                 quote_start = None;
             } else if quote_is_interp && c == b'(' {
                 // An unescaped `(` in an interpolated string starts a
@@ -278,10 +673,10 @@ pub fn lex_item(
             at_line_start = false;
         } else if c == b'#' && !in_comment {
             // To start a comment, It either need to be the first character of the token or prefixed with whitespace.
+            // Only ASCII whitespace counts: the bytes 0x85 and 0xA0 end UTF-8 characters such as
+            // `à`, and `[voilà#tag]` is not a comment.
             in_comment = previous_char
-                .map(char::from)
-                .map(char::is_whitespace)
-                .unwrap_or(true);
+                .is_none_or(|previous| previous.is_ascii() && char::from(previous).is_whitespace());
         } else if c == b'\n' || c == b'\r' {
             in_comment = false;
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
@@ -310,6 +705,22 @@ pub fn lex_item(
             quote_is_interp = c != b'`' && previous_char == Some(b'$');
             last_sig_char = Some(c);
             at_line_start = false;
+        } else if B::JUMPS
+            && mode != LexMode::Signature
+            && (c == b'[' || c == b'{' || c == b'(')
+            && let Some(close) = brackets.close_of(span_offset + *curr_offset)
+            && close - span_offset < input.len()
+        {
+            // The table knows where this group closes and the closer is in this input: skip the
+            // group, leaving the state the scan would leave after consuming the closer. Signature
+            // lexing never jumps, because there `<` and `>` nest too and can change where a group
+            // closes.
+            let close = close - span_offset;
+            *curr_offset = close + 1;
+            previous_char = Some(input[close]);
+            last_sig_char = previous_char;
+            at_line_start = false;
+            continue;
         } else if c == b'[' {
             let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
             block_level.push(OpenFrame {
@@ -318,7 +729,7 @@ pub fn lex_item(
             });
             last_sig_char = Some(c);
             at_line_start = false;
-        } else if c == b'<' && in_signature {
+        } else if c == b'<' && mode == LexMode::Signature {
             let open_span = Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1);
             block_level.push(OpenFrame {
                 kind: BlockKind::AngleBracket,
@@ -326,7 +737,7 @@ pub fn lex_item(
             });
             last_sig_char = Some(c);
             at_line_start = false;
-        } else if c == b'>' && in_signature {
+        } else if c == b'>' && mode == LexMode::Signature {
             if let Some(OpenFrame {
                 kind: BlockKind::AngleBracket,
                 ..
@@ -337,14 +748,14 @@ pub fn lex_item(
             last_sig_char = Some(c);
             at_line_start = false;
         } else if c == b']' {
-            // Closing `]` — pop matching `[`, else real mismatch if another opener is open.
-            if let Some(OpenFrame {
-                kind: BlockKind::SquareBracket,
-                ..
-            }) = block_level.last()
+            // Closing `]` — pop matching `[`, else real mismatch if another opener is open. A
+            // stray `]` in a bare word (`a]`, the glob `[]]*`) is allowed, except inside a list,
+            // where it closes the list early: `[1 2]]` would otherwise parse as `[1, "2]"]`.
+            if let Some(frame) =
+                block_level.pop_if(|frame| matches!(frame.kind, BlockKind::SquareBracket))
             {
-                let _ = block_level.pop();
-            } else if !block_level.is_empty() {
+                brackets.record(frame.open_span.start, span_offset + *curr_offset);
+            } else if !block_level.is_empty() || mode == LexMode::ListItems {
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
                 let close_span = Span::new(span.end - 1, span.end);
@@ -383,12 +794,10 @@ pub fn lex_item(
             at_line_start = false;
         } else if c == b'}' {
             // Closing `}` — pop matching `{`, else real mismatch against stack top.
-            if let Some(OpenFrame {
-                kind: BlockKind::CurlyBracket,
-                ..
-            }) = block_level.last()
+            if let Some(frame) =
+                block_level.pop_if(|frame| matches!(frame.kind, BlockKind::CurlyBracket))
             {
-                let _ = block_level.pop();
+                brackets.record(frame.open_span.start, span_offset + *curr_offset);
             } else {
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
@@ -413,12 +822,9 @@ pub fn lex_item(
             at_line_start = false;
         } else if c == b')' {
             // Closing `)` — pop matching `(`, else real mismatch against stack top.
-            if let Some(OpenFrame {
-                kind: BlockKind::Paren,
-                ..
-            }) = block_level.last()
+            if let Some(frame) = block_level.pop_if(|frame| matches!(frame.kind, BlockKind::Paren))
             {
-                let _ = block_level.pop();
+                brackets.record(frame.open_span.start, span_offset + *curr_offset);
             } else {
                 *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
@@ -710,11 +1116,21 @@ fn lex_raw_string(
         *curr_offset += 1
     }
     if !matches {
+        // Report it like any other unclosed string, with the closer this raw string needs.
         let mut expected = '\''.to_string();
         expected.push_str(&"#".repeat(prefix_sharp_cnt));
-        return Err(ParseError::UnexpectedEof(
+        let opener = Span::new(
+            span_offset + start,
+            span_offset + start + prefix_sharp_cnt + 2,
+        );
+        // Label the last byte, as the other unclosed strings do.
+        let end = span_offset + *curr_offset;
+        return Err(unclosed_from_open(
+            input,
+            span_offset,
             expected,
-            Span::new(span_offset + *curr_offset - 1, span_offset + *curr_offset),
+            opener,
+            Span::new(end - 1, end),
         ));
     }
     Ok(())
@@ -738,8 +1154,9 @@ pub fn lex_signature(
         additional_whitespace,
         special_tokens,
         skip_comment,
-        true,
+        LexMode::Signature,
         None,
+        NoBrackets,
     );
     (state.output, state.error)
 }
@@ -764,14 +1181,34 @@ pub fn lex_n_tokens(
     skip_comment: bool,
     max_tokens: usize,
 ) -> isize {
+    lex_n_tokens_with(
+        state,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        max_tokens,
+        NoBrackets,
+    )
+}
+
+/// [`lex_n_tokens`], jumping over the groups whose closers `brackets` knows.
+pub(crate) fn lex_n_tokens_with<B: Brackets>(
+    state: &mut LexState,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+    max_tokens: usize,
+    brackets: B,
+) -> isize {
     let n_tokens = state.output.len();
     lex_internal(
         state,
         additional_whitespace,
         special_tokens,
         skip_comment,
-        false,
+        LexMode::Code,
         Some(max_tokens),
+        brackets,
     );
     // If this lex_internal call reached the end of the input, there may now be fewer tokens
     // in the output than before.
@@ -791,9 +1228,86 @@ pub fn lex(
     special_tokens: &[u8],
     skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
+    lex_with(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        NoBrackets,
+    )
+}
+
+/// Lex input and return positions of matched `()`, `[]`, `{}`, and ordinary quote delimiters.
+///
+/// Positions use the same absolute coordinates as token spans: `span_offset` is added to each
+/// input-relative byte position. The pairs are reported in closing-delimiter order. Brackets
+/// inside ordinary string literal contents and comments are ignored, while delimiter pairs inside
+/// interpolated-string subexpressions are reported, including nested `[]` and `{}` pairs. Quote
+/// pairs include single, double, and backtick strings, including quotes in interpolated
+/// subexpressions. Delimiter crossings or a `)` that crosses an open `[]`/`{}` make the
+/// interpolation mapping unavailable. Raw string boundaries are not reported because their
+/// closing delimiter also includes `#` bytes. Since comment and raw string syntax inside
+/// interpolation needs more context than the shared quote/paren scanner provides, the collector
+/// returns no pairs for an interpolation expression containing an unquoted `#` or `r#`.
+///
+/// Callers that need the result for a safety decision should reject the input when the returned
+/// parse error is `Some`, since the pair list may then describe only the portion lexed before the
+/// error.
+pub fn lex_with_delimiter_pairs(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+) -> (Vec<Token>, Option<ParseError>, Vec<(usize, usize)>) {
+    let pairs = RefCell::new(DelimiterCollector::default());
+    let (tokens, error) = lex_with(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        &pairs,
+    );
+    (tokens, error, pairs.into_inner().into_pairs())
+}
+
+/// [`lex`], jumping over the groups whose closers `brackets` knows.
+pub(crate) fn lex_with<B: Brackets>(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+    brackets: B,
+) -> (Vec<Token>, Option<ParseError>) {
+    lex_in_mode(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        LexMode::Code,
+        brackets,
+    )
+}
+
+/// [`lex_with`], reading `input` as `mode` says.
+pub(crate) fn lex_in_mode<B: Brackets>(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+    mode: LexMode,
+    brackets: B,
+) -> (Vec<Token>, Option<ParseError>) {
     let mut state = LexState {
         input,
-        output: Vec::new(),
+        // Rough token density of Nushell source; avoids most regrowth of the output while
+        // keeping the small inputs the parser re-lexes constantly at a single allocation.
+        output: Vec::with_capacity((input.len() / 8).max(4)),
         error: None,
         span_offset,
     };
@@ -802,20 +1316,21 @@ pub fn lex(
         additional_whitespace,
         special_tokens,
         skip_comment,
-        false,
+        mode,
         None,
+        brackets,
     );
     (state.output, state.error)
 }
 
-fn lex_internal(
+fn lex_internal<B: Brackets>(
     state: &mut LexState,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
     skip_comment: bool,
-    // within signatures we want to treat `<` and `>` specially
-    in_signature: bool,
+    mode: LexMode,
     max_tokens: Option<usize>,
+    brackets: B,
 ) {
     let initial_output_len = state.output.len();
 
@@ -897,8 +1412,8 @@ fn lex_internal(
 
             if !is_complete && state.error.is_none() {
                 state.error = Some(ParseError::ExtraTokens(Span::new(
-                    curr_offset,
-                    curr_offset + 1,
+                    state.span_offset + curr_offset,
+                    state.span_offset + curr_offset + 1,
                 )));
             }
             let idx = curr_offset;
@@ -925,20 +1440,26 @@ fn lex_internal(
             // comment. The comment continues until the next newline.
             let mut start = curr_offset;
 
-            while let Some(input) = state.input.get(curr_offset) {
-                if *input == b'\n' {
-                    if !skip_comment {
-                        state.output.push(Token::new(
-                            TokenContents::Comment,
-                            Span::new(state.span_offset + start, state.span_offset + curr_offset),
-                        ));
-                    }
-                    start = curr_offset;
-
-                    break;
+            // The comment ends at the newline, which is left for the main loop to turn into
+            // an `Eol` token.
+            if let Some(newline) = memchr::memchr(b'\n', &state.input[curr_offset..]) {
+                let span_end = if state.input[curr_offset + newline - 1] == b'\r' {
+                    curr_offset + newline - 1
                 } else {
-                    curr_offset += 1;
+                    curr_offset + newline
+                };
+
+                curr_offset += newline;
+
+                if !skip_comment {
+                    state.output.push(Token::new(
+                        TokenContents::Comment,
+                        Span::new(state.span_offset + start, state.span_offset + span_end),
+                    ));
                 }
+                start = curr_offset;
+            } else {
+                curr_offset = state.input.len();
             }
             if start != curr_offset && !skip_comment {
                 state.output.push(Token::new(
@@ -956,7 +1477,8 @@ fn lex_internal(
                 state.span_offset,
                 additional_whitespace,
                 special_tokens,
-                in_signature,
+                mode,
+                brackets,
             );
             if state.error.is_none() {
                 state.error = err;
@@ -973,4 +1495,102 @@ fn is_redirection(token: &[u8]) -> bool {
         token,
         b"o>" | b"out>" | b"e>" | b"err>" | b"o+e>" | b"e+o>" | b"out+err>" | b"err+out>"
     )
+}
+
+#[cfg(test)]
+mod delimiter_pair_tests {
+    use super::{lex, lex_with_delimiter_pairs};
+
+    #[test]
+    fn delimiter_pairs_are_sparse_nested_and_ignore_string_contents() {
+        let input = br#"f(([1], {x: ")"}))"#;
+        let (tokens, error, pairs) = lex_with_delimiter_pairs(input, 40, b"", b"", false);
+
+        assert!(error.is_none());
+        assert_eq!(tokens, lex(input, 40, b"", b"", false).0);
+        assert_eq!(
+            pairs,
+            vec![(43, 45), (52, 54), (48, 55), (42, 56), (41, 57)]
+        );
+        assert_eq!(&input[pairs[0].0 - 40..=pairs[0].1 - 40], b"[1]");
+        assert_eq!(&input[pairs[1].0 - 40..=pairs[1].1 - 40], b"\")\"");
+        assert_eq!(&input[pairs[2].0 - 40..=pairs[2].1 - 40], br#"{x: ")"}"#);
+    }
+
+    #[test]
+    fn delimiter_pairs_return_the_lexer_error_for_ambiguous_input() {
+        let (_, error, _) = lex_with_delimiter_pairs(b"f([)]", 0, b"", b"", false);
+
+        assert!(error.is_some());
+    }
+
+    #[test]
+    fn raw_string_boundaries_are_not_reported_as_quote_pairs() {
+        let (_, error, pairs) = lex_with_delimiter_pairs(b"r#'raw)'#", 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn interpolated_subexpression_pairs_follow_quote_escape_rules() {
+        let input = br#"$"x (f("inner \" ) still")) y""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 100, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(107, 124), (106, 125), (104, 126), (101, 129)]);
+        assert_eq!(&input[17..18], b")");
+        assert_eq!(&input[15..16], b"\"");
+    }
+
+    #[test]
+    fn interpolated_square_brackets_are_reported() {
+        let input = br#"echo $"([1 2] | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(8, 12), (7, 22), (6, 23)]);
+
+        let input = br#"echo $"([{x: 1}] | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(9, 14), (8, 15), (7, 25), (6, 26)]);
+    }
+
+    #[test]
+    fn interpolated_brackets_ignore_quoted_fake_closers() {
+        let input = br#"echo $"([")]} ", 1] | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert_eq!(pairs, vec![(9, 14), (8, 18), (7, 28), (6, 29)]);
+    }
+
+    #[test]
+    fn mismatched_interpolated_brackets_are_not_reported_as_pairs() {
+        let input = br#"echo $"([1} | length)""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
+
+        let input = br#"echo $"([)]""#;
+        let (_, error, pairs) = lex_with_delimiter_pairs(input, 0, b"", b"", true);
+
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn comments_and_raw_strings_in_interpolation_disable_pair_collection() {
+        let commented = b"$\"x ([1] # comment\n)\"";
+        let (_, _error, pairs) = lex_with_delimiter_pairs(commented, 0, b"", b"", true);
+        assert!(pairs.is_empty());
+
+        let raw = b"$\"x (r#'raw ]'#)\"";
+        let (_, error, pairs) = lex_with_delimiter_pairs(raw, 0, b"", b"", true);
+        assert!(error.is_none());
+        assert!(pairs.is_empty());
+    }
 }

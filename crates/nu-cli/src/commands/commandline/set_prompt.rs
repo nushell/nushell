@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::PromptSegment;
+use nu_protocol::engine::PromptContents;
 
 #[derive(Clone)]
 pub struct CommandlineSetPrompt;
@@ -18,36 +18,42 @@ impl Command for CommandlineSetPrompt {
             .optional(
                 "prompt",
                 SyntaxShape::String,
-                "The rendered prompt text to display, i.e. `$env.PROMPT_COMMAND`. If left-out, we read from pipeline input.",
+                "The rendered prompt text to display, i.e. `$env.config.prompt.left`. If left-out, we read from pipeline input.",
             )
             .named(
                 "right",
                 SyntaxShape::String,
-                "Text for the right prompt, i.e. `$env.PROMPT_COMMAND_RIGHT`.",
+                "Text for the right prompt, i.e. `$env.config.prompt.right`.",
                 Some('r'),
             )
             .named(
                 "indicator",
                 SyntaxShape::String,
-                "Text for the prompt indicator in the default/emacs edit mode, i.e. `$env.PROMPT_INDICATOR`.",
+                "Text for the prompt indicator in the default/emacs edit mode, i.e. `$env.config.prompt.indicator`.",
                 Some('i'),
             )
             .named(
                 "vi-insert",
                 SyntaxShape::String,
-                "Text for the prompt indicator in vi insert mode, i.e. `$env.PROMPT_INDICATOR_VI_INSERT`.",
+                "Text for the prompt indicator in vi insert mode, i.e. `$env.config.prompt.vi_insert`.",
                 None,
             )
             .named(
                 "vi-normal",
                 SyntaxShape::String,
-                "Text for the prompt indicator in vi normal mode, i.e. `$env.PROMPT_INDICATOR_VI_NORMAL`.",
+                "Text for the prompt indicator in vi normal mode, i.e. `$env.config.prompt.vi_normal`.",
+                None,
+            )
+            .named(
+                "vi-visual",
+                SyntaxShape::String,
+                "Text for the prompt indicator in vi visual mode, i.e. `$env.config.prompt.vi_visual`.",
                 None,
             )
             .named(
                 "multiline",
                 SyntaxShape::String,
-                "Text for the multiline continuation indicator, i.e. `$env.PROMPT_MULTILINE_INDICATOR`.",
+                "Text for the multiline continuation indicator, i.e. `$env.config.prompt.multiline`.",
                 Some('m'),
             )
             .category(Category::Core)
@@ -63,10 +69,14 @@ streaming prompts: we render the prompt as we know it up front, and each
 `commandline set-prompt` updates our idea of what the prompt "is" for the
 segments that have finished computing. The line and cursor are preserved.
 
-`--indicator` sets only the default/emacs indicator. Use `--vi-insert` and
-`--vi-normal` to set the vi mode indicators independently.
+`--indicator` sets only the default/emacs indicator. Use `--vi-insert`,
+`--vi-normal` and `--vi-visual` to set the vi mode indicators independently.
 
-The pushed prompt lasts only until the next prompt is drawn.
+The pushed prompt lasts only until the next prompt is drawn. The exception is a
+push from code that runs while the next prompt is built (a `pre_prompt` or
+`env_change` hook, or a prompt closure such as `$env.config.prompt.left`), or from a
+job that code starts: it shows on that prompt even if it lands before the prompt
+is drawn.
 
 meant for REPL sessions only"#
     }
@@ -88,6 +98,7 @@ meant for REPL sessions only"#
         let indicator = call.get_flag::<String>(engine_state, stack, "indicator")?;
         let vi_insert = call.get_flag::<String>(engine_state, stack, "vi-insert")?;
         let vi_normal = call.get_flag::<String>(engine_state, stack, "vi-normal")?;
+        let vi_visual = call.get_flag::<String>(engine_state, stack, "vi-visual")?;
         let multiline = call.get_flag::<String>(engine_state, stack, "multiline")?;
 
         // Prefer the positional argument; fall back to the pipeline input so
@@ -108,28 +119,22 @@ meant for REPL sessions only"#
             || indicator.is_some()
             || vi_insert.is_some()
             || vi_normal.is_some()
+            || vi_visual.is_some()
             || multiline.is_some()
         {
-            engine_state.prompt_state.apply(|contents| {
-                if let Some(content) = left {
-                    contents.apply_segment_override(PromptSegment::Left, content);
-                }
-                if let Some(content) = right {
-                    contents.apply_segment_override(PromptSegment::Right, content);
-                }
-                if let Some(content) = indicator {
-                    contents.apply_segment_override(PromptSegment::Indicator, content);
-                }
-                if let Some(content) = vi_insert {
-                    contents.apply_segment_override(PromptSegment::ViInsert, content);
-                }
-                if let Some(content) = vi_normal {
-                    contents.apply_segment_override(PromptSegment::ViNormal, content);
-                }
-                if let Some(content) = multiline {
-                    contents.apply_segment_override(PromptSegment::Multiline, content);
-                }
-            });
+            let pushed = PromptContents {
+                left: left.map(Into::into),
+                right: right.map(Into::into),
+                indicator: indicator.map(Into::into),
+                vi_insert: vi_insert.map(Into::into),
+                vi_normal: vi_normal.map(Into::into),
+                vi_visual: vi_visual.map(Into::into),
+                multiline: multiline.map(Into::into),
+                ..Default::default()
+            };
+            engine_state
+                .prompt_state
+                .apply(pushed, engine_state.current_job.root);
         }
 
         Ok(Value::nothing(head).into_pipeline_data())
@@ -153,8 +158,8 @@ meant for REPL sessions only"#
                 result: None,
             },
             Example {
-                example: r#"job spawn { sleep 1sec; commandline set-prompt --vi-insert ": " --vi-normal "n " }"#,
-                description: "Replace the vi insert and normal mode indicators independently.",
+                example: r#"job spawn { sleep 1sec; commandline set-prompt --vi-insert "i " --vi-normal "n " --vi-visual "v " }"#,
+                description: "Replace the vi insert, normal and visual mode indicators independently.",
                 result: None,
             },
             Example {

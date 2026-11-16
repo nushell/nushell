@@ -61,7 +61,7 @@ impl Command for Cd {
                 } else {
                     // Trim whitespace from the end of path.
                     let path_no_whitespace =
-                        &v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+                        v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
                     // If `--physical` is specified, canonicalize the path; otherwise expand the path.
                     if physical {
@@ -154,6 +154,11 @@ impl Command for Cd {
             Example {
                 description: "Move two directories up in the tree (the parent directory's parent). Additional dots can be added for additional levels.",
                 example: "cd ...",
+                result: None,
+            },
+            Example {
+                description: "On Windows, switch to drive D:. Stays put if already on D:, otherwise goes to the current directory of D: inherited from the parent process, or its root.",
+                example: "cd d:",
                 result: None,
             },
             Example {

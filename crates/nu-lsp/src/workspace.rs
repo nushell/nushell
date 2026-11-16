@@ -49,7 +49,9 @@ fn find_nu_scripts_in_folder(folder_uri: &Uri) -> Result<Vec<std::path::PathBuf>
         let iter = nu_glob::dc_glob::glob_from(&path, "**/*.nu")
             .map_err(|err| miette!(err.to_string()))?;
         for entry in iter {
-            out.push(entry.map_err(|err| miette!(err.to_string()))?);
+            // dc-glob returns paths relative to the folder it walked; a file URI needs the
+            // absolute path the legacy backend returns.
+            out.push(path.join(entry.map_err(|err| miette!(err.to_string()))?));
         }
     } else {
         let pattern = format!("{}/**/*.nu", path.to_string_lossy());
@@ -1036,7 +1038,7 @@ mod tests {
                         serde_json::json!({
                                 "contents": {
                                 "kind": "markdown",
-                                "value": "\n---\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                                "value": "\n\n---\n### Usage \n```nu\n  foo str {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                             }
                         }),
                     )

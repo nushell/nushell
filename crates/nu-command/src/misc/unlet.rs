@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct DeleteVar;
@@ -10,6 +11,11 @@ impl Command for DeleteVar {
 
     fn description(&self) -> &str {
         "Delete variables from nushell memory, making them unrecoverable."
+    }
+
+    fn extra_description(&self) -> &str {
+        "A constant is hidden instead: it can't be used for the rest of the block, but code that \
+         used it before the `unlet` keeps its value."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -27,15 +33,18 @@ impl Command for DeleteVar {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Compiled specially by the IR compiler (`compile_unlet`). This path is never used
-        // when running in IR mode.
-        eprintln!(
-            "Tried to execute 'run' for the 'unlet' command: this code path should never be reached in IR mode"
-        );
-        unreachable!()
+        // The IR compiler turns a direct `unlet` call into instructions (`compile_unlet`). This
+        // only runs for an indirect call, like `%($name)` or a plugin's `call_decl`, which
+        // passes values rather than variables.
+        Err(GenericError::new(
+            "Can't call `unlet` indirectly",
+            "`unlet` deletes the variables written in its call, like `unlet $x`",
+            call.head,
+        )
+        .into())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -48,6 +57,11 @@ impl Command for DeleteVar {
             Example {
                 example: "let x = 1; let y = 2; unlet $x $y",
                 description: "Delete multiple variables from memory.",
+                result: None,
+            },
+            Example {
+                example: "const x = 1; def f [] { $x }; unlet $x; f",
+                description: "Hide a constant. A command defined before the `unlet` keeps its value.",
                 result: None,
             },
             Example {

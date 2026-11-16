@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
 fn length_columns_in_cal_table() -> Result {
@@ -43,7 +44,10 @@ fn length_propagates_error_values_in_stream() -> Result {
 
 #[test]
 fn length_propagates_explicit_closures_errors_in_stream() -> Result {
-    test()
+    let err = test()
         .run("1..10 | each {|n| error make { msg: 'boom' } } | length")
-        .expect_error_code_eq("nu::shell::eval_block_with_input")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
+    assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
+    Ok(())
 }

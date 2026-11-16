@@ -119,9 +119,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                 Err(reason) => Value::error(
                     ShellError::CantConvert {
                         to_type: "float".to_string(),
-                        from_type: reason.to_string(),
+                        from_type: "string".to_string(),
                         span,
-                        help: None,
+                        help: Some(reason.to_string()),
                     },
                     span,
                 ),

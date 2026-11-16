@@ -1,6 +1,26 @@
 use nu_protocol::{Span, Spanned, ast::*, engine::StateWorkingSet};
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    hash::Hash,
+};
 
 pub(crate) const PERCENT_FORCED_BUILTIN_PARSER_INFO: &str = "percent_forced_builtin";
+
+/// Record that `name` is used at `span`, and give the span of its first use if it was used
+/// before. Callers report a repeated record field, table column or parameter with their own error.
+pub(crate) fn earlier_use<T: Eq + Hash>(
+    uses: &mut HashMap<T, Span>,
+    name: T,
+    span: Span,
+) -> Option<Span> {
+    match uses.entry(name) {
+        Entry::Occupied(first) => Some(*first.get()),
+        Entry::Vacant(entry) => {
+            entry.insert(span);
+            None
+        }
+    }
+}
 
 /// three dots b"..."
 pub(crate) const SPREAD_OPERATOR: &[u8; 3] = b"...";
@@ -39,7 +59,26 @@ pub fn garbage_pipeline(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pi
 }
 
 fn is_identifier_byte(b: &u8) -> bool {
-    !b".[({+-*^%/=!<>&|".contains(b)
+    // A `match` rather than a search of the list of these bytes: this runs for every byte of
+    // every word the parser checks for being a variable name.
+    !matches!(
+        b,
+        b'.' | b'['
+            | b'('
+            | b'{'
+            | b'+'
+            | b'-'
+            | b'*'
+            | b'^'
+            | b'%'
+            | b'/'
+            | b'='
+            | b'!'
+            | b'<'
+            | b'>'
+            | b'&'
+            | b'|'
+    )
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
@@ -70,5 +109,21 @@ pub fn trim_quotes_str(s: &str) -> &str {
         | [ b'"', ..,  b'"']
         | [ b'`', ..,  b'`'] => &s[1..(s.len() - 1)],
         _ => s,
+    }
+}
+
+#[cfg(test)]
+mod identifier_tests {
+    use super::is_identifier_byte;
+
+    #[test]
+    fn identifier_bytes_exclude_exactly_the_operator_bytes() {
+        for b in 0..=u8::MAX {
+            assert_eq!(
+                is_identifier_byte(&b),
+                !b".[({+-*^%/=!<>&|".contains(&b),
+                "{b}"
+            );
+        }
     }
 }

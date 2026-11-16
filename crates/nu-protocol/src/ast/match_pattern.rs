@@ -27,10 +27,6 @@ pub enum Pattern {
     Record(Vec<(String, MatchPattern)>),
     /// List destructuring
     List(Vec<MatchPattern>),
-    /// Matching against a literal (from expression result).
-    /// Prefer [`Pattern::Value`] for new patterns; the parser const-evaluates
-    /// literal / parenthesized arms into `Value` when possible.
-    Expression(Box<Expression>),
     /// Matching against a literal (pure value), including const-evaluated expressions.
     /// Range values match by containment rather than equality.
     Value(Value),
@@ -69,11 +65,7 @@ impl Pattern {
                 }
             }
             Pattern::Rest(var_id) => output.push(*var_id),
-            Pattern::Expression(_)
-            | Pattern::Value(_)
-            | Pattern::IgnoreValue
-            | Pattern::Garbage
-            | Pattern::IgnoreRest => {}
+            Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage | Pattern::IgnoreRest => {}
         }
 
         output

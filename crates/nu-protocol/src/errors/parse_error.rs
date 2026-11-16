@@ -3,6 +3,7 @@ use crate::{Span, Type, ast::RedirectionSource, did_you_mean};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     fmt::Display,
     str::{Utf8Error, from_utf8},
 };
@@ -40,13 +41,45 @@ pub enum ParseError {
         #[label = "required parameter {0} after optional parameter"] Span,
     ),
 
+    /// A positional parameter follows the rest parameter, which takes every remaining
+    /// positional argument.
+    #[error("Positional parameter after the rest parameter.")]
+    #[diagnostic(
+        code(nu::parser::positional_after_rest),
+        help(
+            "The rest parameter takes all remaining positional arguments, so it must be the last positional parameter. Flags can still follow it."
+        )
+    )]
+    PositionalAfterRest(
+        String,
+        #[label = "parameter {0} after the rest parameter"] Span,
+    ),
+
+    /// Two parameters or flags of a signature share a name, or two flags share a short flag.
+    ///
+    /// - `0`: the repeated name as written (`a`, `--name`, `-n`)
+    /// - `1`: span of the repeat
+    /// - `2`: span of the first use
+    #[error("Duplicate parameter or flag.")]
+    #[diagnostic(
+        code(nu::parser::duplicate_parameter),
+        help(
+            "Each parameter and flag needs its own name, and each short flag its own letter. A long flag's variable replaces `-` with `_`, so `--foo-bar` and `foo_bar` clash."
+        )
+    )]
+    DuplicateParameter(
+        String,
+        #[label(primary, "`{0}` uses a name that is already taken")] Span,
+        #[label("first used here")] Span,
+    ),
+
     #[error("Unexpected end of code.")]
     #[diagnostic(code(nu::parser::unexpected_eof))]
     UnexpectedEof(String, #[label("expected closing {0}")] Span),
 
     /// A delimiter was opened but never closed.
     ///
-    /// - `0`: expected closer (e.g. `"}"`, `"]"`, `")"`)
+    /// - `0`: expected closer (e.g. `"}"`, `"]"`, `")"`, or a raw string's `'##`)
     /// - `1`: span of the **opening** delimiter
     /// - `2`: span where the closer was expected (primary — often mid-file or EOF)
     /// - `3`: help text (generic or heuristic structure hint)
@@ -56,7 +89,7 @@ pub enum ParseError {
     #[error("Unclosed delimiter.")]
     #[diagnostic(code(nu::parser::unclosed_delimiter), help("{3}"))]
     Unclosed(
-        &'static str,
+        Cow<'static, str>,
         #[label("unclosed — opens here (need `{0}`)")] Span,
         #[label(primary, "expected `{0}` here")] Span,
         String,
@@ -194,6 +227,16 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::expected_keyword))]
     CaptureOfMutableVar(#[label("capture of mutable variable")] Span),
 
+    /// A record or table literal names the same field or column twice. The parse-time
+    /// counterpart of `ShellError::ColumnDefinedTwice`, for keys written as literals.
+    #[error("Record field or table column used twice: {0}")]
+    #[diagnostic(code(nu::parser::column_defined_twice))]
+    ColumnDefinedTwice(
+        String,
+        #[label(primary, "field redefined here")] Span,
+        #[label("field first defined here")] Span,
+    ),
+
     #[error("Expected keyword.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
     ExpectedKeyword(String, #[label("expected {0}")] Span),
@@ -299,13 +342,15 @@ pub enum ParseError {
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     AliasNotValid(
-        #[label = "alias name can't be a number, a filesize, or contain #, ^, or %"] Span,
+        #[label = "alias name must not be a number, a filesize, a duration, a datetime, a binary literal or a range, contain #, ^, or %, or use whitespace other than single spaces between words"]
+         Span,
     ),
 
     #[error("Command name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     CommandDefNotValid(
-        #[label = "command name can't be a number, a filesize, or contain #, ^, or %"] Span,
+        #[label = "command name can't be a number, a filesize, a duration, a datetime, a binary literal or a range, contain #, ^, or %, or have whitespace other than single spaces between words"]
+         Span,
     ),
 
     #[error("Module not found.")]
@@ -430,8 +475,72 @@ pub enum ParseError {
     UnknownFlag(String, String, #[label = "unknown flag"] Span, String),
 
     #[error("Unknown type.")]
-    #[diagnostic(code(nu::parser::unknown_type))]
+    #[diagnostic(
+        code(nu::parser::unknown_type),
+        help(
+            "check the spelling; a type alias must be defined with `type Name = <type>` above this line, or imported with `use <module> Name`"
+        )
+    )]
     UnknownType(#[label = "unknown type"] Span),
+
+    /// A type alias was used above its `type` statement.
+    ///
+    /// ## Resolution
+    ///
+    /// Type aliases are visible from their definition onwards, like `alias` and `const`. Move the
+    /// `type` statement above the first use.
+    #[error("Type alias `{0}` is used before its definition.")]
+    #[diagnostic(
+        code(nu::parser::type_alias_used_before_definition),
+        help("move the `type` statement above its first use")
+    )]
+    TypeAliasUsedBeforeDefinition(
+        String,
+        #[label(primary, "used here")] Span,
+        #[label("defined here")] Span,
+    ),
+
+    /// The right-hand side of a `type` statement refers to the alias it defines.
+    #[error("Type alias `{0}` refers to itself.")]
+    #[diagnostic(
+        code(nu::parser::type_alias_self_reference),
+        help("type aliases can't be recursive")
+    )]
+    TypeAliasSelfReference(String, #[label("refers to itself")] Span),
+
+    /// A `type` statement tried to define a built-in type name, which the parser always reads as
+    /// the built-in type.
+    #[error("`{0}` is a built-in type.")]
+    #[diagnostic(
+        code(nu::parser::type_alias_shadows_builtin),
+        help("choose a name that isn't a built-in type")
+    )]
+    TypeAliasShadowsBuiltin(String, #[label("built-in type")] Span),
+
+    #[error("Type alias name not valid.")]
+    #[diagnostic(code(nu::parser::type_alias_name_not_valid))]
+    TypeAliasNameNotValid(
+        #[label = "a type alias name starts with a letter or `_` and continues with letters, digits, `_` and `-`"]
+         Span,
+    ),
+
+    #[error("Type alias `{0}` takes no type parameters.")]
+    #[diagnostic(code(nu::parser::type_alias_with_params))]
+    TypeAliasWithParams(String, #[label("unexpected type parameters")] Span),
+
+    /// A `type` statement has a name but no `=` after it, as in `type ls`.
+    ///
+    /// ## Resolution
+    ///
+    /// Write `type Name = <type>`. In Bash and cmd.exe, `type ls` shows what the command `ls`
+    /// is; in Nushell, that's `which ls`, and an external `type` program runs as `^type ls`.
+    #[error("Missing `=` in type alias.")]
+    #[diagnostic(code(nu::parser::type_alias_missing_equals), help("{help}"))]
+    TypeAliasMissingEquals {
+        help: String,
+        #[label("expected `=` and a type after this name")]
+        span: Span,
+    },
 
     #[error("Missing flag argument.")]
     #[diagnostic(code(nu::parser::missing_flag_param))]
@@ -596,6 +705,13 @@ pub enum ParseError {
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
 
+    /// A filesize or duration literal is outside the 64-bit range of its type.
+    ///
+    /// - `0`: the type, `filesize` or `duration`
+    #[error("Invalid literal")]
+    #[diagnostic(code(nu::parser::literal_too_large))]
+    LiteralTooLarge(String, #[label("{0} too large")] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -668,29 +784,25 @@ impl ParseError {
     }
 
     /// Build an [`Unclosed`](ParseError::Unclosed) with default help text.
-    pub fn unclosed(delimiter: &'static str, open_span: Span, end_span: Span) -> Self {
-        Self::Unclosed(
-            delimiter,
-            open_span,
-            end_span,
-            default_unclosed_help(delimiter, None),
-        )
+    pub fn unclosed(
+        delimiter: impl Into<Cow<'static, str>>,
+        open_span: Span,
+        end_span: Span,
+    ) -> Self {
+        Self::unclosed_with_hint(delimiter, open_span, end_span, None)
     }
 
     /// Build an [`Unclosed`](ParseError::Unclosed) with an optional structure hint
     /// (e.g. `record field ls`, `def foo`). Empty/`None` uses generic help.
     pub fn unclosed_with_hint(
-        delimiter: &'static str,
+        delimiter: impl Into<Cow<'static, str>>,
         open_span: Span,
         end_span: Span,
         structure_hint: Option<&str>,
     ) -> Self {
-        Self::Unclosed(
-            delimiter,
-            open_span,
-            end_span,
-            default_unclosed_help(delimiter, structure_hint),
-        )
+        let delimiter = delimiter.into();
+        let help = default_unclosed_help(&delimiter, structure_hint);
+        Self::Unclosed(delimiter, open_span, end_span, help)
     }
 
     /// Build an [`Unbalanced`](ParseError::Unbalanced) with default help text.
@@ -726,6 +838,7 @@ impl ParseError {
             ParseError::NameIsBuiltinVar(_, s) => *s,
             ParseError::NameIsKeyword(_, _, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
+            ParseError::ColumnDefinedTwice(_, s, _) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::InvalidBinaryString(s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
@@ -751,7 +864,15 @@ impl ParseError {
             ParseError::NonUtf8(s) => *s,
             ParseError::UnknownFlag(_, _, s, _) => *s,
             ParseError::RequiredAfterOptional(_, s) => *s,
+            ParseError::PositionalAfterRest(_, s) => *s,
+            ParseError::DuplicateParameter(_, s, _) => *s,
             ParseError::UnknownType(s) => *s,
+            ParseError::TypeAliasUsedBeforeDefinition(_, s, _) => *s,
+            ParseError::TypeAliasSelfReference(_, s) => *s,
+            ParseError::TypeAliasShadowsBuiltin(_, s) => *s,
+            ParseError::TypeAliasNameNotValid(s) => *s,
+            ParseError::TypeAliasWithParams(_, s) => *s,
+            ParseError::TypeAliasMissingEquals { span: s, .. } => *s,
             ParseError::MissingFlagParam(_, s) => *s,
             ParseError::OnlyLastFlagInBatchCanTakeArg(s) => *s,
             ParseError::MissingPositional(_, s, _) => *s,
@@ -789,6 +910,7 @@ impl ParseError {
             ParseError::UnexpectedRedirection { span } => *span,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
+            ParseError::LiteralTooLarge(_, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,

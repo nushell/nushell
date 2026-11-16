@@ -51,6 +51,7 @@ impl Command for ToTextLike {
             PipelineData::Empty => Ok(Value::string(String::new(), head)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
+                let value = value.unwrap_error()?;
                 let add_trailing = !no_newline
                     && match &value {
                         Value::List { vals, .. } => !vals.is_empty(),
@@ -82,6 +83,7 @@ impl Command for ToTextLike {
                             let Some(val) = iter.next() else {
                                 return Ok(false);
                             };
+                            let val = val.unwrap_error()?;
                             if first {
                                 first = false;
                             } else {
@@ -101,16 +103,16 @@ impl Command for ToTextLike {
                     )
                 } else {
                     let engine_state_clone = engine_state.clone();
-                    ByteStream::from_iter(
+                    ByteStream::from_result_iter(
                         stream.into_inner().map(move |val| {
                             let mut str = local_into_string(
                                 &engine_state_clone,
-                                val,
+                                val.unwrap_error()?,
                                 LINE_SEPARATOR_STR,
                                 serialize_types,
                             );
                             str.push_str(LINE_SEPARATOR_STR);
-                            str
+                            Ok(str)
                         }),
                         span,
                         engine_state.signals().clone(),
@@ -217,8 +219,8 @@ fn local_into_string(
             .join(separator),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
+                let block = engine_state.try_get_block(val.block_id);
+                if let Some(span) = block.and_then(|block| block.span) {
                     let contents_bytes = engine_state.get_span_contents(span);
                     let contents_string = String::from_utf8_lossy(contents_bytes);
                     contents_string.to_string()

@@ -105,7 +105,7 @@ fn metadata_set_width_priority_columns_are_wider_than_other_columns(
         Some(TABLE_CFG_BASIC_NO_INDEX),
         Some(&format!("{priority_one} {priority_two}")),
     )?;
-    let widths = parse_basic_table_column_widths(&actual);
+    let widths = parse_basic_table_column_widths(&actual, &["c0", "c1"]);
     assert_eq!(
         widths.len(),
         10,
@@ -142,11 +142,12 @@ fn single_name_priority_drops_trailing_columns_for_long_values() -> Result {
         Some(TABLE_CFG_BASIC_WITH_INDEX),
         Some("name"),
     )?;
+    // The name keeps at least a third of the width, so it wraps once instead
+    // of being squeezed, and the trailing columns are hidden to make room.
+    let name_width = parse_basic_table_column_widths(&actual, &["#", "name"])[1];
     assert!(
-        actual.contains(
-            "very_very_very_long_filename_that_should_get_priority_and_avoid_wrapping.txt"
-        ),
-        "expected full prioritized name to be visible; output was:\n{}",
+        name_width >= 140 / 3,
+        "expected the prioritized name to keep a third of the width; output was:\n{}",
         actual
     );
     assert!(
@@ -157,12 +158,13 @@ fn single_name_priority_drops_trailing_columns_for_long_values() -> Result {
     Ok(())
 }
 
-/// Parses table header cell widths for the current rendering mode.
-fn parse_basic_table_column_widths(output: &str) -> Vec<usize> {
+/// Parses the cell widths of the header line, the first line holding every
+/// header in `headers`, for the current rendering mode.
+fn parse_basic_table_column_widths(output: &str, headers: &[&str]) -> Vec<usize> {
     let header_line = output
         .lines()
-        .find(|line| line.contains("c0") && line.contains("c1"))
-        .expect("expected header line with test columns");
+        .find(|line| headers.iter().all(|header| line.contains(header)))
+        .unwrap_or_else(|| panic!("expected a header line with {headers:?}:\n{output}"));
     let separator = if header_line.contains('┃') {
         '┃'
     } else if header_line.contains('│') {

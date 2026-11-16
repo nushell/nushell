@@ -1,5 +1,5 @@
 use crate::{
-    Module, Span,
+    Module, Span, TypeAlias,
     ast::Block,
     engine::{
         CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath,
@@ -22,6 +22,7 @@ pub struct StateDelta {
     pub(super) decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Arc<Block>>,             // indexed by BlockId
     pub(super) modules: Vec<Arc<Module>>,    // indexed by ModuleId
+    pub(super) type_aliases: Vec<TypeAlias>, // indexed by TypeAliasId
     pub spans: Vec<Span>,                    // indexed by SpanId
     pub(super) doccomments: Doccomments,
     pub scope: Vec<ScopeFrame>,
@@ -47,6 +48,7 @@ impl StateDelta {
             decls: vec![],
             blocks: vec![],
             modules: vec![],
+            type_aliases: vec![],
             spans: vec![],
             scope: vec![scope_frame],
             doccomments: Doccomments::new(),
@@ -79,6 +81,10 @@ impl StateDelta {
 
     pub fn num_modules(&self) -> usize {
         self.modules.len()
+    }
+
+    pub fn num_type_aliases(&self) -> usize {
+        self.type_aliases.len()
     }
 
     pub fn last_scope_frame_mut(&mut self) -> &mut ScopeFrame {

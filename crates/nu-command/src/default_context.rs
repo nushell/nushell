@@ -47,7 +47,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Each,
             Enumerate,
             Every,
-            Filter,
             Find,
             First,
             Flatten,
@@ -131,6 +130,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Complete,
             External,
             Exec,
+            GenerateCompletions,
             NuCheck,
             RunInternal,
             Sys,
@@ -200,6 +200,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Ansi,
             AnsiLink,
+            AnsiOpt,
             AnsiStrip,
             Char,
             Decode,
@@ -326,6 +327,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             From,
             FromCsv,
+            FromDotenv,
             FromJson,
             FromMd,
             FromMsgpack,
@@ -342,6 +344,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             FromKdl,
             To,
             ToCsv,
+            ToDotenv,
             ToJson,
             ToMd,
             ToMsgpack,
@@ -387,6 +390,15 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SplitCellPath,
         };
 
+        // Record
+        bind_command! {
+            RecordCommand,
+            RecordApply,
+            RecordEach,
+            RecordWalk,
+            RecordWhere,
+        };
+
         // Semver
         bind_command! {
             Semver,
@@ -424,6 +436,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             WithEnv,
             ConfigNu,
             ConfigEnv,
+            ConfigDefault,
             ConfigFlatten,
             ConfigMeta,
             ConfigReset,
@@ -545,12 +558,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             JobUnfreeze,
         }
-
-        // Removed
-        bind_command! {
-            LetEnv,
-            DateFormat,
-        };
 
         // Stor
         #[cfg(feature = "sqlite")]

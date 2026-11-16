@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
+use url::Url;
 
 use super::query::{record_to_query_string, table_to_query_string};
 
@@ -133,6 +134,24 @@ impl Command for UrlJoin {
     }
 }
 
+/// Returns whether two query strings hold the same parameters once they are decoded, so that
+/// `a%20b` and `a+b` count as the same value. A leading `?` is ignored.
+///
+/// Decoded values are only compared when both strings read back unchanged as the query of a URL.
+/// Otherwise a raw `#`, whitespace or newline would pass here and then change the URL, so those
+/// have to match exactly.
+fn same_query(left: &str, right: &str) -> bool {
+    let left = left.strip_prefix('?').unwrap_or(left);
+    let right = right.strip_prefix('?').unwrap_or(right);
+    // Why: `foo` isn't a special scheme. For `http` the `url` crate encodes a raw `'` in the
+    // query, which would turn away queries like `ref='v1'` that `url parse` gives for other schemes.
+    let reads_back = |query: &str| {
+        Url::parse(&format!("foo://h?{query}")).is_ok_and(|url| url.query() == Some(query))
+    };
+    let decode = |query| serde_urlencoded::from_str::<Vec<(String, String)>>(query).ok();
+    left == right || (reads_back(left) && reads_back(right) && decode(left) == decode(right))
+}
+
 #[derive(Default)]
 struct UrlComponents {
     scheme: Option<String>,
@@ -214,8 +233,8 @@ impl UrlComponents {
                 qs
             };
 
-            if let Some(q) = self.query
-                && q != qs
+            if let Some(q) = &self.query
+                && !same_query(q, &qs)
             {
                 // if query is present it means that also query_span is set.
                 return Err(ShellError::IncompatibleParameters {
@@ -226,8 +245,9 @@ impl UrlComponents {
                 });
             }
 
+            // Keep the query as it was given, so `url parse | url join` keeps its encoding.
             return Ok(Self {
-                query: Some(qs),
+                query: Some(self.query.unwrap_or(qs)),
                 params_span: Some(value_span),
                 ..self
             });
@@ -264,12 +284,13 @@ impl UrlComponents {
                 ..self
             }),
             "query" => {
+                // `s` doesn't have its `?` yet, unlike the query string from params.
                 if let Some(q) = self.query
-                    && q != s
+                    && !same_query(&q, &format!("?{s}"))
                 {
                     // if query is present it means that also params_span is set.
                     return Err(ShellError::IncompatibleParameters {
-                        left_message: format!("Mismatch, query param is: {s}"),
+                        left_message: format!("Mismatch, query param is: ?{s}"),
                         left_span: value_span,
                         right_message: format!("instead query string from params is: {q}"),
                         right_span: self.params_span.unwrap_or(value_span),

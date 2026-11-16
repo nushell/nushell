@@ -7,6 +7,7 @@ use log::trace;
 use nu_cli::read_plugin_file;
 use nu_cli::{EvaluateCommandsOpts, evaluate_commands, evaluate_file, evaluate_repl};
 use nu_config::ConfigFileKind;
+use nu_engine::exit::kill_jobs_and_exit;
 use nu_protocol::{
     PipelineData, ShellError,
     engine::{EngineState, Stack},
@@ -22,7 +23,6 @@ pub(crate) fn run_commands(
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
-    entire_start_time: nu_utils::time::Instant,
 ) {
     trace!("run_commands");
 
@@ -50,6 +50,7 @@ pub(crate) fn run_commands(
         perf!("read plugins", start_time, use_color);
 
         let start_time = Instant::now();
+        nu_cli::eval_default_prompts(engine_state, &mut stack);
         // If we have an env file override *OR* we have a login shell parameter, read the env file
         if engine_state.config_dirs.env_file.is_override()
             || parsed_nu_cli_args.login_shell.is_some()
@@ -96,10 +97,7 @@ pub(crate) fn run_commands(
     }
 
     // Startup ends when the commands start running.
-    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    engine_state.generate_nu_constant();
+    engine_state.finish_startup();
 
     let start_time = Instant::now();
     let result = evaluate_commands(
@@ -118,10 +116,10 @@ pub(crate) fn run_commands(
 
     if let Err(err) = result {
         if let ShellError::Exit { code, .. } = &err {
-            std::process::exit(*code)
+            kill_jobs_and_exit(engine_state, *code)
         }
         report_shell_error(Some(&stack), engine_state, &err);
-        std::process::exit(err.exit_code().unwrap_or(0));
+        kill_jobs_and_exit(engine_state, err.exit_code().unwrap_or(0));
     }
 }
 
@@ -131,7 +129,6 @@ pub(crate) fn run_file(
     parsed_cli: command::ParsedCli,
     use_color: bool,
     input: PipelineData,
-    entire_start_time: nu_utils::time::Instant,
 ) {
     trace!("run_file");
 
@@ -157,6 +154,7 @@ pub(crate) fn run_file(
         perf!("read plugins", start_time, use_color);
 
         let start_time = Instant::now();
+        nu_cli::eval_default_prompts(engine_state, &mut stack);
         // only want to load config and env if relative argument is provided.
         if engine_state.config_dirs.env_file.is_override() {
             config_files::read_config_file(
@@ -187,10 +185,7 @@ pub(crate) fn run_file(
     }
 
     // Startup ends when the script starts running.
-    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    engine_state.generate_nu_constant();
+    engine_state.finish_startup();
 
     // Apply --table-mode / -m CLI flag override before evaluating the file
     if let Some(ref t_mode) = parsed_nu_cli_args.table_mode
@@ -214,10 +209,10 @@ pub(crate) fn run_file(
 
     if let Err(err) = result {
         if let ShellError::Exit { code, .. } = &err {
-            std::process::exit(*code)
+            kill_jobs_and_exit(engine_state, *code)
         }
         report_shell_error(Some(&stack), engine_state, &err);
-        std::process::exit(err.exit_code().unwrap_or(0));
+        kill_jobs_and_exit(engine_state, err.exit_code().unwrap_or(0));
     }
 }
 
@@ -225,7 +220,6 @@ pub(crate) fn run_repl(
     engine_state: &mut EngineState,
     mut stack: Stack,
     parsed_nu_cli_args: command::NushellCliArgs,
-    entire_start_time: nu_utils::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     trace!("run_repl");
     let start_time = nu_utils::time::Instant::now();
@@ -261,7 +255,6 @@ pub(crate) fn run_repl(
         stack,
         parsed_nu_cli_args.execute,
         parsed_nu_cli_args.no_std_lib,
-        entire_start_time,
     );
     perf!("evaluate_repl", start_time, use_color);
 
@@ -278,9 +271,11 @@ pub(crate) fn run_lsp(
     if parsed_nu_cli_args.no_config_file.is_none() {
         let mut stack = nu_protocol::engine::Stack::new();
         config_files::setup_config(&mut engine_state, &mut stack, false);
+        // The server discards this stack and evaluates on new ones.
+        engine_state.clear_runtime_overlays();
     }
 
-    let serve = nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests();
+    engine_state.finish_startup();
     perf!("lsp starting", start_time, use_color);
-    serve
+    nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()
 }

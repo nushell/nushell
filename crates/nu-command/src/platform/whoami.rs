@@ -33,7 +33,7 @@ impl Command for Whoami {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // setup the uutils error translation
-        let _ = localized_help_template("touch");
+        let _ = localized_help_template("whoami");
 
         let output = match uu_whoami::whoami() {
             Ok(username) => username.to_string_lossy().to_string(),

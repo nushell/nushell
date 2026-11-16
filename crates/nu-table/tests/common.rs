@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use nu_protocol::TrimStrategy;
+use nu_protocol::{TableIndent, TrimStrategy};
 use nu_table::{NuTable, TableTheme, string_width};
 use tabled::grid::records::vec_records::Text;
 
@@ -12,6 +12,9 @@ pub struct TestCase {
     with_index: bool,
     expand: bool,
     strategy: TrimStrategy,
+    indent: TableIndent,
+    header_on_border: bool,
+    priorities: Vec<usize>,
     termwidth: usize,
     expected: Option<String>,
 }
@@ -27,7 +30,30 @@ impl TestCase {
             with_index: false,
             expand: false,
             strategy: TrimStrategy::truncate(None),
+            indent: TableIndent::new(1, 1),
+            header_on_border: false,
+            priorities: vec![],
         }
+    }
+
+    pub fn width(mut self, termwidth: usize) -> Self {
+        self.termwidth = termwidth;
+        self
+    }
+
+    pub fn indent(mut self, indent: TableIndent) -> Self {
+        self.indent = indent;
+        self
+    }
+
+    pub fn header_on_border(mut self, on: bool) -> Self {
+        self.header_on_border = on;
+        self
+    }
+
+    pub fn priorities(mut self, columns: Vec<usize>) -> Self {
+        self.priorities = columns;
+        self
     }
 
     pub fn expected(mut self, value: Option<String>) -> Self {
@@ -92,6 +118,8 @@ pub fn create_table(data: Data, case: TestCase) -> Option<String> {
     let count_cols = data[0].len();
 
     let mut table = NuTable::new(count_rows, count_cols);
+    // The indent sets the base column widths, so it goes before the data.
+    table.set_indent(case.indent);
     for (i, row) in data.into_iter().enumerate() {
         table.set_row(i, row);
     }
@@ -100,8 +128,25 @@ pub fn create_table(data: Data, case: TestCase) -> Option<String> {
     table.set_structure(case.with_index, case.with_header, case.with_footer);
     table.set_trim(case.strategy);
     table.set_strategy(case.expand);
+    table.set_border_header(case.header_on_border);
+    table.set_width_priority_columns(&case.priorities);
 
     table.draw(case.termwidth)
+}
+
+/// The cells of one line of a bordered table: the line without its outer
+/// border characters, split at `separator`.
+pub fn split_cells(line: &str, separator: char) -> Vec<&str> {
+    let mut chars = line.chars();
+    chars.next();
+    chars.next_back();
+    chars.as_str().split(separator).collect()
+}
+
+/// Width of a table with these column widths (padding included) and
+/// one-character borders and separators.
+pub fn bordered_width(widths: &[usize]) -> usize {
+    widths.iter().sum::<usize>() + widths.len() + 1
 }
 
 pub fn create_row(count_columns: usize) -> Vec<Text<String>> {

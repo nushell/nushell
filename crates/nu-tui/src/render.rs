@@ -9,7 +9,7 @@ use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
 pub fn render(frame: &mut Frame, session: &mut Session) {
     let theme = session.theme.clone();
@@ -55,9 +55,13 @@ fn render_dialog_frame(frame: &mut Frame, session: &Session, theme: &Theme) {
             _ => None,
         })
         .unwrap_or_else(|| "tui".into());
-    frame.render_widget(Block::default().style(theme.surface()), dialog.rect);
+    // Wipe the backdrop first: the surface sets only a background, so the
+    // backdrop's muted foreground would stay under every line of text.
+    frame.render_widget(Clear, dialog.rect);
+    let border = theme.border_set(None);
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_set(border)
         .style(theme.surface())
         .border_style(theme.border(true))
         .title(format!(" {title} "))
@@ -84,7 +88,11 @@ fn render_dialog_frame(frame: &mut Frame, session: &Session, theme: &Theme) {
         width: 1,
         height: 1,
     };
-    frame.render_widget(Paragraph::new("┘").style(theme.highlight()), grip);
+    // The resize grip is the frame's own corner, highlighted.
+    frame.render_widget(
+        Paragraph::new(border.bottom_right).style(theme.highlight()),
+        grip,
+    );
 }
 
 fn render_splitter_handles(frame: &mut Frame, session: &Session, theme: &Theme) {
@@ -135,7 +143,7 @@ fn render_menu_dropdown(frame: &mut Frame, session: &Session) {
             continue;
         };
         if let Some(rect) = menu.dropdown_rect(state, *bar) {
-            menu.render_dropdown(state, rect, frame, session);
+            menu.render_dropdown(&w.id, state, rect, frame, session);
         }
     }
 }
@@ -145,10 +153,11 @@ pub fn render_to_string(session: &mut Session, width: u16, height: u16) -> Resul
     use ratatui::{Terminal, backend::TestBackend};
 
     let backend = TestBackend::new(width, height);
-    let mut terminal = Terminal::new(backend).map_err(|e| e.to_string())?;
+    // The test backend is infallible, so neither operation can return an error.
+    let mut terminal = Terminal::new(backend).unwrap_or_else(|err| match err {});
     terminal
         .draw(|frame| render(frame, session))
-        .map_err(|e| e.to_string())?;
+        .unwrap_or_else(|err| match err {});
     let buffer = terminal.backend().buffer();
     let mut output = String::new();
     for y in 0..height {

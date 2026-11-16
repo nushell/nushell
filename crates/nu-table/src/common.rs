@@ -8,6 +8,7 @@ use nu_protocol::{
     shell_error::generic::GenericError,
 };
 use nu_utils::terminal_size;
+use std::sync::Arc;
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -21,19 +22,33 @@ pub fn configure_table(
     comp: &StyleComputer,
     mode: TableMode,
 ) {
+    configure_table_with_theme(out, config, comp, mode, load_theme(mode));
+}
+
+/// [`configure_table`] with `theme`, the theme of `mode`, which many tables
+/// can share.
+pub(crate) fn configure_table_with_theme(
+    out: &mut TableOutput,
+    config: &Config,
+    comp: &StyleComputer,
+    mode: TableMode,
+    theme: impl Into<Arc<TableTheme>>,
+) {
     let with_footer = is_footer_needed(config, out);
-    let theme = load_theme(mode);
+    // Markup themes must keep the header in its own row to stay valid
+    // Markdown/reStructuredText, so never move it onto the separator.
+    let is_markup = matches!(mode, TableMode::Markdown | TableMode::Restructured);
 
     out.table.set_theme(theme);
     out.table
         .set_structure(out.with_index, out.with_header, with_footer);
     out.table.set_trim(config.table.trim.clone());
     out.table
-        .set_border_header(config.table.header_on_separator);
+        .set_border_header(config.table.header_on_separator && !is_markup);
     out.table.set_border_color(lookup_separator_color(comp));
 }
 
-fn is_footer_needed(config: &Config, out: &TableOutput) -> bool {
+pub(crate) fn is_footer_needed(config: &Config, out: &TableOutput) -> bool {
     let mut count_rows = out.table.count_rows();
     if config.table.footer_inheritance {
         count_rows = out.count_rows;

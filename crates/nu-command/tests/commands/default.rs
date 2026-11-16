@@ -227,6 +227,13 @@ fn return_closure_value() -> Result {
 }
 
 #[test]
+fn closure_from_variable_is_the_value() -> Result {
+    let outcome: Value = test().run("let c = {|| 1 }; null | default $c")?;
+    assert!(matches!(outcome, Value::Closure { .. }));
+    Ok(())
+}
+
+#[test]
 #[deps(TESTBIN_COCOCO)]
 fn lazy_output_streams() -> Result {
     let code = "default { cococo 'hello' } | describe";

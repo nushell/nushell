@@ -104,6 +104,32 @@ pub static PATH_ENV_AUTO_LOAD: RwLock<Vec<PathBuf>> = const_rwlock(Vec::new());
 #[cfg(feature = "plugin")]
 pub static PLUGIN_AUTO_LOAD: RwLock<Vec<PluginAutoLoader>> = const_rwlock(Vec::new());
 
+/// Parse `source` as the contents of the file at `path`, the way `source` parses a file: the path
+/// is pushed on the working set's file stack while it parses, so that relative `use` and `source`
+/// resolve next to it. `lex_once` turns the lexer's bracket tables
+/// ([`StateWorkingSet::lex_once`]) on or off.
+pub fn parse_file<'a>(
+    engine_state: &'a EngineState,
+    path: &Path,
+    source: &[u8],
+    lex_once: bool,
+) -> (StateWorkingSet<'a>, Arc<Block>) {
+    let mut working_set = StateWorkingSet::new(engine_state);
+    working_set.lex_once = lex_once;
+    working_set
+        .files
+        .push(path.to_path_buf(), Span::unknown())
+        .expect("a single file cannot be a circular import");
+    let block = nu_parser::parse(
+        &mut working_set,
+        Some(&path.to_string_lossy()),
+        source,
+        false,
+    );
+    working_set.files.pop();
+    (working_set, block)
+}
+
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
 /// Prefer this helper over the `nu!` macro for most tests.
@@ -922,13 +948,13 @@ impl TestResultExt for Result<Value> {
 pub trait ShellErrorExt {
     /// Tries to convert into an inner value from a [`ShellError`].
     ///
-    /// Useful if the error is expected to be a generic error that contains an inner error or a
-    /// chained error that chained another error.
+    /// Useful if the error is expected to be a generic error that contains an inner error, a
+    /// chained error that chained another error, or a [`ShellError::EvalBlockWithInput`] that
+    /// wraps a closure's error.
     ///
     /// However, this function returns [`TestErrorKind::NoInner`]
     /// - if `inner` of [`ShellError::Generic`] is empty
     /// - if `sources` of [`ShellError::ChainedError`] is empty
-    /// - if `sources` of [`ShellError::EvalBlockWithInput`] is empty
     /// - the error is none of the above types
     ///
     /// Also if multiple inner values are found a [`TestErrorKind::MultipleInner`] is returned.
@@ -938,7 +964,7 @@ pub trait ShellErrorExt {
     fn into_labeled(self) -> Result<LabeledError>;
 
     /// Extract the iterator on the sources of the [`ChainedError`] from
-    /// [`ShellError::ChainedError`], it it is one.
+    /// [`ShellError::ChainedError`], if it is one.
     fn into_chained_iter(self) -> Result<impl Iterator<Item = ShellError>>;
 
     /// Extract the error field from [`ShellError::Generic`], if it is one.
@@ -959,7 +985,7 @@ impl ShellErrorExt for ShellError {
         let iter: &mut dyn Iterator<Item = ShellError> = match self {
             ShellError::Generic(err) => &mut err.inner.into_iter(),
             ShellError::ChainedError(err) => &mut err.sources_iter(),
-            ShellError::EvalBlockWithInput { sources, .. } => &mut sources.into_iter(),
+            ShellError::EvalBlockWithInput(err) => &mut std::iter::once(*err.error),
             _ => return Err(no_inner),
         };
 

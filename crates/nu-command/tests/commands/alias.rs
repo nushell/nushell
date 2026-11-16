@@ -1,4 +1,5 @@
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[rstest]
@@ -82,6 +83,40 @@ fn alias_invalid_expression(#[case] code: &str) -> Result {
     test()
         .run(code)
         .expect_error_code_eq("nu::parser::cant_alias_expression")
+}
+
+/// A pipe or redirection in an alias is a parse error at the operator, not an argument.
+#[rstest]
+#[case::pipe("alias spam = echo 1 | str length", "|", "pipeline")]
+#[case::pipe_then_newline("alias spam = echo 1 |\n    str length", "|", "pipeline")]
+#[case::stderr_pipe("alias spam = ls e>| lines", "e>|", "pipeline")]
+#[case::redirection("alias spam = echo 1 o> out.txt", "o>", "redirection")]
+#[case::append("alias spam = echo 1 out>> out.txt", "out>>", "redirection")]
+#[case::export_alias(
+    "module m { export alias spam = echo 1 | str length }",
+    "|",
+    "pipeline"
+)]
+fn alias_rejects_pipe_or_redirection(
+    #[case] code: &str,
+    #[case] operator: &str,
+    #[case] what: &str,
+) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::CantAliasExpression(ref found, span)
+            if found == what && span.end - span.start == operator.len()
+    );
+    Ok(())
+}
+
+/// A `|` inside quotes or parentheses is part of a word, so the alias keeps it.
+#[rstest]
+#[case::quoted("alias spam = echo '|' x; spam", test_value!(["|", "x"]))]
+#[case::subexpression("alias spam = echo ([1 2 3] | length); spam", test_value!(3))]
+fn alias_keeps_pipe_inside_a_word(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
 }
 
 #[test]

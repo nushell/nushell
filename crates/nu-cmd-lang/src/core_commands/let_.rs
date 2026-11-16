@@ -1,8 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_engine::eval_expression;
-use nu_protocol::ast::Expr;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::CommandType;
+use nu_protocol::{engine::CommandType, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct Let;
@@ -48,73 +45,20 @@ impl Command for Let {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let expr = call
-            .positional_nth(stack, 0)
-            .ok_or(ShellError::NushellFailed {
-                msg: "Missing variable name".to_string(),
-            })?;
-        let var_id = expr.as_var().ok_or(ShellError::NushellFailed {
-            msg: "Expected variable".to_string(),
-        })?;
-
-        let initial_value = call.get_parser_info(stack, "initial_value").cloned();
-
-        // Evaluate the right-hand side value:
-        // - If there's an initial_value (let x = expr), evaluate the expression
-        // - Otherwise (let x), use the pipeline input
-        let rhs = if let Some(ref initial_value_expr) = initial_value {
-            // Validate that blocks/subexpressions don't have multiple pipeline elements
-            if let Expr::Block(block_id) | Expr::Subexpression(block_id) = &initial_value_expr.expr
-            {
-                let block = engine_state.get_block(*block_id);
-                if block
-                    .pipelines
-                    .iter()
-                    .any(|pipeline| pipeline.elements.len() > 1)
-                {
-                    return Err(ShellError::NushellFailed {
-                        msg: "invalid `let` keyword call".to_string(),
-                    });
-                }
-            }
-            // Discard input when using = syntax
-            let _ = input.into_value(call.head)?;
-            eval_expression::<WithoutDebug>(engine_state, stack, initial_value_expr)?
-        } else {
-            // Use pipeline input directly when no = is provided
-            input.into_value(call.head)?
-        };
-
-        // If the variable is declared `: glob` and the RHS is a string,
-        // coerce it to an *expandable* `Value::Glob(..., no_expand = false)` so
-        // runtime `let` behavior matches the compiled `GlobFrom { no_expand: false }`.
-        // This ensures `let g: glob = "*.toml"; ls $g` expands like a glob
-        // literal and keeps parity with `into glob`.
-        let value_to_store = {
-            let variable = engine_state.get_var(var_id);
-            if variable.ty == Type::Glob {
-                match &rhs {
-                    Value::String { val, .. } => Value::glob(val.clone(), false, rhs.span()),
-                    _ => rhs.clone(),
-                }
-            } else {
-                rhs.clone()
-            }
-        };
-        stack.add_var(var_id, value_to_store);
-
-        if initial_value.is_some() {
-            // `let var = expr`: suppress output (traditional assignment, no display)
-            Ok(PipelineData::Empty)
-        } else {
-            // `input | let var`: pass through the assigned value
-            Ok(PipelineData::Value(rhs, None))
-        }
+        // The IR compiler turns a direct `let` call into instructions (`compile_let`). This only
+        // runs for an indirect call, like `%($name)` or a plugin's `call_decl`, which passes
+        // values rather than a variable to bind.
+        Err(GenericError::new(
+            "Can't call `let` indirectly",
+            "`let` creates the variable written in its call, like `let x = 1`",
+            call.head,
+        )
+        .into())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

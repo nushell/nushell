@@ -596,13 +596,10 @@
 pub mod assertions;
 pub mod fs;
 pub mod harness;
+pub mod locale_override;
 pub mod net;
 pub mod playground;
 pub mod value_types;
-
-pub mod deprecated;
-#[doc(no_inline)]
-pub use deprecated::*;
 
 pub mod tester;
 pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test};

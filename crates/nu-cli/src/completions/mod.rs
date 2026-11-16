@@ -14,6 +14,7 @@ mod exportable_completions;
 mod file_completions;
 mod flag_completions;
 mod operator_completions;
+mod overlay_completions;
 mod static_completions;
 mod variable_completions;
 
@@ -23,11 +24,11 @@ pub(crate) use base::to_reedline_span;
 pub use base::{Completer, Fetched, SemanticSuggestion};
 pub use cell_path_completions::CellPathCompletion;
 pub use command_completions::{CommandCompletion, CommandScope};
-pub(crate) use completer::{Buffer, Context, NarrowingCache};
+pub(crate) use completer::{Buffer, Context, NarrowingCache, pending_flag_value};
 pub use completer::{CompletionEngine, NuCompleter};
 pub use completion_options::{CompletionOptions, MatchAlgorithm, NuMatcher};
 pub use custom_completions::DeclaredInputs;
-pub use custom_completions::completion_panic_is_active;
+pub use custom_completions::completion_source_is_active;
 pub use custom_completions::flush_completion_warnings;
 pub(crate) use custom_completions::{
     LegacyInputs, Returned, SpanClamp, bind_declared_inputs, catch_completion_panic,
@@ -41,5 +42,6 @@ pub use file_completions::FileCompletion;
 pub use flag_completions::FlagCompletion;
 pub use nu_protocol::SuggestionKind;
 pub use operator_completions::OperatorCompletion;
+pub use overlay_completions::OverlayCompletion;
 pub use static_completions::StaticCompletion;
 pub use variable_completions::VariableCompletion;

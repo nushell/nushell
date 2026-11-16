@@ -26,6 +26,9 @@ nu-test-support = { path = "../nu-test-support", features = ["os"] }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
 
+[target.'cfg(unix)'.dev-dependencies]
+libc.workspace = true
+
 [dependencies]
 nu-cmd-base.workspace = true
 nu-command = { workspace = true, features = ["os"] }
@@ -51,10 +54,13 @@ lru = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 nucleo-matcher = { workspace = true }
+parking_lot = { workspace = true }
 percent-encoding = { workspace = true }
 sysinfo = { workspace = true }
 strum = { workspace = true }
 unicode-segmentation = { workspace = true }
+unicode-width = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
 

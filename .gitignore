@@ -69,3 +69,5 @@ tarpaulin-report.html
 
 # Splashboard
 .splashboard.toml
+
+.jarvis/

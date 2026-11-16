@@ -13,6 +13,7 @@ pub struct Args {
     pub include_ignored: bool,
     pub list: bool,
     pub no_capture: bool,
+    pub report_time: bool,
     pub skip: Vec<String>,
     pub test_threads: Option<NonZeroUsize>,
 }
@@ -35,6 +36,7 @@ impl Default for Args {
             include_ignored: false,
             list: false,
             no_capture: false,
+            report_time: false,
             skip: Vec::new(),
             test_threads: None,
         }
@@ -82,6 +84,9 @@ impl Args {
                 Long("include-ignored") => parse_flag(&mut parser, &mut args.include_ignored)?,
                 Long("list") => parse_flag(&mut parser, &mut args.list)?,
                 Long("nocapture" | "no-capture") => parse_flag(&mut parser, &mut args.no_capture)?,
+                // Accepted for compatibility with `cargo test -- --report-time` (libtest) and to
+                // print per-test durations from this harness after the run.
+                Long("report-time") => parse_flag(&mut parser, &mut args.report_time)?,
                 Long("skip") => args.skip.push(parser.value()?.parse()?),
                 Long("test-threads") => args.test_threads = Some(parser.value()?.parse()?),
                 arg => return Err(arg.unexpected()),
@@ -111,6 +116,7 @@ impl Args {
               --include-ignored            Include ignored tests
               --list                       List tests without running them
               --nocapture                  Print test output directly
+              --report-time                Print per-test durations after the run
               --skip <FILTER>              Skip matching tests, can be used multiple times
               --test-threads <N>           Number of test threads to use, default is {default_thread_count}
 

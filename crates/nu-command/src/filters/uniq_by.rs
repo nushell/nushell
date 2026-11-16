@@ -27,7 +27,7 @@ impl Command for UniqBy {
             )
             .switch(
                 "keep-last",
-                "Return the last occurrence of each unique value instead of the first.",
+                "Keep the last occurrence of each unique value, in the position of its first occurrence.",
                 Some('l'),
             )
             .switch(

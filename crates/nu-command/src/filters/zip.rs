@@ -1,3 +1,4 @@
+use super::utils::list_or_error;
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
 
 #[derive(Clone)]
@@ -103,15 +104,20 @@ impl Command for Zip {
         let metadata = input.take_metadata();
         let other = if let Value::Closure { val, .. } = other {
             // If a closure was provided, evaluate it and consume its stream output
-            ClosureEvalOnce::new(engine_state, stack, *val).run_with_input(PipelineData::empty())?
+            ClosureEvalOnce::try_new(engine_state, stack, *val, head)?
+                .run_with_input(PipelineData::empty())?
         } else {
             other.into_pipeline_data()
         };
 
+        let mut other = other.into_iter();
         Ok(input
             .into_iter()
-            .zip(other)
-            .map(move |(x, y)| Value::list(vec![x, y], head))
+            .map_while(move |x| match other.next() {
+                Some(y) => Some(list_or_error(vec![x, y], head)),
+                // `x` has no partner, but it's been read, so an error in it still counts.
+                None => x.is_error().then_some(x),
+            })
             .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }

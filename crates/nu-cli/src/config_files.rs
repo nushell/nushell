@@ -1,27 +1,23 @@
 use crate::startup_context::StartupFileKind;
 use crate::util::eval_source;
+use nu_engine::exit::kill_jobs_and_exit;
 #[cfg(feature = "plugin")]
 use nu_path::absolute_with;
 use nu_protocol::report_shell_error;
 #[cfg(feature = "plugin")]
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::shell_error::io::IoError;
-#[cfg(feature = "plugin")]
-use nu_protocol::{ParseError, PluginRegistryFile, Span, engine::StateWorkingSet};
 use nu_protocol::{
-    PipelineData, ShellError,
+    DefaultPrompts, PipelineData, ShellError,
     engine::{EngineState, Stack},
 };
+#[cfg(feature = "plugin")]
+use nu_protocol::{ParseError, PluginRegistryFile, Span, engine::StateWorkingSet};
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
 #[cfg(feature = "plugin")]
 use nu_utils::time::Instant;
 use std::path::PathBuf;
-
-#[cfg(feature = "plugin")]
-const PLUGIN_FILE: &str = "plugin.msgpackz";
-#[cfg(feature = "plugin")]
-const OLD_PLUGIN_FILE: &str = "plugin.nu";
 
 /// Load the plugin registry file from the already-resolved path in
 /// `engine_state.config_dirs.plugin_file`.
@@ -30,10 +26,7 @@ const OLD_PLUGIN_FILE: &str = "plugin.nu";
 /// only for error reporting.
 #[cfg(feature = "plugin")]
 pub fn read_plugin_file(engine_state: &mut EngineState, override_span: Option<Span>) {
-    use nu_protocol::{ShellError, shell_error::io::IoError};
-
     let span = override_span;
-    let is_override = engine_state.config_dirs.plugin_file.is_override();
 
     // Check and warn + abort if this is a .nu plugin file
     if engine_state
@@ -80,17 +73,6 @@ pub fn read_plugin_file(engine_state: &mut EngineState, override_span: Option<Sp
             Err(err) => {
                 if err.kind() == std::io::ErrorKind::NotFound {
                     log::warn!("Plugin file not found: {}", plugin_path.display());
-
-                    // Try migration of an old plugin file if this wasn't a custom plugin file
-                    if !is_override && migrate_old_plugin_file(engine_state) {
-                        let Ok(file) = std::fs::File::open(&plugin_path) else {
-                            log::warn!("Failed to load newly migrated plugin file");
-                            return;
-                        };
-                        file
-                    } else {
-                        return;
-                    }
                 } else {
                     report_shell_error(
                         None,
@@ -101,8 +83,8 @@ pub fn read_plugin_file(engine_state: &mut EngineState, override_span: Option<Sp
                             plugin_path,
                         )),
                     );
-                    return;
                 }
+                return;
             }
         };
 
@@ -283,7 +265,7 @@ pub fn eval_config_contents_with_kind(
                     false,
                 );
                 if exit_code != 0 && strict_mode {
-                    std::process::exit(exit_code)
+                    kill_jobs_and_exit(engine_state, exit_code)
                 }
 
                 // Restore the current active file.
@@ -307,143 +289,85 @@ pub fn eval_config_contents_with_kind(
                 let shell_err = ShellError::Io(io_err);
                 report_shell_error(None, engine_state, &shell_err);
                 if strict_mode {
-                    std::process::exit(shell_err.exit_code().unwrap_or(1));
+                    kill_jobs_and_exit(engine_state, shell_err.exit_code().unwrap_or(1));
                 }
             }
         }
     }
 }
 
-#[cfg(feature = "plugin")]
-pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
-    use nu_protocol::{
-        PluginExample, PluginIdentity, PluginRegistryItem, PluginRegistryItemData, PluginSignature,
-        ShellError, shell_error::io::IoError,
-    };
-    use std::collections::BTreeMap;
-
-    let start_time = Instant::now();
-
-    let config_dir = &engine_state.config_dirs.config_home;
-    if config_dir.as_os_str().is_empty() {
-        return false;
+/// The default left and right prompts, as Nu source.
+///
+/// Every other `$env.config` default lives in `Config::default()`, but a
+/// closure needs a parsed block, so these are evaluated into
+/// `$env.config.prompt` at startup instead. They stay Nu source rather than
+/// becoming a native renderer so the defaults remain real closures: `view
+/// source $env.config.prompt.left` shows this text, and a config can keep a
+/// reference to the default and wrap it.
+pub const DEFAULT_PROMPTS: &str = r##"$env.config.prompt.left = {||
+    let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
+        null => $env.PWD
+        '' => '~'
+        $relative_pwd => ([~ $relative_pwd] | path join)
     }
 
-    let Ok(old_plugin_file_path) = nu_path::absolute_with(OLD_PLUGIN_FILE, config_dir) else {
-        return false;
-    };
-
-    if !config_dir.exists() || !old_plugin_file_path.exists() {
-        return false;
+    let colors: record<path: string, separator: string> = match [(config use-colors), (is-admin)] {
+        [false, _] => {path: '', separator: ''}
+        [true, true] => {path: (ansi red_bold), separator: (ansi light_red_bold)}
+        [true, false] => {path: (ansi green_bold), separator: (ansi light_green_bold)}
     }
+    let path_segment = $"($colors.path)($dir)(ansi reset)"
 
-    let old_contents = match std::fs::read(&old_plugin_file_path) {
-        Ok(old_contents) => old_contents,
-        Err(err) => {
-            report_shell_error(
-                None,
-                engine_state,
-                &ShellError::Generic(
-                    GenericError::new_internal("Can't read old plugin file to migrate", "")
-                        .with_help(err.to_string()),
-                ),
-            );
-            return false;
-        }
-    };
+    $path_segment | str replace --all (char path_sep) $"($colors.separator)(char path_sep)($colors.path)"
+}
 
-    // Make a copy of the engine state, because we'll read the newly generated file
-    let mut engine_state = engine_state.clone();
-    let mut stack = Stack::new();
+$env.config.prompt.right = {||
+    # create a right prompt in magenta with green separators and am/pm underlined
+    let colors: record<date: string, separator: string, ampm: string, fail: string> = if (config use-colors) {
+        {date: (ansi magenta), separator: (ansi green), ampm: (ansi magenta_underline), fail: (ansi red_bold)}
+    } else {
+        {date: '', separator: '', ampm: '', fail: ''}
+    }
+    let time_segment = ([
+        (ansi reset)
+        $colors.date
+        (date now | format date '%x %X') # try to respect user's locale
+    ] | str join | str replace --regex --all "([/:])" $"($colors.separator)${1}($colors.date)" |
+        str replace --regex --all "([AP]M)" $"($colors.ampm)${1}")
 
-    if eval_source(
-        &mut engine_state,
-        &mut stack,
-        &old_contents,
-        &old_plugin_file_path.to_string_lossy(),
+    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
+        $colors.fail
+        $env.LAST_EXIT_CODE
+    ] | str join)
+    } else { "" }
+
+    ([$last_exit_code, (char space), $time_segment] | str join)
+}
+"##;
+
+/// Evaluate [`DEFAULT_PROMPTS`] into `$env.config.prompt`.
+///
+/// Runs before every config file, so `env.nu` and `config.nu` can both
+/// override or extend the result. Not run under `--no-config-file`, which
+/// leaves the line editor's own prompt in place.
+pub fn eval_default_prompts(engine_state: &mut EngineState, stack: &mut Stack) {
+    eval_source(
+        engine_state,
+        stack,
+        DEFAULT_PROMPTS.as_bytes(),
+        "default_prompt.nu",
         PipelineData::empty(),
         false,
-    ) != 0
-    {
-        return false;
-    }
-
-    // Now that the plugin commands are loaded, we just have to generate the file
-    let mut contents = PluginRegistryFile::new();
-
-    let mut groups = BTreeMap::<PluginIdentity, Vec<PluginSignature>>::new();
-
-    for decl in engine_state.plugin_decls() {
-        if let Some(identity) = decl.plugin_identity() {
-            groups
-                .entry(identity.clone())
-                .or_default()
-                .push(PluginSignature {
-                    sig: decl.signature(),
-                    examples: decl
-                        .examples()
-                        .into_iter()
-                        .map(PluginExample::from)
-                        .collect(),
-                })
-        }
-    }
-
-    for (identity, commands) in groups {
-        contents.upsert_plugin(PluginRegistryItem {
-            name: identity.name().to_owned(),
-            filename: identity.filename().to_owned(),
-            shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginRegistryItemData::Valid {
-                metadata: Default::default(),
-                commands,
-            },
-        });
-    }
-
-    // Write the new file
-    let new_plugin_file_path = config_dir.join(PLUGIN_FILE);
-    if let Err(err) = std::fs::File::create(&new_plugin_file_path)
-        .map_err(|err| {
-            IoError::new_internal_with_path(
-                err,
-                "Could not create new plugin file",
-                new_plugin_file_path.clone(),
-            )
-        })
-        .map_err(ShellError::from)
-        .and_then(|file| contents.write_to(file, None))
-    {
-        report_shell_error(
-            None,
-            &engine_state,
-            &ShellError::Generic(
-                GenericError::new_internal("Failed to save migrated plugin file", "")
-                    .with_help("ensure `$nu.plugin-path` is writable")
-                    .with_inner([err]),
-            ),
-        );
-        return false;
-    }
-
-    if engine_state.is_interactive {
-        eprintln!(
-            "Your old plugin.nu file has been migrated to the new format: {}",
-            new_plugin_file_path.display()
-        );
-        eprintln!(
-            "The plugin.nu file has not been removed. If `plugin list` looks okay, \
-            you may do so manually."
-        );
-    }
-
-    perf!(
-        "migrate old plugin file",
-        start_time,
-        engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state)
     );
-    true
+
+    if let Err(err) = engine_state.merge_env(stack) {
+        report_shell_error(Some(stack), engine_state, &err);
+    }
+
+    // Recorded for `config default`, which cannot evaluate them itself.
+    let prompt = &engine_state.get_config().prompt;
+    engine_state.default_prompts = DefaultPrompts {
+        left: prompt.left.clone(),
+        right: prompt.right.clone(),
+    };
 }

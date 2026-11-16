@@ -17,6 +17,7 @@ pub mod table;
 pub mod textbox;
 pub mod tree;
 
+use crate::session::Session;
 use crate::theme::Theme;
 use ansi_str::get_blocks;
 use nu_explore::style::ansi_style_to_tui;
@@ -25,10 +26,25 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders};
 use unicode_width::UnicodeWidthChar;
 
-/// A bordered block with a title, colored for focus.
-pub(crate) fn framed(title: &str, focused: bool, theme: &Theme) -> Block<'static> {
+/// The name at the start of a widget's border title: its `--title`, else
+/// `default`. `--title` is never empty (see `push_widget`), so an empty
+/// result means the widget has no `--title` and `default` was empty.
+pub(crate) fn custom_title<'a>(session: &'a Session, id: &str, default: &'a str) -> &'a str {
+    session
+        .widget(id)
+        .and_then(|w| w.title.as_deref())
+        .unwrap_or(default)
+}
+
+/// A bordered block with a title, colored for focus. The lines are widget
+/// `id`'s `--border`, or `$env.config.tui.border_type`. The title takes the
+/// border style too, so focus shows even when the lines are blank
+/// (`frameless`).
+pub(crate) fn framed(title: &str, focused: bool, session: &Session, id: &str) -> Block<'static> {
+    let theme = &session.theme;
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_set(theme.border_set(session.widget(id).and_then(|w| w.border)))
         .style(theme.surface())
         .border_style(theme.border(focused));
     if title.is_empty() {

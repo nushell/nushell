@@ -41,3 +41,10 @@ fn cannot_median_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn median_table_cell_path_takes_the_column_median() -> Result {
+    test()
+        .run("[[a]; [9] [1] [5]] | math median a")
+        .expect_value_eq(test_value!({ a: 5 }))
+}

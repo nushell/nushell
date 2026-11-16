@@ -1,4 +1,6 @@
-use super::{WidgetKind, builder_io_types, push_widget, selectable_flags, with_app};
+use super::{
+    WidgetKind, border_flag, builder_io_types, push_widget, selectable_flags, title_flag, with_app,
+};
 use crate::widgets::tree::TreeWidget;
 use nu_engine::command_prelude::*;
 
@@ -20,12 +22,12 @@ impl Command for TuiTree {
 
     fn signature(&self) -> Signature {
         selectable_flags(
-            Signature::build("tui tree")
+            border_flag(title_flag(Signature::build("tui tree")))
                 .category(Category::Viewers)
                 .optional(
                     "source",
                     SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                    "Closure over the --from row whose output is this tree's data.",
+                    "Closure over the highlighted row of --from, or of the nearest other table, tree, or select, whose output is this tree's data.",
                 )
                 .switch(
                     "walk",
@@ -81,6 +83,7 @@ impl Command for TuiTree {
                 WidgetKind::Tree(widget),
                 Vec::new(),
                 source,
+                None,
             )
         })
     }

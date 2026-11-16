@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use nu_protocol::{
-    Filesize, IntRange, IntoPipelineData, ListStream, PipelineData, PipelineMetadata, Range,
-    Signals, Span, Value, ast::RangeInclusion,
+    Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
+    Range, Signals, Span, Value, ast::RangeInclusion,
 };
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -102,9 +102,107 @@ fn fail_on_non_iterator() -> Result {
 
 #[test]
 fn errors_on_empty_list_when_no_rows_given_in_strict_mode() -> Result {
-    let err = test().run("[] | last --strict").expect_shell_error()?;
+    assert_empty_content_diagnostic("[] | last --strict")
+}
 
+#[test]
+fn error_on_empty_list_stream_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("[1] | where {|x| $x > 1 } | last --strict")
+}
+
+#[test]
+fn error_on_empty_binary_in_strict_mode() -> Result {
+    assert_empty_content_diagnostic("0x[] | last --strict")
+}
+
+#[test]
+fn const_last() -> Result {
+    test()
+        .run("const x = [1 2 3] | last; $x")
+        .expect_value_eq(3)
+}
+
+#[test]
+fn const_last_with_rows() -> Result {
+    test()
+        .run("const x = [1 2 3] | last 2; $x | to nuon --raw")
+        .expect_value_eq("[2,3]")
+}
+
+#[test]
+fn const_last_range() -> Result {
+    test()
+        .run("const x = 1..5 | last 2; $x | to nuon --raw")
+        .expect_value_eq("[4,5]")
+}
+
+#[test]
+fn const_last_binary_with_filesize() -> Result {
+    test()
+        .run("const x = 0x[01 02 03] | last 2b; $x | to nuon --raw")
+        .expect_value_eq("0x[0203]")
+}
+
+#[test]
+fn const_last_strict_on_empty_list_errors() -> Result {
+    let err = test()
+        .run("const x = [] | last --strict")
+        .expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    Ok(())
+}
+
+#[test]
+fn last_zero_rows_on_unbounded_range_returns_empty() -> Result {
+    test()
+        .run("1.. | last 0 | to nuon --raw")
+        .expect_value_eq("[]")
+}
+
+#[test]
+fn last_errors_on_unbounded_range() -> Result {
+    test()
+        .run("1.. | last")
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn const_last_errors_on_unbounded_range() -> Result {
+    let err = test().run("const x = 1.. | last 2").expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Range must be bounded"));
+    Ok(())
+}
+
+fn assert_empty_content_diagnostic(code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::access_empty_content")?;
+
+    let err = test().run(code).expect_shell_error()?;
     assert_matches!(err, ShellError::AccessEmptyContent { .. });
+    let message = err.to_string();
+    assert_eq!(message, "Cannot access empty content.");
+    assert_contains_not("too large", &message);
+
+    let labeled = LabeledError::from_diagnostic(&err);
+    assert_eq!(
+        labeled
+            .labels
+            .iter()
+            .map(|label| label.text.as_str())
+            .collect::<Vec<_>>(),
+        ["content is empty"]
+    );
+    assert!(
+        labeled
+            .labels
+            .iter()
+            .all(|label| !label.text.contains("too large")),
+        "empty-content span label should not describe a row or index as too large: {:?}",
+        labeled.labels
+    );
     Ok(())
 }
 
@@ -219,4 +317,18 @@ fn last_preserves_pipeline_metadata(#[case] input: InputKind, #[case] code: &str
     };
     assert_eq!(expected, out);
     Ok(())
+}
+
+#[test]
+fn last_with_huge_count_on_a_byte_stream() -> Result {
+    test()
+        .run("(random binary 16b | last 9223372036854775807 | length) == 16")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn last_with_huge_count_on_binary() -> Result {
+    test()
+        .run("(0x[11 22 33] | last 9223372036854775807) == 0x[11 22 33]")
+        .expect_value_eq(true)
 }

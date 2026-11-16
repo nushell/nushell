@@ -113,6 +113,8 @@ fn trim_stays_readable_for_every_theme(
     Ok(())
 }
 
+// `markdown` and `restructured` are excluded because they ignore
+// `header_on_separator` to stay valid markup.
 #[rstest]
 fn wrap_and_truncate_differ_for_every_theme_with_header_on_separator(
     #[values(
@@ -127,9 +129,7 @@ fn wrap_and_truncate_differ_for_every_theme_with_header_on_separator(
         "heavy",
         "none",
         "psql",
-        "markdown",
         "dots",
-        "restructured",
         "ascii_rounded",
         "basic_compact",
         "single",
@@ -237,8 +237,10 @@ fn trim_stays_readable_for_index_mode(
         let first_data = rendered
             .lines()
             .find(|line| line.contains("grok-continue") || line.contains("file"));
+        // The name shrinks with the other columns but keeps its floor: 10
+        // characters, here `grok-con` and the `>>` suffix.
         if let Some(line) = first_data {
-            assert_contains("grok-continue", line);
+            assert_contains("grok-con", line);
         }
     }
     Ok(())

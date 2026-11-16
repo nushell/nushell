@@ -37,22 +37,30 @@ impl PreviewWidget {
             return;
         };
         let engine = session.engine.as_ref().zip(stack);
-        let wants_row = self
-            .transform
-            .as_ref()
-            .zip(engine)
-            .is_some_and(|(c, ((engine_state, _), _))| closure_arity(engine_state, c) > 0);
+        // A transform closure whose block is unavailable (for example one parsed
+        // after this job was spawned) fails for every row, so report it once
+        // instead of falling through to the file preview.
+        let wants_row = match self.transform.as_ref().zip(engine) {
+            Some((c, ((engine_state, _), _))) => match closure_arity(engine_state, c) {
+                Ok(arity) => arity > 0,
+                Err(err) => {
+                    preview.text = format!("preview error: {err}");
+                    return;
+                }
+            },
+            None => false,
+        };
         let file = match (row, wants_row) {
             // One-parameter closure: it is the source, no file is read.
             (Some(row), true) => FilePreview {
-                title: row_path(row).unwrap_or_else(|| "preview".into()),
+                title: row_path(row).unwrap_or_default(),
                 text: String::new(),
                 path: None,
                 transformable: true,
             },
             (Some(row), false) => preview_for_row(row, self.max_bytes, &session.cwd),
             (None, _) => FilePreview {
-                title: "preview".into(),
+                title: String::new(),
                 text: String::new(),
                 path: None,
                 transformable: false,
@@ -122,7 +130,7 @@ impl TuiWidget for PreviewWidget {
 
     fn render(
         &self,
-        _id: &str,
+        id: &str,
         state: &WidgetState,
         frame: &mut Frame,
         area: Rect,
@@ -131,12 +139,15 @@ impl TuiWidget for PreviewWidget {
     ) {
         let theme = &session.theme;
         let preview = state.as_preview().cloned().unwrap_or_default();
-        let title = if preview.title.is_empty() {
-            "preview"
-        } else {
-            preview.title.as_str()
+        // The previewed file's name is the title; a `--title` goes in front
+        // of it. An empty file name means nothing is being previewed.
+        let title = match (super::custom_title(session, id, ""), preview.title.as_str()) {
+            ("", "") => "preview".to_string(),
+            ("", file) => file.to_string(),
+            (name, "") => name.to_string(),
+            (name, file) => format!("{name} ({file})"),
         };
-        let block = super::framed(title, false, theme);
+        let block = super::framed(&title, false, session, id);
         let para = if preview.text.is_empty() {
             Paragraph::new("(nothing to preview)")
                 .style(theme.muted())
@@ -162,6 +173,7 @@ impl TuiWidget for PreviewWidget {
 }
 
 struct FilePreview {
+    /// The previewed file's name, or empty when the row names no file.
     title: String,
     text: String,
     path: Option<PathBuf>,
@@ -174,7 +186,7 @@ struct FilePreview {
 fn preview_for_row(row: &Value, max_bytes: usize, cwd: &Path) -> FilePreview {
     let Some(name) = row_path(row) else {
         return FilePreview {
-            title: "preview".into(),
+            title: String::new(),
             text: "(no path on this row)".into(),
             path: None,
             transformable: false,
@@ -263,7 +275,10 @@ fn apply_transform(
         }
     };
 
-    let mut eval = ClosureEvalOnce::new(engine_state, stack, closure);
+    let mut eval = match ClosureEvalOnce::try_new(engine_state, stack, closure, Span::unknown()) {
+        Ok(eval) => eval,
+        Err(err) => return format!("preview error: {err}"),
+    };
     if let Some(row) = row {
         eval = match eval.add_arg(row.clone()) {
             Ok(eval) => eval,

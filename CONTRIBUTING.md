@@ -170,7 +170,7 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
 - Run all tests for a specific command
 
   ```nushell
-  cargo test --package nu-cli --test main -- commands::<command_name_here>
+  cargo test --package nu-command --test tests -- commands::<command_name_here>
   ```
 
 - Check to see if there are code formatting issues

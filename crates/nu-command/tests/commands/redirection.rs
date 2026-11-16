@@ -650,3 +650,82 @@ fn file_redirection_not_allowed_on_for() -> Result {
         Ok(())
     })
 }
+
+// `e>|` pipes only stderr into a command that reads its input as text, as into any other.
+#[rstest]
+#[case::external("relay")]
+#[case::run_external("run-external relay")]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV_MIXED, TESTBIN_RELAY)]
+fn stderr_pipe_into_external_leaves_stdout_alone(#[case] consumer: &str) -> Result {
+    let code = format!(
+        r#"$env.FOO = "out"; $env.BAR = "err"; echo_env_mixed out-err FOO BAR e>| {consumer} | str trim"#
+    );
+    test().run(code).expect_value_eq("err")
+}
+
+/// With `o>` sending stdout to a file, a next command that reads stdout and stderr apart still
+/// gets the external's stderr and exit status.
+#[rstest]
+#[case::direct("echo_env_mixed out-err FOO BAR o> out.txt | complete")]
+#[case::closure("do { echo_env_mixed out-err FOO BAR } o> out.txt | complete")]
+#[case::try_body("try { echo_env_mixed out-err FOO BAR o> out.txt } catch { 'c' } | complete")]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn file_redirection_keeps_separate_stderr_for_next_command(#[case] code: &str) -> Result {
+    Playground::setup("file_redirection_separate_stderr", |dirs, _sandbox| {
+        let code = format!(r#"$env.FOO = "out"; $env.BAR = "err"; {code} | to nuon"#);
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("{stderr: \"err\n\", exit_code: 0}")?;
+        assert_eq!(fs::read_to_string(dirs.test().join("out.txt"))?, "out\n");
+        Ok(())
+    })
+}
+
+#[test]
+fn file_redirection_of_internal_output_before_ignore() -> Result {
+    Playground::setup("file_redirection_internal_ignore", |dirs, _sandbox| {
+        let () = test().cwd(dirs.test()).run("'hello' o> out.txt | ignore")?;
+        assert_eq!(fs::read_to_string(dirs.test().join("out.txt"))?, "hello");
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV_MIXED)]
+fn file_redirection_keeps_separate_stderr_for_save() -> Result {
+    Playground::setup("file_redirection_separate_stderr_save", |dirs, _sandbox| {
+        let code = r#"
+            $env.FOO = "out"
+            $env.BAR = "err"
+            echo_env_mixed out-err FOO BAR o> out.txt | save --stderr err.txt rest.txt
+        "#;
+        let () = test().cwd(dirs.test()).run(code)?;
+        assert_eq!(fs::read_to_string(dirs.test().join("out.txt"))?, "out\n");
+        assert_eq!(fs::read_to_string(dirs.test().join("err.txt"))?, "err\n");
+        assert_eq!(fs::read_to_string(dirs.test().join("rest.txt"))?, "");
+        Ok(())
+    })
+}
+
+/// `ignore` lets the stderr through, as it does without the `o>`.
+#[test]
+#[deps(NU, TESTBIN_ECHO_ENV_MIXED)]
+fn file_redirection_keeps_separate_stderr_for_ignore() -> Result {
+    Playground::setup(
+        "file_redirection_separate_stderr_ignore",
+        |dirs, _sandbox| {
+            let child_code = r#"$env.FOO = "out"; $env.BAR = "err"; echo_env_mixed out-err FOO BAR o> out.txt | ignore"#;
+            let result: CompleteResult = test().cwd(dirs.test()).run_with_data(
+                "let child_code; nu -n -c $child_code | complete",
+                child_code,
+            )?;
+            assert_eq!(result.stdout, "");
+            assert_eq!(result.stderr, "err\n");
+            assert_eq!(fs::read_to_string(dirs.test().join("out.txt"))?, "out\n");
+            Ok(())
+        },
+    )
+}

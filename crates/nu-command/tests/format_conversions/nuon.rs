@@ -239,6 +239,52 @@ fn to_nuon_negative_int() -> Result {
 }
 
 #[test]
+fn to_nuon_rejects_raw_with_no_commas() -> Result {
+    // `--raw` drops the space after the comma and `--no-commas` drops the comma, so the
+    // pair writes no separator at all: `[1 2 3]` became `[123]`, which reads back as the
+    // single integer 123, and a table lost its column boundaries. The written form is
+    // still valid nuon, so nothing downstream can detect the loss.
+    let code = "[1 2 3] | to nuon --raw --no-commas";
+
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::shell::incompatible_parameters")
+}
+
+#[test]
+fn to_nuon_raw_with_no_commas_rejected_for_records_and_tables_too() -> Result {
+    // The same pair loses structure for the other container shapes, so the rejection is
+    // not specific to a list of ints.
+    for code in [
+        "{a: 1, b: 2} | to nuon --raw --no-commas",
+        "[[name age]; [Alice 30]] | to nuon --raw --no-commas",
+        "[true false null] | to nuon --raw --no-commas",
+    ] {
+        test()
+            .run(code)
+            .expect_error_code_eq("nu::shell::incompatible_parameters")?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn to_nuon_raw_and_no_commas_each_work_alone() -> Result {
+    // Rejecting the pair must not disturb either flag on its own.
+    test()
+        .run("[1 2 3] | to nuon --raw")
+        .expect_value_eq("[1,2,3]")?;
+    test()
+        .run("[1 2 3] | to nuon --no-commas")
+        .expect_value_eq("[1 2 3]")?;
+    test()
+        .run("[1 2 3] | to nuon")
+        .expect_value_eq("[1, 2, 3]")?;
+
+    Ok(())
+}
+
+#[test]
 fn to_nuon_records() -> Result {
     let code = r#"
         {name: "foo bar", age: 100, height: 10}
