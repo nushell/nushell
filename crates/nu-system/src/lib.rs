@@ -7,10 +7,8 @@
     )
 )]
 
-mod ancestor;
 mod exit_status;
 mod foreground;
-mod stdio;
 mod util;
 
 #[cfg(target_os = "freebsd")]
@@ -45,10 +43,6 @@ pub use self::foreground::{
     ForegroundChild, ForegroundGuard, ForegroundWaitStatus, UnfreezeHandle,
 };
 
-pub use self::ancestor::{
-    NUSHELL_ANCESTOR_MAX_DEPTH, ancestor_is_nushell, is_nushell_basename, is_wrapper_basename,
-};
-pub use self::stdio::{StdioFd, stdio_is_pipe};
 pub use self::util::*;
 
 #[cfg(any(

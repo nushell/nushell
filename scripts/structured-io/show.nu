@@ -4,8 +4,10 @@
 # Nested-nu structured IO demo. Run this file directly:
 #   ./scripts/structured-io/show.nu
 #
-# Shebang children (`./inventory.nu`) are spawned as-is. If the parent process
-# is nu, the child infers structured IO. `--structured-io=false` is the off switch.
+# When this nu pipes a value into another nu, or reads one's output, it sets
+# NU_STRUCTURED_IO on that child, which then answers with a value instead of text.
+# That covers shebang scripts like `./inventory.nu` too. `--structured-io=false`
+# is the off switch.
 #
 # `print` does the talking. The default `display_output` hook runs `table` on
 # whatever `main` returns, and that write hits a broken pipe when this file is
@@ -47,7 +49,7 @@ def main [] {
         print ($err.msg? | default "columns cannot read a byte stream")
     }
 
-    heading "after: shebang ./inventory.nu (parent is nu, child infers)"
+    heading "after: shebang ./inventory.nu (this nu asks it for a value)"
     ^$inventory | print
 
     heading "columns and cell paths work across the subprocess"

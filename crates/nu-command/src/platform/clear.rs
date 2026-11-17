@@ -47,6 +47,7 @@ impl Command for Clear {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let from_io_error = IoError::factory(call.head, None);
+        engine_state.mark_stdout_used();
         match call.has_flag(engine_state, stack, "keep-scrollback")? {
             true => {
                 std::io::stdout()

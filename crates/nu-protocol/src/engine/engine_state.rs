@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
-    Module, ModuleId, OverlayId, PipelineData, ShellError, SignalAction, Signals, Signature, Span,
-    SpanId, Type, TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
+    Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
+    TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr, Traverse},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -235,15 +235,13 @@ pub struct EngineState {
     /// `is_lsp`/`is_mcp`, this means stdout is a protocol stream, so anything
     /// that would print to it must go to stderr instead.
     pub is_dap: bool,
-    /// Child was started with structured stdin (NUON) from a parent nu.
-    pub structured_io_input: bool,
-    /// Child should emit the last pipeline value as NUON instead of a table.
+    /// A parent `nu` reads this process's stdout and wants the final value as a NUON frame
+    /// (see [`STRUCTURED_IO_ENV`](crate::STRUCTURED_IO_ENV)).
     pub structured_io_output: bool,
-    /// Decode a framed NUON byte stream from a child `nu`. Set by `nu-command`.
-    /// Applied to internal commands and value collection, not to `run-external`
-    /// (that would `into_bytes()` a live pipe and serialize `nu | nu`).
-    #[allow(clippy::type_complexity)]
-    pub structured_io_decode: Option<fn(PipelineData, Span) -> Result<PipelineData, ShellError>>,
+    /// Set once anything else is written to this process's stdout while
+    /// [`structured_io_output`](Self::structured_io_output) is on. The parent then reads the
+    /// output as text, so the final value has to be printed as text too.
+    structured_io_stdout_used: Arc<AtomicBool>,
     /// When startup began: the top of `main` for the `nu` binary, otherwise when this engine
     /// was created. See [`EngineState::startup_time`].
     startup_start: Instant,
@@ -368,9 +366,8 @@ impl EngineState {
             is_lsp: false,
             is_mcp: false,
             is_dap: false,
-            structured_io_input: false,
             structured_io_output: false,
-            structured_io_decode: None,
+            structured_io_stdout_used: Arc::new(AtomicBool::new(false)),
             startup_start: Instant::now(),
             startup_time: None,
             is_debugging: IsDebugging::new(false),
@@ -392,18 +389,19 @@ impl EngineState {
         &self.signals
     }
 
-    /// Parse framed NUON from a child `nu` byte stream. No-op for values and when unset.
-    ///
-    /// Skip this for `run-external` so a live child pipe can be `into_stdio`'d.
-    pub fn decode_structured_io(
-        &self,
-        data: PipelineData,
-        span: Span,
-    ) -> Result<PipelineData, ShellError> {
-        match (self.structured_io_decode, &data) {
-            (Some(decode), PipelineData::ByteStream(..)) => decode(data, span),
-            _ => Ok(data),
+    /// Notes that something was written to this process's stdout, for
+    /// [`structured_io_output`](Self::structured_io_output). Does nothing when that is off.
+    pub fn mark_stdout_used(&self) {
+        if self.structured_io_output {
+            self.structured_io_stdout_used
+                .store(true, Ordering::Relaxed);
         }
+    }
+
+    /// Whether anything was written to stdout since structured output was turned on, as noted by
+    /// [`mark_stdout_used`](Self::mark_stdout_used).
+    pub fn stdout_used(&self) -> bool {
+        self.structured_io_stdout_used.load(Ordering::Relaxed)
     }
 
     /// Return a compiled regex, reusing the process-wide LRU cache when possible.

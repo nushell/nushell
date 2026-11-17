@@ -1,7 +1,17 @@
-/// Pipeline metadata `content_type` for a live child `nu` that will emit framed NUON.
-pub const STRUCTURED_IO_CONTENT_TYPE: &str = "application/x-nushell-structured";
+/// Environment variable a parent `nu` sets on a child `nu` it spawns, holding the
+/// [`StructuredIoMode`] it wants (`in`, `out` or `1`).
+///
+/// The parent sets it only on spawns whose stdin it fills with a frame or whose stdout it reads,
+/// and removes it from every other spawn. The child reads it at startup and keeps it out of its
+/// own `$env`, so the child's own children never see it.
+pub const STRUCTURED_IO_ENV: &str = "NU_STRUCTURED_IO";
 
-/// Sides of the parent/child NUON handshake, passed as `--structured-io=` on argv.
+/// Metadata `content_type` of a Nushell child's output that may start with a NUON frame. The
+/// parent tags the output this way when the next command is an external, instead of waiting to
+/// decode it, and the command that reads it decodes it.
+pub const STRUCTURED_IO_CONTENT_TYPE: &str = "application/x-nushell-structured-io";
+
+/// Sides of the parent/child NUON handshake, from [`STRUCTURED_IO_ENV`] or `--structured-io=`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StructuredIoMode {
     pub input: bool,

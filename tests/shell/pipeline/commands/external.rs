@@ -413,9 +413,7 @@ mod nu_commands {
     #[test]
     #[deps(NU)]
     fn better_arg_quoting() -> Result {
-        test()
-            .run(r#"nu --structured-io=false -n -c "\# '""#)
-            .expect_value_eq("")
+        test().run(r#"nu -n -c "\# '""#).expect_value_eq("")
     }
 
     #[test]
@@ -458,7 +456,7 @@ mod nu_script {
     fn run_nu_script_multiline() -> Result {
         test()
             .cwd("tests/fixtures/formats")
-            .run("nu --structured-io=false -n script_multiline.nu")
+            .run("nu -n script_multiline.nu")
             .expect_value_eq("2\n3")
     }
 }

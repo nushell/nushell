@@ -505,7 +505,7 @@ fn main_script_can_have_subcommands1() -> Result {
 
         test()
             .cwd(dirs.test())
-            .run("nu --structured-io=false script.nu foo 123 | to text | str trim")
+            .run("nu script.nu foo 123 | to text | str trim")
             .expect_value_eq("223")
     })
 }
@@ -526,9 +526,7 @@ fn main_script_can_have_subcommands2() -> Result {
                   }"#,
         )]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .run("nu --structured-io=false script.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu script.nu | to text")?;
 
         assert_contains("usage: script.nu", out);
         Ok(())
@@ -664,7 +662,7 @@ fn script_glob_args_still_expand(#[case] prefix: &str) -> Result {
 #[deps(NU)]
 fn script_path_arg_with_dollar_expands_tilde() -> Result {
     test()
-        .run(r#"nu -n -c 'def main [p: path] { $p | str starts-with "~" }' '~/a$b' | from json"#)
+        .run(r#"nu -n -c 'def main [p: path] { $p | str starts-with "~" }' '~/a$b'"#)
         .expect_value_eq(false)
 }
 
@@ -763,9 +761,7 @@ fn source_script_with_let_variable() -> Result {
             FileWithContent("lll.nu", "let xxx = 'let in script'\nsource sss.nu"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .run("nu --structured-io=false lll.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu lll.nu | to text")?;
         assert_eq!(out, "let in script\n13");
         Ok(())
     })
@@ -780,9 +776,7 @@ fn source_script_with_mut_variable() -> Result {
             FileWithContent("mmm.nu", "mut xxx = 'mut in script'\nsource sss.nu"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .run("nu --structured-io=false mmm.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu mmm.nu | to text")?;
         assert_eq!(out, "mut in script");
         Ok(())
     })
@@ -802,9 +796,7 @@ fn source_script_can_modify_outer_variable() -> Result {
                 ),
             ]);
 
-            let out: String = test()
-                .cwd(dirs.test())
-                .run("nu --structured-io=false counter.nu | to text")?;
+            let out: String = test().cwd(dirs.test()).run("nu counter.nu | to text")?;
             assert_eq!(out, "2");
             Ok(())
         },
@@ -820,9 +812,7 @@ fn source_script_variable_visible_after_source() -> Result {
             FileWithContent("main.nu", "mut y = 'original'\nsource helper.nu\nprint $y"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .run("nu --structured-io=false main.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu main.nu | to text")?;
         assert_eq!(out, "set in source");
         Ok(())
     })
@@ -883,9 +873,7 @@ fn source_script_with_let_and_main_command() -> Result {
             ),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .run("nu --structured-io=false app.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu app.nu | to text")?;
         assert_eq!(out, "hello");
         Ok(())
     })
@@ -902,9 +890,7 @@ fn source_nested_free_variable_visible() -> Result {
             FileWithContent("a.nu", "let xxx = 'nested'\nsource b.nu"),
         ]);
 
-        let out: String = test()
-            .cwd(dirs.test())
-            .run("nu --structured-io=false a.nu | to text")?;
+        let out: String = test().cwd(dirs.test()).run("nu a.nu | to text")?;
         assert_eq!(out, "nested");
         Ok(())
     })

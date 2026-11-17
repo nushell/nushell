@@ -4,8 +4,8 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return, exit::kill_jobs_and_exit};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, ByteStreamType, ListStream, PipelineData, PipelineExecutionData,
-    PipelineMetadata, Reader, ShellError, Signals, Span, Value, ValueIterator,
+    ByteStream, ByteStreamSource, ByteStreamType, ListStream, PipelineData, PipelineMetadata,
+    Reader, STRUCTURED_IO_ENV, ShellError, Signals, Span, Value, ValueIterator,
     ast::Block,
     block_is_bare_last_result_with,
     debugger::WithoutDebug,
@@ -41,7 +41,10 @@ use std::{io::Read, path::Path};
 //
 // In this scenario, the new `nushell`'s PWD should be "#{pane_current_path}" rather init_cwd.
 pub fn gather_parent_env_vars(engine_state: &mut EngineState, init_cwd: &Path) {
-    gather_env_vars(std::env::vars(), engine_state, init_cwd);
+    // The structured IO handshake is meant for this process only, not for `$env` or the
+    // processes it starts.
+    let vars = std::env::vars().filter(|(name, _)| name != STRUCTURED_IO_ENV);
+    gather_env_vars(vars, engine_state, init_cwd);
 }
 
 fn gather_env_vars(
@@ -211,31 +214,6 @@ fn gather_env_vars(
 
 /// Print a pipeline with formatting applied based on display_output hook.
 ///
-/// Run a block, collecting last-command stdout when structured IO owns the pipe.
-///
-/// Otherwise a last-command external writes raw bytes and `print_pipeline` then
-/// appends a NUON frame (`hello` + `\x1eNUON\n""`).
-pub(crate) fn eval_block_for_output(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    input: PipelineData,
-    allow_return: bool,
-) -> Result<PipelineExecutionData, ShellError> {
-    if engine_state.structured_io_output {
-        let mut stack = stack.start_collect_value();
-        if allow_return {
-            eval_block_with_early_return::<WithoutDebug>(engine_state, &mut stack, block, input)
-        } else {
-            eval_block::<WithoutDebug>(engine_state, &mut stack, block, input)
-        }
-    } else if allow_return {
-        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
-    } else {
-        eval_block::<WithoutDebug>(engine_state, stack, block, input)
-    }
-}
-
 /// This function should be preferred when printing values resulting from a completed evaluation.
 /// For values printed as part of a command's execution, such as values printed by the `print` command,
 /// the `PipelineData::print_table` function should be preferred instead as it is not config-dependent.
@@ -249,9 +227,15 @@ pub fn print_pipeline(
 ) -> Result<(), ShellError> {
     let to_stderr = engine_state.is_mcp || engine_state.is_lsp || engine_state.is_dap;
 
-    if engine_state.structured_io_output {
-        return nu_command::emit_structured_pipeline(engine_state, pipeline);
-    }
+    // A parent `nu` reads this value from stdout, as a frame when nothing else went there first.
+    let pipeline = if engine_state.structured_io_output {
+        match nu_command::emit_structured_pipeline(engine_state, pipeline)? {
+            Some(pipeline) => pipeline,
+            None => return Ok(()),
+        }
+    } else {
+        pipeline
+    };
 
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(
@@ -416,7 +400,11 @@ pub(crate) fn evaluate_parsed_block(
     input: PipelineData,
     allow_return: bool,
 ) -> Result<bool, ShellError> {
-    let pipeline = eval_block_for_output(engine_state, stack, block, input, allow_return)?;
+    let pipeline = if allow_return {
+        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
+    } else {
+        eval_block::<WithoutDebug>(engine_state, stack, block, input)
+    }?;
     let mut pipeline_data = pipeline.body;
 
     // Update engine_state with deleted variables

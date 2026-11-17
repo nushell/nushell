@@ -22,6 +22,9 @@ pub fn needs_quoting(string: &str) -> bool {
         // `&&` is denied by the nu parser for diagnostics reasons
         // (https://github.com/nushell/nushell/pull/7241)
         "true" | "false" | "null" | "&&" => return true,
+        // The lexer reads these as redirections, wherever they stand (the `|` forms are quoted below)
+        "o>" | "out>" | "o>>" | "out>>" | "e>" | "err>" | "e>>" | "err>>" | "o+e>" | "e+o>"
+        | "out+err>" | "err+out>" | "o+e>>" | "e+o>>" | "out+err>>" | "err+out>>" => return true,
         _ => (),
     };
     // All other cases are handled here
@@ -119,6 +122,15 @@ mod tests {
         // ...and nothing else changed: ordinary strings still take the fast path.
         assert!(!needs_quoting("hello"));
         assert!(!needs_quoting("plain_name"));
+    }
+
+    #[test]
+    fn needs_quoting_forces_redirections_to_be_quoted() {
+        for redirection in ["o>", "err>>", "out+err>", "e+o>>"] {
+            assert!(needs_quoting(redirection), "{redirection}");
+        }
+        assert!(!needs_quoting("a>b"));
+        assert!(!needs_quoting(">"));
     }
 
     #[test]

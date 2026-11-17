@@ -27,8 +27,8 @@ use nu_engine::{
 #[cfg(feature = "plugin")]
 use nu_path::absolute_with;
 use nu_protocol::{
-    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, StructuredIoMode, Type,
-    Value,
+    ByteStream, Config, IntoValue, PipelineData, STRUCTURED_IO_ENV, ShellError, Span, Spanned,
+    StructuredIoMode, Type, Value,
     engine::{EngineState, Stack},
     record, report_shell_error,
 };
@@ -315,29 +315,29 @@ fn main() -> Result<()> {
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some() || is_repl;
     engine_state.is_repl = is_repl;
 
-    // Plugin stdio transport is `nu --stdin plugin.nu --stdio`: stdin/stdout stay
-    // open for the protocol. Ancestor inference would slurp stdin to EOF and
-    // wrap stdout as NUON, deadlocking the parent on the handshake.
-    let plugin_stdio = std::env::args().any(|arg| arg == "--stdio");
-    let from_ancestor =
-        !plugin_stdio && nu_system::ancestor_is_nushell(nu_system::NUSHELL_ANCESTOR_MAX_DEPTH);
-    let flag_mode = parsed_nu_cli_args
+    // A parent `nu` sets `NU_STRUCTURED_IO` when it sends a value on stdin or reads one from
+    // stdout; `--structured-io` overrides it. Only commands and scripts take part: the REPL and
+    // the protocol servers own their stdin and stdout.
+    let structured_io_flag = parsed_nu_cli_args
         .structured_io
         .as_ref()
-        .map(|value| StructuredIoMode::from_flag_str(&value.item));
-    let mut structured_io = if let Some(mode) = flag_mode {
-        mode
-    } else if from_ancestor {
-        StructuredIoMode {
-            input: false,
-            output: nu_system::stdio_is_pipe(nu_system::StdioFd::Stdout),
+        .map(|value| value.item.as_str());
+    let structured_io = match run_mode {
+        RunMode::Commands(_) | RunMode::Script
+            if parsed_nu_cli_args.interactive_shell.is_none() =>
+        {
+            structured_io_flag
+                .map(StructuredIoMode::from_flag_str)
+                .or_else(|| {
+                    std::env::var(STRUCTURED_IO_ENV)
+                        .ok()
+                        .map(|value| StructuredIoMode::from_flag_str(&value))
+                })
+                .unwrap_or_default()
         }
-    } else {
-        StructuredIoMode::default()
+        _ => StructuredIoMode::default(),
     };
-    // `--structured-io=out` still allows a framed stdin from a parent nu.
-    // `--structured-io=false` turns that off.
-    let infer_stdin_frame = from_ancestor && flag_mode != Some(StructuredIoMode::default());
+    engine_state.structured_io_output = structured_io.output;
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -573,20 +573,7 @@ fn main() -> Result<()> {
     start_time = nu_utils::time::Instant::now();
     let input = if structured_io.input {
         trace!("reading structured stdin");
-        nu_command::read_structured_stdin()?
-    } else if infer_stdin_frame && nu_system::stdio_is_pipe(nu_system::StdioFd::Stdin) {
-        match nu_command::read_startup_stdin(false)? {
-            nu_command::StartupStdin::Structured(data) => {
-                structured_io.input = true;
-                data
-            }
-            nu_command::StartupStdin::Raw(data) if parsed_nu_cli_args.redirect_stdin.is_some() => {
-                data
-            }
-            nu_command::StartupStdin::Raw(_) | nu_command::StartupStdin::Empty => {
-                PipelineData::empty()
-            }
-        }
+        nu_command::read_structured_stdin(structured_io_flag.is_some(), Span::unknown())?
     } else if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
         PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
@@ -594,8 +581,6 @@ fn main() -> Result<()> {
         trace!("not redirecting stdin");
         PipelineData::empty()
     };
-    engine_state.structured_io_input = structured_io.input;
-    engine_state.structured_io_output = structured_io.output;
     perf!("redirect stdin", start_time, use_color);
 
     #[cfg(feature = "plugin")]

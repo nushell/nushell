@@ -1,14 +1,14 @@
 use super::structured_io::{
-    decode_structured_pipeline, encode_structured_pipeline, is_nu_binary, is_nushell_child,
-    structured_io_cli_mode, structured_io_for_child, structured_io_spawn,
+    decode_structured_child, is_nu_binary, is_tagged_structured_child, read_structured_child,
+    set_structured_io_env, structured_io_cli_mode, structured_io_for_child, tag_structured_child,
+    write_structured_input,
 };
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, eval_ir_call};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, DeclId, NuGlob, OutDest, PipelineMetadata, STRUCTURED_IO_CONTENT_TYPE, Signals,
-    UseAnsiColoring, did_you_mean, ir,
+    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::{ErrorKind, IoError},
 };
@@ -177,29 +177,8 @@ If you create a custom command with this name, that will be used instead."
             executable
         };
 
-        // PipeSeparate is `complete`/`tee`/`save`: they need the raw child
-        // (stdout and stderr together). Decoding NUON calls `into_bytes()`,
-        // which errors if stderr is captured (`stderr should not exist`).
-        let stdout_captured = matches!(stack.stdout(), OutDest::Pipe | OutDest::Value);
-
-        // Configure args.
-        let args = eval_external_arguments(engine_state, stack, call_args)?;
-        let invoked = expanded_name.as_path();
-        let user_mode = if is_nu_binary(&executable) {
-            structured_io_cli_mode(&args)
-        } else {
-            None
-        };
-        let structured_io =
-            structured_io_for_child(&executable, invoked, stdout_captured, &input, user_mode);
-        let structured_spawn = structured_io_spawn(
-            &executable,
-            structured_io,
-            user_mode.is_none(),
-            matches!(stack.stdout(), OutDest::PipeSeparate),
-        );
-
-        let mut command = std::process::Command::new(&structured_spawn.program);
+        // Create the command.
+        let mut command = std::process::Command::new(&executable);
 
         // Configure PWD.
         command.current_dir(&cwd);
@@ -208,6 +187,23 @@ If you create a custom command with this name, that will be used instead."
         let envs = env_to_strings(engine_state, stack)?;
         command.env_clear();
         command.envs(envs);
+
+        // Configure args.
+        let args = eval_external_arguments(engine_state, stack, call_args)?;
+
+        // A Nushell child can take its input and give its output as values, not text.
+        let cli_mode = is_nu_binary(&executable)
+            .then(|| structured_io_cli_mode(&args))
+            .flatten();
+        let structured_io = structured_io_for_child(
+            &executable,
+            &expanded_name,
+            stack.stdout(),
+            stack.stderr(),
+            &input,
+            cli_mode,
+        );
+        set_structured_io_env(&mut command, structured_io);
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -224,14 +220,10 @@ If you create a custom command with this name, that will be used instead."
             ]);
             command.args(args.into_iter().map(|s| s.item));
         } else {
-            command.args(&structured_spawn.leading_args);
             command.args(args.into_iter().map(|s| s.item));
         }
         #[cfg(not(windows))]
-        {
-            command.args(&structured_spawn.leading_args);
-            command.args(args.into_iter().map(|s| s.item));
-        }
+        command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
         // we'll set up a pipe that merges two streams into one.
@@ -244,6 +236,12 @@ If you create a custom command with this name, that will be used instead."
         // bytes when stdout is already redirected into the pipeline (e.g. `^cmd | collect`).
         let stdout = stack.stdout();
         let stderr = stack.stderr();
+        // This process may owe a parent `nu` its final value as a frame on stdout. An external
+        // writing to that stdout comes first, so the value has to follow as text.
+        if matches!(stdout, OutDest::Inherit | OutDest::Print) && !engine_state.is_background_job()
+        {
+            engine_state.mark_stdout_used();
+        }
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
             let (reader, writer) =
                 os_pipe::pipe().map_err(|err| IoError::new(err, call.head, None))?;
@@ -282,6 +280,12 @@ If you create a custom command with this name, that will be used instead."
         // directly. If that's not possible, we'll set up a pipe and spawn a
         // thread to copy data into the child process.
         let data_to_copy_into_stdin = match input {
+            // Another `nu`'s output that may start with a frame, for a program that won't read one.
+            // The stdin thread decodes it, so this program starts without waiting for that `nu`.
+            input if !structured_io.input && is_tagged_structured_child(&input) => {
+                command.stdin(Stdio::piped());
+                Some(input)
+            }
             PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
                 Ok(stdin) => {
                     command.stdin(stdin);
@@ -294,16 +298,7 @@ If you create a custom command with this name, that will be used instead."
             },
             PipelineData::Empty => {
                 // MCP and background completions must not inherit the live terminal.
-                // Captured Nushell children (REPL/`-e`, scripts) would inherit a
-                // still-open stdin and never close stdout, so decode/`to text` hang.
-                let capturing_stdout = matches!(
-                    stack.stdout(),
-                    OutDest::Pipe | OutDest::Value | OutDest::PipeSeparate
-                );
-                if engine_state.is_mcp
-                    || stack.suppress_stdin
-                    || (is_nushell_child(&executable, invoked) && capturing_stdout)
-                {
+                if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
                 } else {
                     command.stdin(Stdio::inherit());
@@ -385,20 +380,21 @@ If you create a custom command with this name, that will be used instead."
             let stack = stack.clone();
             let failure = Arc::new(OnceLock::new());
             stdin_failure = Some(failure.clone());
-            let stdin_span = call.head;
             let structured_input = structured_io.input;
+            let span = call.head;
             thread::Builder::new()
                 .name("external stdin worker".into())
                 .spawn(move || {
                     // Write through a reference, so that stdin stays open until the failure is set.
-                    if let Err(err) = write_pipeline_data(
-                        engine_state,
-                        stack,
-                        data,
-                        &mut stdin,
-                        structured_input,
-                        stdin_span,
-                    ) && !is_expected_stdin_error(&err)
+                    let written = if structured_input {
+                        write_structured_pipeline_data(engine_state, stack, data, &mut stdin, span)
+                    } else {
+                        decode_structured_child(data, span).and_then(|data| {
+                            write_pipeline_data(engine_state, stack, data, &mut stdin)
+                        })
+                    };
+                    if let Err(err) = written
+                        && !is_expected_stdin_error(&err)
                     {
                         let _ = failure.set(err);
                     }
@@ -433,15 +429,15 @@ If you create a custom command with this name, that will be used instead."
         )?
         .with_stdin_failure(stdin_failure);
 
-        let collect_now = structured_io.output && matches!(stack.stdout(), OutDest::Value);
-        let metadata = (structured_io.output && !collect_now).then(|| {
-            PipelineMetadata::default().with_content_type(Some(STRUCTURED_IO_CONTENT_TYPE.into()))
-        });
-        let output = PipelineData::byte_stream(ByteStream::child(child, call.head), metadata);
-        if collect_now {
-            decode_structured_pipeline(output, call.head)
+        if structured_io.output && matches!(stdout, OutDest::PipeRaw) {
+            Ok(tag_structured_child(child, call.head))
+        } else if structured_io.output {
+            read_structured_child(child, call.head)
         } else {
-            Ok(output)
+            Ok(PipelineData::byte_stream(
+                ByteStream::child(child, call.head),
+                None,
+            ))
         }
     }
 
@@ -593,13 +589,7 @@ fn write_pipeline_data(
     mut stack: Stack,
     data: PipelineData,
     mut writer: impl Write,
-    structured: bool,
-    span: Span,
 ) -> Result<(), ShellError> {
-    if structured {
-        return encode_structured_pipeline(&engine_state, data, writer, span);
-    }
-
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
@@ -636,6 +626,23 @@ fn write_pipeline_data(
         }
     }
     Ok(())
+}
+
+/// Write `data` into a Nushell child's stdin as one frame (see [`write_structured_input`]). A value
+/// with no NUON form, such as a closure, goes as text instead, like it would to any other external.
+fn write_structured_pipeline_data(
+    engine_state: EngineState,
+    stack: Stack,
+    data: PipelineData,
+    writer: &mut impl Write,
+    span: Span,
+) -> Result<(), ShellError> {
+    // Another `nu`'s output that couldn't be handed over as a pipe is decoded and framed again.
+    let value = decode_structured_child(data, span)?.into_value(span)?;
+    match write_structured_input(&engine_state, value, writer)? {
+        Some(value) => write_pipeline_data(engine_state, stack, value.into_pipeline_data(), writer),
+        None => Ok(()),
+    }
 }
 
 /// Whether `err`, from feeding an external's stdin, is not worth reporting: the external stopped
@@ -969,41 +976,17 @@ mod test {
 
         let mut buf = vec![];
         let input = PipelineData::empty();
-        write_pipeline_data(
-            engine_state.clone(),
-            stack.clone(),
-            input,
-            &mut buf,
-            false,
-            Span::test_data(),
-        )
-        .unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"");
 
         let mut buf = vec![];
         let input = PipelineData::value(Value::string("foo", Span::test_data()), None);
-        write_pipeline_data(
-            engine_state.clone(),
-            stack.clone(),
-            input,
-            &mut buf,
-            false,
-            Span::test_data(),
-        )
-        .unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
         let input = PipelineData::value(Value::binary(b"foo", Span::test_data()), None);
-        write_pipeline_data(
-            engine_state.clone(),
-            stack.clone(),
-            input,
-            &mut buf,
-            false,
-            Span::test_data(),
-        )
-        .unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
@@ -1016,15 +999,7 @@ mod test {
             ),
             None,
         );
-        write_pipeline_data(
-            engine_state.clone(),
-            stack.clone(),
-            input,
-            &mut buf,
-            false,
-            Span::test_data(),
-        )
-        .unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
     }
 }

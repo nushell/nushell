@@ -2,7 +2,9 @@ use std::{fs::File, sync::Arc};
 
 use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_tilde};
 #[cfg(feature = "os")]
-use nu_protocol::{ByteStreamSource, process::check_exit_status_future};
+use nu_protocol::{
+    ByteStream, ByteStreamSource, PipelineMetadata, process::check_exit_status_future,
+};
 use nu_protocol::{
     CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, LabeledError,
     ListStream, OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId,
@@ -628,6 +630,20 @@ fn eval_instruction<D: DebugContext>(
             // `try` passes on an external whose stderr has its own pipe uncollected, and
             // `finally` copies its result. The copy is what the stdout collects to, read from
             // memory, and `src` keeps the external, so the next command still gets its stderr.
+            #[cfg(feature = "os")]
+            if let PipelineData::ByteStream(stream, metadata) = ctx.borrow_reg_mut(*src)
+                && is_structured_io_stream(metadata)
+                && let ByteStreamSource::Child(child) = stream.source_mut()
+            {
+                // `try` passes on a `nu` child's tagged output uncollected too (see
+                // `try_collect`). `finally` gets its stdout as text.
+                let copy = ByteStream::child(child.copy_stdout()?, *span);
+                ctx.put_reg(
+                    *dst,
+                    PipelineExecutionData::from(PipelineData::value(copy.into_value()?, None)),
+                );
+                return Ok(Continue);
+            }
             #[cfg(feature = "os")]
             if let PipelineData::ByteStream(stream, metadata) = ctx.borrow_reg_mut(*src)
                 && let Some(copy) = stream.copy_stdout()?
@@ -1784,11 +1800,6 @@ fn eval_call_frame<D: DebugContext>(
         if let PipelineData::Value(v, ..) = &mut input {
             v.inject_signals(engine_state);
         }
-        let input = if decl.is_known_external() || decl.name() == "run-external" {
-            input
-        } else {
-            engine_state.decode_structured_io(input, head)?
-        };
         // Run the call
         decl.run(engine_state, caller_stack, &(&call).into(), input)
     }
@@ -2287,6 +2298,15 @@ fn show_failed_stderr(data: PipelineData, stderr: &OutDest) {
     }
 }
 
+/// Whether a stream is a `nu` child's output that may start with a NUON frame, tagged by
+/// `run-external` for the command that reads it to decode.
+#[cfg(feature = "os")]
+fn is_structured_io_stream(metadata: &Option<PipelineMetadata>) -> bool {
+    metadata.as_ref().is_some_and(|metadata| {
+        metadata.content_type.as_deref() == Some(nu_protocol::STRUCTURED_IO_CONTENT_TYPE)
+    })
+}
+
 /// [`collect`] at the end of a `try` block, so that its errors surface inside the `try`.
 ///
 /// A value can only hold stdout, but the next command may have asked for the external's stderr
@@ -2300,9 +2320,12 @@ fn try_collect(
     fallback_span: Span,
     stderr: &OutDest,
 ) -> Result<PipelineData, ShellError> {
-    if let PipelineData::ByteStream(stream, ..) = &mut pipe.body
+    // A `nu` child's output tagged for structured IO stays a stream too, so the command after
+    // the `try` can still decode the value in it.
+    if let PipelineData::ByteStream(stream, metadata) = &mut pipe.body
+        && let structured_io = is_structured_io_stream(metadata)
         && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
-        && child.stderr.is_some()
+        && (child.stderr.is_some() || structured_io)
     {
         // Read the pipes before waiting on the pipeline's exit statuses: a child that fills a
         // pipe nobody reads never exits.

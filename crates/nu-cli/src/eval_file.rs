@@ -1,11 +1,12 @@
 use crate::util::{eval_parsed_block_source, eval_source, print_pipeline, report_parse_warnings};
 use log::{info, trace};
-use nu_engine::exit::kill_jobs_and_exit;
+use nu_engine::{eval_block, exit::kill_jobs_and_exit};
 use nu_parser::{is_parser_keyword, parse};
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
     ast::Expr,
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
     report_parse_error,
@@ -170,22 +171,21 @@ pub fn evaluate_file(
     // declaration and added an alias.
     let exit_code = if file_has_main && engine_state.find_decl(&script_name_bytes, &[]).is_some() {
         // Evaluate the file, but don't run main yet.
-        let pipeline = match crate::util::eval_block_for_output(
-            engine_state,
-            stack,
-            &block,
-            PipelineData::empty(),
-            false,
-        ) {
-            Ok(data) if data.early_return => {
-                // Allow early return before main is run.
-                return Ok(());
-            }
-            Ok(data) => data.body,
-            Err(err) => return Err(err),
-        };
+        let pipeline =
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
+                Ok(data) if data.early_return => {
+                    // Allow early return before main is run.
+                    return Ok(());
+                }
+                Ok(data) => data.body,
+                Err(err) => return Err(err),
+            };
 
-        // Print the pipeline output of the last command of the file.
+        // Print the pipeline output of the last command of the file. `main`'s output follows
+        // it, so neither can be the single value a parent `nu` reads.
+        if !pipeline.is_nothing() {
+            engine_state.mark_stdout_used();
+        }
         print_pipeline(engine_state, stack, pipeline, true)?;
 
         // Invoke the main command with arguments. The block's signature was already rewritten to
