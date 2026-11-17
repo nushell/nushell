@@ -51,7 +51,7 @@ impl Command for Glob {
             )
             .switch(
                 "relative-paths",
-                "Whether to return relative paths for relative pattern.",
+                "Whether to return relative paths for a relative pattern.",
                 Some('r'),
             )
             .named(
