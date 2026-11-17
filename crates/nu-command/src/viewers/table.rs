@@ -75,6 +75,7 @@ impl Command for Table {
                 "Number of terminal columns wide (not output columns).",
                 Some('w'),
             )
+            .switch("no-headers", "Hide column headers, including repeated footers.", None)
             .switch(
                 "expand",
                 "Expand the table structure in a light mode.",
@@ -210,6 +211,11 @@ impl Command for Table {
                 example: "[[a b]; [1 2] [3 [4 4]]] | table -i false",
                 result: None,
             },
+            Example {
+                description: "Render a table without column headers",
+                example: "[[a b]; [1 2] [3 4]] | table --no-headers",
+                result: None,
+            },
         ]
     }
 }
@@ -245,6 +251,7 @@ struct TableConfig {
     abbreviation: Option<usize>,
     index: Option<usize>,
     index_explicit: bool,
+    no_headers: bool,
     use_ansi_coloring: bool,
     icons: bool,
     hex_styles: HexStyles,
@@ -273,6 +280,7 @@ struct CLIArgs {
     collapse: bool,
     index: Option<usize>,
     index_explicit: bool,
+    no_headers: bool,
     use_ansi_coloring: bool,
     icons: bool,
 }
@@ -287,6 +295,7 @@ fn parse_table_config(
         theme,
         index,
         index_explicit,
+        no_headers,
         use_ansi_coloring,
         icons,
         ..
@@ -303,6 +312,7 @@ fn parse_table_config(
         abbreviation,
         index,
         index_explicit,
+        no_headers,
         use_ansi_coloring,
         icons,
         hex_styles,
@@ -332,6 +342,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
     let expand_flatten_separator: Option<String> =
         call.get_flag(state, stack, "flatten-separator")?;
     let collapse: bool = call.has_flag(state, stack, "collapse")?;
+    let no_headers = call.has_flag(state, stack, "no-headers")?;
     let abbreviation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
         .or_else(|| stack.get_config(state).table.abbreviated_row_count);
@@ -356,6 +367,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         width,
         index,
         index_explicit,
+        no_headers,
         use_ansi_coloring,
         icons,
     })
@@ -1323,7 +1335,7 @@ fn create_table_opts<'a>(
     let width = table_cfg.width;
     let theme = table_cfg.theme;
 
-    TableOpts::new(
+    let mut opts = TableOpts::new(
         cfg,
         comp,
         signals,
@@ -1334,7 +1346,9 @@ fn create_table_opts<'a>(
         index,
         table_cfg.index_explicit,
         table_cfg.width_priority_columns.clone(),
-    )
+    );
+    opts.header_remove = table_cfg.no_headers;
+    opts
 }
 
 /// Extracts table width-priority column names from pipeline metadata.
