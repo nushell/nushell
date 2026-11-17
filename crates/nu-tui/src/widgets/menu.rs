@@ -4,6 +4,7 @@ use crate::session::Session;
 use crate::widget::{Caps, Effect, MenuState, TuiWidget, WidgetState};
 use nu_protocol::engine::Closure;
 use nu_protocol::{Record, Span, Value};
+use nu_utils::strip_ansi_unlikely;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Position, Rect};
 use ratatui::style::{Modifier, Style};
@@ -27,8 +28,11 @@ pub struct MenuItem {
 }
 
 impl MenuItem {
-    /// Parse `&` mnemonics: `"&File"` → label `File`, mnemonic `f`.
+    /// Parse `&` mnemonics: `"&File"` → label `File`, mnemonic `f`. ANSI
+    /// escapes are dropped first, so a hyperlink's URL can't supply the `&`
+    /// or the default letter.
     pub fn new(raw: &str, items: Vec<MenuItem>, action: Option<Closure>) -> Self {
+        let raw = strip_ansi_unlikely(raw);
         let mut label = String::with_capacity(raw.len());
         let mut mnemonic = None;
         let mut chars = raw.chars().peekable();
@@ -441,5 +445,15 @@ mod tests {
         assert_eq!(item.mnemonic, Some('x'));
         let item = MenuItem::new("View", Vec::new(), None);
         assert_eq!(item.mnemonic, Some('v'));
+    }
+
+    #[test]
+    fn hyperlink_label_keeps_only_its_text() {
+        // The `&` in the URL's query must not become the mnemonic marker,
+        // and `8` from `]8;;` must not become the default letter.
+        let raw = "\x1b]8;;https://x.dev?a=1&b=2\x1b\\here\x1b]8;;\x1b\\";
+        let item = MenuItem::new(raw, Vec::new(), None);
+        assert_eq!(item.label, "here");
+        assert_eq!(item.mnemonic, Some('h'));
     }
 }

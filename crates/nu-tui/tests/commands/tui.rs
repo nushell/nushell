@@ -499,6 +499,36 @@ fn preview_closure_with_row_param_is_the_source() -> Result {
 }
 
 #[test]
+fn hyperlinks_show_only_their_text() -> Result {
+    // `ansi link` ends OSC 8 with ESC `\`; glow ends it with BEL, adds an
+    // `id=`, and prints text after the closing sequence (#19174).
+    let st = r#"$"('https://x.dev' | ansi link --text here) after""#;
+    let bel = r#"$"(char -u '1b')]8;id=7;https://x.dev(char -u '7')here(char -u '1b')]8;;(char -u '7') after""#;
+    for link in [st, bel] {
+        let widgets = [
+            format!("[x] | tui table | tui preview {{|v| {link} }}"),
+            format!("tui label {link}"),
+            format!("tui label --titlebar {link}"),
+            format!("[x] | tui table | tui label --status {link}"),
+            format!("[{link}] | tui log"),
+            format!("[{link}] | tui select"),
+            format!("[{link}] | tui tree"),
+            format!("tui menu [{link}] | tui table"),
+        ]
+        .map(|widget| format!("{widget} | tui debug"));
+        // The titlebar text is also the dialog's border title.
+        let dialog = format!("tui label --titlebar {link} | tui debug --dialog");
+        for run in widgets.into_iter().chain([dialog]) {
+            let screen: String = test().run(format!("{run} | get screen"))?;
+            assert_contains("here after", &screen);
+            assert_contains_not("]8;", &screen);
+            assert_contains_not("x.dev", &screen);
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn builders_do_not_read_their_stream() -> Result {
     // Reading even one row of this stream takes a second.
     let fast: bool = test().run(
