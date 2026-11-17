@@ -325,8 +325,9 @@ fn pwd_recovery(playground: Playground) -> Result {
     tester.run("cd /; pwd").expect_value_eq("/")
 }
 
+// TODO: fix this test
 #[test]
-#[ignore = "works on `main`, not here"]
+#[ignore = "dot dot navigation maybe broken?"]
 fn cd_dot_dot_from_deleted_cwd(playground: Playground) -> Result {
     let b = playground.dir("a/b")?;
     let a = playground.path().join("a");
