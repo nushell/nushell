@@ -185,6 +185,13 @@ pub struct Stack {
     /// the controlling terminal, and empty stdin is `/dev/null` instead of inheriting
     /// the TTY. Used on completion threads so children cannot race reedline.
     pub suppress_stdin: bool,
+    /// When `true`, external processes spawned from this stack read `/dev/null` for an empty
+    /// stdin and are not given the terminal's foreground, and commands that read the terminal
+    /// refuse to. Unlike [`suppress_stdin`](Self::suppress_stdin) the externals stay in the
+    /// shell's process group, so the terminal's interrupt still reaches them. Set for hooks
+    /// that are not interactive, which run on the main thread while nothing else reads the
+    /// terminal.
+    pub no_terminal_input: bool,
     /// Active block-local scope bindings (commands/modules), outer → inner.
     ///
     /// Pushed when evaluating a whole block via `eval_ir_block` (closures, custom commands).
@@ -231,6 +238,7 @@ impl Stack {
             config: None,
             out_dest: StackOutDest::new(),
             suppress_stdin: false,
+            no_terminal_input: false,
             active_scope_bindings: vec![],
             ir_scope_regions: vec![],
             ir_instruction_index: None,
@@ -258,6 +266,7 @@ impl Stack {
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             suppress_stdin: parent.suppress_stdin,
+            no_terminal_input: parent.no_terminal_input,
             // Child inherits outer block bindings so nested `scope` still sees them.
             active_scope_bindings: parent.active_scope_bindings.clone(),
             // Nested IR evaluation installs its own regions/pc.
@@ -789,6 +798,7 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            no_terminal_input: self.no_terminal_input,
             // Inherit caller block bindings so nested closures still see outer local defs.
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
@@ -833,6 +843,7 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            no_terminal_input: self.no_terminal_input,
             // Inherit caller block bindings so nested closures still see outer local defs.
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
@@ -1382,23 +1393,31 @@ impl Stack {
     }
 
     /// Error if this stack is detached from the controlling terminal (see
-    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads and hint closures).
+    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads and hint closures)
+    /// or kept from reading it (see [`no_terminal_input`](Self::no_terminal_input), set for
+    /// hooks).
     /// Commands that grab the terminal (`input`, `input list`, `input listen`, `term query`)
     /// call this first so they decline instead of racing reedline for it; completers turn
     /// the error into a fallback. `span` points at the offending call.
     pub fn require_stdin(&self, span: Span) -> Result<(), ShellError> {
-        if self.suppress_stdin {
+        if self.suppress_stdin || self.no_terminal_input {
+            let help = if self.no_terminal_input {
+                "this hook is kept off the terminal, so interactive commands like `input`, \
+                 `input list`, `input listen`, and `term query` cannot run in it; give it the \
+                 terminal with `interactive: true` in its record, or all hooks with \
+                 `$env.config.hooks.interactive = true`"
+            } else {
+                "this stack is detached from the terminal (completion worker, hint closure or MCP), so \
+                 interactive commands like `input`, `input list`, `input listen`, and \
+                 `term query` cannot run here"
+            };
             Err(ShellError::Generic(
                 GenericError::new(
                     "Interactive input is unavailable in this context",
                     "this command reads from the terminal",
                     span,
                 )
-                .with_help(
-                    "this stack is detached from the terminal (completion worker, hint closure or MCP), so \
-                     interactive commands like `input`, `input list`, `input listen`, and \
-                     `term query` cannot run here",
-                ),
+                .with_help(help),
             ))
         } else {
             Ok(())

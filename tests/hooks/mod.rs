@@ -426,3 +426,63 @@ fn env_change_overlay() -> Result {
 
     tester.run_with_hooks("$env.BAR").expect_value_eq(2)
 }
+
+#[test]
+fn hook_kept_off_the_terminal_cannot_read_it() -> Result {
+    let hook_config = r#"
+        $env.config.hooks.env_change.FOO = [{ interactive: false, code: {|| input "name: " } }]
+    "#;
+    let mut tester = test();
+    let () = tester.run_with_hooks(hook_config)?;
+    let () = tester.run_with_hooks("$env.FOO = 1")?;
+
+    let err = tester.run_with_hooks::<Value>("1").expect_shell_error()?;
+    assert!(format!("{err:?}").contains("interactive: true"), "{err:?}");
+    Ok(())
+}
+
+#[test]
+fn hooks_kept_off_the_terminal_by_config_cannot_read_it() -> Result {
+    let hook_config = r#"
+        $env.config.hooks.interactive = false
+        $env.config.hooks.env_change.FOO = [{|| input "name: " }]
+    "#;
+    let mut tester = test();
+    let () = tester.run_with_hooks(hook_config)?;
+    let () = tester.run_with_hooks("$env.FOO = 1")?;
+
+    let err = tester.run_with_hooks::<Value>("1").expect_shell_error()?;
+    assert!(format!("{err:?}").contains("interactive: true"), "{err:?}");
+    Ok(())
+}
+
+#[test]
+fn interactive_hook_runs() -> Result {
+    let hook_config = r#"
+        $env.config.hooks.interactive = false
+        $env.config.hooks.env_change.FOO = [
+            { interactive: true, code: {|| $env.SPAM = "spam" } }
+        ]
+    "#;
+    let mut tester = test();
+    let () = tester.run_with_hooks(hook_config)?;
+    let () = tester.run_with_hooks("$env.FOO = 1")?;
+
+    tester.run_with_hooks("$env.SPAM").expect_value_eq("spam")
+}
+
+#[test]
+fn err_hook_interactive_not_a_bool() -> Result {
+    let hook_config = r#"
+        $env.config.hooks.env_change.FOO = [
+            { interactive: "yes", code: {|| 1 } }
+        ]
+    "#;
+    let mut tester = test();
+    let () = tester.run_with_hooks(hook_config)?;
+    let () = tester.run_with_hooks("$env.FOO = 1")?;
+
+    tester
+        .run_with_hooks::<Value>("1")
+        .expect_error_code_eq("nu::shell::cant_convert")
+}

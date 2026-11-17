@@ -82,17 +82,39 @@ pub fn eval_hooks(
     hooks: &[Value],
     hook_name: &str,
 ) -> Result<(), ShellError> {
+    let interactive = stack.get_config(engine_state).hooks.interactive;
     for hook in hooks {
-        eval_hook(
+        // A hook runs when the user did not ask for it, so it can be kept off the terminal. A
+        // list leaves that to each of its hooks.
+        let was_detached = stack.no_terminal_input;
+        if !matches!(hook, Value::List { .. }) {
+            stack.no_terminal_input = !is_interactive(hook, interactive)?;
+        }
+        let result = eval_hook(
             engine_state,
             stack,
             None,
             arguments.clone(),
             hook,
             &format!("{hook_name} list, recursive"),
-        )?;
+        );
+        stack.no_terminal_input = was_detached;
+        result?;
     }
     Ok(())
+}
+
+/// Whether `hook` is given the terminal: what a record says with `interactive`, or `default`,
+/// which is `$env.config.hooks.interactive`.
+fn is_interactive(hook: &Value, default: bool) -> Result<bool, ShellError> {
+    match hook
+        .as_record()
+        .ok()
+        .and_then(|hook| hook.get("interactive"))
+    {
+        Some(interactive) => interactive.as_bool(),
+        None => Ok(default),
+    }
 }
 
 pub fn eval_hook(
