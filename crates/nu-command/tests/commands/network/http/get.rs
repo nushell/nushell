@@ -823,7 +823,7 @@ fn http_get_allow_errors_preserves_metadata_through_converter() -> Result {
         url = server.url()
     );
 
-    let _ = test().run(code).expect_value_eq(200);
+    test().run(code).expect_value_eq(200)?;
 
     // The converter clears content_type on purpose; --allow-errors must not
     // put it back on the converted value.
