@@ -171,6 +171,11 @@ impl Command for Glob {
                 result: None,
             },
             Example {
+                description: "Search for .txt files in subdir, returning paths relative to the current directory.",
+                example: "glob --relative-paths subdir/*.txt",
+                result: None,
+            },
+            Example {
                 description: "Search for files named tsconfig.json that are not in node_modules directories.",
                 example: "glob **/tsconfig.json --exclude [**/node_modules/**]",
                 result: None,
