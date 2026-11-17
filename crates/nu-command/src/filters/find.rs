@@ -75,7 +75,7 @@ impl Command for Find {
     }
 
     fn extra_description(&self) -> &str {
-        "With no search terms, every value matches and the input is not filtered."
+        "A search term or `--regex` is required."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -84,15 +84,6 @@ impl Command for Find {
                 description: "Search for multiple terms in a command output.",
                 example: "ls | find toml md sh",
                 result: None,
-            },
-            Example {
-                description: "Return all values when no search terms are given.",
-                example: "[1 2 3] | find",
-                result: Some(Value::test_list(vec![
-                    Value::test_int(1),
-                    Value::test_int(2),
-                    Value::test_int(3),
-                ])),
             },
             Example {
                 description: "Search and highlight text for a term in a string.",
@@ -372,6 +363,13 @@ fn get_match_pattern_from_arguments(
     let regex = call.get_flag::<String>(engine_state, stack, "regex")?;
     let terms = call.rest::<Value>(engine_state, stack, 0)?;
 
+    if regex.is_none() && terms.is_empty() {
+        return Err(ShellError::MissingParameter {
+            param_name: "search term or --regex".into(),
+            span: call.head,
+        });
+    }
+
     let invert = call.has_flag(engine_state, stack, "invert")?;
     let highlight = !call.has_flag(engine_state, stack, "no-highlight")?;
     let only_matching = call.has_flag(engine_state, stack, "only-matching")?;
@@ -423,8 +421,6 @@ fn get_match_pattern_from_arguments(
                 span: call.get_flag_span(stack, "dotall").expect("has flag"),
             });
         }
-        // NOTE: Should this be an error? It doesn't make sense to call `find` with no arguments.
-        // (None, []) => {}
         (None, terms) => {
             let mut regex = String::new();
 

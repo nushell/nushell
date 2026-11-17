@@ -1,26 +1,15 @@
 use chrono::DateTime;
-use nu_command::First;
 use nu_protocol::{
     Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
-    Range, Signals, Span, Type, Value, ast::RangeInclusion, engine::Command,
+    Range, Signals, Span, Value, ast::RangeInclusion,
 };
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
-fn binary_input_reports_int_or_binary_output() {
-    let output = First
-        .signature()
-        .get_output_type(Some(&Type::Binary))
-        .expect("binary input should be supported");
-
-    let Type::OneOf(types) = output else {
-        panic!("expected binary input to have multiple output types");
-    };
-
-    assert!(types.iter().any(|ty| ty == &Type::Int));
-    assert!(types.iter().any(|ty| ty == &Type::Binary));
+fn binary_first_typechecks_as_int() -> Result {
+    test().run("(0x[01 02 03] | first) + 1").expect_value_eq(2)
 }
 
 #[derive(Clone, Copy)]

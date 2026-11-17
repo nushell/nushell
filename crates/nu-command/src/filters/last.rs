@@ -22,8 +22,7 @@ impl Command for Last {
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Binary, Type::Int),
-                (Type::Binary, Type::Binary),
+                (Type::Binary, Type::one_of([Type::Int, Type::Binary])),
                 (Type::Range, Type::Any),
             ])
             .optional(
@@ -61,7 +60,7 @@ impl Command for Last {
             },
             Example {
                 example: "0x[01 23 45] | last",
-                description: "Return the last item of a binary value.",
+                description: "Return the last byte of a binary value as an int.",
                 result: Some(Value::test_int(0x45)),
             },
             Example {
