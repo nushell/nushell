@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-use indoc::indoc;
-=======
->>>>>>> 4f4a9394c (fixed some warnings)
-use nu_test_support::prelude::*;
-=======
->>>>>>> 20da414e3 (fmt)
 use indoc::indoc;
 use nu_test_support::prelude::*;
 
@@ -14,10 +6,6 @@ use nu_test_support::prelude::*;
 fn infers_types(playground: Playground) -> Result {
     playground.file(
         "calendar.ics",
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> d1641e166 (fix a handful of tests)
         indoc! {"
             BEGIN:VCALENDAR
             PRODID:-//Google Inc//Google Calendar 70.9054//EN
@@ -52,45 +40,6 @@ fn infers_types(playground: Playground) -> Result {
             END:VEVENT
             END:VCALENDAR
         "},
-<<<<<<< HEAD
-=======
-        indoc::indoc! {"
-        BEGIN:VCALENDAR
-        PRODID:-//Google Inc//Google Calendar 70.9054//EN
-        VERSION:2.0
-        BEGIN:VEVENT
-        DTSTART:20171007T200000Z
-        DTEND:20171007T233000Z
-        DTSTAMP:20200319T182138Z
-        UID:4l80f6dcovnriq38g57g07btid@google.com
-        CREATED:20170719T202915Z
-        DESCRIPTION:
-        LAST-MODIFIED:20170930T190808Z
-        LOCATION:
-        SEQUENCE:1
-        STATUS:CONFIRMED
-        SUMMARY:Maryland Game
-        TRANSP:TRANSPARENT
-        END:VEVENT
-        BEGIN:VEVENT
-        DTSTART:20171002T010000Z
-        DTEND:20171002T020000Z
-        DTSTAMP:20200319T182138Z
-        UID:2v61g7mij4s7ieoubm3sjpun5d@google.com
-        CREATED:20171001T180103Z
-        DESCRIPTION:
-        LAST-MODIFIED:20171001T180103Z
-        LOCATION:
-        SEQUENCE:0
-        STATUS:CONFIRMED
-        SUMMARY:Halloween Wars
-        TRANSP:OPAQUE
-        END:VEVENT
-        END:VCALENDAR
-    "},
->>>>>>> 926ed3f27 (fmt)
-=======
->>>>>>> d1641e166 (fix a handful of tests)
     )?;
 
     test()
@@ -104,12 +53,7 @@ fn infers_types(playground: Playground) -> Result {
 fn from_ics_text_to_table(playground: Playground) -> Result {
     playground.file(
         "calendar.txt",
-<<<<<<< HEAD
         indoc::indoc! {"
-<<<<<<< HEAD
-=======
-        indoc! {"
->>>>>>> d1641e166 (fix a handful of tests)
             BEGIN:VCALENDAR
             BEGIN:VEVENT
             DTSTART:20171007T200000Z
@@ -127,28 +71,6 @@ fn from_ics_text_to_table(playground: Playground) -> Result {
             END:VEVENT
             END:VCALENDAR
         "},
-<<<<<<< HEAD
-=======
-        BEGIN:VCALENDAR
-        BEGIN:VEVENT
-        DTSTART:20171007T200000Z
-        DTEND:20171007T233000Z
-        DTSTAMP:20200319T182138Z
-        UID:4l80f6dcovnriq38g57g07btid@google.com
-        CREATED:20170719T202915Z
-        DESCRIPTION:
-        LAST-MODIFIED:20170930T190808Z
-        LOCATION:
-        SEQUENCE:1
-        STATUS:CONFIRMED
-        SUMMARY:Maryland Game
-        TRANSP:TRANSPARENT
-        END:VEVENT
-        END:VCALENDAR
-    "},
->>>>>>> 926ed3f27 (fmt)
-=======
->>>>>>> d1641e166 (fix a handful of tests)
     )?;
 
     let code = r#"
@@ -172,11 +94,7 @@ fn from_ics_text_to_table(playground: Playground) -> Result {
 fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
     playground.file(
         "calendar.txt",
-<<<<<<< HEAD
-        indoc! { "
-=======
-        indoc! {"
->>>>>>> d1641e166 (fix a handful of tests)
+        indoc::indoc! {"
             BEGIN:VCALENDAR
             BEGIN:VEVENT
             DTSTART:20171007T200000Z
@@ -195,16 +113,7 @@ fn from_ics_text_with_linebreak_to_table(playground: Playground) -> Result {
             TRANSP:TRANSPARENT
             END:VEVENT
             END:VCALENDAR
-<<<<<<< HEAD
-<<<<<<< HEAD
-        ",
-        },
-=======
-        "}
->>>>>>> d1641e166 (fix a handful of tests)
-=======
         "},
->>>>>>> 20da414e3 (fmt)
     )?;
 
     let code = r#"

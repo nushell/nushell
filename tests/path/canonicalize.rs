@@ -1,8 +1,4 @@
 use nu_path::canonicalize_with;
-<<<<<<< HEAD
-=======
-use nu_test_support::playground::Playground;
->>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use std::path::Path;
@@ -18,14 +14,7 @@ fn canonicalize_path(playground: Playground) -> Result {
     let actual = canonicalize_with(spam, cwd).expect("Failed to canonicalize");
 
     assert!(actual.ends_with("spam.txt"));
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -40,14 +29,7 @@ fn canonicalize_unicode_path(playground: Playground) -> Result {
     let actual = canonicalize_with(spam, cwd).expect("Failed to canonicalize");
 
     assert!(actual.ends_with("🚒.txt"));
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[ignore]
@@ -65,14 +47,7 @@ fn canonicalize_path_relative_to(playground: Playground) -> Result {
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -90,14 +65,7 @@ fn canonicalize_unicode_path_relative_to_unicode_path_with_spaces(
     expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[ignore]
@@ -118,14 +86,7 @@ fn canonicalize_absolute_path_relative_to(playground: Playground) -> Result {
     let expected = absolute_path;
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -157,14 +118,7 @@ fn canonicalize_path_with_dot_relative_to(playground: Playground) -> Result {
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -177,14 +131,7 @@ fn canonicalize_path_with_many_dots_relative_to(playground: Playground) -> Resul
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -209,14 +156,7 @@ fn canonicalize_path_with_double_dot_relative_to(playground: Playground) -> Resu
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -230,29 +170,14 @@ fn canonicalize_path_with_many_double_dots_relative_to(playground: Playground) -
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
 fn canonicalize_ndots2(playground: Playground) -> Result {
     // This test will fail if you have the nushell repo on the root partition
     // So, let's start in a nested folder before trying to canonicalize_with "..."
-<<<<<<< HEAD
     let cwd = playground.dir("aaa/bbb/ccc")?;
-=======
-    playground.dir("aaa/bbb/ccc")?;
-    let output: String = test()
-        .cwd(WORKSPACE_ROOT.as_path())
-        .run_with_data("cd $in; $env.PWD", playground.path().join("aaa/bbb/ccc"))?;
-    let cwd = Path::new(&output);
->>>>>>> 4f4a9394c (fixed some warnings)
 
     let actual = canonicalize_with("...", &cwd).expect("Failed to canonicalize");
     let expected = cwd
@@ -276,14 +201,7 @@ fn canonicalize_path_with_3_ndots_relative_to(playground: Playground) -> Result 
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -300,14 +218,7 @@ fn canonicalize_path_with_many_3_ndots_relative_to(playground: Playground) -> Re
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -321,14 +232,7 @@ fn canonicalize_path_with_4_ndots_relative_to(playground: Playground) -> Result 
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -345,14 +249,7 @@ fn canonicalize_path_with_many_4_ndots_relative_to(playground: Playground) -> Re
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -369,28 +266,13 @@ fn canonicalize_path_with_way_too_many_dots_relative_to(playground: Playground) 
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
 fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spaces(
     playground: Playground,
-<<<<<<< HEAD
-<<<<<<< HEAD
 ) -> Result {
-=======
-) {
->>>>>>> 926ed3f27 (fmt)
-=======
-) -> Result {
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
     playground.dir("foo/áčěéí  +šř=é/baz/eggs/e-$ èрт🚒♞中片-j/bacon/öäöä öäöä")?;
     playground.empty_file("🚒.txt")?;
 
@@ -403,14 +285,7 @@ fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_wit
     expected.push("🚒.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]
@@ -450,14 +325,7 @@ fn canonicalize_symlink(playground: Playground) -> Result {
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -472,14 +340,7 @@ fn canonicalize_symlink_relative_to(playground: Playground) -> Result {
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -493,14 +354,7 @@ fn canonicalize_symlink_loop_relative_to_should_fail(playground: Playground) -> 
     let actual = canonicalize_with("link_to_spam.txt", playground.path());
 
     assert!(actual.is_err());
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -516,14 +370,7 @@ fn canonicalize_nested_symlink_relative_to(playground: Playground) -> Result {
     expected.push("spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -541,14 +388,7 @@ fn canonicalize_nested_symlink_within_symlink_dir_relative_to(playground: Playgr
     expected.push("foo/bar/baz/spam.txt");
 
     assert_eq!(actual, expected);
-<<<<<<< HEAD
-<<<<<<< HEAD
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }
 
 #[test]

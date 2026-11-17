@@ -4793,6 +4793,7 @@ dependencies = [
  "chrono",
  "crossterm",
  "fancy-regex",
+ "indoc",
  "is_executable",
  "libc",
  "log",

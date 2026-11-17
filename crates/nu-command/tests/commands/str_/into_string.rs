@@ -1,8 +1,5 @@
 use nu_test_support::prelude::*;
-<<<<<<< HEAD
 use pretty_assertions::assert_matches;
-=======
->>>>>>> 4f4a9394c (fixed some warnings)
 
 #[test]
 fn from_range() -> Result {
@@ -119,8 +116,6 @@ fn from_filesize(playground: Playground) -> Result {
     playground.file(
         "sample.toml",
         indoc::indoc! {r#"
-<<<<<<< HEAD
-<<<<<<< HEAD
             [dependency]
             name = "nu"
         "#},
@@ -130,27 +125,6 @@ fn from_filesize(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("ls sample.toml | get size | into string | get 0")
         .expect_value_eq("25 B")
-=======
-        [dependency]
-        name = "nu"
-    "#},
-=======
-            [dependency]
-            name = "nu"
-        "#},
->>>>>>> 70a207034 (fixed some more tests in `nu-commad`)
-    )?;
-
-    test()
-        .cwd(playground.path())
-<<<<<<< HEAD
-        .run(code)
-        .expect_value_eq(expected)
->>>>>>> 926ed3f27 (fmt)
-=======
-        .run("ls sample.toml | get size | into string | get 0")
-        .expect_value_eq("25 B")
->>>>>>> 70a207034 (fixed some more tests in `nu-commad`)
 }
 
 #[test]
@@ -344,7 +318,6 @@ fn int_into_string_decimals_respects_system_locale_en() -> Result {
 
     test().run(code).expect_value_eq("10.0")
 }
-<<<<<<< HEAD
 
 #[test]
 #[env(NU_TEST_LOCALE_OVERRIDE = "de_DE.UTF-8")]
@@ -586,5 +559,3 @@ fn help_says_binary_needs_decode() -> Result {
 
     test().run(code).expect_value_eq(true)
 }
-=======
->>>>>>> 926ed3f27 (fmt)

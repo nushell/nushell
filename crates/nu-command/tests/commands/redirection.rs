@@ -261,19 +261,11 @@ fn redirect_support_variable(playground: Playground) -> Result {
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
 fn separate_redirection_support_variable(playground: Playground) -> Result {
     let code = r#"
-<<<<<<< HEAD
-                let o_f = "out2.txt"
-                let e_f = "err2.txt"
-                $env.BAZ = "message"
-                echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f
-            "#;
-=======
             let o_f = "out2.txt"
             let e_f = "err2.txt"
             $env.BAZ = "message"
             echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f
         "#;
->>>>>>> 926ed3f27 (fmt)
     let () = test().cwd(playground.path()).run(code)?;
 
     assert_contains(
@@ -286,19 +278,11 @@ fn separate_redirection_support_variable(playground: Playground) -> Result {
     );
 
     let code = r#"
-<<<<<<< HEAD
-                let o_f = "out2.txt"
-                let e_f = "err2.txt"
-                $env.BAZ = "message"
-                echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f
-            "#;
-=======
             let o_f = "out2.txt"
             let e_f = "err2.txt"
             $env.BAZ = "message"
             echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f
         "#;
->>>>>>> 926ed3f27 (fmt)
     let () = test().cwd(playground.path()).run(code)?;
 
     let actual = fs::read_to_string(playground.path().join("out2.txt"))?;
@@ -402,13 +386,8 @@ fn no_redirection_with_outerr_pipe_separate(
 
 #[rstest]
 fn no_duplicate_redirection(
-<<<<<<< HEAD
     #[values("o>", "e>", "o+e>")] redirect: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[values("o>", "e>", "o+e>")] redirect: &str,
->>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     test()
         .cwd(playground.path())
@@ -488,15 +467,9 @@ fn pipe_redirection_in_let_and_mut(
 #[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
 fn subexpression_redirection(
-<<<<<<< HEAD
-    #[case] redir: &str,
-    #[case] stdout_file_body: &str,
-    #[ignore] playground: Playground,
-=======
     #[ignore] playground: Playground,
     #[case] redir: &str,
     #[case] stdout_file_body: &str,
->>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let body = match redir {
         "o>" => "echo_env_mixed out-err BAR BAZ err> other.txt",
@@ -520,15 +493,9 @@ fn subexpression_redirection(
 #[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
 fn file_redirection_in_if_true(
-<<<<<<< HEAD
-    #[case] redir: &str,
-    #[case] stdout_file_body: &str,
-    #[ignore] playground: Playground,
-=======
     #[ignore] playground: Playground,
     #[case] redir: &str,
     #[case] stdout_file_body: &str,
->>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let body = match redir {
         "o>" => "echo_env_mixed out-err BAR BAZ err> other.txt",
@@ -550,15 +517,9 @@ fn file_redirection_in_if_true(
 #[case::hey(true, "hey")]
 #[case::ho(false, "ho")]
 fn file_redirection_in_if_else(
-<<<<<<< HEAD
-    #[case] cond: bool,
-    #[case] stdout_file_body: &str,
-    #[ignore] playground: Playground,
-=======
     #[ignore] playground: Playground,
     #[case] cond: bool,
     #[case] stdout_file_body: &str,
->>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let code = format!("if {cond} {{ echo 'hey' }} else {{ echo 'ho' }} out> result.txt");
     let () = test().cwd(playground.path()).run(code)?;
@@ -576,15 +537,9 @@ fn file_redirection_in_if_else(
 #[nu_test_support::test]
 #[deps(TESTBIN_ECHO_ENV_MIXED)]
 fn file_redirection_in_try_catch(
-<<<<<<< HEAD
-    #[case] redir: &str,
-    #[case] stdout_file_body: &str,
-    #[ignore] playground: Playground,
-=======
     #[ignore] playground: Playground,
     #[case] redir: &str,
     #[case] stdout_file_body: &str,
->>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let body = match redir {
         "o>" => "echo_env_mixed out-err BAR BAZ err> other.txt",
@@ -688,7 +643,6 @@ fn file_redirection_not_allowed_on_for(playground: Playground) -> Result {
     );
     Ok(())
 }
-<<<<<<< HEAD
 
 // `e>|` pipes only stderr into a command that reads its input as text, as into any other.
 #[rstest]
@@ -778,5 +732,3 @@ fn file_redirection_keeps_separate_stderr_for_ignore(playground: Playground) -> 
     );
     Ok(())
 }
-=======
->>>>>>> 926ed3f27 (fmt)

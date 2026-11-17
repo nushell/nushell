@@ -858,14 +858,10 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
 #[cfg(test)]
 mod test {
     use super::*;
-<<<<<<< HEAD
     use nu_test_support::{Result, prelude::*};
-=======
-    use nu_test_support::prelude::*;
->>>>>>> 681a05652 (import the prelude for some more tests)
 
     #[test]
-    fn test_expand_glob(playground: Playground) -> nu_test_support::prelude::Result {
+    fn test_expand_glob(playground: Playground) -> Result {
         playground.empty_file("a.txt")?;
         playground.empty_file("b.txt")?;
 
@@ -898,10 +894,7 @@ mod test {
         let home = dirs::home_dir().expect("failed to get home dir");
         let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
         assert_eq!(actual, expected);
-<<<<<<< HEAD
 
-=======
->>>>>>> 681a05652 (import the prelude for some more tests)
         Ok(())
     }
 

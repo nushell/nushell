@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 use nu_protocol::test_record;
->>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -356,7 +353,6 @@ fn test_to_json_content_type_metadata() -> Result {
 
     test().run(code).expect_value_eq("application/json")
 }
-<<<<<<< HEAD
 
 #[test]
 fn to_json_escapes_control_characters() -> Result {
@@ -381,5 +377,3 @@ fn to_json_matches_raw_for_control_characters() -> Result {
     ";
     test().run(code).expect_value_eq(true)
 }
-=======
->>>>>>> 926ed3f27 (fmt)

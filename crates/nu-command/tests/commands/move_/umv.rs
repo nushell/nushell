@@ -100,7 +100,6 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory(
 #[test]
 #[deps(NU)]
 fn moves_using_path_with_wildcard(playground: Playground) -> Result {
-<<<<<<< HEAD
     playground.at("originals", |originals| {
         originals.empty_file("andres.ini")?;
         originals.empty_file("caco3_plastics.csv")?;
@@ -113,21 +112,6 @@ fn moves_using_path_with_wildcard(playground: Playground) -> Result {
         originals.empty_file("yehuda.ini")?;
         Ok(())
     })?;
-=======
-    for file in [
-        "andres.ini",
-        "caco3_plastics.csv",
-        "cargo_sample.toml",
-        "jt.ini",
-        "jt.xml",
-        "sgml_description.json",
-        "sample.ini",
-        "utf16.ini",
-        "yehuda.ini",
-    ] {
-        playground.empty_file(format!("originals/{file}"))?;
-    }
->>>>>>> 1832dd598 (modernized more tests)
     playground.dir("work_dir")?;
     playground.dir("expected")?;
 
@@ -138,35 +122,21 @@ fn moves_using_path_with_wildcard(playground: Playground) -> Result {
     let result: CompleteResult = test().cwd(work_dir).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-<<<<<<< HEAD
     for file in ["yehuda.ini", "jt.ini", "sample.ini", "andres.ini"] {
         assert!(expected.join(file).exists());
     }
-=======
-    assert!(
-        ["yehuda.ini", "jt.ini", "sample.ini", "andres.ini"]
-            .iter()
-            .all(|file| expected.join(file).exists())
-    );
->>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
 #[test]
 #[deps(NU)]
 fn moves_using_a_glob(playground: Playground) -> Result {
-<<<<<<< HEAD
     playground.at("meals", |meals| {
         meals.empty_file("arepa.txt")?;
         meals.empty_file("empanada.txt")?;
         meals.empty_file("taquiza.txt")?;
         Ok(())
     })?;
-=======
-    for file in ["arepa.txt", "empanada.txt", "taquiza.txt"] {
-        playground.empty_file(format!("meals/{file}"))?;
-    }
->>>>>>> 1832dd598 (modernized more tests)
     playground.dir("work_dir")?;
     playground.dir("expected")?;
 
@@ -179,24 +149,15 @@ fn moves_using_a_glob(playground: Playground) -> Result {
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
     assert!(meal_dir.exists());
-<<<<<<< HEAD
     for file in ["arepa.txt", "empanada.txt", "taquiza.txt"] {
         assert!(expected.join(file).exists());
     }
-=======
-    assert!(
-        ["arepa.txt", "empanada.txt", "taquiza.txt"]
-            .iter()
-            .all(|file| expected.join(file).exists())
-    );
->>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
 #[test]
 #[deps(NU)]
 fn moves_a_directory_with_files(playground: Playground) -> Result {
-<<<<<<< HEAD
     playground.at("vehicles/car", |car| {
         car.empty_file("car1.txt")?;
         car.empty_file("car2.txt")?;
@@ -207,16 +168,6 @@ fn moves_a_directory_with_files(playground: Playground) -> Result {
         bicycle.empty_file("bicycle2.txt")?;
         Ok(())
     })?;
-=======
-    for file in [
-        "vehicles/car/car1.txt",
-        "vehicles/car/car2.txt",
-        "vehicles/bicycle/bicycle1.txt",
-        "vehicles/bicycle/bicycle2.txt",
-    ] {
-        playground.empty_file(file)?;
-    }
->>>>>>> 1832dd598 (modernized more tests)
 
     let original_dir = playground.path().join("vehicles");
     let expected_dir = playground.path().join("expected");
@@ -227,7 +178,6 @@ fn moves_a_directory_with_files(playground: Playground) -> Result {
 
     assert!(!original_dir.exists());
     assert!(expected_dir.exists());
-<<<<<<< HEAD
     for file in [
         "car/car1.txt",
         "car/car2.txt",
@@ -236,18 +186,6 @@ fn moves_a_directory_with_files(playground: Playground) -> Result {
     ] {
         assert!(expected_dir.join(file).exists());
     }
-=======
-    assert!(
-        [
-            "car/car1.txt",
-            "car/car2.txt",
-            "bicycle/bicycle1.txt",
-            "bicycle/bicycle2.txt"
-        ]
-        .iter()
-        .all(|file| expected_dir.join(file).exists())
-    );
->>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
@@ -357,35 +295,6 @@ fn does_not_error_on_relative_parent_path(playground: Playground) -> Result {
 #[test]
 #[deps(NU)]
 fn move_files_using_glob_two_parents_up_using_multiple_dots(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.at("foo/bar", |bar| {
-        bar.empty_file("jtjson")?;
-        bar.empty_file("andres.xml")?;
-        bar.empty_file("yehuda.yaml")?;
-        bar.empty_file("kevin.txt")?;
-        bar.empty_file("many_more.ppl")?;
-        Ok(())
-    })?;
-=======
-    let files = [
-        "yehuda.yaml",
-        "jtjson",
-        "andres.xml",
-        "kevin.txt",
-        "many_more.ppl",
-    ];
-    for file in files {
-        playground.empty_file(format!("foo/bar/{file}"))?;
-    }
->>>>>>> 1832dd598 (modernized more tests)
-
-    let code = "mv * ...";
-    let result: CompleteResult = test()
-        .cwd(playground.path().join("foo/bar"))
-        .run_with_data(RUNNER, code)?;
-    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-
-<<<<<<< HEAD
     let files = &[
         "yehuda.yaml",
         "jtjson",
@@ -393,9 +302,17 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots(playground: Playgrou
         "kevin.txt",
         "many_more.ppl",
     ];
+    
+    playground.at("foo/bar", |bar| Ok(for file in files {
+        bar.empty_file(file)?;
+    }))?;
 
-=======
->>>>>>> 1832dd598 (modernized more tests)
+    let code = "mv * ...";
+    let result: CompleteResult = test()
+        .cwd(playground.path().join("foo/bar"))
+        .run_with_data(RUNNER, code)?;
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+
     let original_dir = playground.path().join("foo/bar");
     let destination_dir = playground.path();
 
@@ -732,10 +649,7 @@ fn test_mv_wildcards(playground: Playground) -> Result {
         .cwd(playground.path().join(sub_dir))
         .run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-<<<<<<< HEAD
     // by default, wildcard don't match dot files.
-=======
->>>>>>> 1832dd598 (modernized more tests)
     assert!(!playground.path().join(sub_dir).join(".a").exists());
     assert!(playground.path().join(".a").exists());
     Ok(())
@@ -744,18 +658,12 @@ fn test_mv_wildcards(playground: Playground) -> Result {
 #[test]
 #[deps(NU)]
 fn mv_with_tilde(playground: Playground) -> Result {
-<<<<<<< HEAD
     playground.at("~tilde", |tilde| {
         tilde.empty_file("f1.txt")?;
         tilde.empty_file("f2.txt")?;
         tilde.empty_file("f3.txt")?;
         Ok(())
     })?;
-=======
-    playground.empty_file("~tilde/f1.txt")?;
-    playground.empty_file("~tilde/f2.txt")?;
-    playground.empty_file("~tilde/f3.txt")?;
->>>>>>> 1832dd598 (modernized more tests)
     playground.dir("~tilde2")?;
 
     // mv file
@@ -795,22 +703,6 @@ fn mv_verbose_message_mentions_source_and_destination(playground: Playground) ->
 #[exp(nu_experimental::DC_GLOB)]
 #[deps(NU)]
 fn mv_literal_directory(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.empty_file("mv_literal_dir_dc/subdir/test.txt")?;
-    playground.dir("mv_literal_dir_dc/dest")?;
-
-    let code = "mv mv_literal_dir_dc/subdir mv_literal_dir_dc/dest";
-    let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
-    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-
-    assert!(!playground.path().join("mv_literal_dir_dc/subdir").exists());
-    assert!(
-        playground
-            .path()
-            .join("mv_literal_dir_dc/dest/subdir/test.txt")
-            .exists()
-    );
-=======
     playground.empty_file("subdir/test.txt")?;
     playground.dir("dest")?;
 
@@ -820,6 +712,5 @@ fn mv_literal_directory(playground: Playground) -> Result {
 
     assert!(!playground.path().join("subdir").exists());
     assert!(playground.path().join("dest/subdir/test.txt").exists());
->>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }

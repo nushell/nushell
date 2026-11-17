@@ -1,10 +1,7 @@
 use nu_protocol::{ParseError, ShellError, parser_path::MAX_RUN_SCRIPT_BYTES};
 use nu_test_support::prelude::*;
-<<<<<<< HEAD
 use pretty_assertions::assert_matches;
 use rstest::rstest;
-=======
->>>>>>> 4f4a9394c (fixed some warnings)
 use std::io::Write;
 
 #[test]
@@ -12,13 +9,8 @@ fn run_script_without_main_in_pipeline(playground: Playground) -> Result {
     playground.file(
         "up.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                str uppercase
-            "},
-=======
-        str uppercase
-    "},
->>>>>>> 926ed3f27 (fmt)
+            str uppercase
+        "},
     )?;
 
     test()
@@ -32,17 +24,10 @@ fn run_script_with_main_implicit_in(playground: Playground) -> Result {
     playground.file(
         "main_up.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [] {
-                    $in | str uppercase
-                }
-            "},
-=======
-        def main [] {
-            $in | str uppercase
-        }
-    "},
->>>>>>> 926ed3f27 (fmt)
+            def main [] {
+                $in | str uppercase
+            }
+        "},
     )?;
 
     test()
@@ -64,17 +49,10 @@ fn run_script_with_main_parameters_and_flags(playground: Playground) -> Result {
     playground.file(
         "format.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [value: string, --char: string] {
-                    $\"($in) ($value) ($char)\"
-                }
-            "},
-=======
             def main [value: string, --char: string] {
                 $\"($in) ($value) ($char)\"
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -88,17 +66,10 @@ fn run_script_with_main_parameters_and_short_flags(playground: Playground) -> Re
     playground.file(
         "format_short.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [value: string, --char(-c): string] {
-                    $\"($in) ($value) ($char)\"
-                }
-            "},
-=======
             def main [value: string, --char(-c): string] {
                 $\"($in) ($value) ($char)\"
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -114,17 +85,10 @@ fn run_script_with_main_required_positional_does_not_implicitly_bind_pipeline_in
     playground.file(
         "needs_arg.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [value: string] {
-                    $value
-                }
-            "},
-=======
             def main [value: string] {
                 $value
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let _ = test()
@@ -141,17 +105,10 @@ fn run_script_with_main_keeps_pipeline_input_in_in_when_positional_is_provided(
     playground.file(
         "in_and_arg.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [file: path] {
-                    $\"($in) -> ($file)\"
-                }
-            "},
-=======
             def main [file: path] {
                 $\"($in) -> ($file)\"
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -165,17 +122,10 @@ fn run_script_with_exported_main_uses_main_entrypoint(playground: Playground) ->
     playground.file(
         "exported_main.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                export def main [] {
-                    $in | str uppercase
-                }
-            "},
-=======
             export def main [] {
                 $in | str uppercase
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -191,19 +141,11 @@ fn run_script_with_exported_env_main_uses_main_entrypoint_without_leaking_env(
     playground.file(
         "exported_env_main.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                    export def --env main [] {
-                        $env.RUN_LOCAL = 'secret'
-                        $in | str uppercase
-                    }
-                "},
-=======
             export def --env main [] {
                 $env.RUN_LOCAL = 'secret'
                 $in | str uppercase
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -211,13 +153,9 @@ fn run_script_with_exported_env_main_uses_main_entrypoint_without_leaking_env(
         .run(r#""hello" | run exported_env_main.nu"#)
         .expect_value_eq("HELLO")?;
     match tester.run("$env.RUN_LOCAL").expect_shell_error()? {
-<<<<<<< HEAD
         ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "RUN_LOCAL" => {
             Ok(())
         }
-=======
-        ShellError::CantFindColumn { col_name, .. } if col_name == "RUN_LOCAL" => Ok(()),
->>>>>>> 926ed3f27 (fmt)
         err => Err(err.into()),
     }
 }
@@ -227,13 +165,8 @@ fn run_script_without_main_large_input_in_each(playground: Playground) -> Result
     playground.file(
         "double.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                $in * 2
-            "},
-=======
             $in * 2
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -247,15 +180,9 @@ fn run_does_not_leak_env_from_script_without_main(playground: Playground) -> Res
     playground.file(
         "set_env.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                $env.RUN_LOCAL = 'secret'
-                $in
-            "},
-=======
             $env.RUN_LOCAL = 'secret'
             $in
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -263,13 +190,9 @@ fn run_does_not_leak_env_from_script_without_main(playground: Playground) -> Res
         .run(r#""hello" | run set_env.nu"#)
         .expect_value_eq("hello")?;
     match tester.run("$env.RUN_LOCAL").expect_shell_error()? {
-<<<<<<< HEAD
         ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "RUN_LOCAL" => {
             Ok(())
         }
-=======
-        ShellError::CantFindColumn { col_name, .. } if col_name == "RUN_LOCAL" => Ok(()),
->>>>>>> 926ed3f27 (fmt)
         err => Err(err.into()),
     }
 }
@@ -279,19 +202,11 @@ fn run_does_not_leak_env_from_script_main(playground: Playground) -> Result {
     playground.file(
         "set_env_main.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [] {
-                    $env.RUN_LOCAL = 'secret'
-                    $in
-                }
-            "},
-=======
         def main [] {
             $env.RUN_LOCAL = 'secret'
             $in
         }
     "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -415,17 +330,10 @@ fn run_script_parse_error_reports_error(playground: Playground) -> Result {
     playground.file(
         "bad.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [ {
-                    $in
-                }
-            "},
-=======
-        def main [ {
-            $in
-        }
-    "},
->>>>>>> 926ed3f27 (fmt)
+            def main [ {
+                $in
+            }
+        "},
     )?;
 
     let _ = test()
@@ -440,17 +348,10 @@ fn run_script_runtime_error_reports_error(playground: Playground) -> Result {
     playground.file(
         "runtime_fail.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [] {
-                    error make { msg: 'boom from run' }
-                }
-            "},
-=======
-        def main [] {
-            error make { msg: 'boom from run' }
-        }
-    "},
->>>>>>> 926ed3f27 (fmt)
+            def main [] {
+                error make { msg: 'boom from run' }
+            }
+        "},
     )?;
 
     let err = test()
@@ -466,28 +367,16 @@ fn run_multiple_scripts_in_pipeline(playground: Playground) -> Result {
     playground.file(
         "up.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                    str uppercase
-                "},
-=======
-        str uppercase
-    "},
->>>>>>> 926ed3f27 (fmt)
+            str uppercase
+        "},
     )?;
     playground.file(
         "len.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                    def main [] {
-                        str length
-                    }
-                "},
-=======
-        def main [] {
-            str length
-        }
-    "},
->>>>>>> 926ed3f27 (fmt)
+            def main [] {
+                str length
+            }
+        "},
     )?;
 
     test()
@@ -501,28 +390,16 @@ fn run_nested_pipeline_with_each(playground: Playground) -> Result {
     playground.file(
         "up.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                    str uppercase
-                "},
-=======
-        str uppercase
-    "},
->>>>>>> 926ed3f27 (fmt)
+            str uppercase
+        "},
     )?;
     playground.file(
         "len.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                    def main [] {
-                        str length
-                    }
-                "},
-=======
-        def main [] {
-            str length
-        }
-    "},
->>>>>>> 926ed3f27 (fmt)
+            def main [] {
+                str length
+            }
+        "},
     )?;
 
     test()
@@ -536,28 +413,16 @@ fn run_does_not_cross_script_main_between_invocations(playground: Playground) ->
     playground.file(
         "run-test1.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                        str uppercase
-                    "},
-=======
             str uppercase
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
     playground.file(
         "run-test2.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                        def main [] {
-                            str length
-                        }
-                    "},
-=======
             def main [] {
                 str length
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -577,17 +442,10 @@ fn run_main_script_can_be_invoked_repeatedly(playground: Playground) -> Result {
     playground.file(
         "run-test2.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [] {
-                    str length
-                }
-            "},
-=======
             def main [] {
                 str length
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -607,17 +465,10 @@ fn run_main_script_tracks_file_edits_in_repl_session(playground: Playground) -> 
     playground.file(
         "run-edit.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [] {
-                    'hello'
-                }
-            "},
-=======
             def main [] {
                 'hello'
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -630,7 +481,6 @@ fn run_main_script_tracks_file_edits_in_repl_session(playground: Playground) -> 
     tester.run("run run-edit.nu").expect_value_eq("hello")
 }
 
-<<<<<<< HEAD
 #[rstest]
 #[case::cached_by_default("run run-edit.nu", false)]
 #[case::full_reparse("run --full-reparse run-edit.nu", true)]
@@ -638,27 +488,22 @@ fn run_main_script_tracks_file_edits_in_repl_session(playground: Playground) -> 
 #[case::record_spread("run ...{full-reparse: true} run-edit.nu", true)]
 #[case::record_spread_variable("let opts = {full-reparse: true}; run ...$opts run-edit.nu", true)]
 #[case::record_spread_off("run ...{full-reparse: false} run-edit.nu", false)]
+#[nu_test_support::test]
 fn run_main_script_in_reused_closure(
-    #[case] code: &str,
+    #[case] code: &str, 
     #[case] reparses: bool,
-    #[ignore] playground: Playground,
-=======
-#[test]
-fn run_main_script_in_reused_closure_keeps_cached_parse_by_default(
-    playground: Playground,
->>>>>>> 926ed3f27 (fmt)
+    #[ignore] playground: Playground
 ) -> Result {
     playground.file(
         "run-edit.nu",
-        indoc::indoc! {"
+        indoc::indoc!{"
             def main [] {
                 'hello'
             }
-        "},
+        "}
     )?;
 
     let mut tester = test().cwd(playground.path());
-<<<<<<< HEAD
     let () = tester.run(format!("let runner = {{ {code} }}"))?;
     tester.run("do $runner").expect_value_eq("hello")?;
     let () = tester.run(r#"'def main [] { "hello world" }' | save --force run-edit.nu"#)?;
@@ -670,11 +515,6 @@ fn run_main_script_in_reused_closure_keeps_cached_parse_by_default(
     tester
         .run("do $runner")
         .expect_value_eq(if reparses { "hello again" } else { "hello" })
-=======
-    tester.run::<()>("let runner = { run run-edit.nu }")?;
-    tester.run("do $runner").expect_value_eq("hello")?;
-    tester.run::<()>(r#"'def main [] { "hello world" }' | save --force run-edit.nu"#)?;
-    tester.run("do $runner").expect_value_eq("hello")
 }
 
 #[test]
@@ -695,7 +535,6 @@ fn run_main_script_in_reused_closure_reloads_with_full_reparse(playground: Playg
     tester.run("do $runner").expect_value_eq("hello world")?;
     tester.run::<()>(r#"'def main [] { "hello again" }' | save --force run-edit.nu"#)?;
     tester.run("do $runner").expect_value_eq("hello again")
->>>>>>> 926ed3f27 (fmt)
 }
 
 #[test]
@@ -703,13 +542,8 @@ fn run_script_without_main_tracks_file_edits_with_full_reparse(playground: Playg
     playground.file(
         "run-no-main.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                str uppercase
-            "},
-=======
             str uppercase
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -727,17 +561,10 @@ fn run_full_reparse_recovers_after_script_parse_error(playground: Playground) ->
     playground.file(
         "run-edit.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [] {
-                    'ok'
-                }
-            "},
-=======
             def main [] {
                 'ok'
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -759,17 +586,10 @@ fn run_full_reparse_forwards_main_arguments_and_flags(playground: Playground) ->
     playground.file(
         "format.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [value: string, --char(-c): string] {
-                    $\"($in) ($value) ($char)\"
-                }
-            "},
-=======
             def main [value: string, --char(-c): string] {
                 $\"($in) ($value) ($char)\"
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     test()
@@ -785,40 +605,6 @@ fn run_script_with_toolkit_like_exports_can_be_run_twice_in_repl_session(
     // Regression: running a toolkit-style script (with exports) must not break
     // subsequent `run` invocations in the same REPL session. The export must not
     // be named `run` — that is a parser keyword and is rejected.
-<<<<<<< HEAD
-
-    playground.dir("toolkit")?;
-    playground.file(
-        "toolkit/wrappers.nu",
-        indoc::indoc! {"
-                    export def dev [--experimental-options: string] {
-                        'toolkit dev'
-                    }
-                "},
-    )?;
-    playground.file(
-        "toolkit/mod.nu",
-        indoc::indoc! {"
-                    export use wrappers.nu *
-
-                    export def main [] {
-                        'toolkit main'
-                    }
-                "},
-    )?;
-    playground.file(
-        "toolkit.nu",
-        indoc::indoc! {"
-                    export use toolkit *
-
-                    export def main [] {
-                        help toolkit
-                        'ok'
-                    }
-                "},
-    )?;
-
-=======
     playground.dir("toolkit")?;
     playground.file(
         "toolkit/wrappers.nu",
@@ -850,7 +636,6 @@ fn run_script_with_toolkit_like_exports_can_be_run_twice_in_repl_session(
         "},
     )?;
 
->>>>>>> 926ed3f27 (fmt)
     let mut tester = test().cwd(playground.path());
     tester.run("run toolkit.nu").expect_value_eq("ok")?;
     tester.run("run toolkit.nu").expect_value_eq("ok")
@@ -861,17 +646,10 @@ fn run_script_binds_long_flag_by_name_not_declaration_order(playground: Playgrou
     playground.file(
         "flags.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [--alpha: int, --beta: int, --gamma: int] {
-                    $\"($alpha | default 0)/($beta | default 0)/($gamma | default 0)\"
-                }
-            "},
-=======
             def main [--alpha: int, --beta: int, --gamma: int] {
                 $\"($alpha | default 0)/($beta | default 0)/($gamma | default 0)\"
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     // `--gamma` must bind to `--gamma` by name. Previously a long flag
@@ -888,17 +666,10 @@ fn run_script_binds_switch_by_name_without_shifting_positional(playground: Playg
     playground.file(
         "switch.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def main [word: string, --num: int, --verbose] {
-                    $\"word=($word) num=($num | default 0) verbose=($verbose)\"
-                }
-            "},
-=======
             def main [word: string, --num: int, --verbose] {
                 $\"word=($word) num=($num | default 0) verbose=($verbose)\"
             }
         "},
->>>>>>> 926ed3f27 (fmt)
     )?;
 
     // `--verbose` is a switch declared after the value-taking `--num`.
@@ -1009,7 +780,6 @@ fn run_full_reparse_oversized_file_errors(playground: Playground) -> Result {
     assert_contains("too large", err.to_string());
     Ok(())
 }
-<<<<<<< HEAD
 
 /// The script from issue #19266.
 const FLAGS_SCRIPT: &str = indoc::indoc! {"
@@ -1535,5 +1305,3 @@ fn run_counts_toward_the_recursion_limit(playground: Playground) -> Result {
         .run("$env.config.recursion_limit = 10; run --full-reparse rec.nu 30")
         .expect_error_code_eq("nu::shell::recursion_limit_reached")
 }
-=======
->>>>>>> 926ed3f27 (fmt)

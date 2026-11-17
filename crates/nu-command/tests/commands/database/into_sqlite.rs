@@ -8,20 +8,12 @@ use rand::{
     random_range,
     rngs::{StdRng, SysRng},
 };
-<<<<<<< HEAD
-use std::{io::Write, path::PathBuf};
-=======
 use std::{io::Write, path::Path};
->>>>>>> 4f4a9394c (fixed some warnings)
 
 #[test]
 fn into_sqlite_schema(playground: Playground) -> Result {
     let testdb = make_sqlite_db(
-<<<<<<< HEAD
-        &playground,
-=======
         playground.path(),
->>>>>>> 4f4a9394c (fixed some warnings)
         r#"[
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary];
                 [true, 1, 2.0, 1kb, 1sec, "2023-09-10 11:30:00", "foo", ("binary" | into binary)],
@@ -60,11 +52,7 @@ fn into_sqlite_schema(playground: Playground) -> Result {
 #[test]
 fn into_sqlite_values(playground: Playground) -> Result {
     insert_test_rows(
-<<<<<<< HEAD
-        &playground,
-=======
         playground.path(),
->>>>>>> 4f4a9394c (fixed some warnings)
         r#"[
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), 1],
@@ -154,11 +142,7 @@ fn into_sqlite_values_first_column_null(playground: Playground) -> Result {
 #[test]
 fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -> Result {
     insert_test_rows(
-<<<<<<< HEAD
-        &playground,
-=======
         playground.path(),
->>>>>>> 4f4a9394c (fixed some warnings)
         r#"[
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), 1],
@@ -192,11 +176,7 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
     )?;
 
     insert_test_rows(
-<<<<<<< HEAD
-        &playground,
-=======
         playground.path(),
->>>>>>> 4f4a9394c (fixed some warnings)
         r#"[
                 [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
                 [true, 3, 5.0, 3.1mb, 1wk, "2020-09-10T12:30:00-00:00", "baz", ("huh" | into binary), null],
@@ -341,14 +321,7 @@ fn into_sqlite_big_insert(playground: Playground) -> Result {
     let serialize_types = false;
     const NUM_ROWS: usize = 10_000;
     const NUON_FILE_NAME: &str = "data.nuon";
-<<<<<<< HEAD
     let nuon_path = playground.empty_file(NUON_FILE_NAME)?;
-=======
-
-    let nuon_path = playground.path().join(NUON_FILE_NAME);
-
-    playground.empty_file(NUON_FILE_NAME)?;
->>>>>>> 362e2494a (fix some more tests)
 
     let mut expected_rows = Vec::new();
     let mut nuon_file = std::fs::OpenOptions::new()
@@ -410,11 +383,7 @@ fn into_sqlite_big_insert(playground: Playground) -> Result {
 #[test]
 fn into_sqlite_empty(playground: Playground) -> Result {
     insert_test_rows(
-<<<<<<< HEAD
-        &playground,
-=======
         playground.path(),
->>>>>>> 4f4a9394c (fixed some warnings)
         "[]",
         Some("SELECT * FROM sqlite_schema;"),
         vec![],
@@ -519,16 +488,10 @@ impl Distribution<TestRow> for StandardUniform {
     }
 }
 
-<<<<<<< HEAD
-fn make_sqlite_db(playground: &Playground, nu_table: &str) -> Result<PathBuf> {
-    let testdb_path = playground.path().join("file.db");
-    let () = test().cwd(playground.path()).run_with_data(
-=======
 fn make_sqlite_db(testdir: &Path, nu_table: &str) -> Result<std::path::PathBuf> {
     let testdb_path = testdir.join("test.db");
 
     let () = test().cwd(testdir).run_with_data(
->>>>>>> 4f4a9394c (fixed some warnings)
         format!("let db = $in; {nu_table} | into sqlite $db"),
         testdb_path.clone(),
     )?;
@@ -537,21 +500,13 @@ fn make_sqlite_db(testdir: &Path, nu_table: &str) -> Result<std::path::PathBuf> 
 }
 
 fn insert_test_rows(
-<<<<<<< HEAD
-    playground: &Playground,
-=======
     testdir: &Path,
->>>>>>> 4f4a9394c (fixed some warnings)
     nu_table: &str,
     sql_query: Option<&str>,
     expected: Vec<TestRow>,
 ) -> Result {
     let sql_query = sql_query.unwrap_or("SELECT * FROM main;");
-<<<<<<< HEAD
-    let testdb = make_sqlite_db(playground, nu_table)?;
-=======
     let testdb = make_sqlite_db(testdir, nu_table)?;
->>>>>>> 4f4a9394c (fixed some warnings)
 
     let conn = rusqlite::Connection::open(testdb).unwrap();
     let mut stmt = conn.prepare(sql_query).unwrap();

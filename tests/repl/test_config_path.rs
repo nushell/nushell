@@ -63,11 +63,7 @@ fn history_config_default_path_sqlite() {
 
 #[test]
 fn history_path_directory_appends_filename_plaintext(playground: Playground) -> Result {
-<<<<<<< HEAD
     let dir = playground.path();
-=======
-    let dir = playground.path().to_path_buf();
->>>>>>> 2118a7a1c (fix tests using `to_std_path_buf`)
     let config = HistoryConfig {
         path: HistoryPath::Custom(dir.to_path_buf()),
         file_format: HistoryFileFormat::Plaintext,
@@ -82,11 +78,7 @@ fn history_path_directory_appends_filename_plaintext(playground: Playground) -> 
 
 #[test]
 fn history_path_directory_appends_filename_sqlite(playground: Playground) -> Result {
-<<<<<<< HEAD
     let dir = playground.path();
-=======
-    let dir = playground.path().to_path_buf();
->>>>>>> 2118a7a1c (fix tests using `to_std_path_buf`)
     let config = HistoryConfig {
         path: HistoryPath::Custom(dir.to_path_buf()),
         file_format: HistoryFileFormat::Sqlite,
@@ -186,24 +178,8 @@ fn nu_constant_reflects_resolved_config_dirs(playground: Playground) -> Result {
 
 #[test]
 fn nu_constant_config_file_override(playground: Playground) -> Result {
-<<<<<<< HEAD
-<<<<<<< HEAD
     let home = playground.path().join("nu-test-cfg-override-home");
     let custom = playground.path().join("nu-test-custom-config.nu");
-=======
-    let home = playground
-        .path()
-        .join("nu-test-cfg-override-home")
-        .to_std_path_buf();
-    let custom = playground
-        .path()
-        .join("nu-test-custom-config.nu")
-        .to_std_path_buf();
->>>>>>> 926ed3f27 (fmt)
-=======
-    let home = playground.path().join("nu-test-cfg-override-home");
-    let custom = playground.path().join("nu-test-custom-config.nu");
->>>>>>> 2118a7a1c (fix tests using `to_std_path_buf`)
     fs::create_dir_all(&home)?;
     // File need not exist for $nu path reporting (canonicalize falls back).
 
@@ -238,18 +214,7 @@ fn nu_constant_config_file_override(playground: Playground) -> Result {
 
 #[test]
 fn nu_constant_history_follows_config_home(playground: Playground) -> Result {
-<<<<<<< HEAD
-<<<<<<< HEAD
     let home = playground.path().join("nu-hist-config-home");
-=======
-    let home = playground
-        .path()
-        .join("nu-hist-config-home")
-        .to_std_path_buf();
->>>>>>> 926ed3f27 (fmt)
-=======
-    let home = playground.path().join("nu-hist-config-home");
->>>>>>> 2118a7a1c (fix tests using `to_std_path_buf`)
     fs::create_dir_all(&home)?;
 
     let dirs = NushellConfigDirs {
@@ -615,18 +580,7 @@ fn commandstring_populates_config_record() -> Result {
 
 #[test]
 fn history_path_disabled_null(playground: Playground) -> Result {
-<<<<<<< HEAD
-<<<<<<< HEAD
     let home = playground.path().join("nu-history-null-home");
-=======
-    let home = playground
-        .path()
-        .join("nu-history-null-home")
-        .to_std_path_buf();
->>>>>>> 926ed3f27 (fmt)
-=======
-    let home = playground.path().join("nu-history-null-home");
->>>>>>> 2118a7a1c (fix tests using `to_std_path_buf`)
     fs::create_dir_all(&home)?;
 
     let dirs = NushellConfigDirs {
@@ -666,18 +620,7 @@ fn history_path_disabled_null(playground: Playground) -> Result {
 
 #[test]
 fn history_path_custom_string(playground: Playground) -> Result {
-<<<<<<< HEAD
-<<<<<<< HEAD
     let home = playground.path().join("nu-history-custom-home");
-=======
-    let home = playground
-        .path()
-        .join("nu-history-custom-home")
-        .to_std_path_buf();
->>>>>>> 926ed3f27 (fmt)
-=======
-    let home = playground.path().join("nu-history-custom-home");
->>>>>>> 2118a7a1c (fix tests using `to_std_path_buf`)
     fs::create_dir_all(&home)?;
     let custom_file = home.join("my_history.txt");
 

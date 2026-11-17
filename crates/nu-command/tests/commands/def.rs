@@ -10,24 +10,16 @@ fn def_with_trailing_comma() -> Result {
 
 #[rstest]
 #[case::command(
-<<<<<<< HEAD
     "def_with_comment",
     indoc::indoc! {"
-=======
-    "
->>>>>>> 362e2494a (fix some more tests)
         #My echo
         export def e [arg] {echo $arg}
     "},
     "My echo"
 )]
 #[case::parameter(
-<<<<<<< HEAD
     "def_with_param_comment",
     indoc::indoc! {"
-=======
-    "
->>>>>>> 362e2494a (fix some more tests)
         export def e [
         param:string #My cool attractive param
         ] {echo $param};
@@ -36,22 +28,11 @@ fn def_with_trailing_comma() -> Result {
 )]
 fn def_help_includes_comments(
     #[ignore] playground: Playground,
-<<<<<<< HEAD
     #[case] _topic: &str,
-=======
->>>>>>> 362e2494a (fix some more tests)
     #[case] fixture: &str,
     #[case] expected: &str,
 ) -> Result {
-<<<<<<< HEAD
-<<<<<<< HEAD
     playground.file("def_test", fixture)?;
-=======
-    playground.file("def_test", indoc::indoc! {fixture})?;
->>>>>>> 926ed3f27 (fmt)
-=======
-    playground.file("def_test", fixture)?;
->>>>>>> 4f4a9394c (fixed some warnings)
 
     let actual: String = test()
         .cwd(playground.path())
@@ -181,12 +162,8 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
 
 #[rstest]
 #[case::typed(
-<<<<<<< HEAD
     "def_with_list",
     indoc::indoc! {"
-=======
-    "
->>>>>>> 362e2494a (fix some more tests)
         def e [
         param: list
         ] {echo $param};
@@ -194,12 +171,8 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
     "source def_test; e [one]"
 )]
 #[case::default(
-<<<<<<< HEAD
     "def_with_default_list",
     indoc::indoc! {"
-=======
-    "
->>>>>>> 362e2494a (fix some more tests)
         def f [
         param: list = [one]
         ] {echo $param};
@@ -208,26 +181,11 @@ fn non_keyword_command_names_are_still_allowed() -> Result {
 )]
 fn def_with_list(
     #[ignore] playground: Playground,
-<<<<<<< HEAD
-<<<<<<< HEAD
     #[case] _topic: &str,
     #[case] fixture: &str,
     #[case] code: &str,
 ) -> Result {
     playground.file("def_test", fixture)?;
-=======
-    #[case] playground: &str,
-=======
->>>>>>> 362e2494a (fix some more tests)
-    #[case] fixture: &str,
-    #[case] code: &str,
-) -> Result {
-<<<<<<< HEAD
-    playground.file("def_test", indoc::indoc! {fixture})?;
->>>>>>> 926ed3f27 (fmt)
-=======
-    playground.file("def_test", fixture)?;
->>>>>>> 4f4a9394c (fixed some warnings)
 
     test()
         .cwd(playground.path())
@@ -473,7 +431,6 @@ fn recursive_func_should_compile(#[case] first_code: &str, #[case] recursive_cod
 
     Ok(())
 }
-<<<<<<< HEAD
 
 #[rstest]
 #[case::oneof("oneof<string@baz>", "string@baz")]
@@ -558,5 +515,3 @@ fn completer_after_generic_type_is_attached() -> Result {
     ";
     test().run(code).expect_value_eq("baz")
 }
-=======
->>>>>>> 926ed3f27 (fmt)

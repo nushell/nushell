@@ -7,20 +7,6 @@ use std::{
     sync::LazyLock,
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-use nu_test_support::fs::{
-    Stub::{EmptyFile, FileWithContent},
-    files_exist_at,
-};
-=======
->>>>>>> 1832dd598 (modernized more tests)
-use nu_test_support::prelude::*;
-
-use rstest::rstest;
-
->>>>>>> 4f4a9394c (fixed some warnings)
 static HASHER: LazyLock<RandomState> = LazyLock::new(RandomState::new);
 fn file_hash(file: impl AsRef<Path>) -> Result<u64> {
     let content = fs::read_to_string(file)?;
@@ -35,11 +21,7 @@ const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
 #[nu_test_support::test]
 #[deps(NU)]
 fn copies_a_file(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
-<<<<<<< HEAD
     let test_file = FIXTURES.join("formats/sample.ini");
-=======
-    let test_file = FIXTURES.join("formats").join("sample.ini");
->>>>>>> 4f4a9394c (fixed some warnings)
     // Get the hash of the file content to check integrity after copy.
     let first_hash = file_hash(&test_file)?;
 
@@ -66,16 +48,6 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory(
 ) -> Result {
     let expected_file = playground.path().join("sample.ini");
     // Get the hash of the file content to check integrity after copy.
-<<<<<<< HEAD
-    let first_hash = file_hash(FIXTURES.join("formats/sample.ini"))?;
-    let code = format!(
-        "cp {progress_flag} ../formats/sample.ini `{}`",
-        playground.path().display(),
-    );
-    let result: CompleteResult = test()
-        .cwd(FIXTURES.join("formats"))
-        .run_with_data(RUNNER, code)?;
-=======
     let formats = FIXTURES.join("formats");
     let first_hash = file_hash(formats.join("sample.ini"))?;
     let code = format!(
@@ -83,7 +55,6 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory(
         playground.path().display(),
     );
     let result: CompleteResult = test().cwd(formats).run_with_data(RUNNER, code)?;
->>>>>>> 4f4a9394c (fixed some warnings)
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
     assert!(expected_file.exists());
@@ -104,19 +75,9 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory(
     #[ignore] playground: Playground,
     #[case] progress_flag: &str,
 ) -> Result {
-<<<<<<< HEAD
-    let code = format!(
-        "cp {progress_flag} ../formats `{}`",
-        playground.path().display()
-    );
-    let result: CompleteResult = test()
-        .cwd(FIXTURES.join("formats"))
-        .run_with_data(RUNNER, code)?;
-=======
     let formats = FIXTURES.join("formats");
     let code = format!("cp {progress_flag} . {}", playground.path().display());
     let result: CompleteResult = test().cwd(formats).run_with_data(RUNNER, code)?;
->>>>>>> 4f4a9394c (fixed some warnings)
 
     assert_ne!(result.exit_code, 0);
     assert_contains("resolves to a directory (not copied)", result.stderr);
@@ -131,7 +92,6 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory(
 fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_recursive_flag(
     #[ignore] playground: Playground,
     #[case] progress_flag: &str,
-    #[ignore] playground: Playground,
 ) -> Result {
     playground.at("originals", |originals| {
         originals.empty_file("yehuda.txt")?;
@@ -158,13 +118,8 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
 #[nu_test_support::test]
 #[deps(NU)]
 fn deep_copies_with_recursive_flag(
-<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] progress_flag: &str,
->>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("originals", |originals| {
         originals.empty_file("manifest.txt")?;
@@ -172,21 +127,10 @@ fn deep_copies_with_recursive_flag(
             contributors.empty_file("yehuda.txt")?;
             contributors.empty_file("jttxt")?;
             contributors.empty_file("andres.txt")?;
-<<<<<<< HEAD
-            contributors.at("JT", |jt| {
-                jt.empty_file("errors.txt")?;
-                jt.empty_file("multishells.txt")
-            })?;
-            contributors.at("andres", |andres| {
-                andres.empty_file("coverage.txt")?;
-                andres.empty_file("commands.txt")
-            })?;
-=======
             contributors.empty_file("JT/errors.txt")?;
             contributors.empty_file("JT/multishells.txt")?;
             contributors.empty_file("andres/coverage.txt")?;
             contributors.empty_file("andres/commands.txt")?;
->>>>>>> 1832dd598 (modernized more tests)
             contributors.empty_file("yehuda/defer-evaluation.txt")
         })
     })?;
@@ -211,10 +155,7 @@ fn deep_copies_with_recursive_flag(
             .join("defer-evaluation.txt")
             .exists()
     );
-<<<<<<< HEAD
 
-=======
->>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
@@ -233,31 +174,6 @@ fn copies_using_path_with_wildcard(
         .run("ls ../formats/* | where type == file | each { |file| open --raw $file.name | to text | hash md5 }")?;
 
     let code = format!(
-<<<<<<< HEAD
-        "cp {progress_flag} -r ../formats/* `{}`",
-        playground.path().display()
-    );
-    let result: CompleteResult = test()
-        .cwd(FIXTURES.join("formats"))
-        .run_with_data(RUNNER, code)?;
-    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
-
-    assert!(
-        [
-            "caco3_plastics.csv",
-            "cargo_sample.toml",
-            "jt.xml",
-            "sample.ini",
-            "sgml_description.json",
-            "utf16.ini",
-        ]
-        .iter()
-        .all(|file| playground.path().join(file).exists())
-    );
-
-    // Check integrity after the copy is done
-    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(
-=======
         "cp {progress_flag} -r {}/* {}",
         FIXTURES.join("formats").display(),
         playground.path().display()
@@ -277,8 +193,7 @@ fn copies_using_path_with_wildcard(
     }
 
     // Check integrity after the copy is done
-    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(format!(
->>>>>>> 4f4a9394c (fixed some warnings)
+    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(
         "
             ls
             | where type == file
@@ -288,12 +203,7 @@ fn copies_using_path_with_wildcard(
                 | hash md5
             }
         ",
-<<<<<<< HEAD
     )?;
-=======
-        playground.path().display()
-    ))?;
->>>>>>> 4f4a9394c (fixed some warnings)
     assert_eq!(src_hashes, dst_hashes);
     Ok(())
 }
@@ -305,45 +215,16 @@ fn copies_using_path_with_wildcard(
 #[deps(NU)]
 fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
     // Get the hash of the file content to check integrity after copy.
-<<<<<<< HEAD
-<<<<<<< HEAD
-    let src_hashes: Vec<String> = test().cwd(FIXTURES.join("formats")).run(
-=======
-    let src_hashes: Vec<String> = test().cwd(dirs.formats()).run(
->>>>>>> 926ed3f27 (fmt)
-        "ls * | where type == file | each { |file| open --raw $file.name | to text | hash md5 }",
-    )?;
-
-    let code = format!("cp {progress_flag} -r * `{}`", playground.path().display());
-=======
     let src_hashes: Vec<String> = test().cwd(FIXTURES.join("formats")).run(
         "ls * | where type == file | each { |file| open --raw $file.name | to text | hash md5 }",
     )?;
 
     let code = format!("cp {progress_flag} -r * {}", playground.path().display());
->>>>>>> 4f4a9394c (fixed some warnings)
     let result: CompleteResult = test()
         .cwd(FIXTURES.join("formats"))
         .run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-<<<<<<< HEAD
-    assert!(
-        [
-            "caco3_plastics.csv",
-            "cargo_sample.toml",
-            "jt.xml",
-            "sample.ini",
-            "sgml_description.json",
-            "utf16.ini",
-        ]
-        .iter()
-        .all(|file| playground.path().join(file).exists())
-    );
-
-    // Check integrity after the copy is done
-    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(
-=======
     for file in [
         "caco3_plastics.csv",
         "cargo_sample.toml",
@@ -356,8 +237,7 @@ fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: 
     }
 
     // Check integrity after the copy is done
-    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(format!(
->>>>>>> 4f4a9394c (fixed some warnings)
+    let dst_hashes: Vec<String> = test().cwd(playground.path()).run(
         "
             ls
             | where type == file
@@ -367,12 +247,7 @@ fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: 
                 | hash md5
             }
         ",
-<<<<<<< HEAD
     )?;
-=======
-        playground.path().display()
-    ))?;
->>>>>>> 4f4a9394c (fixed some warnings)
     assert_eq!(src_hashes, dst_hashes);
     Ok(())
 }
@@ -385,22 +260,14 @@ fn copies_using_a_glob(#[ignore] playground: Playground, #[case] progress_flag: 
 fn copies_same_file_twice(#[ignore] playground: Playground, #[case] progress_flag: &str) -> Result {
     let code = format!(
         "cp {progress_flag} `{}` sample.ini",
-<<<<<<< HEAD
         FIXTURES.join("formats/sample.ini").display()
-=======
-        FIXTURES.join("formats").join("sample.ini").display()
->>>>>>> 4f4a9394c (fixed some warnings)
     );
     let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
     let code = format!(
         "cp {progress_flag} `{}` sample.ini",
-<<<<<<< HEAD
         FIXTURES.join("formats/sample.ini").display()
-=======
-        FIXTURES.join("formats").join("sample.ini").display()
->>>>>>> 4f4a9394c (fixed some warnings)
     );
     let result: CompleteResult = test().cwd(playground.path()).run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
@@ -416,13 +283,8 @@ fn copies_same_file_twice(#[ignore] playground: Playground, #[case] progress_fla
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_files_using_glob_two_parents_up_using_multiple_dots(
-<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] progress_flag: &str,
->>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("foo/bar", |bar| {
         bar.empty_file("jtjson")?;
@@ -438,19 +300,6 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(
         .run_with_data(RUNNER, code)?;
     assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-<<<<<<< HEAD
-    assert!(
-        [
-            "yehuda.yaml",
-            "jtjson",
-            "andres.xml",
-            "kevin.txt",
-            "many_more.ppl",
-        ]
-        .iter()
-        .all(|file| playground.path().join(file).exists())
-    );
-=======
     for file in [
         "yehuda.yaml",
         "jtjson",
@@ -460,7 +309,6 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(
     ] {
         assert!(playground.path().join(file).exists());
     }
->>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 
@@ -472,7 +320,6 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots(
 fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recursive(
     #[ignore] playground: Playground,
     #[case] progress_flag: &str,
-    #[ignore] playground: Playground,
 ) -> Result {
     playground.empty_file("hello_there")?;
     playground.dir("hello_again")?;
@@ -516,13 +363,8 @@ fn copy_to_non_existing_dir(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_dir_contains_symlink_ignored(
-<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] progress_flag: &str,
->>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("tmp_dir", |tmp_dir| {
         tmp_dir.empty_file("hello_there")?;
@@ -551,13 +393,8 @@ fn copy_dir_contains_symlink_ignored(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_dir_contains_symlink(
-<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] progress_flag: &str,
->>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("tmp_dir", |tmp_dir| {
         tmp_dir.empty_file("hello_there")?;
@@ -584,13 +421,8 @@ fn copy_dir_contains_symlink(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copy_dir_symlink_file_body_not_changed(
-<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] progress_flag: &str,
->>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.at("tmp_dir", |tmp_dir| {
         tmp_dir.empty_file("hello_there")?;
@@ -716,13 +548,8 @@ fn copy_file_with_read_permission(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copies_file_symlink_without_dereferencing(
-<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] progress_flag: &str,
->>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.empty_file("file")?;
     playground.symlink("file", "link_to_file")?;
@@ -743,13 +570,8 @@ fn copies_file_symlink_without_dereferencing(
 #[nu_test_support::test]
 #[deps(NU)]
 fn copies_directory_symlink_without_dereferencing(
-<<<<<<< HEAD
     #[case] progress_flag: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] progress_flag: &str,
->>>>>>> 1832dd598 (modernized more tests)
 ) -> Result {
     playground.dir("dir")?;
     playground.symlink("dir", "link_to_dir")?;
@@ -786,11 +608,7 @@ fn test_cp_cp(playground: Playground) -> Result {
 
     let () = test()
         .cwd(playground.path())
-<<<<<<< HEAD
         .run(format!("cp `{}` {TEST_HELLO_WORLD_DEST}", src.display(),))?;
-=======
-        .run(format!("cp {} {TEST_HELLO_WORLD_DEST}", src.display(),))?;
->>>>>>> 4f4a9394c (fixed some warnings)
 
     assert!(playground.path().join(TEST_HELLO_WORLD_DEST).exists());
 
@@ -812,11 +630,7 @@ fn test_cp_existing_target(playground: Playground) -> Result {
     // Copy existing file to destination, so that it exists for the test
     let () = test()
         .cwd(playground.path())
-<<<<<<< HEAD
         .run(format!("cp `{}` {TEST_EXISTING_FILE}", existing.display(),))?;
-=======
-        .run(format!("cp {} {TEST_EXISTING_FILE}", existing.display(),))?;
->>>>>>> 4f4a9394c (fixed some warnings)
 
     // At this point the src and existing files should be different
     assert!(playground.path().join(TEST_EXISTING_FILE).exists());
@@ -824,11 +638,7 @@ fn test_cp_existing_target(playground: Playground) -> Result {
     // Now for the test
     let () = test()
         .cwd(playground.path())
-<<<<<<< HEAD
         .run(format!("cp `{}` {TEST_EXISTING_FILE}", src.display(),))?;
-=======
-        .run(format!("cp {} {TEST_EXISTING_FILE}", src.display(),))?;
->>>>>>> 4f4a9394c (fixed some warnings)
 
     assert!(playground.path().join(TEST_EXISTING_FILE).exists());
 
@@ -852,11 +662,7 @@ fn test_cp_multiple_files(playground: Playground) -> Result {
 
     // Start test
     let () = test().cwd(playground.path()).run(format!(
-<<<<<<< HEAD
         "cp `{}` `{}` {TEST_COPY_TO_FOLDER}",
-=======
-        "cp {} {} {TEST_COPY_TO_FOLDER}",
->>>>>>> 4f4a9394c (fixed some warnings)
         src1.display(),
         src2.display(),
     ))?;
@@ -881,11 +687,7 @@ fn test_cp_recurse(playground: Playground) -> Result {
     let src_hash = file_hash(src)?;
     // Start test
     let () = test().cwd(FIXTURES.join("cp")).run(format!(
-<<<<<<< HEAD
         "cp -r {TEST_COPY_FROM_FOLDER}* `{}`",
-=======
-        "cp -r {TEST_COPY_FROM_FOLDER}* {}",
->>>>>>> 4f4a9394c (fixed some warnings)
         playground.path().join(TEST_COPY_TO_FOLDER_NEW).display()
     ))?;
     let after_cp_hash = file_hash(playground.path().join(TEST_COPY_TO_FOLDER_NEW_FILE))?;
@@ -903,11 +705,7 @@ fn test_cp_with_dirs(playground: Playground) -> Result {
     // Start test
     let () = test()
         .cwd(playground.path())
-<<<<<<< HEAD
         .run(format!("cp `{}` {TEST_COPY_TO_FOLDER}", src.display(),))?;
-=======
-        .run(format!("cp {} {TEST_COPY_TO_FOLDER}", src.display(),))?;
->>>>>>> 4f4a9394c (fixed some warnings)
     let after_cp_hash = file_hash(playground.path().join(TEST_COPY_TO_FOLDER_FILE))?;
     assert_eq!(src_hash, after_cp_hash);
 
@@ -917,11 +715,7 @@ fn test_cp_with_dirs(playground: Playground) -> Result {
     let src2_hash = file_hash(&src2)?;
     let () = test()
         .cwd(playground.path())
-<<<<<<< HEAD
         .run(format!("cp `{}` {TEST_HELLO_WORLD_DEST}", src2.display(),))?;
-=======
-        .run(format!("cp {} {TEST_HELLO_WORLD_DEST}", src2.display(),))?;
->>>>>>> 4f4a9394c (fixed some warnings)
     let after_cp_2_hash = file_hash(playground.path().join(TEST_HELLO_WORLD_DEST))?;
     assert_eq!(src2_hash, after_cp_2_hash);
     Ok(())
@@ -934,11 +728,7 @@ fn test_cp_arg_force(playground: Playground) -> Result {
     playground.readonly_file("invalid_prem.txt", "")?;
 
     let () = test().cwd(playground.path()).run(format!(
-<<<<<<< HEAD
         "cp `{}` --force {}",
-=======
-        "cp {} --force {}",
->>>>>>> 4f4a9394c (fixed some warnings)
         src.display(),
         "invalid_prem.txt"
     ))?;
@@ -954,11 +744,7 @@ fn test_cp_directory_to_itself_disallowed(playground: Playground) -> Result {
     playground.dir("d")?;
     let result: CompleteResult = test()
         .cwd(playground.path())
-<<<<<<< HEAD
         .run_with_data(RUNNER, "cp -r d d")?;
-=======
-        .run_with_data(RUNNER, format!("cp -r {} {}", "d", "d"))?;
->>>>>>> 4f4a9394c (fixed some warnings)
     assert_contains("cannot copy a directory", result.stderr);
     Ok(())
 }
@@ -999,22 +785,13 @@ fn test_cp_same_file_force(playground: Playground) -> Result {
 
 #[test]
 #[serial]
-<<<<<<< HEAD
-fn test_cp_arg_no_clobber() -> Result {
-=======
 fn test_cp_arg_no_clobber(playground: Playground) -> Result {
->>>>>>> 4f4a9394c (fixed some warnings)
     let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
     let target = FIXTURES.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
     let target_hash = file_hash(&target)?;
 
-<<<<<<< HEAD
-    let () = test().run(format!(
-        "cp `{}` `{}` --no-clobber",
-=======
     let () = test().cwd(playground.path()).run(format!(
         "cp {} {} --no-clobber",
->>>>>>> 4f4a9394c (fixed some warnings)
         src.display(),
         target.display()
     ))?;
@@ -1031,14 +808,6 @@ fn test_cp_arg_no_clobber_twice(playground: Playground) -> Result {
     playground.file("source_with_body.txt", "some-body")?;
     let () = test()
         .cwd(playground.path())
-<<<<<<< HEAD
-        .run("cp --no-clobber source.txt dest.txt")?;
-    assert!(playground.path().join("dest.txt").exists());
-
-    let () = test()
-        .cwd(playground.path())
-        .run("cp --no-clobber source_with_body.txt dest.txt")?;
-=======
         .run(format!("cp --no-clobber {} {}", "source.txt", "dest.txt"))?;
     assert!(playground.path().join("dest.txt").exists());
 
@@ -1046,7 +815,6 @@ fn test_cp_arg_no_clobber_twice(playground: Playground) -> Result {
         "cp --no-clobber {} {}",
         "source_with_body.txt", "dest.txt"
     ))?;
->>>>>>> 4f4a9394c (fixed some warnings)
     // Should have same contents of original empty file as --no-clobber should not overwrite dest.txt
     assert_eq!(
         fs::read_to_string(playground.path().join("dest.txt"))?,
@@ -1120,18 +888,11 @@ fn test_cp_verbose_default(playground: Playground) -> Result {
 }
 
 #[test]
-<<<<<<< HEAD
-fn test_cp_only_source_no_dest() -> Result {
-    let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
-    let err = test()
-        .run(format!("cp `{}`", src.display(),))
-=======
 fn test_cp_only_source_no_dest(playground: Playground) -> Result {
     let src = FIXTURES.join("cp").join(TEST_HELLO_WORLD_SOURCE);
     let err = test()
         .cwd(playground.path())
         .run(format!("cp {}", src.display(),))
->>>>>>> 4f4a9394c (fixed some warnings)
         .expect_shell_error()?;
     let msg = err.generic_msg()?;
     assert_contains("Missing destination path operand after", &msg);
@@ -1345,11 +1106,7 @@ fn cp_with_tilde(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("let f = '~tilde/f2.txt'; cp $f ./")?;
     assert!(playground.path().join("~tilde/f2.txt").exists());
-<<<<<<< HEAD
     assert!(playground.path().join("f2.txt").exists());
-=======
-    assert!(playground.path().join("f1.txt").exists());
->>>>>>> 1832dd598 (modernized more tests)
     Ok(())
 }
 

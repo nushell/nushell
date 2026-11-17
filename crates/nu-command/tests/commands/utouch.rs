@@ -49,7 +49,6 @@ fn setup_symlink_fs(playground: &Playground) -> Result {
         .unwrap();
     }
 
-<<<<<<< HEAD
     // change the file times to a known "old" value for comparison
     filetime::set_symlink_file_times(playground.path().join("f"), TIME_ONE, TIME_ONE)?;
     filetime::set_symlink_file_times(playground.path().join("d"), TIME_ONE, TIME_ONE)?;
@@ -59,16 +58,6 @@ fn setup_symlink_fs(playground: &Playground) -> Result {
     filetime::set_symlink_file_times(playground.path().join("fds"), TIME_ONE, TIME_ONE)?;
     filetime::set_symlink_file_times(playground.path().join("fms"), TIME_ONE, TIME_ONE)?;
 
-=======
-    // Change the file times to a known "old" value for comparison
-    filetime::set_symlink_file_times(playground.path().join("f"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(playground.path().join("d"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(playground.path().join("d/f"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(playground.path().join("ds"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(playground.path().join("fs"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(playground.path().join("fds"), TIME_ONE, TIME_ONE).unwrap();
-    filetime::set_symlink_file_times(playground.path().join("fms"), TIME_ONE, TIME_ONE).unwrap();
->>>>>>> 362e2494a (fix some more tests)
     Ok(())
 }
 
@@ -127,19 +116,6 @@ fn touch_glob_matches_when_dc_glob_enabled(
     #[ignore] playground: Playground,
     #[case] with_preexisting_files: bool,
 ) -> Result {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    let sandbox_name = if with_preexisting_files {
-=======
-    let _sandbox_name = if with_preexisting_files {
->>>>>>> 362e2494a (fix some more tests)
-        "touch_glob_dc_glob_preexisting"
-    } else {
-        "touch_glob_dc_glob_create_first"
-    };
-
->>>>>>> 926ed3f27 (fmt)
     if with_preexisting_files {
         playground.empty_file("one.txt")?;
         playground.empty_file("two.txt")?;
@@ -632,15 +608,8 @@ fn create_a_file_with_tilde(playground: Playground) -> Result {
     let () = test()
         .cwd(playground.path())
         .run("let f = '~tilde2'; touch $f")?;
-<<<<<<< HEAD
-<<<<<<< HEAD
+    
     assert!(playground.path().join("~tilde2").exists());
-=======
-    assert!(files_exist_at(&[Path::new("~tilde2")], dirs.test()));
->>>>>>> 926ed3f27 (fmt)
-=======
-    assert!(playground.path().join("~tilde2").exists());
->>>>>>> 362e2494a (fix some more tests)
     Ok(())
 }
 

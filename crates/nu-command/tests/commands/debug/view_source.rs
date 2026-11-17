@@ -8,7 +8,6 @@ fn view_source_returns_string() -> Result {
 }
 
 #[test]
-<<<<<<< HEAD
 fn appends_called_commands() -> Result {
     let code = "def helper [] { 42 }; def caller [] { helper }; view source caller --dependencies";
     test()
@@ -111,15 +110,6 @@ fn keeps_metadata_of_the_root(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("source mdata.nu; view source foo --dependencies")?;
     assert_contains("def helper [] { 42 }", expanded);
-=======
-fn datasource_filepath_metadata(playground: Playground) -> Result {
-    playground.file(
-        "mdata.nu",
-        indoc::indoc! {"
-        def foo [] { echo hi }
-    "},
-    )?;
->>>>>>> 926ed3f27 (fmt)
 
     let code = "
             source mdata.nu
@@ -150,7 +140,6 @@ fn datasource_filepath_metadata(playground: Playground) -> Result {
     assert_contains("mdata.nu", outcome);
     Ok(())
 }
-<<<<<<< HEAD
 
 #[test]
 fn prepends_constants_the_body_reads() -> Result {
@@ -346,5 +335,3 @@ fn closest_block_wins_in_a_recursive_command() -> Result {
     ";
     test().run(code).expect_value_eq("print")
 }
-=======
->>>>>>> 926ed3f27 (fmt)

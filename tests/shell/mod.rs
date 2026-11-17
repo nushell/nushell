@@ -73,10 +73,6 @@ fn exit_failure_if_output_full(
 
 #[test]
 fn nu_lib_dirs_repl(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.dir("scripts")?;
-=======
->>>>>>> 1832dd598 (modernized more tests)
     playground.file("scripts/foo.nu", "$env.FOO = 'foo'")?;
 
     let scripts = playground.path().join("scripts");
@@ -89,31 +85,17 @@ fn nu_lib_dirs_repl(playground: Playground) -> Result {
 
 #[test]
 fn nu_lib_dirs_script(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.dir("scripts")?;
-    playground.file(
-        "scripts/foo.nu",
-        indoc::indoc! {r#"
-                    $env.FOO = "foo"
-                "#},
-=======
     playground.file(
         "scripts/foo.nu",
         indoc::indoc! {r#"
             $env.FOO = "foo"
         "#},
->>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "main.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                    source-env foo.nu
-                "},
-=======
             source-env foo.nu
         "},
->>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let scripts = playground.path().join("scripts");
@@ -126,20 +108,11 @@ fn nu_lib_dirs_script(playground: Playground) -> Result {
 
 #[test]
 fn nu_lib_dirs_relative_repl(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.dir("scripts")?;
-    playground.file(
-        "scripts/foo.nu",
-        indoc::indoc! {r#"
-                    $env.FOO = "foo"
-                "#},
-=======
     playground.file(
         "scripts/foo.nu",
         indoc::indoc! {r#"
             $env.FOO = "foo"
         "#},
->>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     let mut tester = test()
@@ -152,35 +125,19 @@ fn nu_lib_dirs_relative_repl(playground: Playground) -> Result {
 // TODO: add absolute path tests after we expand const capabilities (see #8310)
 #[test]
 fn const_nu_lib_dirs_relative(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.dir("scripts")?;
-    playground.file(
-        "scripts/foo.nu",
-        indoc::indoc! {r#"
-                    $env.FOO = "foo"
-                "#},
-=======
     playground.file(
         "scripts/foo.nu",
         indoc::indoc! {r#"
             $env.FOO = "foo"
         "#},
->>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "main.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                    const NU_LIB_DIRS = [ 'scripts' ]
-                    source-env foo.nu
-                    $env.FOO
-                "},
-=======
             const NU_LIB_DIRS = [ 'scripts' ]
             source-env foo.nu
             $env.FOO
         "},
->>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     test()
@@ -191,31 +148,17 @@ fn const_nu_lib_dirs_relative(playground: Playground) -> Result {
 
 #[test]
 fn nu_lib_dirs_relative_script(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.dir("scripts")?;
-    playground.file(
-        "scripts/main.nu",
-        indoc::indoc! {"
-                    source-env ../foo.nu
-                "},
-=======
     playground.file(
         "scripts/main.nu",
         indoc::indoc! {"
             source-env ../foo.nu
         "},
->>>>>>> 1832dd598 (modernized more tests)
     )?;
     playground.file(
         "foo.nu",
         indoc::indoc! {r#"
-<<<<<<< HEAD
-                    $env.FOO = "foo"
-                "#},
-=======
             $env.FOO = "foo"
         "#},
->>>>>>> 1832dd598 (modernized more tests)
     )?;
 
     test()
@@ -877,10 +820,6 @@ fn source_nested_free_variable_visible(playground: Playground) -> Result {
 #[test]
 fn source_env_redeclared_let_variable(playground: Playground) -> Result {
     // Same span-cache / VarId issue as `source` when re-declaring across parse sessions.
-<<<<<<< HEAD
-
-=======
->>>>>>> 926ed3f27 (fmt)
     playground.file("env.nu", "export-env { $env.FROM_SOURCE = $xxx }")?;
 
     let mut tester = test().cwd(playground.path());
@@ -1489,13 +1428,5 @@ fn nu_env_pwd_symlink(playground: Playground) -> Result {
         .expect("failed to run nu");
     let output = String::from_utf8(child_output.stdout).unwrap();
     assert_eq!(output.trim_end(), current_dir.to_str().unwrap());
-<<<<<<< HEAD
-<<<<<<< HEAD
-
     Ok(())
-=======
->>>>>>> 926ed3f27 (fmt)
-=======
-    Ok(())
->>>>>>> 6eef7d156 (fix some tests by returning a `Result`)
 }

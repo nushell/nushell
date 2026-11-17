@@ -100,11 +100,7 @@ fn escaped_glob_pattern_reports_current_error(playground: Playground) -> Result 
 
     assert!(
         err.contains("unrecognized escape")
-<<<<<<< HEAD
             || (err.contains("No matches found for ")
-=======
-            || (err.contains("No matches found for Expand(")
->>>>>>> 926ed3f27 (fmt)
                 && err.contains("Pattern, file or folder not found"))
             || (err.contains("Error extracting glob pattern")
                 && err.contains("invalid range pattern")),
@@ -129,7 +125,6 @@ fn quoted_glob_path_stays_literal(playground: Playground) -> Result {
         )
         .expect_value_eq(["file[1].txt"])
 }
-<<<<<<< HEAD
 
 #[test]
 fn escaped_space_in_quoted_path_arguments(playground: Playground) -> Result {
@@ -144,5 +139,3 @@ fn escaped_space_in_quoted_path_arguments(playground: Playground) -> Result {
         .run(r#"cd "dir\ with\ space"; $env.PWD | path basename"#)
         .expect_value_eq("dir with space")
 }
-=======
->>>>>>> 926ed3f27 (fmt)

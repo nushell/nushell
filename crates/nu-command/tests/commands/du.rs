@@ -33,13 +33,8 @@ fn test_du_flag_max_depth() -> Result {
 #[cfg_attr(windows, ignore = "invalid path")]
 #[case("a*.?c")]
 fn du_files_with_glob_metachars(
-<<<<<<< HEAD
     #[case] src_name: &str,
     #[ignore] playground: Playground,
-=======
-    #[ignore] playground: Playground,
-    #[case] src_name: &str,
->>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     playground.empty_file(src_name)?;
 
@@ -106,7 +101,6 @@ fn du_exclude_matches_at_any_depth(playground: &Playground) -> Result {
         )
         .expect_value_eq(["b.rs", "d.toml"])
 }
-<<<<<<< HEAD
 
 #[test]
 #[exp(nu_experimental::DC_GLOB = false)]
@@ -243,5 +237,3 @@ fn du_counts_hard_links_once_across_paths(playground: Playground) -> Result {
     );
     Ok(())
 }
-=======
->>>>>>> 926ed3f27 (fmt)

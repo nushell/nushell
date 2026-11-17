@@ -1,8 +1,4 @@
 use nu_experimental::NATIVE_CLIP;
-<<<<<<< HEAD
-=======
-use nu_test_support::playground::Playground;
->>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
@@ -617,7 +613,6 @@ fn nothing_type_annotation() -> Result {
         .run("help commands | where name == foo | get input_output.0.output.0")
         .expect_value_eq("nothing")
 }
-<<<<<<< HEAD
 
 #[test]
 fn help_has_no_trailing_newline() -> Result {
@@ -625,5 +620,3 @@ fn help_has_no_trailing_newline() -> Result {
         .run(r#"help drop column | str ends-with "\n""#)
         .expect_value_eq(false)
 }
-=======
->>>>>>> 926ed3f27 (fmt)

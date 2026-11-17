@@ -273,65 +273,64 @@ mod tests {
             .run(format!("nu test.nu {args} | from json"))
             .expect_value_eq(expected)
     }
-<<<<<<< HEAD
 
     #[rstest]
-    #[case::use_file("validate_main", "", Some("main"))]
-    #[case::use_file("validate_arg", "arg", Some("arg-arg"))]
-    #[case::use_file("validate_module", "entrypoint")]
-    #[case::use_file("validate_shadowed", "shadowed")]
-    #[case::use_file("validate_submodule", "submodule")]
-    #[case::use_file("validate_export_use", "version")]
+    #[case::validate_main("", Some("main"))]
+    #[case::validate_arg("arg", Some("arg-arg"))]
+    #[case::validate_module("entrypoint")]
+    #[case::validate_shadowed("shadowed")]
+    #[case::validate_submodule("submodule")]
+    #[case::validate_export_use("version")]
     #[nu_test_support::test]
     #[deps(NU)]
     fn evaluate_file_with_main_module(
-        #[case] topic: &str,
         #[case] command: &str,
         #[case(default)] result: Option<&str>,
+        #[ignore] playground: Playground,
     ) -> Result {
-        Playground::setup(topic, |dirs, sandbox| {
-            sandbox.with_files(&[
-                FileWithContent(
-                    "test.nu",
-                    r#"
-                    def main [arg?: string] {
-                        if ($arg | is-empty) { "main" } else { $"arg-($arg)" }
-                    }
-                    module main {
-                        module submodule {
-                            export def main [] {
-                                "submodule"
-                            }
-                        }
-                        export use submodule
-                        export def entrypoint [] {
-                            "entrypoint"
-                        }
-                        export def shadowed [] {
-                            "not shadowed"
-                        }
-                        export use version.nu
-                    }
-                    def "main entrypoint" [] {
-                        "not entrypoint"
-                    }
-                    def "main version" [] {
-                        "not version"
-                    }
-                    use main
-                    def "main shadowed" [] {
-                        "shadowed"
-                    }"#,
-                ),
-                FileWithContent("version.nu", r#"export def main [] { "version" }"#),
-            ]);
+        playground.file(
+            "test.nu",
+            indoc::indoc! {r#"
+                def main [arg?: string] {
+                    if ($arg | is-empty) { "main" } else { $"arg-($arg)" }
+                }
 
-            test()
-                .cwd(dirs.test())
-                .run(format!("nu test.nu {command}"))
-                .expect_value_eq(result.unwrap_or(command))
-        })
+                module main {
+                    module submodule {
+                        export def main [] {
+                            "submodule"
+                        }
+                    }
+                    export use submodule
+                    export def entrypoint [] {
+                        "entrypoint"
+                    }
+                    export def shadowed [] {
+                        "not shadowed"
+                    }
+                    export use version.nu
+                }
+
+                def "main entrypoint" [] {
+                    "not entrypoint"
+                }
+
+                def "main version" [] {
+                    "not version"
+                }
+
+                use main
+                def "main shadowed" [] {
+                    "shadowed"
+                }
+            "#},
+        )?;
+
+        playground.file("version.nu", r#"export def main [] { "version" }"#)?;
+
+        test()
+            .cwd(playground.path())
+            .run(format!("nu test.nu {command}"))
+            .expect_value_eq(result.unwrap_or(command))
     }
-=======
->>>>>>> 926ed3f27 (fmt)
 }

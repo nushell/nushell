@@ -1,45 +1,11 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
->>>>>>> 4f4a9394c (fixed some warnings)
-=======
->>>>>>> d7d44ed23 (update `source env` tests with new playground)
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
 fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playground) -> Result {
-<<<<<<< HEAD
-<<<<<<< HEAD
-    playground.dir("lib")?;
-    playground.file(
-        "lib/my_library.nu",
-        "
-                source-env my_library/main.nu
-            ",
-    )?;
-    playground.dir("lib/my_library")?;
-    playground.file(
-        "lib/my_library/main.nu",
-        r#"
-                $env.hello = "hello nu"
-            "#,
-=======
-    playground.file(
-        "lib/my_library.nu",
-        "source-env my_library/main.nu",
-    )?;
-    playground.file(
-        "lib/my_library/main.nu",
-        r#"$env.hello = "hello nu""#,
->>>>>>> d7d44ed23 (update `source env` tests with new playground)
-    )?;
-=======
     playground.file("lib/my_library.nu", "source-env my_library/main.nu")?;
     playground.file("lib/my_library/main.nu", r#"$env.hello = "hello nu""#)?;
->>>>>>> 5117ac4ee (fmt)
 
     let mut tester = test().cwd(playground.path());
     let () = tester.run("source-env lib/my_library.nu")?;
@@ -56,15 +22,9 @@ fn source_env_resolves_nested_source_relative_to_sourced_file(playground: Playgr
 #[case::unicode_spaced_dir_single_quotes("e-$ èрт🚒♞中片-j", "'")]
 #[case::unicode_spaced_dir_double_quotes("e-$ èрт🚒♞中片-j", "\"")]
 fn sources_unicode_file(
-<<<<<<< HEAD
-    #[case] dir: &str,
-    #[case] quote: &str,
-    #[ignore] playground: Playground,
-=======
     #[ignore] playground: Playground,
     #[case] dir: &str,
     #[case] quote: &str,
->>>>>>> 926ed3f27 (fmt)
 ) -> Result {
     let file = String::from_iter([dir, "/foo.nu"]);
     playground.dir(dir)?;
@@ -86,10 +46,6 @@ fn sources_unicode_file(
 #[case::colon_spaced_dir_double_quotes("e-$ èрт:fire_engine:♞中片-j", "\"")]
 #[nu_test_support::test]
 fn sources_unicode_file_in_colon_dir(
-<<<<<<< HEAD
-=======
-    #[ignore] playground: Playground,
->>>>>>> 674035808 (fix clippy warnings)
     #[case] dir: &str,
     #[case] quote: &str,
     #[ignore] playground: Playground,
@@ -129,13 +85,8 @@ fn source_env_eval_export_env(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                export-env { $env.FOO = 'foo' }
-            "},
-=======
-        export-env { $env.FOO = 'foo' }
-    "},
->>>>>>> 926ed3f27 (fmt)
+            export-env { $env.FOO = 'foo' }
+        "},
     )?;
 
     test()
@@ -149,13 +100,8 @@ fn source_env_eval_export_env_hide(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                export-env { hide-env FOO }
-            "},
-=======
-        export-env { hide-env FOO }
-    "},
->>>>>>> 926ed3f27 (fmt)
+            export-env { hide-env FOO }
+        "},
     )?;
 
     test()
@@ -166,20 +112,11 @@ fn source_env_eval_export_env_hide(playground: Playground) -> Result {
 
 #[test]
 fn source_env_do_cd(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.dir("test1/test2")?;
-    playground.file(
-        "test1/test2/spam.nu",
-        indoc::indoc! {"
-                    cd test1/test2
-                "},
-=======
     playground.file(
         "test1/test2/spam.nu",
         indoc::indoc! {"
             cd test1/test2
         "},
->>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
 
     test()
@@ -190,20 +127,11 @@ fn source_env_do_cd(playground: Playground) -> Result {
 
 #[test]
 fn source_env_do_cd_file_relative(playground: Playground) -> Result {
-<<<<<<< HEAD
-    playground.dir("test1/test2")?;
-    playground.file(
-        "test1/test2/spam.nu",
-        indoc::indoc! {"
-                    cd ($env.FILE_PWD | path join '..')
-                "},
-=======
     playground.file(
         "test1/test2/spam.nu",
         indoc::indoc! {"
             cd ($env.FILE_PWD | path join '..')
         "},
->>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
 
     test()
@@ -213,17 +141,6 @@ fn source_env_do_cd_file_relative(playground: Playground) -> Result {
 }
 
 #[test]
-<<<<<<< HEAD
-fn source_env_overlay_hide_keeps_cd(playground: Playground) -> Result {
-    playground.dir("test1/test2")?;
-    playground.file(
-        "test1/test2/spam.nu",
-        indoc::indoc! {"
-                    overlay new spam
-                    cd test1/test2
-                    overlay hide spam
-                "},
-=======
 fn source_env_dont_cd_overlay(playground: Playground) -> Result {
     playground.file(
         "test1/test2/spam.nu",
@@ -232,17 +149,12 @@ fn source_env_dont_cd_overlay(playground: Playground) -> Result {
             cd test1/test2
             overlay hide spam
         "},
->>>>>>> d7d44ed23 (update `source env` tests with new playground)
     )?;
 
     test()
         .cwd(playground.path())
         .run("source-env test1/test2/spam.nu; $env.PWD | path basename")
-<<<<<<< HEAD
         .expect_value_eq("test2")
-=======
-        .expect_value_eq(playground.path().file_name().unwrap().to_string_lossy())
->>>>>>> d7d44ed23 (update `source env` tests with new playground)
 }
 
 #[test]
@@ -250,15 +162,9 @@ fn source_env_is_scoped(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                def no-name-similar-to-this [] { 'no-name-similar-to-this' }
-                alias nor-similar-to-this = echo 'nor-similar-to-this'
-            "},
-=======
-        def no-name-similar-to-this [] { 'no-name-similar-to-this' }
-        alias nor-similar-to-this = echo 'nor-similar-to-this'
-    "},
->>>>>>> 926ed3f27 (fmt)
+            def no-name-similar-to-this [] { 'no-name-similar-to-this' }
+            alias nor-similar-to-this = echo 'nor-similar-to-this'
+        "},
     )?;
 
     let err = test()
@@ -289,13 +195,8 @@ fn source_env_const_file(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
         indoc::indoc! {"
-<<<<<<< HEAD
-                $env.FOO = 'foo'
-            "},
-=======
-        $env.FOO = 'foo'
-    "},
->>>>>>> 926ed3f27 (fmt)
+            $env.FOO = 'foo'
+        "},
     )?;
 
     test()

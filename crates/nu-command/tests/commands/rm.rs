@@ -278,34 +278,27 @@ fn rm_wildcard_leading_dot_deletes_dotfiles(playground: Playground) -> Result {
 }
 
 #[test]
-<<<<<<< HEAD
-fn rm_leading_dot_glob_skips_current_and_parent_dirs() -> Result {
-    Playground::setup("rm_test_leading_dot_glob", |dirs, sandbox| {
-        sandbox
-            .within("parent")
-            .with_files(&[EmptyFile("keep.txt")])
-            .within("parent/child")
-            .with_files(&[EmptyFile(".hidden"), EmptyFile("visible.txt")]);
+fn rm_leading_dot_glob_skips_current_and_parent_dirs(playground: Playground) -> Result {
+    playground.at("parent", |parent| {
+        parent.empty_file("keep.txt")?;
+        parent.at("child", |child| {
+            child.empty_file(".hidden")?;
+            child.empty_file("visible.txt")
+        })
+    })?;
 
-        let () = test().cwd(dirs.test()).run("rm -r parent/child/.*")?;
+    let () = test().cwd(playground.path()).run("rm -r parent/child/.*")?;
 
-        let child = dirs.test().join("parent/child");
-        assert!(files_exist_at(&["keep.txt"], dirs.test().join("parent")));
-        assert!(files_exist_at(&["visible.txt"], &child));
-        assert!(!files_exist_at(&[".hidden"], &child));
-        Ok(())
-    })
+    assert!(playground.path().join("parent/keep.txt").exists());
+    assert!(playground.path().join("parent/child/visible.txt").exists());
+    assert!(!playground.path().join("parent/child/.hidden").exists());
+    Ok(())
 }
 
 #[test]
-fn removes_files_with_case_sensitive_glob_matches_by_default() -> Result {
-    Playground::setup("glob_test", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("A0"), EmptyFile("a1")]);
-=======
 fn removes_files_with_case_sensitive_glob_matches_by_default(playground: Playground) -> Result {
     playground.empty_file("A0")?;
     playground.empty_file("a1")?;
->>>>>>> 1832dd598 (modernized more tests)
 
     let () = test().cwd(playground.path()).run("rm A*")?;
 

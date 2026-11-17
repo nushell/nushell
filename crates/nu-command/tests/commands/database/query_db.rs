@@ -208,7 +208,6 @@ fn named_params(playground: Playground) -> Result {
                 }
             })
 }
-<<<<<<< HEAD
 
 // SQLite reports a statement's errors as its rows are read. A failing INSERT reports on the first
 // row, and a failing SELECT reports partway through, after returning some rows.
@@ -291,5 +290,3 @@ fn open_reports_which_table_failed(
         err => Err(err.into()),
     }
 }
-=======
->>>>>>> 926ed3f27 (fmt)

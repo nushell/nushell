@@ -1,8 +1,4 @@
 use nu_protocol::record;
-<<<<<<< HEAD
-=======
-use nu_test_support::playground::Playground;
->>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 
@@ -114,7 +110,6 @@ fn split_column_number_error() -> Result {
     test().run(code).expect_shell_error()?;
     Ok(())
 }
-<<<<<<< HEAD
 
 #[test]
 fn split_column_duplicate_column_error() -> Result {
@@ -157,5 +152,3 @@ fn split_column_duplicate_column_const_error() -> Result {
     }
     Ok(())
 }
-=======
->>>>>>> 926ed3f27 (fmt)

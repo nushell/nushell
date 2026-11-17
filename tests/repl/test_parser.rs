@@ -2,14 +2,10 @@ use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 use nu_experimental::{CELL_PATH_TYPES, ENFORCE_RUNTIME_ANNOTATIONS};
-<<<<<<< HEAD
 use nu_protocol::{
     ParseError, ShellError, Type,
     ast::{Comparison, Operator},
 };
-=======
-use nu_protocol::{ParseError, Type};
->>>>>>> 4f4a9394c (fixed some warnings)
 use nu_test_support::prelude::*;
 
 #[test]
@@ -974,19 +970,11 @@ fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults
     playground.empty_file("probe.txt")?;
 
     let code = "
-<<<<<<< HEAD
-                export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
-                let direct = (ls | where name =~ 'probe.txt' | length)
-                let wrapped = (builtin ls | where name =~ 'probe.txt' | length)
-                [$direct $wrapped]
-            ";
-=======
-            export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
-            let direct = (ls | where name =~ 'probe.txt' | length)
-            let wrapped = (builtin ls | where name =~ 'probe.txt' | length)
-            [$direct $wrapped]
-        ";
->>>>>>> 926ed3f27 (fmt)
+        export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }
+        let direct = (ls | where name =~ 'probe.txt' | length)
+        let wrapped = (builtin ls | where name =~ 'probe.txt' | length)
+        [$direct $wrapped]
+    ";
 
     test()
         .cwd(playground.path())
