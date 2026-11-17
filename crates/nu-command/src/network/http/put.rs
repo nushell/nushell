@@ -73,7 +73,7 @@ impl Command for HttpPut {
             )
             .switch(
                 "allow-errors",
-                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or a record with status: null and error field under --full).",
+                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or under --full a record with an error field; status is null when no response arrived).",
                 Some('e'),
             )
             .switch("pool", "Using a global pool as a client.", None)
