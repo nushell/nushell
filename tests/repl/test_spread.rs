@@ -402,6 +402,18 @@ fn named_flag_null_is_omitted() -> Result {
 }
 
 #[rstest]
+#[case::short("-x null")]
+#[case::long("--x null")]
+#[case::equals("--x=null")]
+fn custom_command_alias_omits_bare_null_flag_value(#[case] flag: &str) -> Result {
+    test()
+        .run(format!(
+            "def f [--x (-x): int = 5] {{ $x }}; alias a = f; a {flag}"
+        ))
+        .expect_value_eq(5)
+}
+
+#[rstest]
 #[case::custom("def f [--x: int] { $x }; f --x abc", "int")]
 #[case::builtin(r#""10" | into int --radix abc"#, "number")]
 fn invalid_flag_value_keeps_shape_error(#[case] code: &str, #[case] expected: &str) -> Result {

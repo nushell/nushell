@@ -1166,6 +1166,8 @@ pub fn parse_internal_call(
         working_set.enter_scope();
     }
 
+    // After alias resolution, call.decl_id names the aliased command.
+    let allow_null_flag_value = !working_set.get_decl(call.decl_id).is_known_external();
     let mut end_of_options = false;
 
     // Commands that pass unknown arguments through (extern, def --wrapped, exec, etc.) forward
@@ -1189,7 +1191,7 @@ pub fn parse_internal_call(
                 spans,
                 &mut spans_idx,
                 &signature,
-                !working_set.get_decl(decl_id).is_known_external(),
+                allow_null_flag_value,
             );
 
             match flag_parse_result {
@@ -1267,7 +1269,7 @@ pub fn parse_internal_call(
                                     working_set,
                                     *arg,
                                     &arg_shape,
-                                    !working_set.get_decl(decl_id).is_known_external(),
+                                    allow_null_flag_value,
                                 );
                                 let (arg_name, val_expression) = ensure_flag_arg_type(
                                     working_set,
