@@ -7,6 +7,11 @@ use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
+#[test]
+fn binary_first_typechecks_as_int() -> Result {
+    test().run("(0x[01 02 03] | first) + 1").expect_value_eq(2)
+}
+
 #[derive(Clone, Copy)]
 enum InputKind {
     List,

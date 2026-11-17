@@ -21,7 +21,7 @@ impl Command for First {
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Binary, Type::Binary),
+                (Type::Binary, Type::one_of([Type::Int, Type::Binary])),
                 (Type::Range, Type::Any),
             ])
             .optional(
@@ -96,6 +96,11 @@ impl Command for First {
                     vec![Value::test_int(1), Value::test_int(2)],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Return the first byte of a binary value as an int.",
+                example: "0x[01 23 45] | first",
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value.",

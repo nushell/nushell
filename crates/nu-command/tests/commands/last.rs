@@ -8,6 +8,11 @@ use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
+fn binary_last_typechecks_as_int() -> Result {
+    test().run("(0x[01 02 03] | last) + 1").expect_value_eq(4)
+}
+
+#[test]
 fn gets_the_last_row() -> Result {
     test()
         .cwd("tests/fixtures/formats")

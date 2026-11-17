@@ -398,3 +398,10 @@ fn find_and_highlight_in_nested_list() -> Result {
             ],
         ]))
 }
+
+#[test]
+fn errors_without_search_terms() -> Result {
+    test()
+        .run("[1 2 3] | find")
+        .expect_error_code_eq("nu::shell::missing_parameter")
+}
