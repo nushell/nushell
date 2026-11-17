@@ -1174,16 +1174,17 @@ fn transform_response_using_content_type(
                             span,
                         ));
                     }
-                    // Run converter on the collected value (as PipelineData).
-                    let pd = value.clone().into_pipeline_data();
+                    // Run converter on the collected value (as PipelineData),
+                    // handing it the response metadata so converters like `from
+                    // json` can clear `content_type` on purpose. Return the
+                    // converter's result as-is: re-attaching the response
+                    // metadata here would put the cleared `content_type` back.
+                    let pd = value
+                        .clone()
+                        .into_pipeline_data_with_metadata(metadata.clone());
                     let ir_call = ir::Call::build(converter_id, span);
                     match eval_ir_call(engine_state, stack, ir_call, pd) {
-                        Ok(mut result) => {
-                            if let Some(metadata) = metadata {
-                                result = result.set_metadata(Some(metadata));
-                            }
-                            Ok((result, tracker))
-                        }
+                        Ok(result) => Ok((result, tracker)),
                         Err(_) if tracker.has_error() => {
                             // Transport error occurred during read; return raw body.
                             Ok((value.into_pipeline_data_with_metadata(metadata), tracker))
@@ -1438,22 +1439,28 @@ pub(crate) fn request_handle_response(
             read_body_allow_errors(body_pd, span, flags.allow_errors, tracker)?;
         let body = body_pd.into_value(span)?;
 
+        // Build the usual 4-field full record (urls, headers, body, status).
+        // The `error` field is only attached when a transport error actually
+        // occurred during the body read, so a successful --full call keeps the
+        // previous 4-field shape instead of gaining an `error: null` field.
+        let mut full_response = record! {
+            "urls" => urls,
+            "headers" => Value::record(headers, span),
+            "body" => body,
+            "status" => Value::int(response_status.as_u16().into(), span),
+        };
+
         if flags.allow_errors && tracker.has_error() {
-            return Ok(transport_error_response(true, span));
+            full_response.insert(
+                "error".to_string(),
+                Value::string(
+                    "transport error (timeout, DNS failure, connection refused, etc.)",
+                    span,
+                ),
+            );
         }
 
-        let full_response = Value::record(
-            record! {
-                "urls" => urls,
-                "headers" => Value::record(headers, span),
-                "body" => body,
-                "status" => Value::int(response_status.as_u16().into(), span),
-
-            },
-            span,
-        );
-
-        Ok(full_response.into_pipeline_data())
+        Ok(Value::record(full_response, span).into_pipeline_data())
     } else {
         // For --allow-errors, eagerly read the body to convert transport errors
         // to "nothing" (matching the original behavior). For other cases, return
