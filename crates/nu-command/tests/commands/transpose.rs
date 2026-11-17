@@ -84,3 +84,10 @@ fn header_row_keep_all_with_interleaved_keys() -> Result {
         .run("[[key value]; [foo 1] [bar 2] [foo 3] [foo 4]] | transpose -r -a -d | to nuon")
         .expect_value_eq("{foo: [1, 3, 4], bar: 2}")
 }
+
+#[test]
+fn repeated_column_names_keep_title() -> Result {
+    test()
+        .run("[[a b]; [1 2] [3 4]] | transpose x x x | to nuon")
+        .expect_value_eq("[[x]; [a], [b]]")
+}

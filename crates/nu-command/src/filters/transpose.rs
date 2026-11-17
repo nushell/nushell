@@ -242,13 +242,14 @@ pub fn transpose(
         .enumerate()
         .map(|(i, desc)| (desc.as_str(), i))
         .collect();
-    let mut cells: Vec<Option<Value>> = vec![None; descs.len() * num_rows];
+    // One buffer per column, so each is freed as soon as its record is built.
+    let mut cells: Vec<Vec<Option<Value>>> = vec![vec![None; num_rows]; descs.len()];
     for (row, value) in input.into_iter().enumerate() {
         if let Value::Record { val, .. } = value {
             for (key, x) in val.into_owned() {
                 if let Some(&col) = col_index.get(key.as_str()) {
                     // Later duplicates win, like `Record::get`.
-                    cells[col * num_rows + row] = Some(x);
+                    cells[col][row] = Some(x);
                 }
             }
         }
@@ -266,11 +267,11 @@ pub fn transpose(
         .collect();
 
     let first_col = usize::from(args.header_row);
-    let mut result_data = descs
-        .iter()
-        .enumerate()
+    let mut result_data = cells
+        .into_iter()
+        .zip(&descs)
         .skip(first_col)
-        .map(|(col, desc)| {
+        .map(|(column, desc)| {
             let mut column_num: usize = 0;
             let mut record = Record::with_capacity(seen.len());
 
@@ -282,10 +283,8 @@ pub fn transpose(
                 column_num += 1
             }
 
-            for row in 0..num_rows {
-                let x = cells[col * num_rows + row]
-                    .take()
-                    .unwrap_or_else(|| Value::nothing(name));
+            for x in column {
+                let x = x.unwrap_or_else(|| Value::nothing(name));
                 let slot = slots[column_num];
                 if slot == record.len() {
                     record.push(headers[column_num].clone(), x);
