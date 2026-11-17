@@ -21,8 +21,8 @@ use nu_protocol::{
 ///     do_command_logic(call)
 /// }
 ///
-/// fn run_const(&self, working_set: &StateWorkingSet, call: &Call) -> Result<PipelineData, ShellError> {
-///     let call = WrapCall::ConstEval(working_set, call);
+/// fn run_const(&self, working_set: &StateWorkingSet, stack: &mut Stack, call: &Call) -> Result<PipelineData, ShellError> {
+///     let call = WrapCall::ConstEval(working_set, stack, call);
 ///     do_command_logic(call)
 /// }
 /// # }
@@ -33,7 +33,8 @@ use nu_protocol::{
 /// ```rust
 /// # use nu_engine::command_prelude::*;
 /// # use nu_cmd_base::WrapCall;
-/// # let call = WrapCall::Eval(&EngineState::new(), &mut Stack::new(), &Call::new(Span::unknown()));
+/// # let ir_call = nu_protocol::ir::Call::build(nu_protocol::DeclId::new(0), Span::unknown()).finish();
+/// # let call = WrapCall::Eval(&EngineState::new(), &mut Stack::new(), &Call::from(&ir_call));
 /// # fn do_command_logic(call: WrapCall) -> Result<(), ShellError> {
 /// let (call, required): (_, String) = call.req(0)?;
 /// let (call, flag): (_, Option<i64>) = call.get_flag("number")?;
@@ -45,7 +46,7 @@ use nu_protocol::{
 /// that there is only ever one copy of mutable [`Stack`] reference.
 pub enum WrapCall<'a> {
     Eval(&'a EngineState, &'a mut Stack, &'a Call<'a>),
-    ConstEval(&'a StateWorkingSet<'a>, &'a Call<'a>),
+    ConstEval(&'a StateWorkingSet<'a>, &'a mut Stack, &'a Call<'a>),
 }
 
 /// Macro to choose between the non-const and const versions of each [`Call`]/[`CallExt`] function
@@ -56,9 +57,9 @@ macro_rules! proxy {
                 Call::$eval(call, engine_state, stack, $( $args ),*)
                 .map(|val| (WrapCall::Eval(engine_state, stack, call), val))
             },
-            WrapCall::ConstEval(working_set, call) => {
-                Call::$const(call, working_set, $( $args ),*)
-                .map(|val| (WrapCall::ConstEval(working_set, call), val))
+            WrapCall::ConstEval(working_set, stack, call) => {
+                Call::$const(call, working_set, stack, $( $args ),*)
+                .map(|val| (WrapCall::ConstEval(working_set, stack, call), val))
             },
         }
     };
@@ -68,14 +69,14 @@ impl WrapCall<'_> {
     pub fn head(&self) -> Span {
         match self {
             WrapCall::Eval(_, _, call) => call.head,
-            WrapCall::ConstEval(_, call) => call.head,
+            WrapCall::ConstEval(_, _, call) => call.head,
         }
     }
 
     pub fn decl_id(&self) -> DeclId {
         match self {
             WrapCall::Eval(_, _, call) => call.decl_id,
-            WrapCall::ConstEval(_, call) => call.decl_id,
+            WrapCall::ConstEval(_, _, call) => call.decl_id,
         }
     }
 

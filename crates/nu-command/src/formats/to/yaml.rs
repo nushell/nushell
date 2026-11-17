@@ -21,7 +21,10 @@ impl Command for ToYamlLike {
             )
             .param(
                 Flag::new("non-roundtrip")
-                    .arg(SyntaxShape::String)
+                    .arg(SyntaxShape::OneOf(vec![
+                        SyntaxShape::String,
+                        SyntaxShape::Nothing,
+                    ]))
                     .desc("How to handle values that are non-roundtrippable.")
                     .completion(Completion::new_list(&["error", "null", "lossy"])),
             )
@@ -43,10 +46,11 @@ impl Command for ToYamlLike {
                 "Configure the indent.",
                 Some('i'),
             )
-            .switch(
-                "compact-list-indent",
-                "Emit lists with a more compact indentation style.",
-                None,
+            .param(
+                Flag::new("list-indent")
+                    .arg(SyntaxShape::String)
+                    .desc("Nested list indentation style ('compact' (default) or 'indented')")
+                    .completion(Completion::new_list(&["compact", "indented"])),
             )
             .param(
                 Flag::new("quote")
@@ -101,20 +105,22 @@ impl Command for ToYamlLike {
         let add_directives = call.has_flag(engine_state, stack, "add-directives")?;
         let multiple = call.has_flag(engine_state, stack, "multiple")?;
         let indent = call.get_flag(engine_state, stack, "indent")?;
-        let compact_list_indent = call.get_flag(engine_state, stack, "compact-list-indent")?;
+        let list_indent_style = call.get_flag(engine_state, stack, "list-indent")?;
         let quote_style = call.get_flag(engine_state, stack, "quote")?;
         let non_roundtrip =
-            call.get_flag::<Spanned<String>>(engine_state, stack, "non-roundtrip")?;
+            call.get_flag::<Spanned<Option<String>>>(engine_state, stack, "non-roundtrip")?;
         let non_roundtrip = match (
             call.has_flag(engine_state, stack, "serialize")?,
-            non_roundtrip.as_ref().map(|nr| nr.item.as_ref()),
+            non_roundtrip
+                .as_ref()
+                .map(|nr| nr.item.as_ref().map(|nr| nr.as_ref())),
         ) {
             // matching the spanned is way less comprehendible here, so we expect spans instead
-            (false, None | Some("error")) => NonRoundtrip::Error,
-            (true, None | Some("lossy")) => NonRoundtrip::Lossy {
+            (false, None | Some(Some("error"))) => NonRoundtrip::Error,
+            (true, None | Some(Some("lossy"))) => NonRoundtrip::Lossy {
                 engine_state: Box::new(engine_state.clone()),
             },
-            (false, Some("null")) => NonRoundtrip::Null,
+            (false, Some(Some("null") | None)) => NonRoundtrip::Null,
             (false, Some(_)) => {
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "expected `error`, `null` or `lossy`".into(),
@@ -147,7 +153,7 @@ impl Command for ToYamlLike {
             .with_add_directives(add_directives)
             .with_multiple(multiple)
             .with_indent(indent.unwrap_or(defaults.indent))
-            .with_compact_list_indent(compact_list_indent.unwrap_or(defaults.compact_list_indent))
+            .with_list_indent_style(list_indent_style.unwrap_or(defaults.list_indent_style))
             .with_quote_style(quote_style.unwrap_or(defaults.quote_style));
 
         nu_heavy_utils::yaml::serialize(&value, call.head, options)

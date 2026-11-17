@@ -11,7 +11,7 @@ use nu_utils::time::Instant;
 #[cfg(not(target_family = "wasm"))]
 use std::time::Duration;
 
-use nu_system::{UnfreezeHandle, kill_by_pid};
+use nu_system::{ForegroundChild, UnfreezeHandle, kill_by_pid};
 
 use crate::{PipelineData, Signals, shell_error};
 
@@ -21,10 +21,9 @@ use crate::JobId;
 pub struct Jobs {
     next_job_id: usize,
 
-    // this is the ID of the most recently added frozen job in the jobs table.
-    // the methods of this struct must ensure the invariant of this always
-    // being None or pointing to a valid job in the table
-    last_frozen_job_id: Option<JobId>,
+    // Frozen jobs in the order they were last frozen. Re-freezing a job keeps its
+    // ID, so job IDs alone cannot determine which frozen job is most recent.
+    frozen_job_ids: Vec<JobId>,
     jobs: HashMap<JobId, Job>,
 }
 
@@ -32,7 +31,7 @@ impl Default for Jobs {
     fn default() -> Self {
         Self {
             next_job_id: 1,
-            last_frozen_job_id: None,
+            frozen_job_ids: Vec::new(),
             jobs: HashMap::default(),
         }
     }
@@ -43,9 +42,21 @@ impl Jobs {
         self.jobs.iter().map(|(k, v)| (*k, v))
     }
 
+    /// The id the next job added to the table will get. Ids only grow, so a job with a lower id
+    /// was started before this call.
+    pub fn next_id(&self) -> JobId {
+        JobId::new(self.next_job_id)
+    }
+
     /// Whether there are no tracked jobs (running or frozen).
     pub fn is_empty(&self) -> bool {
         self.jobs.is_empty()
+    }
+
+    /// Whether any job runs on a background thread. Frozen jobs don't count: they are stopped
+    /// external processes and can't run nushell code, such as `commandline set-prompt`.
+    pub fn has_thread_jobs(&self) -> bool {
+        self.jobs.values().any(|job| matches!(job, Job::Thread(_)))
     }
 
     pub fn lookup(&self, id: JobId) -> Option<&Job> {
@@ -57,23 +68,16 @@ impl Jobs {
     }
 
     pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
-        if self.last_frozen_job_id.is_some_and(|last| id == last) {
-            self.last_frozen_job_id = None;
-        }
-
+        self.frozen_job_ids.retain(|frozen_id| *frozen_id != id);
         self.jobs.remove(&id)
     }
 
-    fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
-        if let Job::Frozen(_) = job {
-            self.last_frozen_job_id = Some(id);
-        }
-    }
-
     pub fn add_job(&mut self, job: Job) -> JobId {
-        let this_id = JobId::new(self.next_job_id);
+        let this_id = self.next_id();
 
-        self.assign_last_frozen_id_if_frozen(this_id, &job);
+        if let Job::Frozen(_) = job {
+            self.frozen_job_ids.push(this_id);
+        }
 
         self.jobs.insert(this_id, job);
         self.next_job_id += 1;
@@ -81,15 +85,16 @@ impl Jobs {
         this_id
     }
 
-    pub fn most_recent_frozen_job_id(&mut self) -> Option<JobId> {
-        self.last_frozen_job_id
+    pub fn most_recent_frozen_job_id(&self) -> Option<JobId> {
+        self.frozen_job_ids.last().copied()
     }
 
     // this is useful when you want to remove a job from the list and add it back later
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
-        self.assign_last_frozen_id_if_frozen(id, &job);
-
         if let Entry::Vacant(e) = self.jobs.entry(id) {
+            if let Job::Frozen(_) = job {
+                self.frozen_job_ids.push(id);
+            }
             e.insert(job);
             Ok(())
         } else {
@@ -118,7 +123,7 @@ impl Jobs {
     /// It returns an error if any of the job killing attempts fails, but always
     /// succeeds in removing the jobs from the table.
     pub fn kill_all(&mut self) -> shell_error::io::Result<()> {
-        self.last_frozen_job_id = None;
+        self.frozen_job_ids.clear();
 
         let first_err = self
             .iter()
@@ -154,17 +159,43 @@ pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
     description: Option<String>,
+    auto_kill: bool,
     pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals, description: Option<String>, sender: Sender<Mail>) -> Self {
+    pub fn new(
+        signals: Signals,
+        description: Option<String>,
+        auto_kill: bool,
+        sender: Sender<Mail>,
+    ) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
             sender,
             description,
+            auto_kill,
         }
+    }
+
+    /// Spawn and register an external process while holding the PID lock.
+    ///
+    /// Shutdown must not finish between spawning the process and registering its PID: the
+    /// shell could exit before the job thread gets a chance to kill the unregistered child.
+    /// Returns `None` without spawning if the job has already been interrupted.
+    pub fn try_spawn(
+        &self,
+        spawn: impl FnOnce() -> std::io::Result<ForegroundChild>,
+    ) -> std::io::Result<Option<ForegroundChild>> {
+        let mut pids = self.pids.lock().expect("PIDs lock was poisoned");
+        if self.signals.interrupted() {
+            return Ok(None);
+        }
+
+        let child = spawn()?;
+        pids.insert(child.pid());
+        Ok(Some(child))
     }
 
     /// Tries to add the provided pid to the active pid set of the current job.
@@ -228,6 +259,13 @@ impl Job {
         }
     }
 
+    pub fn is_auto_kill(&self) -> bool {
+        match self {
+            Job::Thread(job) => job.auto_kill,
+            Job::Frozen(_) => false,
+        }
+    }
+
     pub fn assign_description(&mut self, description: Option<String>) {
         match self {
             Job::Thread(thread_job) => thread_job.description = description,
@@ -261,6 +299,11 @@ impl FrozenJob {
 #[derive(Clone, Debug)]
 pub struct CurrentJob {
     pub id: JobId,
+
+    /// The job the main thread spawned that this one descends from: `id` itself when the main
+    /// thread spawned this job, the spawning job's `root` otherwise, and `JobId::ZERO` on the
+    /// main thread.
+    pub root: JobId,
 
     // The background thread job associated with this thread.
     // If None, it indicates this thread is currently the main job
@@ -410,5 +453,107 @@ impl IgnoredMail {
         }
 
         Some(self.messages.remove(&id)?.1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{atomic::AtomicBool, mpsc};
+
+    #[test]
+    fn has_thread_jobs_tracks_thread_jobs() {
+        let (sender, _) = mpsc::channel();
+        let signals = Signals::new(Arc::new(AtomicBool::new(false)));
+        let mut jobs = Jobs::default();
+        assert!(!jobs.has_thread_jobs());
+
+        let id = jobs.add_job(Job::Thread(ThreadJob::new(signals, None, false, sender)));
+        assert!(jobs.has_thread_jobs());
+
+        jobs.remove_job(id);
+        assert!(!jobs.has_thread_jobs());
+    }
+
+    #[test]
+    fn interrupted_job_does_not_spawn() {
+        let (sender, _) = mpsc::channel();
+        let signals = Signals::new(Arc::new(AtomicBool::new(false)));
+        let job = ThreadJob::new(signals.clone(), None, false, sender);
+        signals.trigger();
+
+        let child = job.try_spawn(|| panic!("interrupted job must not spawn"));
+        assert!(child.unwrap().is_none());
+    }
+
+    #[test]
+    fn spawned_process_is_registered_before_returning() {
+        let (sender, _) = mpsc::channel();
+        let signals = Signals::new(Arc::new(AtomicBool::new(false)));
+        let job = ThreadJob::new(signals, None, false, sender);
+        // Listing this test binary's tests needs no platform-specific executable, and the
+        // child terminates by itself if an assertion fails.
+        let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+        command
+            .arg("--list")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        let mut child = job
+            .try_spawn(|| {
+                #[cfg(unix)]
+                {
+                    ForegroundChild::spawn(
+                        command,
+                        false,
+                        true,
+                        &Arc::new((
+                            std::sync::atomic::AtomicU32::new(0),
+                            std::sync::atomic::AtomicU32::new(0),
+                        )),
+                    )
+                }
+                #[cfg(not(unix))]
+                {
+                    ForegroundChild::spawn(command)
+                }
+            })
+            .unwrap()
+            .unwrap();
+
+        assert!(job.collect_pids().contains(&child.pid()));
+        child.wait().unwrap();
+        job.remove_pid(child.pid());
+        assert!(job.collect_pids().is_empty());
+    }
+
+    #[test]
+    fn spawn_holds_pid_lock_until_registration() {
+        let (sender, _) = mpsc::channel();
+        let signals = Signals::new(Arc::new(AtomicBool::new(false)));
+        let job = ThreadJob::new(signals, None, false, sender);
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+
+        std::thread::scope(|scope| {
+            let job = &job;
+            let spawning = scope.spawn(move || {
+                job.try_spawn(|| {
+                    started_tx.send(()).unwrap();
+                    release_rx.recv_timeout(Duration::from_secs(30)).unwrap();
+                    Err(std::io::Error::other("test spawn failure"))
+                })
+            });
+
+            started_rx.recv_timeout(Duration::from_secs(30)).unwrap();
+            // kill() takes this same lock after triggering the signals, so it cannot finish
+            // while an external is being spawned but has not yet registered its PID.
+            let locked = job.pids.try_lock().is_err();
+            release_tx.send(()).unwrap();
+            assert!(spawning.join().unwrap().is_err());
+            assert!(locked, "shutdown can race with process creation");
+        });
+
+        job.kill().unwrap();
+        assert!(job.collect_pids().is_empty());
     }
 }

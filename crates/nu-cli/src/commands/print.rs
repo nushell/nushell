@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ByteStreamSource;
+use nu_protocol::OutDest;
 
 #[derive(Clone)]
 pub struct Print;
@@ -52,19 +52,22 @@ In protocol modes (`--lsp`, `--mcp`, or nested structured IO), `print` always wr
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        mut input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
 
-        // In protocol modes (LSP, MCP, structured IO), reserve stdout for protocol messages.
-        let to_stderr =
-            if engine_state.is_lsp || engine_state.is_mcp || engine_state.structured_io_output {
-                true
-            } else {
-                call.has_flag(engine_state, stack, "stderr")?
-            };
+        // In protocol modes (LSP, MCP, DAP, structured IO), reserve stdout for protocol messages.
+        let to_stderr = if engine_state.is_lsp
+            || engine_state.is_mcp
+            || engine_state.is_dap
+            || engine_state.structured_io_output
+        {
+            true
+        } else {
+            call.has_flag(engine_state, stack, "stderr")?
+        };
 
         // This will allow for easy printing of pipelines as well
         if !args.is_empty() {
@@ -82,11 +85,6 @@ In protocol modes (`--lsp`, `--mcp`, or nested structured IO), `print` always wr
                 }
             }
         } else if !input.is_nothing() {
-            if let PipelineData::ByteStream(stream, _) = &mut input
-                && let ByteStreamSource::Child(child) = stream.source_mut()
-            {
-                child.ignore_error(true);
-            }
             if raw {
                 input.print_raw(engine_state, no_newline, to_stderr)?;
             } else {
@@ -115,5 +113,11 @@ In protocol modes (`--lsp`, `--mcp`, or nested structured IO), `print` always wr
                 result: None,
             },
         ]
+    }
+
+    // Output piped into `print` looks the same as at the terminal, so an extern with
+    // `@structured` runs as written here too.
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::PipeRaw), None)
     }
 }

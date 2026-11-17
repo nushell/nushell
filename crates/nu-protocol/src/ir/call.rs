@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     DeclId, ShellError, Span, Spanned, Value,
     ast::Expression,
-    engine::{self, Argument, Stack},
+    engine::{Argument, Stack},
 };
 
 use super::DataSlice;
@@ -141,23 +141,6 @@ impl Call {
         self.positional_iter(stack).nth(index)
     }
 
-    /// Get the AST node for a positional argument by index. Not usually available unless the decl
-    /// required it.
-    pub fn positional_ast<'a>(
-        &self,
-        stack: &'a Stack,
-        index: usize,
-    ) -> Option<&'a Arc<Expression>> {
-        self.arguments(stack)
-            .iter()
-            .filter_map(|arg| match arg {
-                Argument::Positional { ast, .. } => Some(ast),
-                _ => None,
-            })
-            .nth(index)
-            .and_then(|option| option.as_ref())
-    }
-
     /// Returns every argument to the rest parameter, as well as whether each argument
     /// is spread or a normal positional argument (true for spread, false for normal)
     pub fn rest_iter<'a>(
@@ -223,7 +206,11 @@ impl Call {
 
     /// Resets the [`Stack`] to its state before the call was made.
     pub fn leave(&self, stack: &mut Stack) {
-        stack.arguments.leave_frame(self.args_base);
+        // A call without arguments put nothing on the stack, and its `args_base` was never set,
+        // so leaving its frame would remove every argument on the stack.
+        if self.args_len > 0 {
+            stack.arguments.leave_frame(self.args_base);
+        }
     }
 }
 
@@ -248,26 +235,12 @@ impl CallBuilder {
 
     /// Add a positional argument to the [`Stack`] and reference it from the [`Call`].
     pub fn add_positional(&mut self, stack: &mut Stack, span: Span, val: Value) -> &mut Self {
-        self.add_argument(
-            stack,
-            Argument::Positional {
-                span,
-                val,
-                ast: None,
-            },
-        )
+        self.add_argument(stack, Argument::Positional { span, val })
     }
 
     /// Add a spread argument to the [`Stack`] and reference it from the [`Call`].
     pub fn add_spread(&mut self, stack: &mut Stack, span: Span, vals: Value) -> &mut Self {
-        self.add_argument(
-            stack,
-            Argument::Spread {
-                span,
-                vals,
-                ast: None,
-            },
-        )
+        self.add_argument(stack, Argument::Spread { span, vals })
     }
 
     /// Add a flag (no-value named) argument to the [`Stack`] and reference it from the [`Call`].
@@ -308,7 +281,6 @@ impl CallBuilder {
                 short,
                 span,
                 val,
-                ast: None,
             },
         )
     }
@@ -319,21 +291,6 @@ impl CallBuilder {
     /// argument stack will be reset when they exit.
     pub fn finish(&self) -> Call {
         self.inner.clone()
-    }
-
-    /// Run a closure with the [`Call`] as an [`engine::Call`] reference, and then clean up the
-    /// arguments that were added to the [`Stack`] after.
-    ///
-    /// For convenience. Calls [`Call::leave`] after the closure ends.
-    pub fn with<T>(
-        self,
-        stack: &mut Stack,
-        f: impl FnOnce(&mut Stack, &engine::Call<'_>) -> T,
-    ) -> T {
-        let call = engine::Call::from(&self.inner);
-        let result = f(stack, &call);
-        self.inner.leave(stack);
-        result
     }
 }
 
@@ -349,4 +306,23 @@ fn data_from_name_and_short(name: &str, short: &str) -> (Arc<[u8]>, DataSlice, D
         len: short.len().try_into().expect("flag short name too big"),
     };
     (data, name, short)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn leaving_a_call_without_arguments_keeps_the_stack() {
+        let mut stack = Stack::new();
+        let mut outer = Call::build(DeclId::new(0), Span::test_data());
+        outer.add_positional(&mut stack, Span::test_data(), Value::test_int(1));
+        let outer = outer.finish();
+
+        Call::build(DeclId::new(1), Span::test_data())
+            .finish()
+            .leave(&mut stack);
+
+        assert_eq!(outer.positional_len(&stack), 1);
+    }
 }

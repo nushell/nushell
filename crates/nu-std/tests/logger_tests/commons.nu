@@ -7,11 +7,26 @@ export def format-message [
     format: string
     prefix: string,
     ansi
+    --context: record
 ] {
-    [   
+
+    let context = $context
+        | default {}
+        | transpose k v
+        | each {|e| $'($e.k)="($e.v)"'}
+        | str join ' '
+
+    let context = if ($context | is-not-empty) {
+      " " + $context
+    } else {
+      ""
+    }
+
+    [
         ["%MSG%" $message]
         ["%DATE%" (now)]
         ["%LEVEL%" $prefix]
+        ["%CONTEXT%" $context]
         ["%ANSI_START%" $ansi]
         ["%ANSI_STOP%" (ansi reset)]
     ] | reduce --fold $format {

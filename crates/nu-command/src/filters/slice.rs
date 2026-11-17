@@ -1,3 +1,4 @@
+use crate::filters::utils::skip_keeping_errors;
 use nu_engine::command_prelude::*;
 use nu_protocol::IntRange;
 use std::ops::Bound;
@@ -70,7 +71,7 @@ impl Command for Slice {
 
         // only collect the input if we have any negative indices
         if range.is_relative() {
-            let v: Vec<_> = input.into_iter().collect();
+            let v = input.into_iter().collect_values()?;
 
             let (from, to) = range.absolute_bounds(v.len());
 
@@ -104,7 +105,10 @@ impl Command for Slice {
             if count == 0 {
                 Ok(PipelineData::value(Value::list(vec![], head), None))
             } else {
-                let iter = input.into_iter().skip(from).take(count);
+                // Take before skipping, so that an error kept from the skipped items doesn't take
+                // the place of an item in the range.
+                let end = from.saturating_add(count);
+                let iter = skip_keeping_errors(input.into_iter().take(end), from);
                 Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
             }
         }

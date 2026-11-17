@@ -1,4 +1,4 @@
-use mockito::Server;
+use mockito::{Server, ServerOpts};
 use nu_protocol::shell_error;
 use nu_test_support::prelude::*;
 use std::{thread, time::Duration};
@@ -22,6 +22,50 @@ fn http_get_failed_due_to_server_error() -> Result {
     match err {
         ShellError::HttpError { msg, .. } => {
             assert_contains("Bad Request", msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest::rstest]
+#[case::with_charset("application/json; charset=utf-8")]
+#[case::problem_json("application/problem+json")]
+#[case::charset_no_space("application/json;charset=UTF-8")]
+fn http_get_failed_due_to_server_error_with_json_body(#[case] content_type: &str) -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(400)
+        .with_header("content-type", content_type)
+        .with_body(r#"{"msg": "boom"}"#)
+        .create();
+    let err = test()
+        .run_with_data("http get $in", server.url())
+        .expect_shell_error()?;
+    match err {
+        ShellError::HttpError { msg, .. } => {
+            assert_contains(r#"{"msg": "boom"}"#, msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn http_get_failed_with_empty_json_body_reports_reason() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(401)
+        .with_header("content-type", "application/json; charset=utf-8")
+        .create();
+    let err = test()
+        .run_with_data("http get $in", server.url())
+        .expect_shell_error()?;
+    match err {
+        ShellError::HttpError { msg, .. } => {
+            assert_eq!(msg, "Unauthorized");
             Ok(())
         }
         err => Err(err.into()),
@@ -168,6 +212,27 @@ fn http_get_follows_redirect() -> Result {
         .expect_value_eq("bar")
 }
 
+// IPv6 literals are wrapped in brackets in URLs (e.g. `http://[::1]:8080/`).
+// `url::Url` handles the brackets, but the resolver used to pass the bracketed
+// host to `getaddrinfo`, which cannot resolve it. This exercises the resolver
+// and the `text/plain` extension lookup with a real request to an IPv6 literal.
+#[test]
+fn http_get_ipv6_literal() -> Result {
+    let mut server = Server::new_with_opts(ServerOpts {
+        host: "::1",
+        ..Default::default()
+    });
+
+    let _mock = server
+        .mock("GET", "/a.txt")
+        .with_header("content-type", "text/plain")
+        .with_body("hello")
+        .create();
+
+    let code = format!("http get {url}/a.txt", url = server.url());
+    test().run(code).expect_value_eq("hello")
+}
+
 #[test]
 fn http_get_redirect_mode_manual() -> Result {
     let mut server = Server::new();
@@ -310,12 +375,50 @@ fn http_get_with_x_prefixed_mime_type() -> Result {
 }
 
 #[test]
+fn http_get_with_custom_converter() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(200)
+        .with_header("content-type", "application/x-lines")
+        .with_body("a\nb\nc")
+        .create();
+
+    // A custom command converts the response, as it does for `open`.
+    let code = format!(
+        r#"def "from lines" [] {{ lines | length }}; http get {url}/foo"#,
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq(3)
+}
+
+#[test]
+fn http_get_binary_converter_on_utf8_response() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/x.msgpack")
+        .with_status(200)
+        .with_header("content-type", "text/plain; charset=utf-8")
+        .with_body([0x01])
+        .create();
+
+    // The charset makes the body a string stream, but `from msgpack` only takes binary.
+    let code = format!("http get {url}/x.msgpack", url = server.url());
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
 fn http_get_timeout() -> Result {
     let mut server = Server::new();
     let _mock = server
         .mock("GET", "/")
         .with_chunked_body(|w| {
-            thread::sleep(Duration::from_secs(10));
+            // Keep this well above `--max-time 100ms` so the client still times out. Mockito joins
+            // the chunked-body thread on drop, so a multi-second sleep stalls the Test step for
+            // every timeout case (get/post/put/patch/delete/options).
+            thread::sleep(Duration::from_millis(500));
             w.write_all(b"Delayed response!")
         })
         .create();
@@ -397,5 +500,30 @@ fn http_get_with_socks5_proxy(#[case] proxy_env: &str) -> Result {
     let outcome: String = test().env(proxy_env, proxy.uri()).run(code)?;
 
     assert_eq!(outcome, "🦆");
+    Ok(())
+}
+
+/// `http get` converts a response by its `from <ext>` command too, so an alias there is reported
+/// as `open` and `save` report it, instead of failing with "Can't run alias directly" (#18725).
+#[test]
+fn http_get_with_a_from_alias_reports_it() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/x.json")
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"a": 1}"#)
+        .create();
+    let url = format!("{}/x.json", server.url());
+    let code = format!(r#"alias "from json" = from json --objects; http get {url}"#);
+    let err = test().run(code).expect_error()?;
+    assert_contains(
+        "Can't convert the response with alias `from json`",
+        err.to_string(),
+    );
+    assert_contains(
+        format!("http ... --raw {url} | from json --objects"),
+        format!("{err:?}"),
+    );
+    assert!(!format!("{err:?}").contains("Can't run alias directly"));
     Ok(())
 }

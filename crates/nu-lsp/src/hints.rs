@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 fn type_short_name(t: &Type) -> String {
     match t {
-        Type::Custom(_) => String::from("custom"),
         Type::Record(_) => String::from("record"),
         Type::Table(_) => String::from("table"),
         Type::List(_) => String::from("list"),
@@ -164,7 +163,7 @@ mod tests {
         InlayHintParams, Position, Range, TextDocumentIdentifier, Uri, WorkDoneProgressParams,
         request::{InlayHintRequest, Request},
     };
-    use nu_test_support::fs::fixtures;
+    use nu_test_support::prelude::*;
     use rstest::rstest;
 
     fn send_inlay_hint_request(client_connection: &Connection, uri: Uri) -> Message {
@@ -273,6 +272,22 @@ mod tests {
             }
         ])
     )]
+    // Custom value types are hinted by name, and the hint must also parse when written out: the
+    // annotated `let typed: semver` gives `$copy` its type, and `v: semver` shows in the tooltip
+    #[case::custom_value_type(
+        "custom_type.nu",
+        false,
+        serde_json::json!([
+            { "position": { "line": 0, "character": 11 }, "label": ": semver", "kind": 1 },
+            { "position": { "line": 2, "character": 8 }, "label": ": semver", "kind": 1 },
+            {
+                "position": { "line": 4, "character": 5 },
+                "label": "v:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`semver: `" }
+            }
+        ])
+    )]
     #[case::script_loaded_on_init(
         "type.nu",
         true,
@@ -291,7 +306,7 @@ mod tests {
         #[case] source_self: bool,
         #[case] expected: serde_json::Value,
     ) {
-        let mut script = fixtures();
+        let mut script = FIXTURES.clone();
         script.push("lsp/hints");
         script.push(filename);
 

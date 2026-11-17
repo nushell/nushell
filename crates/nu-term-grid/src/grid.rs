@@ -391,14 +391,17 @@ impl Grid {
             // Remove the separator width from the available space.
             let adjusted_width = maximum_width - total_separator_width;
             let potential_dimensions = self.column_widths(num_lines, num_columns);
-            if potential_dimensions.widths.iter().sum::<Width>() < adjusted_width {
+            // A grid whose total width is exactly `maximum_width` still fits;
+            // rejecting it would make `fit_into_width` return `None` (and the
+            // `grid` command error out) for a perfectly fitting layout.
+            if potential_dimensions.widths.iter().sum::<Width>() <= adjusted_width {
                 smallest_dimensions_yet = Some(potential_dimensions);
             } else {
                 return smallest_dimensions_yet;
             }
         }
 
-        None
+        smallest_dimensions_yet
     }
 }
 
@@ -583,6 +586,28 @@ mod test {
     }
 
     #[test]
+    fn multi_item_exact_width() {
+        let mut grid = Grid::new(GridOptions {
+            direction: Direction::LeftToRight,
+            filling: Filling::Spaces(1),
+        });
+
+        grid.add(Cell::from("aa"));
+        grid.add(Cell::from("bb"));
+        grid.add(Cell::from("cc"));
+
+        // Two rows of two columns: each column is 2 wide, plus one separator,
+        // so the grid is exactly 5 columns wide.
+        let display = grid
+            .fit_into_width(5)
+            .expect("a grid as wide as the maximum should fit");
+
+        assert_eq!(display.dimensions.num_lines, 2);
+        assert_eq!(display.dimensions.widths, vec![2, 2]);
+        assert_eq!(display.width(), 5);
+    }
+
+    #[test]
     fn one_item_just_over() {
         let mut grid = Grid::new(GridOptions {
             direction: Direction::TopToBottom,
@@ -737,7 +762,14 @@ mod test {
         grid.add("a".into());
         grid.add("b".into());
 
-        assert_eq!(grid.fit_into_width(99), None);
+        // The two-column layout with one 100-wide separator doesn’t fit, but
+        // stacking both cells in a single column does.
+        let display = grid.fit_into_width(99).unwrap();
+
+        assert_eq!(display.dimensions.num_lines, 2);
+        assert_eq!(display.dimensions.widths, vec![1]);
+
+        assert_eq!(display.width(), 1);
     }
 
     #[test]

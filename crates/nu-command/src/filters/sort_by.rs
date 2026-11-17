@@ -135,7 +135,7 @@ impl Command for SortBy {
         let natural = call.has_flag(engine_state, stack, "natural")?;
         let custom = call.has_flag(engine_state, stack, "custom")?;
         let metadata = input.take_metadata();
-        let mut vec: Vec<_> = input.into_iter_strict(head)?.collect();
+        let mut vec = input.into_iter_strict(head)?.collect_values()?;
 
         if comparator_vals.is_empty() {
             return Err(ShellError::MissingParameter {
@@ -149,7 +149,7 @@ impl Command for SortBy {
             .map(|val| match val {
                 Value::CellPath { val, .. } => Ok(Comparator::CellPath(val)),
                 Value::Closure { val, .. } => {
-                    let closure_eval = ClosureEval::new(engine_state, stack, *val);
+                    let closure_eval = ClosureEval::try_new(engine_state, stack, *val, head)?;
                     if custom {
                         Ok(Comparator::CustomClosure(closure_eval))
                     } else {

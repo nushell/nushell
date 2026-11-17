@@ -277,31 +277,37 @@ fn test_default_config_path() -> Result {
     }
     tester.engine_state.generate_nu_constant();
 
+    // This test reads the real home directory. `$nu` reports each path canonicalized
+    // when it exists and as given otherwise, so a symlinked config (home-manager, a
+    // dotfiles repo) shows up as its target rather than the path it was resolved at.
+    let canonical =
+        |path: PathBuf| nu_path::canonicalize_with(&path, WORKSPACE_ROOT.as_path()).unwrap_or(path);
+
     tester
         .run("$nu.default-config-dir")
-        .expect_value_eq(dirs.config_home.clone())?;
+        .expect_value_eq(canonical(dirs.config_home.clone()))?;
 
     tester
         .run("$nu.config-path")
-        .expect_value_eq(dirs.config_file.to_path_buf())?;
+        .expect_value_eq(canonical(dirs.config_file.to_path_buf()))?;
 
     tester
         .run("$nu.env-path")
-        .expect_value_eq(dirs.env_file.to_path_buf())?;
+        .expect_value_eq(canonical(dirs.env_file.to_path_buf()))?;
 
     tester
         .run("$nu.history-path")
-        .expect_value_eq(dirs.config_home.join("history.txt"))?;
+        .expect_value_eq(canonical(dirs.config_home.join("history.txt")))?;
 
     tester
         .run("$nu.loginshell-path")
-        .expect_value_eq(dirs.config_home.join("login.nu"))?;
+        .expect_value_eq(canonical(dirs.config_home.join("login.nu")))?;
 
     #[cfg(feature = "plugin")]
     {
         tester
             .run("$nu.plugin-path")
-            .expect_value_eq(dirs.plugin_file.to_path_buf())?;
+            .expect_value_eq(canonical(dirs.plugin_file.to_path_buf()))?;
     }
 
     Ok(())
@@ -340,6 +346,17 @@ fn test_alternate_config_path() -> Result {
     tester.run("$nu.config-path").expect_value_eq(config_path)?;
 
     tester.run("$nu.env-path").expect_value_eq(env_path)?;
+
+    Ok(())
+}
+
+#[test]
+fn nu_home_dir_is_an_error_without_home() -> Result {
+    let mut tester = test();
+    tester.engine_state.config_dirs.home_dir = PathBuf::new();
+    tester.engine_state.generate_nu_constant();
+    let err = tester.run("$nu.home-dir").expect_shell_error()?;
+    assert!(err.to_string().contains("home-dir"), "{err}");
 
     Ok(())
 }
@@ -502,6 +519,68 @@ fn commandstring_loads_default_env() -> Result {
         .run(r#"nu -c "view files | where filename =~ 'default_env\\.nu$' | length" | complete"#)?;
     assert_eq!(result.exit_code, 0);
     assert_eq!(result.stdout.trim(), "1");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn commandstring_loads_default_prompts() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "[$env.config.prompt.left $env.config.prompt.right] | each { describe } | str join ' '" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "closure closure");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+/// The defaults stay Nu source so users can read and build on them.
+#[test]
+#[deps(NU)]
+fn default_prompt_source_is_viewable() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "view source $env.config.prompt.left | str contains 'path relative-to'" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "true");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn no_config_file_skips_default_prompts() -> Result {
+    let result: CompleteResult =
+        test().run(r#"nu -n -c "$env.config.prompt.left | describe" | complete"#)?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "nothing");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+/// `Config::default()` cannot hold a closure, so `config default` has to
+/// report the prompts installed at startup. Assigning them back must restore
+/// the default prompt rather than clear it.
+#[test]
+#[deps(NU)]
+fn config_default_has_the_default_prompts() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "$env.config.prompt.left = 'mine'; $env.config.prompt = (config default).prompt; [$env.config.prompt.left $env.config.prompt.right] | each { describe } | str join ' '" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "closure closure");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn config_default_has_no_prompts_without_config_files() -> Result {
+    let result: CompleteResult =
+        test().run(r#"nu -n -c "(config default).prompt.left | describe" | complete"#)?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "nothing");
     assert_eq!(result.stderr, "");
     Ok(())
 }

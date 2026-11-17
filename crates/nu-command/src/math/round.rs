@@ -87,11 +87,12 @@ impl Command for MathRound {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let precision_param: Option<i64> = call.get_flag_const(working_set, "precision")?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let precision_param: Option<i64> = call.get_flag_const(working_set, stack, "precision")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, stack, 0)?;
         let head = call.head;
         run_with_elementwise(
             input,
@@ -228,8 +229,8 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
 
     match precision {
         Some(precision_number) => Value::float(
-            (float_val * ((10_f64).powf(precision_number as f64))).round()
-                / (10_f64).powf(precision_number as f64),
+            (float_val * ((10_f64).powi(precision_number as i32))).round()
+                / (10_f64).powi(precision_number as i32),
             span,
         ),
         None => Value::int(float_val.round() as i64, span),

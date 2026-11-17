@@ -1,12 +1,14 @@
-use crate::util::{eval_parsed_block_source, eval_source, print_pipeline};
+use crate::util::{eval_parsed_block_source, eval_source, print_pipeline, report_parse_warnings};
 use log::{info, trace};
-use nu_parser::parse;
+use nu_engine::exit::kill_jobs_and_exit;
+use nu_parser::{is_parser_keyword, parse};
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
+    ast::Expr,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
-    report_parse_error, report_parse_warning,
+    report_parse_error,
     shell_error::io::*,
 };
 use std::{path::PathBuf, sync::Arc};
@@ -96,19 +98,17 @@ pub fn evaluate_file(
     trace!("parsing file: {file_path_str}");
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
-    if let Some(warning) = working_set.parse_warnings.first() {
-        report_parse_warning(None, &working_set, warning);
-    }
+    report_parse_warnings(None, &working_set);
 
     // If any parse errors were found, report the first error and exit.
     if let Some(err) = working_set.parse_errors.first() {
         report_parse_error(None, &working_set, err);
-        std::process::exit(1);
+        kill_jobs_and_exit(engine_state, 1);
     }
 
     if let Some(err) = working_set.compile_errors.first() {
         report_compile_error(None, &working_set, err);
-        std::process::exit(1);
+        kill_jobs_and_exit(engine_state, 1);
     }
 
     // Look for blocks whose name is `main` or begins with `main `; if any are
@@ -188,12 +188,11 @@ pub fn evaluate_file(
         // Print the pipeline output of the last command of the file.
         print_pipeline(engine_state, stack, pipeline, true)?;
 
-        // Invoke the main command with arguments. Keep using `main` as the internal command name
-        // so the parser reliably resolves it; the block's signature was already rewritten to the
-        // script filename above, so help messages will show the correct `script.nu`-qualified name.
+        // Invoke the main command with arguments. The block's signature was already rewritten to
+        // the script filename above, so help messages show the `script.nu`-qualified name.
         // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
         // escape them again here or we would double-quote values like `"arg 2"`.
-        let command_line = format!("main {}", args.join(" "));
+        let command_line = main_command_line(engine_state, &script_name, args);
         eval_source(
             engine_state,
             stack,
@@ -211,7 +210,7 @@ pub fn evaluate_file(
     };
 
     if exit_code != 0 {
-        std::process::exit(exit_code);
+        kill_jobs_and_exit(engine_state, exit_code);
     }
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
@@ -219,11 +218,51 @@ pub fn evaluate_file(
     Ok(())
 }
 
+/// Returns the command line that calls the script's `main` with `args`.
+///
+/// `main` is called by the script's name when that resolves to the script's own commands, so
+/// errors about the arguments (like a missing positional) show `script.nu` instead of `main`.
+/// Otherwise (a parser keyword such as `for`, a name the parser doesn't read as a command, such
+/// as `10kb` or `it's`, a name that stops the call early, such as `main;x`, or a helper named
+/// after the script) the call keeps using `main`.
+fn main_command_line(engine_state: &EngineState, script_name: &str, args: &[String]) -> String {
+    let args = args.join(" ");
+    let main_call = format!("main {args}");
+
+    // Parsing a call to a parser keyword runs its keyword parser, which can panic or report
+    // errors for arguments that were meant for `main`.
+    if is_parser_keyword(script_name.as_bytes()) {
+        return main_call;
+    }
+
+    let script_call = format!("{script_name} {args}");
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let block = parse(&mut working_set, None, script_call.as_bytes(), false);
+    let calls_script = match block.pipelines.first().and_then(|p| p.elements.first()) {
+        Some(element) => match &element.expr.expr {
+            // The call has to name the whole script (plus any subcommand words) and resolve to
+            // `main` with the same subcommand words. A helper named after the script keeps its own
+            // decl name, and a name like `main;...` stops the call at `main`, so neither passes.
+            Expr::Call(call) => {
+                let head = working_set.get_span_contents(call.head);
+                let decl_name = working_set.get_decl(call.decl_id).name().as_bytes();
+                head.strip_prefix(script_name.as_bytes())
+                    .is_some_and(|sub| decl_name.strip_prefix(b"main") == Some(sub))
+            }
+            _ => false,
+        },
+        None => false,
+    };
+
+    if calls_script { script_call } else { main_call }
+}
+
 #[cfg(test)]
 mod tests {
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
     use nu_test_support::prelude::*;
+    use rstest::rstest;
 
     #[test]
     #[deps(NU)]
@@ -241,6 +280,64 @@ mod tests {
                 .cwd(dirs.test())
                 .run(format!("nu test.nu {args} | from json"))
                 .expect_value_eq(expected)
+        })
+    }
+
+    #[rstest]
+    #[case::use_file("validate_main", "", Some("main"))]
+    #[case::use_file("validate_arg", "arg", Some("arg-arg"))]
+    #[case::use_file("validate_module", "entrypoint")]
+    #[case::use_file("validate_shadowed", "shadowed")]
+    #[case::use_file("validate_submodule", "submodule")]
+    #[case::use_file("validate_export_use", "version")]
+    #[nu_test_support::test]
+    #[deps(NU)]
+    fn evaluate_file_with_main_module(
+        #[case] topic: &str,
+        #[case] command: &str,
+        #[case(default)] result: Option<&str>,
+    ) -> Result {
+        Playground::setup(topic, |dirs, sandbox| {
+            sandbox.with_files(&[
+                FileWithContent(
+                    "test.nu",
+                    r#"
+                    def main [arg?: string] {
+                        if ($arg | is-empty) { "main" } else { $"arg-($arg)" }
+                    }
+                    module main {
+                        module submodule {
+                            export def main [] {
+                                "submodule"
+                            }
+                        }
+                        export use submodule
+                        export def entrypoint [] {
+                            "entrypoint"
+                        }
+                        export def shadowed [] {
+                            "not shadowed"
+                        }
+                        export use version.nu
+                    }
+                    def "main entrypoint" [] {
+                        "not entrypoint"
+                    }
+                    def "main version" [] {
+                        "not version"
+                    }
+                    use main
+                    def "main shadowed" [] {
+                        "shadowed"
+                    }"#,
+                ),
+                FileWithContent("version.nu", r#"export def main [] { "version" }"#),
+            ]);
+
+            test()
+                .cwd(dirs.test())
+                .run(format!("nu test.nu {command}"))
+                .expect_value_eq(result.unwrap_or(command))
         })
     }
 }

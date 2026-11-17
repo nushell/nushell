@@ -83,7 +83,8 @@ fn cut_string(source: &str, skip: usize, width: usize) -> Cow<'_, str> {
     text
 }
 
-fn style_to_tui(style: &ansi_str::Style) -> Style {
+/// Convert a parsed ANSI escape style into a ratatui style.
+pub fn style_to_tui(style: &ansi_str::Style) -> Style {
     let mut out = Style::default();
     if let Some(clr) = style.background() {
         out.bg = ansi_color_to_tui_color(clr);

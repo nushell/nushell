@@ -1,5 +1,6 @@
 mod abbreviation;
 mod collapse_expand;
+mod config_matrix;
 mod display;
 mod footer;
 mod indexes;

@@ -318,6 +318,24 @@ fn scope_variables_shows_locals_in_closure() -> Result {
 }
 
 #[test]
+fn scope_modules_lists_exported_type_aliases() -> Result {
+    let code = "
+        module geo {
+            type Private = int
+            export type Point = record<x: float, y: float>
+            export type Id = int
+        }
+        scope modules | where name == geo | get 0.type_aliases | select name type
+    ";
+
+    test().run(code).expect_value_eq(test_table![
+        ["name", "type"];
+        ["Id", "int"],
+        ["Point", "record<x: float, y: float>"],
+    ])
+}
+
+#[test]
 fn scope_variables_shows_outer_and_local_in_closure() -> Result {
     // Issue #14071: inner scope should still see the global/outer scope.
     let code = "

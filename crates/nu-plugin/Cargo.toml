@@ -14,6 +14,10 @@ bench = false
 [lints]
 workspace = true
 
+[features]
+default = ["local-socket"]
+local-socket = ["nu-plugin-core/local-socket"]
+
 [dependencies]
 nu-engine = { workspace = true, features = ["plugin"] }
 nu-protocol = { workspace = true, features = ["plugin"] }
@@ -27,10 +31,6 @@ thiserror = { workspace = true}
 [dev-dependencies]
 serde = { workspace = true }
 typetag = "0.2"
-
-[features]
-default = ["local-socket"]
-local-socket = ["nu-plugin-core/local-socket"]
 
 [target.'cfg(target_family = "unix")'.dependencies]
 # For setting the process group ID (EnterForeground / LeaveForeground)

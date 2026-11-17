@@ -22,6 +22,7 @@ pub fn try_build_table(
         config.table.mode,
         0,
         false,
+        false,
         vec![],
     );
     match value {

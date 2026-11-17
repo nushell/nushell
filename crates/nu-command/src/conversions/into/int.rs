@@ -228,41 +228,25 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             if radix == 10 {
                 input.clone()
             } else {
-                convert_int(input, head, radix)
+                convert_int(input, head, radix, "int")
             }
         }
         Value::Filesize { val, .. } => Value::int(val.get(), head),
-        Value::Float { val, .. } => Value::int(
-            {
-                if radix == 10 {
-                    *val as i64
-                } else {
-                    match convert_int(&Value::int(*val as i64, head), head, radix).as_int() {
-                        Ok(v) => v,
-                        _ => {
-                            return Value::error(
-                                ShellError::CantConvert {
-                                    to_type: "float".to_string(),
-                                    from_type: "int".to_string(),
-                                    span: head,
-                                    help: None,
-                                },
-                                head,
-                            );
-                        }
-                    }
-                }
-            },
-            head,
-        ),
+        Value::Float { val, .. } => {
+            if radix == 10 {
+                Value::int(*val as i64, head)
+            } else {
+                convert_int(&Value::int(*val as i64, val_span), head, radix, "float")
+            }
+        }
         Value::String { val, .. } => {
             if radix == 10 {
-                match int_from_string(val, head) {
+                match int_from_string(val, val_span) {
                     Ok(val) => Value::int(val, head),
                     Err(error) => Value::error(error, head),
                 }
             } else {
-                convert_int(input, head, radix)
+                convert_int(input, head, radix, "string")
             }
         }
         Value::Bool { val, .. } => {
@@ -351,7 +335,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
+fn convert_int(input: &Value, head: Span, radix: u32, from_type: &str) -> Value {
     let i = match input {
         Value::Int { val, .. } => val.to_string(),
         Value::String { val, .. } => {
@@ -361,7 +345,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                 || val.starts_with("0o")
             // octal
             {
-                match int_from_string(val, head) {
+                match int_from_string(val, input.span()) {
                     Ok(x) => return Value::int(x, head),
                     Err(e) => return Value::error(e, head),
                 }
@@ -372,9 +356,9 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     Err(e) => {
                         return Value::error(
                             ShellError::CantConvert {
-                                to_type: "string".to_string(),
-                                from_type: "int".to_string(),
-                                span: head,
+                                to_type: "int".to_string(),
+                                from_type: from_type.to_string(),
+                                span: input.span(),
                                 help: Some(e.to_string()),
                             },
                             head,
@@ -400,12 +384,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
     };
     match i64::from_str_radix(i.trim(), radix) {
         Ok(n) => Value::int(n, head),
-        Err(_reason) => Value::error(
+        Err(reason) => Value::error(
             ShellError::CantConvert {
-                to_type: "string".to_string(),
-                from_type: "int".to_string(),
-                span: head,
-                help: None,
+                to_type: "int".to_string(),
+                from_type: from_type.to_string(),
+                span: input.span(),
+                help: Some(reason.to_string()),
             },
             head,
         ),

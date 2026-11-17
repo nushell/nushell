@@ -4,7 +4,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     execute,
     style::Print,
-    terminal::{self, BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate},
+    terminal::{BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate},
 };
 use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
@@ -903,10 +903,8 @@ impl InputList {
                     .map(|v| v.to_expanded_string(", ", config))
                     .unwrap_or_else(|_| value.to_expanded_string(", ", config)),
                 DisplayMode::Closure(closure) => {
-                    let mut closure_eval =
-                        ClosureEval::new(engine_state, stack, Closure::clone(closure));
-                    closure_eval
-                        .run_with_value(value.clone())
+                    ClosureEval::try_new(engine_state, stack, Closure::clone(closure), span)
+                        .and_then(|mut closure_eval| closure_eval.run_with_value(value.clone()))
                         .and_then(|data| data.into_value(span))
                         .map(|v| v.to_expanded_string(", ", config))
                         .unwrap_or_else(|_| value.to_expanded_string(", ", config))
@@ -1742,7 +1740,7 @@ impl<'a> SelectWidget<'a> {
 
         // Get initial terminal size and cache it
         let (term_width, term_height) =
-            terminal::size().map_err(io_context("read terminal size"))?;
+            nu_utils::terminal_size().map_err(io_context("read terminal size"))?;
         self.update_term_size(term_width, term_height);
 
         self.render(&mut stderr)

@@ -2,10 +2,11 @@ use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{
-    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_source,
-    report_startup_file_not_found,
+    StartupFileKind, StartupLoadContext, eval_config_contents_with_kind, eval_default_prompts,
+    eval_source, report_startup_file_not_found,
 };
 use nu_config::ConfigFileKind;
+use nu_engine::exit::kill_jobs_and_exit;
 use nu_protocol::{
     Config, PipelineData, Spanned,
     engine::{EngineState, Stack},
@@ -17,7 +18,6 @@ use std::{
     io::{Result, Write},
     panic::{AssertUnwindSafe, catch_unwind},
     path::Path,
-    sync::Arc,
 };
 
 const LOGINSHELL_FILE: &str = "login.nu";
@@ -100,7 +100,7 @@ pub(crate) fn read_config_file(
             let startup = StartupLoadContext::new(startup_kind, config_path.clone());
             report_startup_file_not_found(engine_state, &display_path, span, Some(&startup));
             if strict_mode {
-                std::process::exit(1);
+                kill_jobs_and_exit(engine_state, 1);
             }
         }
         return;
@@ -154,7 +154,7 @@ pub(crate) fn read_config_file(
         }
 
         let config_name = config_kind.name();
-        if engine_state.is_mcp {
+        if engine_state.is_mcp || engine_state.is_dap {
             eprintln!(
                 "{} file created at: {}",
                 config_name,
@@ -266,9 +266,14 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
     vendor_dirs
         .iter()
         .chain(user_dirs.iter())
-        .for_each(|autoload_dir| {
+        .inspect(|autoload_dir| {
             info!("read_vendor_autoload_files: {}", autoload_dir.display());
-
+        })
+        // Autoload files are executable startup configuration. Keep this
+        // boundary defensive even if an upstream resolver regresses or a new
+        // source of autoload paths is added.
+        .filter(|autoload_dir| autoload_dir.is_absolute())
+        .for_each(|autoload_dir| {
             if autoload_dir.exists() {
                 // on a second levels files are lexicographically sorted by the string of the filename
                 let entries = read_and_sort_directory(autoload_dir);
@@ -326,6 +331,7 @@ pub(crate) fn setup_config(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, None);
 
+        eval_default_prompts(engine_state, stack);
         read_config_file(
             engine_state,
             stack,
@@ -353,6 +359,6 @@ pub(crate) fn setup_config(
         eprintln!(
             "A panic occurred while reading configuration files, using default configuration."
         );
-        engine_state.config = Arc::new(Config::default())
+        engine_state.set_config(Config::default())
     }
 }

@@ -32,6 +32,16 @@ fn nu_highlight_color_detection(#[case] cmd: &str, #[case] shape: &str) -> Resul
 }
 
 #[test]
+fn nu_highlight_use_std_is_not_garbage() -> Result {
+    let mut tester = test();
+    let () = tester.run_with_data("let color = $in", "#112233")?;
+    let () = tester.run("$env.config.color_config.shape_garbage = $color")?;
+    tester
+        .run("'use std' | nu-highlight | $in has (ansi $color)")
+        .expect_value_eq(false)
+}
+
+#[test]
 fn nu_highlight_not_expr() -> Result {
     test()
         .run("'not false' | nu-highlight | ansi strip")

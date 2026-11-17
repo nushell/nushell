@@ -41,7 +41,7 @@ impl Command for Combinations {
         let k: usize = call.req(engine_state, stack, 0)?;
         let metadata = input.take_metadata();
 
-        let vals: Vec<Value> = input.into_iter().collect();
+        let vals = input.into_iter().collect_values()?;
         let signals = engine_state.signals().clone();
 
         if k == 0 {

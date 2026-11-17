@@ -2,6 +2,7 @@ use indoc::indoc;
 use nu_protocol::{ByteStream, ByteStreamType, PipelineData, ShellError, Signals, Span};
 use nu_test_support::{fs::Stub, prelude::*};
 use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 mod simple {
     use super::*;
@@ -88,15 +89,15 @@ mod simple {
         test().run(code).expect_value_eq("something bad happened")
     }
 
-    #[test]
-    fn errors_when_missing_closing_brace() -> Result {
-        let code = r#"
-            "(abc)123"
-            | parse "(abc){name"
-            | get name
-        "#;
-
-        let err = test().run(code).expect_shell_error()?;
+    #[rstest]
+    #[case::unclosed_name("(abc){name")]
+    #[case::lone_open("{")]
+    #[case::trailing_open("hello {")]
+    #[case::closed_then_open("{name}{")]
+    fn errors_when_missing_closing_brace(#[case] pattern: &str) -> Result {
+        let err = test()
+            .run_with_data(r#"let pattern = $in; "(abc)123" | parse $pattern"#, pattern)
+            .expect_shell_error()?;
         assert_matches!(
             err,
             ShellError::DelimiterError { msg, .. }
@@ -104,6 +105,20 @@ mod simple {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn escaped_open_brace_is_literal() -> Result {
+        test()
+            .run(r#""{" | parse "{{" | length"#)
+            .expect_value_eq(1)
+    }
+
+    #[test]
+    fn unmatched_close_brace_is_literal() -> Result {
+        test()
+            .run(r#""hello}" | parse "hello}" | length"#)
+            .expect_value_eq(1)
     }
 
     #[test]

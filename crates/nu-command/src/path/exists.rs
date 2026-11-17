@@ -71,13 +71,14 @@ Also note that if you don't have a permission to a directory of a path, false wi
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
             pwd: working_set.permanent_state.cwd(None)?.into_std_path_buf(),
-            not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
+            not_follow_symlink: call.has_flag_const(working_set, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
         if let PipelineData::Empty = input {

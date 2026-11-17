@@ -67,11 +67,8 @@ pub fn format_duration_as_timeperiod(
     // Current duration doesn't know a date it's based on, weeks is the max time unit it can normalize into.
     // Don't guess or estimate how many years or months it might contain.
 
-    let (sign, duration) = if duration >= 0 {
-        (1, duration)
-    } else {
-        (-1, -duration)
-    };
+    let sign = if duration >= 0 { 1 } else { -1 };
+    let duration = duration.max(-i64::MAX).abs();
 
     let dur = Duration::nanoseconds(duration);
 

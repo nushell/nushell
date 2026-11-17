@@ -1,4 +1,5 @@
 use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn with_env_extends_environment() -> Result {
@@ -12,6 +13,27 @@ fn with_env_shorthand() -> Result {
     test()
         .run("FOO=BARRRR echo $env | get FOO")
         .expect_value_eq("BARRRR")
+}
+
+#[rstest]
+#[case::shorthand("CONFIG=Release echo_env CONFIG")]
+#[case::with_env("with-env {CONFIG: Release} { echo_env CONFIG }")]
+#[nu_test_support::test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn string_config_reaches_external(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("Release")
+}
+
+#[rstest]
+#[case::shorthand(
+    "let cfg = { show_banner: false }; CONFIG=$cfg config=Release do { $env.config }"
+)]
+#[case::with_env(
+    "let cfg = { show_banner: false }; with-env {CONFIG: $cfg, config: Release} { $env.config }"
+)]
+#[nu_test_support::test]
+fn last_config_value_wins(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("Release")
 }
 
 #[test]
@@ -70,4 +92,42 @@ fn with_env_shorthand_can_not_hide_variables() -> Result {
     "#;
 
     test().run(code).expect_value_eq(("1", "null", "1"))
+}
+
+#[test]
+fn with_env_converts_like_load_env() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row "," } } }
+        with-env { TESTENVVAR: "x,y", pAtH: "a" } { [$env.TESTENVVAR $env.PATH] }
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([["x", "y"], ["a"]]))
+}
+
+#[test]
+fn with_env_of_env_conversions_converts_every_variable() -> Result {
+    let code = r#"
+        $env.OTHER = "a,b"
+        with-env { ENV_CONVERSIONS: { OTHER: { from_string: { split row "," } } } } { $env.OTHER }
+    "#;
+
+    test().run(code).expect_value_eq(["a", "b"])
+}
+
+#[test]
+fn no_convert_sets_values_as_given() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row "," } } }
+        let inside = with-env --no-convert { TESTENVVAR: "x,y", pAtH: "a" } {
+            [$env.TESTENVVAR $env.PATH]
+        }
+        load-env --no-convert { TESTENVVAR: "x,y", pAtH: "a" }
+        [$inside [$env.TESTENVVAR $env.PATH]]
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([["x,y", "a"], ["x,y", "a"]]))
 }

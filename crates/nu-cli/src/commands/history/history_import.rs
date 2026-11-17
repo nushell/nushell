@@ -227,7 +227,11 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
     let item = HistoryItem {
         command_line: cmd,
         id: None,
-        start_timestamp: get(rec, fields::START_TIMESTAMP, |v| Ok(v.as_date()?.to_utc()))?,
+        start_timestamp: get(rec, fields::START_TIMESTAMP, |v| {
+            Ok(reedline::HistoryTimestamp::from_millis(
+                v.as_date()?.timestamp_millis(),
+            ))
+        })?,
         hostname: get(rec, fields::HOSTNAME, |v| Ok(v.as_str()?.to_owned()))?,
         cwd: get(rec, fields::CWD, |v| Ok(v.as_str()?.to_owned()))?,
         exit_status: get(rec, fields::EXIT_STATUS, |v| v.as_int())?,
@@ -309,6 +313,7 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
+    use reedline::HistoryTimestamp;
     use rstest::rstest;
 
     use super::*;
@@ -356,11 +361,11 @@ mod tests {
             HistoryItem {
                 command_line: "foo".to_string(),
                 id: None,
-                start_timestamp: Some(
+                start_timestamp: Some(HistoryTimestamp::from_millis(
                     DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00")
                         .unwrap()
-                        .to_utc()
-                ),
+                        .timestamp_millis()
+                )),
                 hostname: Some("localhost".to_string()),
                 cwd: Some("/home/test".to_string()),
                 duration: Some(std::time::Duration::from_nanos(100_000_000)),

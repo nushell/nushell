@@ -16,7 +16,6 @@
         "x86_64-linux"
         "aarch64-linux"
         "powerpc64le-linux"
-        "x86_64-darwin"
         "aarch64-darwin"
         "riscv64-linux"
         "armv6l-linux"
@@ -156,7 +155,7 @@
               ]
               ++ (lib.optionals stdenv.hostPlatform.isLinux [
                 python3
-                xorg.libX11
+                libX11
               ])
               ++ (lib.optionals stdenv.hostPlatform.isDarwin [
                 zlib

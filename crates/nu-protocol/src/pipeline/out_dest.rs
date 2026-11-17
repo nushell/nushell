@@ -13,6 +13,14 @@ pub enum OutDest {
     /// If stdout and stderr are both set to `Pipe`,
     /// then they will combined into the `stdout` of [`ChildProcess`](crate::process::ChildProcess).
     Pipe,
+    /// Redirect stdout as the input for the next command, when that command reads the output as
+    /// text rather than as data: an external command, `run-external` or `print`.
+    ///
+    /// Commands treat this exactly like `Pipe`, except an extern with `@structured`, which runs
+    /// as written instead of decoding its output. Only stdout is ever set to this, and only by a
+    /// plain `|`, so it reaches the last command of a `do` block or custom command piped into
+    /// such a command too.
+    PipeRaw,
     /// Redirect the stdout and/or stderr of one command as the input for the next command in the pipeline.
     ///
     /// The output stream(s) will be available in the `stdout` or `stderr` of [`ChildProcess`](crate::process::ChildProcess).
@@ -86,7 +94,9 @@ impl TryFrom<&OutDest> for Stdio {
 
     fn try_from(out_dest: &OutDest) -> Result<Self, Self::Error> {
         match out_dest {
-            OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => Ok(Self::piped()),
+            OutDest::Pipe | OutDest::PipeRaw | OutDest::PipeSeparate | OutDest::Value => {
+                Ok(Self::piped())
+            }
             OutDest::Null => Ok(Self::null()),
             OutDest::Print | OutDest::Inherit => Ok(Self::inherit()),
             OutDest::File(file) => Ok(file.try_clone()?.into()),

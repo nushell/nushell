@@ -1,7 +1,7 @@
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{Signals, shell_error::bridge::ShellErrorBridge};
 use std::io::Read;
 
 #[derive(Clone)]
@@ -21,7 +21,7 @@ impl Command for First {
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Binary, Type::Binary),
+                (Type::Binary, Type::one_of([Type::Int, Type::Binary])),
                 (Type::Range, Type::Any),
             ])
             .optional(
@@ -49,7 +49,37 @@ impl Command for First {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        first_helper(engine_state, stack, call, input)
+        let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let strict_mode = call.has_flag(engine_state, stack, "strict")?;
+        first_helper(
+            rows_val,
+            strict_mode,
+            engine_state.signals(),
+            call.head,
+            input,
+        )
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let rows_val: Option<Value> = call.opt_const(working_set, stack, 0)?;
+        let strict_mode = call.has_flag_const(working_set, stack, "strict")?;
+        first_helper(
+            rows_val,
+            strict_mode,
+            working_set.permanent().signals(),
+            call.head,
+            input,
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -66,6 +96,11 @@ impl Command for First {
                     vec![Value::test_int(1), Value::test_int(2)],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Return the first byte of a binary value as an int.",
+                example: "0x[01 23 45] | first",
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value.",
@@ -86,18 +121,17 @@ impl Command for First {
     }
 }
 
+/// Body of `first`, shared by `run` and `run_const`: the first `rows_val` items of `input`, or the first item when `rows_val` is `None`.
 fn first_helper(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    rows_val: Option<Value>,
+    strict_mode: bool,
+    signals: &Signals,
+    head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
     let is_filesize = rows_val
         .as_ref()
         .is_some_and(|v| matches!(v, Value::Filesize { .. }));
-    let strict_mode = call.has_flag(engine_state, stack, "strict")?;
 
     let rows: Option<usize> = match rows_val {
         Some(v) => {
@@ -232,7 +266,7 @@ fn first_helper(
                     } else {
                         Ok(iter.take(rows).into_pipeline_data_with_metadata(
                             span,
-                            engine_state.signals().clone(),
+                            signals.clone(),
                             input_meta,
                         ))
                     }
@@ -293,7 +327,8 @@ fn first_helper(
         PipelineData::ListStream(stream, _) => {
             if return_single_element {
                 if let Some(v) = stream.into_iter().next() {
-                    Ok(v.into_pipeline_data_with_metadata(input_meta))
+                    Ok(v.unwrap_error()?
+                        .into_pipeline_data_with_metadata(input_meta))
                 } else if strict_mode {
                     Err(ShellError::AccessEmptyContent { span: head })
                 } else {
@@ -318,7 +353,7 @@ fn first_helper(
                         let mut byte = [0u8];
                         if reader
                             .read(&mut byte)
-                            .map_err(|err| IoError::new(err, span, None))?
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?
                             > 0
                         {
                             Ok(Value::int(byte[0] as i64, head)
@@ -353,8 +388,8 @@ fn first_helper(
         PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, binary or range".into(),
             wrong_type: "null".into(),
-            dst_span: call.head,
-            src_span: call.head,
+            dst_span: head,
+            src_span: head,
         }),
     }
 }

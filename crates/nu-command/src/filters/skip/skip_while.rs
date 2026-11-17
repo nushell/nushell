@@ -1,3 +1,4 @@
+use crate::filters::utils::skip_by_closure;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
 
@@ -20,7 +21,7 @@ impl Command for SkipWhile {
             ])
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                SyntaxShape::RowCondition,
                 "The predicate that skipped element must match.",
             )
             .category(Category::Filters)
@@ -38,7 +39,7 @@ impl Command for SkipWhile {
         vec![
             Example {
                 description: "Skip while the element is negative.",
-                example: "[-2 0 2 -1] | skip while {|x| $x < 0 }",
+                example: "[-2 0 2 -1] | skip while $it < 0",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(2),
@@ -56,7 +57,7 @@ impl Command for SkipWhile {
             },
             Example {
                 description: "Skip while the field value is negative.",
-                example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while {|x| $x.a < 0 }",
+                example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while a < 0",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" => Value::test_int(0),
@@ -82,19 +83,13 @@ impl Command for SkipWhile {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
+        let closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
 
         let metadata = input.take_metadata();
-        Ok(input
-            .into_iter_strict(head)?
-            .skip_while(move |value| {
-                closure
-                    .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head))
-                    .map(|cond| cond.is_true())
-                    .unwrap_or(false)
-            })
-            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
+        Ok(
+            skip_by_closure(input.into_iter_strict(head)?, closure, head, Value::is_true)
+                .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata),
+        )
     }
 }
 

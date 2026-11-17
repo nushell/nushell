@@ -85,6 +85,7 @@ pub trait Command: Send + Sync + CommandClone + Any {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -194,12 +195,6 @@ pub trait Command: Send + Sync + CommandClone + Any {
         _experimental: ExperimentalMarker,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         Ok(None)
-    }
-
-    /// Return true if the AST nodes for the arguments are required for IR evaluation. This is
-    /// currently inefficient so is not generally done.
-    fn requires_ast_for_arguments(&self) -> bool {
-        false
     }
 }
 

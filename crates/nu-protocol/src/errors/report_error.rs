@@ -180,23 +180,10 @@ fn report_error(
     default_code: &'static str,
 ) {
     let report = format!(
-        "Error: {:?}",
+        "Error: {:?}\n",
         CliError::new(stack, error, working_set, Some(default_code))
     );
-
-    if !SUPPRESS_REPORTING.load(Ordering::Relaxed) {
-        // Avoid eprintln! since it panics on broken stderr, which double-panics
-        // through miette's panic hook and aborts.
-        if writeln!(std::io::stderr(), "{report}").is_err() {
-            let _ = writeln!(std::io::stdout(), "{report}");
-        }
-    }
-
-    // reset vt processing, aka ansi because illbehaved externals can break it
-    #[cfg(windows)]
-    {
-        let _ = nu_utils::enable_vt_processing();
-    }
+    write_report(working_set.permanent(), report);
 }
 
 fn report_warning(
@@ -206,14 +193,26 @@ fn report_warning(
     default_code: &'static str,
 ) {
     let report = format!(
-        "Warning: {:?}",
+        "Warning: {:?}\n",
         CliError::new(stack, warning, working_set, Some(default_code))
     );
+    write_report(working_set.permanent(), report);
+}
 
+/// Write a formatted report, which ends in a newline, to stderr, or to stdout if stderr is broken.
+///
+/// A background job's report goes to the line editor instead while the REPL holds the terminal
+/// (see [`EngineState::job_output_writer`]).
+fn write_report(engine_state: &EngineState, report: String) {
+    // Avoid eprint! since it panics on broken stderr, which double-panics
+    // through miette's panic hook and aborts.
     if !SUPPRESS_REPORTING.load(Ordering::Relaxed)
-        && writeln!(std::io::stderr(), "{report}").is_err()
+        && engine_state
+            .job_output_writer(std::io::stderr())
+            .write_all(report.as_bytes())
+            .is_err()
     {
-        let _ = writeln!(std::io::stdout(), "{report}");
+        let _ = std::io::stdout().write_all(report.as_bytes());
     }
 
     // reset vt processing, aka ansi because illbehaved externals can break it

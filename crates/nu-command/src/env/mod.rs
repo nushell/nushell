@@ -4,6 +4,7 @@ mod load_env;
 mod source_env;
 mod with_env;
 
+pub use config::ConfigDefault;
 pub use config::ConfigEnv;
 pub use config::ConfigFlatten;
 pub use config::ConfigMeta;

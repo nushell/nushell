@@ -50,7 +50,7 @@ impl Command for MatrixMap {
         let mut vals = Vec::with_capacity(matrix.array.len());
         for &val in matrix.array.iter() {
             let element = Value::float(val, head);
-            let result = ClosureEvalOnce::new(engine_state, stack, closure.clone())
+            let result = ClosureEvalOnce::try_new(engine_state, stack, closure.clone(), head)?
                 .run_with_value(element)?
                 .into_value(head)?;
             vals.push(value_to_f64(&result, head).map_err(|_| {

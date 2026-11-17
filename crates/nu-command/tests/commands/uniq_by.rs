@@ -90,6 +90,20 @@ fn table() -> Result {
 }
 
 #[test]
+fn keep_last_keeps_position_of_first_occurrence() -> Result {
+    let code = "[{a:x b:1} {a:y b:2} {a:x b:3}] | uniq-by a --keep-last | to nuon";
+    test().run(code).expect_value_eq("[[a, b]; [x, 3], [y, 2]]")
+}
+
+#[test]
+fn keep_last_preserves_position_with_differing_key_order() -> Result {
+    // `expect_value_eq` sorts record columns before comparing, which would hide a
+    // regression here, so compare the column order itself instead.
+    let code = "[{a: 1, b: 2}, {b: 2, a: 1}] | uniq-by a --keep-last | get 0 | columns";
+    test().run(code).expect_value_eq(["b", "a"])
+}
+
+#[test]
 fn uniq_by_empty() -> Result {
     test()
         .run("[] | uniq-by foo | to nuon")

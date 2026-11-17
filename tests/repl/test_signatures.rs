@@ -1,5 +1,6 @@
 use nu_protocol::Type;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
@@ -364,6 +365,33 @@ fn oneof_annotations(
 #[case::table_record("oneof<record, table>", "{item: 1}", Type::Record(vec![("item".to_string(), Type::Int)].into()))]
 #[case::table_list_of_record("oneof<record, table>", "[{item: 1}]", Type::Table(vec![("item".to_string(), Type::Int)].into()))]
 #[case::table_table("oneof<record, table>", "[[item]; [1]]", Type::Table(vec![("item".to_string(), Type::Int)].into()))]
+// For a literal, shapes that accept any bare word are tried after the others, in their
+// declared order, so they only take what no other listed type matches.
+#[case::list_before_string(
+    "oneof<string, list<string>>",
+    "[foo bar]",
+    Type::List(Box::new(Type::String))
+)]
+#[case::table_before_string("oneof<string, table>", "[[item]; [1]]", Type::Table(vec![("item".to_string(), Type::Int)].into()))]
+#[case::int_before_string("oneof<string, int>", "5", Type::Int)]
+#[case::duration_before_string("oneof<string, duration>", "5sec", Type::Duration)]
+#[case::range_before_string("oneof<string, range>", "1..5", Type::Range)]
+#[case::list_before_path("oneof<path, list<path>>", "[a b]", Type::List(Box::new(Type::String)))]
+#[case::list_before_glob("oneof<glob, list<glob>>", "[a b]", Type::List(Box::new(Type::Glob)))]
+#[case::int_before_cell_path("oneof<cell-path, int>", "5", Type::Int)]
+#[case::string_fallback("oneof<string, int>", "foo", Type::String)]
+#[case::string_before_cell_path("oneof<string, cell-path>", "a.b", Type::String)]
+#[case::glob_before_any("oneof<glob, any>", "[a b]", Type::Glob)]
+#[case::int_before_directory("oneof<directory, int>", "5", Type::Int)]
+#[case::string_before_external_arg("oneof<string, external_arg>", "foo", Type::String)]
+#[case::int_before_external_arg("oneof<external_arg, int>", "5", Type::Int)]
+// A failed `list<int>` attempt compiles the closure, but its compile error must not leak.
+#[case::failed_attempt_compile_error("oneof<string, list<int>>", "[{|| break} a]", Type::String)]
+// `$`, `(` and `{` values keep the declared order: an interpolation still becomes a glob and a
+// spread still makes a record.
+#[case::glob_interpolation_before_list("oneof<glob, list<glob>>", r#"$"*.(1)""#, Type::Glob)]
+#[case::glob_paren_interpolation_before_int("oneof<glob, int>", "(1)*.rs", Type::Glob)]
+#[case::record_spread_before_closure("oneof<any, closure>", "{...{a: 1}}", Type::Record(vec![("a".to_string(), Type::Int)].into()))]
 #[case::closure_cell_path("oneof<cell-path, closure>", "foo", Type::CellPath)]
 #[case::closure_closure_with_bars("oneof<cell-path, closure>", "{|| get foo }", Type::Closure)]
 #[case::closure_closure_without_bars("oneof<cell-path, closure>", "{ get foo }", Type::Closure)]
@@ -383,6 +411,22 @@ fn oneof_positional_named(
     let out: Value = tester.run(format!("cmd {arg_prefix} {arg_src}"))?;
     assert_eq!(out.get_type(), expected_type);
     Ok(())
+}
+
+// The `list<closure>` attempt opens a scope for `{...}.foo?`, which has no closing `}`, and then
+// fails. `string` takes the argument, and that scope must reach neither the rest of the
+// argument nor the code after it.
+#[rstest]
+#[case::later_definition(
+    "f [{}.foo?]; def g [] { 5 }; scope commands | where name == g | length",
+    "1"
+)]
+#[case::name_in_same_argument(r#"let y = "outer"; f [{|y| 1}.foo? ($y)]"#, "[{|y| 1}.foo? outer]")]
+fn oneof_failed_attempt_scope(#[case] code: &str, #[case] expected: &str) -> TestResult {
+    run_test(
+        &format!("def f [x: oneof<string, list<closure>>] {{ $x }}; {code}"),
+        expected,
+    )
 }
 
 #[rstest]
@@ -422,4 +466,60 @@ fn oneof_annotations_with_extra_characters() -> TestResult {
 #[case("do { |a $a } 1 2")]
 fn closure_param_list_not_terminated(#[case] input: &str) -> TestResult {
     fail_test(input, "expected `|`")
+}
+
+/// The rest parameter takes every remaining positional argument, so no positional parameter can
+/// follow it. Flags can.
+#[rstest]
+#[case::required("def f [...r, a] { }")]
+#[case::optional("def f [...r, a?] { }")]
+fn positional_after_rest(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::positional_after_rest")
+}
+
+#[test]
+fn flag_after_rest() -> Result {
+    test()
+        .run("def f [...r, --x] { [$r $x] }; f 1 --x")
+        .expect_value_eq(test_value!([[1], true]))
+}
+
+/// Parameters and flags share one variable namespace, and short flags need distinct letters.
+#[rstest]
+#[case::positionals("def f [a, a] { }")]
+#[case::long_flags("def f [--x, --x] { }")]
+#[case::short_flags("def f [--x (-x), --y (-x)] { }")]
+#[case::positional_and_flag("def f [foo_bar, --foo-bar] { }")]
+#[case::closure_params("{|a, a| $a}")]
+// `$a` and `a` bind the same variable.
+#[case::dollar_spelling("def f [$a, a] { }")]
+#[case::dollar_and_flag("def f [$a, --a] { }")]
+fn duplicate_parameters(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::duplicate_parameter")
+}
+
+/// `_` may name several parameters, to ignore those arguments.
+#[rstest]
+#[case::closure("[1 2 3] | reduce {|_, _| 7 }", 7)]
+#[case::def("def f [_, _] { 1 }; f 2 3", 1)]
+fn repeated_underscore_parameters(#[case] code: &str, #[case] expected: i64) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// Every command has `--help`, so a custom `--help` flag could never be set. `-h` can still be
+/// another flag's short form.
+#[test]
+fn help_flag_is_reserved() -> Result {
+    let err = test().run("def f [--help] { }").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::LabeledErrorWithHelp { error, .. } if error.contains("`--help` flag is reserved")
+    );
+    test()
+        .run("def f [--host (-h)] { $host }; f -h")
+        .expect_value_eq(true)
 }

@@ -56,10 +56,11 @@ impl Command for MathSum {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_with_function_with_cell_paths_const(working_set, call, input, summation)
+        run_with_function_with_cell_paths_const(working_set, stack, call, input, summation)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -70,8 +71,18 @@ impl Command for MathSum {
                 result: Some(Value::test_int(6)),
             },
             Example {
+                description: "Sum an empty list by prepending 0.",
+                example: "[] | prepend 0 | math sum",
+                result: Some(Value::test_int(0)),
+            },
+            Example {
                 description: "Get the disk usage for the current directory.",
                 example: "ls | get size | math sum",
+                result: None,
+            },
+            Example {
+                description: "Get the disk usage as a record with a `size` column.",
+                example: "ls | math sum size",
                 result: None,
             },
             Example {
@@ -80,6 +91,13 @@ impl Command for MathSum {
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(4),
                     "b" => Value::test_int(6),
+                })),
+            },
+            Example {
+                description: "Sum only the named columns of a table.",
+                example: "[[name a b]; [x 1 2] [y 3 4]] | math sum a",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(4),
                 })),
             },
             Example {

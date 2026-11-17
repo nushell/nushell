@@ -16,11 +16,13 @@ impl Command for HelpExterns {
     fn signature(&self) -> Signature {
         Signature::build("help externs")
             .category(Category::Core)
-            .rest(
-                "rest",
-                SyntaxShape::String,
-                "The name of extern to get help on.",
-            )
+            .param(Parameter::Rest(
+                PositionalArg::new("rest", SyntaxShape::String)
+                    .desc("The name of extern to get help on.")
+                    .completion(Completion::Builtin(BuiltinCompletion::Command {
+                        internal_only: true,
+                    })),
+            ))
             .named(
                 "find",
                 SyntaxShape::String,

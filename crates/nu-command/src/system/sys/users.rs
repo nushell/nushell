@@ -1,4 +1,4 @@
-use super::trim_cstyle_null;
+use super::{sysinfo_error, trim_cstyle_null};
 use nu_engine::command_prelude::*;
 use sysinfo::Users;
 
@@ -27,7 +27,7 @@ impl Command for SysUsers {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(users(call.head).into_pipeline_data())
+        Ok(users(call.head)?.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -39,8 +39,9 @@ impl Command for SysUsers {
     }
 }
 
-fn users(span: Span) -> Value {
+fn users(span: Span) -> Result<Value, ShellError> {
     let users = Users::new_with_refreshed_list()
+        .map_err(|err| sysinfo_error(err, span))?
         .iter()
         .map(|user| {
             let groups = user
@@ -70,5 +71,5 @@ fn users(span: Span) -> Value {
         })
         .collect();
 
-    Value::list(users, span)
+    Ok(Value::list(users, span))
 }

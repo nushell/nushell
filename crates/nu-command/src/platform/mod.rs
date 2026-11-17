@@ -18,14 +18,14 @@ mod whoami;
 pub use clear::Clear;
 #[cfg(not(target_arch = "wasm32"))]
 pub use clip::{ClipCommand, ClipCopy, ClipPaste};
-pub use dir_info::{DirBuilder, DirInfo, ExcludeGlob, FileInfo};
+pub use dir_info::{DirBuilder, DirInfo, ExcludeGlob, FileInfo, SeenSet};
 pub use input::Input;
 pub use input::InputList;
 pub use input::InputListen;
 pub use is_redirected::IsRedirected;
 pub use is_terminal::IsTerminal;
 pub use kill::Kill;
-pub(crate) use raw_mode::RawModeGuard;
+pub use raw_mode::RawModeGuard;
 pub use sleep::Sleep;
 pub use term::{Term, TermQuery, TermSize};
 #[cfg(unix)]

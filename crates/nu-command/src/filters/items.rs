@@ -1,4 +1,4 @@
-use super::utils::chain_error_with_input;
+use super::utils::wrap_error_with_input;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
 
@@ -47,7 +47,7 @@ impl Command for Items {
                 let span = value.span();
                 match value {
                     Value::Record { val, .. } => {
-                        let mut closure = ClosureEval::new(engine_state, stack, closure);
+                        let mut closure = ClosureEval::try_new(engine_state, stack, closure, head)?;
                         Ok(val
                             .into_owned()
                             .into_iter()
@@ -63,7 +63,7 @@ impl Command for Items {
                                 match result {
                                     Ok(value) => Some(value),
                                     Err(err) => {
-                                        let err = chain_error_with_input(err, false, span);
+                                        let err = wrap_error_with_input(err, false, span);
                                         Some(Value::error(err, head))
                                     }
                                 }

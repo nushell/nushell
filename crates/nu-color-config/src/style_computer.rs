@@ -75,10 +75,10 @@ impl<'a> StyleComputer<'a> {
             Some(ComputableStyle::Static(s)) => *s,
             // Closures are run here.
             Some(ComputableStyle::Closure(closure, span)) => {
-                let result = ClosureEvalOnce::new(self.engine_state, self.stack, closure.clone())
-                    .debug(false)
-                    .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(*span));
+                let result =
+                    ClosureEvalOnce::try_new(self.engine_state, self.stack, closure.clone(), *span)
+                        .and_then(|eval| eval.debug(false).run_with_value(value.clone()))
+                        .and_then(|data| data.into_value(*span));
 
                 match result {
                     Ok(value) => {
@@ -104,7 +104,7 @@ impl<'a> StyleComputer<'a> {
     // Used only by the `table` command.
     pub fn style_primitive(&self, value: &Value) -> TextStyle {
         use Alignment::*;
-        let s = self.compute(&value.get_type().get_non_specified_string(), value);
+        let s = self.compute(&value.get_type_shallow().get_non_specified_string(), value);
         match *value {
             Value::Bool { .. } => TextStyle::with_style(Left, s),
             Value::Int { .. } => TextStyle::with_style(Right, s),

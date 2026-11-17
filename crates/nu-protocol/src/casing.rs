@@ -1,9 +1,10 @@
-use std::cmp::Ordering;
-
 use nu_utils::IgnoreCaseExt;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Serialize, Deserialize,
+)]
 pub enum Casing {
     #[default]
     Sensitive,

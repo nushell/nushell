@@ -1,35 +1,39 @@
 //! Representation of the engine state and many of the details that implement the scoping
 mod argument;
+mod bracket_table;
 mod cached_file;
 mod call;
-mod call_info;
 mod closure;
 mod command;
 mod description;
 mod engine_state;
 mod env_name;
 mod error_handler;
+mod job_output;
 mod jobs;
+pub mod named_flags;
 mod overlay;
 mod pattern_match;
 mod prompt_state;
 mod sequence;
+mod signature_cache;
 mod stack;
 mod stack_out_dest;
 mod state_delta;
 mod state_working_set;
 mod variable;
 
+pub use bracket_table::BracketTable;
 pub use cached_file::CachedFile;
 
 pub use argument::*;
 pub use call::*;
-pub use call_info::*;
 pub use closure::*;
 pub use command::*;
 pub use engine_state::*;
 pub use env_name::*;
 pub use error_handler::*;
+pub use job_output::*;
 pub use jobs::*;
 pub use overlay::*;
 pub use pattern_match::*;

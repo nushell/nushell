@@ -59,3 +59,20 @@ fn overflow_error_is_consistent_between_list_and_table() -> Result {
     );
     Ok(())
 }
+
+#[test]
+fn avg_table_cell_path_averages_the_column() -> Result {
+    test()
+        .run("[[name score]; [a 1] [b 3] [c 5]] | math avg score")
+        .expect_value_eq(test_value!({ score: 3.0 }))
+}
+
+#[test]
+fn avg_record_cell_path_only_touches_named_column() -> Result {
+    test()
+        .run("{alice: [1 2 3], bob: [4 5 6]} | math avg alice")
+        .expect_value_eq(test_value!({
+            alice: 2.0,
+            bob: [4, 5, 6],
+        }))
+}

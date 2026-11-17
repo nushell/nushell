@@ -1,12 +1,11 @@
 use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
-use crate::HELP_DECL_ID_PARSER_INFO;
+use crate::{DEFERRED_ARGUMENTS_PARSER_INFO, HELP_DECL_ID_PARSER_INFO};
 use nu_protocol::{
     DeclId, IntoSpanned, RegId, Span, Spanned, Type,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
     engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet, UNKNOWN_SPAN_ID},
-    ir::{Instruction, IrAstRef, Literal},
+    ir::{Instruction, Literal},
 };
-use std::sync::Arc;
 
 pub(crate) fn compile_call(
     working_set: &StateWorkingSet,
@@ -19,7 +18,8 @@ pub(crate) fn compile_call(
     // Handle dynamic percent builtin dispatch: `%($cmd)` or `%$cmd`.
     // The parser stored the head expression in parser_info as a placeholder.
     // Rewrite this call as `run-internal <head-expr> ...args`, mirroring how
-    // `compile_external_call` rewrites dynamic external calls to `run-external`.
+    // `compile_external_call` rewrites dynamic external calls to `run-external`. The parser info
+    // tells `run-internal` to bind the arguments, which the parser read without a signature.
     if let Some(head_expr) = call.parser_info.get("percent_forced_builtin") {
         let run_internal_id = working_set.find_decl(b"run-internal").ok_or_else(|| {
             CompileError::MissingRequiredDeclaration {
@@ -36,6 +36,10 @@ pub(crate) fn compile_call(
         for arg in &call.arguments {
             new_call.arguments.push(arg.clone());
         }
+        new_call.set_parser_info(
+            DEFERRED_ARGUMENTS_PARSER_INFO.to_string(),
+            Expression::new_unknown(Expr::Bool(true), call.head, Type::Bool),
+        );
 
         return compile_call(
             working_set,
@@ -117,8 +121,8 @@ pub(crate) fn compile_call(
                 // and will get a const value though, is it really necessary to do that?
                 return builder.load_empty(io_reg);
             }
-            "alias" | "export alias" => {
-                // Alias does nothing
+            "alias" | "export alias" | "type" | "export type" => {
+                // Alias and type alias do nothing at run time
                 return builder.load_empty(io_reg);
             }
             "let" | "mut" => {
@@ -217,8 +221,8 @@ pub(crate) fn compile_call(
         return compile_unlet(working_set, builder, call, io_reg);
     }
 
-    // Keep AST if the decl needs it.
-    let requires_ast = decl.requires_ast_for_arguments();
+    // `metadata $var` needs the variable's definition span, not the use-site span.
+    let preserve_var_origin = decl.name() == "metadata";
 
     // It's important that we evaluate the args first before trying to set up the argument
     // state for the call.
@@ -227,9 +231,9 @@ pub(crate) fn compile_call(
     // the argument state, but we'd have to check all of that first and it just isn't really worth
     // it.
     enum CompiledArg<'a> {
-        Positional(RegId, Span, Option<IrAstRef>),
-        Named(FlagRef<'a>, Option<RegId>, Span, Option<IrAstRef>),
-        Spread(RegId, Span, Option<IrAstRef>),
+        Positional(RegId, Span),
+        Named(FlagRef<'a>, Option<RegId>, Span),
+        Spread(RegId, Span),
     }
 
     let mut compiled_args = vec![];
@@ -239,6 +243,19 @@ pub(crate) fn compile_call(
             .expr()
             .map(|expr| {
                 let arg_reg = builder.next_register()?;
+
+                // Bare variables for `metadata` load with origin span preserved.
+                if preserve_var_origin && let Some(var_id) = expr.as_bare_var() {
+                    builder.push(
+                        Instruction::LoadVariable {
+                            dst: arg_reg,
+                            var_id,
+                            preserve_origin: true,
+                        }
+                        .into_spanned(expr.span),
+                    )?;
+                    return Ok(arg_reg);
+                }
 
                 compile_expression(
                     working_set,
@@ -253,29 +270,18 @@ pub(crate) fn compile_call(
             })
             .transpose()?;
 
-        let ast_ref = arg
-            .expr()
-            .filter(|_| requires_ast)
-            .map(|expr| IrAstRef(Arc::new(expr.clone())));
-
         match arg {
-            Argument::Positional(_) | Argument::Unknown(_) => {
-                compiled_args.push(CompiledArg::Positional(
-                    arg_reg.expect("expr() None in non-Named"),
-                    arg.span(),
-                    ast_ref,
-                ))
-            }
+            Argument::Positional(_) | Argument::Unknown(_) => compiled_args.push(
+                CompiledArg::Positional(arg_reg.expect("expr() None in non-Named"), arg.span()),
+            ),
             Argument::Named((long, short, _)) => compiled_args.push(CompiledArg::Named(
                 FlagRef::from_named(long, short.as_ref()),
                 arg_reg,
                 arg.span(),
-                ast_ref,
             )),
             Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(
                 arg_reg.expect("expr() None in non-Named"),
                 arg.span(),
-                ast_ref,
             )),
         }
     }
@@ -283,12 +289,11 @@ pub(crate) fn compile_call(
     // Now that the args are all compiled, set up the call state (argument stack and redirections)
     for arg in compiled_args {
         match arg {
-            CompiledArg::Positional(reg, span, ast_ref) => {
+            CompiledArg::Positional(reg, span) => {
                 builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?;
-                builder.set_last_ast(ast_ref);
             }
             // The long/short × with-value/bare grid, spelled out once.
-            CompiledArg::Named(flag, reg, span, ast_ref) => {
+            CompiledArg::Named(flag, reg, span) => {
                 let instruction = match (flag, reg) {
                     (FlagRef::Long(name), Some(src)) => Instruction::PushNamed {
                         name: builder.data(name)?,
@@ -306,11 +311,9 @@ pub(crate) fn compile_call(
                     },
                 };
                 builder.push(instruction.into_spanned(span))?;
-                builder.set_last_ast(ast_ref);
             }
-            CompiledArg::Spread(reg, span, ast_ref) => {
+            CompiledArg::Spread(reg, span) => {
                 builder.push(Instruction::AppendRest { src: reg }.into_spanned(span))?;
-                builder.set_last_ast(ast_ref);
             }
         }
     }
@@ -449,7 +452,7 @@ pub(crate) fn compile_external_call(
 }
 
 pub(crate) fn compile_unlet(
-    _working_set: &StateWorkingSet,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
     io_reg: RegId,
@@ -461,54 +464,31 @@ pub(crate) fn compile_unlet(
     for arg in call.positional_iter() {
         iter_empty = false;
 
-        // Extract variable ID from the expression
-        // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
-        // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
-        // This allows unlet to work with variables parsed in different contexts.
-        let var_id = match &arg.expr {
-            nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-            nu_protocol::ast::Expr::FullCellPath(cell_path) => {
-                if cell_path.tail.is_empty() {
-                    match &cell_path.head.expr {
-                        nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        match var_id {
+        match arg.as_bare_var() {
             Some(var_id) => {
-                // Prevent deletion of built-in variables that are essential for nushell operation
-                if var_id == NU_VARIABLE_ID
-                    || var_id == ENV_VARIABLE_ID
-                    || var_id == IN_VARIABLE_ID
-                    || var_id == nu_protocol::LAST_VARIABLE_ID
-                {
-                    // Determine the variable name for the error message
-                    let var_name = match var_id {
-                        NU_VARIABLE_ID => "nu",
-                        ENV_VARIABLE_ID => "env",
-                        IN_VARIABLE_ID => "in",
-                        _ if var_id == nu_protocol::LAST_VARIABLE_ID => {
-                            nu_protocol::LAST_RESULT_VAR_NAME
-                        }
-                        _ => "unknown", // This should never happen due to the check above
-                    };
-
+                let variable = working_set.get_variable(var_id);
+                // Prevent deletion of built-in variables that are essential for nushell
+                // operation. In a pipeline the parser replaces `$in` with a fresh variable that
+                // it names `$in` (see `wrap_expr_with_collect`), which is the built-in too.
+                let builtin_name = match var_id {
+                    NU_VARIABLE_ID => Some("nu"),
+                    ENV_VARIABLE_ID => Some("env"),
+                    IN_VARIABLE_ID => Some("in"),
+                    nu_protocol::LAST_VARIABLE_ID => Some(nu_protocol::LAST_RESULT_VAR_NAME),
+                    _ if variable.name.as_deref() == Some(b"$in") => Some("in"),
+                    _ => None,
+                };
+                if let Some(var_name) = builtin_name {
                     return Err(CompileError::InvalidLiteral {
-                        msg: format!(
-                            "'${}' is a built-in variable and cannot be deleted",
-                            var_name
-                        ),
+                        msg: format!("'${var_name}' is a built-in variable and cannot be deleted"),
                         span: arg.span,
                     });
                 }
 
-                // Emit instruction to drop the variable
+                // The parser already hid a constant for the rest of the block (see
+                // `parse_pipeline_element`). A constant isn't on the stack, but dropping it
+                // still records the deletion, which `scope variables` reads. nu-cli's cleanup
+                // after each source unit skips constants (see `evaluate_parsed_block`).
                 builder.push(Instruction::DropVariable { var_id }.into_spanned(call.head))?;
             }
             None => {

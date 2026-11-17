@@ -94,7 +94,7 @@ impl Command for Mktemp {
 
         let tmpdir = if tmpdir_path.is_some() {
             tmpdir_path
-        } else if directory || tmpdir {
+        } else if tmpdir {
             Some(std::env::temp_dir())
         } else {
             Some(engine_state.cwd(Some(stack))?.into_std_path_buf())

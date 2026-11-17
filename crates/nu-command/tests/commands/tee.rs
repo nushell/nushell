@@ -101,3 +101,65 @@ fn tee_single_value_non_streamable() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn tee_closure_error_on_streamable_value_is_returned() -> Result {
+    let err = test()
+        .run(r#"'ho' | tee { error make {msg: "boom"} }"#)
+        .expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_division_by_zero_on_streamable_value_is_returned() -> Result {
+    let err = test().run("'ho' | tee { 5 / 0 }").expect_shell_error()?;
+    assert!(
+        matches!(err, ShellError::DivisionByZero { .. }),
+        "expected a division by zero error, got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_ECHO_ENV)]
+fn tee_closure_error_on_external_output_is_returned() -> Result {
+    let code = r#"
+        $env.FOO = "teststring"
+        echo_env FOO | tee { error make {msg: "boom"} } | collect
+    "#;
+    let err = test().run(code).expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_error_reaches_lines() -> Result {
+    let err = test()
+        .run(r#"'ho' | tee { error make {msg: "boom"} } | lines"#)
+        .expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_error_on_binary_reaches_each() -> Result {
+    let err = test()
+        .run(r#"0x[0102] | tee { error make {msg: "boom"} } | each { $in }"#)
+        .expect_shell_error()?;
+    assert_eq!(err.to_string(), "boom");
+    Ok(())
+}
+
+#[test]
+fn tee_closure_error_reaches_commands_that_read_the_stream() -> Result {
+    for code in [
+        r#"0x[0102] | tee { error make {msg: "boom"} } | last"#,
+        r#"0x[0102] | tee { error make {msg: "boom"} } | chunks 1 | collect"#,
+        r#"0x[0102] | tee { error make {msg: "boom"} } | bytes ends-with 0x[01]"#,
+    ] {
+        let err = test().run(code).expect_shell_error()?;
+        assert_eq!(err.to_string(), "boom", "{code}");
+    }
+    Ok(())
+}

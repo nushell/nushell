@@ -3,10 +3,7 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn sample_roundtrip() -> Result {
-    let path_to_sample_nuon = nu_test_support::fs::fixtures()
-        .join("formats")
-        .join("msgpack")
-        .join("sample.nuon");
+    let path_to_sample_nuon = FIXTURES.join("formats").join("msgpack").join("sample.nuon");
 
     let sample_nuon =
         std::fs::read_to_string(&path_to_sample_nuon).expect("failed to open sample.nuon");

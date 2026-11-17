@@ -85,6 +85,13 @@ fn ignores_duplicate_columns_rejected() -> Result {
 }
 
 #[test]
+fn ignores_duplicate_column_differing_only_in_casing() -> Result {
+    test()
+        .run("{a: 1, b: 2} | reject a a! | columns")
+        .expect_value_eq(["b"])
+}
+
+#[test]
 fn ignores_duplicate_rows_rejected() -> Result {
     let code = "$in | reject 2 2";
     let input = test_table![
@@ -254,7 +261,7 @@ fn reject_multiple_rows_descending() -> Result {
 }
 
 #[test]
-fn test_ignore_errors_flag() -> Result {
+fn test_optional_flag() -> Result {
     let code = "$in | reject 5 -o";
     let input = test_table![
         ["a", "b"];
@@ -274,7 +281,7 @@ fn test_ignore_errors_flag() -> Result {
 }
 
 #[test]
-fn test_ignore_errors_flag_var() -> Result {
+fn test_optional_flag_var() -> Result {
     let code = "let arg = [5 c]; $in | reject ...$arg -o";
     let input = test_table![
         ["a", "b"];

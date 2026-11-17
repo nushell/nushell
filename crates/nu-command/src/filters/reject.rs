@@ -1,8 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing,
-    shell_error::generic::GenericError,
-};
+use nu_protocol::{ast::PathMember, casing::Casing, shell_error::generic::GenericError};
 use nu_utils::IgnoreCaseExt;
 use std::{cmp::Reverse, collections::HashSet};
 
@@ -30,11 +27,6 @@ impl Command for Reject {
                 "ignore-case",
                 "Make all cell path members case insensitive.",
                 None,
-            )
-            .switch(
-                "ignore-errors",
-                "Ignore missing data (make all cell path members optional) (deprecated).",
-                Some('i'),
             )
             .rest(
                 "rest",
@@ -112,8 +104,7 @@ impl Command for Reject {
         }
         let span = call.head;
 
-        let optional = call.has_flag(engine_state, stack, "optional")?
-            || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let optional = call.has_flag(engine_state, stack, "optional")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
 
         if optional {
@@ -129,19 +120,6 @@ impl Command for Reject {
         }
 
         reject(engine_state, span, input, new_columns)
-    }
-
-    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        vec![DeprecationEntry {
-            ty: DeprecationType::Flag("ignore-errors".into()),
-            report_mode: ReportMode::FirstUse,
-            since: Some("0.106.0".into()),
-            expected_removal: None,
-            help: Some(
-                "This flag has been renamed to `--optional (-o)` to better reflect its behavior."
-                    .into(),
-            ),
-        }]
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -224,7 +202,7 @@ fn reject(
     let mut input = input.into_stream_or_original(engine_state);
     let mut unique_rows: HashSet<usize> = HashSet::new();
     let mut metadata = input.take_metadata();
-    let mut new_columns = vec![];
+    let mut new_columns: Vec<CellPath> = vec![];
     let mut new_rows = vec![];
     for column in cell_paths {
         let CellPath { ref members } = column;
@@ -243,7 +221,7 @@ fn reject(
                 }
             }
             _ => {
-                if !new_columns.contains(&column) {
+                if !new_columns.iter().any(|c| c.eq_ignore_casing(&column)) {
                     new_columns.push(column)
                 }
             }

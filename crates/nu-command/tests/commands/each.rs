@@ -1,4 +1,6 @@
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn each_works_separately() -> Result {
@@ -76,9 +78,67 @@ fn errors_in_nested_each_full_chain() -> Result {
         .run("0..1 | each {|i| 0..1 | each {|j| error make {msg: boom} } }")
         .expect_shell_error()?;
 
-    let eval_block_with_input_count = format!("{err:?}").matches("EvalBlockWithInput").count();
-    assert_eq!(eval_block_with_input_count, 2);
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
+    let err = err.into_inner()?;
+    assert_matches!(err, ShellError::EvalBlockWithInput(..));
+    assert_eq!(err.into_inner()?.into_labeled()?.msg, "boom");
     Ok(())
+}
+
+#[rstest]
+#[case::each("[1] | each { error make {msg: inner} }")]
+#[case::nested_each("0..1 | each {|i| 0..1 | each {|j| error make {msg: inner} } }")]
+#[case::par_each("[1] | par-each { error make {msg: inner} }")]
+#[case::items("{a: 1} | items {|k, v| error make {msg: inner} }")]
+fn closure_error_message_reaches_catch(#[case] code: &str) -> Result {
+    test()
+        .run(format!("try {{ {code} }} catch {{|e| $e.msg }}"))
+        .expect_value_eq("inner")
+}
+
+#[test]
+fn closure_error_keeps_its_code() -> Result {
+    test()
+        .run("[1 2] | each {|x| $x / 0 }")
+        .expect_error_code_eq("nu::shell::division_by_zero")
+}
+
+#[test]
+fn closure_error_labels_the_input_value() -> Result {
+    let code = "
+        try { [1] | each { error make {msg: inner} } } catch {|e| $e.details.labels.text }
+    ";
+    test().run(code).expect_value_eq(["", "source value"])
+}
+
+/// A closure error with its own source text (here the XML) renders as a related report, so the
+/// input value's label stays in the code's snippet and the XML error keeps its own snippet.
+#[test]
+fn closure_error_with_own_source_keeps_both_snippets() -> Result {
+    let code = r#"
+        try { ["<a><b></a>"] | each { from xml } } catch {|e| $e.rendered | ansi strip }
+    "#;
+    let rendered: String = test().run(code)?;
+    let reports: Vec<_> = rendered.split("Error: ").skip(1).collect();
+    assert_eq!(reports.len(), 2, "{rendered}");
+    let (input, xml) = (reports[0], reports[1]);
+    assert_contains("each { from xml }", input);
+    assert_contains("source value", input);
+    assert_contains("Unexpected close tag a, expected b", xml);
+    assert_contains_not("each { from xml }", xml);
+    Ok(())
+}
+
+/// Nested closures label only the innermost input value, the one the failing closure ran on.
+#[rstest]
+#[case::shared_input("let xs = [1]; $xs | each { $xs | each { error make {msg: inner} } }")]
+#[case::different_inputs("[1] | each { [2] | each { error make {msg: inner} } }")]
+fn nested_closure_errors_label_one_input_value(#[case] code: &str) -> Result {
+    test()
+        .run(format!(
+            "try {{ {code} }} catch {{|e| $e.details.labels.text }}"
+        ))
+        .expect_value_eq(["", "source value"])
 }
 
 #[test]
