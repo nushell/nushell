@@ -300,56 +300,7 @@ fn glob_follow_symlinks() -> Result {
 
 #[test]
 fn glob_relative_paths() -> Result {
-    Playground::setup("glob_relative_paths", |dirs, sandbox| {
-        sandbox.mkdir("subdir");
-        sandbox.within("subdir").with_files(&[
-            EmptyFile("file0"),
-            EmptyFile("file1"),
-            EmptyFile("file2"),
-        ]);
-
-        let pattern = "subdir/*";
-        let abs_pattern = format!(
-            "{}/subdir/*",
-            dirs.test().to_string_lossy().replace('\\', "/")
-        );
-
-        test()
-            .cwd(dirs.test())
-            .run(format!(
-                "(glob '{pattern}' | path relative-to $env.PWD) == (glob --relative-paths '{pattern}')",
-            ))
-            .expect_value_eq(true)
-            .expect(
-                "glob --relative-paths with a relative pattern should return paths relative to cwd",
-            );
-
-        test()
-            .cwd(dirs.test())
-            .run(format!(
-                "(glob '{abs_pattern}') == (glob --relative-paths '{abs_pattern}')",
-            ))
-            .expect_value_eq(true)
-            .expect(
-                "glob --relative-paths with an absolute pattern should still return absolute paths",
-            );
-
-        let code = "
-            (
-                (glob --relative-paths '.' | first) == '.'
-                and (glob --relative-paths '**' | first) == '.'
-            )
-        ";
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(true)
-            .expect(
-                "glob --relative-paths with '.' or '**' as the pattern should return '.' for cwd",
-            );
-    });
-
-    Ok(())
+    check_glob_relative_paths()
 }
 
 #[test]
@@ -568,48 +519,7 @@ fn glob_dc_glob_supports_follow_symlinks() -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_relative_paths() -> Result {
-    Playground::setup("glob_dc_glob_relative_paths", |dirs, sandbox| {
-        sandbox.mkdir("subdir");
-        sandbox.within("subdir").with_files(&[
-            EmptyFile("file0"),
-            EmptyFile("file1"),
-            EmptyFile("file2"),
-        ]);
-
-        let pattern = "subdir/*";
-        let abs_pattern = format!(
-            "{}/subdir/*",
-            dirs.test().to_string_lossy().replace('\\', "/")
-        );
-
-        test()
-            .cwd(dirs.test())
-            .run(format!(
-                "(glob '{pattern}' | path relative-to $env.PWD) == (glob --relative-paths '{pattern}')",
-            ))
-            .expect_value_eq(true)
-            .expect(
-                "glob --relative-paths with a relative pattern should return paths relative to cwd",
-            );
-
-        test()
-            .cwd(dirs.test())
-            .run(format!(
-                "(glob '{abs_pattern}') == (glob --relative-paths '{abs_pattern}')",
-            ))
-            .expect_value_eq(true)
-            .expect(
-                "glob --relative-paths with an absolute pattern should still return absolute paths",
-            );
-
-        test()
-            .cwd(dirs.test())
-            .run("(glob --relative-paths '**' | first) == '.'")
-            .expect_value_eq(true)
-            .expect("glob --relative-paths with '**' as the pattern should return '.' for cwd");
-    });
-
-    Ok(())
+    check_glob_relative_paths()
 }
 
 #[test]
@@ -944,4 +854,116 @@ fn check_glob_matches_hidden_names() -> Result {
         assert_eq!(names("**/y")?, ["y"]);
         Ok(())
     })
+}
+
+/// Test cases for `glob --relative-paths`, shared by both glob backends.
+fn check_glob_relative_paths() -> Result {
+    Playground::setup("glob_relative_paths", |dirs, sandbox| {
+        sandbox
+            .with_files(&[EmptyFile("file0"), EmptyFile("file1"), EmptyFile("file2")])
+            .within("dir0")
+            .with_files(&[EmptyFile("file0"), EmptyFile("file1"), EmptyFile("file2")])
+            .within("dir0/dir1")
+            .with_files(&[EmptyFile("file0"), EmptyFile("file1"), EmptyFile("file2")]);
+
+        let pattern = "dir0/*";
+        let abs_pattern = format!(
+            "{}/{pattern}",
+            dirs.test().to_string_lossy().replace('\\', "/")
+        );
+
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "(glob '{pattern}' | path relative-to $env.PWD) == (glob --relative-paths '{pattern}')",
+            ))
+            .expect_value_eq(true)
+            .expect(
+                "glob --relative-paths with a relative pattern should return paths relative to cwd",
+            );
+
+        test()
+            .cwd(dirs.test())
+            .run(format!(
+                "(glob '{abs_pattern}') == (glob --relative-paths '{abs_pattern}')",
+            ))
+            .expect_value_eq(true)
+            .expect("glob --relative-paths with an absolute pattern should keep paths absolute");
+
+        let code = format!(
+            "
+            (
+                (glob --relative-paths '.' | first) == '.'
+                {}
+            )
+            ",
+            if nu_experimental::DC_GLOB.get() {
+                ""
+            } else {
+                "and (glob --relative-paths '**' | first) == '.'"
+            }
+        );
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(true)
+            .expect("glob --relative-paths '.' (and '**' without DC_GLOB) should yield '.' first");
+
+        test()
+            .cwd(dirs.test().join("dir0"))
+            .run("(glob --relative-paths '..' | first) == '..'")
+            .expect_value_eq(true)
+            .expect("glob --relative-paths '..' should yield '..' first");
+
+        let code = "
+            (glob --relative-paths '../*' | str replace -a '\\' '/' | sort) == [
+                '../dir0',
+                '../file0',
+                '../file1',
+                '../file2',
+            ]
+        ";
+        test()
+            .cwd(dirs.test().join("dir0"))
+            .run(code)
+            .expect_value_eq(true)
+            .expect("glob --relative-paths '../*' should yield '../'-prefixed paths");
+
+        let code = format!(
+            "
+            (glob --relative-paths '../../**/*' | str replace -a '\\' '/' | sort) == [
+                {}
+                '../../dir0',
+                '../../dir0/dir1',
+                '../../dir0/dir1/file0',
+                '../../dir0/dir1/file1',
+                '../../dir0/dir1/file2',
+                '../../dir0/file0',
+                '../../dir0/file1',
+                '../../dir0/file2',
+                '../../file0',
+                '../../file1',
+                '../../file2',
+            ]
+            ",
+            if nu_experimental::DC_GLOB.get() {
+                ""
+            } else {
+                "'../..',"
+            }
+        );
+        test()
+            .cwd(dirs.test().join("dir0/dir1"))
+            .run(code)
+            .expect_value_eq(true)
+            .expect("glob --relative-paths '../../**/*' should yield '../../'-prefixed paths");
+
+        test()
+            .cwd(dirs.test())
+            .run("glob --relative-paths -DF * | is-empty")
+            .expect_value_eq(true)
+            .expect("glob --relative-paths -DF * should match nothing");
+    });
+
+    Ok(())
 }
