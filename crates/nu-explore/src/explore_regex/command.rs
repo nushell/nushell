@@ -70,13 +70,15 @@ Supports AltGr key combinations for international keyboard layouts."
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let input_span = input.span().unwrap_or(call.head);
         let (string_input, _span, _metadata) = input.collect_string_strict(input_span)?;
+        // The app draws on stdout, so a final value can't follow there as a frame.
+        engine_state.mark_stdout_used();
         let regex = execute_regex_app(call.head, string_input)?;
 
         Ok(PipelineData::Value(

@@ -43,7 +43,10 @@ pub use registry::Registry;
 pub use registry_query::RegistryQuery;
 pub use run_external::{External, command_not_found, eval_external_arguments, which};
 pub use run_internal::RunInternal;
-pub use structured_io::{decode_structured_child, emit_structured_pipeline, read_structured_stdin};
+pub use structured_io::{
+    NU_VALUE_FLAGS, NuFlagValue, decode_structured_child, emit_structured_pipeline,
+    read_structured_stdin,
+};
 pub use sys::*;
 pub use uname::UName;
 pub use which_::Which;

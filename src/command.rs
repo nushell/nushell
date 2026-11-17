@@ -2,7 +2,8 @@ use lexopt::prelude::*;
 use nu_experimental as experimental_options;
 use nu_parser::escape_for_script_arg;
 use nu_protocol::{
-    LabeledError, ShellError, Span, Spanned, Value, config::TableMode, did_you_mean,
+    LabeledError, STRUCTURED_IO_FLAG_VALUES, ShellError, Span, Spanned, Value, config::TableMode,
+    did_you_mean,
 };
 use nu_utils::{stdout_write_all_and_flush, strip_ansi_string_likely};
 #[cfg(feature = "plugin")]
@@ -804,7 +805,12 @@ fn parse_cli_args_with_command_line(
             }
             Long("stdin") => cli.redirect_stdin = Some(spanned_true()),
             Long("structured-io") => {
-                let value = parse_string_value(&mut parser, "structured-io")?;
+                let value = parse_validated_option(
+                    &mut parser,
+                    "structured-io",
+                    STRUCTURED_IO_FLAG_VALUES,
+                    "structured IO mode",
+                )?;
                 cli.structured_io = Some(spanned_value(value));
             }
             Long("experimental-options") => {
@@ -1875,6 +1881,33 @@ impl NushellCliArgs {
 mod tests {
     use super::*;
     use std::ffi::OsString;
+
+    /// A parent `nu` steps over the values of a child's flags with `NU_VALUE_FLAGS` to find
+    /// where the child's own flags end, so that table has to agree with this one.
+    #[test]
+    fn structured_io_scan_knows_every_value_flag() {
+        use nu_command::{NU_VALUE_FLAGS, NuFlagValue};
+
+        for flag in CLI_FLAGS {
+            let known = NU_VALUE_FLAGS.iter().find(|known| known.0 == flag.long);
+            match (flag.value, known) {
+                (ValueHint::None, None) => {}
+                (ValueHint::None, Some(_)) => {
+                    panic!("--{} takes no value, but NU_VALUE_FLAGS has it", flag.long)
+                }
+                (_, None) => panic!("--{} takes a value, but NU_VALUE_FLAGS lacks it", flag.long),
+                (hint, Some(&(_, short, kind))) => {
+                    assert_eq!(short, flag.short, "short name of --{}", flag.long);
+                    assert_eq!(
+                        matches!(hint, ValueHint::ListString),
+                        kind != NuFlagValue::One,
+                        "how --{} takes its values",
+                        flag.long
+                    );
+                }
+            }
+        }
+    }
 
     fn parse_nu_args(args: &[&str]) -> ParsedCli {
         let args = std::iter::once("nu")

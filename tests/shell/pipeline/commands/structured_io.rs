@@ -487,3 +487,119 @@ fn child_value_to_other_external_is_text() -> Result {
         .run("nu -n -c '\"hello\"' | ^/bin/cat")
         .expect_value_eq("hello")
 }
+
+#[test]
+#[deps(NU)]
+fn print_in_gets_the_value_not_the_frame() -> Result {
+    // `print $in` collects `$in` from a stream that `run-external` tagged for an external.
+    let nested: CompleteResult =
+        test().run(r#"nu -n -c "nu -n -c '[1 2 3]' | print $in" | complete"#)?;
+    let direct: CompleteResult = test().run(r#"nu -n -c "[1 2 3] | print $in" | complete"#)?;
+    assert_eq!(nested.exit_code, 0, "{}", nested.stderr);
+    assert_contains_not("\u{1e}", nested.stdout.as_str());
+    assert_eq!(nested.stdout, direct.stdout);
+    Ok(())
+}
+
+#[rstest::rstest]
+#[case::value("[1 2 3]", "list<int>")]
+#[case::text("print hi", "string")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn finally_gets_the_value_not_the_frame(#[case] child: &str, #[case] expected: &str) -> Result {
+    // The `nu` after the `try` makes the child's output a tagged stream, which `finally` copies.
+    let code = format!(
+        r#"nu -n -c "try {{ nu -n -c '{child}' }} finally {{|x| print -e ($x | describe) }} | nu -n -c '$in | describe'" | complete"#
+    );
+    let result: CompleteResult = test().run(code)?;
+    assert_eq!(result.exit_code, 0, "{}", result.stderr);
+    assert_eq!(result.stderr.trim(), expected);
+    Ok(())
+}
+
+#[rstest::rstest]
+#[case::silent("silent", "$env.FROM_CONFIG = 1", "list<int>")]
+#[case::ends_in_a_value("value", "'from config'", "byte stream")]
+#[case::prints("prints", "print 'from config'", "byte stream")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn startup_files_never_send_a_frame(
+    #[case] topic: &str,
+    #[case] config: &str,
+    #[case] expected: &str,
+) -> Result {
+    // Each case gets its own sandbox, named after its topic.
+    Playground::setup(&format!("structured_io_config_{topic}"), |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("config.nu", config)]);
+        let mut tester = test().cwd(dirs.test());
+        let code = "nu --no-std-lib --config config.nu -c '[1 2]'";
+        tester
+            .run(format!("{code} | describe"))
+            .expect_value_eq(expected)?;
+        if expected == "byte stream" {
+            let text: String = tester.run(format!("{code} | to text"))?;
+            assert!(text.starts_with("from config"), "{text:?}");
+            assert_contains_not("\u{1e}", text.as_str());
+        }
+        Ok(())
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn interactive_child_takes_a_value_and_gives_text() -> Result {
+    // The input arrives as a value (11 would be the length of the frame), the output as text.
+    test()
+        .run("'hi' | nu -n -i --stdin -c '$in | str length' | into int")
+        .expect_value_eq(2)?;
+    test()
+        .run("[1 2 3] | nu -n -i -c '$in | math sum' | into int")
+        .expect_value_eq(6)?;
+    test()
+        .run("nu -n -i -c '[1 2 3]' | describe")
+        .expect_value_eq("byte stream")
+}
+
+#[test]
+#[deps(NU)]
+fn script_args_do_not_switch_off_the_parent() -> Result {
+    Playground::setup("structured_io_script_args", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "foo.nu",
+            "def main [--structured-io: any] { [1 2 3] }",
+        )]);
+
+        test()
+            .cwd(dirs.test())
+            .run("nu -n foo.nu --structured-io=false | describe")
+            .expect_value_eq("list<int>")
+    })
+}
+
+#[test]
+#[deps(NU)]
+fn mistyped_flag_value_is_an_error() -> Result {
+    let result: CompleteResult = test().run("nu -n --structured-io=output -c '1' | complete")?;
+    assert_ne!(result.exit_code, 0);
+    assert_contains("Invalid value for `--structured-io`", result.stderr);
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn other_shebang_with_nu_extension_reads_text() -> Result {
+    Playground::setup("structured_io_liar_nu_stdin", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "liar.nu",
+            "#!/bin/sh
+/usr/bin/wc -c
+",
+        )]);
+        make_executable(dirs.test(), "liar.nu")?;
+
+        test()
+            .cwd(dirs.test())
+            .run("'hi' | ./liar.nu | str trim | into int")
+            .expect_value_eq(2)
+    })
+}

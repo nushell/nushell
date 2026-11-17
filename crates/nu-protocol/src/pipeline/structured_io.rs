@@ -1,3 +1,7 @@
+#[cfg(feature = "os")]
+use crate::ByteStreamSource;
+use crate::{PipelineData, ShellError, Span};
+
 /// Environment variable a parent `nu` sets on a child `nu` it spawns, holding the
 /// [`StructuredIoMode`] it wants (`in`, `out` or `1`).
 ///
@@ -11,14 +15,36 @@ pub const STRUCTURED_IO_ENV: &str = "NU_STRUCTURED_IO";
 /// decode it, and the command that reads it decodes it.
 pub const STRUCTURED_IO_CONTENT_TYPE: &str = "application/x-nushell-structured-io";
 
+/// Values `--structured-io` accepts. [`StructuredIoMode::from_flag_str`] reads them.
+pub const STRUCTURED_IO_FLAG_VALUES: &[&str] =
+    &["1", "true", "inout", "in", "out", "false", "off", "0"];
+
+/// Turns a Nushell child's tagged output (see [`is_structured_io_child`]) into the value it sent,
+/// or into an untagged byte stream when it sent text. Decoding parses NUON, which this crate
+/// can't do, so the crate that tags the output provides it (see
+/// [`EngineState::set_structured_io_decoder`](crate::engine::EngineState::set_structured_io_decoder)).
+pub type StructuredIoDecoder = fn(PipelineData, Span) -> Result<PipelineData, ShellError>;
+
+/// Whether `data` is a Nushell child's output that `run-external` tagged with
+/// [`STRUCTURED_IO_CONTENT_TYPE`] for the command that reads it to decode.
+#[cfg(feature = "os")]
+pub fn is_structured_io_child(data: &PipelineData) -> bool {
+    matches!(data, PipelineData::ByteStream(stream, Some(metadata))
+        if metadata.content_type.as_deref() == Some(STRUCTURED_IO_CONTENT_TYPE)
+            && matches!(stream.source(), ByteStreamSource::Child(..)))
+}
+
 /// Sides of the parent/child NUON handshake, from [`STRUCTURED_IO_ENV`] or `--structured-io=`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StructuredIoMode {
+    /// The parent writes the child's input to its stdin as one frame.
     pub input: bool,
+    /// The child writes its final value to stdout as one frame, when nothing else went there.
     pub output: bool,
 }
 
 impl StructuredIoMode {
+    /// Both sides on: `--structured-io=1`.
     pub fn both() -> Self {
         Self {
             input: true,
@@ -26,14 +52,17 @@ impl StructuredIoMode {
         }
     }
 
+    /// Whether either side is on.
     pub fn any(self) -> bool {
         self.input || self.output
     }
 
     /// Parse a handshake value: `1`/`true`/`inout`, `in`, `out`, or anything else as off.
+    ///
+    /// The CLI rejects other values for `--structured-io` (see [`STRUCTURED_IO_FLAG_VALUES`]), but
+    /// [`STRUCTURED_IO_ENV`] and a child's command line seen by its parent can still hold one.
     pub fn from_flag_str(value: &str) -> Self {
         match value.trim().to_ascii_lowercase().as_str() {
-            "false" | "off" | "0" => Self::default(),
             "1" | "true" | "inout" => Self::both(),
             "in" => Self {
                 input: true,

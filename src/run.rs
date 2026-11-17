@@ -23,6 +23,7 @@ pub(crate) fn run_commands(
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
+    structured_output: bool,
 ) {
     trace!("run_commands");
 
@@ -98,6 +99,8 @@ pub(crate) fn run_commands(
 
     // Startup ends when the commands start running.
     engine_state.finish_startup();
+    // Only the commands' own result can be the value a parent `nu` reads, not a startup file's.
+    engine_state.structured_io_output = structured_output;
 
     let start_time = Instant::now();
     let result = evaluate_commands(
@@ -129,6 +132,7 @@ pub(crate) fn run_file(
     parsed_cli: command::ParsedCli,
     use_color: bool,
     input: PipelineData,
+    structured_output: bool,
 ) {
     trace!("run_file");
 
@@ -186,6 +190,8 @@ pub(crate) fn run_file(
 
     // Startup ends when the script starts running.
     engine_state.finish_startup();
+    // Only the script's own result can be the value a parent `nu` reads, not a startup file's.
+    engine_state.structured_io_output = structured_output;
 
     // Apply --table-mode / -m CLI flag override before evaluating the file
     if let Some(ref t_mode) = parsed_nu_cli_args.table_mode

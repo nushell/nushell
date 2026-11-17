@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
-    Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
-    TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
+    Module, ModuleId, OverlayId, PipelineData, ShellError, SignalAction, Signals, Signature, Span,
+    SpanId, StructuredIoDecoder, Type, TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr, Traverse},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -236,12 +236,15 @@ pub struct EngineState {
     /// that would print to it must go to stderr instead.
     pub is_dap: bool,
     /// A parent `nu` reads this process's stdout and wants the final value as a NUON frame
-    /// (see [`STRUCTURED_IO_ENV`](crate::STRUCTURED_IO_ENV)).
+    /// (see [`STRUCTURED_IO_ENV`](crate::STRUCTURED_IO_ENV)). The `nu` binary turns it on once
+    /// the startup files have run, so only the result of the commands or the script is framed.
     pub structured_io_output: bool,
-    /// Set once anything else is written to this process's stdout while
-    /// [`structured_io_output`](Self::structured_io_output) is on. The parent then reads the
-    /// output as text, so the final value has to be printed as text too.
+    /// Set once anything is written to this process's stdout (see
+    /// [`mark_stdout_used`](Self::mark_stdout_used)). A parent `nu` then reads the output as
+    /// text, so the final value has to be printed as text too.
     structured_io_stdout_used: Arc<AtomicBool>,
+    /// Decodes a Nushell child's tagged output (see [`StructuredIoDecoder`]).
+    structured_io_decoder: Option<StructuredIoDecoder>,
     /// When startup began: the top of `main` for the `nu` binary, otherwise when this engine
     /// was created. See [`EngineState::startup_time`].
     startup_start: Instant,
@@ -368,6 +371,7 @@ impl EngineState {
             is_dap: false,
             structured_io_output: false,
             structured_io_stdout_used: Arc::new(AtomicBool::new(false)),
+            structured_io_decoder: None,
             startup_start: Instant::now(),
             startup_time: None,
             is_debugging: IsDebugging::new(false),
@@ -390,18 +394,38 @@ impl EngineState {
     }
 
     /// Notes that something was written to this process's stdout, for
-    /// [`structured_io_output`](Self::structured_io_output). Does nothing when that is off.
+    /// [`structured_io_output`](Self::structured_io_output). It counts from startup on, before
+    /// that is turned on, so text that a startup file prints still keeps the result from being
+    /// framed after it.
     pub fn mark_stdout_used(&self) {
-        if self.structured_io_output {
-            self.structured_io_stdout_used
-                .store(true, Ordering::Relaxed);
-        }
+        self.structured_io_stdout_used
+            .store(true, Ordering::Relaxed);
     }
 
-    /// Whether anything was written to stdout since structured output was turned on, as noted by
+    /// Whether anything was written to stdout, as noted by
     /// [`mark_stdout_used`](Self::mark_stdout_used).
     pub fn stdout_used(&self) -> bool {
         self.structured_io_stdout_used.load(Ordering::Relaxed)
+    }
+
+    /// Sets the function that decodes a Nushell child's tagged output. The crate that provides
+    /// `run-external` sets it, so commands outside that crate can decode the output too.
+    pub fn set_structured_io_decoder(&mut self, decoder: StructuredIoDecoder) {
+        self.structured_io_decoder = Some(decoder);
+    }
+
+    /// Decodes `data` when it is a Nushell child's tagged output, so that collecting it gives the
+    /// value the child sent rather than the frame. Anything else passes through, as does
+    /// everything when no decoder was set.
+    pub fn decode_structured_io(
+        &self,
+        data: PipelineData,
+        span: Span,
+    ) -> Result<PipelineData, ShellError> {
+        match self.structured_io_decoder {
+            Some(decode) => decode(data, span),
+            None => Ok(data),
+        }
     }
 
     /// Return a compiled regex, reusing the process-wide LRU cache when possible.

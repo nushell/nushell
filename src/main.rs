@@ -317,27 +317,30 @@ fn main() -> Result<()> {
 
     // A parent `nu` sets `NU_STRUCTURED_IO` when it sends a value on stdin or reads one from
     // stdout; `--structured-io` overrides it. Only commands and scripts take part: the REPL and
-    // the protocol servers own their stdin and stdout.
+    // the protocol servers own their stdin and stdout. With `-i` the input can still be a value,
+    // but the output stays text, since interactive mode writes to stdout on its own (job notices).
+    // The parent knows which modes these are from the command line, so the two agree.
     let structured_io_flag = parsed_nu_cli_args
         .structured_io
         .as_ref()
         .map(|value| value.item.as_str());
     let structured_io = match run_mode {
-        RunMode::Commands(_) | RunMode::Script
-            if parsed_nu_cli_args.interactive_shell.is_none() =>
-        {
-            structured_io_flag
+        RunMode::Commands(_) | RunMode::Script => {
+            let mode = structured_io_flag
                 .map(StructuredIoMode::from_flag_str)
                 .or_else(|| {
                     std::env::var(STRUCTURED_IO_ENV)
                         .ok()
                         .map(|value| StructuredIoMode::from_flag_str(&value))
                 })
-                .unwrap_or_default()
+                .unwrap_or_default();
+            StructuredIoMode {
+                input: mode.input,
+                output: mode.output && parsed_nu_cli_args.interactive_shell.is_none(),
+            }
         }
         _ => StructuredIoMode::default(),
     };
-    engine_state.structured_io_output = structured_io.output;
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -771,6 +774,7 @@ fn main() -> Result<()> {
                 use_color,
                 &commands,
                 input,
+                structured_io.output,
             );
 
             // Commands exit when done, even with `-i`: their jobs must not outlive Nu.
@@ -787,6 +791,7 @@ fn main() -> Result<()> {
                 },
                 use_color,
                 input,
+                structured_io.output,
             );
 
             // Scripts exit when done, even with `-i`: their jobs must not outlive Nu.

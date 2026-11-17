@@ -226,6 +226,8 @@ pub fn run(
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
     let mut session = prepare_session(app, engine_state, stack, cwd)?;
+    // The app draws on stdout, so a final value can't follow there as a frame.
+    engine_state.mark_stdout_used();
     let _raw = RawModeGuard::acquire(stack, opts.span)?;
     let (term_w, term_h) = crossterm::terminal::size()
         .map_err(|e| io_error("failed to read terminal size", e.to_string(), opts.span))?;

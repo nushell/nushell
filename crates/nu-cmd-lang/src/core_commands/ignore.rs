@@ -265,6 +265,10 @@ fn handle_external_child(
 
         if let Err(err) = check_ok(exit_status, false, span) {
             if !consume_stdout && !stdout.is_empty() {
+                // Anything but a file or null falls back to this process's stdout.
+                if !matches!(stack.stdout(), OutDest::File(_) | OutDest::Null) {
+                    engine_state.mark_stdout_used();
+                }
                 write_to_out_dest(&stdout, stack.stdout(), span, true, engine_state.signals())?;
             }
             return Err(err);

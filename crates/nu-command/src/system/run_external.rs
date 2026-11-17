@@ -1,7 +1,6 @@
 use super::structured_io::{
-    decode_structured_child, is_nu_binary, is_tagged_structured_child, read_structured_child,
-    set_structured_io_env, structured_io_cli_mode, structured_io_for_child, tag_structured_child,
-    write_structured_input,
+    decode_structured_child, is_nu_binary, read_structured_child, set_structured_io_env,
+    structured_io_cli_mode, structured_io_for_child, tag_structured_child, write_structured_input,
 };
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
@@ -9,6 +8,7 @@ use nu_engine::{command_prelude::*, env_to_strings, eval_ir_call};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
     ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
+    is_structured_io_child,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::{ErrorKind, IoError},
 };
@@ -282,7 +282,7 @@ If you create a custom command with this name, that will be used instead."
         let data_to_copy_into_stdin = match input {
             // Another `nu`'s output that may start with a frame, for a program that won't read one.
             // The stdin thread decodes it, so this program starts without waiting for that `nu`.
-            input if !structured_io.input && is_tagged_structured_child(&input) => {
+            input if !structured_io.input && is_structured_io_child(&input) => {
                 command.stdin(Stdio::piped());
                 Some(input)
             }
@@ -666,17 +666,9 @@ fn is_expected_stdin_error(err: &ShellError) -> bool {
 /// the interpreter to blame. Otherwise a file it needs, such as a shared library or its program
 /// loader, is missing.
 fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Error) -> String {
-    let shebang_interpreter = || {
-        let mut first_line = Vec::new();
-        BufReader::new(File::open(executable).ok()?.take(256))
-            .read_until(b'\n', &mut first_line)
-            .ok()?;
-        let first_line = String::from_utf8_lossy(&first_line).into_owned();
-        let interpreter = first_line.strip_prefix("#!")?.split_whitespace().next()?;
-        Some(interpreter.to_owned())
-    };
+    let shebang_interpreter = shebang_words(executable).and_then(|words| words.into_iter().next());
 
-    match shebang_interpreter() {
+    match shebang_interpreter {
         Some(interpreter) if !cwd.as_std_path().join(&interpreter).exists() => format!(
             "`{}` starts with `#!{interpreter}`, but `{interpreter}` was not found ({err})",
             executable.display()
@@ -686,6 +678,23 @@ fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Erro
             executable.display()
         ),
     }
+}
+
+/// The words of `path`'s shebang line (`#!/usr/bin/env nu` gives `/usr/bin/env` and `nu`), or
+/// `None` when it has none or can't be read. Reads at most 256 bytes, so a binary costs one small
+/// read.
+pub(crate) fn shebang_words(path: &Path) -> Option<Vec<String>> {
+    let mut first_line = Vec::new();
+    BufReader::new(File::open(path).ok()?.take(256))
+        .read_until(b'\n', &mut first_line)
+        .ok()?;
+    let rest = first_line.strip_prefix(b"#!")?;
+    Some(
+        String::from_utf8_lossy(rest)
+            .split_whitespace()
+            .map(str::to_owned)
+            .collect(),
+    )
 }
 
 /// Returns a helpful error message given an invalid command name.

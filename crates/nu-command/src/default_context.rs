@@ -584,5 +584,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
     let table_decl_id = engine_state.find_decl("table".as_bytes(), &[]);
     engine_state.table_decl_id = table_decl_id;
 
+    // `run-external` tags a Nushell child's output for the command that reads it, which may be
+    // in another crate, such as the engine collecting `$in`.
+    #[cfg(feature = "os")]
+    engine_state.set_structured_io_decoder(crate::decode_structured_child);
+
     engine_state
 }
