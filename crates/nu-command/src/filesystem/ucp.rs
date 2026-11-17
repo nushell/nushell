@@ -54,7 +54,9 @@ impl Command for UCp {
             .switch("no-clobber", "Do not overwrite an existing file.", Some('n'))
             .switch(
                 "link",
-                "Create hard links to regular files instead of copying.",
+                "Create hard links to regular files instead of copying. Symbolic links are \
+                    followed and their targets are linked (use --no-dereference to link the \
+                    links themselves).",
                 Some('l'),
             )
             .named(
@@ -138,14 +140,24 @@ impl Command for UCp {
         let _ = localized_help_template("cp");
 
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
-        let update = if call.has_flag(engine_state, stack, "update")? {
+        let link = call.has_flag(engine_state, stack, "link")?;
+        let update_flag = call.has_flag(engine_state, stack, "update")?;
+        if link && update_flag {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "--link cannot be used with --update".into(),
+                left_span: call.get_flag_span(stack, "link").unwrap_or(call.head),
+                right_message: "--update cannot be used with --link".into(),
+                right_span: call.get_flag_span(stack, "update").unwrap_or(call.head),
+            });
+        }
+        let update = if update_flag {
             UpdateMode::IfOlder
         } else {
             UpdateMode::All
         };
-        let copy_mode = if call.has_flag(engine_state, stack, "link")? {
+        let copy_mode = if link {
             CopyMode::Link
-        } else if matches!(update, UpdateMode::IfOlder) {
+        } else if update_flag {
             CopyMode::Update
         } else {
             CopyMode::Copy
@@ -278,7 +290,7 @@ impl Command for UCp {
             debug,
             attributes,
             verbose: verbose || debug,
-            dereference: !recursive && !no_dereference,
+            dereference: (!recursive || link) && !no_dereference,
             progress_bar: progress,
             attributes_only: false,
             backup: BackupMode::None,

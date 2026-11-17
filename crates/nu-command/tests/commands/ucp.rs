@@ -19,31 +19,13 @@ fn file_hash(file: impl AsRef<Path>) -> Result<u64> {
     Ok(HASHER.hash_one(content))
 }
 
-// Identity shared by hard links to the same file, used to check that `cp -l`
-// linked instead of copying.
-fn file_id(file: impl AsRef<Path>) -> Result<u64> {
-    let metadata = fs::metadata(file)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        Ok(metadata.ino())
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        metadata.file_index().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::Unsupported, "file index unavailable").into()
-        })
-    }
-    #[cfg(not(any(unix, windows)))]
-    {
-        let _ = metadata;
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "file identity check unsupported",
-        )
-        .into())
-    }
+/// Asserts `linked` is a hard link to `original`: a write through one name
+/// shows up in the other. A copy (or a filesystem clone) would keep its own
+/// contents.
+fn assert_hard_linked(original: impl AsRef<Path>, linked: impl AsRef<Path>) -> Result {
+    fs::write(original, "written through the original")?;
+    assert_eq!(fs::read_to_string(linked)?, "written through the original");
+    Ok(())
 }
 
 const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
@@ -1320,13 +1302,13 @@ fn links_file_with_link_flag(#[case] progress_flag: &str) -> Result {
         assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
         assert_eq!(
-            file_id(sandbox.cwd().join("original.txt"))?,
-            file_id(sandbox.cwd().join("linked.txt"))?,
-        );
-        assert_eq!(
             fs::read_to_string(sandbox.cwd().join("linked.txt"))?,
             "original content"
         );
+        assert_hard_linked(
+            sandbox.cwd().join("original.txt"),
+            sandbox.cwd().join("linked.txt"),
+        )?;
         Ok(())
     })
 }
@@ -1338,20 +1320,29 @@ fn links_file_with_link_flag(#[case] progress_flag: &str) -> Result {
 #[deps(NU)]
 fn links_files_recursively_with_link_flag(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_link_recursive", |_dirs, sandbox| {
-        sandbox.mkdir("dir_a/nested").within("dir_a").with_files(&[
-            FileWithContent("first.txt", "first"),
-            FileWithContent("nested/second.txt", "second"),
-        ]);
+        sandbox
+            .mkdir("dir_a/nested")
+            .within("dir_a")
+            .with_files(&[
+                FileWithContent("first.txt", "first"),
+                FileWithContent("nested/second.txt", "second"),
+            ])
+            .within("dir_a")
+            .symlink("first.txt", "file_link");
 
         let code = format!("cp {progress_flag} -l -r dir_a dir_b");
         let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
         assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
 
-        for file in ["first.txt", "nested/second.txt"] {
-            assert_eq!(
-                file_id(sandbox.cwd().join("dir_a").join(file))?,
-                file_id(sandbox.cwd().join("dir_b").join(file))?,
-            );
+        // Symlinks inside the tree are followed, so `file_link` in dir_b is a
+        // regular file hard-linked to the target, not a symlink.
+        let followed = sandbox.cwd().join("dir_b/file_link");
+        assert!(followed.is_file() && !followed.is_symlink());
+        for file in ["first.txt", "nested/second.txt", "file_link"] {
+            assert_hard_linked(
+                sandbox.cwd().join("dir_a").join(file),
+                sandbox.cwd().join("dir_b").join(file),
+            )?;
         }
         Ok(())
     })
@@ -1362,14 +1353,80 @@ fn links_files_recursively_with_link_flag(#[case] progress_flag: &str) -> Result
 #[case::with_progress("--progress")]
 #[nu_test_support::test]
 #[deps(NU)]
-fn errors_linking_directory_without_recursive(#[case] progress_flag: &str) -> Result {
-    Playground::setup("ucp_link_dir_no_recursive", |_dirs, sandbox| {
-        sandbox.mkdir("dir_a");
+fn errors_linking_over_existing_file(#[case] progress_flag: &str) -> Result {
+    Playground::setup("ucp_link_existing", |_dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("a.txt", "source"),
+            FileWithContent("b.txt", "existing"),
+        ]);
 
-        let code = format!("cp {progress_flag} -l dir_a dir_b");
+        // uu_cp reports the failed link but returns NotAllFilesCopied, which
+        // nu's cp wrapper swallows, so the command still exits 0.
+        let code = format!("cp {progress_flag} -l a.txt b.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_contains("File exists", result.stderr);
+        assert_eq!(fs::read_to_string(sandbox.cwd().join("b.txt"))?, "existing");
+
+        // With -f the existing destination is replaced by a hard link.
+        let code = format!("cp {progress_flag} -lf a.txt b.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert_hard_linked(sandbox.cwd().join("a.txt"), sandbox.cwd().join("b.txt"))?;
+        Ok(())
+    })
+}
+
+#[rstest]
+#[case::without_progress("")]
+#[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn errors_on_link_and_update_combination(#[case] progress_flag: &str) -> Result {
+    Playground::setup("ucp_link_update", |_dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("a.txt", "source"),
+            FileWithContent("b.txt", "existing"),
+        ]);
+
+        let code = format!("cp {progress_flag} -lu a.txt b.txt");
         let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
         assert_ne!(result.exit_code, 0);
-        assert_contains("resolves to a directory (not copied)", result.stderr);
+        assert_contains("cannot be used with", result.stderr);
+        Ok(())
+    })
+}
+
+// uu_cp 0.12.0 chmods the destination after creating the hard link, which also
+// changes the source's mode (uutils/coreutils#15087). Fixed upstream by
+// uutils/coreutils#15088; unignore once a uu_cp release containing it lands.
+#[cfg(unix)]
+#[rstest]
+#[case::without_progress("")]
+#[case::with_progress("--progress")]
+#[ignore = "Blocked on uu_cp release containing uutils/coreutils#15088"]
+#[nu_test_support::test]
+#[deps(NU)]
+fn linking_does_not_change_source_mode(#[case] progress_flag: &str) -> Result {
+    use std::os::unix::fs::PermissionsExt;
+
+    Playground::setup("ucp_link_mode", |_dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("a.txt", "source"),
+            FileWithContent("b.txt", "existing"),
+        ]);
+
+        let source = sandbox.cwd().join("a.txt");
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o755))?;
+        fs::set_permissions(
+            sandbox.cwd().join("b.txt"),
+            fs::Permissions::from_mode(0o600),
+        )?;
+
+        let code = format!("cp {progress_flag} -lf a.txt b.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+
+        assert_eq!(fs::metadata(&source)?.permissions().mode() & 0o777, 0o755);
         Ok(())
     })
 }
