@@ -1,11 +1,27 @@
 use chrono::DateTime;
+use nu_command::Last;
 use nu_protocol::{
     Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
-    Range, Signals, Span, Value, ast::RangeInclusion,
+    Range, Signals, Span, Type, Value, ast::RangeInclusion, engine::Command,
 };
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
+
+#[test]
+fn binary_input_reports_int_or_binary_output() {
+    let output = Last
+        .signature()
+        .get_output_type(Some(&Type::Binary))
+        .expect("binary input should be supported");
+
+    let Type::OneOf(types) = output else {
+        panic!("expected binary input to have multiple output types");
+    };
+
+    assert!(types.iter().any(|ty| ty == &Type::Int));
+    assert!(types.iter().any(|ty| ty == &Type::Binary));
+}
 
 #[test]
 fn gets_the_last_row() -> Result {

@@ -74,12 +74,25 @@ impl Command for Find {
         "Search for terms in the input data."
     }
 
+    fn extra_description(&self) -> &str {
+        "With no search terms, every value matches and the input is not filtered."
+    }
+
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Search for multiple terms in a command output.",
                 example: "ls | find toml md sh",
                 result: None,
+            },
+            Example {
+                description: "Return all values when no search terms are given.",
+                example: "[1 2 3] | find",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
             },
             Example {
                 description: "Search and highlight text for a term in a string.",
