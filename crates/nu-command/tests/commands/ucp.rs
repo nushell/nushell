@@ -19,6 +19,33 @@ fn file_hash(file: impl AsRef<Path>) -> Result<u64> {
     Ok(HASHER.hash_one(content))
 }
 
+// Identity shared by hard links to the same file, used to check that `cp -l`
+// linked instead of copying.
+fn file_id(file: impl AsRef<Path>) -> Result<u64> {
+    let metadata = fs::metadata(file)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        Ok(metadata.ino())
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        metadata.file_index().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::Unsupported, "file index unavailable").into()
+        })
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = metadata;
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "file identity check unsupported",
+        )
+        .into())
+    }
+}
+
 const RUNNER: &str = "let commands = $in; nu -n -c $commands | complete";
 
 #[rstest]
@@ -1275,6 +1302,74 @@ fn cp_literal_directory_with_recursive_flag() -> Result {
             .run("cp cp_literal_dir_dc/subdir cp_literal_dir_dc/dest --recursive")?;
 
         assert!(dirs.test().join("dest/subdir/test.txt").exists());
+        Ok(())
+    })
+}
+
+#[rstest]
+#[case::without_progress("")]
+#[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn links_file_with_link_flag(#[case] progress_flag: &str) -> Result {
+    Playground::setup("ucp_link_file", |_dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("original.txt", "original content")]);
+
+        let code = format!("cp {progress_flag} -l original.txt linked.txt");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+
+        assert_eq!(
+            file_id(sandbox.cwd().join("original.txt"))?,
+            file_id(sandbox.cwd().join("linked.txt"))?,
+        );
+        assert_eq!(
+            fs::read_to_string(sandbox.cwd().join("linked.txt"))?,
+            "original content"
+        );
+        Ok(())
+    })
+}
+
+#[rstest]
+#[case::without_progress("")]
+#[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn links_files_recursively_with_link_flag(#[case] progress_flag: &str) -> Result {
+    Playground::setup("ucp_link_recursive", |_dirs, sandbox| {
+        sandbox.mkdir("dir_a/nested").within("dir_a").with_files(&[
+            FileWithContent("first.txt", "first"),
+            FileWithContent("nested/second.txt", "second"),
+        ]);
+
+        let code = format!("cp {progress_flag} -l -r dir_a dir_b");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+
+        for file in ["first.txt", "nested/second.txt"] {
+            assert_eq!(
+                file_id(sandbox.cwd().join("dir_a").join(file))?,
+                file_id(sandbox.cwd().join("dir_b").join(file))?,
+            );
+        }
+        Ok(())
+    })
+}
+
+#[rstest]
+#[case::without_progress("")]
+#[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn errors_linking_directory_without_recursive(#[case] progress_flag: &str) -> Result {
+    Playground::setup("ucp_link_dir_no_recursive", |_dirs, sandbox| {
+        sandbox.mkdir("dir_a");
+
+        let code = format!("cp {progress_flag} -l dir_a dir_b");
+        let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("resolves to a directory (not copied)", result.stderr);
         Ok(())
     })
 }

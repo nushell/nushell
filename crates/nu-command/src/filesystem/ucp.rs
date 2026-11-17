@@ -52,6 +52,11 @@ impl Command for UCp {
             )
             .switch("progress", "Display a progress bar.", Some('p'))
             .switch("no-clobber", "Do not overwrite an existing file.", Some('n'))
+            .switch(
+                "link",
+                "Create hard links to regular files instead of copying.",
+                Some('l'),
+            )
             .named(
                 "preserve",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -110,6 +115,11 @@ impl Command for UCp {
                 result: None,
             },
             Example {
+                description: "Recursively create hard links to regular files instead of copying.",
+                example: "cp -lr dir_a dir_b",
+                result: None,
+            },
+            Example {
                 description: "Copy file to a directory three levels above its current location.",
                 example: "cp myfile ....",
                 result: None,
@@ -128,10 +138,17 @@ impl Command for UCp {
         let _ = localized_help_template("cp");
 
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
-        let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
-            (UpdateMode::IfOlder, CopyMode::Update)
+        let update = if call.has_flag(engine_state, stack, "update")? {
+            UpdateMode::IfOlder
         } else {
-            (UpdateMode::All, CopyMode::Copy)
+            UpdateMode::All
+        };
+        let copy_mode = if call.has_flag(engine_state, stack, "link")? {
+            CopyMode::Link
+        } else if matches!(update, UpdateMode::IfOlder) {
+            CopyMode::Update
+        } else {
+            CopyMode::Copy
         };
 
         let force = call.has_flag(engine_state, stack, "force")?;
