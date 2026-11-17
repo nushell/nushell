@@ -327,6 +327,14 @@ fn glob_dc_glob_explicit_relative_paths() -> Result {
                 "../**/*.txt",
                 "[($parent | path join parent.txt) ($cwd | path join local.txt) ($cwd | path join deep/nested.txt) ($parent | path join sibling/sibling.txt)]",
             ),
+            // `...` is `../..`, as with the legacy backend.
+            ("...", "[$root]"),
+            (".../*.txt", "[($root | path join root.txt)]"),
+            (
+                ".../**",
+                "[$parent $cwd ($cwd | path join deep) ($parent | path join sibling)]",
+            ),
+            ("./.../*.txt", "[($root | path join root.txt)]"),
         ] {
             test()
                 .cwd(dirs.test().join("a/b"))
@@ -378,6 +386,30 @@ fn glob_dc_glob_exclude_braces() -> Result {
                 "a.rs".to_string(),
                 format!("docs{}z.rs", std::path::MAIN_SEPARATOR),
             ])
+    })
+}
+
+/// With dc-glob, `--exclude` and `--dbg-glob` read `...` as `../..`, as the pattern does.
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ndots_in_exclude_and_dbg_glob() -> Result {
+    Playground::setup("glob_dc_ndots_exclude_dbg", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("root.txt")]);
+        sandbox
+            .within("skip")
+            .with_files(&[EmptyFile("skipped.txt")]);
+        sandbox.mkdir("a");
+        sandbox.within("a/b").with_files(&[EmptyFile("local.txt")]);
+
+        test()
+            .cwd(dirs.test().join("a/b"))
+            .run("glob '.../**/*.txt' --exclude ['.../skip/*'] | path basename | sort")
+            .expect_value_eq(["local.txt", "root.txt"])?;
+
+        test()
+            .cwd(dirs.test().join("a/b"))
+            .run("glob --dbg-glob '.../*.txt' | path basename")
+            .expect_value_eq(["root.txt"])
     })
 }
 
