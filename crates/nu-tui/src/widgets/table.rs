@@ -1,10 +1,12 @@
 //! `tui table`: navigable rows from the data list.
 use crate::keys::KeyPress;
+use crate::layout::pin_fills;
 use crate::session::{Rows, Session};
-use crate::widget::{Caps, Effect, ListState, TuiWidget, WidgetState};
+use crate::widget::{Caps, Effect, ListState, Size, TuiWidget, WidgetState};
 use nu_protocol::{Record, Span, Value};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
+use ratatui::text::Text;
 use ratatui::widgets::{Cell, Row, Table, TableState};
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +14,9 @@ use serde::{Deserialize, Serialize};
 pub struct TableWidget {
     /// Columns to show. Empty means the columns of the data.
     pub columns: Vec<String>,
+    /// One width per shown column; missing entries are `1fr`. Empty means
+    /// equal shares.
+    pub column_sizes: Vec<Size>,
     /// A chord pressed on the focused table becomes its filter query.
     pub capture_keys: bool,
     /// Space toggles rows; the selection is the checked rows.
@@ -220,6 +225,13 @@ impl TuiWidget for TableWidget {
 
     fn describe(&self, rec: &mut Record, span: Span) {
         rec.insert("columns", crate::app::string_list(&self.columns, span));
+        rec.insert(
+            "column_sizes",
+            Value::list(
+                self.column_sizes.iter().map(|s| s.to_value(span)).collect(),
+                span,
+            ),
+        );
         rec.insert("capture_keys", Value::bool(self.capture_keys, span));
         rec.insert("multi", Value::bool(self.multi, span));
         rec.insert("index", Value::bool(self.index, span));
@@ -307,9 +319,15 @@ impl TuiWidget for TableWidget {
             widths.push(Constraint::Length(3));
         }
         let n = columns.len().max(1);
-        for c in &columns {
+        for (k, c) in columns.iter().enumerate() {
             header_cells.push(Cell::from(c.as_str()).style(theme.header()));
-            widths.push(Constraint::Percentage((100 / n) as u16));
+            widths.push(if self.column_sizes.is_empty() {
+                Constraint::Percentage((100 / n) as u16)
+            } else {
+                self.column_sizes
+                    .get(k)
+                    .map_or(Constraint::Fill(1), |s| s.to_constraint())
+            });
         }
         let rows: Vec<Row> = rows_data
             .iter()
@@ -338,12 +356,25 @@ impl TuiWidget for TableWidget {
         } else {
             format!("{name} ({count})")
         };
+        let block = super::framed(&title, focused, session, id);
+        let highlight_symbol = Text::raw("▶ ");
+        let selection_width = if highlight.is_some() {
+            highlight_symbol.width() as u16
+        } else {
+            0
+        };
+        // Pin within the frame, after the row marker, using Table's one-cell column spacing.
+        let widths = pin_fills(
+            widths,
+            1,
+            block.inner(area).width.saturating_sub(selection_width),
+        );
         let table = Table::new(rows, widths)
             .header(Row::new(header_cells).height(1))
             .style(theme.text())
-            .block(super::framed(&title, focused, session, id))
+            .block(block)
             .row_highlight_style(theme.selected())
-            .highlight_symbol("▶ ");
+            .highlight_symbol(highlight_symbol);
         let mut table_state = TableState::default();
         table_state.select(highlight.map(|pos| pos.saturating_sub(scroll)));
         frame.render_stateful_widget(table, area, &mut table_state);
