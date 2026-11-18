@@ -212,8 +212,8 @@ fn runs_subcommands_that_the_help_lists_or_man_knows(
     #[case] target: &str,
     #[case] expected: std::result::Result<&str, &str>,
 ) -> Result {
-    write_script(&dirs, "tool", TOOL_SCRIPT);
-    write_script(&dirs, "man", MAN_SCRIPT);
+    write_script(&playground, "tool", TOOL_SCRIPT);
+    write_script(&playground, "man", MAN_SCRIPT);
     let code =
         format!("with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}");
     let mut tester = test().cwd(playground.path());
@@ -234,7 +234,7 @@ fn runs_subcommands_that_the_help_lists_or_man_knows(
 #[cfg(unix)]
 #[test]
 fn walks_the_subcommands_that_the_help_lists(playground: Playground) -> Result {
-    write_script(&dirs, "tool", TOOL_SCRIPT);
+    write_script(&playground, "tool", TOOL_SCRIPT);
     let mut tester = test().cwd(playground.path());
     let module: String =
         tester.run("with-env { PATH: (pwd) } { generate completions tool --source help }")?;
@@ -286,8 +286,8 @@ fn man_takes_the_subcommands_that_the_help_lists(
     #[case] origins: &str,
     #[case] contains: &[&str],
 ) -> Result {
-    write_script(&dirs, "tool", TOOL_SCRIPT);
-    write_script(&dirs, "man", MAN_SCRIPT);
+    write_script(&playground, "tool", TOOL_SCRIPT);
+    write_script(&playground, "man", MAN_SCRIPT);
     let module: String = test().cwd(playground.path()).run(format!(
         "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' }}"
     ))?;
@@ -325,16 +325,16 @@ fn help_adds_the_subcommands_fish_knows_nothing_about(
     #[case] origins: &str,
     #[case] contains: &[&str],
 ) -> Result {
-    write_script(&dirs, "tool", TOOL_SCRIPT);
+    write_script(&playground, "tool", TOOL_SCRIPT);
     write_script(
-        &dirs,
+        &playground,
         "fish",
         &format!("#!/bin/sh\n/bin/cat <<'EOF'\n{fish}\nEOF\n"),
     );
     let zsh_file = playground.path().join("_tool");
     std::fs::write(&zsh_file, ZSH).expect("write the zsh completions");
     write_script(
-        &dirs,
+        &playground,
         "zsh",
         &format!("#!/bin/sh\necho '{}'\n", zsh_file.display()),
     );
@@ -378,7 +378,7 @@ fn runs_no_subcommand_when_the_help_lists_no_help_option(
     #[case] target: &str,
     #[case] expected: std::result::Result<&str, &str>,
 ) -> Result {
-    write_script(&dirs, "tool", LAUNCHER_SCRIPT);
+    write_script(&playground, "tool", LAUNCHER_SCRIPT);
     let code =
         format!("with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}");
     let mut tester = test().cwd(playground.path());
@@ -408,8 +408,8 @@ fn stops_a_tool_that_prints_too_much(
     #[case] source: &str,
     #[case] expected: std::result::Result<&str, &str>,
 ) -> Result {
-    write_script(&dirs, "tool", FLOOD_SCRIPT);
-    write_script(&dirs, "man", MAN_SCRIPT);
+    write_script(&playground, "tool", FLOOD_SCRIPT);
+    write_script(&playground, "man", MAN_SCRIPT);
     let code = format!("with-env {{ PATH: (pwd) }} {{ generate completions tool {source} }}");
     let mut tester = test().cwd(playground.path());
     match expected {
@@ -428,7 +428,7 @@ fn stops_a_tool_that_prints_too_much(
 /// for that (see https://github.com/rust-lang/rust/issues/114554). Starting the script shows
 /// it's no longer busy, so it is stopped right away: it may not end on its own.
 #[cfg(unix)]
-fn write_script(dirs: &nu_test_support::playground::Dirs, name: &str, content: &str) {
+fn write_script(playground: &Playground, name: &str, content: &str) {
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Command, Stdio};
 

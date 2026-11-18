@@ -759,31 +759,33 @@ fn rm_symlink_to_directory(#[case] command: &str) {}
 #[apply(rm_symlink_to_directory)]
 #[nu_test_support::test]
 #[exp(nu_experimental::DC_GLOB = false)]
-fn rm_symlink_to_directory_keeps_target_legacy_glob(command: &str) -> Result {
-    check_rm_symlink_keeps_target(command)
+fn rm_symlink_to_directory_keeps_target_legacy_glob(
+    #[ignore] playground: Playground,
+    command: &str,
+) -> Result {
+    check_rm_symlink_keeps_target(playground, command)
 }
 
 #[cfg(unix)]
 #[apply(rm_symlink_to_directory)]
 #[nu_test_support::test]
 #[exp(nu_experimental::DC_GLOB)]
-fn rm_symlink_to_directory_keeps_target_dc_glob(command: &str) -> Result {
-    check_rm_symlink_keeps_target(command)
+fn rm_symlink_to_directory_keeps_target_dc_glob(
+    #[ignore] playground: Playground,
+    command: &str,
+) -> Result {
+    check_rm_symlink_keeps_target(playground, command)
 }
 
 /// The body of [`rm_symlink_to_directory`], shared by both glob backends.
 #[cfg(unix)]
-fn check_rm_symlink_keeps_target(command: &str) -> Result {
-    Playground::setup("rm_symlink_to_directory", |dirs, sandbox| {
-        sandbox
-            .within("target")
-            .with_files(&[EmptyFile("x")])
-            .symlink("target", "link");
+fn check_rm_symlink_keeps_target(playground: Playground, command: &str) -> Result {
+    playground.empty_file("target/x")?;
+    playground.symlink("target", "link")?;
 
-        let () = test().cwd(dirs.test()).run(command)?;
+    let () = test().cwd(playground.path()).run(command)?;
 
-        assert!(dirs.test().join("link").symlink_metadata().is_err());
-        assert!(files_exist_at(&["x"], dirs.test().join("target")));
-        Ok(())
-    })
+    assert!(playground.path().join("link").symlink_metadata().is_err());
+    assert!(playground.path().join("target/x").exists());
+    Ok(())
 }

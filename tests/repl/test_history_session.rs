@@ -2,7 +2,6 @@
 #![cfg(not(windows))]
 
 use nu_test_support::prelude::*;
-use std::fs;
 use std::process::{Command, Stdio};
 
 /// Regression test for #18321: the history session id is created when the
@@ -15,9 +14,11 @@ use std::process::{Command, Stdio};
 #[test]
 #[deps(NU)]
 fn history_session_id_reported_during_startup_config(playground: Playground) -> Result {
-    playground.dir("xdg")?;
-    
-    let config = playground.file("config.nu", "$env.config.history.isolation = true\nprint (history session)\n")?;
+    let xdg = playground.dir("xdg")?;
+    let config = playground.file(
+        "config.nu",
+        "$env.config.history.isolation = true\nprint (history session)\n",
+    )?;
 
     let output = Command::new(NU.path())
         .current_dir(playground.path())
@@ -28,16 +29,18 @@ fn history_session_id_reported_during_startup_config(playground: Playground) -> 
         .stdout(Stdio::piped())
         .output()?;
 
-        let stdout = str::from_utf8_lossy(&output.stdout);
-        let session_id: i64 = stdout
-            .lines()
-            .last()
-            .unwrap_or("")
-            .trim()
-            .parse()
-            .expect("history session should print the session id");
-        assert_ne!(
-            session_id, 0,
-            "history session must report the real id during startup, stdout={stdout}"
-        );
+    let stdout = str::from_utf8(&output.stdout).unwrap();
+    let session_id: i64 = stdout
+        .lines()
+        .last()
+        .unwrap_or("")
+        .trim()
+        .parse()
+        .expect("history session should print the session id");
+    assert_ne!(
+        session_id, 0,
+        "history session must report the real id during startup, stdout={stdout}"
+    );
+
+    Ok(())
 }

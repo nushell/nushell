@@ -254,34 +254,34 @@ fn glob_dc_glob_explicit_relative_paths(playground: Playground) -> Result {
     playground.dir("a/sibling")?;
     playground.empty_file("a/sibling/sibling.txt")?;
 
-        for (pattern, expected) in [
-            (".", "[$cwd]"),
-            ("..", "[$parent]"),
-            ("./*.txt", "[($cwd | path join local.txt)]"),
-            ("../*.txt", "[($parent | path join parent.txt)]"),
-            ("../../*.txt", "[($root | path join root.txt)]"),
-            // As with nu-glob: the directories below the prefix.
-            (
-                "../**",
-                "[$cwd ($cwd | path join deep) ($parent | path join sibling)]",
-            ),
-            (
-                "../**/*.txt",
-                "[($parent | path join parent.txt) ($cwd | path join local.txt) ($cwd | path join deep/nested.txt) ($parent | path join sibling/sibling.txt)]",
-            ),
-            // `...` is `../..`, as with the legacy backend.
-            ("...", "[$root]"),
-            (".../*.txt", "[($root | path join root.txt)]"),
-            (
-                ".../**",
-                "[$parent $cwd ($cwd | path join deep) ($parent | path join sibling)]",
-            ),
-            ("./.../*.txt", "[($root | path join root.txt)]"),
-        ] {
-            test()
-                .cwd(playground.path().join("a/b"))
-                .run(format!(
-                    "let cwd = (pwd | path expand); \
+    for (pattern, expected) in [
+        (".", "[$cwd]"),
+        ("..", "[$parent]"),
+        ("./*.txt", "[($cwd | path join local.txt)]"),
+        ("../*.txt", "[($parent | path join parent.txt)]"),
+        ("../../*.txt", "[($root | path join root.txt)]"),
+        // As with nu-glob: the directories below the prefix.
+        (
+            "../**",
+            "[$cwd ($cwd | path join deep) ($parent | path join sibling)]",
+        ),
+        (
+            "../**/*.txt",
+            "[($parent | path join parent.txt) ($cwd | path join local.txt) ($cwd | path join deep/nested.txt) ($parent | path join sibling/sibling.txt)]",
+        ),
+        // `...` is `../..`, as with the legacy backend.
+        ("...", "[$root]"),
+        (".../*.txt", "[($root | path join root.txt)]"),
+        (
+            ".../**",
+            "[$parent $cwd ($cwd | path join deep) ($parent | path join sibling)]",
+        ),
+        ("./.../*.txt", "[($root | path join root.txt)]"),
+    ] {
+        test()
+            .cwd(playground.path().join("a/b"))
+            .run(format!(
+                "let cwd = (pwd | path expand); \
                      let parent = ($cwd | path dirname); \
                      let root = ($parent | path dirname); \
                      let expected = ({expected} | each {{ path expand }} | sort); \
