@@ -7,6 +7,7 @@ use nu_protocol::{
     engine::{Closure, EngineState, EnvName, Stack, StateWorkingSet},
     report_error::{report_parse_error, report_shell_error},
     shell_error::generic::GenericError,
+    test_value,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -79,6 +80,7 @@ pub fn eval_repl_hooks(
     eval_pre_execution_hooks(engine_state, stack, commandline)
 }
 
+/// Returns the first non-empty output
 pub fn eval_hooks(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -88,12 +90,13 @@ pub fn eval_hooks(
 ) -> Result<PipelineData, ShellError> {
     let name = format!("{hook_name} list, recursive");
 
-    // run all, but return the first output that is not empty
     let output = hooks
         .iter()
         .try_fold(None, |prev, hook| -> Result<_, ShellError> {
             let output = eval_hook(engine_state, stack, None, arguments, hook, &name)?;
-            let filter = || Some(output).filter(|out| !out.is_nothing());
+            let filter = || {
+                Some(output).filter(|out| matches!(out, PipelineData::Value(v, _) if !v.is_empty()))
+            };
             Ok(prev.or_else(filter))
         })?;
 
@@ -299,7 +302,7 @@ pub fn eval_hook(
                         }
                     }
                     Value::Closure { val, .. } => {
-                        run_hook(engine_state, stack, val, input, arguments, source_span)?;
+                        output = run_hook(engine_state, stack, val, input, arguments, source_span)?;
                     }
                     other => {
                         return Err(ShellError::RuntimeTypeMismatch {
