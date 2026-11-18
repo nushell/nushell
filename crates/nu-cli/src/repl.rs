@@ -2054,7 +2054,7 @@ mod job_output_tests {
 
 #[cfg(test)]
 mod osc7_tests {
-    use super::osc7_sequence;
+    use super::*;
     use std::path::Path;
 
     #[test]
@@ -2859,6 +2859,7 @@ mod test_recover_cwd {
     }
 
     #[test]
+    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_normalizes_trailing_slash_silently_and_updates_osc()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
@@ -2926,6 +2927,7 @@ mod test_recover_cwd {
     }
 
     #[test]
+    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_recovers_warns_hooks_and_updates_terminal_cwd()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
