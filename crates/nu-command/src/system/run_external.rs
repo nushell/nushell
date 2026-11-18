@@ -655,7 +655,7 @@ pub fn command_not_found(
             &mut engine_state.clone(),
             &mut stack,
             None,
-            vec![("cmd_name".into(), Value::string(name, span))],
+            &[("cmd_name".into(), Value::string(name, span))],
             hook,
             "command_not_found",
         );
