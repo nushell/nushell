@@ -80,6 +80,8 @@ impl UnstructuredTable {
     }
 }
 
+/// Removes the label cell at the top of each [`Node::Table`] column at every depth.
+/// Record keys sit in [`Node::Row`]s and are preserved.
 fn remove_headers(node: &mut Node) {
     match node {
         Node::Cell(_) => {}

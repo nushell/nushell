@@ -75,7 +75,11 @@ impl Command for Table {
                 "Number of terminal columns wide (not output columns).",
                 Some('w'),
             )
-            .switch("no-headers", "Hide column headers, including repeated footers.", None)
+            .switch(
+                "no-headers",
+                "Hide column headers, including repeated footers. With --theme markdown, the output is no longer a Markdown table.",
+                None,
+            )
             .switch(
                 "expand",
                 "Expand the table structure in a light mode.",
