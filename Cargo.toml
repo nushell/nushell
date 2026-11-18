@@ -397,6 +397,7 @@ windows-sys = { workspace = true, features = ["Win32_System_Environment"] }
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [dev-dependencies]
+nu-glob = { path = "./crates/nu-glob", version   = "0.117.1" }
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.117.1" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.117.1" }
 nu-table = { path = "./crates/nu-table", version = "0.117.1" }
