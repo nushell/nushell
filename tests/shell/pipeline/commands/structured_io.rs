@@ -352,10 +352,14 @@ printf 'hello\\n'
 )]
 fn start_does_not_pass_the_link_on() -> Result {
     // `start` runs the opener with this process's environment. On Linux the opener is found on
-    // `PATH` (on macOS it's `/usr/bin/open`), so a fake one can record what it got.
+    // `PATH` (on macOS it's `/usr/bin/open`), so a fake one can record what it got. It only uses
+    // shell builtins, since the test's `PATH` holds just the `nu` under test.
     Playground::setup("structured_io_start", |dirs, sandbox| {
         sandbox.with_files(&[
-            FileWithContent("xdg-open", "#!/bin/sh\nenv > \"$PWD/opener-env\"\n"),
+            FileWithContent(
+                "xdg-open",
+                "#!/bin/sh\nprintf '%s' \"${NU_STRUCTURED_IO-unset}\" > \"$PWD/opener-env\"\n",
+            ),
             FileWithContent("doc.txt", "x"),
         ]);
         make_executable(dirs.test(), "xdg-open")?;
@@ -366,9 +370,8 @@ fn start_does_not_pass_the_link_on() -> Result {
             .run(
                 "$env.PATH = ($env.PATH | prepend $env.PWD)
                 nu -n --structured-io -c 'start doc.txt; 1' | describe | ignore
-                let env_lines = open opener-env | lines
-                [($env_lines | is-not-empty) ($env_lines | any { str starts-with NU_STRUCTURED_IO= })]",
+                open opener-env",
             )
-            .expect_value_eq([true, false])
+            .expect_value_eq("unset")
     })
 }

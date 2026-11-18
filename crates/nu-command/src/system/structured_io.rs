@@ -743,7 +743,6 @@ mod tests {
     use super::*;
     use nu_protocol::IntoSpanned;
     use std::io::Cursor;
-    use tempfile::NamedTempFile;
 
     fn args(args: &[&str]) -> Vec<Spanned<OsString>> {
         args.iter()
@@ -776,6 +775,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn nu_shebang_with_the_flag_asks() {
+        use tempfile::NamedTempFile;
+
         for (shebang, asks) in [
             ("#!/usr/bin/env -S nu --structured-io", true),
             ("#!/opt/homebrew/bin/nu --structured-io", true),
