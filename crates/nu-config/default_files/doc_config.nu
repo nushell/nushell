@@ -876,7 +876,7 @@ $env.config.hooks.env_change = {}
 # Default: "if (term size).columns >= 100 { table -e } else { table }"
 $env.config.hooks.display_output = "if (term size).columns >= 100 { table -e } else { table }"
 
-# hooks.command_not_found (closure|null): Hook when a command is not found.
+# hooks.command_not_found (closure|list|null): Hook when a command is not found.
 # Can suggest packages or provide custom error handling.
 # Default: null
 $env.config.hooks.command_not_found = null
