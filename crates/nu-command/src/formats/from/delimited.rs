@@ -3,7 +3,7 @@ use nu_protocol::{
     ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value,
     shell_error::bridge::ShellErrorBridge,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
@@ -108,20 +108,22 @@ fn from_delimited_stream(
 /// as they are.
 fn dedupe_headers(headers: Vec<String>) -> Vec<String> {
     let mut taken: HashSet<String> = headers.iter().cloned().collect();
-    let mut seen = HashSet::with_capacity(headers.len());
+    // The next suffix to try for each name, so a repeat picks up where the
+    // previous one stopped instead of probing `_1`, `_2`, ... again.
+    let mut next_suffix: HashMap<String, usize> = HashMap::with_capacity(headers.len());
     headers
         .into_iter()
         .map(|name| {
-            if seen.insert(name.clone()) {
+            let Some(n) = next_suffix.get_mut(&name) else {
+                next_suffix.insert(name.clone(), 1);
                 return name;
-            }
-            let mut n = 1usize;
+            };
             loop {
                 let candidate = format!("{name}_{n}");
+                *n += 1;
                 if taken.insert(candidate.clone()) {
                     return candidate;
                 }
-                n += 1;
             }
         })
         .collect()
