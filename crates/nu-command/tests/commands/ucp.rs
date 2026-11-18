@@ -382,6 +382,100 @@ fn copy_to_non_existing_dir(#[case] progress_flag: &str) -> Result {
 #[case::with_progress("--progress")]
 #[nu_test_support::test]
 #[deps(NU)]
+fn copy_recursive_directory_to_missing_dest_with_trailing_slash(
+    #[case] progress_flag: &str,
+) -> Result {
+    Playground::setup("ucp_recursive_trailing_slash", |dirs, sandbox| {
+        sandbox
+            .with_files(&[EmptyFile("a.txt")])
+            .within("day00")
+            .with_files(&[EmptyFile("a.txt")])
+            .mkdir("day01")
+            .mkdir("day04");
+
+        let cwd = dirs.test();
+
+        let code = format!("cp {progress_flag} -r day00 day02{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert!(cwd.join("day02").join("a.txt").exists());
+        assert!(!cwd.join("day02").join("day00").exists());
+
+        let code =
+            format!("let new_dir = 'day03{MAIN_SEPARATOR}'; cp {progress_flag} -r day00 $new_dir");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert!(cwd.join("day03").join("a.txt").exists());
+        assert!(!cwd.join("day03").join("day00").exists());
+
+        let code = format!("cp {progress_flag} -r day00 day04{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert!(cwd.join("day04").join("day00").join("a.txt").exists());
+
+        let code = format!("cp {progress_flag} -r day00 day05");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert!(cwd.join("day05").join("a.txt").exists());
+
+        let code = format!("cp {progress_flag} -r a.txt missing{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
+        assert!(!cwd.join("missing").exists());
+
+        let code = format!("cp {progress_flag} -r day00 day01 missing{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
+        assert!(!cwd.join("missing").exists());
+
+        let code = format!("cp {progress_flag} -r day00 a.txt{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
+
+        let code = format!("cp {progress_flag} -r day00 nope{MAIN_SEPARATOR}new{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
+        assert!(!cwd.join("nope").exists());
+        Ok(())
+    })
+}
+
+#[rstest]
+#[case::without_progress("")]
+#[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
+fn copy_recursive_directory_symlink_to_missing_dest_with_trailing_slash(
+    #[case] progress_flag: &str,
+) -> Result {
+    Playground::setup("ucp_recursive_symlink_trailing_slash", |dirs, sandbox| {
+        sandbox.mkdir("src").mkdir("nested").symlink("src", "link");
+        let cwd = dirs.test();
+
+        let code = format!("cp {progress_flag} -r link nested/dest{MAIN_SEPARATOR}");
+        let result: CompleteResult = test().cwd(cwd).run_with_data(RUNNER, code)?;
+        assert_ne!(result.exit_code, 0);
+        assert_contains("is not a directory", result.stderr);
+        // `exists` alone would miss a dangling symlink created at the destination.
+        assert_eq!(
+            fs::symlink_metadata(cwd.join("nested/dest"))
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::NotFound
+        );
+        Ok(())
+    })
+}
+
+#[rstest]
+#[case::without_progress("")]
+#[case::with_progress("--progress")]
+#[nu_test_support::test]
+#[deps(NU)]
 fn copy_dir_contains_symlink_ignored(#[case] progress_flag: &str) -> Result {
     Playground::setup("ucp_test_12", |_dirs, sandbox| {
         sandbox
