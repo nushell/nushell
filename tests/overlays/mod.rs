@@ -1637,7 +1637,7 @@ fn test_overlay_use_with_printing_current_file(playground: Playground) -> Result
             export-env {
                 $env.OVERLAY_CURRENT_FILE = $env.CURRENT_FILE
             }
-        "}
+        "},
     )?;
 
     test()

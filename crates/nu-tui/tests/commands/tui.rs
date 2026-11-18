@@ -1,6 +1,4 @@
 use nu_protocol::ConfigError;
-use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
 #[test]
@@ -434,54 +432,48 @@ fn box_is_a_bordered_group_and_tabs_cannot_nest() -> Result {
 }
 
 #[test]
-fn preview_shows_file_contents_on_selection() -> Result {
-    Playground::setup("tui_preview", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent("one.txt", "ONE-FILE-BODY"),
-            FileWithContent("two.txt", "TWO-FILE-BODY"),
-        ]);
+fn preview_shows_file_contents_on_selection(playground: Playground) -> Result {
+    playground.file("one.txt", "ONE-FILE-BODY")?;
+    playground.file("two.txt", "TWO-FILE-BODY")?;
 
-        let screen: String = test().cwd(dirs.test()).run(
-            "
-                ls
-                | sort-by name
-                | tui split [(tui table --columns [name type]) (tui preview)]
-                | tui debug --size [80 16]
-                | get screen
-            ",
-        )?;
-        assert_contains("ONE-FILE-BODY", &screen);
+    let screen: String = test().cwd(playground.path()).run(
+        "
+            ls
+            | sort-by name
+            | tui split [(tui table --columns [name type]) (tui preview)]
+            | tui debug --size [80 16]
+            | get screen
+        ",
+    )?;
+    assert_contains("ONE-FILE-BODY", &screen);
 
-        let screen: String = test().cwd(dirs.test()).run(
-            "
-                ls
-                | sort-by name
-                | tui split [(tui table --columns [name type]) (tui preview)]
-                | tui debug --keys down --size [80 16]
-                | get screen
-            ",
-        )?;
-        assert_contains("TWO-FILE-BODY", &screen);
-        Ok(())
-    })
+    let screen: String = test().cwd(playground.path()).run(
+        "
+            ls
+            | sort-by name
+            | tui split [(tui table --columns [name type]) (tui preview)]
+            | tui debug --keys down --size [80 16]
+            | get screen
+        ",
+    )?;
+    assert_contains("TWO-FILE-BODY", &screen);
+    Ok(())
 }
 
 #[test]
-fn preview_closure_transforms_file_contents() -> Result {
-    Playground::setup("tui_preview_closure", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("note.txt", "hello-preview")]);
+fn preview_closure_transforms_file_contents(playground: Playground) -> Result {
+    playground.file("note.txt", "hello-preview")?;
 
-        let screen: String = test().cwd(dirs.test()).run(
-            r#"
-                [{name: "note.txt", type: "file"}]
-                | tui split [(tui table) (tui preview { $in | str upcase })]
-                | tui debug --size [80 16]
-                | get screen
-            "#,
-        )?;
-        assert_contains("HELLO-PREVIEW", &screen);
-        Ok(())
-    })
+    let screen: String = test().cwd(playground.path()).run(
+        r#"
+            [{name: "note.txt", type: "file"}]
+            | tui split [(tui table) (tui preview { $in | str upcase })]
+            | tui debug --size [80 16]
+            | get screen
+        "#,
+    )?;
+    assert_contains("HELLO-PREVIEW", &screen);
+    Ok(())
 }
 
 #[test]

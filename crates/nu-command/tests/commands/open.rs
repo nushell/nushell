@@ -152,7 +152,7 @@ fn open_with_a_shadowing_from_alias_suggests_a_pipeline(playground: Playground) 
         format!("{err:?}"),
     );
     assert!(!format!("{err:?}").contains("def 'from json'"));
-    
+
     Ok(())
 }
 

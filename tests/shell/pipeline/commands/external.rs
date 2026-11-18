@@ -626,18 +626,26 @@ fn arg_dont_run_subcommand_if_surrounded_with_quote() -> Result {
 fn external_error_with_backtrace(playground: Playground) -> Result {
     playground.file("tmp_env.nu", "$env.NU_BACKTRACE = 1")?;
 
-    let runner = "nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands $in | complete";
+    let runner =
+        "nu --env-config tmp_env.nu --no-std-lib --error-style plain --commands $in | complete";
     let commands = "def a [x] { if $x == 3 { fail }}; def b [] { a 1; a 3; a 2 }; b";
-    let CompleteResult {stderr, ..} = test().cwd(playground.path()).run_with_data(runner, commands)?;
+    let CompleteResult { stderr, .. } = test()
+        .cwd(playground.path())
+        .run_with_data(runner, commands)?;
     assert_eq!(stderr.matches("diagnostic code: chained_error").count(), 1);
     assert_contains("non_zero_exit_code", &stderr);
     // The stream's caller span `a 3` is a label on the external's error, not a separate
     // report; the other label of that text is the chained error's call `b`.
     assert_contains_not("eval_block_with_input", &stderr);
     assert_contains_not("source value", &stderr);
-    assert_eq!(stderr.matches("error happened when running this").count(), 2);
+    assert_eq!(
+        stderr.matches("error happened when running this").count(),
+        2
+    );
 
-    let CompleteResult {stderr, ..} = test().cwd(playground.path()).run_with_data(runner, "fail")?;
+    let CompleteResult { stderr, .. } = test()
+        .cwd(playground.path())
+        .run_with_data(runner, "fail")?;
     assert_eq!(stderr.matches("diagnostic code: chained_error").count(), 0);
     Ok(())
 }

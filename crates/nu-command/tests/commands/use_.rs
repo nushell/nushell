@@ -124,13 +124,13 @@ fn use_do_cd_file_relative(playground: Playground) -> Result {
 fn use_overlay_hide_keeps_cd(playground: Playground) -> Result {
     playground.file(
         "test1/test2/spam.nu",
-        indoc::indoc!{"
+        indoc::indoc! {"
             export-env {
                 overlay new spam
                 cd test1/test2
                 overlay hide spam
             }
-        "}
+        "},
     )?;
 
     let mut tester = test().cwd(playground.path());
@@ -144,11 +144,11 @@ fn use_overlay_hide_keeps_cd(playground: Playground) -> Result {
 fn use_export_env_combined(playground: Playground) -> Result {
     playground.file(
         "spam.nu",
-        indoc::indoc!{"
+        indoc::indoc! {"
             def foo [] { 'foo' }
             alias bar = foo
             export-env { $env.FOO = (bar) }
-        "}
+        "},
     )?;
 
     let mut tester = test().cwd(playground.path());

@@ -302,10 +302,12 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots(playground: Playgrou
         "kevin.txt",
         "many_more.ppl",
     ];
-    
-    playground.at("foo/bar", |bar| Ok(for file in files {
-        bar.empty_file(file)?;
-    }))?;
+
+    playground.at("foo/bar", |bar| {
+        Ok(for file in files {
+            bar.empty_file(file)?;
+        })
+    })?;
 
     let code = "mv * ...";
     let result: CompleteResult = test()

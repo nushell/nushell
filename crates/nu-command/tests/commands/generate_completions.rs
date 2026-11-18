@@ -95,17 +95,15 @@ fn generated_module_parses(
 /// `use` names the module after the file, and a module can't export an extern with its own
 /// name, so a module loaded with `use` is saved under a name other than the tool's.
 #[test]
-fn loads_with_use_from_a_completions_file() -> Result {
-    Playground::setup("generate_completions_use", |dirs, _| {
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run_with_data(
-            "generate completions tool --source fish | save tool-completions.nu",
-            FISH,
-        )?;
-        tester
-            .run("use tool-completions.nu *; scope externs | get name | where $it starts-with tool | sort")
-            .expect_value_eq(["tool", "tool build"])
-    })
+fn loads_with_use_from_a_completions_file(playground: Playground) -> Result {
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run_with_data(
+        "generate completions tool --source fish | save tool-completions.nu",
+        FISH,
+    )?;
+    tester
+        .run("use tool-completions.nu *; scope externs | get name | where $it starts-with tool | sort")
+        .expect_value_eq(["tool", "tool build"])
 }
 
 /// A man page's command list is left out: it is mostly the commands of an interactive prompt.
@@ -135,20 +133,18 @@ fn generates_a_subcommand_only() -> Result {
 /// instead of showing nushell's help for the extern.
 #[test]
 #[deps(TESTBIN_COCOCO)]
-fn tool_help_leaves_help_to_the_command() -> Result {
-    Playground::setup("generate_completions_tool_help", |dirs, _| {
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run(
-            "generate completions cococo --source help --tool-help | save cococo-completions.nu",
-        )?;
-        tester
-            .run(
-                "use cococo-completions.nu *
+fn tool_help_leaves_help_to_the_command(playground: Playground) -> Result {
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run(
+        "generate completions cococo --source help --tool-help | save cococo-completions.nu",
+    )?;
+    tester
+        .run(
+            "use cococo-completions.nu *
                 [(cococo --help | complete) (cococo -h | complete)]
                 | each { $in.stdout | str contains 'Usage: cococo [ARGS...]' }",
-            )
-            .expect_value_eq([true, true])
-    })
+        )
+        .expect_value_eq([true, true])
 }
 
 #[test]
@@ -212,26 +208,24 @@ esac
     )
 )]
 fn runs_subcommands_that_the_help_lists_or_man_knows(
+    #[ignore] playground: Playground,
     #[case] target: &str,
     #[case] expected: std::result::Result<&str, &str>,
 ) -> Result {
-    Playground::setup("generate_completions_help_guard", |dirs, _| {
-        write_script(&dirs, "tool", TOOL_SCRIPT);
-        write_script(&dirs, "man", MAN_SCRIPT);
-        let code = format!(
-            "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}"
-        );
-        let mut tester = test().cwd(dirs.test());
-        match expected {
-            Ok(flag) => assert_contains(flag, tester.run::<String>(code)?),
-            Err(help) => assert_contains(
-                help,
-                format!("{:?}", tester.run(code).expect_shell_error()?),
-            ),
-        }
-        assert!(!dirs.test().join("ran").exists(), "the tool ran");
-        Ok(())
-    })
+    write_script(&dirs, "tool", TOOL_SCRIPT);
+    write_script(&dirs, "man", MAN_SCRIPT);
+    let code =
+        format!("with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}");
+    let mut tester = test().cwd(playground.path());
+    match expected {
+        Ok(flag) => assert_contains(flag, tester.run::<String>(code)?),
+        Err(help) => assert_contains(
+            help,
+            format!("{:?}", tester.run(code).expect_shell_error()?),
+        ),
+    }
+    assert!(!playground.path().join("ran").exists(), "the tool ran");
+    Ok(())
 }
 
 /// The help source reads the help of each subcommand that the help above it lists. An alias gets
@@ -239,38 +233,36 @@ fn runs_subcommands_that_the_help_lists_or_man_knows(
 /// is walked further.
 #[cfg(unix)]
 #[test]
-fn walks_the_subcommands_that_the_help_lists() -> Result {
-    Playground::setup("generate_completions_help_walk", |dirs, _| {
-        write_script(&dirs, "tool", TOOL_SCRIPT);
-        let mut tester = test().cwd(dirs.test());
-        let module: String =
-            tester.run("with-env { PATH: (pwd) } { generate completions tool --source help }")?;
-        let externs = module
-            .lines()
-            .filter_map(|line| line.strip_prefix("export extern \""))
-            .filter_map(|line| line.split('"').next())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            externs,
-            [
-                "tool",
-                "tool pip",
-                "tool pip install",
-                "tool p",
-                "tool same",
-                "tool help"
-            ]
-        );
-        assert_contains("export extern \"tool pip\" [\n    --user", &module);
-        assert_contains(
-            "export extern \"tool pip install\" [\n    --upgrade(-U)",
-            &module,
-        );
-        assert_contains("export extern \"tool p\" [\n    --user", &module);
-        assert_contains("export extern \"tool same\" []", &module);
-        assert!(!dirs.test().join("ran").exists(), "the tool ran");
-        Ok(())
-    })
+fn walks_the_subcommands_that_the_help_lists(playground: Playground) -> Result {
+    write_script(&dirs, "tool", TOOL_SCRIPT);
+    let mut tester = test().cwd(playground.path());
+    let module: String =
+        tester.run("with-env { PATH: (pwd) } { generate completions tool --source help }")?;
+    let externs = module
+        .lines()
+        .filter_map(|line| line.strip_prefix("export extern \""))
+        .filter_map(|line| line.split('"').next())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        externs,
+        [
+            "tool",
+            "tool pip",
+            "tool pip install",
+            "tool p",
+            "tool same",
+            "tool help"
+        ]
+    );
+    assert_contains("export extern \"tool pip\" [\n    --user", &module);
+    assert_contains(
+        "export extern \"tool pip install\" [\n    --upgrade(-U)",
+        &module,
+    );
+    assert_contains("export extern \"tool p\" [\n    --user", &module);
+    assert_contains("export extern \"tool same\" []", &module);
+    assert!(!playground.path().join("ran").exists(), "the tool ran");
+    Ok(())
 }
 
 /// Without --source, a man page is used with the subcommands that the help lists, or alone when
@@ -289,23 +281,22 @@ fn walks_the_subcommands_that_the_help_lists() -> Result {
 )]
 #[case::without_subcommands("tool status", "from `man tool-status`.\n", &["--porcelain"])]
 fn man_takes_the_subcommands_that_the_help_lists(
+    #[ignore] playground: Playground,
     #[case] target: &str,
     #[case] origins: &str,
     #[case] contains: &[&str],
 ) -> Result {
-    Playground::setup("generate_completions_man_walk", |dirs, _| {
-        write_script(&dirs, "tool", TOOL_SCRIPT);
-        write_script(&dirs, "man", MAN_SCRIPT);
-        let module: String = test().cwd(dirs.test()).run(format!(
-            "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' }}"
-        ))?;
-        assert_contains(origins, &module);
-        for &text in contains {
-            assert_contains(text, &module);
-        }
-        assert!(!dirs.test().join("ran").exists(), "the tool ran");
-        Ok(())
-    })
+    write_script(&dirs, "tool", TOOL_SCRIPT);
+    write_script(&dirs, "man", MAN_SCRIPT);
+    let module: String = test().cwd(playground.path()).run(format!(
+        "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' }}"
+    ))?;
+    assert_contains(origins, &module);
+    for &text in contains {
+        assert_contains(text, &module);
+    }
+    assert!(!playground.path().join("ran").exists(), "the tool ran");
+    Ok(())
 }
 
 /// Without --source, fish's completions of `tool` are used. When they list `pip` without its
@@ -329,38 +320,37 @@ complete -c tool -n '__fish_seen_subcommand_from pip' -l user",
     &["export extern \"tool pip\" [\n    --user", "export extern \"tool help\" []"]
 )]
 fn help_adds_the_subcommands_fish_knows_nothing_about(
+    #[ignore] playground: Playground,
     #[case] fish: &str,
     #[case] origins: &str,
     #[case] contains: &[&str],
 ) -> Result {
-    Playground::setup("generate_completions_fish_walk", |dirs, _| {
-        write_script(&dirs, "tool", TOOL_SCRIPT);
-        write_script(
-            &dirs,
-            "fish",
-            &format!("#!/bin/sh\n/bin/cat <<'EOF'\n{fish}\nEOF\n"),
-        );
-        let zsh_file = dirs.test().join("_tool");
-        std::fs::write(&zsh_file, ZSH).expect("write the zsh completions");
-        write_script(
-            &dirs,
-            "zsh",
-            &format!("#!/bin/sh\necho '{}'\n", zsh_file.display()),
-        );
-        let module: String = test()
-            .cwd(dirs.test())
-            .run("with-env { PATH: (pwd) } { generate completions tool }")?;
-        assert_contains(origins, &module);
-        for &text in contains {
-            assert_contains(text, &module);
-        }
-        assert!(
-            !module.contains("tool build"),
-            "zsh's completions were merged"
-        );
-        assert!(!dirs.test().join("ran").exists(), "the tool ran");
-        Ok(())
-    })
+    write_script(&dirs, "tool", TOOL_SCRIPT);
+    write_script(
+        &dirs,
+        "fish",
+        &format!("#!/bin/sh\n/bin/cat <<'EOF'\n{fish}\nEOF\n"),
+    );
+    let zsh_file = playground.path().join("_tool");
+    std::fs::write(&zsh_file, ZSH).expect("write the zsh completions");
+    write_script(
+        &dirs,
+        "zsh",
+        &format!("#!/bin/sh\necho '{}'\n", zsh_file.display()),
+    );
+    let module: String = test()
+        .cwd(playground.path())
+        .run("with-env { PATH: (pwd) } { generate completions tool }")?;
+    assert_contains(origins, &module);
+    for &text in contains {
+        assert_contains(text, &module);
+    }
+    assert!(
+        !module.contains("tool build"),
+        "zsh's completions were merged"
+    );
+    assert!(!playground.path().join("ran").exists(), "the tool ran");
+    Ok(())
 }
 
 /// A tool whose help lists `reboot` but no --help option, as launchctl's does: `launchctl
@@ -384,25 +374,23 @@ esac
     Err("`tool --help` lists `reboot` but no --help option, and there's no `man tool-reboot`")
 )]
 fn runs_no_subcommand_when_the_help_lists_no_help_option(
+    #[ignore] playground: Playground,
     #[case] target: &str,
     #[case] expected: std::result::Result<&str, &str>,
 ) -> Result {
-    Playground::setup("generate_completions_no_help_option", |dirs, _| {
-        write_script(&dirs, "tool", LAUNCHER_SCRIPT);
-        let code = format!(
-            "with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}"
-        );
-        let mut tester = test().cwd(dirs.test());
-        match expected {
-            Ok(text) => assert_contains(text, tester.run::<String>(code)?),
-            Err(help) => assert_contains(
-                help,
-                format!("{:?}", tester.run(code).expect_shell_error()?),
-            ),
-        }
-        assert!(!dirs.test().join("ran").exists(), "the tool ran");
-        Ok(())
-    })
+    write_script(&dirs, "tool", LAUNCHER_SCRIPT);
+    let code =
+        format!("with-env {{ PATH: (pwd) }} {{ generate completions '{target}' --source help }}");
+    let mut tester = test().cwd(playground.path());
+    match expected {
+        Ok(text) => assert_contains(text, tester.run::<String>(code)?),
+        Err(help) => assert_contains(
+            help,
+            format!("{:?}", tester.run(code).expect_shell_error()?),
+        ),
+    }
+    assert!(!playground.path().join("ran").exists(), "the tool ran");
+    Ok(())
 }
 
 /// A tool that prints more than any help text, as macOS's `yes --help` does.
@@ -416,26 +404,23 @@ const FLOOD_SCRIPT: &str = "#!/bin/sh\nPATH=/usr/bin:/bin exec yes '  --flood  F
 #[case::help_source("--source help", Err("couldn't generate completions for `tool`"))]
 #[case::after_man("", Ok("# Generated by `generate completions` from `man tool`.\n"))]
 fn stops_a_tool_that_prints_too_much(
+    #[ignore] playground: Playground,
     #[case] source: &str,
     #[case] expected: std::result::Result<&str, &str>,
 ) -> Result {
-    Playground::setup("generate_completions_flood", |dirs, _| {
-        write_script(&dirs, "tool", FLOOD_SCRIPT);
-        write_script(&dirs, "man", MAN_SCRIPT);
-        let code = format!("with-env {{ PATH: (pwd) }} {{ generate completions tool {source} }}");
-        let mut tester = test().cwd(dirs.test());
-        match expected {
-            Ok(origin) => {
-                let module: String = tester.run(code)?;
-                assert_contains(origin, &module);
-                assert!(!module.contains("--flood"), "the flood was read");
-            }
-            Err(error) => {
-                assert_contains(error, tester.run(code).expect_shell_error()?.to_string())
-            }
+    write_script(&dirs, "tool", FLOOD_SCRIPT);
+    write_script(&dirs, "man", MAN_SCRIPT);
+    let code = format!("with-env {{ PATH: (pwd) }} {{ generate completions tool {source} }}");
+    let mut tester = test().cwd(playground.path());
+    match expected {
+        Ok(origin) => {
+            let module: String = tester.run(code)?;
+            assert_contains(origin, &module);
+            assert!(!module.contains("--flood"), "the flood was read");
         }
-        Ok(())
-    })
+        Err(error) => assert_contains(error, tester.run(code).expect_shell_error()?.to_string()),
+    }
+    Ok(())
 }
 
 /// Writes an executable script in the playground. Another test that forks while the file is
@@ -447,7 +432,7 @@ fn write_script(dirs: &nu_test_support::playground::Dirs, name: &str, content: &
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Command, Stdio};
 
-    let path: std::path::PathBuf = dirs.test().join(name).into();
+    let path: std::path::PathBuf = playground.path().join(name).into();
     std::fs::write(&path, content).expect("write the script");
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
         .expect("make the script executable");

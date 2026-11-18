@@ -695,49 +695,55 @@ fn rm_deletes_only_matches(
 #[nu_test_support::test]
 #[exp(nu_experimental::DC_GLOB = false)]
 fn rm_deletes_only_matches_legacy_glob(
+    #[ignore] playground: Playground,
     files: &[&str],
     command: &str,
     gone: &[&str],
     kept: &[&str],
 ) -> Result {
-    check_rm_deletes_only(files, command, gone, kept)
+    check_rm_deletes_only(playground, files, command, gone, kept)
 }
 
 #[apply(rm_deletes_only_matches)]
 #[nu_test_support::test]
 #[exp(nu_experimental::DC_GLOB)]
 fn rm_deletes_only_matches_dc_glob(
+    #[ignore] playground: Playground,
     files: &[&str],
     command: &str,
     gone: &[&str],
     kept: &[&str],
 ) -> Result {
-    check_rm_deletes_only(files, command, gone, kept)
+    check_rm_deletes_only(playground, files, command, gone, kept)
 }
 
 /// The body of [`rm_deletes_only_matches`], shared by both glob backends.
-fn check_rm_deletes_only(files: &[&str], command: &str, gone: &[&str], kept: &[&str]) -> Result {
-    Playground::setup("rm_deletes_only_matches", |dirs, _| {
-        for file in files {
-            let path = dirs.test().join(file);
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            std::fs::write(&path, "")?;
+fn check_rm_deletes_only(
+    playground: Playground,
+    files: &[&str],
+    command: &str,
+    gone: &[&str],
+    kept: &[&str],
+) -> Result {
+    for file in files {
+        let path = playground.path().join(file);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
         }
+        std::fs::write(&path, "")?;
+    }
 
-        let () = test().cwd(dirs.test()).run(command)?;
+    let () = test().cwd(playground.path()).run(command)?;
 
-        // `symlink_metadata` so a dangling symlink still counts as present.
-        let exists = |path: &str| dirs.test().join(path).symlink_metadata().is_ok();
-        for path in gone {
-            assert!(!exists(path), "`{command}` should have removed {path}");
-        }
-        for path in kept {
-            assert!(exists(path), "`{command}` should have kept {path}");
-        }
-        Ok(())
-    })
+    // `symlink_metadata` so a dangling symlink still counts as present.
+    let exists = |path: &str| playground.path().join(path).symlink_metadata().is_ok();
+    for path in gone {
+        assert!(!exists(path), "`{command}` should have removed {path}");
+    }
+    for path in kept {
+        assert!(exists(path), "`{command}` should have kept {path}");
+    }
+    Ok(())
 }
 
 /// `rm` on a symlink to a directory removes the link, never what it points to.

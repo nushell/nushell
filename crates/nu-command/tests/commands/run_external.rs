@@ -477,10 +477,7 @@ fn redirect_combine(prefix: &str, #[ignore] playground: Playground) -> Result {
 #[apply(run_external_prefixes)]
 #[nu_test_support::test]
 fn can_run_ps1_files(prefix: &str, #[ignore] playground: Playground) -> Result {
-    playground.file(
-        "foo.ps1",
-        "Write-Host Hello World",
-    )?;
+    playground.file("foo.ps1", "Write-Host Hello World")?;
 
     let actual: String = test()
         .inherit_path()
@@ -496,10 +493,7 @@ fn can_run_ps1_files(prefix: &str, #[ignore] playground: Playground) -> Result {
 #[nu_test_support::test]
 fn can_run_ps1_files_with_space_in_path(prefix: &str, #[ignore] playground: Playground) -> Result {
     playground.dir("path with space")?;
-    playground.file(
-        "path with space/foo.ps1",
-        "Write-Host Hello World",
-    )?;
+    playground.file("path with space/foo.ps1", "Write-Host Hello World")?;
 
     let actual: String = test()
         .inherit_path()

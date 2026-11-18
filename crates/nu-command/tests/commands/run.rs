@@ -490,17 +490,17 @@ fn run_main_script_tracks_file_edits_in_repl_session(playground: Playground) -> 
 #[case::record_spread_off("run ...{full-reparse: false} run-edit.nu", false)]
 #[nu_test_support::test]
 fn run_main_script_in_reused_closure(
-    #[case] code: &str, 
+    #[case] code: &str,
     #[case] reparses: bool,
-    #[ignore] playground: Playground
+    #[ignore] playground: Playground,
 ) -> Result {
     playground.file(
         "run-edit.nu",
-        indoc::indoc!{"
+        indoc::indoc! {"
             def main [] {
                 'hello'
             }
-        "}
+        "},
     )?;
 
     let mut tester = test().cwd(playground.path());

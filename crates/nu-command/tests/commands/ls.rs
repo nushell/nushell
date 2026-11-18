@@ -956,7 +956,6 @@ fn ls_dc_glob_bare_double_star(playground: Playground) -> Result {
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_prefixed_trailing_double_star(playground: Playground) -> Result {
-
     playground.empty_file("foo/sibling.txt")?;
     playground.empty_file("foo/bar/nested.txt")?;
 
@@ -1022,7 +1021,7 @@ fn ls_with_file_named_star_lists_all_entries(playground: Playground) -> Result {
     // Regression for #18631: with dc-glob, a file named `*` must not hide
     // every other entry when `ls` expands the default `*` pattern.
     // Use distinct names that stay unique on case-insensitive filesystems.
-    
+
     playground.empty_file("file_a")?;
     playground.empty_file("file_b")?;
     playground.empty_file("file_c")?;

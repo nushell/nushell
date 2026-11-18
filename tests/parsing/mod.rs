@@ -247,18 +247,21 @@ fn byte_order_mark_at_start_of_script_is_skipped(
     playground.file("bom.nu", "\u{feff}# a comment first\n1 + 1\n")?;
     playground.file("bom_module.nu", "\u{feff}export def main [] { 2 }\n")?;
 
-    test().cwd(playground.path()).run(code).expect_value_eq(expected)
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[test]
 #[deps(NU)]
-fn byte_order_mark_at_start_of_script_file_or_config_is_skipped(
-    playground: Playground
-) -> Result {
+fn byte_order_mark_at_start_of_script_file_or_config_is_skipped(playground: Playground) -> Result {
     playground.file("bom.nu", "\u{feff}1 + 1\n")?;
     playground.file("bom_config.nu", "\u{feff}$env.FROM_CONFIG = 2\n")?;
 
-    let result: CompleteResult = test().cwd(playground.path()).run("nu -n bom.nu | complete")?;
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run("nu -n bom.nu | complete")?;
     assert_eq!(result.stdout.trim(), "2", "{result:?}");
 
     let result: CompleteResult = test()

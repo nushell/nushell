@@ -608,7 +608,7 @@ fn create_a_file_with_tilde(playground: Playground) -> Result {
     let () = test()
         .cwd(playground.path())
         .run("let f = '~tilde2'; touch $f")?;
-    
+
     assert!(playground.path().join("~tilde2").exists());
     Ok(())
 }
