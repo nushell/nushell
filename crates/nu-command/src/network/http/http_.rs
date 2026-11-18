@@ -36,11 +36,16 @@ impl Command for Http {
                 .desc("Select GET, HEAD, OPTIONS, DELETE, POST, PUT, or PATCH (case-insensitive). POST, PUT, and PATCH require a body; DELETE accepts one. GET, HEAD, and OPTIONS ignore piped input and reject a positional body. Piped `null` counts as no body; a piped body without --method is ignored for legacy GET selection.")
                     .completion(Completion::new_list(METHODS)),
             )
-            .named(
-                "content-type",
-                SyntaxShape::Any,
-                "The MIME type of the request body.",
-                Some('t'),
+            .param(
+                Flag::new("content-type")
+                    .short('t')
+                    .arg(SyntaxShape::Any)
+                    .desc("The MIME type of the request body.")
+                    .completion(Completion::new_list(&[
+                        "application/json",
+                        "application/x-www-form-urlencoded",
+                        "multipart/form-data",
+                    ])),
             )
             // common
             .named(
