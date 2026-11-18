@@ -77,8 +77,6 @@ impl Command for Input {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // The prompt and the echoed answer go to stdout.
-        engine_state.mark_stdout_used();
         // Check if we should use the legacy implementation or the reedline implementation
         let use_reedline = [
             // reedline is not set - use legacy implementation

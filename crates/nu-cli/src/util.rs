@@ -227,15 +227,10 @@ pub fn print_pipeline(
 ) -> Result<(), ShellError> {
     let to_stderr = engine_state.is_mcp || engine_state.is_lsp || engine_state.is_dap;
 
-    // A parent `nu` reads this value from stdout, as a frame when nothing else went there first.
-    let pipeline = if engine_state.structured_io_output {
-        match nu_command::emit_structured_pipeline(engine_state, pipeline)? {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
-        }
-    } else {
-        pipeline
-    };
+    // The `nu` that started this one with `--structured-io` reads the result as a value.
+    if let Some(link) = engine_state.structured_io_output.take() {
+        return nu_command::send_structured_output(engine_state, &link, pipeline);
+    }
 
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(

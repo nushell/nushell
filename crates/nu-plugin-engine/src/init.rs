@@ -82,8 +82,8 @@ pub fn create_command(
 
     process.args(mode.args());
 
-    // The plugin inherits this process's environment, which can hold the structured IO handshake
-    // meant for this process alone. A `.nu` plugin would read it and garble the plugin protocol.
+    // The plugin inherits this process's environment, which can hold the structured IO link from
+    // the `nu` that started this one. A `.nu` plugin would read it and send its values there.
     process.env_remove(nu_protocol::STRUCTURED_IO_ENV);
 
     // Setup I/O according to the communication mode

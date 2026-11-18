@@ -28,9 +28,10 @@ use nu_engine::{
 use nu_path::absolute_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, STRUCTURED_IO_ENV, ShellError, Span, Spanned,
-    StructuredIoMode, Type, Value,
+    StructuredIoLink, StructuredIoMode, Type, Value,
     engine::{EngineState, Stack},
     record, report_shell_error,
+    shell_error::generic::GenericError,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -315,32 +316,30 @@ fn main() -> Result<()> {
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some() || is_repl;
     engine_state.is_repl = is_repl;
 
-    // A parent `nu` sets `NU_STRUCTURED_IO` when it sends a value on stdin or reads one from
-    // stdout; `--structured-io` overrides it. Only commands and scripts take part: the REPL and
-    // the protocol servers own their stdin and stdout. With `-i` the input can still be a value,
-    // but the output stays text, since interactive mode writes to stdout on its own (job notices).
-    // The parent knows which modes these are from the command line, so the two agree.
-    let structured_io_flag = parsed_nu_cli_args
-        .structured_io
-        .as_ref()
-        .map(|value| value.item.as_str());
-    let structured_io = match run_mode {
-        RunMode::Commands(_) | RunMode::Script => {
-            let mode = structured_io_flag
-                .map(StructuredIoMode::from_flag_str)
-                .or_else(|| {
-                    std::env::var(STRUCTURED_IO_ENV)
-                        .ok()
-                        .map(|value| StructuredIoMode::from_flag_str(&value))
-                })
-                .unwrap_or_default();
-            StructuredIoMode {
-                input: mode.input,
-                output: mode.output && parsed_nu_cli_args.interactive_shell.is_none(),
-            }
+    // A `nu` that started this one with `--structured-io` says in `NU_STRUCTURED_IO` how to reach
+    // it. Only commands and scripts take part: the REPL and the protocol servers ignore it.
+    let structured_io = match (&run_mode, std::env::var(STRUCTURED_IO_ENV)) {
+        (RunMode::Commands(_) | RunMode::Script, Ok(value)) => {
+            Some(StructuredIoLink::from_env_value(&value).map_err(|msg| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Could not reach the nu that started this one",
+                    msg,
+                ))
+            })?)
         }
-        _ => StructuredIoMode::default(),
+        _ => None,
     };
+    // The result is sent once it's ready, so this process only needs to know where.
+    let structured_output = structured_io
+        .as_ref()
+        .filter(|link| link.mode.output)
+        .map(|link| StructuredIoLink {
+            mode: StructuredIoMode {
+                input: false,
+                output: true,
+            },
+            ..link.clone()
+        });
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
@@ -574,9 +573,9 @@ fn main() -> Result<()> {
     }
 
     start_time = nu_utils::time::Instant::now();
-    let input = if structured_io.input {
-        trace!("reading structured stdin");
-        nu_command::read_structured_stdin(structured_io_flag.is_some(), Span::unknown())?
+    let input = if let Some(link) = structured_io.filter(|link| link.mode.input) {
+        trace!("reading structured input");
+        nu_command::read_structured_input(&link, engine_state.signals())?
     } else if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
         PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
@@ -774,7 +773,7 @@ fn main() -> Result<()> {
                 use_color,
                 &commands,
                 input,
-                structured_io.output,
+                structured_output,
             );
 
             // Commands exit when done, even with `-i`: their jobs must not outlive Nu.
@@ -791,7 +790,7 @@ fn main() -> Result<()> {
                 },
                 use_color,
                 input,
-                structured_io.output,
+                structured_output,
             );
 
             // Scripts exit when done, even with `-i`: their jobs must not outlive Nu.

@@ -419,7 +419,7 @@ mod nu_commands {
     #[test]
     #[deps(NU)]
     fn command_list_arg_test() -> Result {
-        let out: String = test().run("nu --structured-io=false ...['-n' '-c' 'version']")?;
+        let out: String = test().run("nu ...['-n' '-c' 'version']")?;
 
         assert_contains("version", &out);
         assert_contains("rust_version", &out);
@@ -430,7 +430,7 @@ mod nu_commands {
     #[test]
     #[deps(NU)]
     fn command_cell_path_arg_test() -> Result {
-        let out: String = test().run("nu --structured-io=false ...([ '-n' '-c' 'version' ])")?;
+        let out: String = test().run("nu ...([ '-n' '-c' 'version' ])")?;
 
         assert_contains("version", &out);
         assert_contains("rust_version", &out);

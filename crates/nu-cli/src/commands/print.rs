@@ -55,8 +55,6 @@ In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep st
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        // `nu ... | print` hands over another `nu`'s output that may hold a value.
-        let input = nu_command::decode_structured_child(input, call.head)?;
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
 

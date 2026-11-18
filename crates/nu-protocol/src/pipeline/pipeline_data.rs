@@ -909,7 +909,6 @@ fn write_std<T>(
             "stderr",
         )
     } else {
-        engine_state.mark_stdout_used();
         write(
             &mut engine_state.job_output_writer(std::io::stdout()),
             "stdout",

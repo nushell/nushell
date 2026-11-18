@@ -1,8 +1,7 @@
-use std::{borrow::Cow, path::Path};
+use std::borrow::Cow;
 
-use super::structured_io::{is_nushell_child, set_structured_io_env};
 use nu_engine::{command_prelude::*, env_to_strings};
-use nu_protocol::StructuredIoMode;
+use nu_protocol::STRUCTURED_IO_ENV;
 
 #[derive(Clone)]
 pub struct Exec;
@@ -73,15 +72,6 @@ On Windows based systems, Nushell will wait for the command to finish and then e
             executable
         };
 
-        // `exec` hands this process's stdout to the new program. If a parent `nu` waits for a
-        // value there and the new program is Nushell too, it sends the value in this one's place.
-        let structured_io = StructuredIoMode {
-            input: false,
-            output: engine_state.structured_io_output
-                && !engine_state.stdout_used()
-                && is_nushell_child(&executable, Path::new(name_str.as_ref())),
-        };
-
         // Create the command.
         let mut command = std::process::Command::new(executable);
 
@@ -92,7 +82,11 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         let envs = env_to_strings(engine_state, stack)?;
         command.env_clear();
         command.envs(envs);
-        set_structured_io_env(&mut command, structured_io);
+        // `exec` hands this process's place to the new program. If the `nu` that started this one
+        // waits for its result, a new `nu` sends it instead.
+        if let Some(link) = &engine_state.structured_io_output {
+            command.env(STRUCTURED_IO_ENV, link.to_env_value());
+        }
         // Decrement SHLVL as removing the current shell from the stack
         // (only works in interactive mode, same as initialization)
         if engine_state.is_interactive {

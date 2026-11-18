@@ -14,349 +14,281 @@ fn make_executable(dir: impl AsRef<std::path::Path>, name: &str) -> Result {
 
 #[test]
 #[deps(NU)]
-fn nested_nu_piped_to_complete_keeps_raw_process() -> Result {
-    let result: CompleteResult = test().run("nu -n -c '[1 2 3] | to nuon' | complete")?;
-    assert_eq!(result.exit_code, 0);
-    assert_contains("[1, 2, 3]", result.stdout);
-    Ok(())
-}
-
-#[test]
-#[deps(NU)]
-fn child_flag_false_disables_handshake() -> Result {
+fn child_without_the_flag_gives_text() -> Result {
     test()
-        .run("nu -n --structured-io=false -c '[1 2 3]' | describe")
+        .run("nu -n -c '[1 2 3]' | describe")
         .expect_value_eq("byte stream")
 }
 
 #[test]
 #[deps(NU)]
-fn child_nu_list_stays_structured() -> Result {
+fn child_list_is_a_value() -> Result {
     test()
-        .run("nu -n -c '[1 2 3]' | describe")
+        .run("nu -n --structured-io -c '[1 2 3]' | describe")
         .expect_value_eq("list<int>")
 }
 
 #[test]
 #[deps(NU)]
-fn child_nu_list_is_usable() -> Result {
+fn child_table_keeps_its_columns() -> Result {
     test()
-        .run("nu -n -c '[1 2 3]' | math sum")
-        .expect_value_eq(6)
+        .run("nu -n --structured-io -c '[[a b]; [1 2] [3 4]]' | columns")
+        .expect_value_eq(["a", "b"])
 }
 
 #[test]
 #[deps(NU)]
-fn child_nu_table_columns() -> Result {
+fn child_value_keeps_its_type() -> Result {
     test()
-        .run("nu -n -c '[[a b]; [1 2] [3 4]]' | columns")
-        .expect_value_eq(["a", "b"])
+        .run("let x = (nu -n --structured-io -c '{a: 1kb}'); $x.a | describe")
+        .expect_value_eq("filesize")
 }
 
 #[test]
 #[deps(NU)]
 fn child_value_reaches_custom_command_input() -> Result {
     test()
-        .run("def total [] { $in | math sum }; nu -n -c '[1 2 3]' | total")
+        .run("def total [] { $in | math sum }; nu -n --structured-io -c '[1 2 3]' | total")
         .expect_value_eq(6)
 }
 
 #[test]
 #[deps(NU)]
-fn child_value_reaches_cell_path_on_in() -> Result {
-    test().run("nu -n -c '[1 2 3]' | $in.1").expect_value_eq(2)
-}
-
-#[test]
-#[deps(NU)]
-fn child_value_collected_into_variable() -> Result {
+fn parent_sends_its_input() -> Result {
     test()
-        .run("let x = (nu -n -c '{a: 1kb}'); $x.a | describe")
-        .expect_value_eq("filesize")
-}
-
-#[test]
-#[deps(NU)]
-fn parent_sends_structured_stdin() -> Result {
-    test()
-        .run("[1 2 3] | nu -n -c '$in | math sum'")
-        .expect_value_eq(6)
-}
-
-#[test]
-#[deps(NU)]
-fn parent_sends_table_stdin() -> Result {
-    test()
-        .run("[[name]; [foo] [bar]] | nu -n -c '$in | get name'")
+        .run("[[name]; [foo] [bar]] | nu -n --structured-io -c '$in | get name'")
         .expect_value_eq(["foo", "bar"])
 }
 
 #[test]
 #[deps(NU)]
-fn nu_into_nu_passes_the_value() -> Result {
+fn byte_stream_input_stays_bytes() -> Result {
     test()
-        .run("nu -n -c '[1 2 3]' | nu -n -c '$in | math sum'")
-        .expect_value_eq(6)
+        .run("nu -n -c 'print -n \"x\ny\"' | nu -n --structured-io -c '$in | lines'")
+        .expect_value_eq(["x", "y"])
 }
 
 #[test]
 #[deps(NU)]
-fn nu_chain_passes_the_value_through() -> Result {
+fn nu_chain_passes_values() -> Result {
     test()
-        .run("nu -n -c '[1 2 3]' | nu -n -c '$in' | nu -n -c '$in | math sum'")
-        .expect_value_eq(6)
+        .run(
+            "nu -n --structured-io -c '[1 2 3]' \
+            | nu -n --structured-io -c '$in | each { $in * 2 }' \
+            | nu -n --structured-io -c '$in | math sum'",
+        )
+        .expect_value_eq(12)
 }
 
 #[test]
 #[deps(NU)]
-fn nu_with_fed_stdin_into_nu() -> Result {
-    // The middle `nu`'s stdin is fed by a thread, so its output can't be handed on as a pipe.
+fn endless_output_stops_when_the_parent_does() -> Result {
     test()
-        .run("[1 2 3] | nu -n -c '$in' | nu -n -c '$in | math sum'")
-        .expect_value_eq(6)
-}
-
-#[rstest::rstest]
-#[case::catch("catch { 'x' }")]
-#[case::finally("finally { }")]
-#[case::catch_and_finally("catch { 'x' } finally { }")]
-#[nu_test_support::test]
-#[deps(NU)]
-fn try_passes_the_value_on(#[case] handlers: &str) -> Result {
-    test()
-        .run(format!(
-            "try {{ nu -n -c '[1 2 3]' }} {handlers} | nu -n -c '$in | math sum'"
-        ))
-        .expect_value_eq(6)
+        .run("nu -n --structured-io -c '1.. | each {|x| $x }' | first 3")
+        .expect_value_eq([1, 2, 3])
 }
 
 #[test]
 #[deps(NU)]
-fn custom_command_output_into_nu() -> Result {
-    // The custom command's last `nu` hands its output on without waiting for it.
+fn endless_input_stops_when_the_child_does() -> Result {
     test()
-        .run("def three [] { nu -n -c '[1 2 3]' }; three | nu -n -c '$in | math sum'")
-        .expect_value_eq(6)
+        .run("1.. | nu -n --structured-io -c '$in | first 3'")
+        .expect_value_eq([1, 2, 3])
 }
 
 #[test]
 #[deps(NU)]
-fn value_into_a_text_reader_is_text() -> Result {
-    // The second child asks for text, so it gets `hello`, not a NUON frame of `"hello"`.
+fn children_run_side_by_side() -> Result {
     test()
-        .run("nu -n -c '\"hello\"' | nu -n --structured-io=false --stdin -c '$in'")
-        .expect_value_eq("hello")
+        .run("1..4 | par-each {|i| nu -n --structured-io -c $'($i * 10)' } | sort")
+        .expect_value_eq([10, 20, 30, 40])
 }
 
 #[test]
 #[deps(NU)]
-fn print_only_child_stays_text() -> Result {
+fn print_goes_to_the_terminal() -> Result {
+    // The outer `nu` stands in for the terminal.
+    let result: CompleteResult = test().run(
+        r#"nu -n -c "nu -n --structured-io -c 'print hello; [1 2 3]' | describe" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0, "{}", result.stderr);
+    assert_eq!(
+        result.stdout.lines().collect::<Vec<_>>(),
+        ["hello", "list<int>"]
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn trailing_external_is_a_byte_stream() -> Result {
     test()
-        .run("nu -n -c 'print a; print b' | lines")
+        .run("nu -n --structured-io -c 'nu -n -c \"print a; print b\"' | lines")
         .expect_value_eq(["a", "b"])
 }
 
 #[test]
 #[deps(NU)]
-fn print_before_value_makes_text() -> Result {
-    let out: String = test().run("nu -n -c 'print hello; [1 2 3]' | to text")?;
-    assert!(out.starts_with("hello\n"), "{out:?}");
-    assert!(!out.contains('\u{1e}'), "{out:?}");
-    Ok(())
-}
-
-#[test]
-#[deps(NU)]
-fn print_to_stderr_keeps_value() -> Result {
+fn failing_trailing_external_fails() -> Result {
     test()
-        .run("nu -n -c 'print -e hello; [1 2 3]' | describe")
-        .expect_value_eq("list<int>")
+        .run("try { nu -n --structured-io -c 'nu -n -c \"exit 3\"' | lines } catch { 'failed' }")
+        .expect_value_eq("failed")
 }
 
 #[test]
 #[deps(NU)]
-fn external_output_before_value_makes_text() -> Result {
-    let out: String = test().run("nu -n -c 'nu -n -c \"print hi\"; [1 2 3]' | to text")?;
-    assert!(out.starts_with("hi\n"), "{out:?}");
-    assert!(!out.contains('\u{1e}'), "{out:?}");
-    Ok(())
-}
-
-#[test]
-#[deps(NU)]
-fn merged_stderr_stays_text() -> Result {
+fn exit_without_a_result_gives_nothing() -> Result {
     test()
-        .run("nu -n -c '[1 2 3]' o+e>| describe")
-        .expect_value_eq("byte stream")
-}
-
-#[test]
-#[deps(NU)]
-fn unserializable_value_falls_back_to_text() -> Result {
-    test()
-        .run("nu -n -c '{|x| $x}' | describe")
-        .expect_value_eq("byte stream")
-}
-
-#[test]
-#[deps(NU)]
-fn unserializable_input_falls_back_to_text() -> Result {
-    test()
-        .run("[{|| 1}] | nu -n -c '$in | describe'")
-        .expect_value_eq("string")
-}
-
-#[test]
-#[deps(NU)]
-fn script_output_before_main_makes_text() -> Result {
-    Playground::setup("structured_io_output_before_main", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "def main [] { [1 2 3] }\n'top'\n",
-        )]);
-
-        let out: String = test().cwd(dirs.test()).run("nu -n foo.nu | to text")?;
-        assert!(out.starts_with("top"), "{out:?}");
-        assert!(!out.contains('\u{1e}'), "{out:?}");
-        Ok(())
-    })
-}
-
-#[test]
-#[deps(NU)]
-fn handshake_is_hidden_from_the_child() -> Result {
-    test()
-        .run("nu -n -c '$env.NU_STRUCTURED_IO? | describe'")
+        .run("nu -n --structured-io -c 'exit 0' | describe")
         .expect_value_eq("nothing")
 }
 
 #[test]
 #[deps(NU)]
-fn user_set_handshake_does_not_reach_an_uncaptured_child() -> Result {
-    // `complete` reads the raw output, so the parent removes the variable and the child prints text.
-    let result: CompleteResult = test()
-        .run("with-env {NU_STRUCTURED_IO: '1'} { nu -n -c '[1 2 3] | to nuon' | complete }")?;
+fn failing_child_fails() -> Result {
+    test()
+        .run("try { nu -n --structured-io -c 'exit 3' } catch { 'failed' }")
+        .expect_value_eq("failed")
+}
+
+#[test]
+#[deps(NU)]
+fn value_without_nuon_is_an_error() -> Result {
+    test()
+        .run("try { nu -n --structured-io -c '{|| 1}' } catch {|e| $e.msg }")
+        .expect_value_eq("Error from another nu")
+}
+
+#[test]
+#[deps(NU)]
+fn error_item_ends_up_in_the_list() -> Result {
+    let code = "nu -n --structured-io -c '[1 2] | each {|x| if $x == 2 { error make {msg: two} } else { $x } }'";
+    test().run(format!("{code} | first")).expect_value_eq(1)?;
+    test()
+        .run(format!(
+            "try {{ {code} | to nuon }} catch {{|e| $e.debug | str contains two }}"
+        ))
+        .expect_value_eq(true)
+}
+
+#[test]
+#[deps(NU)]
+fn try_passes_the_value_on() -> Result {
+    test()
+        .run("try { nu -n --structured-io -c '[1 2 3]' } catch { 'x' } | math sum")
+        .expect_value_eq(6)
+}
+
+#[test]
+#[deps(NU)]
+fn complete_gets_text() -> Result {
+    let result: CompleteResult =
+        test().run("nu -n --structured-io -c '[1 2 3] | to nuon' | complete")?;
+    assert_eq!(result.exit_code, 0);
     assert_eq!(result.stdout.trim(), "[1, 2, 3]");
     Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn uncaptured_nested_nu_prints_text() -> Result {
-    // The inner `nu` is the last command of the middle one, whose stdout `complete` reads as text.
-    let result: CompleteResult =
-        test().run("nu -n -c '[1 2 3] | nu -n -c \"$in | describe\"' | complete")?;
-    assert_eq!(result.stdout.trim(), "list<int>");
-    Ok(())
+fn merged_stderr_gets_text() -> Result {
+    test()
+        .run("nu -n --structured-io -c '[1 2 3]' o+e>| describe")
+        .expect_value_eq("byte stream")
 }
 
 #[test]
 #[deps(NU)]
-fn child_script_file_stays_structured() -> Result {
+fn value_for_another_program_is_text() -> Result {
+    test()
+        .run(
+            "nu -n --structured-io -c '\"hello\"' | nu -n --stdin -c '$in | str length' | into int",
+        )
+        .expect_value_eq(5)
+}
+
+#[test]
+#[deps(NU)]
+fn handshake_is_hidden_from_the_child() -> Result {
+    test()
+        .run("nu -n --structured-io -c '$env | columns | any { $in == NU_STRUCTURED_IO }'")
+        .expect_value_eq(false)
+}
+
+#[test]
+#[deps(NU)]
+fn user_set_handshake_never_reaches_a_child() -> Result {
+    test()
+        .run("with-env {NU_STRUCTURED_IO: '1;x;o;nowhere'} { nu -n -c '[1 2 3]' | describe }")
+        .expect_value_eq("byte stream")
+}
+
+#[test]
+#[deps(NU)]
+fn interactive_child_passes_values() -> Result {
+    test()
+        .run("[1 2 3] | nu -n -i --structured-io -c '$in | math sum' | describe")
+        .expect_value_eq("int")
+}
+
+#[test]
+#[deps(NU)]
+fn script_file_passes_values() -> Result {
     Playground::setup("structured_io_script_file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "
-                def main [] {
-                    [1 2 3]
-                }
-            ",
+            "double.nu",
+            "def main [] { $in | each { $in * 2 } }",
         )]);
 
         test()
             .cwd(dirs.test())
-            .run("nu -n foo.nu | math sum")
-            .expect_value_eq(6)
+            .run("[1 2 3] | nu -n --structured-io double.nu | math sum")
+            .expect_value_eq(12)
     })
 }
 
 #[test]
 #[deps(NU)]
-fn child_script_file_reads_structured_stdin() -> Result {
-    Playground::setup("structured_io_script_file_stdin", |dirs, sandbox| {
+fn startup_files_print_as_usual() -> Result {
+    Playground::setup("structured_io_config", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "
-                def main [] {
-                    $in | math sum
-                }
-            ",
+            "config.nu",
+            "print 'from config'; 'config result'",
         )]);
-
-        test()
-            .cwd(dirs.test())
-            .run("[1 2 3] | nu -n foo.nu")
-            .expect_value_eq(6)
+        let result: CompleteResult = test().cwd(dirs.test()).run(
+            r#"nu -n -c "nu --no-std-lib --config config.nu --structured-io -c '[1 2]' | describe" | complete"#,
+        )?;
+        assert_eq!(result.exit_code, 0, "{}", result.stderr);
+        assert_eq!(result.stdout.lines().last(), Some("list<int>"));
+        assert_contains("from config", result.stdout);
+        Ok(())
     })
 }
 
 #[test]
 #[deps(NU)]
-fn child_user_out_flag_does_not_take_structured_stdin() -> Result {
+#[cfg(unix)]
+fn exec_into_nu_keeps_the_value() -> Result {
     test()
-        .run("[1 2 3] | nu -n --structured-io=out -c '$in | describe'")
-        .expect_value_eq("nothing")
+        .run("nu -n --structured-io -c 'exec nu -n -c \"[1 2 3]\"' | describe")
+        .expect_value_eq("list<int>")
 }
 
 #[test]
 #[deps(NU)]
 #[cfg(unix)]
-fn shebang_script_stays_structured() -> Result {
-    Playground::setup("structured_io_shebang", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "#!/usr/bin/env nu
-def main [] {
-    [1 2 3]
-}
-",
-        )]);
-        make_executable(dirs.test(), "foo.nu")?;
-
-        test()
-            .cwd(dirs.test())
-            .run("./foo.nu | math sum")
-            .expect_value_eq(6)
-    })
-}
-
-#[test]
-#[deps(NU)]
-#[cfg(unix)]
-fn shebang_script_reads_structured_stdin() -> Result {
-    Playground::setup("structured_io_shebang_stdin", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "#!/usr/bin/env nu
-def main [] {
-    $in | math sum
-}
-",
-        )]);
-        make_executable(dirs.test(), "foo.nu")?;
-
-        test()
-            .cwd(dirs.test())
-            .run("[1 2 3] | ./foo.nu | describe")
-            .expect_value_eq("int")
-    })
-}
-
-#[test]
-#[deps(NU)]
-#[cfg(unix)]
-fn shebang_scripts_chain() -> Result {
+fn shebang_scripts_with_the_flag_chain() -> Result {
     Playground::setup("structured_io_shebang_chain", |dirs, sandbox| {
         sandbox.with_files(&[
             FileWithContent(
                 "list.nu",
-                "#!/usr/bin/env nu
+                "#!/usr/bin/env -S nu -n --structured-io
 def main [] { [1 2 3] }
 ",
             ),
             FileWithContent(
                 "sum.nu",
-                "#!/usr/bin/env nu
+                "#!/usr/bin/env -S nu -n --structured-io
 def main [] { $in | math sum }
 ",
             ),
@@ -374,232 +306,69 @@ def main [] { $in | math sum }
 #[test]
 #[deps(NU)]
 #[cfg(unix)]
-fn shebang_script_piped_to_complete_keeps_text() -> Result {
-    Playground::setup("structured_io_shebang_complete", |dirs, sandbox| {
+fn shebang_without_the_flag_gives_text() -> Result {
+    Playground::setup("structured_io_plain_shebang", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "#!/usr/bin/env nu
-def main [] { [1 2 3] | to nuon }
-",
-        )]);
-        make_executable(dirs.test(), "foo.nu")?;
-
-        let result: CompleteResult = test().cwd(dirs.test()).run("./foo.nu | complete")?;
-        assert_eq!(result.stdout.trim(), "[1, 2, 3]");
-        Ok(())
-    })
-}
-
-#[test]
-#[deps(NU)]
-#[cfg(unix)]
-fn shebang_script_found_on_path_stays_structured() -> Result {
-    Playground::setup("structured_io_path_script", |dirs, sandbox| {
-        sandbox.within("bin").with_files(&[FileWithContent(
-            "sum3",
+            "list.nu",
             "#!/usr/bin/env nu
 def main [] { [1 2 3] }
 ",
         )]);
-        make_executable(dirs.test().join("bin"), "sum3")?;
+        make_executable(dirs.test(), "list.nu")?;
 
         test()
             .cwd(dirs.test())
-            .run("$env.PATH = ($env.PATH | prepend ($env.PWD | path join bin)); sum3 | math sum")
-            .expect_value_eq(6)
-    })
-}
-
-#[test]
-#[deps(NU)]
-#[cfg(unix)]
-fn shebang_script_arg_false_does_not_disable_parent() -> Result {
-    Playground::setup("structured_io_shebang_script_arg", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "#!/usr/bin/env nu
-def main [--structured-io: any] {
-    [1 2 3]
-}
-",
-        )]);
-        make_executable(dirs.test(), "foo.nu")?;
-
-        test()
-            .cwd(dirs.test())
-            .run("./foo.nu --structured-io=false | math sum")
-            .expect_value_eq(6)
-    })
-}
-
-#[test]
-#[cfg(unix)]
-fn sh_shebang_nu_extension_stays_bytes() -> Result {
-    Playground::setup("structured_io_liar_nu", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "liar.nu",
-            r#"#!/bin/sh
-printf 'hello\n'
-"#,
-        )]);
-        make_executable(dirs.test(), "liar.nu")?;
-
-        test()
-            .cwd(dirs.test())
-            .run("./liar.nu | describe")
+            .run("./list.nu | describe")
             .expect_value_eq("byte stream")
     })
 }
 
 #[test]
-#[deps(NU)]
 #[cfg(unix)]
-fn external_child_does_not_inherit_handshake() -> Result {
-    // The middle `nu` is asked for a value; `env` must not see the request.
-    test()
-        .run("nu -n -c '^/usr/bin/env' | lines | any { str starts-with NU_STRUCTURED_IO= }")
-        .expect_value_eq(false)
-}
-
-#[test]
-#[deps(NU)]
-#[cfg(unix)]
-fn exec_into_nu_keeps_the_value() -> Result {
-    test()
-        .run("nu -n -c 'exec nu -n -c \"[1 2 3]\"' | describe")
-        .expect_value_eq("list<int>")
-}
-
-#[test]
-#[deps(NU)]
-#[cfg(unix)]
-fn endless_stdin_is_not_read_ahead() -> Result {
-    test()
-        .run("^/usr/bin/yes | nu -n --stdin -c 'lines | first 3'")
-        .expect_value_eq(["y", "y", "y"])
-}
-
-#[test]
-#[deps(NU)]
-#[cfg(unix)]
-fn child_value_to_other_external_is_text() -> Result {
-    test()
-        .run("nu -n -c '\"hello\"' | ^/bin/cat")
-        .expect_value_eq("hello")
-}
-
-#[test]
-#[deps(NU)]
-fn print_in_gets_the_value_not_the_frame() -> Result {
-    // `print $in` collects `$in` from a stream that `run-external` tagged for an external.
-    let nested: CompleteResult =
-        test().run(r#"nu -n -c "nu -n -c '[1 2 3]' | print $in" | complete"#)?;
-    let direct: CompleteResult = test().run(r#"nu -n -c "[1 2 3] | print $in" | complete"#)?;
-    assert_eq!(nested.exit_code, 0, "{}", nested.stderr);
-    assert_contains_not("\u{1e}", nested.stdout.as_str());
-    assert_eq!(nested.stdout, direct.stdout);
-    Ok(())
-}
-
-#[rstest::rstest]
-#[case::value("[1 2 3]", "list<int>")]
-#[case::text("print hi", "string")]
-#[nu_test_support::test]
-#[deps(NU)]
-fn finally_gets_the_value_not_the_frame(#[case] child: &str, #[case] expected: &str) -> Result {
-    // The `nu` after the `try` makes the child's output a tagged stream, which `finally` copies.
-    let code = format!(
-        r#"nu -n -c "try {{ nu -n -c '{child}' }} finally {{|x| print -e ($x | describe) }} | nu -n -c '$in | describe'" | complete"#
-    );
-    let result: CompleteResult = test().run(code)?;
-    assert_eq!(result.exit_code, 0, "{}", result.stderr);
-    assert_eq!(result.stderr.trim(), expected);
-    Ok(())
-}
-
-#[rstest::rstest]
-#[case::silent("silent", "$env.FROM_CONFIG = 1", "list<int>")]
-#[case::ends_in_a_value("value", "'from config'", "byte stream")]
-#[case::prints("prints", "print 'from config'", "byte stream")]
-#[nu_test_support::test]
-#[deps(NU)]
-fn startup_files_never_send_a_frame(
-    #[case] topic: &str,
-    #[case] config: &str,
-    #[case] expected: &str,
-) -> Result {
-    // Each case gets its own sandbox, named after its topic.
-    Playground::setup(&format!("structured_io_config_{topic}"), |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("config.nu", config)]);
-        let mut tester = test().cwd(dirs.test());
-        let code = "nu --no-std-lib --config config.nu -c '[1 2]'";
-        tester
-            .run(format!("{code} | describe"))
-            .expect_value_eq(expected)?;
-        if expected == "byte stream" {
-            let text: String = tester.run(format!("{code} | to text"))?;
-            assert!(text.starts_with("from config"), "{text:?}");
-            assert_contains_not("\u{1e}", text.as_str());
-        }
-        Ok(())
-    })
-}
-
-#[test]
-#[deps(NU)]
-fn interactive_child_takes_a_value_and_gives_text() -> Result {
-    // The input arrives as a value (11 would be the length of the frame), the output as text.
-    test()
-        .run("'hi' | nu -n -i --stdin -c '$in | str length' | into int")
-        .expect_value_eq(2)?;
-    test()
-        .run("[1 2 3] | nu -n -i -c '$in | math sum' | into int")
-        .expect_value_eq(6)?;
-    test()
-        .run("nu -n -i -c '[1 2 3]' | describe")
-        .expect_value_eq("byte stream")
-}
-
-#[test]
-#[deps(NU)]
-fn script_args_do_not_switch_off_the_parent() -> Result {
-    Playground::setup("structured_io_script_args", |dirs, sandbox| {
+fn flag_for_another_program_changes_nothing() -> Result {
+    // Like `rg --structured-io src`: only `nu` asks for structured IO.
+    Playground::setup("structured_io_other_program", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
-            "foo.nu",
-            "def main [--structured-io: any] { [1 2 3] }",
-        )]);
-
-        test()
-            .cwd(dirs.test())
-            .run("nu -n foo.nu --structured-io=false | describe")
-            .expect_value_eq("list<int>")
-    })
-}
-
-#[test]
-#[deps(NU)]
-fn mistyped_flag_value_is_an_error() -> Result {
-    let result: CompleteResult = test().run("nu -n --structured-io=output -c '1' | complete")?;
-    assert_ne!(result.exit_code, 0);
-    assert_contains("Invalid value for `--structured-io`", result.stderr);
-    Ok(())
-}
-
-#[test]
-#[cfg(unix)]
-fn other_shebang_with_nu_extension_reads_text() -> Result {
-    Playground::setup("structured_io_liar_nu_stdin", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "liar.nu",
+            "hello",
             "#!/bin/sh
-/usr/bin/wc -c
+printf 'hello\\n'
 ",
         )]);
-        make_executable(dirs.test(), "liar.nu")?;
+        make_executable(dirs.test(), "hello")?;
 
         test()
             .cwd(dirs.test())
-            .run("'hi' | ./liar.nu | str trim | into int")
-            .expect_value_eq(2)
+            .run("./hello --structured-io | str trim")
+            .expect_value_eq("hello")
+    })
+}
+
+#[test]
+#[deps(NU)]
+#[cfg(unix)]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "only Linux finds the opener on PATH; elsewhere this would open a real application"
+)]
+fn start_does_not_pass_the_link_on() -> Result {
+    // `start` runs the opener with this process's environment. On Linux the opener is found on
+    // `PATH` (on macOS it's `/usr/bin/open`), so a fake one can record what it got.
+    Playground::setup("structured_io_start", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("xdg-open", "#!/bin/sh\nenv > \"$PWD/opener-env\"\n"),
+            FileWithContent("doc.txt", "x"),
+        ]);
+        make_executable(dirs.test(), "xdg-open")?;
+
+        // `describe` reads the result, so the child gets the link.
+        test()
+            .cwd(dirs.test())
+            .run(
+                "$env.PATH = ($env.PATH | prepend $env.PWD)
+                nu -n --structured-io -c 'start doc.txt; 1' | describe | ignore
+                let env_lines = open opener-env | lines
+                [($env_lines | is-not-empty) ($env_lines | any { str starts-with NU_STRUCTURED_IO= })]",
+            )
+            .expect_value_eq([true, false])
     })
 }

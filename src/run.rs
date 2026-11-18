@@ -9,8 +9,8 @@ use nu_cli::{EvaluateCommandsOpts, evaluate_commands, evaluate_file, evaluate_re
 use nu_config::ConfigFileKind;
 use nu_engine::exit::kill_jobs_and_exit;
 use nu_protocol::{
-    PipelineData, ShellError,
-    engine::{EngineState, Stack},
+    OutDest, PipelineData, ShellError, StructuredIoLink,
+    engine::{EngineState, Redirection, Stack},
     report_shell_error,
 };
 use nu_utils::perf;
@@ -23,7 +23,7 @@ pub(crate) fn run_commands(
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
-    structured_output: bool,
+    structured_output: Option<StructuredIoLink>,
 ) {
     trace!("run_commands");
 
@@ -99,20 +99,19 @@ pub(crate) fn run_commands(
 
     // Startup ends when the commands start running.
     engine_state.finish_startup();
-    // Only the commands' own result can be the value a parent `nu` reads, not a startup file's.
-    engine_state.structured_io_output = structured_output;
 
     let start_time = Instant::now();
-    let result = evaluate_commands(
-        commands,
+    let opts = EvaluateCommandsOpts {
+        table_mode: parsed_nu_cli_args.table_mode,
+        error_style: parsed_nu_cli_args.error_style,
+        no_newline: parsed_nu_cli_args.no_newline.is_some(),
+    };
+    let result = with_structured_output(
         engine_state,
         &mut stack,
-        input,
-        args_to_script,
-        EvaluateCommandsOpts {
-            table_mode: parsed_nu_cli_args.table_mode,
-            error_style: parsed_nu_cli_args.error_style,
-            no_newline: parsed_nu_cli_args.no_newline.is_some(),
+        structured_output,
+        |engine_state, stack| {
+            evaluate_commands(commands, engine_state, stack, input, args_to_script, opts)
         },
     );
     perf!("evaluate_commands", start_time, use_color);
@@ -132,7 +131,7 @@ pub(crate) fn run_file(
     parsed_cli: command::ParsedCli,
     use_color: bool,
     input: PipelineData,
-    structured_output: bool,
+    structured_output: Option<StructuredIoLink>,
 ) {
     trace!("run_file");
 
@@ -190,8 +189,6 @@ pub(crate) fn run_file(
 
     // Startup ends when the script starts running.
     engine_state.finish_startup();
-    // Only the script's own result can be the value a parent `nu` reads, not a startup file's.
-    engine_state.structured_io_output = structured_output;
 
     // Apply --table-mode / -m CLI flag override before evaluating the file
     if let Some(ref t_mode) = parsed_nu_cli_args.table_mode
@@ -204,12 +201,13 @@ pub(crate) fn run_file(
     }
 
     let start_time = Instant::now();
-    let result = evaluate_file(
-        script_name,
-        &args_to_script,
+    let result = with_structured_output(
         engine_state,
         &mut stack,
-        input,
+        structured_output,
+        |engine_state, stack| {
+            evaluate_file(script_name, &args_to_script, engine_state, stack, input)
+        },
     );
     perf!("evaluate_file", start_time, use_color);
 
@@ -220,6 +218,24 @@ pub(crate) fn run_file(
         report_shell_error(Some(&stack), engine_state, &err);
         kill_jobs_and_exit(engine_state, err.exit_code().unwrap_or(0));
     }
+}
+
+/// Runs the commands or the script, sending the result to the `nu` that started this one with
+/// `--structured-io` when it reads it. That's set up only now, so a startup file's result is
+/// printed as usual. The output of an external at the end is sent too, as it would be from a
+/// custom command, so it goes to a pipe instead of the terminal.
+fn with_structured_output<T>(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    structured_output: Option<StructuredIoLink>,
+    run: impl FnOnce(&mut EngineState, &mut Stack) -> T,
+) -> T {
+    let Some(link) = structured_output else {
+        return run(engine_state, stack);
+    };
+    engine_state.structured_io_output = Some(link);
+    let mut stack = stack.push_redirection(Some(Redirection::Pipe(OutDest::Pipe)), None);
+    run(engine_state, &mut stack)
 }
 
 pub(crate) fn run_repl(

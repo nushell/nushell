@@ -2,9 +2,7 @@ use std::{fs::File, sync::Arc};
 
 use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_tilde};
 #[cfg(feature = "os")]
-use nu_protocol::{
-    ByteStream, ByteStreamSource, is_structured_io_child, process::check_exit_status_future,
-};
+use nu_protocol::{ByteStreamSource, process::check_exit_status_future};
 use nu_protocol::{
     CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, LabeledError,
     ListStream, OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId,
@@ -631,27 +629,6 @@ fn eval_instruction<D: DebugContext>(
             // `finally` copies its result. The copy is what the stdout collects to, read from
             // memory, and `src` keeps the external, so the next command still gets its stderr.
             #[cfg(feature = "os")]
-            if is_structured_io_child(ctx.borrow_reg(*src))
-                && let PipelineData::ByteStream(stream, metadata) = ctx.borrow_reg_mut(*src)
-                && let ByteStreamSource::Child(child) = stream.source_mut()
-            {
-                // `try` passes on a `nu` child's tagged output uncollected too (see
-                // `try_collect`). `finally` gets the value it sent, or its text.
-                let copy = PipelineData::byte_stream(
-                    ByteStream::child(child.copy_stdout()?, *span),
-                    metadata.clone(),
-                );
-                let value = ctx
-                    .engine_state
-                    .decode_structured_io(copy, *span)?
-                    .into_value(*span)?;
-                ctx.put_reg(
-                    *dst,
-                    PipelineExecutionData::from(PipelineData::value(value, None)),
-                );
-                return Ok(Continue);
-            }
-            #[cfg(feature = "os")]
             if let PipelineData::ByteStream(stream, metadata) = ctx.borrow_reg_mut(*src)
                 && let Some(copy) = stream.copy_stdout()?
             {
@@ -670,14 +647,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = {
-                // A `nu` child's tagged output collects to the value it sent, not to its frame.
-                let mut data = data;
-                if is_structured_io_child(&data.body) {
-                    data.body = ctx.engine_state.decode_structured_io(data.body, *span)?;
-                }
-                collect(data, *span, true)?
-            };
+            let value = collect(data, *span, true)?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
@@ -2325,12 +2295,9 @@ fn try_collect(
     fallback_span: Span,
     stderr: &OutDest,
 ) -> Result<PipelineData, ShellError> {
-    // A `nu` child's output tagged for structured IO stays a stream too, so the command after
-    // the `try` can still decode the value in it.
-    let structured_io = is_structured_io_child(&pipe.body);
     if let PipelineData::ByteStream(stream, ..) = &mut pipe.body
         && let nu_protocol::ByteStreamSource::Child(child) = stream.source_mut()
-        && (child.stderr.is_some() || structured_io)
+        && child.stderr.is_some()
     {
         // Read the pipes before waiting on the pipeline's exit statuses: a child that fills a
         // pipe nobody reads never exits.

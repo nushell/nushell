@@ -9,6 +9,8 @@ pub mod emoji;
 pub mod filesystem;
 pub mod flatten_json;
 pub mod float;
+#[cfg(feature = "local-socket")]
+pub mod local_socket;
 pub mod locale;
 pub mod location;
 #[doc(hidden)]

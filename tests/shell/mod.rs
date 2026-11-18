@@ -662,7 +662,7 @@ fn script_glob_args_still_expand(#[case] prefix: &str) -> Result {
 #[deps(NU)]
 fn script_path_arg_with_dollar_expands_tilde() -> Result {
     test()
-        .run(r#"nu -n -c 'def main [p: path] { $p | str starts-with "~" }' '~/a$b'"#)
+        .run(r#"nu -n -c 'def main [p: path] { $p | str starts-with "~" }' '~/a$b' | from json"#)
         .expect_value_eq(false)
 }
 

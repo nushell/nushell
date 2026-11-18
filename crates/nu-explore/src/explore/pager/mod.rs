@@ -95,8 +95,6 @@ impl<'a> Pager<'a> {
         commands: CommandRegistry,
     ) -> Result<Option<Value>> {
         // setup terminal
-        // The pager draws on stdout, so a final value can't follow there as a frame.
-        engine_state.mark_stdout_used();
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen, Clear(ClearType::All))?;

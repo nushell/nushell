@@ -96,9 +96,6 @@ focus out of --types, for example `input listen --types [key mouse paste resize]
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        // Terminal modes are switched with escape codes on stdout, so a final value can't follow
-        // there as a frame.
-        engine_state.mark_stdout_used();
         let event_type_filter = get_event_type_filter(engine_state, stack, call, head)?;
         let timeout: Option<Duration> = call.get_flag(engine_state, stack, "timeout")?;
         let add_raw = call.has_flag(engine_state, stack, "raw")?;

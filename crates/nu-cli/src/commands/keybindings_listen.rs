@@ -38,8 +38,6 @@ impl Command for KeybindingsListen {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // The prompt and the events go to stdout, so a final value can't follow as a frame.
-        engine_state.mark_stdout_used();
         println!("Type any key combination to see key details. Press ESC to abort.");
 
         match print_events(&stack.get_config(engine_state), call.head) {

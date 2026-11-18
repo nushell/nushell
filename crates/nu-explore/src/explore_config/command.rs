@@ -155,8 +155,6 @@ TUI Keybindings:
             )
         };
 
-        // The tree and the TUI both write to stdout, so a final value can't follow as a frame.
-        engine_state.mark_stdout_used();
         if cli_mode {
             // Original CLI behavior
             print_json_tree(&json_data, "", true, None);

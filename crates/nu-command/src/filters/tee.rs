@@ -197,7 +197,6 @@ use it in your pipeline."
                                 }
                                 OutDest::Null => copy_pipe(stdout, io::sink(), &info),
                                 OutDest::Print | OutDest::Inherit => {
-                                    engine_state.mark_stdout_used();
                                     copy_pipe(stdout, io::stdout(), &info)
                                 }
                                 OutDest::File(file) => copy_pipe(stdout, file.as_ref(), &info),
@@ -242,10 +241,7 @@ use it in your pipeline."
                                     Ok(())
                                 }
                                 OutDest::Null => copy(tee, io::sink(), &info),
-                                OutDest::Print | OutDest::Inherit => {
-                                    engine_state.mark_stdout_used();
-                                    copy(tee, io::stdout(), &info)
-                                }
+                                OutDest::Print | OutDest::Inherit => copy(tee, io::stdout(), &info),
                                 OutDest::File(file) => copy(tee, file.as_ref(), &info),
                             }?;
                         }

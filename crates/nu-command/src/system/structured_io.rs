@@ -1,537 +1,749 @@
-//! Lets a `nu` that pipes into or out of another `nu` pass values instead of text.
+//! Passes values between a `nu` and a `nu` it starts with `--structured-io`.
 //!
-//! When `run-external` spawns a Nushell child (the `nu` binary, a `.nu` script, or a script whose
-//! shebang runs `nu`), it sets [`STRUCTURED_IO_ENV`] on that one spawn:
+//! The parent asks for it with [`STRUCTURED_IO_FLAG`] on the command line of the `nu` binary, or
+//! in the shebang line of a script that `nu` runs. It then opens a local socket and tells the
+//! child where to find it in [`STRUCTURED_IO_ENV`](nu_protocol::STRUCTURED_IO_ENV). The child
+//! keeps the terminal for its own stdin and stdout, so `print` and `input` work there as they do
+//! in a custom command, and passes values over the socket:
 //!
-//! - `in`: the parent writes its input to the child's stdin as one frame.
-//! - `out`: the parent reads the child's stdout and decodes a frame at its start.
+//! - its input, when the parent has some, on a connection it makes at startup;
+//! - its result, when the parent reads it, on a connection it makes once the result is ready.
+//!   Since that is so late, a `nu` it `exec`s into can send the result in its place.
 //!
-//! When the next command is an external, the parent doesn't wait to decode: that would hold up
-//! starting it. The output goes on tagged instead (see [`tag_structured_child`]). Another `nu`
-//! gets the pipe itself and reads the frame. Any other program, and any command that collects the
-//! output (`print`, `$in`), gets it decoded, through the decoder this crate sets on the engine.
+//! Every connection starts with the token from the link, then the role (`i` or `o`) and a
+//! newline, so the parent only talks to the process it started. After that the sender writes
+//! messages: a tag byte, a little-endian `u64` length and that many bytes.
 //!
-//! A frame is [`STRUCTURED_IO_HEADER`], then the value as raw NUON, then a newline. The child
-//! writes one only for the result of its commands or script, and only when nothing else has gone
-//! to its stdout, startup files included. Otherwise it prints its value as text, as it does
-//! without a parent `nu`, and the parent passes that text on as a byte stream. An older `nu`
-//! ignores the variable, so it falls back to text the same way.
+//! - `N`: nothing.
+//! - `V`: one value, as NUON.
+//! - `L`: a list stream, then `I` messages holding the items ready at the time as a NUON list,
+//!   then `E`.
+//! - `B`: a byte stream, with its type as `b` (binary), `s` (string) or `u` (unknown), then `C`
+//!   messages holding the bytes, then `E`.
+//! - `X`: an error, as text. In a list stream it becomes an error item.
+//!
+//! The receiver answers the last message with one `K` byte. A child waits for it before it exits,
+//! since a named pipe on Windows may lose what the other end hasn't read yet when it closes.
 
 use super::run_external::shebang_words;
+use interprocess::local_socket::{
+    Listener, Stream,
+    traits::{Listener as _, Stream as _},
+};
 use nu_protocol::{
-    ByteStream, ByteStreamType, OutDest, PipelineData, PipelineMetadata,
-    STRUCTURED_IO_CONTENT_TYPE, STRUCTURED_IO_ENV, ShellError, Signals, Span, Spanned,
-    StructuredIoMode, Value,
+    ByteStream, ByteStreamType, ListStream, OutDest, PipelineData, STRUCTURED_IO_FLAG, ShellError,
+    Signals, Span, Spanned, StructuredIoLink, StructuredIoMode, Value,
     engine::EngineState,
-    is_structured_io_child,
     process::{ChildPipe, ChildProcess},
-    shell_error::{generic::GenericError, io::IoError},
+    shell_error::{bridge::ShellErrorBridge, generic::GenericError, io::IoError},
+};
+use nu_utils::local_socket::{
+    bind_local_socket, cleanup_local_socket_dir, interpret_local_socket_name,
+    make_local_socket_name,
 };
 use nuon::{ToNuonConfig, ToStyle, from_nuon, to_nuon};
 use std::{
-    borrow::Cow,
-    ffi::OsString,
-    io::{Cursor, ErrorKind, IsTerminal, Read, Write},
-    iter::Peekable,
-    path::Path,
-    process::Command,
+    collections::VecDeque,
+    ffi::{OsStr, OsString},
+    io::{self, ErrorKind, Read, Write},
+    path::{Path, PathBuf},
+    sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
+    thread,
+    time::Duration,
 };
 
-/// Starts every frame. `0x1E` is the ASCII record separator, which text output almost never
-/// starts with.
-const STRUCTURED_IO_HEADER: &[u8] = b"\x1eNUON\n";
+const NOTHING: u8 = b'N';
+const VALUE: u8 = b'V';
+const LIST: u8 = b'L';
+const ITEMS: u8 = b'I';
+const BYTES: u8 = b'B';
+const CHUNK: u8 = b'C';
+const END: u8 = b'E';
+const ERROR: u8 = b'X';
+const ACK: u8 = b'K';
 
-/// How a `nu` flag takes its value, so a scan of a child's command line can step over it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NuFlagValue {
-    /// One value: `--config x.nu`, `--config=x.nu`, `-m rounded` or `-mrounded`.
-    One,
-    /// The values up to the next argument that starts with `-`: `--log-include a b`.
-    List,
-    /// One value, or a `[...]` list spread over several arguments: `--experimental-options`.
-    BracketList,
-}
+const ROLE_INPUT: u8 = b'i';
+const ROLE_OUTPUT: u8 = b'o';
+/// Sent by the parent itself once the child has exited, so the accepting thread stops waiting.
+const ROLE_WAKE: u8 = b'w';
 
-/// Every flag of the `nu` binary that takes a value: long name, short name and how it takes the
-/// value. A test in the `nu` binary checks this against its own flag table.
-pub const NU_VALUE_FLAGS: &[(&str, Option<char>, NuFlagValue)] = &[
-    ("commands", Some('c'), NuFlagValue::One),
-    ("execute", Some('e'), NuFlagValue::One),
-    ("include-path", Some('I'), NuFlagValue::One),
-    ("table-mode", Some('m'), NuFlagValue::One),
-    ("error-style", None, NuFlagValue::One),
-    ("config", None, NuFlagValue::One),
-    ("env-config", None, NuFlagValue::One),
-    ("config-home", None, NuFlagValue::One),
-    ("log-level", None, NuFlagValue::One),
-    ("log-target", None, NuFlagValue::One),
-    ("log-file", None, NuFlagValue::One),
-    ("log-include", None, NuFlagValue::List),
-    ("log-exclude", None, NuFlagValue::List),
-    ("structured-io", None, NuFlagValue::One),
-    ("experimental-options", None, NuFlagValue::BracketList),
-    ("ide-goto-def", None, NuFlagValue::One),
-    ("ide-hover", None, NuFlagValue::One),
-    ("ide-complete", None, NuFlagValue::One),
-    ("ide-check", None, NuFlagValue::One),
-    ("plugin-config", None, NuFlagValue::One),
-    ("plugins", None, NuFlagValue::One),
-    ("mcp-transport", None, NuFlagValue::One),
-    ("mcp-port", None, NuFlagValue::One),
-    ("mcp-host", None, NuFlagValue::One),
-    ("mcp-allowed-hosts", None, NuFlagValue::List),
-    ("mcp-allowed-origins", None, NuFlagValue::List),
-];
+/// Most list items sent in one `I` message. A sender only waits for the first one, so items that
+/// come slowly still go one by one.
+const MAX_BATCH: usize = 1024;
 
-/// Which sides of the handshake to use for one spawn.
+/// Which ways values go for one spawn: off unless the program asks for structured IO, see
+/// [`asks_for_structured_io`].
 ///
-/// `resolved` is the executable found on `PATH` and `invoked` is the name it was called by.
-/// `cli_mode` is what the command line of a `nu` binary asks for (see
-/// [`structured_io_cli_mode`]); the child follows its flags over [`STRUCTURED_IO_ENV`], so the
-/// parent does too.
+/// Input goes over the channel whenever there is some. Output goes there when this process reads
+/// the child's stdout, unless it also reads stderr: `complete`, `save` and `o+e>|` get the child's
+/// text as before.
 pub fn structured_io_for_child(
-    resolved: &Path,
-    invoked: &Path,
+    executable: &Path,
+    args: &[Spanned<OsString>],
     stdout: &OutDest,
     stderr: &OutDest,
     input: &PipelineData,
-    cli_mode: Option<StructuredIoMode>,
 ) -> StructuredIoMode {
-    // Only stdout on a pipe of its own can carry a frame, and only while nothing captures stderr.
-    // `complete`, `save` and `tee` ask for `PipeSeparate` because they handle the raw output,
-    // `o+e>|` merges stderr into the pipe, and a captured stderr (`nu --mcp` captures both) would
-    // need reading alongside stdout, with no place to keep it once stdout is a value.
-    // `PipeRaw` (a plain `|` into an external) still gets the value: the next command may be
-    // another `nu`, which takes it as a frame, and any other program gets it as text.
     let stderr_captured = matches!(
         stderr,
         OutDest::Pipe | OutDest::PipeRaw | OutDest::PipeSeparate | OutDest::Value
     );
     let wanted = StructuredIoMode {
-        input: matches!(
-            input,
-            PipelineData::Value(..) | PipelineData::ListStream(..)
-        ) || is_structured_io_child(input),
+        input: !matches!(input, PipelineData::Empty),
         output: matches!(stdout, OutDest::Pipe | OutDest::PipeRaw | OutDest::Value)
             && !stderr_captured,
     };
-    let mode = match cli_mode {
-        Some(mode) => StructuredIoMode {
-            input: wanted.input && mode.input,
-            output: wanted.output && mode.output,
-        },
-        None => wanted,
-    };
-    // Checked last: on Unix it reads the start of the executable to look for a shebang.
-    if mode.any() && is_nushell_child(resolved, invoked) {
-        mode
+    // Checked last: for a script it reads the start of the file.
+    if wanted.any() && asks_for_structured_io(executable, args) {
+        wanted
     } else {
         StructuredIoMode::default()
     }
 }
 
-/// What the command line of a `nu` binary asks of the handshake.
-///
-/// Off when the child won't take part: a server mode (`--mcp`, `--lsp`, `--dap`), whose stdin and
-/// stdout carry a protocol, or neither commands nor a script to run. Otherwise the last
-/// `--structured-io`, or `None` when there is none.
-///
-/// The child reads its own flags only up to the script path or through the commands of `-c`, and
-/// passes the rest on to the script, so the scan stops there too. Getting there means stepping
-/// over flag values the way the child's parser does (see [`NU_VALUE_FLAGS`]).
-pub fn structured_io_cli_mode(args: &[Spanned<OsString>]) -> Option<StructuredIoMode> {
-    let mut args = args.iter().map(|arg| arg.item.to_string_lossy()).peekable();
-    let mut mode = None;
-    let mut runs = false;
-    let mut server = false;
-    while let Some(arg) = args.next() {
-        if arg == "--" {
-            // The script path follows.
-            runs = args.next().is_some();
-            break;
-        }
-        let (name, value) = if let Some(long) = arg.strip_prefix("--") {
-            if matches!(long, "mcp" | "lsp" | "dap") {
-                server = true;
-                continue;
-            }
-            let (name, inline) = match long.split_once('=') {
-                Some((name, value)) => (name, Some(value.to_owned())),
-                None => (long, None),
-            };
-            let Some(&(_, _, kind)) = NU_VALUE_FLAGS.iter().find(|flag| flag.0 == name) else {
-                continue;
-            };
-            (name, take_flag_value(kind, inline, &mut args))
-        } else if let Some(shorts) = arg.strip_prefix('-')
-            && !shorts.is_empty()
-        {
-            // In a group (`-nc`), the first flag that takes a value takes the rest of the group,
-            // or the next argument when nothing is left.
-            let found = shorts.char_indices().find_map(|(at, short)| {
-                let flag = NU_VALUE_FLAGS.iter().find(|flag| flag.1 == Some(short))?;
-                Some((&shorts[at + short.len_utf8()..], flag))
-            });
-            let Some((rest, &(name, _, kind))) = found else {
-                continue;
-            };
-            let inline = (!rest.is_empty()).then(|| rest.strip_prefix('=').unwrap_or(rest).into());
-            (name, take_flag_value(kind, inline, &mut args))
-        } else {
-            // The script path (or on Windows, `/c` for `-c`). The rest belongs to the script.
-            runs = true;
-            break;
-        };
-        match name {
-            "commands" => {
-                runs = true;
-                break;
-            }
-            "structured-io" => mode = value.map(|value| StructuredIoMode::from_flag_str(&value)),
-            _ => {}
-        }
+/// Whether a spawn asks for structured IO: the `nu` binary with [`STRUCTURED_IO_FLAG`] among its
+/// arguments, or a script whose shebang runs `nu` with it. Other programs never do, whatever their
+/// arguments are, so `rg --structured-io` still prints what it finds.
+fn asks_for_structured_io(executable: &Path, args: &[Spanned<OsString>]) -> bool {
+    if is_nu_binary(executable) {
+        return args.iter().any(|arg| arg.item == STRUCTURED_IO_FLAG);
     }
-    if server || !runs {
-        Some(StructuredIoMode::default())
-    } else {
-        mode
-    }
-}
-
-/// Takes a flag's value from `args`, the way the `nu` binary's parser does, after the value given
-/// in the flag's own argument (`--flag=value`, `-mvalue`), if any. Returns the value of a
-/// [`NuFlagValue::One`] flag; the others are only stepped over.
-fn take_flag_value<'a>(
-    kind: NuFlagValue,
-    inline: Option<String>,
-    args: &mut Peekable<impl Iterator<Item = Cow<'a, str>>>,
-) -> Option<String> {
-    match kind {
-        NuFlagValue::One => inline.or_else(|| args.next().map(Cow::into_owned)),
-        // A value in the flag's own argument is the only one.
-        NuFlagValue::List => {
-            if inline.is_none() {
-                while args
-                    .next_if(|next| !next.starts_with('-') || next == "-")
-                    .is_some()
-                {}
-            }
-            None
-        }
-        NuFlagValue::BracketList => {
-            let first = inline.or_else(|| args.next().map(Cow::into_owned))?;
-            if first.trim_start().starts_with('[') && !first.trim_end().ends_with(']') {
-                while args
-                    .next()
-                    .is_some_and(|next| !next.trim_end().ends_with(']'))
-                {}
-            }
-            None
-        }
-    }
-}
-
-/// Sets [`STRUCTURED_IO_ENV`] on `command` for `mode`, or removes it when `mode` is off, so a
-/// variable the user set never reaches a child that this process won't decode.
-pub fn set_structured_io_env(command: &mut Command, mode: StructuredIoMode) {
-    match mode.as_flag_str() {
-        Some(value) => command.env(STRUCTURED_IO_ENV, value),
-        None => command.env_remove(STRUCTURED_IO_ENV),
-    };
-}
-
-/// Whether `path` names the `nu` binary.
-pub fn is_nu_binary(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(is_nushell_basename)
-}
-
-/// Whether a spawn runs Nushell: the `nu` binary, or a script that `nu` runs. On Unix the
-/// shebang line names the program that runs a script, whatever the script is called, so the
-/// `.nu` extension counts only for a file without one.
-pub fn is_nushell_child(resolved: &Path, invoked: &Path) -> bool {
-    if is_nu_binary(resolved) || is_nu_binary(invoked) {
-        return true;
-    }
-    if cfg!(unix)
-        && let Some(words) = shebang_words(resolved)
-    {
-        return words
-            .iter()
-            .filter_map(|word| Path::new(word).file_name()?.to_str())
-            .any(is_nushell_basename);
-    }
-    has_nu_extension(resolved) || has_nu_extension(invoked)
-}
-
-/// Writes `value` to `writer` as one frame. Returns `false`, having written nothing, when the
-/// value has no NUON form (a closure, for one).
-fn write_frame(
-    engine_state: &EngineState,
-    value: &Value,
-    writer: &mut impl Write,
-) -> std::io::Result<bool> {
-    let Ok(nuon) = to_nuon(
-        engine_state,
-        value,
-        ToNuonConfig::default().style(ToStyle::Raw),
-    ) else {
-        return Ok(false);
-    };
-    writer.write_all(STRUCTURED_IO_HEADER)?;
-    writer.write_all(nuon.as_bytes())?;
-    if !nuon.ends_with('\n') {
-        writer.write_all(b"\n")?;
-    }
-    writer.flush()?;
-    Ok(true)
-}
-
-/// Writes `value` to a child's stdin as one frame, or nothing for `nothing`.
-///
-/// Returns the value back when it has no NUON form, so the caller can send it as text instead.
-/// The child reads input that doesn't start with a frame as a byte stream.
-pub fn write_structured_input(
-    engine_state: &EngineState,
-    value: Value,
-    writer: &mut impl Write,
-) -> Result<Option<Value>, ShellError> {
-    if value.is_nothing() {
-        return Ok(None);
-    }
-    let written = write_frame(engine_state, &value, writer)
-        .map_err(|err| IoError::new_internal(err, "Could not write structured input"))?;
-    Ok((!written).then_some(value))
-}
-
-/// Reads the start of a child's stdout to see whether it sent a frame.
-///
-/// A frame becomes the value it holds. Anything else stays the child's output, as a byte stream
-/// that starts with the bytes read here, so text keeps streaming. Only the first byte is needed to
-/// tell text from a frame.
-pub fn read_structured_child(
-    mut child: ChildProcess,
-    span: Span,
-) -> Result<PipelineData, ShellError> {
-    let Some(mut stdout) = child.stdout.take() else {
-        return Ok(PipelineData::byte_stream(
-            ByteStream::child(child, span),
-            None,
-        ));
-    };
-    let prefix = read_header_prefix(&mut stdout);
-    let framed = prefix == STRUCTURED_IO_HEADER;
-    child.stdout = Some(ChildPipe::Tee(Box::new(Cursor::new(prefix).chain(stdout))));
-    let stream = ByteStream::child(child, span);
-    if !framed {
-        return Ok(PipelineData::byte_stream(stream, None));
-    }
-    // `into_bytes` waits for the child, so a failing child is still reported as one.
-    parse_frame(&stream.into_bytes()?, span)
-}
-
-/// A Nushell child's output for an external, which may start with a frame. Unlike
-/// [`read_structured_child`], this doesn't wait for the child, so both commands run at once.
-pub fn tag_structured_child(child: ChildProcess, span: Span) -> PipelineData {
-    let metadata =
-        PipelineMetadata::default().with_content_type(Some(STRUCTURED_IO_CONTENT_TYPE.into()));
-    PipelineData::byte_stream(ByteStream::child(child, span), Some(metadata))
-}
-
-/// Decodes the output from [`tag_structured_child`] like [`read_structured_child`] does, for a
-/// command that doesn't read frames. Anything else passes through.
-///
-/// This is the decoder set on the engine (see
-/// [`EngineState::decode_structured_io`](nu_protocol::engine::EngineState::decode_structured_io)).
-pub fn decode_structured_child(data: PipelineData, span: Span) -> Result<PipelineData, ShellError> {
-    match data {
-        PipelineData::ByteStream(stream, Some(metadata))
-            if metadata.content_type.as_deref() == Some(STRUCTURED_IO_CONTENT_TYPE) =>
-        {
-            match stream.into_child() {
-                Ok(child) => read_structured_child(child, span),
-                // Tagged with `metadata set`, not by `run-external`: there is no child to read.
-                Err(stream) => Ok(PipelineData::byte_stream(stream, Some(metadata))),
-            }
-        }
-        data => Ok(data),
-    }
-}
-
-/// Writes the final value of this process as a frame for the parent `nu`, when it can.
-///
-/// Returns the pipeline back when it has to be printed as text instead: something else already
-/// went to stdout, it's a byte stream (an external's output or `open --raw`), or the value has no
-/// NUON form. A `nothing` value writes nothing.
-pub fn emit_structured_pipeline(
-    engine_state: &EngineState,
-    mut pipeline: PipelineData,
-) -> Result<Option<PipelineData>, ShellError> {
-    if engine_state.stdout_used() || matches!(pipeline, PipelineData::ByteStream(..)) {
-        return Ok(Some(pipeline));
-    }
-    let metadata = pipeline.take_metadata();
-    let value = pipeline.into_value(Span::unknown())?;
-    if value.is_nothing() {
-        return Ok(None);
-    }
-    let written = write_frame(engine_state, &value, &mut std::io::stdout().lock())
-        .map_err(|err| IoError::new_internal(err, "Could not write structured output"))?;
-    Ok((!written).then(|| PipelineData::value(value, metadata)))
-}
-
-/// Reads this process's stdin as input from a parent `nu`.
-///
-/// A frame becomes the value it holds. Other input stays a byte stream, so a parent that had to
-/// send text still gets through, except with `require_nuon` (from an explicit
-/// `--structured-io`), which parses it as NUON with or without the header.
-pub fn read_structured_stdin(require_nuon: bool, span: Span) -> Result<PipelineData, ShellError> {
-    let mut stdin = std::io::stdin();
-    if stdin.is_terminal() {
-        return Ok(PipelineData::empty());
-    }
-    let mut bytes = read_header_prefix(&mut stdin);
-    if bytes.is_empty() {
-        return Ok(PipelineData::empty());
-    }
-    if bytes != STRUCTURED_IO_HEADER && !require_nuon {
-        return Ok(PipelineData::byte_stream(
-            ByteStream::read(
-                Cursor::new(bytes).chain(stdin),
-                span,
-                Signals::empty(),
-                ByteStreamType::Unknown,
-            ),
-            None,
-        ));
-    }
-    stdin
-        .read_to_end(&mut bytes)
-        .map_err(|err| IoError::new_internal(err, "Could not read stdin"))?;
-    parse_frame(&bytes, span)
-}
-
-/// Parses a frame, with or without its header. `span` is unknown when reading stdin at startup.
-fn parse_frame(bytes: &[u8], span: Span) -> Result<PipelineData, ShellError> {
-    let nuon = bytes.strip_prefix(STRUCTURED_IO_HEADER).unwrap_or(bytes);
-    let parse_error = |msg: String| {
-        const ERROR: &str = "Could not read a value from another nu";
-        let error = if span == Span::unknown() {
-            GenericError::new_internal(ERROR, msg)
-        } else {
-            GenericError::new(ERROR, msg, span)
-        };
-        error.with_help("run it with `--structured-io=false` to pass text instead")
-    };
-    let text = std::str::from_utf8(nuon)
-        .map_err(|err| ShellError::Generic(parse_error(err.to_string())))?;
-    let value = from_nuon(text, Some(span)).map_err(|err| {
-        ShellError::Generic(parse_error("it is not valid NUON".into()).with_inner([err]))
-    })?;
-    Ok(if value.is_nothing() {
-        PipelineData::empty()
-    } else {
-        PipelineData::value(value, None)
+    shebang_words(executable).is_some_and(|words| {
+        words.iter().any(|word| word == STRUCTURED_IO_FLAG)
+            && words.iter().any(|word| is_nu_binary(Path::new(word)))
     })
 }
 
-/// Reads from `reader` until it has a whole header or the bytes stop matching one, so text costs a
-/// single read. A read error is left for whoever reads the rest of the stream.
-fn read_header_prefix(reader: &mut impl Read) -> Vec<u8> {
-    let mut prefix = Vec::with_capacity(STRUCTURED_IO_HEADER.len());
-    let mut buf = [0; STRUCTURED_IO_HEADER.len()];
-    while prefix.len() < STRUCTURED_IO_HEADER.len() && STRUCTURED_IO_HEADER.starts_with(&prefix) {
-        let want = STRUCTURED_IO_HEADER.len() - prefix.len();
-        match reader.read(&mut buf[..want]) {
-            Ok(0) => break,
-            Ok(n) => prefix.extend_from_slice(&buf[..n]),
-            Err(err) if err.kind() == ErrorKind::Interrupted => {}
-            Err(_) => break,
+/// Whether `path` names the `nu` binary.
+fn is_nu_binary(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.eq_ignore_ascii_case("nu") || name.eq_ignore_ascii_case("nu.exe"))
+}
+
+/// The parent's end of the channel for one child: the listening socket, until the child has
+/// connected for every way or has exited.
+pub struct StructuredIoServer {
+    link: StructuredIoLink,
+    listener: Listener,
+    socket_dir: Option<PathBuf>,
+    input: Option<SyncSender<Stream>>,
+    output: Option<SyncSender<Stream>>,
+}
+
+/// Where the connections of a [`StructuredIoServer`] arrive. A receiver whose sender is gone means
+/// the child exited without making that connection.
+pub struct StructuredIoConnections {
+    pub input: Option<Receiver<Stream>>,
+    pub output: Option<Receiver<Stream>>,
+}
+
+impl StructuredIoServer {
+    /// Opens the socket for `mode`, before the child starts.
+    pub fn bind(
+        mode: StructuredIoMode,
+        span: Span,
+    ) -> Result<(Self, StructuredIoConnections), ShellError> {
+        let token = format!("{:032x}", rand::random::<u128>());
+        // Short, since a Unix socket path has a length limit and temp dirs can be long.
+        let socket = make_local_socket_name(&token[..12]);
+        let (listener, socket_dir) = bind_local_socket(&socket).map_err(|err| {
+            IoError::new_with_additional_context(
+                err,
+                span,
+                None,
+                format!("Could not open a socket for --structured-io at {socket:?}"),
+            )
+        })?;
+        let socket = socket.into_string().map_err(|socket| {
+            cleanup_local_socket_dir(socket_dir.as_ref());
+            ShellError::Generic(GenericError::new(
+                "Could not open a channel for --structured-io",
+                format!("the socket path {socket:?} is not valid UTF-8"),
+                span,
+            ))
+        })?;
+        let channel = || {
+            let (sender, receiver) = mpsc::sync_channel(1);
+            (Some(sender), Some(receiver))
+        };
+        let ((input, input_rx), (output, output_rx)) = (
+            if mode.input { channel() } else { (None, None) },
+            if mode.output { channel() } else { (None, None) },
+        );
+        let server = Self {
+            link: StructuredIoLink {
+                token,
+                mode,
+                socket,
+            },
+            listener,
+            socket_dir,
+            input,
+            output,
+        };
+        let connections = StructuredIoConnections {
+            input: input_rx,
+            output: output_rx,
+        };
+        Ok((server, connections))
+    }
+
+    /// The value for [`STRUCTURED_IO_ENV`](nu_protocol::STRUCTURED_IO_ENV) on the child.
+    pub fn env_value(&self) -> String {
+        self.link.to_env_value()
+    }
+
+    /// A function that stops the accepting thread, for when the child has exited and can't
+    /// connect anymore. It connects to the socket itself, so a waiting `accept` returns.
+    pub fn waker(&self) -> impl FnOnce() + Send + 'static {
+        let link = self.link.clone();
+        move || {
+            // Fails once the thread has stopped and the socket is gone, which is fine.
+            let _ = connect(&link, ROLE_WAKE);
         }
     }
-    prefix
+
+    /// Accepts the child's connections on a thread of its own, now that the child runs. The socket
+    /// goes away when the child has connected for every way or has exited.
+    pub fn start(self, span: Span) -> Result<(), ShellError> {
+        thread::Builder::new()
+            .name("structured io listener".into())
+            .spawn(move || self.accept())
+            .map(|_| ())
+            .map_err(|err| IoError::new(err, span, None).into())
+    }
+
+    fn accept(mut self) {
+        let mut preamble = vec![0; self.link.token.len() + 2];
+        while self.input.is_some() || self.output.is_some() {
+            let Ok(mut stream) = self.listener.accept() else {
+                break;
+            };
+            // Anything that doesn't start with the token isn't the child, so it's dropped.
+            if stream.read_exact(&mut preamble).is_err()
+                || !preamble.starts_with(self.link.token.as_bytes())
+                || preamble.last() != Some(&b'\n')
+            {
+                continue;
+            }
+            let sender = match preamble[self.link.token.len()] {
+                ROLE_INPUT => self.input.take(),
+                ROLE_OUTPUT => self.output.take(),
+                ROLE_WAKE => break,
+                _ => None,
+            };
+            if let Some(sender) = sender {
+                let _ = sender.send(stream);
+            }
+        }
+    }
 }
 
-fn is_nushell_basename(name: &str) -> bool {
-    name.eq_ignore_ascii_case("nu") || name.eq_ignore_ascii_case("nu.exe")
+impl Drop for StructuredIoServer {
+    fn drop(&mut self) {
+        cleanup_local_socket_dir(self.socket_dir.as_ref());
+    }
 }
 
-fn has_nu_extension(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("nu"))
+/// Connects to the parent's socket for `role`.
+fn connect(link: &StructuredIoLink, role: u8) -> io::Result<Stream> {
+    let mut stream = Stream::connect(interpret_local_socket_name(OsStr::new(&link.socket))?)?;
+    stream.write_all(link.token.as_bytes())?;
+    stream.write_all(&[role, b'\n'])?;
+    Ok(stream)
+}
+
+/// Reads the child's result once it connects with it. `child` is waited for, so a child that fails
+/// is reported like any external; for a byte stream, that happens when the stream ends.
+///
+/// A child that exits without connecting (`exit`, or a program that isn't `nu` after all) gives
+/// nothing.
+pub fn read_structured_output(
+    child: ChildProcess,
+    output: Receiver<Stream>,
+    signals: &Signals,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    let stream = loop {
+        match output.recv_timeout(Duration::from_millis(100)) {
+            Ok(stream) => break Some(stream),
+            Err(RecvTimeoutError::Timeout) => signals.check(&span)?,
+            Err(RecvTimeoutError::Disconnected) => break None,
+        }
+    };
+    match stream {
+        Some(stream) => receive_pipeline(stream, Some(child), signals, span),
+        None => child.wait().map(|()| PipelineData::empty()),
+    }
+}
+
+/// Reads the input a parent sends this process at startup.
+pub fn read_structured_input(
+    link: &StructuredIoLink,
+    signals: &Signals,
+) -> Result<PipelineData, ShellError> {
+    let stream = connect(link, ROLE_INPUT)
+        .map_err(|err| IoError::new_internal(err, "Could not connect to the calling nu"))?;
+    receive_pipeline(stream, None, signals, Span::unknown())
+}
+
+/// Sends this process's result to the `nu` that started it.
+///
+/// Returns quietly when that `nu` stopped reading, as a program does on a closed pipe.
+pub fn send_structured_output(
+    engine_state: &EngineState,
+    link: &StructuredIoLink,
+    data: PipelineData,
+) -> Result<(), ShellError> {
+    let mut stream = connect(link, ROLE_OUTPUT)
+        .map_err(|err| IoError::new_internal(err, "Could not connect to the calling nu"))?;
+    let sent = send_pipeline(engine_state, data, &mut stream);
+    // Wait for the parent to take the last message before closing the channel.
+    let _ = stream.read(&mut [0]);
+    match sent {
+        Err(SendError::Closed) => Ok(()),
+        Err(SendError::Shell(err)) => Err(err),
+        Ok(()) => Ok(()),
+    }
+}
+
+/// Sends `data` to a child that connected for its input. The child closing its end early isn't an
+/// error: it only means it stopped reading.
+pub fn send_structured_input(
+    engine_state: &EngineState,
+    data: PipelineData,
+    input: &Receiver<Stream>,
+) -> Result<(), ShellError> {
+    // No connection means the child exited first, so the input has nowhere to go.
+    let Ok(mut stream) = input.recv() else {
+        return Ok(());
+    };
+    match send_pipeline(engine_state, data, &mut stream) {
+        Err(SendError::Shell(err)) => Err(err),
+        Err(SendError::Closed) | Ok(()) => Ok(()),
+    }
+}
+
+/// Why sending stopped.
+enum SendError {
+    /// The receiver closed the channel.
+    Closed,
+    /// Writing failed, or the data did (an external that failed).
+    Shell(ShellError),
+}
+
+impl From<io::Error> for SendError {
+    fn from(err: io::Error) -> Self {
+        if is_closed(&err) {
+            SendError::Closed
+        } else {
+            SendError::Shell(IoError::new_internal(err, "Could not send to another nu").into())
+        }
+    }
+}
+
+/// Whether `err` comes from the other end of the channel closing.
+fn is_closed(err: &io::Error) -> bool {
+    // A named pipe whose other end disconnected; the standard library has no kind for it.
+    #[cfg(windows)]
+    if err.raw_os_error() == Some(windows::Win32::Foundation::ERROR_PIPE_NOT_CONNECTED.0 as i32) {
+        return true;
+    }
+    matches!(
+        err.kind(),
+        ErrorKind::BrokenPipe | ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted
+    )
+}
+
+fn send_pipeline(
+    engine_state: &EngineState,
+    data: PipelineData,
+    stream: &mut Stream,
+) -> Result<(), SendError> {
+    match data {
+        PipelineData::Empty => Ok(write_message(stream, NOTHING, &[])?),
+        PipelineData::Value(value, ..) => {
+            match encode(engine_state, &value) {
+                Ok(nuon) => write_message(stream, VALUE, nuon.as_bytes())?,
+                Err(err) => write_message(stream, ERROR, err.as_bytes())?,
+            }
+            Ok(())
+        }
+        PipelineData::ListStream(list, ..) => send_list(engine_state, list, stream),
+        PipelineData::ByteStream(bytes, ..) => send_bytes(bytes, stream),
+    }
+}
+
+/// Sends the items of `list` as they come, in batches of the ones ready at the time.
+fn send_list(
+    engine_state: &EngineState,
+    list: ListStream,
+    stream: &mut Stream,
+) -> Result<(), SendError> {
+    write_message(stream, LIST, &[])?;
+    // Items come from their own thread, so a batch can take whatever is ready without waiting for
+    // more. The thread stops at the next item once the receiver goes away.
+    let (sender, receiver) = mpsc::sync_channel(MAX_BATCH);
+    thread::Builder::new()
+        .name("structured io list sender".into())
+        .spawn(move || {
+            for item in list {
+                if sender.send(item).is_err() {
+                    break;
+                }
+            }
+        })
+        .map_err(|err| {
+            SendError::Shell(IoError::new_internal(err, "Could not send a list").into())
+        })?;
+    while let Ok(first) = receiver.recv() {
+        let mut batch = vec![first];
+        while batch.len() < MAX_BATCH
+            && let Ok(item) = receiver.try_recv()
+        {
+            batch.push(item);
+        }
+        send_batch(engine_state, batch, stream)?;
+    }
+    write_message(stream, END, &[])?;
+    Ok(())
+}
+
+/// Sends `batch` as one `I` message, or, when some items have no NUON form or are errors, each
+/// item apart, with those as `X` messages.
+fn send_batch(
+    engine_state: &EngineState,
+    batch: Vec<Value>,
+    stream: &mut Stream,
+) -> Result<(), SendError> {
+    let batch = Value::list(batch, Span::unknown());
+    if let Ok(nuon) = encode(engine_state, &batch) {
+        return Ok(write_message(stream, ITEMS, nuon.as_bytes())?);
+    }
+    for item in batch.into_list().unwrap_or_default() {
+        match encode(engine_state, &Value::list(vec![item], Span::unknown())) {
+            Ok(nuon) => write_message(stream, ITEMS, nuon.as_bytes())?,
+            Err(err) => write_message(stream, ERROR, err.as_bytes())?,
+        }
+    }
+    Ok(())
+}
+
+/// Sends the bytes of `bytes` as they come. If reading them fails, or `bytes` is an external that
+/// failed, the stream ends with that error instead of `E`, and so does this call.
+fn send_bytes(bytes: ByteStream, stream: &mut Stream) -> Result<(), SendError> {
+    let type_ = match bytes.type_() {
+        ByteStreamType::Binary => b'b',
+        ByteStreamType::String => b's',
+        ByteStreamType::Unknown => b'u',
+    };
+    write_message(stream, BYTES, &[type_])?;
+    let mut writer = ChunkWriter {
+        stream: &mut *stream,
+        closed: false,
+    };
+    let written = bytes.write_to(&mut writer);
+    if writer.closed {
+        return Err(SendError::Closed);
+    }
+    match written {
+        Ok(()) => Ok(write_message(stream, END, &[])?),
+        Err(err) => {
+            write_message(stream, ERROR, err.to_string().as_bytes())?;
+            Err(SendError::Shell(err))
+        }
+    }
+}
+
+/// NUON for `value`, or the text of an error saying why there is none.
+fn encode(engine_state: &EngineState, value: &Value) -> Result<String, String> {
+    let error = match value {
+        Value::Error { error, .. } => Some(error.to_string()),
+        Value::List { vals, .. } => vals.iter().find_map(|item| match item {
+            Value::Error { error, .. } => Some(error.to_string()),
+            _ => None,
+        }),
+        _ => None,
+    };
+    if let Some(error) = error {
+        return Err(error);
+    }
+    to_nuon(
+        engine_state,
+        value,
+        ToNuonConfig::default().style(ToStyle::Raw),
+    )
+    .map_err(|err| format!("can't pass a {} to another nu: {err}", value.get_type()))
+}
+
+/// Writes each write as a `C` message.
+struct ChunkWriter<'a> {
+    stream: &'a mut Stream,
+    /// Set when the receiver closed the channel, which the byte stream reports as just an error.
+    closed: bool,
+}
+
+impl Write for ChunkWriter<'_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        write_message(self.stream, CHUNK, buf).inspect_err(|err| self.closed = is_closed(err))?;
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Reads what the other end sends as pipeline data. A list or byte stream keeps reading the
+/// channel as it's consumed. `child`, the process at the other end, is waited for once all of it
+/// is read.
+fn receive_pipeline(
+    mut stream: Stream,
+    child: Option<ChildProcess>,
+    signals: &Signals,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    let message = read_message(&mut stream).map_err(|err| receive_error(err, span))?;
+    let finish = |stream: &mut Stream, child: Option<ChildProcess>| {
+        acknowledge(stream);
+        child.map_or(Ok(()), ChildProcess::wait)
+    };
+    match message {
+        None => finish(&mut stream, child).map(|()| PipelineData::empty()),
+        Some((NOTHING, _)) => finish(&mut stream, child).map(|()| PipelineData::empty()),
+        Some((VALUE, nuon)) => {
+            let value = decode(&nuon, span);
+            finish(&mut stream, child)?;
+            Ok(PipelineData::value(value?, None))
+        }
+        Some((ERROR, text)) => {
+            // The error says more than the exit code that follows it.
+            let _ = finish(&mut stream, child);
+            Err(remote_error(&text, span))
+        }
+        Some((LIST, _)) => {
+            let items = ListReceiver {
+                stream: Some(stream),
+                child,
+                items: VecDeque::new(),
+                span,
+            };
+            Ok(PipelineData::list_stream(
+                ListStream::new(items, span, signals.clone()),
+                None,
+            ))
+        }
+        Some((BYTES, type_)) => {
+            let type_ = match type_.first() {
+                Some(b'b') => ByteStreamType::Binary,
+                Some(b's') => ByteStreamType::String,
+                _ => ByteStreamType::Unknown,
+            };
+            let reader = ChunkReader {
+                stream: Some(stream),
+                chunk: Vec::new(),
+                at: 0,
+                span,
+            };
+            let bytes = match child {
+                Some(mut child) => {
+                    child.stdout = Some(ChildPipe::Tee(Box::new(reader)));
+                    ByteStream::child(child, span)
+                }
+                None => ByteStream::read(reader, span, signals.clone(), type_),
+            };
+            Ok(PipelineData::byte_stream(bytes.with_type(type_), None))
+        }
+        Some((tag, _)) => {
+            let _ = finish(&mut stream, child);
+            Err(protocol_error(tag, span))
+        }
+    }
+}
+
+/// The items of a list stream from another `nu`.
+struct ListReceiver {
+    /// `None` once the list ended.
+    stream: Option<Stream>,
+    child: Option<ChildProcess>,
+    items: VecDeque<Value>,
+    span: Span,
+}
+
+impl ListReceiver {
+    /// Ends the list. A child that failed gives one more item, its error.
+    fn finish(&mut self) -> Option<Value> {
+        self.stream = None;
+        let child = self.child.take()?;
+        child.wait().err().map(|err| Value::error(err, self.span))
+    }
+}
+
+impl Iterator for ListReceiver {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Value> {
+        loop {
+            if let Some(item) = self.items.pop_front() {
+                return Some(item);
+            }
+            let stream = self.stream.as_mut()?;
+            match read_message(stream) {
+                Ok(Some((ITEMS, nuon))) => {
+                    match decode(&nuon, self.span).and_then(Value::into_list) {
+                        Ok(items) => self.items.extend(items),
+                        Err(err) => {
+                            let _ = self.finish();
+                            return Some(Value::error(err, self.span));
+                        }
+                    }
+                }
+                Ok(Some((ERROR, text))) => {
+                    return Some(Value::error(remote_error(&text, self.span), self.span));
+                }
+                Ok(Some((END, _))) => {
+                    acknowledge(stream);
+                    return self.finish();
+                }
+                // The other end went away, which its exit status explains, if anything.
+                Ok(None) => return self.finish(),
+                Ok(Some((tag, _))) => {
+                    let _ = self.finish();
+                    return Some(Value::error(protocol_error(tag, self.span), self.span));
+                }
+                Err(err) => {
+                    let _ = self.finish();
+                    return Some(Value::error(receive_error(err, self.span), self.span));
+                }
+            }
+        }
+    }
+}
+
+/// The bytes of a byte stream from another `nu`.
+struct ChunkReader {
+    /// `None` once the stream ended.
+    stream: Option<Stream>,
+    chunk: Vec<u8>,
+    at: usize,
+    span: Span,
+}
+
+impl Read for ChunkReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        loop {
+            if self.at < self.chunk.len() {
+                let n = buf.len().min(self.chunk.len() - self.at);
+                buf[..n].copy_from_slice(&self.chunk[self.at..self.at + n]);
+                self.at += n;
+                return Ok(n);
+            }
+            let Some(stream) = self.stream.as_mut() else {
+                return Ok(0);
+            };
+            match read_message(stream)? {
+                Some((CHUNK, chunk)) => {
+                    self.chunk = chunk;
+                    self.at = 0;
+                }
+                Some((END, _)) => {
+                    acknowledge(stream);
+                    self.stream = None;
+                }
+                // The other end went away, which its exit status explains, if anything.
+                None => self.stream = None,
+                Some((ERROR, text)) => {
+                    self.stream = None;
+                    return Err(ShellErrorBridge(remote_error(&text, self.span)).into());
+                }
+                Some((tag, _)) => {
+                    self.stream = None;
+                    return Err(ShellErrorBridge(protocol_error(tag, self.span)).into());
+                }
+            }
+        }
+    }
+}
+
+/// Tells the sender its last message arrived.
+fn acknowledge(stream: &mut Stream) {
+    let _ = stream.write_all(&[ACK]);
+}
+
+fn write_message(writer: &mut impl Write, tag: u8, payload: &[u8]) -> io::Result<()> {
+    let mut header = [0; 9];
+    header[0] = tag;
+    header[1..].copy_from_slice(&(payload.len() as u64).to_le_bytes());
+    writer.write_all(&header)?;
+    writer.write_all(payload)
+}
+
+/// Reads one message, or `None` when the other end closed the channel between messages.
+fn read_message(reader: &mut impl Read) -> io::Result<Option<(u8, Vec<u8>)>> {
+    let mut header = [0; 9];
+    let first = loop {
+        match reader.read(&mut header[..1]) {
+            Ok(n) => break n,
+            Err(err) if err.kind() == ErrorKind::Interrupted => {}
+            Err(err) if is_closed(&err) => return Ok(None),
+            Err(err) => return Err(err),
+        }
+    };
+    if first == 0 {
+        return Ok(None);
+    }
+    reader.read_exact(&mut header[1..])?;
+    let len = u64::from_le_bytes(header[1..].try_into().unwrap_or_default());
+    let mut payload = Vec::new();
+    reader.take(len).read_to_end(&mut payload)?;
+    if payload.len() as u64 != len {
+        return Err(ErrorKind::UnexpectedEof.into());
+    }
+    Ok(Some((header[0], payload)))
+}
+
+fn decode(nuon: &[u8], span: Span) -> Result<Value, ShellError> {
+    let text = std::str::from_utf8(nuon).map_err(|err| {
+        ShellError::Generic(GenericError::new(
+            "Could not read a value from another nu",
+            err.to_string(),
+            span,
+        ))
+    })?;
+    from_nuon(text, Some(span))
+}
+
+/// An error that the other `nu` sent.
+fn remote_error(text: &[u8], span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "Error from another nu",
+        String::from_utf8_lossy(text).into_owned(),
+        span,
+    ))
+}
+
+fn receive_error(err: io::Error, span: Span) -> ShellError {
+    IoError::new_with_additional_context(err, span, None, "Could not read from another nu").into()
+}
+
+fn protocol_error(tag: u8, span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "Could not read a value from another nu",
+        format!("unexpected message `{}`", tag as char),
+        span,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use nu_protocol::IntoSpanned;
-    use std::io::Write;
+    use std::io::Cursor;
     use tempfile::NamedTempFile;
-
-    #[test]
-    fn detects_nu_basename() {
-        assert!(is_nushell_child(Path::new("/usr/bin/nu"), Path::new("nu")));
-        assert!(is_nushell_child(Path::new("nu.exe"), Path::new("NU.EXE")));
-        assert!(!is_nushell_child(Path::new("/usr/bin/ls"), Path::new("ls")));
-        assert!(!is_nushell_child(
-            Path::new("/usr/bin/nunit"),
-            Path::new("nunit")
-        ));
-    }
-
-    #[test]
-    fn detects_nu_extension() {
-        assert!(is_nushell_child(
-            Path::new("./foo.nu"),
-            Path::new("./foo.nu")
-        ));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn detects_nu_shebangs() {
-        for shebang in [
-            "#!/usr/bin/env nu",
-            "#!/usr/bin/env -S nu --stdin",
-            "#! /opt/homebrew/bin/nu",
-            "#!/bin/nu",
-        ] {
-            let mut file = NamedTempFile::new().expect("tempfile");
-            writeln!(file, "{shebang}").expect("write");
-            writeln!(file, "def main [] {{ 1 }}").expect("write");
-            // Found on PATH, so invoked without a path component.
-            assert!(
-                is_nushell_child(file.path(), Path::new("tool")),
-                "{shebang}"
-            );
-        }
-    }
-
-    #[test]
-    fn ignores_other_shebangs() {
-        for first_line in ["#!/bin/sh", "#!/usr/bin/env nunit", "nu", ""] {
-            let mut file = NamedTempFile::new().expect("tempfile");
-            writeln!(file, "{first_line}").expect("write");
-            writeln!(file, "nu").expect("write");
-            assert!(
-                !is_nushell_child(file.path(), Path::new("tool")),
-                "{first_line}"
-            );
-        }
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn other_shebang_beats_nu_extension() {
-        let mut file = tempfile::Builder::new()
-            .suffix(".nu")
-            .tempfile()
-            .expect("tempfile");
-        writeln!(file, "#!/usr/bin/env python3").expect("write");
-        assert!(!is_nushell_child(file.path(), file.path()));
-    }
 
     fn args(args: &[&str]) -> Vec<Spanned<OsString>> {
         args.iter()
@@ -540,190 +752,107 @@ mod tests {
     }
 
     #[test]
-    fn cli_mode_last_assignment_wins() {
-        let line = args(&[
-            "--structured-io=out",
-            "-n",
-            "--structured-io",
-            "false",
-            "-c",
-            "1",
-        ]);
-        assert_eq!(
-            structured_io_cli_mode(&line),
-            Some(StructuredIoMode::default())
-        );
-        assert_eq!(structured_io_cli_mode(&args(&["-n", "-c", "1"])), None);
-        assert_eq!(structured_io_cli_mode(&args(&["-n", "foo.nu"])), None);
+    fn only_nu_with_the_flag_asks() {
+        let nu = Path::new("/usr/bin/nu");
+        assert!(asks_for_structured_io(
+            nu,
+            &args(&["--structured-io", "-c", "1"])
+        ));
+        assert!(asks_for_structured_io(
+            Path::new("/opt/nu/NU.EXE"),
+            &args(&["--structured-io", "x.nu"])
+        ));
+        assert!(!asks_for_structured_io(nu, &args(&["-c", "1"])));
+        assert!(!asks_for_structured_io(
+            nu,
+            &args(&["-c", "1 --structured-io"])
+        ));
+        assert!(!asks_for_structured_io(
+            Path::new("/usr/bin/rg"),
+            &args(&["--structured-io", "src"])
+        ));
     }
 
+    #[cfg(unix)]
     #[test]
-    fn cli_mode_stops_where_the_script_takes_over() {
-        let off = Some(StructuredIoMode::default());
-        for line in [
-            &["foo.nu", "--structured-io=false"][..],
-            &["-c", "1", "--structured-io=false"],
-            &["-nc", "1", "--structured-io=false"],
-            &["-c1", "--structured-io=false"],
-            &["--commands=1", "--structured-io=false"],
-            &["--", "foo.nu", "--structured-io=false"],
-            // Flag values are not the script.
-            &["--config", "x.nu", "foo.nu", "--structured-io=false"],
-            &["-m", "rounded", "foo.nu", "--structured-io=false"],
-            &["-mrounded", "foo.nu", "--structured-io=false"],
-            // A list takes everything up to the next flag, as the child's parser does.
-            &[
-                "--log-include",
-                "a",
-                "b",
-                "-n",
-                "foo.nu",
-                "--structured-io=false",
-            ],
-            &[
-                "--experimental-options",
-                "[a,",
-                "b]",
-                "foo.nu",
-                "--structured-io=false",
-            ],
+    fn nu_shebang_with_the_flag_asks() {
+        for (shebang, asks) in [
+            ("#!/usr/bin/env -S nu --structured-io", true),
+            ("#!/opt/homebrew/bin/nu --structured-io", true),
+            ("#!/usr/bin/env nu", false),
+            ("#!/usr/bin/env -S python3 --structured-io", false),
         ] {
-            assert_eq!(structured_io_cli_mode(&args(line)), None, "{line:?}");
-        }
-        for line in [
-            &["--config", "x.nu", "--structured-io=false", "foo.nu"][..],
-            &["--log-include", "a", "--structured-io", "false", "foo.nu"],
-            &[
-                "--experimental-options=[a,b]",
-                "--structured-io=false",
-                "foo.nu",
-            ],
-            &["--structured-io=false", "-c", "1"],
-        ] {
-            assert_eq!(structured_io_cli_mode(&args(line)), off, "{line:?}");
+            let mut file = NamedTempFile::new().expect("tempfile");
+            writeln!(file, "{shebang}").expect("write");
+            assert_eq!(
+                asks_for_structured_io(file.path(), &args(&[])),
+                asks,
+                "{shebang}"
+            );
         }
     }
 
     #[test]
-    fn cli_mode_is_off_without_commands_or_script() {
-        let off = Some(StructuredIoMode::default());
-        for line in [
-            &[][..],
-            &["-n"],
-            &["--config", "x.nu"],
-            &["--mcp"],
-            &["--lsp", "foo.nu"],
-            &["--dap", "-c", "1"],
-            &["--log-include", "a", "b"],
-            &["--log-include", "a", "foo.nu"],
-        ] {
-            assert_eq!(structured_io_cli_mode(&args(line)), off, "{line:?}");
-        }
-    }
-
-    fn mode_for(
-        stdout: OutDest,
-        stderr: OutDest,
-        input: PipelineData,
-        cli_mode: Option<StructuredIoMode>,
-    ) -> StructuredIoMode {
-        structured_io_for_child(
-            Path::new("/usr/bin/nu"),
-            Path::new("nu"),
-            &stdout,
-            &stderr,
-            &input,
-            cli_mode,
-        )
-    }
-
-    #[test]
-    fn output_only_when_stdout_has_its_own_pipe() {
-        let empty = PipelineData::empty;
-        assert!(mode_for(OutDest::Pipe, OutDest::Inherit, empty(), None).output);
-        assert!(mode_for(OutDest::Value, OutDest::Inherit, empty(), None).output);
-        // `nu | ^cat` or `nu | nu`
-        assert!(mode_for(OutDest::PipeRaw, OutDest::Inherit, empty(), None).output);
-        // `o+e>|`
-        assert!(!mode_for(OutDest::Pipe, OutDest::Pipe, empty(), None).output);
-        // `complete`
-        assert!(!mode_for(OutDest::PipeSeparate, OutDest::PipeSeparate, empty(), None).output);
-        assert!(!mode_for(OutDest::Inherit, OutDest::Inherit, empty(), None).output);
-    }
-
-    #[test]
-    fn no_output_while_stderr_is_captured() {
-        let empty = PipelineData::empty;
-        // `nu --mcp` captures both.
-        assert!(!mode_for(OutDest::Value, OutDest::Value, empty(), None).output);
-        assert!(!mode_for(OutDest::PipeRaw, OutDest::Pipe, empty(), None).output);
-        assert!(!mode_for(OutDest::Pipe, OutDest::PipeSeparate, empty(), None).output);
-        assert!(mode_for(OutDest::Pipe, OutDest::Null, empty(), None).output);
-    }
-
-    #[test]
-    fn input_only_for_values() {
+    fn ways_follow_the_pipeline() {
+        let nu = Path::new("nu");
+        let flag = args(&["--structured-io", "-c", "1"]);
+        let mode = |stdout: OutDest, stderr: OutDest, input: PipelineData| {
+            structured_io_for_child(nu, &flag, &stdout, &stderr, &input)
+        };
         let value = || PipelineData::value(Value::test_int(1), None);
-        assert!(mode_for(OutDest::Inherit, OutDest::Inherit, value(), None).input);
-        assert!(
-            !mode_for(
-                OutDest::Inherit,
-                OutDest::Inherit,
-                PipelineData::empty(),
-                None
-            )
-            .input
+        let empty = PipelineData::empty;
+        assert_eq!(
+            mode(OutDest::Pipe, OutDest::Inherit, value()),
+            StructuredIoMode {
+                input: true,
+                output: true
+            }
         );
-        let off = Some(StructuredIoMode::default());
-        assert!(!mode_for(OutDest::Pipe, OutDest::Inherit, value(), off).any());
+        assert!(mode(OutDest::PipeRaw, OutDest::Inherit, empty()).output);
+        assert!(mode(OutDest::Value, OutDest::Null, empty()).output);
+        // At the end of a pipeline, `complete`, `o+e>|`.
+        assert!(!mode(OutDest::Inherit, OutDest::Inherit, empty()).any());
+        assert!(!mode(OutDest::PipeSeparate, OutDest::PipeSeparate, empty()).any());
+        assert!(!mode(OutDest::Pipe, OutDest::Pipe, empty()).any());
+        assert!(mode(OutDest::Inherit, OutDest::Inherit, value()).input);
     }
 
     #[test]
-    fn other_programs_get_no_handshake() {
-        let mode = structured_io_for_child(
-            Path::new("/usr/bin/cat"),
-            Path::new("cat"),
-            &OutDest::Pipe,
-            &OutDest::Inherit,
-            &PipelineData::value(Value::test_int(1), None),
-            None,
+    fn messages_roundtrip() {
+        let mut buffer = Vec::new();
+        write_message(&mut buffer, VALUE, b"[1, 2]").expect("write");
+        write_message(&mut buffer, END, &[]).expect("write");
+        let mut reader = Cursor::new(buffer);
+        assert_eq!(
+            read_message(&mut reader).expect("read"),
+            Some((VALUE, b"[1, 2]".to_vec()))
         );
-        assert_eq!(mode, StructuredIoMode::default());
+        assert_eq!(
+            read_message(&mut reader).expect("read"),
+            Some((END, vec![]))
+        );
+        assert_eq!(read_message(&mut reader).expect("read"), None);
     }
 
     #[test]
-    fn frame_roundtrips() {
-        let engine_state = EngineState::new();
-        let value = Value::test_list(vec![Value::test_int(1), Value::test_string("a\nb")]);
-        let mut frame = Vec::new();
-        assert!(write_frame(&engine_state, &value, &mut frame).expect("write"));
-        assert!(frame.starts_with(STRUCTURED_IO_HEADER));
-        let decoded = parse_frame(&frame, Span::test_data())
-            .and_then(|data| data.into_value(Span::test_data()))
-            .expect("decode");
-        assert_eq!(decoded, value);
+    fn truncated_message_is_an_error() {
+        let mut buffer = Vec::new();
+        write_message(&mut buffer, VALUE, b"[1, 2]").expect("write");
+        buffer.truncate(buffer.len() - 2);
+        assert!(read_message(&mut Cursor::new(buffer)).is_err());
     }
 
     #[test]
-    fn value_without_nuon_writes_nothing() {
+    fn values_without_nuon_are_errors() {
         let engine_state = EngineState::new();
         let closure = Value::test_closure(nu_protocol::engine::Closure {
             block_id: nu_protocol::BlockId::new(0),
             captures: vec![],
         });
-        let mut frame = Vec::new();
-        assert!(!write_frame(&engine_state, &closure, &mut frame).expect("write"));
-        assert!(frame.is_empty());
-    }
-
-    #[test]
-    fn header_prefix_stops_at_the_first_difference() {
-        // One read, which can return up to a header's length of text.
-        let mut text = Cursor::new(b"hello, world".to_vec());
-        assert_eq!(read_header_prefix(&mut text), b"hello,");
-        let mut framed = Cursor::new(b"\x1eNUON\n[1]".to_vec());
-        assert_eq!(read_header_prefix(&mut framed), STRUCTURED_IO_HEADER);
-        let mut short = Cursor::new(b"\x1eNU".to_vec());
-        assert_eq!(read_header_prefix(&mut short), b"\x1eNU");
+        assert!(encode(&engine_state, &closure).is_err());
+        assert_eq!(
+            encode(&engine_state, &Value::test_list(vec![Value::test_int(1)])).as_deref(),
+            Ok("[1]")
+        );
     }
 }

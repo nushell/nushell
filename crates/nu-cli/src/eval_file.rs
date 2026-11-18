@@ -181,12 +181,11 @@ pub fn evaluate_file(
                 Err(err) => return Err(err),
             };
 
-        // Print the pipeline output of the last command of the file. `main`'s output follows
-        // it, so neither can be the single value a parent `nu` reads.
-        if !pipeline.is_nothing() {
-            engine_state.mark_stdout_used();
-        }
+        // Print the pipeline output of the last command of the file. It's printed even when the
+        // `nu` that started this one reads the result as a value, since that's `main`'s.
+        let structured_io_output = engine_state.structured_io_output.take();
         print_pipeline(engine_state, stack, pipeline, true)?;
+        engine_state.structured_io_output = structured_io_output;
 
         // Invoke the main command with arguments. The block's signature was already rewritten to
         // the script filename above, so help messages show the `script.nu`-qualified name.

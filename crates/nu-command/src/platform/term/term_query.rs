@@ -115,7 +115,6 @@ The `prefix` is not included in the output."
         let mut stdin = std::io::stdin().lock();
 
         {
-            engine_state.mark_stdout_used();
             let mut stdout = std::io::stdout().lock();
             stdout
                 .write_all(&query)

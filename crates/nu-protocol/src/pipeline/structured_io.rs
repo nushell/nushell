@@ -1,89 +1,88 @@
-#[cfg(feature = "os")]
-use crate::ByteStreamSource;
-use crate::{PipelineData, ShellError, Span};
+//! What a parent `nu` and a child `nu` started with `--structured-io` agree on to pass values
+//! between them. The channel itself lives in `nu-command`, next to `run-external`.
 
-/// Environment variable a parent `nu` sets on a child `nu` it spawns, holding the
-/// [`StructuredIoMode`] it wants (`in`, `out` or `1`).
-///
-/// The parent sets it only on spawns whose stdin it fills with a frame or whose stdout it reads,
-/// and removes it from every other spawn. The child reads it at startup and keeps it out of its
-/// own `$env`, so the child's own children never see it.
+/// Environment variable a parent `nu` sets on a child `nu` it started with `--structured-io`. It
+/// holds a [`StructuredIoLink`]. The child keeps it out of its own `$env`, so the child's own
+/// children never see it.
 pub const STRUCTURED_IO_ENV: &str = "NU_STRUCTURED_IO";
 
-/// Metadata `content_type` of a Nushell child's output that may start with a NUON frame. The
-/// parent tags the output this way when the next command is an external, instead of waiting to
-/// decode it, and the command that reads it decodes it.
-pub const STRUCTURED_IO_CONTENT_TYPE: &str = "application/x-nushell-structured-io";
+/// The argument that asks for structured IO: on the command line of the `nu` binary, or in the
+/// shebang line of a script that `nu` runs. Only the parent reads it; the child follows
+/// [`STRUCTURED_IO_ENV`].
+pub const STRUCTURED_IO_FLAG: &str = "--structured-io";
 
-/// Values `--structured-io` accepts. [`StructuredIoMode::from_flag_str`] reads them.
-pub const STRUCTURED_IO_FLAG_VALUES: &[&str] =
-    &["1", "true", "inout", "in", "out", "false", "off", "0"];
+/// Version of the channel's messages. A child that doesn't know the version a parent asks for
+/// fails instead of guessing.
+pub const STRUCTURED_IO_VERSION: u32 = 1;
 
-/// Turns a Nushell child's tagged output (see [`is_structured_io_child`]) into the value it sent,
-/// or into an untagged byte stream when it sent text. Decoding parses NUON, which this crate
-/// can't do, so the crate that tags the output provides it (see
-/// [`EngineState::set_structured_io_decoder`](crate::engine::EngineState::set_structured_io_decoder)).
-pub type StructuredIoDecoder = fn(PipelineData, Span) -> Result<PipelineData, ShellError>;
-
-/// Whether `data` is a Nushell child's output that `run-external` tagged with
-/// [`STRUCTURED_IO_CONTENT_TYPE`] for the command that reads it to decode.
-#[cfg(feature = "os")]
-pub fn is_structured_io_child(data: &PipelineData) -> bool {
-    matches!(data, PipelineData::ByteStream(stream, Some(metadata))
-        if metadata.content_type.as_deref() == Some(STRUCTURED_IO_CONTENT_TYPE)
-            && matches!(stream.source(), ByteStreamSource::Child(..)))
-}
-
-/// Sides of the parent/child NUON handshake, from [`STRUCTURED_IO_ENV`] or `--structured-io=`.
+/// Which way values go between a parent `nu` and a child `nu`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StructuredIoMode {
-    /// The parent writes the child's input to its stdin as one frame.
+    /// The parent sends the child its input.
     pub input: bool,
-    /// The child writes its final value to stdout as one frame, when nothing else went there.
+    /// The child sends the parent its result.
     pub output: bool,
 }
 
 impl StructuredIoMode {
-    /// Both sides on: `--structured-io=1`.
-    pub fn both() -> Self {
-        Self {
-            input: true,
-            output: true,
-        }
-    }
-
-    /// Whether either side is on.
+    /// Whether either way is on.
     pub fn any(self) -> bool {
         self.input || self.output
     }
+}
 
-    /// Parse a handshake value: `1`/`true`/`inout`, `in`, `out`, or anything else as off.
-    ///
-    /// The CLI rejects other values for `--structured-io` (see [`STRUCTURED_IO_FLAG_VALUES`]), but
-    /// [`STRUCTURED_IO_ENV`] and a child's command line seen by its parent can still hold one.
-    pub fn from_flag_str(value: &str) -> Self {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "1" | "true" | "inout" => Self::both(),
-            "in" => Self {
-                input: true,
-                output: false,
-            },
-            "out" => Self {
-                input: false,
-                output: true,
-            },
-            _ => Self::default(),
-        }
+/// How a child reaches the channel its parent opened: the [`STRUCTURED_IO_ENV`] value.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StructuredIoLink {
+    /// Sent first on every connection, so the parent only talks to the process it started.
+    pub token: String,
+    /// The ways the parent opened.
+    pub mode: StructuredIoMode,
+    /// Name of the parent's local socket.
+    pub socket: String,
+}
+
+impl StructuredIoLink {
+    /// The [`STRUCTURED_IO_ENV`] value: version, token, ways (`i`, `o` or `io`) and socket name,
+    /// split by `;`. The socket name comes last since a path may hold a `;`.
+    pub fn to_env_value(&self) -> String {
+        let ways = match (self.mode.input, self.mode.output) {
+            (true, true) => "io",
+            (true, false) => "i",
+            (false, true) => "o",
+            (false, false) => "",
+        };
+        format!(
+            "{STRUCTURED_IO_VERSION};{};{ways};{}",
+            self.token, self.socket
+        )
     }
 
-    /// Value for `--structured-io=...`, or `None` when the protocol is off.
-    pub fn as_flag_str(self) -> Option<&'static str> {
-        match (self.input, self.output) {
-            (true, true) => Some("1"),
-            (true, false) => Some("in"),
-            (false, true) => Some("out"),
-            (false, false) => None,
+    /// Reads a [`STRUCTURED_IO_ENV`] value written by [`to_env_value`](Self::to_env_value).
+    pub fn from_env_value(value: &str) -> Result<Self, String> {
+        let mut fields = value.splitn(4, ';');
+        let (Some(version), Some(token), Some(ways), Some(socket)) =
+            (fields.next(), fields.next(), fields.next(), fields.next())
+        else {
+            return Err(format!("`{value}` is not a structured IO link"));
+        };
+        if version != STRUCTURED_IO_VERSION.to_string() {
+            return Err(format!(
+                "the calling nu uses structured IO version {version}, but this nu only knows version {STRUCTURED_IO_VERSION}"
+            ));
         }
+        let mode = StructuredIoMode {
+            input: ways.contains('i'),
+            output: ways.contains('o'),
+        };
+        if token.is_empty() || socket.is_empty() || !mode.any() {
+            return Err(format!("`{value}` is not a structured IO link"));
+        }
+        Ok(Self {
+            token: token.into(),
+            mode,
+            socket: socket.into(),
+        })
     }
 }
 
@@ -92,68 +91,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_handshake_values() {
-        assert_eq!(
-            StructuredIoMode::from_flag_str("1"),
-            StructuredIoMode::both()
-        );
-        assert_eq!(
-            StructuredIoMode::from_flag_str("in"),
-            StructuredIoMode {
-                input: true,
-                output: false
-            }
-        );
-        assert_eq!(
-            StructuredIoMode::from_flag_str("out"),
-            StructuredIoMode {
-                input: false,
-                output: true
-            }
-        );
-        assert_eq!(
-            StructuredIoMode::from_flag_str("false"),
-            StructuredIoMode::default()
-        );
-        assert_eq!(
-            StructuredIoMode::from_flag_str("off"),
-            StructuredIoMode::default()
-        );
-        assert_eq!(
-            StructuredIoMode::from_flag_str("0"),
-            StructuredIoMode::default()
-        );
-        assert_eq!(
-            StructuredIoMode::from_flag_str("IN"),
-            StructuredIoMode {
-                input: true,
-                output: false
-            }
-        );
-        assert_eq!(
-            StructuredIoMode::from_flag_str("nope"),
-            StructuredIoMode::default()
-        );
+    fn link_roundtrips_through_env_value() {
+        for (input, output) in [(true, false), (false, true), (true, true)] {
+            let link = StructuredIoLink {
+                token: "0123abcd".into(),
+                mode: StructuredIoMode { input, output },
+                socket: "/tmp/nu.1.2/a;b.sock".into(),
+            };
+            assert_eq!(
+                StructuredIoLink::from_env_value(&link.to_env_value()),
+                Ok(link)
+            );
+        }
     }
 
     #[test]
-    fn roundtrips_flag_str() {
-        for mode in [
-            StructuredIoMode::default(),
-            StructuredIoMode {
-                input: true,
-                output: false,
-            },
-            StructuredIoMode {
-                input: false,
-                output: true,
-            },
-            StructuredIoMode::both(),
-        ] {
-            match mode.as_flag_str() {
-                None => assert!(!mode.any()),
-                Some(value) => assert_eq!(StructuredIoMode::from_flag_str(value), mode),
-            }
-        }
+    fn rejects_other_versions_and_garbage() {
+        assert!(StructuredIoLink::from_env_value("2;t;io;/tmp/s").is_err());
+        assert!(StructuredIoLink::from_env_value("1;t;;/tmp/s").is_err());
+        assert!(StructuredIoLink::from_env_value("1;;io;/tmp/s").is_err());
+        assert!(StructuredIoLink::from_env_value("out").is_err());
     }
 }

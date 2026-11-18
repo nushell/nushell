@@ -1,5 +1,5 @@
 use lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
-use nu_protocol::{PositionalArg, engine::Command};
+use nu_protocol::{PositionalArg, STRUCTURED_IO_ENV, engine::Command};
 use std::{borrow::Cow, fmt::Write};
 
 use crate::{
@@ -204,12 +204,18 @@ impl LanguageServer {
                         re.replace_all(text, "")
                     }
                 }
+                // These keep this process's environment, which can hold the link to the `nu`
+                // that started this one with `--structured-io`. Nothing they run may use it.
                 let command_output = if cfg!(windows) {
                     std::process::Command::new("powershell.exe")
                         .args(["-NoProfile", "-Command", "help", &cmd])
+                        .env_remove(STRUCTURED_IO_ENV)
                         .output()
                 } else {
-                    std::process::Command::new("man").arg(&cmd).output()
+                    std::process::Command::new("man")
+                        .arg(&cmd)
+                        .env_remove(STRUCTURED_IO_ENV)
+                        .output()
                 };
                 let manpage_str = match command_output {
                     Ok(output) => nu_utils::strip_ansi_likely(
