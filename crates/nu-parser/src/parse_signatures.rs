@@ -610,10 +610,9 @@ pub fn parse_signature_helper(
         },
     }
 
-    let source = working_set.get_span_contents(span);
-
+    let source_start = span.start;
     let (output, err) = lex_signature(
-        source,
+        working_set.get_span_contents(span),
         span.start,
         &[b'\n', b'\r'],
         &[b':', b'=', b','],
@@ -1225,9 +1224,21 @@ pub fn parse_signature_helper(
             }
             Token {
                 contents: TokenContents::Comment,
-                span,
+                span: comment_span,
             } => {
-                let contents = working_set.get_span_contents(Span::new(span.start + 1, span.end));
+                let is_standalone = working_set
+                    .get_span_contents(Span::new(source_start, comment_span.start))
+                    .rsplit(|byte| *byte == b'\n')
+                    .next()
+                    .is_some_and(|line_prefix| {
+                        line_prefix.iter().all(|byte| byte.is_ascii_whitespace())
+                    });
+                if is_standalone {
+                    continue;
+                }
+
+                let contents = working_set
+                    .get_span_contents(Span::new(comment_span.start + 1, comment_span.end));
 
                 let mut contents = String::from_utf8_lossy(contents).to_string();
                 contents = contents.trim().into();
