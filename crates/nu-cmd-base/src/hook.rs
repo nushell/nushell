@@ -7,7 +7,6 @@ use nu_protocol::{
     engine::{Closure, EngineState, EnvName, Stack, StateWorkingSet},
     report_error::{report_parse_error, report_shell_error},
     shell_error::generic::GenericError,
-    test_value,
 };
 use std::{collections::HashMap, sync::Arc};
 
