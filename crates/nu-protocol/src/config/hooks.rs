@@ -5,6 +5,9 @@ use std::collections::HashMap;
 /// Definition of a parsed hook from the config object
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Hooks {
+    /// Whether the `pre_prompt`, `pre_execution` and `env_change` hooks are given the terminal,
+    /// for those that do not say so themselves with `interactive` in their record.
+    pub interactive: bool,
     pub pre_prompt: Vec<Value>,
     pub pre_execution: Vec<Value>,
     pub env_change: HashMap<EnvName, Vec<Value>>,
@@ -15,6 +18,7 @@ pub struct Hooks {
 impl Hooks {
     pub fn new() -> Self {
         Self {
+            interactive: true,
             pre_prompt: Vec::new(),
             pre_execution: Vec::new(),
             env_change: HashMap::new(),
@@ -42,6 +46,7 @@ impl IntoValue for Hooks {
             .collect::<crate::Record>();
 
         record! {
+            "interactive" => self.interactive.into_value(span),
             "pre_prompt" => self.pre_prompt.into_value(span),
             "pre_execution" => self.pre_execution.into_value(span),
             "env_change" => env_change.into_value(span),
@@ -67,6 +72,7 @@ impl UpdateFromValue for Hooks {
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
             match col.as_str() {
+                "interactive" => self.interactive.update(val, path, errors),
                 "pre_prompt" => {
                     if let Ok(hooks) = val.as_list() {
                         self.pre_prompt = hooks.into()

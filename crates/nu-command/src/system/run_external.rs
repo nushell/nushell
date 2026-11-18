@@ -266,8 +266,8 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // MCP and background completions must not inherit the live terminal.
-                if engine_state.is_mcp || stack.suppress_stdin {
+                // MCP, background completions and hooks must not inherit the live terminal.
+                if engine_state.is_mcp || stack.suppress_stdin || stack.no_terminal_input {
                     command.stdin(Stdio::null());
                 } else {
                     command.stdin(Stdio::inherit());
@@ -306,8 +306,11 @@ If you create a custom command with this name, that will be used instead."
                 ForegroundChild::spawn(
                     command,
                     // `suppress_stdin` children are already detached; do not also take
-                    // the foreground pgrp from the completion thread.
-                    engine_state.is_interactive && !stack.suppress_stdin,
+                    // the foreground pgrp from the completion thread. `no_terminal_input`
+                    // children stay in the shell's process group, which keeps the foreground.
+                    engine_state.is_interactive
+                        && !stack.suppress_stdin
+                        && !stack.no_terminal_input,
                     engine_state.is_background_job(),
                     &engine_state.pipeline_externals_state,
                 )

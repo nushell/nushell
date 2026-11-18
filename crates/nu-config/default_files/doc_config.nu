@@ -852,6 +852,22 @@ $env.config.prompt.transient.multiline = ""
 # Most accept a string (code), closure, or list of strings/closures.
 # See https://www.nushell.sh/book/hooks for details.
 
+# hooks.interactive (bool): Whether the pre_prompt, pre_execution and env_change
+# hooks are given the terminal.
+# true: An external a hook runs reads the terminal and holds it while it runs,
+#       like one typed at the prompt.
+# false: Hooks are kept off the terminal. What they print is shown, but an
+#        external they run reads no input from the terminal, and commands like
+#        `input` fail. This keeps a hook from taking keys typed for the prompt.
+# Default: true
+$env.config.hooks.interactive = true
+
+# A hook that is a record can say so for itself with `interactive`, whatever
+# hooks.interactive is. One that asks a question or runs a picker needs the terminal:
+# $env.config.hooks.pre_prompt = [{ interactive: true, code: {|| input "name: " } }]
+# One that only records something, like the directory changed to, does not:
+# $env.config.hooks.env_change.PWD = [{ interactive: false, code: {|_, dir| ^zoxide add -- $dir } }]
+
 # hooks.pre_prompt (list): Hook(s) to run before each prompt is displayed.
 # Default: []
 $env.config.hooks.pre_prompt = []
