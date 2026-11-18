@@ -304,9 +304,10 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots(playground: Playgrou
     ];
 
     playground.at("foo/bar", |bar| {
-        Ok(for file in files {
+        for file in files {
             bar.empty_file(file)?;
-        })
+        }
+        Ok(())
     })?;
 
     let code = "mv * ...";

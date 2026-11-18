@@ -63,6 +63,7 @@ fn cd_bare_drive_on_current_drive_stays(
         .expect_value_eq(playground.path())
 }
 
+#[expect(clippy::disallowed_names)]
 #[cfg(windows)]
 #[test]
 fn cd_drive_relative_path_on_current_drive(playground: Playground) -> Result {
@@ -227,6 +228,7 @@ fn filesystem_directory_not_found(playground: Playground) -> Result {
     Ok(())
 }
 
+#[expect(clippy::disallowed_names)]
 #[test]
 fn filesystem_change_directory_to_symlink_relative(playground: Playground) -> Result {
     let foo = playground.dir("foo")?;

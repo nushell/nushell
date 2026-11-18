@@ -432,7 +432,7 @@ fn write_script(playground: &Playground, name: &str, content: &str) {
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Command, Stdio};
 
-    let path: std::path::PathBuf = playground.path().join(name).into();
+    let path = playground.path().join(name);
     std::fs::write(&path, content).expect("write the script");
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
         .expect("make the script executable");

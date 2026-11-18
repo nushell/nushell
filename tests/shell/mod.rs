@@ -892,25 +892,14 @@ fn source_same_file_does_not_multiply_decls(playground: Playground) -> Result {
 /// A cached `source` declares the file's names again where they're missing: after the scope of
 /// the first `source` has ended, in the enclosing block or in a sibling block.
 #[rstest]
-#[case::def("source_cached_def", "def zz [] { 'def' }", "zz", "def")]
-#[case::alias("source_cached_alias", "alias zz = echo alias", "zz", "alias")]
-#[case::const_("source_cached_const", "const zz = 'const'", "$zz", "const")]
-#[case::let_("source_cached_let", "let zz = 'let'", "$zz", "let")]
-#[case::type_alias(
-    "source_cached_type_alias",
-    "type Zz = string",
-    "let x: Zz = 'type'; $x",
-    "type"
-)]
-#[case::use_std("source_cached_use", "use std/assert", "assert true; 'use'", "use")]
-#[case::captured_const(
-    "source_cached_captured_const",
-    "const zz = 'captured'\ndef zzget [] { $zz }",
-    "zzget",
-    "captured"
-)]
+#[case::def("def zz [] { 'def' }", "zz", "def")]
+#[case::alias("alias zz = echo alias", "zz", "alias")]
+#[case::const_("const zz = 'const'", "$zz", "const")]
+#[case::let_("let zz = 'let'", "$zz", "let")]
+#[case::type_alias("type Zz = string", "let x: Zz = 'type'; $x", "type")]
+#[case::use_std("use std/assert", "assert true; 'use'", "use")]
+#[case::captured_const("const zz = 'captured'\ndef zzget [] { $zz }", "zzget", "captured")]
 fn source_cached_file_declares_its_names_in_another_scope(
-    #[case] _topic: &str,
     #[case] lib: &str,
     #[case] usage: &str,
     #[case] expected: &str,
@@ -939,17 +928,12 @@ fn source_cached_file_declares_its_names_in_another_scope(
 /// A variable a sourced file declares belongs to the block around `source`, also when that block
 /// is a closure, so the closure doesn't try to capture it from outside.
 #[rstest]
-#[case::let_in_do("source_let_in_do", "do { source lib.nu; $zz }", "let")]
-#[case::let_in_closure(
-    "source_let_in_closure",
-    "let c = { source lib.nu; $zz }; do $c",
-    "let"
-)]
-#[case::mut_in_do("source_mut_in_do", "do { source lib.nu; $zzmut }", "mut")]
-#[case::nested_source("source_let_nested_in_do", "do { source outer.nu; $zz }", "let")]
-#[case::read_by_file_command("source_let_read_by_def_in_do", "do { source lib.nu; zzget }", "let")]
+#[case::let_in_do("do { source lib.nu; $zz }", "let")]
+#[case::let_in_closure("let c = { source lib.nu; $zz }; do $c", "let")]
+#[case::mut_in_do("do { source lib.nu; $zzmut }", "mut")]
+#[case::nested_source("do { source outer.nu; $zz }", "let")]
+#[case::read_by_file_command("do { source lib.nu; zzget }", "let")]
 fn source_variable_is_local_to_a_closure(
-    #[case] _topic: &str,
     #[case] code: &str,
     #[case] expected: &str,
     #[ignore] playground: Playground,

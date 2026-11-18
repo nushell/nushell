@@ -743,12 +743,11 @@ fn use_nested_submodules(playground: Playground) -> Result {
 
 // `use <name>` reads the module's file again once it has changed, like `use <path>` does.
 #[rstest]
-#[case::prefixed("use_name_prefixed", "use spam.nu", "use spam", "spam foo")]
-#[case::glob("use_name_glob", "use spam.nu *", "use spam *", "foo")]
-#[case::member("use_name_member", "use spam.nu foo", "use spam foo", "foo")]
-#[case::member_list("use_name_list", "use spam.nu [foo]", "use spam [foo]", "foo")]
+#[case::prefixed("use spam.nu", "use spam", "spam foo")]
+#[case::glob("use spam.nu *", "use spam *", "foo")]
+#[case::member("use spam.nu foo", "use spam foo", "foo")]
+#[case::member_list("use spam.nu [foo]", "use spam [foo]", "foo")]
 fn use_by_name_reads_a_changed_file(
-    #[case] _topic: &str,
     #[case] first: &str,
     #[case] again: &str,
     #[case] call: &str,
@@ -766,10 +765,9 @@ fn use_by_name_reads_a_changed_file(
 }
 
 #[rstest]
-#[case::mod_nu("use_name_dir_mod", "pkg/mod.nu")]
-#[case::imported("use_name_dir_import", "pkg/sub.nu")]
+#[case::mod_nu("pkg/mod.nu")]
+#[case::imported("pkg/sub.nu")]
 fn use_by_name_reads_a_changed_directory_module(
-    #[case] _topic: &str,
     #[case] edited: &str,
     #[ignore] playground: Playground,
 ) -> Result {
@@ -820,48 +818,17 @@ fn use_by_name_keeps_the_module_when_its_file_is_gone(playground: Playground) ->
 
 // Reloading drops what the new version no longer exports, however the module was imported.
 #[rstest]
-#[case::path_prefixed(
-    "deleted_path_prefixed",
-    "use spam.nu",
-    "use spam.nu",
-    "spam bar",
-    "spam foo"
-)]
-#[case::path_glob("deleted_path_glob", "use spam.nu *", "use spam.nu *", "bar", "foo")]
-#[case::name_prefixed(
-    "deleted_name_prefixed",
-    "use spam.nu",
-    "use spam",
-    "spam bar",
-    "spam foo"
-)]
-#[case::name_glob("deleted_name_glob", "use spam.nu *", "use spam *", "bar", "foo")]
-#[case::alias_prefixed(
-    "deleted_alias_prefixed",
-    "use spam.nu",
-    "use spam.nu",
-    "spam baz",
-    "spam foo"
-)]
-#[case::alias_glob("deleted_alias_glob", "use spam.nu *", "use spam.nu *", "baz", "foo")]
-#[case::main_prefixed(
-    "deleted_main_prefixed",
-    "use spam.nu",
-    "use spam.nu",
-    "spam",
-    "spam foo"
-)]
-#[case::main_glob("deleted_main_glob", "use spam.nu *", "use spam.nu *", "spam", "foo")]
-#[case::prefixed_then_glob("deleted_mixed", "use spam.nu", "use spam.nu *", "spam bar", "foo")]
-#[case::submodule(
-    "deleted_submodule",
-    "use spam.nu *",
-    "use spam.nu *",
-    "sub cmd",
-    "foo"
-)]
+#[case::path_prefixed("use spam.nu", "use spam.nu", "spam bar", "spam foo")]
+#[case::path_glob("use spam.nu *", "use spam.nu *", "bar", "foo")]
+#[case::name_prefixed("use spam.nu", "use spam", "spam bar", "spam foo")]
+#[case::name_glob("use spam.nu *", "use spam *", "bar", "foo")]
+#[case::alias_prefixed("use spam.nu", "use spam.nu", "spam baz", "spam foo")]
+#[case::alias_glob("use spam.nu *", "use spam.nu *", "baz", "foo")]
+#[case::main_prefixed("use spam.nu", "use spam.nu", "spam", "spam foo")]
+#[case::main_glob("use spam.nu *", "use spam.nu *", "spam", "foo")]
+#[case::prefixed_then_glob("use spam.nu", "use spam.nu *", "spam bar", "foo")]
+#[case::submodule("use spam.nu *", "use spam.nu *", "sub cmd", "foo")]
 fn deleted_definition_goes_away_on_reload(
-    #[case] _topic: &str,
     #[case] first: &str,
     #[case] again: &str,
     #[case] deleted: &str,
@@ -924,18 +891,9 @@ fn reload_keeps_a_command_redefined_since_the_import(playground: Playground) -> 
 
 // Dropping a re-export doesn't undo importing the same command from its own module.
 #[rstest]
-#[case::direct(
-    "dropped_reexport_direct",
-    "export use b.nu [foo bar]",
-    "export use b.nu [foo]"
-)]
-#[case::through_another_module(
-    "dropped_reexport_chain",
-    "export use c.nu [foo bar]",
-    "export use c.nu [foo]"
-)]
+#[case::direct("export use b.nu [foo bar]", "export use b.nu [foo]")]
+#[case::through_another_module("export use c.nu [foo bar]", "export use c.nu [foo]")]
 fn reload_keeps_a_command_imported_from_its_own_module(
-    #[case] _topic: &str,
     #[case] first: &str,
     #[case] edited: &str,
     #[ignore] playground: Playground,
@@ -997,26 +955,22 @@ fn reload_hides_a_deleted_command_of_a_module_the_glob_bound(playground: Playgro
 // A reload moves every name still showing the old version, not only the ones this `use` named.
 #[rstest]
 #[case::bare_after_prefixed(
-    "rebind_bare_after_prefixed",
     &["use spam.nu *"],
     "use spam",
     "foo"
 )]
 #[case::member_after_another_member(
-    "rebind_member",
     &["use spam.nu foo", "use spam.nu bar"],
     "use spam foo",
     "bar"
 )]
 #[case::prefixed_after_member(
-    "rebind_prefixed",
     &["use spam.nu"],
     "use spam foo",
     "spam bar"
 )]
-#[case::by_path("rebind_by_path", &["use spam.nu foo", "use spam.nu bar"], "use spam.nu foo", "bar")]
+#[case::by_path(&["use spam.nu foo", "use spam.nu bar"], "use spam.nu foo", "bar")]
 fn reload_moves_kept_names_to_the_new_version(
-    #[case] _topic: &str,
     #[case] first: &[&str],
     #[case] again: &str,
     #[case] call: &str,
@@ -1059,11 +1013,10 @@ fn reload_moves_kept_constants_and_submodules_to_the_new_version(playground: Pla
 }
 
 #[rstest]
-#[case::glob("deleted_const_glob", "use spam *")]
-#[case::prefixed("deleted_const_prefixed", "use spam")]
-#[case::by_path("deleted_const_path", "use spam.nu *")]
+#[case::glob("use spam *")]
+#[case::prefixed("use spam")]
+#[case::by_path("use spam.nu *")]
 fn deleted_constant_goes_away_on_reload(
-    #[case] _topic: &str,
     #[case] again: &str,
     #[ignore] playground: Playground,
 ) -> Result {
@@ -1140,12 +1093,11 @@ const SPAM_WITH_SUBMODULE: &str =
     "export module sub { export def x [] { 'old' } }; export def foo [] { 'old' }";
 
 #[rstest]
-#[case::glob("deleted_sub_glob", "use spam.nu *", "use spam *")]
-#[case::prefixed_reload("deleted_sub_prefixed", "use spam.nu *", "use spam")]
-#[case::by_path("deleted_sub_path", "use spam.nu *", "use spam.nu *")]
-#[case::imported_by_name("deleted_sub_named", "use spam.nu sub", "use spam")]
+#[case::glob("use spam.nu *", "use spam *")]
+#[case::prefixed_reload("use spam.nu *", "use spam")]
+#[case::by_path("use spam.nu *", "use spam.nu *")]
+#[case::imported_by_name("use spam.nu sub", "use spam")]
 fn deleted_submodule_goes_away_on_reload(
-    #[case] _topic: &str,
     #[case] first: &str,
     #[case] again: &str,
     #[ignore] playground: Playground,
@@ -1179,10 +1131,9 @@ fn deleted_submodule_goes_away_in_the_source_unit_of_the_reload(playground: Play
 
 // The file a deleted submodule came from can still be there, and importing it binds the name.
 #[rstest]
-#[case::same_source_unit("sub_again_same_unit", &["use spam *; use sub.nu; use sub"])]
-#[case::later_source_unit("sub_again_later_unit", &["use spam *", "use sub.nu"])]
+#[case::same_source_unit(&["use spam *; use sub.nu; use sub"])]
+#[case::later_source_unit(&["use spam *", "use sub.nu"])]
 fn importing_a_deleted_submodule_again_brings_it_back(
-    #[case] _topic: &str,
     #[case] again: &[&str],
     #[ignore] playground: Playground,
 ) -> Result {
@@ -1273,10 +1224,9 @@ fn reload_in_a_block_hides_a_dropped_submodule_only_there(playground: Playground
 
 // Moving names doesn't undo what you did to them since the import.
 #[rstest]
-#[case::your_own_definition("rebind_keeps_own", "def foo [] { 'mine' }", "foo", "mine")]
-#[case::your_own_constant("rebind_keeps_const", "const X = 'mine'", "$X", "mine")]
+#[case::your_own_definition("def foo [] { 'mine' }", "foo", "mine")]
+#[case::your_own_constant("const X = 'mine'", "$X", "mine")]
 fn reload_leaves_your_own_definitions_alone(
-    #[case] _topic: &str,
     #[case] yours: &str,
     #[case] call: &str,
     #[case] expected: &str,
@@ -1373,10 +1323,9 @@ fn command_added_back_after_a_reload_is_visible(playground: Playground) -> Resul
 
 // Undoing an edit brings back the earlier version, which is still cached.
 #[rstest]
-#[case::prefixed("reload_reverted_prefixed", "use spam.nu", "spam bar", "spam only_v2")]
-#[case::glob("reload_reverted_glob", "use spam.nu *", "bar", "only_v2")]
+#[case::prefixed("use spam.nu", "spam bar", "spam only_v2")]
+#[case::glob("use spam.nu *", "bar", "only_v2")]
 fn reverting_a_file_restores_its_commands(
-    #[case] _topic: &str,
     #[case] import: &str,
     #[case] in_v1: &str,
     #[case] in_v2: &str,

@@ -848,19 +848,16 @@ fn overlay_reload_keeps_cd_from_export_env(playground: Playground) -> Result {
 // The overlay's name isn't bound to a module in these, so only its origin can find the file.
 #[rstest]
 #[case::renamed(
-    "overlay_reload_renamed",
     "foo.nu",
     &["use foo.nu", "overlay use foo.nu as bar", "overlay hide bar"],
     "overlay use bar"
 )]
 #[case::imported_in_another_overlay(
-    "overlay_reload_other_overlay",
     "spam.nu",
     &["overlay new tmp", "overlay use spam.nu", "overlay hide tmp"],
     "overlay use spam"
 )]
 fn overlay_by_name_reads_a_changed_file_without_a_module_name(
-    #[case] _topic: &str,
     #[case] file: &str,
     #[case] first: &[&str],
     #[case] again: &str,
@@ -1705,11 +1702,10 @@ fn overlay_hide_still_drops_other_env() -> Result {
 
 // `overlay use <name>` reads the module's file again once it has changed.
 #[rstest]
-#[case::active("overlay_name_active", &[])]
-#[case::hidden("overlay_name_hidden", &["overlay hide spam"])]
-#[case::not_on_top("overlay_name_not_on_top", &["overlay new eggs"])]
+#[case::active(&[])]
+#[case::hidden(&["overlay hide spam"])]
+#[case::not_on_top(&["overlay new eggs"])]
 fn overlay_use_by_name_reads_a_changed_file(
-    #[case] _topic: &str,
     #[case] between: &[&str],
     #[ignore] playground: Playground,
 ) -> Result {
@@ -1759,14 +1755,13 @@ fn overlay_use_by_name_keeps_env_when_file_is_unchanged(playground: Playground) 
 
 // Reloading drops what the new version no longer exports, however the overlay comes back.
 #[rstest]
-#[case::path("overlay_deleted_path", &[], "overlay use spam.nu", "bar", "foo")]
-#[case::name("overlay_deleted_name", &[], "overlay use spam", "bar", "foo")]
-#[case::reload_flag("overlay_deleted_flag", &[], "overlay use --reload spam", "bar", "foo")]
-#[case::hidden_path("overlay_deleted_hidden_path", &["overlay hide spam"], "overlay use spam.nu", "bar", "foo")]
-#[case::hidden_name("overlay_deleted_hidden_name", &["overlay hide spam"], "overlay use spam", "bar", "foo")]
-#[case::not_on_top("overlay_deleted_not_on_top", &["overlay new eggs"], "overlay use spam.nu", "bar", "foo")]
+#[case::path(&[], "overlay use spam.nu", "bar", "foo")]
+#[case::name(&[], "overlay use spam", "bar", "foo")]
+#[case::reload_flag(&[], "overlay use --reload spam", "bar", "foo")]
+#[case::hidden_path(&["overlay hide spam"], "overlay use spam.nu", "bar", "foo")]
+#[case::hidden_name(&["overlay hide spam"], "overlay use spam", "bar", "foo")]
+#[case::not_on_top(&["overlay new eggs"], "overlay use spam.nu", "bar", "foo")]
 fn overlay_deleted_command_goes_away_on_reload(
-    #[case] _topic: &str,
     #[case] between: &[&str],
     #[case] again: &str,
     #[case] deleted: &str,
@@ -1807,11 +1802,10 @@ fn overlay_deleted_constant_goes_away_on_reload(playground: Playground) -> Resul
 }
 
 #[rstest]
-#[case::reload("overlay_deleted_sub_reload", &[], "overlay use --reload spam")]
-#[case::hidden_path("overlay_deleted_sub_path", &["overlay hide spam"], "overlay use spam.nu")]
-#[case::hidden_name("overlay_deleted_sub_name", &["overlay hide spam"], "overlay use spam")]
+#[case::reload(&[], "overlay use --reload spam")]
+#[case::hidden_path(&["overlay hide spam"], "overlay use spam.nu")]
+#[case::hidden_name(&["overlay hide spam"], "overlay use spam")]
 fn overlay_deleted_submodule_goes_away_on_reload(
-    #[case] _topic: &str,
     #[case] before_the_edit: &[&str],
     #[case] again: &str,
     #[ignore] playground: Playground,
@@ -1854,10 +1848,9 @@ fn overlay_prefixed_deleted_command_goes_away_on_reload(playground: Playground) 
 
 // What you defined inside the overlay isn't the module's, so a reload leaves it alone.
 #[rstest]
-#[case::custom_command("overlay_reload_custom", "def mine [] { 'mine' }", "mine", "mine")]
-#[case::redefined("overlay_reload_redefined", "def bar [] { 'mine' }", "bar", "mine")]
+#[case::custom_command("def mine [] { 'mine' }", "mine", "mine")]
+#[case::redefined("def bar [] { 'mine' }", "bar", "mine")]
 fn overlay_reload_keeps_your_own_definitions(
-    #[case] _topic: &str,
     #[case] definition: &str,
     #[case] call: &str,
     #[case] expected: &str,
