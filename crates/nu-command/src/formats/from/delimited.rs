@@ -3,7 +3,7 @@ use nu_protocol::{
     ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value,
     shell_error::bridge::ShellErrorBridge,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
@@ -62,8 +62,7 @@ fn from_delimited_stream(
                 false => name.to_string(),
             })
             .collect();
-        check_duplicate_headers(&headers, span)?;
-        headers
+        dedupe_headers(headers)
     };
 
     let n = headers.len();
@@ -101,29 +100,31 @@ fn from_delimited_stream(
     Ok(ListStream::new(iter, span, Signals::empty()))
 }
 
-/// Reject a header row that uses the same column name twice.
+/// Give each repeated header name a `_N` suffix (`name`, `name_1`, `name_2`, ...).
 ///
 /// Records with duplicate keys lose the earlier values on every later
-/// name-based lookup (`get`, `to csv`, ...), so building them is a silent
-/// data-loss bug. Follows the convention of `rename` and `split column`,
-/// which also refuse a repeated column name.
-fn check_duplicate_headers(headers: &[String], span: Span) -> Result<(), ShellError> {
-    let mut seen: HashMap<&str, usize> = HashMap::new();
-    for (idx, header) in headers.iter().enumerate() {
-        if let Some(first) = seen.insert(header, idx) {
-            return Err(ShellError::ColumnDefinedTwice {
-                col_name: header.clone(),
-                second_use: span,
-                first_use: span,
-                help: Some(format!(
-                    "Columns {first} and {idx} (counting from 0) are both named `{header}`, so \
-                     the earlier one would be silently shadowed. Use `--noheaders | skip 1` to \
-                     keep every column, then give them unique names, for example with `rename`."
-                )),
-            });
-        }
-    }
-    Ok(())
+/// name-based lookup (`get`, `to csv`, ...). A suffixed name never matches a
+/// name the header row already uses, so the names the file spells out stay
+/// as they are.
+fn dedupe_headers(headers: Vec<String>) -> Vec<String> {
+    let mut taken: HashSet<String> = headers.iter().cloned().collect();
+    let mut seen = HashSet::with_capacity(headers.len());
+    headers
+        .into_iter()
+        .map(|name| {
+            if seen.insert(name.clone()) {
+                return name;
+            }
+            let mut n = 1usize;
+            loop {
+                let candidate = format!("{name}_{n}");
+                if taken.insert(candidate.clone()) {
+                    return candidate;
+                }
+                n += 1;
+            }
+        })
+        .collect()
 }
 
 pub(super) struct DelimitedReaderConfig {

@@ -217,20 +217,26 @@ mod test {
     }
 
     #[test]
-    fn test_duplicate_headers_error() -> nu_test_support::Result {
-        let err = nu_test_support::test()
-            .run(r#""name,name\nAlice,Bob" | from csv"#)
-            .expect_shell_error()?;
+    fn test_duplicate_headers_are_renamed() -> nu_test_support::Result {
+        // Repeated names get a `_N` suffix so no column is shadowed.
+        nu_test_support::test()
+            .run(r#""name,name\nAlice,Bob" | from csv | to nuon"#)
+            .expect_value_eq(r#"[[name, "name_1"]; [Alice, Bob]]"#)
+    }
 
-        let ShellError::ColumnDefinedTwice { col_name, help, .. } = err else {
-            panic!("expected a duplicate column error, got {err:?}");
-        };
-        assert_eq!(col_name, "name");
-        let help = help.expect("duplicate column error should have help text");
-        assert!(help.contains("Columns 0 and 1"), "{help}");
-        assert!(help.contains("--noheaders | skip 1"), "{help}");
+    #[test]
+    fn test_duplicate_header_suffix_skips_existing_names() -> nu_test_support::Result {
+        // A real `name_1` column keeps its name; the repeat moves past it.
+        nu_test_support::test()
+            .run(r#""name,name,name_1\n1,2,3" | from csv | to nuon"#)
+            .expect_value_eq(r#"[[name, "name_2", "name_1"]; [1, 2, 3]]"#)
+    }
 
-        Ok(())
+    #[test]
+    fn test_duplicate_headers_with_flexible() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run(r#""a,a\n1,2,3" | from csv --flexible | to nuon"#)
+            .expect_value_eq(r#"[[a, "a_1", "column2"]; [1, 2, 3]]"#)
     }
 
     #[test]

@@ -175,10 +175,10 @@ mod test {
     }
 
     #[test]
-    fn test_duplicate_headers_error() -> nu_test_support::Result {
+    fn test_duplicate_headers_are_renamed() -> nu_test_support::Result {
         nu_test_support::test()
-            .run(r#""name\tname\nAlice\tBob" | from tsv"#)
-            .expect_error_code_eq("nu::shell::column_defined_twice")
+            .run(r#""name\tname\nAlice\tBob" | from tsv | to nuon"#)
+            .expect_value_eq(r#"[[name, "name_1"]; [Alice, Bob]]"#)
     }
 
     #[test]
