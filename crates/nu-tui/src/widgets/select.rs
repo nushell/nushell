@@ -7,6 +7,7 @@ use crate::session::{Rows, Session};
 use crate::widget::{Caps, Effect, ListState, TuiWidget, WidgetState};
 use nu_protocol::engine::Closure;
 use nu_protocol::{Record, Span, Value};
+use nu_utils::strip_ansi_string_unlikely;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::text::{Line, Span as TSpan, Text};
@@ -44,8 +45,10 @@ impl SelectWidget {
         session.rows(id)
     }
 
+    /// The text shown for `item`, without ANSI escapes: the row is drawn in
+    /// one style, and a hyperlink would otherwise print its URL.
     fn label(&self, item: &Value, session: &Session) -> String {
-        match &self.display {
+        let text = match &self.display {
             Some(Display::Column(col)) => item
                 .as_record()
                 .ok()
@@ -62,7 +65,8 @@ impl SelectWidget {
                 None => value_text(item),
             },
             None => value_text(item),
-        }
+        };
+        strip_ansi_string_unlikely(text)
     }
 }
 

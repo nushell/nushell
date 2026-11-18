@@ -4,10 +4,13 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use nu_protocol::{Record, Span, Value};
+use nu_utils::strip_ansi_string_unlikely;
 
 #[derive(Debug, Clone)]
 pub struct TreeRow {
     pub path: String,
+    /// Plain text: ANSI escapes are dropped, so a hyperlink shows its text,
+    /// not its URL.
     pub label: String,
     pub depth: usize,
     pub expandable: bool,
@@ -166,7 +169,7 @@ fn flatten_node<'a>(
     let is_open = ctx.expanded.contains(path);
     out.push(TreeRow {
         path: path.to_string(),
-        label,
+        label: strip_ansi_string_unlikely(label),
         depth,
         expandable,
         expanded: is_open,
