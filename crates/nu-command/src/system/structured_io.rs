@@ -121,8 +121,7 @@ fn is_nu_binary(path: &Path) -> bool {
         .is_some_and(|name| name.eq_ignore_ascii_case("nu") || name.eq_ignore_ascii_case("nu.exe"))
 }
 
-/// The parent's end of the channel for one child: the listening socket, until the child has
-/// connected for every way or has exited.
+/// The parent's end of the channel for one child: the listening socket, until the child exits.
 pub struct StructuredIoServer {
     link: StructuredIoLink,
     listener: Listener,
@@ -199,13 +198,18 @@ impl StructuredIoServer {
     pub fn waker(&self) -> impl FnOnce() + Send + 'static {
         let link = self.link.clone();
         move || {
-            // Fails once the thread has stopped and the socket is gone, which is fine.
+            // The thread only stops early if accepting failed. Then the socket is gone, and on
+            // Unix this fails at once. On Windows it can still wait while the parent holds a
+            // connection of the child's, see `start`.
             let _ = connect(&link, ROLE_WAKE);
         }
     }
 
     /// Accepts the child's connections on a thread of its own, now that the child runs. The socket
-    /// goes away when the child has connected for every way or has exited.
+    /// stays open until the [`waker`](Self::waker) connects, even once the child connected for
+    /// every way: on Windows, connecting to a named pipe whose instances are all in use waits for
+    /// a free one with no time limit, so a waker that came after the listener closed would hang
+    /// while the parent still holds the child's connection, and the child's exit status with it.
     pub fn start(self, span: Span) -> Result<(), ShellError> {
         thread::Builder::new()
             .name("structured io listener".into())
@@ -216,7 +220,8 @@ impl StructuredIoServer {
 
     fn accept(mut self) {
         let mut preamble = vec![0; self.link.token.len() + 2];
-        while self.input.is_some() || self.output.is_some() {
+        // Ends only with the waker, see `start`.
+        loop {
             let Ok(mut stream) = self.listener.accept() else {
                 break;
             };
