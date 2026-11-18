@@ -307,6 +307,26 @@ fn source_circular_through_parent_dir() -> Result {
     )
 }
 
+/// The script nu runs is the first file on the stack, so the cycle is caught where it closes.
+#[test]
+#[deps(NU)]
+fn source_circular_through_parent_dir_from_script() -> Result {
+    Playground::setup(
+        "source_circular_through_parent_dir_from_script",
+        |dirs, sandbox| -> Result {
+            sandbox.mkdir("sub").with_files(&[
+                Stub::FileWithContent("a.nu", "source sub/b.nu"),
+                Stub::FileWithContent("sub/b.nu", "source ../a.nu"),
+            ]);
+
+            let result: CompleteResult = test().cwd(dirs.test()).run("nu -n a.nu | complete")?;
+            assert_contains("nu::parser::circular_import", &result.stderr);
+            assert_contains("source ../a.nu", &result.stderr);
+            Ok(())
+        },
+    )
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn source_circular_through_symlink() -> Result {
