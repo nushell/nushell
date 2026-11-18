@@ -226,9 +226,19 @@ mod test {
             panic!("expected a duplicate column error, got {err:?}");
         };
         assert_eq!(col_name, "name");
-        assert!(help.is_some_and(|text| text.contains("--noheaders")));
+        let help = help.expect("duplicate column error should have help text");
+        assert!(help.contains("Columns 0 and 1"), "{help}");
+        assert!(help.contains("--noheaders | skip 1"), "{help}");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_blank_headers_are_named_by_position() -> nu_test_support::Result {
+        // Several unlabeled header cells must not count as duplicates.
+        nu_test_support::test()
+            .run(r#""a,b,,\n1,2,3,4" | from csv | to nuon"#)
+            .expect_value_eq(r#"[[a, b, "column2", "column3"]; [1, 2, 3, 4]]"#)
     }
 
     #[test]

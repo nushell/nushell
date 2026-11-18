@@ -3,7 +3,8 @@ use nu_protocol::{
     ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value,
     shell_error::bridge::ShellErrorBridge,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
     let msg = err.to_string();
@@ -53,7 +54,13 @@ fn from_delimited_stream(
             .headers()
             .map_err(|err| from_csv_error(err, span))?
             .iter()
-            .map(String::from)
+            .enumerate()
+            // Name blank header cells by position, the same way `headers` does,
+            // so files with several unlabeled columns still load.
+            .map(|(idx, name)| match name.is_empty() {
+                true => format!("column{idx}"),
+                false => name.to_string(),
+            })
             .collect();
         check_duplicate_headers(&headers, span)?;
         headers
@@ -63,7 +70,8 @@ fn from_delimited_stream(
     // With `--flexible`, a row can have more fields than the header; the
     // generated `columnN` filler names skip anything already used by the header
     // so they can't create another duplicate.
-    let header_names: HashSet<String> = headers.iter().cloned().collect();
+    // Shared, so cloning `columns` for every row doesn't copy the set.
+    let header_names: Arc<HashSet<String>> = Arc::new(headers.iter().cloned().collect());
     let columns = headers.into_iter().chain(
         (n..)
             .map(|i| format!("column{i}"))
@@ -100,19 +108,18 @@ fn from_delimited_stream(
 /// data-loss bug. Follows the convention of `rename` and `split column`,
 /// which also refuse a repeated column name.
 fn check_duplicate_headers(headers: &[String], span: Span) -> Result<(), ShellError> {
-    let mut seen = HashSet::new();
-    for header in headers {
-        if !seen.insert(header) {
+    let mut seen: HashMap<&str, usize> = HashMap::new();
+    for (idx, header) in headers.iter().enumerate() {
+        if let Some(first) = seen.insert(header, idx) {
             return Err(ShellError::ColumnDefinedTwice {
                 col_name: header.clone(),
                 second_use: span,
                 first_use: span,
-                help: Some(
-                    "The header row uses this column name twice, so the earlier column would \
-                     be silently shadowed. Use `--noheaders` to keep every column, then give \
-                     them unique names, for example with `rename`."
-                        .into(),
-                ),
+                help: Some(format!(
+                    "Columns {first} and {idx} (counting from 0) are both named `{header}`, so \
+                     the earlier one would be silently shadowed. Use `--noheaders | skip 1` to \
+                     keep every column, then give them unique names, for example with `rename`."
+                )),
             });
         }
     }
