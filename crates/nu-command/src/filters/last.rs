@@ -183,7 +183,10 @@ fn last_helper(
     // and sqlite paths may still execute. For "take nothing" we only produce an empty value:
     // empty binary (and clear pipeline `content_type` for binary) or an empty list, with other
     // metadata unchanged.
-    if rows == 0 {
+    //
+    // With `--strict`, `-s 0` still has to look at the first item (or query with `LIMIT 1`)
+    // to tell an empty input apart, so it goes on to the main `match`.
+    if rows == 0 && !strict_mode {
         return match input {
             PipelineData::Value(val, _) if matches!(&val, Value::Binary { .. }) => {
                 Ok(Value::binary(Vec::new(), val.span())
@@ -205,25 +208,37 @@ fn last_helper(
         };
     }
 
-    if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, _) = input {
+    if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, _) = input
+        && rows > 0
+    {
         ensure_bounded(val, v.span(), head)?;
     }
+
+    // Take this before `match` consumes the input. An external that fails without
+    // output then reports its exit code instead of empty content.
+    #[cfg(feature = "os")]
+    let exit_status = input.clone_exit_status_future();
 
     match input {
         PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
             let iterator = input.into_iter_strict(head)?;
 
             // only keep the last `rows` in memory
+            // With `--strict` and `rows == 0`, we need at least 1 slot to see if the input is non-empty.
+            let cap = if rows == 0 && strict_mode { 1 } else { rows };
             let mut buf = VecDeque::new();
 
             for row in iterator {
                 signals.check(&head)?;
                 // Every row gets read, so an error counts even in a row that won't be returned.
                 let row = row.unwrap_error()?;
-                if buf.len() == rows {
+                if buf.len() == cap {
                     buf.pop_front();
                 }
                 buf.push_back(row);
+                if rows == 0 {
+                    break;
+                }
             }
 
             if return_single_element {
@@ -236,6 +251,10 @@ fn last_helper(
                     // that users can pipe this through 'default' if they want to.
                     Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                 }
+            } else if strict_mode && buf.is_empty() {
+                Err(ShellError::AccessEmptyContent { span: head })
+            } else if rows == 0 {
+                Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata))
             } else {
                 Ok(Value::list(buf.into(), head).into_pipeline_data_with_metadata(metadata))
             }
@@ -254,6 +273,13 @@ fn last_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                         }
+                    } else if strict_mode && vals.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
+                    } else if rows == 0 {
+                        Ok(
+                            Value::list(Vec::new(), head)
+                                .into_pipeline_data_with_metadata(metadata),
+                        )
                     } else {
                         let i = vals.len().saturating_sub(rows);
                         let value = if i == 0 {
@@ -277,6 +303,11 @@ fn last_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(binary_meta))
                         }
+                    } else if strict_mode && val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
+                    } else if rows == 0 {
+                        Ok(Value::binary(Vec::new(), span)
+                            .into_pipeline_data_with_metadata(binary_meta))
                     } else {
                         let mut val = val.into_owned();
                         let i = val.len().saturating_sub(rows);
@@ -294,44 +325,28 @@ fn last_helper(
                     ..
                 } => {
                     if let Some(plan) = QueryPlan::try_from_any(custom_val.as_any()) {
-                        if return_single_element {
-                            // For single element, ORDER BY rowid DESC LIMIT 1
-                            let plan = plan.with_order_by("rowid DESC".to_string()).with_limit(1);
-                            let result = plan.execute(head)?;
-                            let value = result.into_value(head)?;
-                            if let Value::List { vals, .. } = value {
-                                if let Some(val) = vals.into_iter().next() {
-                                    Ok(val.into_pipeline_data_with_metadata(metadata))
-                                } else if strict_mode {
-                                    Err(ShellError::AccessEmptyContent { span: head })
-                                } else {
-                                    // There are no values, so return nothing instead of an error so
-                                    // that users can pipe this through 'default' if they want to.
-                                    Ok(Value::nothing(head)
-                                        .into_pipeline_data_with_metadata(metadata))
-                                }
-                            } else {
-                                Err(ShellError::NushellFailed {
-                                    msg: "Expected list from query plan".into(),
-                                })
-                            }
-                        } else {
-                            // For multiple, ORDER BY rowid DESC LIMIT rows
-                            let plan = plan
-                                .with_order_by("rowid DESC".to_string())
-                                .with_limit(rows as i64);
-                            let result = plan.execute(head)?;
-                            let value = result.into_value(head)?;
-
-                            if let Value::List { mut vals, .. } = value {
-                                // Reverse the results to restore original order
-                                vals.to_mut().reverse();
-                                Ok(Value::list(vals.into_owned(), head)
-                                    .into_pipeline_data_with_metadata(metadata))
-                            } else {
-                                Ok(value.into_pipeline_data_with_metadata(metadata))
-                            }
+                        let plan = plan
+                            .with_order_by("rowid DESC".to_string())
+                            .with_limit(rows.max(1) as i64);
+                        let value = plan.execute(head)?.into_value(head)?;
+                        let Value::List { mut vals, .. } = value else {
+                            return Ok(value.into_pipeline_data_with_metadata(metadata));
+                        };
+                        if strict_mode && vals.is_empty() {
+                            return Err(ShellError::AccessEmptyContent { span: head });
                         }
+                        let value = if return_single_element {
+                            vals.into_owned()
+                                .into_iter()
+                                .next()
+                                .unwrap_or_else(|| Value::nothing(head))
+                        } else if rows == 0 {
+                            Value::list(Vec::new(), head)
+                        } else {
+                            vals.to_mut().reverse();
+                            Value::list(vals.into_owned(), head)
+                        };
+                        Ok(value.into_pipeline_data_with_metadata(metadata))
                     } else {
                         Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "list, binary or range".into(),
@@ -354,6 +369,19 @@ fn last_helper(
                 let span = stream.span();
                 let byte_meta = metadata.map(|m| m.with_content_type(None));
                 if let Some(mut reader) = stream.reader() {
+                    // `-s 0` (only `--strict` gets here with 0) needs one byte to tell empty
+                    // input apart. On 0 bytes the loop below reaches EOF and reports it.
+                    if rows == 0 {
+                        let mut byte = [0u8];
+                        if reader
+                            .read(&mut byte)
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?
+                            > 0
+                        {
+                            return Ok(Value::binary(Vec::new(), span)
+                                .into_pipeline_data_with_metadata(byte_meta));
+                        }
+                    }
                     // Have to be a bit tricky here, but just consume into a VecDeque that we
                     // shrink to fit each time
                     const TAKE: u64 = 8192;
@@ -367,12 +395,17 @@ fn last_helper(
                         }
                         if taken < TAKE {
                             // This must be EOF.
+                            if strict_mode && buf.is_empty() {
+                                #[cfg(feature = "os")]
+                                nu_protocol::process::check_exit_status_future(vec![
+                                    exit_status.map(|status| status.with_span(span)),
+                                ])?;
+                                return Err(ShellError::AccessEmptyContent { span: head });
+                            }
                             if return_single_element {
                                 if !buf.is_empty() {
                                     return Ok(Value::int(buf[0] as i64, head)
                                         .into_pipeline_data_with_metadata(byte_meta));
-                                } else if strict_mode {
-                                    return Err(ShellError::AccessEmptyContent { span: head });
                                 } else {
                                     // There are no values, so return nothing instead of an error so
                                     // that users can pipe this through 'default' if they want to.
@@ -385,6 +418,12 @@ fn last_helper(
                             }
                         }
                     }
+                } else if strict_mode {
+                    #[cfg(feature = "os")]
+                    nu_protocol::process::check_exit_status_future(vec![
+                        exit_status.map(|status| status.with_span(span)),
+                    ])?;
+                    Err(ShellError::AccessEmptyContent { span: head })
                 } else {
                     Ok(Value::nothing(head).into_pipeline_data_with_metadata(byte_meta))
                 }
