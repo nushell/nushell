@@ -14,27 +14,21 @@ use std::process::{Command, Stdio};
 /// with the "STDIN is not a TTY" error; only stdout matters here.
 #[test]
 #[deps(NU)]
-fn history_session_id_reported_during_startup_config() -> Result {
-    Playground::setup("history_session_startup", |_, playground| {
-        let xdg = playground.cwd().join("xdg");
-        fs::create_dir_all(&xdg)?;
+fn history_session_id_reported_during_startup_config(playground: Playground) -> Result {
+    playground.dir("xdg")?;
+    
+    let config = playground.file("config.nu", "$env.config.history.isolation = true\nprint (history session)\n")?;
 
-        let config = playground.cwd().join("config.nu");
-        fs::write(
-            &config,
-            "$env.config.history.isolation = true\nprint (history session)\n",
-        )?;
+    let output = Command::new(NU.path())
+        .current_dir(playground.path())
+        .arg("--config")
+        .arg(config)
+        .env("XDG_CONFIG_HOME", xdg)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .output()?;
 
-        let output = Command::new(NU.path())
-            .current_dir(playground.cwd())
-            .arg("--config")
-            .arg(&config)
-            .env("XDG_CONFIG_HOME", &xdg)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .output()?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = str::from_utf8_lossy(&output.stdout);
         let session_id: i64 = stdout
             .lines()
             .last()
@@ -46,7 +40,4 @@ fn history_session_id_reported_during_startup_config() -> Result {
             session_id, 0,
             "history session must report the real id during startup, stdout={stdout}"
         );
-
-        Ok(())
-    })
 }
