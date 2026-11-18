@@ -1361,10 +1361,11 @@ fn errors_linking_over_existing_file(#[case] progress_flag: &str) -> Result {
         ]);
 
         // uu_cp reports the failed link but returns NotAllFilesCopied, which
-        // nu's cp wrapper swallows, so the command still exits 0.
+        // nu's cp wrapper swallows, so the command still exits 0. Assert on
+        // uutils' own message; the OS error suffix differs across platforms.
         let code = format!("cp {progress_flag} -l a.txt b.txt");
         let result: CompleteResult = test().cwd(sandbox.cwd()).run_with_data(RUNNER, code)?;
-        assert_contains("File exists", result.stderr);
+        assert_contains("cannot create hard link", result.stderr);
         assert_eq!(fs::read_to_string(sandbox.cwd().join("b.txt"))?, "existing");
 
         // With -f the existing destination is replaced by a hard link.
