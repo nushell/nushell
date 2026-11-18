@@ -49,6 +49,12 @@ impl UnstructuredTable {
         }
     }
 
+    /// Removes column labels recursively, preserving keys in key-value records.
+    /// Call only once, immediately after construction and before truncation.
+    pub(crate) fn remove_headers(&mut self) {
+        remove_headers(&mut self.value);
+    }
+
     /// Shrinks the table to fit in `width` columns. Returns `true` when not even a `...` fits.
     pub fn truncate(&mut self, theme: &TableTheme, width: usize) -> bool {
         let spacing = Spacing::new(theme, self.indent);
@@ -71,6 +77,30 @@ impl UnstructuredTable {
         }
 
         build_table(value, style, spacing.borders, self.indent)
+    }
+}
+
+/// Removes the label cell at the top of each [`Node::Table`] column at every depth.
+/// Record keys sit in [`Node::Row`]s and are preserved.
+fn remove_headers(node: &mut Node) {
+    match node {
+        Node::Cell(_) => {}
+        Node::Row(values) | Node::Column(values) => {
+            for value in values {
+                remove_headers(value);
+            }
+        }
+        Node::Table(columns) => {
+            for column in columns {
+                // Every table column starts with its label, followed by data cells.
+                if let Node::Column(cells) = column
+                    && !cells.is_empty()
+                {
+                    cells.remove(0);
+                }
+                remove_headers(column);
+            }
+        }
     }
 }
 

@@ -309,7 +309,7 @@ fn list_layout<'v>(
         .into_iter()
         .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
         .collect();
-    let with_header = !headers.is_empty();
+    let with_header = !headers.is_empty() && !cfg.opts.header_remove;
     let first_row = with_header as usize;
     let first_column = with_index as usize;
     let count_data_columns = max(headers.len(), 1);
@@ -345,7 +345,9 @@ fn list_layout<'v>(
     for col in 0..count_data_columns {
         let column = col + first_column;
         let header = headers.get(col);
-        if let Some(header) = header {
+        if let Some(header) = header
+            && with_header
+        {
             table.insert((0, column), header.clone());
         }
 
