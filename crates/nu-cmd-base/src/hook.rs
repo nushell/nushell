@@ -93,7 +93,7 @@ pub fn eval_hooks(
         .iter()
         .try_fold(None, |prev, hook| -> Result<_, ShellError> {
             let output = eval_hook(engine_state, stack, None, arguments, hook, &name)?;
-            let filter = || Some(output).filter(|out| !matches!(out, PipelineData::Empty));
+            let filter = || Some(output).filter(|out| !out.is_nothing());
             Ok(prev.or_else(filter))
         })?;
 
