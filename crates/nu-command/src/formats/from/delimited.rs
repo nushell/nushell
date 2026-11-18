@@ -3,6 +3,7 @@ use nu_protocol::{
     ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value,
     shell_error::bridge::ShellErrorBridge,
 };
+use std::collections::HashSet;
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
     let msg = err.to_string();
@@ -48,18 +49,26 @@ fn from_delimited_stream(
     let headers = if noheaders {
         vec![]
     } else {
-        reader
+        let headers: Vec<String> = reader
             .headers()
             .map_err(|err| from_csv_error(err, span))?
             .iter()
             .map(String::from)
-            .collect()
+            .collect();
+        check_duplicate_headers(&headers, span)?;
+        headers
     };
 
     let n = headers.len();
-    let columns = headers
-        .into_iter()
-        .chain((n..).map(|i| format!("column{i}")));
+    // With `--flexible`, a row can have more fields than the header; the
+    // generated `columnN` filler names skip anything already used by the header
+    // so they can't create another duplicate.
+    let header_names: HashSet<String> = headers.iter().cloned().collect();
+    let columns = headers.into_iter().chain(
+        (n..)
+            .map(|i| format!("column{i}"))
+            .filter(move |name| !header_names.contains(name)),
+    );
     let iter = reader.into_records().map(move |row| {
         let row = match row {
             Ok(row) => row,
@@ -82,6 +91,32 @@ fn from_delimited_stream(
     });
 
     Ok(ListStream::new(iter, span, Signals::empty()))
+}
+
+/// Reject a header row that uses the same column name twice.
+///
+/// Records with duplicate keys lose the earlier values on every later
+/// name-based lookup (`get`, `to csv`, ...), so building them is a silent
+/// data-loss bug. Follows the convention of `rename` and `split column`,
+/// which also refuse a repeated column name.
+fn check_duplicate_headers(headers: &[String], span: Span) -> Result<(), ShellError> {
+    let mut seen = HashSet::new();
+    for header in headers {
+        if !seen.insert(header) {
+            return Err(ShellError::ColumnDefinedTwice {
+                col_name: header.clone(),
+                second_use: span,
+                first_use: span,
+                help: Some(
+                    "The header row uses this column name twice, so the earlier column would \
+                     be silently shadowed. Use `--noheaders` to keep every column, then give \
+                     them unique names, for example with `rename`."
+                        .into(),
+                ),
+            });
+        }
+    }
+    Ok(())
 }
 
 pub(super) struct DelimitedReaderConfig {

@@ -204,6 +204,7 @@ fn from_csv(
 #[cfg(test)]
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+    use nu_test_support::TestResultExt;
 
     use super::*;
 
@@ -213,6 +214,39 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(FromCsv)
+    }
+
+    #[test]
+    fn test_duplicate_headers_error() -> nu_test_support::Result {
+        let err = nu_test_support::test()
+            .run(r#""name,name\nAlice,Bob" | from csv"#)
+            .expect_shell_error()?;
+
+        let ShellError::ColumnDefinedTwice { col_name, help, .. } = err else {
+            panic!("expected a duplicate column error, got {err:?}");
+        };
+        assert_eq!(col_name, "name");
+        assert!(help.is_some_and(|text| text.contains("--noheaders")));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_noheaders_keeps_repeated_columns() -> nu_test_support::Result {
+        // With --noheaders the first row is data, so every column of every
+        // row survives instead of being shadowed.
+        nu_test_support::test()
+            .run(r#""name,name\nAlice,Bob" | from csv --noheaders | to nuon"#)
+            .expect_value_eq(r#"[["column0", "column1"]; [name, name], [Alice, Bob]]"#)
+    }
+
+    #[test]
+    fn test_flexible_filler_names_skip_header_columns() -> nu_test_support::Result {
+        // The header already contains a `column2`, so the filler name for the
+        // extra field must move past it instead of repeating it.
+        nu_test_support::test()
+            .run(r#""a,column2\n1,2,3" | from csv --flexible | to nuon"#)
+            .expect_value_eq(r#"[[a, "column2", "column3"]; [1, 2, 3]]"#)
     }
 
     #[test]
