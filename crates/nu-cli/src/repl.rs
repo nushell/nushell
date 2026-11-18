@@ -2608,9 +2608,7 @@ mod test_auto_cd {
 
 #[cfg(test)]
 mod test_recover_cwd {
-    use super::{
-        CwdRecovery, ReplBuffer, osc7_sequence, prepare_repl_iteration, recover_cwd_if_needed,
-    };
+    use super::*;
     use miette::Diagnostic;
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
