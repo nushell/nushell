@@ -215,6 +215,44 @@ fn error_on_empty_binary_in_strict_mode() -> Result {
     assert_empty_content_diagnostic("0x[] | first --strict")
 }
 
+#[test]
+fn error_on_empty_inputs_when_rows_given_in_strict_mode() -> Result {
+    for code in [
+        "[] | first -s 1",
+        "[] | first -s 0",
+        "[1] | where {|x| $x > 1 } | first -s 1",
+        "[1] | where {|x| $x > 1 } | first -s 0",
+        "0x[] | first -s 1",
+        "0x[] | first -s 0",
+        "1..<1 | first -s 1",
+        "1..<1 | first -s 0",
+    ] {
+        assert_empty_content_diagnostic(code)?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn non_empty_inputs_succeed_with_rows_in_strict_mode() -> Result {
+    test()
+        .run("[1, 2, 3] | first -s 2")
+        .expect_value_eq(Value::test_list(vec![
+            Value::test_int(1),
+            Value::test_int(2),
+        ]))?;
+
+    for code in [
+        "[1, 2, 3] | first -s 0 | length",
+        "1..3 | first -s 0 | length",
+        "[1, 2, 3] | each {|x| $x } | first -s 0 | length",
+    ] {
+        test().run(code).expect_value_eq(0)?;
+    }
+
+    Ok(())
+}
+
 fn assert_empty_content_diagnostic(code: &str) -> Result {
     test()
         .run(code)

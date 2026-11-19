@@ -1,7 +1,7 @@
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::bridge::ShellErrorBridge};
+use nu_protocol::{ListStream, Signals, shell_error::bridge::ShellErrorBridge};
 use std::io::Read;
 
 #[derive(Clone)]
@@ -184,7 +184,7 @@ fn first_helper(
     // pipe, and sqlite lazy queries can still run. For "take nothing" we only produce an empty
     // value: empty binary (and clear pipeline `content_type` for binary) or an empty list, with
     // other metadata unchanged.
-    if rows == 0 {
+    if rows == 0 && !strict_mode {
         return match input {
             PipelineData::Value(val, _) if matches!(&val, Value::Binary { .. }) => Ok(
                 Value::binary(Vec::new(), val.span()).into_pipeline_data_with_metadata(
@@ -222,6 +222,13 @@ fn first_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
+                    } else if strict_mode && vals.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
+                    } else if rows == 0 {
+                        Ok(
+                            Value::list(Vec::new(), head)
+                                .into_pipeline_data_with_metadata(input_meta),
+                        )
                     } else {
                         let value = if rows >= vals.len() {
                             Value::list_shared(vals, span)
@@ -245,6 +252,13 @@ fn first_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(binary_meta))
                         }
+                    } else if strict_mode && val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
+                    } else if rows == 0 {
+                        Ok(
+                            Value::binary(Vec::new(), span)
+                                .into_pipeline_data_with_metadata(binary_meta),
+                        )
                     } else {
                         let mut val = val.into_owned();
                         val.truncate(rows);
@@ -264,11 +278,16 @@ fn first_helper(
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
                     } else {
-                        Ok(iter.take(rows).into_pipeline_data_with_metadata(
-                            span,
-                            signals.clone(),
-                            input_meta,
-                        ))
+                        let first = if strict_mode { iter.next() } else { None };
+                        if strict_mode && first.is_none() {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            let iter = first.into_iter().chain(iter).take(rows);
+                            Ok(PipelineData::list_stream(
+                                ListStream::new(iter, span, signals.clone()),
+                                input_meta,
+                            ))
+                        }
                     }
                 }
                 // Propagate errors by explicitly matching them before the final case.
@@ -337,10 +356,17 @@ fn first_helper(
                     Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                 }
             } else {
-                Ok(PipelineData::list_stream(
-                    stream.modify(|iter| iter.take(rows)),
-                    input_meta,
-                ))
+                let mut iter = stream.into_iter();
+                let first = if strict_mode { iter.next() } else { None };
+                if strict_mode && first.is_none() {
+                    Err(ShellError::AccessEmptyContent { span: head })
+                } else {
+                    let iter = first.into_iter().chain(iter).take(rows);
+                    Ok(PipelineData::list_stream(
+                        ListStream::new(iter, head, Signals::empty()),
+                        input_meta,
+                    ))
+                }
             }
         }
         PipelineData::ByteStream(stream, _) => {
