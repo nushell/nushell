@@ -126,31 +126,25 @@ pub fn eval_hook(
             // The condition block will be run to check whether the main hook (in `code`) should be run.
             // If it returns true (the default if a condition block is not specified), the hook should be run.
             let do_run_hook = if let Some(condition) = val.get("condition") {
-                let other_span = condition.span();
-                if let Ok(closure) = condition.as_closure() {
-                    match run_hook(engine_state, stack, closure, None, arguments, other_span) {
-                        Ok(pipeline_data) => {
-                            if let PipelineData::Value(Value::Bool { val, .. }, ..) = pipeline_data
-                            {
-                                val
-                            } else {
-                                return Err(ShellError::RuntimeTypeMismatch {
-                                    expected: Type::Bool,
-                                    actual: pipeline_data.get_type(),
-                                    span: pipeline_data.span().unwrap_or(other_span),
-                                });
-                            }
-                        }
-                        Err(err) => {
-                            return Err(err);
-                        }
+                let span = condition.span();
+                let closure =
+                    condition
+                        .as_closure()
+                        .map_err(|_| ShellError::RuntimeTypeMismatch {
+                            expected: Type::Closure,
+                            actual: condition.get_type(),
+                            span,
+                        })?;
+
+                match run_hook(engine_state, stack, closure, None, arguments, span)? {
+                    PipelineData::Value(Value::Bool { val, .. }, ..) => val,
+                    other => {
+                        return Err(ShellError::RuntimeTypeMismatch {
+                            expected: Type::Bool,
+                            actual: other.get_type(),
+                            span: other.span().unwrap_or(span),
+                        });
                     }
-                } else {
-                    return Err(ShellError::RuntimeTypeMismatch {
-                        expected: Type::Closure,
-                        actual: condition.get_type(),
-                        span: other_span,
-                    });
                 }
             } else {
                 // always run the hook
