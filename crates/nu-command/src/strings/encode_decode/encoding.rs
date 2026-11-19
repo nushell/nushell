@@ -44,17 +44,23 @@ pub fn encode(
         parse_encoding(encoding_name.span, &encoding_name.item)
     }?;
 
-    // Since the Encoding Standard doesn't specify encoders for "UTF-16BE" and "UTF-16LE"
-    // Check if the encoding is one of them and return an error
-    if ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
-        return Err(ShellError::Generic(
-            GenericError::new(
-                format!("{} encoding is not supported", encoding_name.item),
-                "invalid encoding",
-                encoding_name.span,
-            )
-            .with_help("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings"),
-        ));
+    // encoding_rs follows the WHATWG Encoding Standard, which does not specify
+    // encoders for UTF-16LE or UTF-16BE. Encode those directly as raw UTF-16
+    // code units, without a byte order mark, so that encode and decode are
+    // symmetric.
+    if encoding.name() == "UTF-16LE" {
+        let bytes: Vec<u8> = s
+            .encode_utf16()
+            .flat_map(|unit| [unit as u8, (unit >> 8) as u8])
+            .collect();
+        return Ok(Value::binary(bytes, head));
+    }
+    if encoding.name() == "UTF-16BE" {
+        let bytes: Vec<u8> = s
+            .encode_utf16()
+            .flat_map(|unit| [(unit >> 8) as u8, unit as u8])
+            .collect();
+        return Ok(Value::binary(bytes, head));
     }
 
     let (result, _actual_encoding, replacements) = encoding.encode(s);
@@ -96,6 +102,87 @@ fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellErr
 mod test {
     use super::*;
     use rstest::rstest;
+
+    #[test]
+    fn utf16le_encodes_without_bom() {
+        let span = Span::test_data();
+        let encoding = Spanned {
+            item: "utf-16le".to_owned(),
+            span,
+        };
+        let encoded = encode(span, encoding, "a😀b", span, true)
+            .unwrap()
+            .coerce_into_binary()
+            .unwrap();
+        assert_eq!(
+            encoded,
+            vec![0x61, 0x00, 0x3d, 0xd8, 0x00, 0xde, 0x62, 0x00]
+        );
+    }
+
+    #[test]
+    fn utf16be_encodes_without_bom() {
+        let span = Span::test_data();
+        let encoding = Spanned {
+            item: "utf-16be".to_owned(),
+            span,
+        };
+        let encoded = encode(span, encoding, "a😀b", span, true)
+            .unwrap()
+            .coerce_into_binary()
+            .unwrap();
+        assert_eq!(
+            encoded,
+            vec![0x00, 0x61, 0xd8, 0x3d, 0xde, 0x00, 0x00, 0x62]
+        );
+    }
+
+    #[test]
+    fn utf16_round_trips() {
+        let span = Span::test_data();
+        for encoding_name in ["utf-16le", "utf-16be"] {
+            let encoding = Spanned {
+                item: encoding_name.to_owned(),
+                span,
+            };
+            let input = "a😀b";
+            let encoded = encode(span, encoding.clone(), input, span, true)
+                .unwrap()
+                .coerce_into_binary()
+                .unwrap();
+            let decoded = decode(span, encoding, &encoded)
+                .unwrap()
+                .coerce_into_string()
+                .unwrap();
+            assert_eq!(decoded, input);
+        }
+    }
+
+    #[test]
+    fn utf16_empty_encodes_to_empty() {
+        let span = Span::test_data();
+        for encoding_name in ["utf-16le", "utf-16be"] {
+            let encoding = Spanned {
+                item: encoding_name.to_owned(),
+                span,
+            };
+            let encoded = encode(span, encoding, "", span, true)
+                .unwrap()
+                .coerce_into_binary()
+                .unwrap();
+            assert!(encoded.is_empty());
+        }
+    }
+
+    #[test]
+    fn invalid_encoding_still_errors() {
+        let span = Span::test_data();
+        let encoding = Spanned {
+            item: "not-an-encoding".to_owned(),
+            span,
+        };
+        assert!(encode(span, encoding, "abc", span, true).is_err());
+    }
 
     #[rstest]
     #[case::big5("big5", "簡体字")]

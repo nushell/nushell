@@ -34,11 +34,9 @@ impl Command for Encode {
 
     fn extra_description(&self) -> &str {
         "Multiple encodings are supported; here are a few:
-big5, euc-jp, euc-kr, gbk, iso-8859-1, cp1252, latin5
+big5, euc-jp, euc-kr, gbk, iso-8859-1, cp1252, latin5, utf-16, utf-16le, utf-16be
 
-Note that since the Encoding Standard doesn't specify encoders for utf-16le and utf-16be, these are not yet supported.
-More information can be found here: https://docs.rs/encoding_rs/latest/encoding_rs/#utf-16le-utf-16be-and-unicode-encoding-schemes
-
+utf-16le and utf-16be produce raw UTF-16 code units without a byte order mark.
 For a more complete list of encodings, please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"
     }
@@ -63,6 +61,22 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"
                 example: r#""🎈" | encode --ignore-errors shift-jis"#,
                 result: Some(Value::binary(
                     vec![0x26, 0x23, 0x31, 0x32, 0x37, 0x38, 0x38, 0x30, 0x3b],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Encode a string into UTF-16LE.",
+                example: r#""abc" | encode utf-16le"#,
+                result: Some(Value::binary(
+                    vec![0x61, 0x00, 0x62, 0x00, 0x63, 0x00],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Encode a string into UTF-16BE.",
+                example: r#""abc" | encode utf-16be"#,
+                result: Some(Value::binary(
+                    vec![0x00, 0x61, 0x00, 0x62, 0x00, 0x63],
                     Span::test_data(),
                 )),
             },
