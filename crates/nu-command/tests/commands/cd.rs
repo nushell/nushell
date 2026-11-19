@@ -240,6 +240,8 @@ fn filesystem_change_directory_to_symlink_relative(playground: Playground) -> Re
         .run("cd ../foo_link; $env.PWD")
         .expect_value_eq(playground.path().join("foo_link"))?;
 
+    #[cfg(not(windows))]
+    let foo = foo.canonicalize()?;
     test()
         .cwd(boo)
         .run("cd -P ../foo_link; $env.PWD")

@@ -12,6 +12,8 @@ fn expands_path_with_dot(playground: Playground) -> Result {
 
     let outcome: String = test().cwd(playground.path()).run(code)?;
     let expected = playground.path().join("menu").join("spam.txt");
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(Path::new(&outcome), expected);
     Ok(())
 }
@@ -44,6 +46,8 @@ fn expands_path_with_double_dot(playground: Playground) -> Result {
 
     let outcome: String = test().cwd(playground.path()).run(code)?;
     let expected = playground.path().join("menu").join("spam.txt");
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(Path::new(&outcome), expected);
     Ok(())
 }
@@ -59,6 +63,8 @@ fn const_path_expand(playground: Playground) -> Result {
 
     let outcome: String = test().cwd(playground.path()).run(code)?;
     let expected = playground.path().join("menu").join("spam.txt");
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(Path::new(&outcome), expected);
     Ok(())
 }
