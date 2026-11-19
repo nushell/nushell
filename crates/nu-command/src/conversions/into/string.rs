@@ -318,7 +318,14 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(result, span)
         }
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
-        Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
+        // The C locale's `%c`, whatever `LC_TIME` says: `Sat Feb  3 04:05:06 2001`.
+        Value::Date { val, .. } => Value::string(
+            nu_protocol::DateTime::try_from(*val)
+                .ok()
+                .and_then(|date| date.format("%c", pure_rust_locales::Locale::POSIX).ok())
+                .unwrap_or_else(|| val.to_rfc3339()),
+            span,
+        ),
         Value::String { val, .. } => Value::string(val, span),
         Value::Glob { val, .. } => Value::string(val, span),
         Value::CellPath { val, .. } => Value::string(val.to_string(), span),

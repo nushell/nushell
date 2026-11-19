@@ -1,4 +1,3 @@
-use chrono::Local;
 use nu_config::ConfigFileKind;
 use nu_engine::command_prelude::*;
 use std::io::Write;
@@ -54,7 +53,7 @@ impl Command for ConfigReset {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!(
                     "oldconfig-{}.nu",
-                    Local::now().format("%F-%H-%M-%S"),
+                    jiff::ZonedDateTime::now().strftime("%F-%H-%M-%S"),
                 ));
                 if let Err(err) = std::fs::rename(nu_config.clone(), &backup_path) {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
@@ -83,7 +82,10 @@ impl Command for ConfigReset {
             let config_file = kind.scaffold();
             if !no_backup {
                 let mut backup_path = config_path.clone();
-                backup_path.push(format!("oldenv-{}.nu", Local::now().format("%F-%H-%M-%S"),));
+                backup_path.push(format!(
+                    "oldenv-{}.nu",
+                    jiff::ZonedDateTime::now().strftime("%F-%H-%M-%S"),
+                ));
                 if let Err(err) = std::fs::rename(env_config.clone(), &backup_path) {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
                         err.not_found_as(NotFound::Directory),

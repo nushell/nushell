@@ -1,6 +1,7 @@
 use super::formats::{FormatRow, format_rows, parse_date_text};
-use chrono::{DateTime, FixedOffset, Local, Timelike};
+use chrono::{DateTime, FixedOffset, Timelike};
 use nu_protocol::{ShellError, Span, Value, record};
+use pure_rust_locales::Locale;
 
 pub(crate) fn parse_date_from_string(
     input: &str,
@@ -60,7 +61,7 @@ pub(crate) fn generate_date_formats_list(head: Span) -> Value {
 /// * `head` - use the call's head
 /// * `show_parse_only_formats` - whether parse-only format specifiers (that can't be outputted) should be shown. Should only be used for `into datetime`, not `format date`
 pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> Value {
-    let now = Local::now();
+    let now = nu_protocol::DateTime::now();
 
     struct FormatSpecification<'a> {
         spec: &'a str,
@@ -289,12 +290,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
     let mut records = specifications
         .iter()
         .map(|s| {
-            // Handle custom format specifiers that aren't supported by chrono
-            let example = match s.spec {
-                "%J" => now.format("%Y%m%d").to_string(),
-                "%Q" => now.format("%H%M%S").to_string(),
-                _ => now.format(s.spec).to_string(),
-            };
+            let example = now.format(s.spec, Locale::POSIX).unwrap_or_default();
 
             Value::record(
                 record! {
@@ -308,14 +304,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         .collect::<Vec<Value>>();
 
     if show_parse_only_formats {
-        // now.format("%#z") will panic since it is parse-only
-        // so here we emulate how it will look:
-        let example = now
-            .format("%:z") // e.g. +09:30
-            .to_string()
-            .get(0..3) // +09:30 -> +09
-            .unwrap_or("")
-            .to_string();
+        // `%#z` reads an offset with or without minutes; show the shortest it reads.
+        let example = now.format("%:::z", Locale::POSIX).unwrap_or_default();
 
         let description = "Parsing only: Same as %z but allows minutes to be missing or present.";
 

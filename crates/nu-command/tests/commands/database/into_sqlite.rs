@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset};
+use chrono::DateTime;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::prelude::*;
 use rand::{
@@ -439,7 +439,12 @@ impl TryFrom<&rusqlite::Row<'_>> for TestRow {
         let somefloat: f64 = row.get("somefloat").unwrap();
         let somefilesize: i64 = row.get("somefilesize").unwrap();
         let someduration: i64 = row.get("someduration").unwrap();
-        let somedate: DateTime<FixedOffset> = row.get("somedate").unwrap();
+        // Dates are stored as the text `2023-09-10 11:30:00.5+00:00`.
+        let somedate_text: String = row.get("somedate").unwrap();
+        let somedate = somedate_text
+            .parse::<nu_protocol::DateTime>()
+            .unwrap()
+            .into();
         let somestring: String = row.get("somestring").unwrap();
         let somebinary: Vec<u8> = row.get("somebinary").unwrap();
         let somenull: rusqlite::types::Value = row.get("somenull").unwrap();

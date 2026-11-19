@@ -1,10 +1,11 @@
-use std::{io::Cursor, str::FromStr};
+use std::io::Cursor;
 
 use calamine::*;
-use chrono::{
-    DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset as _, TimeDelta, TimeZone as _,
-    Utc, offset::LocalResult,
+use jiff::{
+    Timestamp, civil,
+    tz::{Offset, TimeZone},
 };
+use nu_protocol::DateTime;
 
 use nu_engine::command_prelude::*;
 
@@ -83,10 +84,8 @@ pub(super) fn from_sheets(
         sheets
     };
 
-    let tz = match Local.timestamp_opt(0, 0) {
-        LocalResult::Single(tz) => *tz.offset(),
-        _ => Utc.fix(),
-    };
+    // Cells hold wall-clock times; they are read at the local offset of 1970-01-01.
+    let tz = TimeZone::system().to_offset(Timestamp::UNIX_EPOCH);
 
     sheets.with_header_row(first_row);
 
@@ -152,7 +151,7 @@ pub(super) fn from_sheets(
     Ok(output.into_value(head).into_pipeline_data())
 }
 
-fn cell_to_data(cell: &Data, head: Span, tz: FixedOffset, prefer_integers: bool) -> Value {
+fn cell_to_data(cell: &Data, head: Span, tz: Offset, prefer_integers: bool) -> Value {
     match cell {
         Data::Empty => Value::nothing(head),
         Data::Int(val) => Value::int(*val, head),
@@ -168,11 +167,10 @@ fn cell_to_data(cell: &Data, head: Span, tz: FixedOffset, prefer_integers: bool)
         Data::Bool(val) => Value::bool(*val, head),
         Data::DateTime(d) => excel_datetime_to_value(d, tz, head),
         Data::DateTimeIso(datetime_str) => parse_iso_datetime(datetime_str, tz)
-            .map(|d| d.into_value(head))
+            .map(|d| Value::date(d.into(), head))
             .unwrap_or_else(|| datetime_str.as_str().into_value(head)),
-        d @ Data::DurationIso(duration_str) => d
-            .as_duration()
-            .map(|time_delta| timedelta_to_value(time_delta, head))
+        Data::DurationIso(duration_str) => iso_duration_nanos(duration_str)
+            .map(|nanos| Value::duration(nanos, head))
             .unwrap_or(Value::string(duration_str, head)),
 
         // Not great.
@@ -180,44 +178,60 @@ fn cell_to_data(cell: &Data, head: Span, tz: FixedOffset, prefer_integers: bool)
     }
 }
 
-fn parse_iso_datetime(datetime_str: &str, tz: FixedOffset) -> Option<DateTime<FixedOffset>> {
-    let dt = match datetime_str {
-        s if let Ok(dt) = DateTime::from_str(s) => return Some(dt),
-        s if let Ok(dt) = NaiveDateTime::from_str(s) => dt,
-        s if let Ok(dt) = NaiveDate::from_str(s) => NaiveDateTime::from(dt),
-        _ => return None,
-    };
-    datetime_naive_to_fixed(dt, tz)
-}
-
-fn datetime_naive_to_fixed(
-    naive_datetime: NaiveDateTime,
-    tz: FixedOffset,
-) -> Option<DateTime<FixedOffset>> {
-    match tz.from_local_datetime(&naive_datetime) {
-        LocalResult::Single(d) | LocalResult::Ambiguous(_, d) => Some(d),
-        _ => None,
+/// An ISO date-time cell: RFC 3339 with an offset, or a date and time or a date alone, read at
+/// `tz`.
+fn parse_iso_datetime(datetime_str: &str, tz: Offset) -> Option<DateTime> {
+    if let Ok(date) = datetime_str.parse::<DateTime>() {
+        return Some(date);
     }
+    let civil = datetime_str.parse::<civil::DateTime>().ok().or_else(|| {
+        datetime_str
+            .parse::<civil::Date>()
+            .ok()
+            .map(|date| date.to_datetime(civil::Time::midnight()))
+    })?;
+    DateTime::from_civil(civil, tz)
 }
 
-fn timedelta_to_value(time_delta: TimeDelta, span: Span) -> Value {
-    time_delta
-        .num_nanoseconds()
-        .map(|val| Value::duration(val, span))
-        .unwrap_or(Value::nothing(span))
+/// An ISO duration cell written `PT01H02M03.5S`, with hours, minutes and seconds under a day, in
+/// nanoseconds.
+fn iso_duration_nanos(duration_str: &str) -> Option<i64> {
+    let time = jiff::fmt::strtime::parse("PT%HH%MM%S%.fS", duration_str)
+        .ok()?
+        .to_time()
+        .ok()?;
+    let seconds =
+        i64::from(time.hour()) * 3600 + i64::from(time.minute()) * 60 + i64::from(time.second());
+    Some(seconds * 1_000_000_000 + i64::from(time.subsec_nanosecond()))
 }
 
-fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: FixedOffset, span: Span) -> Value {
-    // `.is_x()` followed by `.as_x()` is weird, but calamine tries its best to return what you ask
-    // for with the `.as_x()` methods even when the result is not the most correct
-    if excel_datetime.is_datetime()
-        && let Some(naive_datetime) = excel_datetime.as_datetime()
-    {
-        datetime_naive_to_fixed(naive_datetime, tz).into_value(span)
-    } else if excel_datetime.is_duration()
-        && let Some(time_delta) = excel_datetime.as_duration()
-    {
-        timedelta_to_value(time_delta, span)
+fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: Offset, span: Span) -> Value {
+    if excel_datetime.is_datetime() {
+        let (year, month, day, hour, minute, second, milli) = excel_datetime.to_ymd_hms_milli();
+        let civil = civil::DateTime::new(
+            i16::try_from(year).unwrap_or(i16::MAX),
+            month as i8,
+            day as i8,
+            hour as i8,
+            minute as i8,
+            second as i8,
+            i32::from(milli) * 1_000_000,
+        );
+        civil
+            .ok()
+            .and_then(|civil| DateTime::from_civil(civil, tz))
+            .map_or_else(
+                || Value::nothing(span),
+                |date| Value::date(date.into(), span),
+            )
+    } else if excel_datetime.is_duration() {
+        // A duration is a number of days, kept to the millisecond.
+        let millis = (excel_datetime.as_f64() * 86_400_000.0).round();
+        if millis.abs() < (i64::MAX / 1_000_000) as f64 {
+            Value::duration(millis as i64 * 1_000_000, span)
+        } else {
+            Value::nothing(span)
+        }
     } else {
         // not great, but better than just returning `null`
         excel_datetime.as_f64().into_value(span)

@@ -1,12 +1,8 @@
-use std::sync::LazyLock;
-
 use super::parser::datetime_in_timezone;
+use crate::date::TIME_ZONE_NAMES;
 use crate::date::utils::parse_date_from_string;
-use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
+use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use nu_engine::command_prelude::*;
-
-static TIMEZONES: LazyLock<Vec<&'static str>> =
-    LazyLock::new(|| chrono_tz::TZ_VARIANTS.iter().map(|tz| tz.name()).collect());
 
 #[derive(Clone)]
 pub struct DateToTimezone;
@@ -34,7 +30,7 @@ impl Command for DateToTimezone {
             .param(
                 PositionalArg::new("time zone", SyntaxShape::String)
                     .desc("Time zone description.")
-                    .completion(Completion::new_list(TIMEZONES.as_slice()))
+                    .completion(Completion::new_list(TIME_ZONE_NAMES.as_slice()))
                     .required(),
             )
             .category(Category::Date)
@@ -183,10 +179,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             }
         }
 
-        Value::Nothing { .. } => {
-            let dt = Local::now();
-            _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
-        }
+        Value::Nothing { .. } => _to_timezone(nu_protocol::DateTime::now().into(), timezone, head),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "date, string (that represents datetime), or nothing".into(),
@@ -200,8 +193,11 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
 }
 
 fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> Value {
-    match datetime_in_timezone(&dt, timezone.item.as_str()) {
-        Ok(dt) => Value::date(dt, span),
+    let converted = nu_protocol::DateTime::try_from(dt)
+        .map_err(|_| ())
+        .and_then(|date| datetime_in_timezone(date, timezone.item.as_str()).map_err(|_| ()));
+    match converted {
+        Ok(dt) => Value::date(dt.into(), span),
         Err(_) => Value::error(
             ShellError::TypeMismatch {
                 err_message: String::from("invalid time zone"),

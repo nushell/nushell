@@ -1290,6 +1290,7 @@ mod v1_2 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::DateTime;
     use indoc::*;
     use miette::Diagnostic;
     use nu_protocol::*;

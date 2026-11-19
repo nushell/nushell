@@ -243,7 +243,7 @@ impl UnknownTagError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::*;
+    use chrono::DateTime;
     use miette::Diagnostic;
     use nu_protocol::{engine::Closure, *};
     use nu_test_support::{assertions::assert_contains, prelude::*, test_cell_path};

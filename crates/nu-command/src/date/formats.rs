@@ -234,13 +234,19 @@ fn parse_relative(input: &str) -> Option<DateTime<FixedOffset>> {
     if !RELATIVE.is_match(input).unwrap_or(false) {
         return None;
     }
+    parse_gnu_date(input).map(Into::into)
+}
+
+/// Reads `input` with the GNU `date` grammar (`tomorrow 10am`, `3 days ago`, `@1744972472`).
+#[cfg(feature = "os")]
+pub(crate) fn parse_gnu_date(input: &str) -> Option<nu_protocol::DateTime> {
     // parse_datetime returns jiff 0.2's `Zoned`, so its parts cross over, not the type.
     let zoned = parse_datetime::parse_datetime(input).ok()?.into_zoned()?;
     let timestamp = zoned.timestamp();
-    instant_to_chrono(
-        zoned.offset().seconds(),
+    nu_protocol::DateTime::from_unix_seconds(
         timestamp.as_second(),
         timestamp.subsec_nanosecond(),
+        jiff::tz::Offset::from_seconds(zoned.offset().seconds()).ok()?,
     )
 }
 
@@ -248,6 +254,13 @@ fn parse_relative(input: &str) -> Option<DateTime<FixedOffset>> {
 /// feature.
 #[cfg(not(feature = "os"))]
 fn parse_relative(_input: &str) -> Option<DateTime<FixedOffset>> {
+    None
+}
+
+/// Relative dates are read by parse_datetime, which nu-command depends on only with the `os`
+/// feature.
+#[cfg(not(feature = "os"))]
+pub(crate) fn parse_gnu_date(_input: &str) -> Option<nu_protocol::DateTime> {
     None
 }
 

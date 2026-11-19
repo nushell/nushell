@@ -29,15 +29,14 @@ use crate::{
     did_you_mean,
     engine::{Closure, EngineState},
 };
-use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone, Utc};
-use chrono_humanize::HumanTime;
-use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
+use chrono::{DateTime, Datelike, FixedOffset};
+use nu_utils::{ObviousFloat, SharedCow, contains_emoji};
 pub use semver::Version as SemVerVersion;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    fmt::{self, Debug, Display, Write},
+    fmt::{self, Debug, Display},
     hash::{Hash, Hasher},
     ops::{Bound, ControlFlow},
     path::PathBuf,
@@ -1078,21 +1077,12 @@ impl Value {
         }
     }
 
-    fn format_datetime<Tz: TimeZone>(&self, date_time: &DateTime<Tz>, formatter: &str) -> String
-    where
-        Tz::Offset: Display,
-    {
-        let mut formatter_buf = String::new();
-        let locale = get_locale_from_env_vars(Some("LC_TIME"), |name| std::env::var(name).ok())
-            .and_then(|s| s.as_ref().try_into().ok())
-            .unwrap_or(Locale::en_US);
-        let format = date_time.format_localized(formatter, locale);
-
-        match formatter_buf.write_fmt(format_args!("{format}")) {
-            Ok(_) => (),
-            Err(_) => formatter_buf = format!("Invalid format string {formatter}"),
-        }
-        formatter_buf
+    fn format_datetime(&self, date_time: &DateTime<FixedOffset>, formatter: &str) -> String {
+        let locale = crate::datetime::time_locale(|name| std::env::var(name).ok());
+        crate::DateTime::try_from(*date_time)
+            .ok()
+            .and_then(|date| date.format(formatter, locale).ok())
+            .unwrap_or_else(|| format!("Invalid format string {formatter}"))
     }
 
     /// Converts this `Value` to a string according to the given [`Config`] and separator
@@ -4345,9 +4335,9 @@ impl Value {
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => (lhs, *rhs),
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 // The clock is read on every evaluation, just like `(date now) - 2wk` would be.
-                let point = Utc::now()
-                    .fixed_offset()
-                    .checked_sub_signed(Duration::nanoseconds(*rhs))
+                let point = crate::DateTime::now_utc()
+                    .checked_sub_nanos(*rhs)
+                    .map(DateTime::<FixedOffset>::from)
                     .ok_or_else(|| ShellError::OperatorOverflow {
                         msg: "subtracting the duration from now overflowed".into(),
                         span,
@@ -4584,21 +4574,16 @@ fn operator_type_error(
     }
 }
 
-pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
-    let now = Local::now().with_timezone(val.offset());
-    let delta = *val - now;
-    match delta.num_nanoseconds() {
-        Some(num_nanoseconds) => {
-            let delta_seconds = num_nanoseconds as f64 / 1_000_000_000.0;
-            let delta_seconds_rounded = delta_seconds.round() as i64;
-            HumanTime::from(Duration::seconds(delta_seconds_rounded))
-        }
-        None => {
-            // Happens if the total number of nanoseconds exceeds what fits in an i64
-            // Note: not using delta.num_days() because it results is wrong for years before ~936: a extra year is added
-            let delta_years = val.year() - now.year();
-            HumanTime::from(Duration::days(delta_years as i64 * 365))
-        }
+/// How far `val` is from now, rounded to the second, as text like `2 hours ago`.
+pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> crate::HumanTime {
+    match crate::DateTime::try_from(*val) {
+        Ok(date) => crate::HumanTime::from_now(date),
+        // Past jiff's years, count whole years.
+        Err(_) => crate::HumanTime::from_seconds(
+            (i64::from(val.year()) - i64::from(crate::DateTime::now().to_civil().year()))
+                * 365
+                * 86_400,
+        ),
     }
 }
 

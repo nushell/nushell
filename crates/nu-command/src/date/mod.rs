@@ -5,6 +5,7 @@ mod humanize;
 mod list_timezone;
 mod now;
 mod parser;
+mod strptime;
 mod to_timezone;
 mod utils;
 
@@ -13,6 +14,8 @@ pub use from_human::DateFromHuman;
 pub use humanize::DateHumanize;
 pub use list_timezone::DateListTimezones;
 pub use now::DateNow;
+pub(crate) use parser::TIME_ZONE_NAMES;
+pub(crate) use strptime::{Parsed, parse_with_format};
 pub use to_timezone::DateToTimezone;
 pub(crate) use utils::{
     generate_date_formats_list, generate_strftime_list, parse_date_from_string,

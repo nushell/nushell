@@ -1,5 +1,4 @@
-use chrono::{Local, TimeZone};
-use human_date_parser::{ParseResult, from_human_time};
+use super::formats::parse_gnu_date;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -116,103 +115,9 @@ fn helper(value: Value, head: Span) -> Value {
         }
     };
 
-    let now = Local::now();
-
-    if let Ok(date) = from_human_time(&input_val, now.naive_local()) {
-        match date {
-            ParseResult::Date(date) => {
-                let time = now.time();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                return Value::date(dt_fixed, span);
-            }
-            ParseResult::DateTime(date) => {
-                let local_offset = *now.offset();
-                let dt_fixed = match local_offset.from_local_datetime(&date) {
-                    chrono::LocalResult::Single(dt) => dt,
-                    chrono::LocalResult::Ambiguous(_, _) => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Ambiguous datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                    chrono::LocalResult::None => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Invalid datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                };
-                return Value::date(dt_fixed, span);
-            }
-            ParseResult::Time(time) => {
-                let date = now.date_naive();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                return Value::date(dt_fixed, span);
-            }
-        }
-    }
-
-    match from_human_time(&input_val, now.naive_local()) {
-        Ok(date) => match date {
-            ParseResult::Date(date) => {
-                let time = now.time();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                Value::date(dt_fixed, span)
-            }
-            ParseResult::DateTime(date) => {
-                let local_offset = *now.offset();
-                let dt_fixed = match local_offset.from_local_datetime(&date) {
-                    chrono::LocalResult::Single(dt) => dt,
-                    chrono::LocalResult::Ambiguous(_, _) => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Ambiguous datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                    chrono::LocalResult::None => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Invalid datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                };
-                Value::date(dt_fixed, span)
-            }
-            ParseResult::Time(time) => {
-                let date = now.date_naive();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                Value::date(dt_fixed, span)
-            }
-        },
-        Err(_) => Value::error(
+    match parse_gnu_date(&to_gnu_date(&input_val)) {
+        Some(date) => Value::date(date.into(), span),
+        None => Value::error(
             ShellError::IncorrectValue {
                 msg: "Cannot parse as humanized date".to_string(),
                 val_span: head,
@@ -221,6 +126,60 @@ fn helper(value: Value, head: Span) -> Value {
             span,
         ),
     }
+}
+
+/// Rewrites the English the GNU `date` grammar doesn't read: `at` and `and` go, `in 2 hours`
+/// becomes `2 hours`, `a day ago` becomes `1 day ago`, and a final `ago` applies to every unit
+/// before it (GNU's applies to one), so `10 hours and 5 minutes ago` is `10 hours ago 5 minutes
+/// ago`.
+fn to_gnu_date(text: &str) -> String {
+    let lower = text.to_lowercase().replace(',', " ");
+    let mut words: Vec<&str> = lower.split_whitespace().collect();
+    let all_ago = words.last() == Some(&"ago");
+    if all_ago {
+        words.pop();
+    }
+    let is_count = |word: Option<&&str>| {
+        word.is_some_and(|word| matches!(*word, "a" | "an") || word.parse::<u64>().is_ok())
+    };
+    let mut out = Vec::with_capacity(words.len());
+    for (i, word) in words.iter().enumerate() {
+        match *word {
+            "at" | "and" => {}
+            "in" if is_count(words.get(i + 1)) => {}
+            "a" | "an"
+                if words
+                    .get(i + 1)
+                    .is_some_and(|next| next.ends_with(|c: char| c.is_alphabetic())) =>
+            {
+                out.push("1");
+            }
+            word => {
+                out.push(word);
+                if all_ago && is_unit(word) {
+                    out.push("ago");
+                }
+            }
+        }
+    }
+    out.join(" ")
+}
+
+/// Whether `word` is a GNU `date` relative unit, such as `hours` or `min`.
+fn is_unit(word: &str) -> bool {
+    matches!(
+        word.trim_end_matches('s'),
+        "year"
+            | "month"
+            | "fortnight"
+            | "week"
+            | "day"
+            | "hour"
+            | "minute"
+            | "min"
+            | "second"
+            | "sec"
+    )
 }
 
 fn list_human_readable_examples(span: Span) -> Value {
