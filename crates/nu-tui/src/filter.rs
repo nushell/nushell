@@ -23,15 +23,15 @@ impl Filter {
         self.query.is_empty()
     }
 
-    /// The rows that match, cloned, in their original order.
-    pub fn apply(&self, rows: &[Value]) -> Vec<Value> {
-        if self.is_empty() {
-            return rows.to_vec();
-        }
+    /// Positions of the rows that match, in their original order. List
+    /// widgets keep these so a check mark stays on its row while the
+    /// filter changes.
+    pub fn matching(&self, rows: &[Value]) -> Vec<usize> {
         let mut matcher = self.matcher();
         rows.iter()
-            .filter(|row| matcher.matches(row))
-            .cloned()
+            .enumerate()
+            .filter(|(_, row)| matcher.matches(row))
+            .map(|(i, _)| i)
             .collect()
     }
 
@@ -180,13 +180,13 @@ mod tests {
             query: "ALP".into(),
             ..Default::default()
         };
-        assert_eq!(f.apply(&rows()).len(), 1);
+        assert_eq!(f.matching(&rows()).len(), 1);
         let f = Filter {
             query: "ALP".into(),
             case_sensitive: true,
             ..Default::default()
         };
-        assert!(f.apply(&rows()).is_empty());
+        assert!(f.matching(&rows()).is_empty());
     }
 
     #[test]
@@ -196,12 +196,12 @@ mod tests {
             fuzzy: true,
             ..Default::default()
         };
-        assert_eq!(f.apply(&rows()).len(), 1);
+        assert_eq!(f.matching(&rows()).len(), 1);
         let f = Filter {
             query: "gma".into(),
             ..Default::default()
         };
-        assert!(f.apply(&rows()).is_empty());
+        assert!(f.matching(&rows()).is_empty());
     }
 
     #[test]
@@ -212,7 +212,7 @@ mod tests {
             ..Default::default()
         };
         assert!(
-            f.apply(&rows()).is_empty(),
+            f.matching(&rows()).is_empty(),
             "keys are not matched when columns are set"
         );
     }
@@ -226,6 +226,6 @@ mod tests {
             query: "ctrl+r".into(),
             ..Default::default()
         };
-        assert_eq!(f.apply(&[Value::test_record(r)]).len(), 1);
+        assert_eq!(f.matching(&[Value::test_record(r)]).len(), 1);
     }
 }

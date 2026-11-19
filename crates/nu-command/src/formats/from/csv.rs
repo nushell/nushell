@@ -204,6 +204,7 @@ fn from_csv(
 #[cfg(test)]
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+    use nu_test_support::TestResultExt;
 
     use super::*;
 
@@ -213,6 +214,55 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(FromCsv)
+    }
+
+    #[test]
+    fn test_duplicate_headers_are_renamed() -> nu_test_support::Result {
+        // Repeated names get a `_N` suffix so no column is shadowed.
+        nu_test_support::test()
+            .run(r#""name,name\nAlice,Bob" | from csv | to nuon"#)
+            .expect_value_eq(r#"[[name, "name_1"]; [Alice, Bob]]"#)
+    }
+
+    #[test]
+    fn test_duplicate_header_suffix_skips_existing_names() -> nu_test_support::Result {
+        // A real `name_1` column keeps its name; the repeat moves past it.
+        nu_test_support::test()
+            .run(r#""name,name,name_1\n1,2,3" | from csv | to nuon"#)
+            .expect_value_eq(r#"[[name, "name_2", "name_1"]; [1, 2, 3]]"#)
+    }
+
+    #[test]
+    fn test_duplicate_headers_with_flexible() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run(r#""a,a\n1,2,3" | from csv --flexible | to nuon"#)
+            .expect_value_eq(r#"[[a, "a_1", "column2"]; [1, 2, 3]]"#)
+    }
+
+    #[test]
+    fn test_blank_headers_are_named_by_position() -> nu_test_support::Result {
+        // Several unlabeled header cells must not count as duplicates.
+        nu_test_support::test()
+            .run(r#""a,b,,\n1,2,3,4" | from csv | to nuon"#)
+            .expect_value_eq(r#"[[a, b, "column2", "column3"]; [1, 2, 3, 4]]"#)
+    }
+
+    #[test]
+    fn test_noheaders_keeps_repeated_columns() -> nu_test_support::Result {
+        // With --noheaders the first row is data, so every column of every
+        // row survives instead of being shadowed.
+        nu_test_support::test()
+            .run(r#""name,name\nAlice,Bob" | from csv --noheaders | to nuon"#)
+            .expect_value_eq(r#"[["column0", "column1"]; [name, name], [Alice, Bob]]"#)
+    }
+
+    #[test]
+    fn test_flexible_filler_names_skip_header_columns() -> nu_test_support::Result {
+        // The header already contains a `column2`, so the filler name for the
+        // extra field must move past it instead of repeating it.
+        nu_test_support::test()
+            .run(r#""a,column2\n1,2,3" | from csv --flexible | to nuon"#)
+            .expect_value_eq(r#"[[a, "column2", "column3"]; [1, 2, 3]]"#)
     }
 
     #[test]

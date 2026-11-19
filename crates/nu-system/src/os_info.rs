@@ -11,8 +11,5 @@ pub fn get_os_family() -> &'static str {
 }
 
 pub fn get_kernel_version() -> String {
-    match sysinfo::System::kernel_version() {
-        Some(v) => v,
-        None => "unknown".to_string(),
-    }
+    sysinfo::System::kernel_version().unwrap_or_else(|_| "unknown".to_string())
 }

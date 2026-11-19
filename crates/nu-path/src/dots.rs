@@ -2,8 +2,9 @@
 use omnipath::WinPathExt;
 use std::path::{Component, Path, PathBuf, Prefix};
 
-/// Returns whether a path component is n-dots.
-fn is_ndots(s: &std::ffi::OsStr) -> bool {
+/// Returns whether a path component is n-dots: three or more dots, such as `...`, which
+/// [`expand_ndots`] turns into n - 1 `..` components.
+pub fn is_ndots(s: &std::ffi::OsStr) -> bool {
     s.as_encoded_bytes().iter().all(|c| *c == b'.') && s.len() >= 3
 }
 

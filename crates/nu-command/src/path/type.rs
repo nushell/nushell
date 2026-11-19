@@ -112,7 +112,7 @@ If the path does not exist, null will be returned."
 fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     // To the OS, an empty string is just the CWD,
     // however logically we want to treat it as an invalid path.
-    if path == "" {
+    if path.as_os_str().is_empty() {
         return Value::nothing(span);
     }
     let path = nu_path::expand_path_with(path, &args.pwd, true);

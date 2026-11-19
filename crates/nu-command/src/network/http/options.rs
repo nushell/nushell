@@ -1,9 +1,10 @@
 use crate::network::http::client::{
     RedirectMode, RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
     discard_response_body, expand_unix_socket_path, extract_response_headers,
-    handle_response_status, headers_to_nu, http_client, http_client_pool, http_parse_url,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_host_header, request_set_timeout, send_request_no_body,
+    handle_response_status, handle_transport_error, headers_to_nu, http_client, http_client_pool,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_host_header, request_set_timeout, send_request_no_body,
+    transport_error_response,
 };
 use nu_engine::command_prelude::*;
 
@@ -60,7 +61,7 @@ impl Command for HttpOptions {
             )
             .switch(
                 "allow-errors",
-                "Do not fail if the server returns an error code.",
+                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or under --full a record with an error field; status is null when no response arrived).",
                 Some('e'),
             )
             .switch("pool", "Using a global pool as a client.", None)
@@ -200,7 +201,10 @@ fn helper(
     let (response, request_headers) =
         send_request_no_body(request, request_span, call.head, engine_state.signals());
 
-    let mut response = response?;
+    let response = handle_transport_error(response, args.allow_errors)?;
+    let Some(mut response) = response else {
+        return Ok(transport_error_response(args.full, span));
+    };
     check_response_redirection(redirect_mode, span, &response)?;
 
     if args.full {
@@ -236,7 +240,12 @@ fn helper(
     // In the default (non-`--full`) mode we return only headers, but the HTTP client must still
     // fully read the response body to complete the request (timeouts, chunked bodies, etc.).
     // The `--full` path uses `request_handle_response`, which already consumes the body.
-    discard_response_body(response, span)?;
+    // With `--allow-errors`, a body read failure still yields the headers.
+    if let Err(err) = discard_response_body(response, span, args.allow_errors)
+        && !args.allow_errors
+    {
+        return Err(err);
+    }
     headers_to_nu(&response_headers, span)
 }
 

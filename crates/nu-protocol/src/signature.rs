@@ -193,7 +193,8 @@ pub enum BuiltinCompletion {
     EnvVar,
     /// An active overlay name (`overlay hide`).
     Overlay,
-    /// A command name; `internal_only` restricts to internal commands (`attr complete`).
+    /// A command name; `internal_only` restricts to internal commands (`attr complete`),
+    /// and completes subsequent rest arguments as subcommands of earlier words (`help`).
     Command { internal_only: bool },
 }
 

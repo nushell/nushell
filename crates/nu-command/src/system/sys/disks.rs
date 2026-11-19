@@ -1,4 +1,4 @@
-use super::trim_cstyle_null;
+use super::{sysinfo_error, trim_cstyle_null};
 use nu_engine::command_prelude::*;
 use sysinfo::Disks;
 
@@ -28,7 +28,7 @@ impl Command for SysDisks {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(disks(call.head).into_pipeline_data())
+        Ok(disks(call.head)?.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -40,8 +40,9 @@ impl Command for SysDisks {
     }
 }
 
-fn disks(span: Span) -> Value {
+fn disks(span: Span) -> Result<Value, ShellError> {
     let disks = Disks::new_with_refreshed_list()
+        .map_err(|err| sysinfo_error(err, span))?
         .iter()
         .map(|disk| {
             let device = trim_cstyle_null(disk.name().to_string_lossy());
@@ -61,5 +62,5 @@ fn disks(span: Span) -> Value {
         })
         .collect();
 
-    Value::list(disks, span)
+    Ok(Value::list(disks, span))
 }
