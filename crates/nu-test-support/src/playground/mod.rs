@@ -12,9 +12,6 @@ use std::{
 use itertools::Itertools;
 use rand::RngExt;
 
-#[allow(unused, reason = "doesn't matter anymore")]
-pub mod deprecated;
-
 /// Random process ID used to add entropy to temp directory names.
 static PROCESS_ID: LazyLock<u16> = LazyLock::new(|| rand::rng().random());
 
@@ -365,16 +362,6 @@ pub trait PlaygroundFs: sealed::Sealed {
 pub struct Playground {
     temp_dir: PathBuf,
     cleanup: bool,
-}
-
-// compatibility
-impl Playground {
-    pub fn setup<R>(
-        topic: &str,
-        block: impl FnOnce(deprecated::Dirs, &mut deprecated::Playground) -> R,
-    ) -> R {
-        deprecated::Playground::setup(topic, block)
-    }
 }
 
 impl Playground {

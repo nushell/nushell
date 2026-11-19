@@ -4749,6 +4749,7 @@ dependencies = [
  "nu-engine",
  "nu-experimental",
  "nu-explore",
+ "nu-glob",
  "nu-lsp",
  "nu-mcp",
  "nu-parser",
