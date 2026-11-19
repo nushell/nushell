@@ -4,10 +4,29 @@ use nu_utils::enable_vt_processing;
 use reedline::PromptHelixMode;
 use reedline::{
     Color, DEFAULT_INDICATOR_COLOR, DEFAULT_PROMPT_COLOR, DEFAULT_PROMPT_MULTILINE_COLOR,
-    DEFAULT_PROMPT_RIGHT_COLOR, DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch,
-    PromptHistorySearchStatus, PromptViMode,
+    DEFAULT_PROMPT_RIGHT_COLOR, DefaultPrompt, DefaultPromptSegment, Prompt, PromptEditMode,
+    PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
 };
 use std::{borrow::Cow, sync::Arc};
+
+/// The prompt shown when neither the config nor the environment supplies one,
+/// e.g. under `--no-config-file`.
+///
+/// reedline left the clock to its host when it dropped chrono, so the right
+/// segment renders the local time here, in the format reedline used to.
+fn fallback_prompt() -> DefaultPrompt {
+    DefaultPrompt::new(
+        DefaultPromptSegment::WorkingDirectory,
+        DefaultPromptSegment::Dynamic(local_clock),
+    )
+}
+
+/// The current local date and time, e.g. `11/19/2026 02:05:09 PM`.
+fn local_clock() -> String {
+    jiff::ZonedDateTime::now()
+        .strftime("%m/%d/%Y %I:%M:%S %p")
+        .to_string()
+}
 
 /// The reedline-facing view over some [`PromptContents`].
 pub struct NushellPrompt {
@@ -75,10 +94,7 @@ impl Prompt for NushellPrompt {
 
         self.with_contents(|c| {
             render_or(c.left.as_deref(), || {
-                DefaultPrompt::default()
-                    .render_prompt_left()
-                    .into_owned()
-                    .into()
+                fallback_prompt().render_prompt_left().into_owned().into()
             })
         })
     }
@@ -86,10 +102,7 @@ impl Prompt for NushellPrompt {
     fn render_prompt_right(&self) -> Cow<'_, str> {
         self.with_contents(|c| {
             render_or(c.right.as_deref(), || {
-                DefaultPrompt::default()
-                    .render_prompt_right()
-                    .into_owned()
-                    .into()
+                fallback_prompt().render_prompt_right().into_owned().into()
             })
         })
     }
@@ -281,5 +294,18 @@ mod tests {
 
         assert_eq!(prompt.get_prompt_color(), Color::Default);
         assert_eq!(prompt.get_prompt_right_color(), DEFAULT_PROMPT_RIGHT_COLOR);
+    }
+
+    /// reedline's own default right prompt is empty, so the clock is ours.
+    #[test]
+    fn the_fallback_right_prompt_is_a_clock() {
+        let right = prompt_with(None, None).render_prompt_right().into_owned();
+
+        // `MM/DD/YYYY HH:MM:SS AM`
+        assert_eq!(right.len(), 22, "unexpected clock: {right:?}");
+        assert!(
+            right.ends_with(" AM") || right.ends_with(" PM"),
+            "{right:?}"
+        );
     }
 }
