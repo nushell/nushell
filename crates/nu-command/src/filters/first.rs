@@ -321,6 +321,16 @@ fn first_helper(
                                     msg: "Expected list from query plan".into(),
                                 })
                             }
+                        } else if strict_mode && rows == 0 {
+                            // A zero-limited plan is always empty, so probe the source first.
+                            let value = plan.with_limit(1).execute(head)?.into_value(head)?;
+                            let empty = matches!(&value, Value::List { vals, .. } if vals.is_empty());
+                            if empty {
+                                Err(ShellError::AccessEmptyContent { span: head })
+                            } else {
+                                Ok(Value::list(Vec::new(), head)
+                                    .into_pipeline_data_with_metadata(input_meta))
+                            }
                         } else {
                             // For multiple, limit rows
                             let plan = plan.with_limit(rows as i64);
@@ -357,7 +367,10 @@ fn first_helper(
                 }
             } else {
                 let mut iter = stream.into_iter();
-                let first = if strict_mode { iter.next() } else { None };
+                let mut first = if strict_mode { iter.next() } else { None };
+                if let Some(Value::Error { error, .. }) = first {
+                    return Err(*error);
+                }
                 if strict_mode && first.is_none() {
                     Err(ShellError::AccessEmptyContent { span: head })
                 } else {
@@ -388,6 +401,18 @@ fn first_helper(
                             Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
+                        let reader: Box<dyn std::io::Read + Send> = if strict_mode {
+                            let mut first = [0u8];
+                            let read = reader
+                                .read(&mut first)
+                                .map_err(|err| ShellErrorBridge::unpack(err, span))?;
+                            if read == 0 {
+                                return Err(ShellError::AccessEmptyContent { span: head });
+                            }
+                            Box::new(std::io::Cursor::new(first[..read].to_vec()).chain(reader))
+                        } else {
+                            Box::new(reader)
+                        };
                         // Just take 'rows' bytes off the stream, mimicking the binary behavior
                         Ok(PipelineData::byte_stream(
                             ByteStream::read(

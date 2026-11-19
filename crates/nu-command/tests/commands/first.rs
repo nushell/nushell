@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use nu_protocol::{
-    Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
-    Range, Signals, Span, Value, ast::RangeInclusion,
+    ByteStream, ByteStreamType, Filesize, IntRange, IntoPipelineData, LabeledError, ListStream,
+    PipelineData, PipelineMetadata, Range, Signals, Span, Value, ast::RangeInclusion,
 };
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
@@ -345,5 +345,27 @@ fn first_preserves_pipeline_metadata(#[case] input: InputKind, #[case] code: &st
         in_meta.clone()
     };
     assert_eq!(expected, out);
+    Ok(())
+}
+
+#[test]
+fn byte_stream_strict_rows_checks_emptiness() -> Result {
+    let empty_stream = PipelineData::byte_stream(
+        ByteStream::read(
+            std::io::Cursor::new(Vec::<u8>::new()),
+            Span::test_data(),
+            Signals::empty(),
+            ByteStreamType::Binary,
+        ),
+        None,
+    );
+    let err = test()
+        .run_raw_with_data("first --strict 2", empty_stream)
+        .expect_err("expected empty byte stream with --strict and rows to fail");
+    assert!(
+        format!("{err:?}").contains("AccessEmptyContent"),
+        "expected AccessEmptyContent, got {err:?}"
+    );
+
     Ok(())
 }
