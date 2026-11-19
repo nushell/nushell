@@ -5,8 +5,7 @@ use nu_cmd_base::prompt::{
     PROMPT_INDICATOR_VI_NORMAL, PROMPT_MULTILINE_INDICATOR, TRANSIENT_PROMPT_COMMAND,
     TRANSIENT_PROMPT_COMMAND_RIGHT, TRANSIENT_PROMPT_INDICATOR,
     TRANSIENT_PROMPT_INDICATOR_VI_INSERT, TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
-    TRANSIENT_PROMPT_MULTILINE_INDICATOR, resolve_indicator, resolve_prompt_source,
-    resolve_transient_indicator,
+    TRANSIENT_PROMPT_MULTILINE_INDICATOR, render, resolve_prompt_source,
 };
 use nu_protocol::{
     Config,
@@ -59,17 +58,18 @@ fn build_prompt_contents(
     let source = |env_var, configured| {
         resolve_prompt_source(env_var, configured, config, engine_state, stack)
     };
-    let mode_indicator =
-        |env_var, configured| resolve_indicator(env_var, configured, config, engine_state, stack);
 
-    // Fixed order: a prompt source may hold a closure, so reshuffling these
-    // would reorder side effects.
+    // Fixed order: any of these may hold a closure, so reshuffling them would
+    // reorder side effects. An indicator that fails to render is `None`, which
+    // `NushellPrompt` draws as the built-in one.
     let left = source(PROMPT_COMMAND, prompt.left.as_ref());
     let right = source(PROMPT_COMMAND_RIGHT, prompt.right.as_ref());
-    let indicator = mode_indicator(PROMPT_INDICATOR, &prompt.indicator);
-    let vi_insert = mode_indicator(PROMPT_INDICATOR_VI_INSERT, &prompt.vi_insert);
-    let vi_normal = mode_indicator(PROMPT_INDICATOR_VI_NORMAL, &prompt.vi_normal);
-    let multiline = mode_indicator(PROMPT_MULTILINE_INDICATOR, &prompt.multiline);
+    let indicator = source(PROMPT_INDICATOR, Some(&prompt.indicator));
+    let vi_insert = source(PROMPT_INDICATOR_VI_INSERT, Some(&prompt.vi_insert));
+    let vi_normal = source(PROMPT_INDICATOR_VI_NORMAL, Some(&prompt.vi_normal));
+    // Config-only: vi visual used to reuse the vi normal indicator.
+    let vi_visual = render(&prompt.vi_visual, config, engine_state, stack);
+    let multiline = source(PROMPT_MULTILINE_INDICATOR, Some(&prompt.multiline));
 
     PromptContents {
         left: left.map(Arc::from),
@@ -82,12 +82,11 @@ fn build_prompt_contents(
                 Arc::from(right)
             }
         }),
-        indicator: Some(Arc::from(indicator)),
-        vi_insert: Some(Arc::from(vi_insert)),
-        vi_normal: Some(Arc::from(vi_normal)),
-        // Config-only: vi visual used to reuse the vi normal indicator.
-        vi_visual: Some(Arc::from(prompt.vi_visual.as_str())),
-        multiline: Some(Arc::from(multiline)),
+        indicator: indicator.map(Arc::from),
+        vi_insert: vi_insert.map(Arc::from),
+        vi_normal: vi_normal.map(Arc::from),
+        vi_visual: vi_visual.map(Arc::from),
+        multiline: multiline.map(Arc::from),
         render_right_on_last_line: prompt.render_right_on_last_line,
     }
 }
@@ -110,27 +109,28 @@ pub(crate) fn make_transient_prompt(
     let source = |env_var, configured| {
         resolve_prompt_source(env_var, configured, config, engine_state, stack)
     };
-    // `None` here means "keep the live value", which is the only thing
-    // separating these from the live prompt's indicators.
-    let mode_indicator = |env_var, configured| {
-        resolve_transient_indicator(env_var, configured, config, engine_state, stack)
-    };
 
-    // Same fixed order as the live prompt, for the same reason.
+    // Same fixed order as the live prompt, for the same reason. `None` here
+    // means "keep the live value".
     let left = source(TRANSIENT_PROMPT_COMMAND, transient.left.as_ref());
     let right = source(TRANSIENT_PROMPT_COMMAND_RIGHT, transient.right.as_ref());
-    let indicator = mode_indicator(TRANSIENT_PROMPT_INDICATOR, transient.indicator.as_deref());
-    let vi_insert = mode_indicator(
+    let indicator = source(TRANSIENT_PROMPT_INDICATOR, transient.indicator.as_ref());
+    let vi_insert = source(
         TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
-        transient.vi_insert.as_deref(),
+        transient.vi_insert.as_ref(),
     );
-    let vi_normal = mode_indicator(
+    let vi_normal = source(
         TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
-        transient.vi_normal.as_deref(),
+        transient.vi_normal.as_ref(),
     );
-    let multiline = mode_indicator(
+    // Config-only, like its live counterpart.
+    let vi_visual = transient
+        .vi_visual
+        .as_ref()
+        .and_then(|value| render(value, config, engine_state, stack));
+    let multiline = source(
         TRANSIENT_PROMPT_MULTILINE_INDICATOR,
-        transient.multiline.as_deref(),
+        transient.multiline.as_ref(),
     );
 
     let overrides = PromptContents {
@@ -139,8 +139,7 @@ pub(crate) fn make_transient_prompt(
         indicator: indicator.map(Arc::from),
         vi_insert: vi_insert.map(Arc::from),
         vi_normal: vi_normal.map(Arc::from),
-        // Config-only, like its non-transient counterpart.
-        vi_visual: transient.vi_visual.as_deref().map(Arc::from),
+        vi_visual: vi_visual.map(Arc::from),
         multiline: multiline.map(Arc::from),
         // Falls back to the live baseline via `overridden_by`.
         render_right_on_last_line: false,
@@ -218,7 +217,7 @@ mod tests {
     #[test]
     fn indicator_comes_from_config_without_env_var() {
         let mut config = Config::default();
-        config.prompt.indicator = "config> ".into();
+        config.prompt.indicator = Value::test_string("config> ");
 
         assert_eq!(rendered_indicator(&config, &[]), "config> ");
     }
@@ -226,7 +225,7 @@ mod tests {
     #[test]
     fn legacy_env_var_takes_precedence_over_config() {
         let mut config = Config::default();
-        config.prompt.indicator = "config> ".into();
+        config.prompt.indicator = Value::test_string("config> ");
 
         assert_eq!(
             rendered_indicator(&config, &[(PROMPT_INDICATOR, "env> ")]),
@@ -295,7 +294,7 @@ mod tests {
         use reedline::{PromptEditMode, PromptViMode};
 
         let mut config = Config::default();
-        config.prompt.vi_visual = "visual> ".into();
+        config.prompt.vi_visual = Value::test_string("visual> ");
 
         let engine_state = EngineState::new();
         let mut stack = Stack::new();
@@ -341,7 +340,7 @@ mod tests {
     #[test]
     fn transient_indicator_comes_from_config_without_env_var() {
         let mut config = Config::default();
-        config.prompt.transient.indicator = Some("transient> ".into());
+        config.prompt.transient.indicator = Some(Value::test_string("transient> "));
 
         assert_eq!(rendered_transient_indicator(&config, &[]), "transient> ");
     }
@@ -349,7 +348,7 @@ mod tests {
     #[test]
     fn legacy_transient_env_var_takes_precedence_over_config() {
         let mut config = Config::default();
-        config.prompt.transient.indicator = Some("config> ".into());
+        config.prompt.transient.indicator = Some(Value::test_string("config> "));
 
         assert_eq!(
             rendered_transient_indicator(&config, &[(TRANSIENT_PROMPT_INDICATOR, "env> ")]),
@@ -365,5 +364,43 @@ mod tests {
         assert_eq!(config.prompt.transient.indicator, None);
 
         assert_eq!(rendered_transient_indicator(&config, &[]), "live> ");
+    }
+
+    #[test]
+    fn configured_indicators_accept_closures() -> nu_test_support::Result {
+        use reedline::{PromptEditMode, PromptViMode};
+
+        // What `$env.PROMPT_INDICATOR` and friends always took, e.g. an
+        // indicator colored by the last exit code.
+        let mut tester = nu_test_support::test();
+        let () = tester.run(
+            r#"
+            $env.config.prompt.indicator = {|| "closure> " }
+            $env.config.prompt.vi_visual = {|| "visual> " }
+            $env.config.prompt.multiline = {|| "closure::: " }
+            $env.config.prompt.transient.indicator = {|| "transient> " }
+            "#,
+        )?;
+        tester.engine_state.merge_env(&mut tester.stack)?;
+        let config = tester.engine_state.get_config().clone();
+
+        update_prompt(&config, &tester.engine_state, &tester.stack);
+        let prompt = NushellPrompt::shared(tester.engine_state.prompt_state.clone());
+        assert_eq!(
+            prompt.render_prompt_indicator(PromptEditMode::Emacs),
+            "closure> "
+        );
+        assert_eq!(
+            prompt.render_prompt_indicator(PromptEditMode::Vi(PromptViMode::Visual)),
+            "visual> "
+        );
+        assert_eq!(prompt.render_prompt_multiline_indicator(), "closure::: ");
+
+        let transient = make_transient_prompt(&config, &tester.engine_state, &tester.stack);
+        assert_eq!(
+            transient.render_prompt_indicator(PromptEditMode::Emacs),
+            "transient> "
+        );
+        Ok(())
     }
 }

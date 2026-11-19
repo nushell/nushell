@@ -160,7 +160,8 @@ impl Prompt for NushellPrompt {
 ///
 /// `update_prompt` resolves every indicator from `$env.config.prompt` before a
 /// prompt is drawn, so a `None` here only happens on a `PromptState` that has
-/// not been through a prompt cycle yet. The fallbacks mirror
+/// not been through a prompt cycle yet, or when a configured closure failed to
+/// render. The fallbacks mirror
 /// `PromptConfig::default()`; `defaults_match_prompt_config` keeps them honest.
 fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String {
     match edit_mode {
@@ -223,12 +224,15 @@ mod tests {
             (PromptEditMode::Vi(PromptViMode::Insert), &config.vi_insert),
             (PromptEditMode::Vi(PromptViMode::Visual), &config.vi_visual),
         ] {
-            assert_eq!(&indicator_for(&empty, mode), expected);
+            assert_eq!(
+                Some(indicator_for(&empty, mode).as_str()),
+                expected.as_str().ok()
+            );
         }
 
         assert_eq!(
-            prompt.render_prompt_multiline_indicator(),
-            config.multiline.as_str()
+            Some(prompt.render_prompt_multiline_indicator().as_ref()),
+            config.multiline.as_str().ok()
         );
     }
 

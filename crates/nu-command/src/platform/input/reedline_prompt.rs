@@ -1,4 +1,8 @@
-use nu_protocol::Config;
+use nu_cmd_base::prompt;
+use nu_protocol::{
+    Config,
+    engine::{EngineState, Stack},
+};
 use reedline::PromptHelixMode;
 use reedline::{
     Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
@@ -20,13 +24,17 @@ impl ModeIndicators {
     /// Read from `$env.config.prompt` alone. `input` never honored the
     /// deprecated `$env.PROMPT_*` variables, and outside the REPL the only
     /// copies it could find are the ones a parent shell exported.
-    pub fn from_config(config: &Config) -> Self {
+    ///
+    /// A closure is evaluated once, here; one that fails reports its error and
+    /// draws nothing.
+    pub fn from_config(config: &Config, engine_state: &EngineState, stack: &Stack) -> Self {
         let prompt = &config.prompt;
+        let render = |value| prompt::render(value, config, engine_state, stack).unwrap_or_default();
         Self {
-            vi_normal: prompt.vi_normal.clone(),
-            vi_insert: prompt.vi_insert.clone(),
-            vi_visual: prompt.vi_visual.clone(),
-            multiline: prompt.multiline.clone(),
+            vi_normal: render(&prompt.vi_normal),
+            vi_insert: render(&prompt.vi_insert),
+            vi_visual: render(&prompt.vi_visual),
+            multiline: render(&prompt.multiline),
         }
     }
 }
@@ -101,16 +109,17 @@ impl Prompt for ReedlinePrompt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_protocol::Value;
 
     #[test]
     fn indicators_come_from_their_own_config_keys() {
         let mut config = Config::default();
-        config.prompt.vi_normal = "normal> ".into();
-        config.prompt.vi_insert = "insert> ".into();
-        config.prompt.vi_visual = "visual> ".into();
-        config.prompt.multiline = "... ".into();
+        config.prompt.vi_normal = Value::test_string("normal> ");
+        config.prompt.vi_insert = Value::test_string("insert> ");
+        config.prompt.vi_visual = Value::test_string("visual> ");
+        config.prompt.multiline = Value::test_string("... ");
 
-        let indicators = ModeIndicators::from_config(&config);
+        let indicators = ModeIndicators::from_config(&config, &EngineState::new(), &Stack::new());
         assert_eq!(
             [
                 indicators.vi_normal,
