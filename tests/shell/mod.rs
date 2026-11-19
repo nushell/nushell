@@ -1403,10 +1403,12 @@ fn nu_env_pwd_symlink(playground: Playground) -> Result {
     playground.symlink("new_current_dir", pwd)?;
 
     let pwd = playground.path().join(pwd);
-    let current_dir = playground.path();
+    let current_dir = nu_path::AbsolutePath::try_new(playground.path())
+        .expect("playground path is absolute")
+        .canonicalize()?;
     let child_output = std::process::Command::new(NU.path())
         .args(["-c", "echo $env.PWD"])
-        .current_dir(current_dir)
+        .current_dir(&current_dir)
         .env("PWD", &pwd)
         .output()
         .expect("failed to run nu");

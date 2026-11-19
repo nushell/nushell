@@ -698,10 +698,12 @@ fn config_home_cli_affects_default_config_dir(playground: Playground) -> Result 
             Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
     }
     tester.engine_state.generate_nu_constant();
-    let expected = std::path::absolute(&alt_home)?;
+    let expected = nu_path::AbsolutePath::try_new(&alt_home)
+        .expect("config home is absolute")
+        .canonicalize()?;
     tester
         .run("$nu.default-config-dir")
-        .expect_value_eq(expected)?;
+        .expect_value_eq(expected.as_std_path())?;
 
     Ok(())
 }

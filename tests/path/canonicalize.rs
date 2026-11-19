@@ -46,6 +46,8 @@ fn canonicalize_path_relative_to(playground: Playground) -> Result {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -64,6 +66,8 @@ fn canonicalize_unicode_path_relative_to_unicode_path_with_spaces(
     let mut expected = playground.path().to_owned();
     expected.push("e-$ èрт🚒♞中片-j/🚒.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -85,6 +89,8 @@ fn canonicalize_absolute_path_relative_to(playground: Playground) -> Result {
         .expect("Failed to canonicalize");
     let expected = absolute_path;
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -117,6 +123,8 @@ fn canonicalize_path_with_dot_relative_to(playground: Playground) -> Result {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -130,6 +138,8 @@ fn canonicalize_path_with_many_dots_relative_to(playground: Playground) -> Resul
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -155,6 +165,8 @@ fn canonicalize_path_with_double_dot_relative_to(playground: Playground) -> Resu
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -169,6 +181,8 @@ fn canonicalize_path_with_many_double_dots_relative_to(playground: Playground) -
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -186,6 +200,8 @@ fn canonicalize_ndots2(playground: Playground) -> Result {
         .parent()
         .expect("Could not get parent of a parent of current directory");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -200,6 +216,8 @@ fn canonicalize_path_with_3_ndots_relative_to(playground: Playground) -> Result 
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -217,6 +235,8 @@ fn canonicalize_path_with_many_3_ndots_relative_to(playground: Playground) -> Re
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -231,6 +251,8 @@ fn canonicalize_path_with_4_ndots_relative_to(playground: Playground) -> Result 
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -248,6 +270,8 @@ fn canonicalize_path_with_many_4_ndots_relative_to(playground: Playground) -> Re
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -265,6 +289,8 @@ fn canonicalize_path_with_way_too_many_dots_relative_to(playground: Playground) 
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -284,6 +310,8 @@ fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_wit
     let mut expected = playground.path().to_owned();
     expected.push("🚒.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -324,6 +352,8 @@ fn canonicalize_symlink(playground: Playground) -> Result {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -339,6 +369,8 @@ fn canonicalize_symlink_relative_to(playground: Playground) -> Result {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -369,6 +401,8 @@ fn canonicalize_nested_symlink_relative_to(playground: Playground) -> Result {
     let mut expected = playground.path().to_owned();
     expected.push("spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
@@ -387,6 +421,8 @@ fn canonicalize_nested_symlink_within_symlink_dir_relative_to(playground: Playgr
     let mut expected = playground.path().to_owned();
     expected.push("foo/bar/baz/spam.txt");
 
+    #[cfg(not(windows))]
+    let expected = expected.canonicalize()?;
     assert_eq!(actual, expected);
     Ok(())
 }
