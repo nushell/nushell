@@ -638,9 +638,10 @@ $env.config.table.header_on_separator = false
 # true: The second row of a table, then every other one, gets a background of its
 #   own: a little lighter than the terminal's on a dark terminal, a little darker on
 #   a light one (see `table.stripe_blend`). The terminal is asked for its background
-#   at the prompt, the first time and whenever `$env.config` is assigned to: assign
-#   to it after changing the colors of the terminal. There are no stripes when the
-#   terminal does not answer unless `color_config.row_stripe_alt` sets their color.
+#   once, at the prompt: after changing the colors of the terminal, set this to
+#   false, then to true at the next prompt, to have it asked again. There are no
+#   stripes when the terminal does not answer unless `color_config.row_stripe_alt`
+#   sets their color.
 # false: Every row has the same background.
 # Applies to `table` and `explore`, not to `table --collapse` or the markup modes.
 # Default: false
@@ -649,7 +650,7 @@ $env.config.table.striped = false
 # table.stripe_blend (float): Strength of the stripes made from the terminal background.
 # How much white (on a dark terminal) or black (on a light one) is blended into the
 # terminal background, from 0.0 to 1.0: 0.0 is no stripe, 1.0 is plain white or
-# black. With `color_config.row_stripe_bg`, that is the background blended into.
+# black. With a "#rrggbb" `color_config.row_stripe_bg`, that is the background blended into.
 # Not used when `color_config.row_stripe_alt` is set.
 # Default: 0.08
 $env.config.table.stripe_blend = 0.08

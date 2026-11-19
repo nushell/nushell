@@ -47,7 +47,7 @@ use reedline::{
     Reedline, SemanticPromptMarkers, Vi,
 };
 use std::ffi::OsStr;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
     env::temp_dir,
@@ -658,20 +658,26 @@ fn is_usable_dir(path: &Path) -> bool {
 }
 
 /// Asks the terminal for its background color, which striped tables are drawn
-/// from, when the config changed since it was last asked.
+/// from, when it is needed and not known yet.
 ///
 /// It is asked here, before the line editor reads the terminal, so that no
-/// table drawn while it does (by a completer or a hint) has to ask. Assigning
-/// to `$env.config` is also how to have a terminal that changed its colors
-/// asked again.
+/// table drawn while it does (by a completer or a hint) has to ask. Reading its
+/// reply would take typed-ahead input with it, so it is asked at a later prompt
+/// when there is some.
 fn update_terminal_background(engine_state: &EngineState) {
-    static ASKED_AT_EPOCH: AtomicU64 = AtomicU64::new(u64::MAX);
+    let wanted = nu_table::common::needs_terminal_background(engine_state.get_config());
+    nu_utils::update_terminal_background(wanted, || !has_pending_terminal_input_raw());
+}
 
-    let epoch = engine_state.config_epoch();
-    if ASKED_AT_EPOCH.swap(epoch, Ordering::Relaxed) != epoch {
-        let wanted = nu_table::common::needs_terminal_background(engine_state.get_config());
-        nu_utils::update_terminal_background(wanted);
+/// [`has_pending_terminal_input`] with the terminal in raw mode, where a line
+/// not ended with Enter is input too: the terminal holds it back otherwise.
+fn has_pending_terminal_input_raw() -> bool {
+    let raw = crossterm::terminal::enable_raw_mode().is_ok();
+    let pending = has_pending_terminal_input();
+    if raw {
+        let _ = crossterm::terminal::disable_raw_mode();
     }
+    pending
 }
 
 /// Returns `true` if terminal input is already queued (so recovery waits until after the pending

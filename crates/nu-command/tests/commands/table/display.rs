@@ -1244,6 +1244,38 @@ fn table_row_stripe_colors() -> Result {
 }
 
 #[test]
+fn table_striped_rows_of_the_outer_table_only() -> Result {
+    // A nested table has no stripes of its own: its lines are on the stripe of
+    // the row it is in, the second one here.
+    let lines = striped_lines(
+        "$env.config.table.striped = true",
+        "each {|row| {a: $row.a, b: [[x]; [1] [2] [3]]} } | first 2 | table --expand",
+    )?;
+    let expected = [vec!["false"; 10], vec!["true"; 7], vec!["false"]].concat();
+    assert_eq!(lines, expected.join(" "));
+    Ok(())
+}
+
+#[test]
+fn table_stripe_starts_before_an_unpadded_first_cell() -> Result {
+    // The background of the first cell is set after the stripe, so it stays.
+    let stripe_first: bool = test().run(
+        "
+            $env.config.use_ansi_coloring = true
+            $env.config.table.striped = true
+            $env.config.table.padding.left = 0
+            $env.config.color_config.row_stripe_alt = '#303030'
+            $env.config.color_config.row_index = {fg: green, bg: blue}
+            let line = [[a]; [1] [2]] | table | lines | get 4
+            let stripe = $line | str index-of (ansi --escape '48;2;48;48;48m')
+            $stripe >= 0 and $stripe < ($line | str index-of (ansi --escape '44;32m'))
+        ",
+    )?;
+    assert!(stripe_first);
+    Ok(())
+}
+
+#[test]
 fn table_not_striped() -> Result {
     let on = "$env.config.table.striped = true";
     let none = |lines: usize| vec!["false"; lines].join(" ");

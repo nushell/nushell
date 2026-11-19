@@ -12,6 +12,8 @@ pub type Rgb = [u8; 3];
 enum Background {
     /// The terminal was never asked.
     Unasked,
+    /// The terminal is not to be asked for now: it is at another time.
+    Held,
     /// What the terminal answered: `None` when it has no answer, or when there
     /// is no terminal to ask.
     Known(Option<Rgb>),
@@ -37,27 +39,34 @@ pub fn terminal_background() -> Option<Rgb> {
     }
     match *background {
         Background::Known(color) => color,
-        Background::Unasked | Background::Silent => None,
+        Background::Unasked | Background::Held | Background::Silent => None,
     }
 }
 
-/// Asks the terminal for its background color again if it is `wanted`, and
-/// forgets it otherwise, so that [`terminal_background`] never asks by itself.
+/// Asks the terminal for its background color if it is `wanted` and not known
+/// yet, and forgets it if it is not wanted, so that [`terminal_background`]
+/// never asks by itself. Not wanting it, then wanting it, is how to have a
+/// terminal that changed its colors asked again.
 ///
 /// This is for a shell that is about to read the terminal for a line: it takes
 /// the terminal back from an external that still holds it, like one a hook ran
-/// last and did not wait for. What was typed and not read yet is lost to the
-/// reading of the reply, so this is not for every prompt.
-pub fn update_terminal_background(wanted: bool) {
+/// last and did not wait for. What was typed and not read yet would be lost to
+/// the reading of the reply: `can_ask` tells whether there is no such input,
+/// and the terminal is asked at a later call when there is.
+pub fn update_terminal_background(wanted: bool, can_ask: impl FnOnce() -> bool) {
     let mut background = BACKGROUND.lock();
-    if matches!(*background, Background::Silent) {
-        return;
-    }
-    *background = if wanted {
-        take_terminal();
-        query_background()
-    } else {
-        Background::Known(None)
+    *background = match *background {
+        Background::Silent => Background::Silent,
+        _ if !wanted => Background::Held,
+        known @ Background::Known(_) => known,
+        Background::Unasked | Background::Held => {
+            take_terminal();
+            if can_ask() {
+                query_background()
+            } else {
+                Background::Held
+            }
+        }
     };
 }
 

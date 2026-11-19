@@ -739,11 +739,16 @@ fn stripe_rows(
 }
 
 /// Where the border that starts `line` ends: after its character and the
-/// escape sequences that color it.
+/// reset that ends its color. Other escape sequences after it color the first
+/// cell, which has no padding before it then.
 fn first_border_end(line: &str) -> usize {
     let start = leading_escapes(line);
     let end = start + line[start..].chars().next().map_or(0, char::len_utf8);
-    end + leading_escapes(&line[end..])
+    end + if line[end..].starts_with(RESET) {
+        RESET.len()
+    } else {
+        0
+    }
 }
 
 /// Where the border that ends `line` starts: before its character and the
