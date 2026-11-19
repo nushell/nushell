@@ -17,6 +17,7 @@
   libx11,
   nghttp2,
   libgit2,
+  sqlite,
   zstd,
   zlib,
   # Mostly args and things that might be different for plugins
@@ -27,17 +28,15 @@
   ++ lib.optionals stdenv.cc.isClang [ rustPlatform.bindgenHook ],
   buildInputs ? [
     zstd
+    libgit2
+    sqlite
   ]
   ++ lib.optionals stdenv.hostPlatform.isDarwin [ zlib ]
   ++ lib.optionals (withDefaultFeatures && stdenv.hostPlatform.isLinux) [ libx11 ]
-  ++ lib.optionals (withDefaultFeatures && stdenv.hostPlatform.isDarwin) [
-    nghttp2
-    libgit2
-  ],
+  ++ lib.optionals (withDefaultFeatures && stdenv.hostPlatform.isDarwin) [ nghttp2 ],
   checkInputs ?
     lib.optionals stdenv.hostPlatform.isDarwin [ curlMinimal ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [ openssl ],
-
   # Fixed in #16914
   buildAndTestSubdir ? ".",
   checkFlags ? [ ],
@@ -116,6 +115,7 @@ rustPlatform.buildRustPackage {
   # plugins cannot be found.
   NUSHELL_CARGO_PROFILE = checkType;
   NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8";
+  NU_COMMIT_HASH = args.NU_COMMIT_HASH or "";
   preCheck = ''
     export HOME=$(mktemp -d)
   '';

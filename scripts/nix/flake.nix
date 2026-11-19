@@ -8,7 +8,7 @@
   };
 
   outputs =
-    inputs:
+    { self, ... }@inputs:
     let
       inherit (inputs.nixpkgs) lib;
       # systems = lib.systems.flakeExposed;
@@ -24,78 +24,91 @@
         ## Broken in `nix flake check`
         # "x86_64-freebsd"
       ];
-      main-overlay = final: previous: {
-        # Override the rustPlatform without forcing a rebuild of _every_ tool as well
-        rustToolchain' = previous.rust-bin.fromRustupToolchainFile ../../rust-toolchain.toml;
-        rustPlatform' = final.makeRustPlatform {
-          cargo = final.rustToolchain';
-          rustc = final.rustToolchain';
-        };
-        # Add a specific rustPlatform with extensions for development/editors
-        rustToolchain-devshell = final.rustToolchain'.override ({
-          extensions = [
-            "rust-src"
-            "rust-analyzer"
-          ];
-        });
-        rustPlatform-devshell = final.makeRustPlatform {
-          cargo = final.rustToolchain-devshell;
-          rustc = final.rustToolchain-devshell;
-        };
-        rustToolchain-latest-devshell = previous.rust-bin.stable.latest.default.override ({
-          extensions = [
-            "rust-src"
-            "rust-analyzer"
-          ];
-        });
-        rustPlatform-latest-devshell = final.makeRustPlatform {
-          cargo = final.rustToolchain-latest-devshell;
-          rustc = final.rustToolchain-latest-devshell;
-        };
-        nushell = previous.callPackage ./. {
-          rustPlatform = final.rustPlatform';
-        };
-        nushellPlugins =
-          previous.nushellPlugins
-          // (builtins.mapAttrs
-            (
-              pname: d:
-              previous.callPackage ./. (
-                {
-                  pname = "nu_plugin_${pname}";
-                  rustPlatform = final.rustPlatform';
-                  extraCargo = ../../crates + "/nu_plugin_${pname}/Cargo.toml";
-                  buildAndTestSubdir = "crates/nu_plugin_${pname}";
-                  nativeBuildInputs = [
-                    previous.pkg-config
-                  ]
-                  ++ lib.optionals previous.stdenv.cc.isClang [ final.rustPlatform'.bindgenHook ]
-                  ++ (d.extraNativeBuildInputs or [ ]);
-                }
-                // d
+      main-overlay = (
+        final: previous: {
+          # Override the rustPlatform without forcing a rebuild of _every_ tool as well
+          rustToolchain' = previous.rust-bin.fromRustupToolchainFile ../../rust-toolchain.toml;
+          rustPlatform' = final.makeRustPlatform {
+            cargo = final.rustToolchain';
+            rustc = final.rustToolchain';
+          };
+          # Add a specific rustPlatform with extensions for development/editors
+          rustToolchain-devshell = final.rustToolchain'.override ({
+            extensions = [
+              "rust-src"
+              "rust-analyzer"
+            ];
+          });
+          rustPlatform-devshell = final.makeRustPlatform {
+            cargo = final.rustToolchain-devshell;
+            rustc = final.rustToolchain-devshell;
+          };
+          rustToolchain-latest-devshell = previous.rust-bin.stable.latest.default.override ({
+            extensions = [
+              "rust-src"
+              "rust-analyzer"
+            ];
+          });
+          rustPlatform-latest-devshell = final.makeRustPlatform {
+            cargo = final.rustToolchain-latest-devshell;
+            rustc = final.rustToolchain-latest-devshell;
+          };
+          nushell = previous.callPackage ./. {
+            rustPlatform = final.rustPlatform';
+          };
+          nushellPlugins =
+            previous.nushellPlugins
+            // (builtins.mapAttrs
+              (
+                pname: d:
+                previous.callPackage ./. (
+                  {
+                    pname = "nu_plugin_${pname}";
+                    rustPlatform = final.rustPlatform';
+                    extraCargo = ../../crates + "/nu_plugin_${pname}/Cargo.toml";
+                    buildAndTestSubdir = "crates/nu_plugin_${pname}";
+                    nativeBuildInputs = [
+                      previous.pkg-config
+                    ]
+                    ++ lib.optionals previous.stdenv.cc.isClang [ final.rustPlatform'.bindgenHook ]
+                    ++ (d.extraNativeBuildInputs or [ ]);
+                  }
+                  // d
+                )
               )
-            )
-            {
-              formats = { };
-              gstat = {
-                buildInputs = [ previous.openssl ];
-              };
-              inc = { };
-              polars = {
-                buildInputs = [ previous.openssl ];
-                checkFlags = [
-                  "--skip=dataframe::command::core::to_repr::test::test_examples"
-                ];
-              };
-              query = {
-                buildInputs = [
-                  previous.openssl
-                  previous.curlMinimal
-                ];
-              };
-            }
-          );
-      };
+              {
+                formats = { };
+                gstat = {
+                  buildInputs = [
+                    previous.openssl
+                    previous.libgit2
+                  ];
+                };
+                inc = { };
+                polars = {
+                  buildInputs = [
+                    previous.openssl
+                    previous.aws-lc
+                  ]
+                  ++ final.nushell.buildInputs;
+                  checkFlags = [
+                    "--skip=dataframe::command::core::to_repr::test::test_examples"
+                  ];
+                };
+                query = {
+                  buildInputs = [
+                    previous.openssl
+                    previous.curlMinimal
+                  ];
+                };
+              }
+            );
+        }
+      );
+      all-overlays = lib.composeManyExtensions [
+        inputs.rust-overlay.overlays.default
+        main-overlay
+      ];
       forEachSupportedSystem =
         f:
         inputs.nixpkgs.lib.genAttrs systems (
@@ -104,8 +117,7 @@
             pkgs = import inputs.nixpkgs {
               inherit system;
               overlays = [
-                inputs.rust-overlay.overlays.default
-                main-overlay
+                all-overlays
               ];
             };
           }
@@ -114,14 +126,31 @@
     {
       overlays = {
         default = main-overlay;
+        all = all-overlays;
       };
       packages = forEachSupportedSystem (
         { pkgs, ... }:
         {
           inherit (pkgs) nushell;
-          default = pkgs.nushell;
           dev = pkgs.nushell.override {
-            buildType = "dev";
+            buildType = "debug";
+          };
+          default = pkgs.nushell;
+          all-dev = pkgs.symlinkJoin {
+            inherit (pkgs.nushell) version meta;
+            pname = "nushellAll";
+            paths = [
+              self.packages.${pkgs.stdenv.hostPlatform.system}.dev
+            ]
+            ++ (builtins.attrValues self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.nushellPluginsDev);
+          };
+          all = pkgs.symlinkJoin {
+            inherit (pkgs.nushell) version meta;
+            pname = "nushellAll";
+            paths = [
+              pkgs.nushell
+            ]
+            ++ (builtins.attrValues self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.nushellPlugins);
           };
         }
       );
@@ -139,6 +168,11 @@
               query
               ;
           };
+          nushellPluginsDev = (
+            lib.mapAttrs (
+              _: plugin: plugin.override { buildType = "debug"; }
+            ) self.legacyPackages.${pkgs.stdenv.hostPlatform.system}.nushellPlugins
+          );
         }
       );
       devShells = forEachSupportedSystem (
@@ -152,15 +186,15 @@
                 openssl
                 pkg-config
                 zstd
+                zlib
+                libgit2
               ]
               ++ (lib.optionals stdenv.hostPlatform.isLinux [
                 python3
                 libX11
               ])
               ++ (lib.optionals stdenv.hostPlatform.isDarwin [
-                zlib
                 nghttp2
-                libgit2
               ])
             );
         in
