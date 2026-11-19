@@ -5,7 +5,7 @@ use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value,
     debugger::WithoutDebug,
     engine::{Closure, EngineState, EnvName, Stack, StateWorkingSet},
-    report_error::{report_parse_error, report_shell_error},
+    report_error::report_parse_error,
     shell_error::generic::GenericError,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -114,6 +114,9 @@ pub fn eval_hook(
     let span = value.span();
     let output = match value {
         Value::String { val, .. } => {
+            // Clear pipe redirections, as `run_hook` does for closure hooks, so the hook's
+            // output goes where a statement's would.
+            let stack = &mut stack.push_redirection(None, None);
             eval_string_hook(engine_state, stack, input, arguments, val, span, hook_name)?
         }
         Value::List { vals, .. } => eval_hooks(engine_state, stack, arguments, vals, hook_name)?,
@@ -200,6 +203,7 @@ pub fn eval_hook(
     Ok(output)
 }
 
+/// Parses `code` as a hook, binds `arguments` as variables, and evaluates it on `stack`.
 fn eval_string_hook(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -256,7 +260,7 @@ fn eval_string_hook(
 
     let result = eval_block::<WithoutDebug>(
         engine_state,
-        &mut stack.push_redirection(None, None),
+        stack,
         &block,
         input.unwrap_or_else(PipelineData::empty),
     )
@@ -266,11 +270,7 @@ fn eval_string_hook(
         stack.remove_var(var_id);
     }
 
-    let ok = result.unwrap_or_else(|err| {
-        report_shell_error(Some(stack), engine_state, &err);
-        PipelineData::empty()
-    });
-    Ok(ok)
+    result
 }
 
 fn run_hook(
@@ -320,4 +320,12 @@ fn run_hook(
     redirect_env(engine_state, stack, &callee_stack);
 
     Ok(pipeline_data)
+}
+
+#[test]
+fn string_hook_error_propagates_like_closure_hook() {
+    let actual = nu!(r#" $env.config.hooks.display_output = "error make {msg: boom}"; 42 "#);
+
+    assert!(actual.err.contains("boom"));
+    assert_ne!(actual.status.code(), Some(0));
 }
