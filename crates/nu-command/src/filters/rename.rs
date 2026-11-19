@@ -192,7 +192,7 @@ fn rename(
                                     if let Some(missing) = missing_column {
                                         Err(ShellError::UnsupportedInput {
                                             msg: format!(
-                                                "The column '{missing}' does not exist in the input"
+                                                "Column '{missing}' is missing from this input record"
                                             ),
                                             input: "value originated from here".into(),
                                             msg_span: head,

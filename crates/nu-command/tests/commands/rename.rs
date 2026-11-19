@@ -45,3 +45,36 @@ fn errors_if_columns_param_is_empty() -> Result {
     );
     Ok(())
 }
+
+#[test]
+fn reports_missing_column_in_later_record() -> Result {
+    let err = test()
+        .run("[{name: Alice} {age: 30}] | rename --column {name: n}")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::UnsupportedInput { msg, .. }
+            if msg == "Column 'name' is missing from this input record"
+    );
+    Ok(())
+}
+
+#[test]
+fn reports_missing_column_in_single_record() -> Result {
+    let err = test()
+        .run("{age: 30} | rename --column {name: n}")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::UnsupportedInput { msg, .. }
+            if msg == "Column 'name' is missing from this input record"
+    );
+    Ok(())
+}
+
+#[test]
+fn renames_mapped_column_in_all_records() -> Result {
+    test()
+        .run("[[name age]; [Alice 30] [Bob 40]] | rename --column {name: n}")
+        .expect_value_eq(test_table![["n", "age"]; ["Alice", 30], ["Bob", 40]])
+}
