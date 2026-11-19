@@ -496,21 +496,26 @@
 //!
 //! ```
 //! # #[macro_use] extern crate nu_test_support;
-//! use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+//! use nu_test_support::prelude::*;
 //!
 //! #[test]
-//! fn rm_in_playground() -> Result {
+//! fn rm_in_playground(playground: Playground) -> Result {
+//! #     let _ = playground;
 //! #     unimplemented!()
 //! # }
 //! #
 //! # fn main() -> Result {
-//!     Playground::setup("rm_in_doctest", |dirs, sandbox| {
-//!         sandbox.with_files(&[EmptyFile("i_will_be_deleted.txt")]);
-//!         test()
-//!             .cwd(dirs.test())
-//!             .run("rm i_will_be_deleted.txt")
-//!             .expect_value_eq(())
-//!     })
+//! #     let playground = Playground::new(
+//! #         "crate::tests::rm_in_doctest",
+//! #         env!("CARGO_PKG_NAME"),
+//! #         env!("CARGO_CRATE_NAME"),
+//! #     )?;
+//!     playground.empty_file("i_will_be_deleted.txt")?;
+//!
+//!     test()
+//!         .cwd(playground.path())
+//!         .run("rm i_will_be_deleted.txt")
+//!         .expect_value_eq(())
 //! }
 //! ```
 //!
@@ -590,6 +595,39 @@
 //!     test()
 //!         .run_with_data("$in | math abs", input)
 //!         .expect_value_eq(1)
+//! }
+//! ```
+//!
+//! A [`Playground`](playground::Playground) can also be used in parameterized `rstest`
+//! cases. Mark the playground argument with `#[ignore]` so `rstest` leaves it for the
+//! Nushell test harness to inject.
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//! use rstest::rstest;
+//!
+//! #[rstest]
+//! #[case::a("a")]
+//! #[case::b("b")]
+//! fn cased_playground(
+//!     #[case] value: &str,
+//!     #[ignore] playground: Playground, // keep this argument out of rstest's fixture handling
+//! ) -> Result {
+//! #     let _ = playground;
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//! #     let playground = Playground::new(
+//! #         "crate::tests::cased_playground",
+//! #         env!("CARGO_PKG_NAME"),
+//! #         env!("CARGO_CRATE_NAME"),
+//! #     )?;
+//!     test()
+//!         .cwd(playground.path())
+//!         .run("$env.PWD | str contains 'cased_playground'")
+//!         .expect_value_eq(true)
 //! }
 //! ```
 
