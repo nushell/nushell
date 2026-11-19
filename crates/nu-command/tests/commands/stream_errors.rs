@@ -119,6 +119,8 @@ const RECOVER: &str = "each {|c| try { $c | ignore; $c } catch { 'caught' } }";
 #[case::to_text_binary_chunks("failing 2 | to text | into binary | each { $in }")]
 #[case::to_text_bytes_split("failing 2 | to text | into binary | bytes split 0x[0a]")]
 #[case::to_text_binary_first("failing 1 | to text | into binary | first")]
+#[case::first_strict_binary("failing 1 | to text | into binary | first -s 2")]
+#[case::first_strict_zero("failing 1 | first -s 0")]
 #[case::to_text_binary_last("failing 2 | to text | into binary | last 1")]
 #[case::to_text_binary_length("failing 2 | to text | into binary | length")]
 #[case::to_text_binary_chunks_n("failing 2 | to text | into binary | chunks 2")]
@@ -308,6 +310,7 @@ fn describe_still_shows_an_error_item() -> Result {
 #[case::window_gap_tail_after_error(
     "[1 2] | each {|x| if $x == 1 { error make {msg: boom} } else { exit 7 } } | window 3 --stride 4"
 )]
+#[case::first_strict_binary("exiting 1 | to text | into binary | first -s 2")]
 fn exit_is_not_lost(#[case] pipeline: &str) -> Result {
     let err = test()
         .run(format!("{STREAMS}\n{pipeline}"))
