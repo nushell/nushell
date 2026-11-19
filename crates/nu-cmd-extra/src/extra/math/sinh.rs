@@ -12,6 +12,7 @@ impl Command for MathSinH {
         Signature::build("math sinh")
             .input_output_types(vec![
                 (Type::Number, Type::Float),
+                (Type::Range, Type::List(Box::new(Type::Float))),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),

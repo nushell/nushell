@@ -12,6 +12,7 @@ impl Command for MathExp {
         Signature::build("math exp")
             .input_output_types(vec![
                 (Type::Number, Type::Float),
+                (Type::Range, Type::List(Box::new(Type::Float))),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
@@ -88,6 +89,14 @@ fn operate(value: Value, head: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::TestResultExt;
+
+    #[test]
+    fn test_range_input() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("0..10 | math exp | length")
+            .expect_value_eq(11)
+    }
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
