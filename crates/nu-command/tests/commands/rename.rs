@@ -48,13 +48,20 @@ fn errors_if_columns_param_is_empty() -> Result {
 
 #[test]
 fn reports_missing_column_in_later_record() -> Result {
-    let err = test()
+    let mut tester = test();
+    let err = tester
         .run("[{name: Alice} {age: 30}] | rename --column {name: n}")
         .expect_shell_error()?;
-    assert_matches!(
-        err,
-        ShellError::UnsupportedInput { msg, .. }
-            if msg == "Column 'name' is missing from this input record"
+    let ShellError::UnsupportedInput {
+        msg, input_span, ..
+    } = err
+    else {
+        panic!("expected an unsupported input error, got {err:?}");
+    };
+    assert_eq!(msg, "Column 'name' is missing from this input record");
+    assert_eq!(
+        tester.engine_state.get_span_contents(input_span),
+        b"{age: 30}"
     );
     Ok(())
 }
