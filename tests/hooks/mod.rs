@@ -439,3 +439,10 @@ fn command_not_found_hook_list_output_becomes_help(#[case] hook: &str) -> Result
     );
     Ok(())
 }
+
+#[test]
+fn string_hook_error_propagates_like_closure_hook() {
+    let string = r#" $env.config.hooks.display_output = "error make {msg: boom}"; 42 "#;
+    let closure = r#" $env.config.hooks.display_output = {error make {msg: boom}}; 42 "#;
+    pretty_assertions::assert_eq!(test().run::<Value>(string), test().run::<Value>(closure));
+}

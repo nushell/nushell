@@ -321,11 +321,3 @@ fn run_hook(
 
     Ok(pipeline_data)
 }
-
-#[test]
-fn string_hook_error_propagates_like_closure_hook() {
-    let actual = nu!(r#" $env.config.hooks.display_output = "error make {msg: boom}"; 42 "#);
-
-    assert!(actual.err.contains("boom"));
-    assert_ne!(actual.status.code(), Some(0));
-}
