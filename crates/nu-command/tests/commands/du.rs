@@ -12,6 +12,14 @@ fn test_du_flag_min_size() -> Result {
     Ok(())
 }
 
+/// `scope commands` reports `--min-size` as deprecated.
+#[test]
+fn test_du_flag_min_size_deprecated() -> Result {
+    test()
+        .run("scope commands | where name == du | get 0.deprecation_info.flag")
+        .expect_value_eq(["min-size"])
+}
+
 #[test]
 fn test_du_flag_max_depth() -> Result {
     test()
@@ -74,12 +82,12 @@ fn du_with_multiple_path() -> Result {
 fn test_du_output_columns() -> Result {
     test()
         .cwd("tests/fixtures/formats")
-        .run("du -m 1 | columns")
+        .run("du | columns")
         .expect_value_eq(["path", "apparent", "physical"])?;
 
     test()
         .cwd("tests/fixtures/formats")
-        .run("du -m 1 -l | columns")
+        .run("du -l | columns")
         .expect_value_eq(["path", "apparent", "physical", "directories", "files"])
 }
 
