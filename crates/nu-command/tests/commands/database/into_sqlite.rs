@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset};
 use nu_path::AbsolutePathBuf;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
-use nu_test_support::{fs::Stub, playground::Dirs, prelude::*};
+use nu_test_support::{fs::Stub, prelude::*};
 use rand::{
     SeedableRng,
     distr::{Alphanumeric, SampleString, StandardUniform},
@@ -535,7 +535,7 @@ impl Distribution<TestRow> for StandardUniform {
     }
 }
 
-fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> Result<AbsolutePathBuf> {
+fn make_sqlite_db(dirs: &deprecated::Dirs, nu_table: &str) -> Result<AbsolutePathBuf> {
     let testdir = dirs.test();
     let testdb_path =
         testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
@@ -549,7 +549,7 @@ fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> Result<AbsolutePathBuf> {
 }
 
 fn insert_test_rows(
-    dirs: &Dirs,
+    dirs: &deprecated::Dirs,
     nu_table: &str,
     sql_query: Option<&str>,
     expected: Vec<TestRow>,

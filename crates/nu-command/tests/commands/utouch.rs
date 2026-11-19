@@ -1,7 +1,6 @@
 use chrono::{DateTime, Days, Local, TimeDelta, Utc};
 use filetime::FileTime;
 use nu_test_support::fs::{Stub, files_exist_at};
-use nu_test_support::playground::{Dirs, Playground};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::path::Path;
@@ -26,7 +25,7 @@ fn symlink_times(path: &nu_path::AbsolutePath) -> (filetime::FileTime, filetime:
 }
 
 // From https://github.com/nushell/nushell/pull/14214
-fn setup_symlink_fs(dirs: &Dirs, sandbox: &mut Playground<'_>) {
+fn setup_symlink_fs(dirs: &deprecated::Dirs, sandbox: &mut deprecated::Playground<'_>) {
     sandbox.mkdir("d");
     sandbox.with_files(&[Stub::EmptyFile("f"), Stub::EmptyFile("d/f")]);
     sandbox.symlink("f", "fs");

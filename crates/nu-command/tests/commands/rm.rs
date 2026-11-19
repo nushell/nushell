@@ -60,7 +60,7 @@ fn removes_files_with_wildcard() -> Result {
         ));
 
         assert_eq!(
-            Playground::glob_vec(&format!("{}/src/*/*/*.rs", dirs.test().display())),
+            deprecated::Playground::glob_vec(&format!("{}/src/*/*/*.rs", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
         Ok(())
@@ -185,7 +185,7 @@ fn removes_multiple_directories() -> Result {
         let () = test().cwd(dirs.test()).run("rm src test --recursive")?;
 
         assert_eq!(
-            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            deprecated::Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
         Ok(())
@@ -206,7 +206,7 @@ fn removes_multiple_files() -> Result {
             .run("rm yehuda.txt jttxt andres.txt")?;
 
         assert_eq!(
-            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            deprecated::Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
         Ok(())
@@ -225,7 +225,7 @@ fn removes_multiple_files_with_asterisks() -> Result {
         let () = test().cwd(dirs.test()).run("rm *.txt *.toml")?;
 
         assert_eq!(
-            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            deprecated::Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
         Ok(())
@@ -240,7 +240,7 @@ fn allows_doubly_specified_file() -> Result {
         let () = test().cwd(dirs.test()).run("rm *.txt yehuda* *.toml")?;
 
         assert_eq!(
-            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            deprecated::Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
         Ok(())
