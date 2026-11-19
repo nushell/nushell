@@ -185,6 +185,11 @@ pub struct Stack {
     /// the controlling terminal, and empty stdin is `/dev/null` instead of inheriting
     /// the TTY. Used on completion threads so children cannot race reedline.
     pub suppress_stdin: bool,
+    /// Whether `$env.LAST_EXIT_CODE` was set since this was last cleared: by an external, by a
+    /// failure that `try` handled, or by an assignment. The REPL clears it before each line and
+    /// sets the code to 0 after the line only when nothing set it. A callee stack starts without
+    /// it and hands it back to its caller along with its environment.
+    pub last_exit_code_written: bool,
     /// Active block-local scope bindings (commands/modules), outer → inner.
     ///
     /// Pushed when evaluating a whole block via `eval_ir_block` (closures, custom commands).
@@ -231,6 +236,7 @@ impl Stack {
             config: None,
             out_dest: StackOutDest::new(),
             suppress_stdin: false,
+            last_exit_code_written: false,
             active_scope_bindings: vec![],
             ir_scope_regions: vec![],
             ir_instruction_index: None,
@@ -258,6 +264,7 @@ impl Stack {
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             suppress_stdin: parent.suppress_stdin,
+            last_exit_code_written: false,
             // Child inherits outer block bindings so nested `scope` still sees them.
             active_scope_bindings: parent.active_scope_bindings.clone(),
             // Nested IR evaluation installs its own regions/pc.
@@ -733,6 +740,7 @@ impl Stack {
 
     pub fn set_last_exit_code(&mut self, code: i32, span: Span) {
         self.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), span));
+        self.last_exit_code_written = true;
     }
 
     pub fn set_last_error(&mut self, error: &ShellError) {
@@ -789,6 +797,7 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            last_exit_code_written: false,
             // Inherit caller block bindings so nested closures still see outer local defs.
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
@@ -833,6 +842,7 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            last_exit_code_written: false,
             // Inherit caller block bindings so nested closures still see outer local defs.
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],

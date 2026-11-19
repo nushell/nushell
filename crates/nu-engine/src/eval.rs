@@ -490,6 +490,7 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+    caller_stack.last_exit_code_written |= callee_stack.last_exit_code_written;
 
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);

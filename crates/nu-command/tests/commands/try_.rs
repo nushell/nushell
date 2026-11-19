@@ -225,6 +225,40 @@ fn exit_code_of_external_failing_in_each(#[case] expr: &str) -> Result {
         .expect_value_eq(42)
 }
 
+/// A failure that `try` handles sets `$env.LAST_EXIT_CODE` to its exit code (1 when it has none),
+/// with or without `catch`. `catch` can keep it or reset it, and a `try` that doesn't fail leaves
+/// it alone.
+#[rstest]
+#[case::without_catch_external("try { fail 42 }", 42)]
+#[case::without_catch_internal("try { error make {msg: x} }", 1)]
+#[case::catch_keeps_it("try { fail 42 } catch { }", 42)]
+#[case::catch_resets_it("try { fail 42 } catch { $env.LAST_EXIT_CODE = 0 }", 0)]
+#[case::no_failure("try { 'fine' }", 5)]
+#[nu_test_support::test]
+#[deps(TESTBIN_FAIL)]
+fn try_sets_last_exit_code(#[case] code: &str, #[case] expected: i64) -> Result {
+    test()
+        .run(format!(
+            "$env.LAST_EXIT_CODE = 5; {code}; $env.LAST_EXIT_CODE"
+        ))
+        .expect_value_eq(expected)
+}
+
+/// `finally` sees the code of the failure that led to it, and the failure carries on afterwards.
+#[test]
+#[deps(TESTBIN_FAIL)]
+fn finally_sees_last_exit_code() -> Result {
+    let code = "
+        $env.LAST_EXIT_CODE = 5
+        let caught = try {
+            try { fail 42 } finally { $env.SEEN = $env.LAST_EXIT_CODE }
+            false
+        } catch { true }
+        [$env.SEEN $caught]
+    ";
+    test().run(code).expect_value_eq(test_value!([42, true]))
+}
+
 #[test]
 #[deps(NU)]
 fn exit_in_each_is_not_caught() -> Result {
