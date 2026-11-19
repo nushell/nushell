@@ -596,7 +596,6 @@
 pub mod assertions;
 pub mod fs;
 pub mod harness;
-pub mod locale_override;
 pub mod net;
 pub mod playground;
 pub mod value_types;
@@ -627,9 +626,6 @@ pub mod prelude {
 
 // Expose macros to be used for the test harness.
 pub use harness::macros::*;
-
-// Needs to be reexported for `nu!` macro
-pub use nu_path;
 
 // Export json macro to allow writing json values easily.
 #[doc(no_inline)]
