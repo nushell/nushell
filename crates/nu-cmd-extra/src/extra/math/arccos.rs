@@ -44,6 +44,7 @@ impl Command for MathArcCos {
         if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        super::ensure_bounded_range(&input, head)?;
         input.map(
             move |value| operate(value, head, use_degrees),
             engine_state.signals(),

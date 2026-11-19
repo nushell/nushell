@@ -42,11 +42,21 @@ impl Command for MathExp {
         if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        super::ensure_bounded_range(&input, head)?;
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
+            Example {
+                description: "Apply the exponential to a range",
+                example: "0..2 | math exp | math round --precision 4",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(1f64),
+                    Value::test_float(2.7183f64),
+                    Value::test_float(7.3891f64),
+                ])),
+            },
             Example {
                 description: "Get e raised to the power of zero",
                 example: "0 | math exp",

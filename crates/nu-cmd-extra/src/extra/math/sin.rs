@@ -43,6 +43,7 @@ impl Command for MathSin {
         if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        super::ensure_bounded_range(&input, head)?;
         input.map(
             move |value| operate(value, head, use_degrees),
             engine_state.signals(),
@@ -51,6 +52,15 @@ impl Command for MathSin {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
+            Example {
+                description: "Apply the sine to a range of angles in degrees",
+                example: "0..90..180 | math sin --degrees | math round --precision 4",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(0f64),
+                    Value::test_float(1f64),
+                    Value::test_float(0f64),
+                ])),
+            },
             Example {
                 description: "Apply the sine to π/2",
                 example: "3.141592 / 2 | math sin | math round --precision 4",
@@ -111,6 +121,13 @@ mod test {
         nu_test_support::test()
             .run("0..10 | math sin | length")
             .expect_value_eq(11)
+    }
+
+    #[test]
+    fn test_unbounded_range_is_rejected() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("0.. | math sin")
+            .expect_error_code_eq("nu::shell::incorrect_value")
     }
 
     #[test]
