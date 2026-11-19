@@ -19,7 +19,7 @@ pub struct DuArgs {
     #[serde(rename = "max-depth")]
     max_depth: Option<Spanned<i64>>,
     #[serde(rename = "min-size")]
-    min_size: Option<Spanned<i64>>,
+    min_size: Option<Spanned<usize>>,
 }
 
 impl Command for Du {
@@ -68,7 +68,7 @@ impl Command for Du {
             )
             .named(
                 "min-size",
-                SyntaxShape::Int,
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Filesize]),
                 "Exclude files below this size.",
                 Some('m'),
             )
@@ -88,20 +88,34 @@ impl Command for Du {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let tag = call.head;
-        let min_size: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "min-size")?;
+        let min_size_val: Option<Value> = call.get_flag(engine_state, stack, "min-size")?;
+        let min_size = match min_size_val {
+            Some(v) => {
+                let span = v.span();
+                let item =
+                    match v {
+                        Value::Int { val, .. } => usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        Value::Filesize { val, .. } => usize::try_from(val)
+                            .map_err(|_| ShellError::NeedsPositiveValue { span })?,
+                        val => {
+                            return Err(ShellError::RuntimeTypeMismatch {
+                                expected: Type::custom("int or filesize"),
+                                actual: val.get_type(),
+                                span: val.span(),
+                            });
+                        }
+                    };
+                Some(Spanned { item, span })
+            }
+            None => None,
+        };
         let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
         if let Some(ref max_depth) = max_depth
             && max_depth.item < 0
         {
             return Err(ShellError::NeedsPositiveValue {
                 span: max_depth.span,
-            });
-        }
-        if let Some(ref min_size) = min_size
-            && min_size.item < 0
-        {
-            return Err(ShellError::NeedsPositiveValue {
-                span: min_size.span,
             });
         }
         let deref = call.has_flag(engine_state, stack, "deref")?;

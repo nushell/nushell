@@ -5,13 +5,24 @@ use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
-fn test_du_flag_min_size() -> Result {
+fn test_du_flag_min_size_with_int() -> Result {
     test()
         .cwd("tests/fixtures/formats")
         .run("du -m -1")
         .expect_error_code_eq("nu::shell::needs_positive_value")?;
 
     let _: Value = test().cwd("tests/fixtures/formats").run("du -m 1")?;
+    Ok(())
+}
+
+#[test]
+fn test_du_flag_min_size_with_filesize() -> Result {
+    test()
+        .cwd("tests/fixtures/formats")
+        .run("du -m -1b")
+        .expect_error_code_eq("nu::shell::needs_positive_value")?;
+
+    let _: Value = test().cwd("tests/fixtures/formats").run("du -m 1b")?;
     Ok(())
 }
 
