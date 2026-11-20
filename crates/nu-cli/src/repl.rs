@@ -666,18 +666,54 @@ fn is_usable_dir(path: &Path) -> bool {
 /// when there is some.
 fn update_terminal_background(engine_state: &EngineState) {
     let wanted = nu_table::common::needs_terminal_background(engine_state.get_config());
-    nu_utils::update_terminal_background(wanted, || !has_pending_terminal_input_raw());
+    nu_utils::update_terminal_background(wanted, || !has_typed_ahead_input());
 }
 
-/// [`has_pending_terminal_input`] with the terminal in raw mode, where a line
-/// not ended with Enter is input too: the terminal holds it back otherwise.
-fn has_pending_terminal_input_raw() -> bool {
+/// Whether keys were typed that nothing has read yet.
+///
+/// This is [`has_pending_terminal_input`] with the terminal in raw mode, where
+/// a line not ended with Enter is input too: the terminal holds it back
+/// otherwise.
+#[cfg(not(windows))]
+fn has_typed_ahead_input() -> bool {
     let raw = crossterm::terminal::enable_raw_mode().is_ok();
     let pending = has_pending_terminal_input();
     if raw {
         let _ = crossterm::terminal::disable_raw_mode();
     }
     pending
+}
+
+/// Whether keys were typed that nothing has read yet.
+///
+/// The console queues more than key presses: the release of the Enter that
+/// ended the last line is still there at the next prompt, and it is no input to
+/// lose. So the queue is looked at, without taking anything off it, for a key
+/// press. A queue that cannot be looked at counts as having one.
+#[cfg(windows)]
+fn has_typed_ahead_input() -> bool {
+    use windows_sys::Win32::System::Console::{
+        GetStdHandle, INPUT_RECORD, KEY_EVENT, PeekConsoleInputW, STD_INPUT_HANDLE,
+    };
+
+    let mut records = [INPUT_RECORD::default(); 64];
+    let mut count = 0;
+    // SAFETY: `records` is a valid buffer of the length that is passed, and
+    // `count` is a valid place for the number of records written to it.
+    let peeked = unsafe {
+        PeekConsoleInputW(
+            GetStdHandle(STD_INPUT_HANDLE),
+            records.as_mut_ptr(),
+            records.len() as u32,
+            &mut count,
+        )
+    };
+    peeked == 0
+        || records.iter().take(count as usize).any(|record| {
+            // SAFETY: a record of type `KEY_EVENT` holds a `KeyEvent`.
+            u32::from(record.EventType) == KEY_EVENT
+                && unsafe { record.Event.KeyEvent.bKeyDown } != 0
+        })
 }
 
 /// Returns `true` if terminal input is already queued (so recovery waits until after the pending

@@ -45,8 +45,9 @@ pub fn terminal_background() -> Option<Rgb> {
 
 /// Asks the terminal for its background color if it is `wanted` and not known
 /// yet, and forgets it if it is not wanted, so that [`terminal_background`]
-/// never asks by itself. Not wanting it, then wanting it, is how to have a
-/// terminal that changed its colors asked again.
+/// never asks by itself: a shell calls this with `wanted` false before it runs
+/// anything. Not wanting it, then wanting it, is how to have a terminal that
+/// changed its colors asked again.
 ///
 /// This is for a shell that is about to read the terminal for a line: it takes
 /// the terminal back from an external that still holds it, like one a hook ran
