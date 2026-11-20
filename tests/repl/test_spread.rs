@@ -676,3 +676,19 @@ fn named_flag_record_spread_without_named_params_is_parse_error() -> Result {
     assert_matches!(err, ParseError::UnexpectedSpreadArg(_, _));
     Ok(())
 }
+
+#[test]
+fn list_to_scalar_suggests_spread_operator() -> Result {
+    let err = test()
+        .run("def f [x: string] {}; f (echo [a b])")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::CantConvert { .. });
+    assert!(
+        err.help()
+            .map(|h| h.to_string())
+            .unwrap_or_default()
+            .contains("spread operator"),
+        "expected spread operator hint in help"
+    );
+    Ok(())
+}

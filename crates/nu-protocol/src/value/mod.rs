@@ -476,11 +476,16 @@ pub enum CellPathMutation {
 
 impl Value {
     fn cant_convert_to<T>(&self, typ: &str) -> Result<T, ShellError> {
+        let help = if matches!(self, Value::List { .. }) {
+            Some("try using the spread operator `...` to pass items individually".into())
+        } else {
+            None
+        };
         Err(ShellError::CantConvert {
             to_type: typ.into(),
             from_type: self.get_type().to_string(),
             span: self.span(),
-            help: None,
+            help,
         })
     }
 
