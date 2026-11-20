@@ -153,7 +153,7 @@ def highlight-description [] {
             | try {
                 nu-highlight --reject-garbage
             } catch {
-                colorize $s default_dimmed
+                $"(ansi u)(colorize $s cyan shape_external)"
             }
             | colorize $in default_italic
         }
