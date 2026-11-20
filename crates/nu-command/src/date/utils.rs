@@ -249,7 +249,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%Z",
-            description: "The offset, such as +05:30, since dates keep an offset rather than a zone name. Skips all non-whitespace characters during parsing.",
+            description: "The offset, such as +05:30, since dates keep an offset rather than a zone name. When parsing, reads UTC or GMT as offset zero, or an offset such as +05:30; other names are an error.",
         },
         FormatSpecification {
             spec: "%z",
@@ -277,7 +277,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%s",
-            description: "UNIX timestamp, the number of seconds since 1970-01-01",
+            description: "UNIX timestamp, the number of seconds since 1970-01-01, negative before it.",
         },
         FormatSpecification {
             spec: "%J",

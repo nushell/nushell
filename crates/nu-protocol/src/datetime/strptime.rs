@@ -1,11 +1,40 @@
+// This file is a port of the strftime parser and field resolver of chrono 0.4.45
+// (https://github.com/chronotope/chrono). chrono is dual-licensed under the MIT License and the
+// Apache License 2.0; this file uses it under the MIT License:
+//
+// Copyright (c) 2014--2026, Kang Seonghoon and contributors.
+//
+// The MIT License (MIT)
+//
+// Copyright (c) 2014, Kang Seonghoon.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 //! Reading text with a strftime-style format, as chrono's `parse_from_str` functions did.
 //!
 //! This is a port of chrono 0.4.45's format parser (`format/strftime.rs`, `format/parse.rs`,
-//! `format/scan.rs` and `format/parsed.rs`; chrono is MIT or Apache-2.0 licensed), so
-//! `into datetime --format`, `seq date` and `from kdl` read text exactly as they did when
-//! nushell used chrono. The format splits into items, the items read the text into the fields
-//! of a [`ParsedDate`], and the fields resolve to an instant, a wall-clock date and time, a date
-//! or a time of day, as chrono's `DateTime`, `NaiveDateTime`, `NaiveDate` and `NaiveTime` did.
+//! `format/scan.rs` and `format/parsed.rs`), so `into datetime --format`, `seq date` and
+//! `from kdl` read text as they did when nushell used chrono, except that `%s` takes a sign
+//! and `%Z` reads only `UTC`, `GMT` and offsets. The format splits into items, the items read the text
+//! into the fields of a [`ParsedDate`], and the fields resolve to an instant, a wall-clock date
+//! and time, a date or a time of day, as chrono's `DateTime`, `NaiveDateTime`, `NaiveDate` and
+//! `NaiveTime` did.
 
 use super::{
     DateParseError, DateTime, MAX_YEAR, MIN_YEAR, NANOS_PER_SECOND, SECONDS_PER_DAY,
@@ -42,6 +71,8 @@ pub struct ParsedDate {
     second: Option<u32>,
     nanosecond: Option<u32>,
     timestamp: Option<i64>,
+    /// `%s` had a minus sign, which `-0` keeps where the number doesn't.
+    timestamp_negative: bool,
     offset: Option<i32>,
 }
 
@@ -107,6 +138,28 @@ impl ParsedDate {
     pub fn to_naive_datetime(&self) -> ParseResult<DateTime> {
         let (date, time) = self.to_naive_datetime_with_offset(0)?;
         date.at(time, Offset::UTC).ok_or(OutOfRange)
+    }
+
+    /// The UTC offset the text gave with `%z` or `%Z`, if any.
+    pub fn offset(&self) -> ParseResult<Option<Offset>> {
+        match self.offset {
+            None => Ok(None),
+            Some(seconds) if (-86_399..=86_399).contains(&seconds) => Offset::from_seconds(seconds)
+                .map(Some)
+                .map_err(|_| OutOfRange),
+            Some(_) => Err(OutOfRange),
+        }
+    }
+
+    /// The wall-clock date and time the fields name, or midnight on their date when they have
+    /// no time of day, held as that reading at UTC. Only missing time fields fall back to the
+    /// date: a contradicting or out-of-range field is an error, where chrono's readings one after
+    /// another would drop it.
+    pub fn to_wall_clock(&self) -> ParseResult<DateTime> {
+        match self.to_naive_datetime() {
+            Err(NotEnough) => self.to_naive_date(),
+            result => result,
+        }
     }
 
     /// Midnight on the date the fields name, held as that reading at UTC, as chrono's
@@ -284,7 +337,7 @@ impl ParsedDate {
         let time = self.to_naive_time();
         if let (Ok(date), Ok(time)) = (date, time) {
             let timestamp = date.days * SECONDS_PER_DAY + time.seconds_of_day() - i64::from(offset);
-            if let Some(given) = self.timestamp {
+            if let Some((given, _)) = self.signed_timestamp() {
                 // A leap second's timestamp may be the next second's.
                 let leap = time.nanosecond >= NANOS_PER_SECOND as i32;
                 if given != timestamp && !(leap && given == timestamp + 1) {
@@ -293,7 +346,7 @@ impl ParsedDate {
             }
             return Ok((date, time));
         }
-        let Some(timestamp) = self.timestamp else {
+        let Some((timestamp, nanosecond)) = self.signed_timestamp() else {
             date?;
             return Err(time.err().unwrap_or(NotEnough));
         };
@@ -310,6 +363,7 @@ impl ParsedDate {
             return Err(OutOfRange);
         }
         let mut parsed = self.clone();
+        parsed.nanosecond = nanosecond;
         if parsed.second == Some(60) {
             match local.rem_euclid(60) {
                 // The leap second is this second.
@@ -330,6 +384,19 @@ impl ParsedDate {
         parsed.set_hour(of_day / 3600)?;
         parsed.set_minute(of_day / 60 % 60)?;
         Ok((parsed.resolve_date()?, parsed.to_naive_time()?))
+    }
+
+    /// The Unix timestamp in whole seconds, rounded down, and the nanoseconds after it. chrono
+    /// added a fraction forward from the timestamp; one after a negative timestamp counts back
+    /// from it here, so `-1.5` is a second and a half before 1970.
+    fn signed_timestamp(&self) -> Option<(i64, Option<u32>)> {
+        let timestamp = self.timestamp?;
+        Some(match self.nanosecond {
+            Some(nanos) if (timestamp < 0 || self.timestamp_negative) && nanos > 0 => {
+                (timestamp - 1, Some(NANOS_PER_SECOND - nanos))
+            }
+            nanosecond => (timestamp, nanosecond),
+        })
     }
 
     fn set_numeric(&mut self, numeric: Numeric, value: i64) -> ParseResult<()> {
@@ -673,7 +740,8 @@ impl Numeric {
             Self::Quarter | Self::NumDaysFromSun | Self::WeekdayFromMon => (1, false),
             Self::Ordinal => (3, false),
             Self::Nanosecond => (9, false),
-            Self::Timestamp => (usize::MAX, false),
+            // chrono read `%s` unsigned, so a time before 1970 couldn't be read back.
+            Self::Timestamp => (usize::MAX, true),
             _ => (2, false),
         }
     }
@@ -693,7 +761,10 @@ enum Fixed {
     FractionDigits(usize),
     /// `%3f`, `%6f`, `%9f`: exactly that many digits.
     FractionNoDot(usize),
-    /// `%Z`: skipped up to the next whitespace; it doesn't set the offset.
+    /// `%Z`: `UTC` or `GMT` in any case, which set offset zero, or an offset such as `+05:30`,
+    /// which is how nushell writes `%Z`. chrono skipped any word here and left the offset unset,
+    /// so `PST` read as local time; other names are an error now, since abbreviations such as
+    /// `CST` name more than one offset.
     TimezoneName,
     /// `%z`, `%:z`, `%::z`, `%:::z`: `+08:00`, `+0800` or `+08 00`.
     Offset,
@@ -931,6 +1002,9 @@ fn parse_items<'a>(
                     Some(digits) if signed => {
                         let (rest, value) = number(digits, 1, usize::MAX)?;
                         let negative = s.starts_with('-');
+                        if negative && matches!(numeric, Numeric::Timestamp) {
+                            parsed.timestamp_negative = true;
+                        }
                         s = rest;
                         if negative {
                             0i64.checked_sub(value).ok_or(OutOfRange)?
@@ -1012,7 +1086,22 @@ fn parse_fixed<'a>(parsed: &mut ParsedDate, s: &'a str, fixed: Fixed) -> ParseRe
             parsed.set_nanosecond(nanos)?;
             rest
         }
-        Fixed::TimezoneName => s.trim_start_matches(|c: char| !c.is_whitespace()),
+        Fixed::TimezoneName => {
+            let s = s.trim_start();
+            let (rest, offset) = match timezone_offset(s, false, false) {
+                Ok(read) => read,
+                Err(_) => {
+                    let (name, rest) =
+                        s.split_at(s.bytes().take_while(u8::is_ascii_alphabetic).count());
+                    if !(name.eq_ignore_ascii_case("UTC") || name.eq_ignore_ascii_case("GMT")) {
+                        return Err(Invalid);
+                    }
+                    (rest, 0)
+                }
+            };
+            parsed.set_offset(offset)?;
+            rest
+        }
         Fixed::Offset | Fixed::OffsetPermissive => {
             let permissive = matches!(fixed, Fixed::OffsetPermissive);
             let (rest, offset) = timezone_offset(s.trim_start(), permissive, permissive)?;

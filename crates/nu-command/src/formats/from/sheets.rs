@@ -2,8 +2,8 @@ use std::io::Cursor;
 
 use calamine::*;
 use jiff::{
-    Timestamp, civil,
-    tz::{Offset, TimeZone},
+    civil,
+    tz::{Disambiguation, TimeZone},
 };
 use nu_protocol::DateTime;
 
@@ -84,8 +84,8 @@ pub(super) fn from_sheets(
         sheets
     };
 
-    // Cells hold wall-clock times; they are read at the local offset of 1970-01-01.
-    let tz = TimeZone::system().to_offset(Timestamp::UNIX_EPOCH);
+    // Cells hold wall-clock times, read in the system time zone at the offset of their date.
+    let tz = TimeZone::system();
 
     sheets.with_header_row(first_row);
 
@@ -104,7 +104,7 @@ pub(super) fn from_sheets(
 
             let rows = sheet.rows().map(|row| {
                 row.iter()
-                    .map(|cell| cell_to_data(cell, head, tz, prefer_integers))
+                    .map(|cell| cell_to_data(cell, head, &tz, prefer_integers))
             });
 
             if !noheaders && let Some(headers) = sheet.headers() {
@@ -151,7 +151,7 @@ pub(super) fn from_sheets(
     Ok(output.into_value(head).into_pipeline_data())
 }
 
-fn cell_to_data(cell: &Data, head: Span, tz: Offset, prefer_integers: bool) -> Value {
+fn cell_to_data(cell: &Data, head: Span, tz: &TimeZone, prefer_integers: bool) -> Value {
     match cell {
         Data::Empty => Value::nothing(head),
         Data::Int(val) => Value::int(*val, head),
@@ -178,9 +178,9 @@ fn cell_to_data(cell: &Data, head: Span, tz: Offset, prefer_integers: bool) -> V
     }
 }
 
-/// An ISO date-time cell: RFC 3339 with an offset, or a date and time or a date alone, read at
+/// An ISO date-time cell: RFC 3339 with an offset, or a date and time or a date alone, read in
 /// `tz`.
-fn parse_iso_datetime(datetime_str: &str, tz: Offset) -> Option<DateTime> {
+fn parse_iso_datetime(datetime_str: &str, tz: &TimeZone) -> Option<DateTime> {
     if let Ok(date) = datetime_str.parse::<DateTime>() {
         return Some(date);
     }
@@ -190,7 +190,13 @@ fn parse_iso_datetime(datetime_str: &str, tz: Offset) -> Option<DateTime> {
             .ok()
             .map(|date| date.to_datetime(civil::Time::midnight()))
     })?;
-    DateTime::from_civil(civil, tz)
+    in_time_zone(civil, tz)
+}
+
+/// The wall-clock `civil` in `tz`. A time the clock skips or repeats at a DST change reads as
+/// `into datetime` reads one.
+fn in_time_zone(civil: civil::DateTime, tz: &TimeZone) -> Option<DateTime> {
+    DateTime::from_civil_in(civil, tz, Disambiguation::Compatible)
 }
 
 /// An ISO duration cell written `PT01H02M03.5S`, with hours, minutes and seconds under a day, in
@@ -205,7 +211,7 @@ fn iso_duration_nanos(duration_str: &str) -> Option<i64> {
     Some(seconds * 1_000_000_000 + i64::from(time.subsec_nanosecond()))
 }
 
-fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: Offset, span: Span) -> Value {
+fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: &TimeZone, span: Span) -> Value {
     if excel_datetime.is_datetime() {
         let (year, month, day, hour, minute, second, milli) = excel_datetime.to_ymd_hms_milli();
         let civil = civil::DateTime::new(
@@ -219,7 +225,7 @@ fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: Offset, span: Spa
         );
         civil
             .ok()
-            .and_then(|civil| DateTime::from_civil(civil, tz))
+            .and_then(|civil| in_time_zone(civil, tz))
             .map_or_else(|| Value::nothing(span), |date| Value::date(date, span))
     } else if excel_datetime.is_duration() {
         // A duration is a number of days, kept to the millisecond.

@@ -1,3 +1,31 @@
+// `DateTime::checked_add` and `DateTime::nanos_since` in this file follow the leap-second
+// arithmetic of chrono 0.4.45 (https://github.com/chronotope/chrono). chrono is dual-licensed
+// under the MIT License and the Apache License 2.0; this file uses it under the MIT License:
+//
+// Copyright (c) 2014--2026, Kang Seonghoon and contributors.
+//
+// The MIT License (MIT)
+//
+// Copyright (c) 2014, Kang Seonghoon.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 //! Nushell's date value: an instant, and the UTC offset it is shown in.
 //!
 //! [`DateTime`] stores the instant itself, over the years chrono covered (-262143 to 262142),
@@ -20,7 +48,7 @@ pub use strptime::{ParsedDate, TimeOfDay};
 
 use jiff::{
     Timestamp, ZonedDateTime, civil,
-    tz::{AmbiguousOffset, Disambiguation, Offset, TimeZone},
+    tz::{Disambiguation, Offset, TimeZone},
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
@@ -179,48 +207,6 @@ impl DateTime {
         let years = if datetime.year() > 0 { -400 } else { 400 };
         let closer = datetime.with().year(datetime.year() + years).build().ok()?;
         resolve(closer)?.add_years(-i32::from(years))
-    }
-
-    /// The instants the wall-clock `datetime` names in `time_zone`, earlier first, as chrono's
-    /// `Local` found them for the system time zone: none in a skipped hour, two in a repeated
-    /// one. chrono kept an offset valid for one second past the instant it ended, so the first
-    /// second of a skipped hour reads at the old offset (`02:00` stays `02:00-05:00`), and the
-    /// first second after a repeated hour has two readings. Empty when jiff can't place the time.
-    pub fn chrono_local_readings(datetime: civil::DateTime, time_zone: &TimeZone) -> Vec<Self> {
-        let second = jiff::SignedDuration::from_secs(1);
-        let at = |offset: Offset| offset.to_timestamp(datetime).ok();
-        let mut offsets = match time_zone.to_ambiguous_timestamp(datetime).offset() {
-            AmbiguousOffset::Unambiguous { offset } => vec![offset],
-            AmbiguousOffset::Gap { before, after } | AmbiguousOffset::Fold { before, after } => {
-                vec![before, after]
-            }
-        };
-        // Every offset the zone has within a day of the time, since chrono could still allow
-        // one that had just ended.
-        if let Some(probe) = at(Offset::UTC) {
-            for transition in time_zone.preceding(probe).take(2) {
-                offsets.push(transition.offset());
-                if let Ok(before) = transition.timestamp().checked_sub(second) {
-                    offsets.push(time_zone.to_offset(before));
-                }
-            }
-            offsets.extend(time_zone.following(probe).take(2).map(|t| t.offset()));
-        }
-        let mut readings: Vec<Self> = Vec::new();
-        for offset in offsets {
-            let Some(timestamp) = at(offset) else {
-                continue;
-            };
-            let valid = time_zone.to_offset(timestamp) == offset
-                || timestamp
-                    .checked_sub(second)
-                    .is_ok_and(|earlier| time_zone.to_offset(earlier) == offset);
-            if valid && !readings.iter().any(|r| r.timestamp() == Some(timestamp)) {
-                readings.push(Self::new(timestamp, offset));
-            }
-        }
-        readings.sort();
-        readings
     }
 
     /// The same wall-clock time and offset `years` later, or `None` when that day doesn't exist.

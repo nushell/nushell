@@ -221,50 +221,140 @@ fn humanize() {
 }
 
 #[test]
-fn local_readings_keep_chrono_s_extra_second() {
-    let new_york = jiff::tz::TimeZone::get("America/New_York").unwrap();
-    let readings = |text: &str| -> Vec<String> {
-        let civil: jiff::civil::DateTime = text.parse().unwrap();
-        DateTime::chrono_local_readings(civil, &new_york)
-            .into_iter()
-            .map(|date| date.to_rfc3339())
-            .collect()
+fn signed_unix_timestamps() {
+    let read = |text: &str| {
+        ParsedDate::parse(text, "%s")
+            .and_then(|parsed| parsed.to_datetime())
+            .map(DateTime::to_rfc3339)
     };
-    // Spring forward at 02:00: the first second of the skipped hour reads at the old offset.
+    assert_eq!(read("-5").as_deref(), Ok("1969-12-31T23:59:55+00:00"));
+    assert_eq!(read("+5").as_deref(), Ok("1970-01-01T00:00:05+00:00"));
+    // A fraction after a negative timestamp counts back from it.
+    let read = |text: &str| {
+        ParsedDate::parse(text, "%s%.f")
+            .and_then(|parsed| parsed.to_datetime())
+            .map(DateTime::to_rfc3339)
+    };
+    assert_eq!(read("-1.5").as_deref(), Ok("1969-12-31T23:59:58.500+00:00"));
+    assert_eq!(read("-0.5").as_deref(), Ok("1969-12-31T23:59:59.500+00:00"));
+    assert_eq!(read("1.5").as_deref(), Ok("1970-01-01T00:00:01.500+00:00"));
+    // With the date and time given too, they must name the same instant.
+    let read = |text: &str| {
+        ParsedDate::parse(text, "%F %T%.f %s")
+            .and_then(|parsed| parsed.to_datetime())
+            .map(DateTime::to_rfc3339)
+    };
     assert_eq!(
-        readings("2025-03-09T01:59:59"),
-        ["2025-03-09T01:59:59-05:00"]
+        read("1969-12-31 23:59:58.5 -1").as_deref(),
+        Ok("1969-12-31T23:59:58.500+00:00")
+    );
+}
+
+#[test]
+fn zone_names() {
+    let read = |text: &str, format: &str| {
+        ParsedDate::parse(text, format)
+            .and_then(|parsed| parsed.to_datetime())
+            .map(DateTime::to_rfc3339)
+    };
+    for name in ["UTC", "gmt", "Utc"] {
+        assert_eq!(
+            read(&format!("2025-04-18 16:04 {name}"), "%F %H:%M %Z").as_deref(),
+            Ok("2025-04-18T16:04:00+00:00"),
+            "{name}"
+        );
+    }
+    // An offset, which is how nushell writes `%Z`.
+    assert_eq!(
+        read("2025-04-18 16:04 +05:30", "%F %H:%M %Z").as_deref(),
+        Ok("2025-04-18T16:04:00+05:30")
+    );
+    for text in [
+        "2025-04-18 16:04 PST",
+        "2025-04-18 16:04 UTCx",
+        "2025-04-18 16:04 日本",
+    ] {
+        assert_eq!(
+            read(text, "%F %H:%M %Z"),
+            Err(DateParseError::Invalid),
+            "{text}"
+        );
+    }
+    // An offset given twice must agree.
+    assert_eq!(
+        read("2025-04-18 16:04 +0100 UTC", "%F %H:%M %z %Z"),
+        Err(DateParseError::Impossible)
+    );
+    let offset = |text: &str, format: &str| {
+        ParsedDate::parse(text, format).and_then(|parsed| parsed.offset())
+    };
+    assert_eq!(
+        offset("2025-04-18 +0530", "%F %z"),
+        Ok(Some(jiff::tz::Offset::from_seconds(19_800).unwrap()))
+    );
+    assert_eq!(offset("2025-04-18", "%F"), Ok(None));
+    assert_eq!(
+        offset("2025-04-18 +9900", "%F %z"),
+        Err(DateParseError::OutOfRange)
+    );
+}
+
+#[test]
+fn wall_clock_falls_back_only_for_missing_fields() {
+    let read = |text: &str, format: &str| {
+        ParsedDate::parse(text, format)
+            .and_then(|parsed| parsed.to_wall_clock())
+            .map(DateTime::to_rfc3339)
+    };
+    assert_eq!(
+        read("2025-04-18", "%F").as_deref(),
+        Ok("2025-04-18T00:00:00+00:00")
     );
     assert_eq!(
-        readings("2025-03-09T02:00:00"),
-        ["2025-03-09T02:00:00-05:00"]
+        read("2025-04-18 10:30", "%F %H:%M").as_deref(),
+        Ok("2025-04-18T10:30:00+00:00")
+    );
+    // A bad date or a contradiction is an error, not a reading that leaves the field out.
+    assert_eq!(
+        read("2021-02-30 10:00", "%F %H:%M"),
+        Err(DateParseError::OutOfRange)
     );
     assert_eq!(
-        readings("2025-03-09T02:00:00.5"),
-        ["2025-03-09T02:00:00.500-05:00"]
+        read("2021-03-04 Mon 10:00", "%F %a %H:%M"),
+        Err(DateParseError::Impossible)
     );
-    assert!(readings("2025-03-09T02:00:01").is_empty());
-    assert!(readings("2025-03-09T02:30:00").is_empty());
+}
+
+#[test]
+fn wall_clock_at_dst_changes() {
+    let new_york = jiff::tz::TimeZone::get("America/New_York").unwrap();
+    let read = |text: &str, disambiguation: Disambiguation| -> Option<String> {
+        let civil: jiff::civil::DateTime = text.parse().unwrap();
+        DateTime::from_civil_in(civil, &new_york, disambiguation).map(DateTime::to_rfc3339)
+    };
+    let (reject, compatible) = (Disambiguation::Reject, Disambiguation::Compatible);
+    // Spring forward at 02:00: the skipped hour starts at 02:00:00, not a second later.
+    let skipped = ["2025-03-09T02:00:00", "2025-03-09T02:30:00"];
+    for text in skipped {
+        assert_eq!(read(text, reject), None, "{text}");
+    }
     assert_eq!(
-        readings("2025-03-09T03:00:00"),
-        ["2025-03-09T03:00:00-04:00"]
+        read(skipped[0], compatible).as_deref(),
+        Some("2025-03-09T03:00:00-04:00")
     );
-    // Fall back at 02:00: the repeated hour and the second after it have two readings.
     assert_eq!(
-        readings("2025-11-02T01:30:00"),
-        ["2025-11-02T01:30:00-04:00", "2025-11-02T01:30:00-05:00"]
+        read("2025-03-09T01:59:59", reject).as_deref(),
+        Some("2025-03-09T01:59:59-05:00")
+    );
+    // Fall back at 02:00: the hour before it repeats, and 02:00:00 itself happens once.
+    assert_eq!(read("2025-11-02T01:30:00", reject), None);
+    assert_eq!(
+        read("2025-11-02T01:30:00", compatible).as_deref(),
+        Some("2025-11-02T01:30:00-04:00")
     );
     assert_eq!(
-        readings("2025-11-02T02:00:00"),
-        ["2025-11-02T02:00:00-04:00", "2025-11-02T02:00:00-05:00"]
-    );
-    assert_eq!(
-        readings("2025-11-02T02:00:01"),
-        ["2025-11-02T02:00:01-05:00"]
-    );
-    assert_eq!(
-        readings("2025-07-01T12:00:00"),
-        ["2025-07-01T12:00:00-04:00"]
+        read("2025-11-02T02:00:00", reject).as_deref(),
+        Some("2025-11-02T02:00:00-05:00")
     );
 }
 
@@ -838,11 +928,56 @@ mod strptime_compat {
         out
     }
 
-    fn compare(text: &str, format: &str, mismatches: &mut Vec<String>) {
+    /// Comparisons left out, and readings that differ.
+    #[derive(Default)]
+    struct Outcome {
+        skipped: usize,
+        zone_names: usize,
+        compared: usize,
+        mismatches: Vec<String>,
+    }
+
+    impl Outcome {
+        fn assert_ok(mut self) {
+            // The count is printed so that a wider skip rule in `compare` shows up.
+            let total = self.skipped + self.zone_names + self.compared;
+            eprintln!(
+                "of {total} comparisons, {} skipped for a sign before %s and {} for %Z",
+                self.skipped, self.zone_names
+            );
+            let count = self.mismatches.len();
+            self.mismatches.truncate(40);
+            assert!(
+                count == 0,
+                "{count} mismatches:\n{}",
+                self.mismatches.join("\n")
+            );
+        }
+    }
+
+    fn compare(text: &str, format: &str, outcome: &mut Outcome) {
+        // `%Z` reads only UTC, GMT and offsets, where chrono skipped any word; `zone_names`
+        // checks ours.
+        if format.contains("%Z") {
+            outcome.zone_names += 1;
+            return;
+        }
         let ours = our_reads(text, format);
         let theirs = chrono_reads(text, format);
+        // chrono read `%s` unsigned, so a sign where it starts made each of chrono's readings
+        // fail on that character; `signed_unix_timestamps` checks ours.
+        let signed_timestamp = format.contains("%s")
+            && text.contains(['-', '+'])
+            && theirs
+                .iter()
+                .all(|read| read == "error: input contains invalid characters");
+        if signed_timestamp {
+            outcome.skipped += 1;
+            return;
+        }
+        outcome.compared += 1;
         if ours != theirs {
-            mismatches.push(format!(
+            outcome.mismatches.push(format!(
                 "{text:?} with {format:?}:\n  ours   {ours:?}\n  chrono {theirs:?}"
             ));
         }
@@ -863,28 +998,26 @@ mod strptime_compat {
     }
 
     fn check(formats: impl IntoIterator<Item = String>) {
-        let mut mismatches = Vec::new();
+        let mut outcome = Outcome::default();
         for format in formats {
             for text in texts(&format) {
                 for text in variations(&text) {
-                    compare(&text, &format, &mut mismatches);
+                    compare(&text, &format, &mut outcome);
                 }
             }
         }
-        let count = mismatches.len();
-        mismatches.truncate(40);
-        assert!(count == 0, "{count} mismatches:\n{}", mismatches.join("\n"));
+        outcome.assert_ok();
     }
 
     #[test]
     fn cases_match() {
-        let mut mismatches = Vec::new();
+        let mut outcome = Outcome::default();
         for (text, format) in CASES {
             for text in variations(text) {
-                compare(&text, format, &mut mismatches);
+                compare(&text, format, &mut outcome);
             }
         }
-        assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
+        outcome.assert_ok();
     }
 
     #[test]

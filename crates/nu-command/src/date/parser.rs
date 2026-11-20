@@ -1,6 +1,6 @@
 //! Reading a time zone given as an offset (`+05:30`), `local`, or an IANA name.
 
-use jiff::tz::Offset;
+use jiff::tz::{Offset, TimeZone};
 use nu_protocol::DateTime;
 use std::sync::LazyLock;
 
@@ -35,7 +35,7 @@ pub(crate) static TIME_ZONE_NAMES: LazyLock<Vec<&'static str>> = LazyLock::new(|
 /// `date` shown in the time zone `s` names: an offset such as `+05:30`, `local`, or an IANA
 /// name in any case.
 ///
-/// `local` uses the system time zone's offset now, not at `date`, as nushell always has.
+/// `local` is the system time zone, at the offset in effect at `date`.
 pub fn datetime_in_timezone(date: DateTime, s: &str) -> Result<DateTime, ParseErrorKind> {
     match timezone_offset_internal(s, true, true) {
         // chrono's offsets, which nushell used, stop short of a day.
@@ -45,7 +45,7 @@ pub fn datetime_in_timezone(date: DateTime, s: &str) -> Result<DateTime, ParseEr
             .map_err(|_| ParseErrorKind::OutOfRange),
         Err(ParseErrorKind::Invalid) => {
             if s.eq_ignore_ascii_case("local") {
-                Ok(date.with_offset(DateTime::now().offset()))
+                Ok(date.to_time_zone(&TimeZone::system()))
             } else {
                 // The name is trimmed for the newline that ends `/etc/timezone`.
                 let time_zone = jiff::tz::db()

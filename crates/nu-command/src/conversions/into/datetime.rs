@@ -7,7 +7,7 @@ use jiff::{
 };
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::ParsedDate;
+use nu_protocol::{DateParseError, ParsedDate};
 use std::{ops::Deref, sync::LazyLock};
 
 const HOUR: i32 = 60 * 60;
@@ -504,41 +504,33 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     .0
                     .replace("%J", "%Y%m%d")
                     .replace("%Q", "%H%M%S");
-                let parsed = ParsedDate::parse(val, &format);
-                match parsed
-                    .as_ref()
-                    .map_err(|err| *err)
-                    .and_then(ParsedDate::to_datetime)
-                {
-                    Ok(date) => match timezone {
+                match read_with_format(val, &format) {
+                    Ok(FormatReading::Instant(date)) => match timezone {
                         None => Value::date(date, head),
                         Some(Spanned { item, span }) => match item.time_zone() {
                             Some(time_zone) => Value::date(date.to_time_zone(&time_zone), *span),
                             None => invalid_timezone_value(*span),
                         },
                     },
-                    // Without an offset, read a wall-clock date and time, a date or a time.
-                    Err(reason) => match parsed.ok().as_ref().and_then(wall_clock) {
-                        Some(wall) => {
-                            interpret_wall_clock_datetime(wall, timezone.as_ref(), head, val)
-                        }
-                        None => Value::error(
-                            ShellError::CantConvert {
-                                to_type: format!(
-                                    "could not parse as datetime using format '{}'",
-                                    dt_format.item.0
-                                ),
-                                from_type: reason.to_string(),
-                                span: head,
-                                help: Some(
-                                    "you can use `into datetime` without a format string to \
-                                     enable flexible parsing"
-                                        .to_string(),
-                                ),
-                            },
-                            head,
-                        ),
-                    },
+                    Ok(FormatReading::WallClock(wall)) => {
+                        interpret_wall_clock_datetime(wall, timezone.as_ref(), head, val)
+                    }
+                    Err(reason) => Value::error(
+                        ShellError::CantConvert {
+                            to_type: format!(
+                                "could not parse as datetime using format '{}'",
+                                dt_format.item.0
+                            ),
+                            from_type: reason.to_string(),
+                            span: head,
+                            help: Some(
+                                "you can use `into datetime` without a format string to \
+                                 enable flexible parsing"
+                                    .to_string(),
+                            ),
+                        },
+                        head,
+                    ),
                 }
             }
 
@@ -657,10 +649,13 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         },
     };
 
-    // The offset in effect now, even for a date on the other side of a DST change.
     let offset = match record.get("timezone") {
-        Some(timezone) => parse_timezone_from_record(timezone, &head, &timezone.span())?,
-        None => now.offset(),
+        Some(timezone) => Some(parse_timezone_from_record(
+            timezone,
+            &head,
+            &timezone.span(),
+        )?),
+        None => None,
     };
 
     let invalid = |what: &str| ShellError::IncorrectValue {
@@ -694,7 +689,25 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         })
         .ok_or_else(|| invalid("time"))?;
 
-    match nu_protocol::DateTime::from_parts(year, month, day, hour, minute, second, nanos, offset) {
+    let date = match offset {
+        Some(offset) => {
+            nu_protocol::DateTime::from_parts(year, month, day, hour, minute, second, nanos, offset)
+        }
+        // Local time, at the offset in effect on that date. A time the clock skips or repeats
+        // at a DST change reads as `into datetime` reads one in text.
+        None => nu_protocol::DateTime::from_parts(
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            nanos,
+            Offset::UTC,
+        )
+        .and_then(|wall| wall.wall_clock_in(&TimeZone::system(), Disambiguation::Compatible)),
+    };
+    match date {
         Some(date_time) => Ok(Value::date(date_time, span)),
         None => Err(ShellError::IncorrectValue {
             msg: "Ambiguous or invalid timezone conversion".to_string(),
@@ -782,46 +795,67 @@ fn invalid_timezone_value(span: Span) -> Value {
     )
 }
 
-/// The wall-clock reading `parsed` names, held at UTC: a date and time, else midnight on a date,
-/// else a time today.
-fn wall_clock(parsed: &ParsedDate) -> Option<nu_protocol::DateTime> {
-    parsed
-        .to_naive_datetime()
-        .or_else(|_| parsed.to_naive_date())
-        .ok()
-        .or_else(|| {
-            let today = jiff::ZonedDateTime::now().date();
-            let time = parsed.to_naive_time().ok()?;
-            time.on(today.year().into(), today.month(), today.day())
-        })
+/// What `into datetime --format` read.
+enum FormatReading {
+    /// The text has an offset or a Unix timestamp.
+    Instant(nu_protocol::DateTime),
+    /// A wall-clock date and time, held at UTC, for the time zone to place.
+    WallClock(nu_protocol::DateTime),
+}
+
+/// Reads `val` with `format`: an instant, or else a wall-clock date and time, midnight on a date,
+/// or a time of day today. Only fields missing from the text move it to the next of these; a
+/// field that contradicts another (`%s` and a date, a weekday and a date) or is out of range
+/// (February 30) is an error. An offset in the text places the smaller readings too, so
+/// `2021-03-04 +0530` with `%F %z` is midnight at `+05:30`.
+fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseError> {
+    let parsed = ParsedDate::parse(val, format)?;
+    match parsed.to_datetime() {
+        Err(DateParseError::NotEnough) => {}
+        result => return result.map(FormatReading::Instant),
+    }
+    let offset = parsed.offset()?;
+    let place = |wall: nu_protocol::DateTime| match offset {
+        Some(offset) => wall
+            .wall_clock_in(&TimeZone::fixed(offset), Disambiguation::Compatible)
+            .map(FormatReading::Instant)
+            .ok_or(DateParseError::OutOfRange),
+        None => Ok(FormatReading::WallClock(wall)),
+    };
+    match parsed.to_wall_clock() {
+        Err(DateParseError::NotEnough) => {}
+        result => return place(result?),
+    }
+    let today = match offset {
+        Some(offset) => Timestamp::now()
+            .to_zoned_datetime(TimeZone::fixed(offset))
+            .date(),
+        None => jiff::ZonedDateTime::now().date(),
+    };
+    let wall = parsed
+        .to_naive_time()?
+        .on(today.year().into(), today.month(), today.day())
+        .ok_or(DateParseError::OutOfRange)?;
+    place(wall)
 }
 
 /// The instant the wall-clock `dt` names in `timezone`, or local time without one. A time the
-/// zone skips or repeats at a DST change is an error.
+/// clock skips at a DST change moves forward by the jump, and one it repeats reads as the
+/// earlier, as `into datetime` reads them without `--format`.
 fn interpret_wall_clock_datetime(
     dt: nu_protocol::DateTime,
     timezone: Option<&Spanned<Zone>>,
     head: Span,
     val: &str,
 ) -> Value {
-    let (time_zone, span, local) = match timezone {
-        None => (Some(TimeZone::system()), head, true),
-        Some(Spanned { item, span }) => (item.time_zone(), *span, matches!(item, Zone::Local)),
+    let (time_zone, span) = match timezone {
+        None => (Some(TimeZone::system()), head),
+        Some(Spanned { item, span }) => (item.time_zone(), *span),
     };
     let Some(time_zone) = time_zone else {
         return invalid_timezone_value(span);
     };
-    // Local time is read as chrono's `Local` read it, taking a single reading only.
-    let date = match dt.to_civil() {
-        Some(civil) if local && !dt.parts().is_leap_second() => {
-            match nu_protocol::DateTime::chrono_local_readings(civil, &time_zone)[..] {
-                [date] => Some(date),
-                _ => None,
-            }
-        }
-        _ => dt.wall_clock_in(&time_zone, Disambiguation::Reject),
-    };
-    match date {
+    match dt.wall_clock_in(&time_zone, Disambiguation::Compatible) {
         Some(date) => Value::date(date, span),
         None => datetime_parse_error_value(val, span),
     }

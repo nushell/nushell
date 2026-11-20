@@ -278,10 +278,8 @@ impl Command for SeqDate {
 /// offset in the text is ignored. The wall-clock time is returned as a date at UTC, which
 /// `seq date` steps through without time zones.
 pub fn parse_date_string(s: &str, format: &str) -> Result<DateTime, &'static str> {
-    let parsed = ParsedDate::parse(s, format).map_err(|_| "Failed to parse date.")?;
-    parsed
-        .to_naive_datetime()
-        .or_else(|_| parsed.to_naive_date())
+    ParsedDate::parse(s, format)
+        .and_then(|parsed| parsed.to_wall_clock())
         .map_err(|_| "Failed to parse date.")
 }
 

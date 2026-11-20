@@ -1,5 +1,6 @@
 use super::{formats::parse_gnu_date, human::Phrase};
 use fancy_regex::Regex;
+use jiff::ZonedDateTime;
 use nu_engine::command_prelude::*;
 use nu_protocol::DateTime;
 use std::sync::LazyLock;
@@ -118,16 +119,7 @@ fn helper(value: Value, head: Span) -> Value {
         }
     };
 
-    // human-date-parser's phrases first, as main read them; then the GNU `date` grammar; then a
-    // human-date-parser phrase followed by other text, which main read by ignoring the rest.
-    let now = jiff::ZonedDateTime::now();
-    let date = match Phrase::parse(&input_val) {
-        Some(phrase) => phrase.date(&now),
-        None => parse_gnu_date(&to_gnu_date(&input_val))
-            .and_then(|date| as_before(date, &input_val))
-            .or_else(|| Phrase::parse_prefix(&input_val).and_then(|phrase| phrase.date(&now))),
-    };
-    match date {
+    match read_start(&input_val, &ZonedDateTime::now()) {
         Some(date) => Value::date(date, span),
         None => Value::error(
             ShellError::IncorrectValue {
@@ -140,6 +132,36 @@ fn helper(value: Value, head: Span) -> Value {
     }
 }
 
+/// The date `text` names. Text after one of human-date-parser's phrases is ignored, as
+/// human-date-parser ignored it: the longest start of the text that is a phrase names the date,
+/// unless a longer start that ends before a space reads as GNU syntax, which keeps the time in
+/// `today at 6pm blah`. Text that doesn't start with a phrase is no date.
+fn read_start(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
+    if let Some(date) = read(text, now) {
+        return date;
+    }
+    let starts = Phrase::starts(text);
+    let (at, phrase) = starts
+        .iter()
+        .enumerate()
+        .find_map(|(i, start)| Some((i, Phrase::parse(start)?)))?;
+    starts[..at]
+        .iter()
+        .filter(|start| text[start.len()..].starts_with(' '))
+        .find_map(|start| read(start, now))
+        .unwrap_or_else(|| phrase.date(now))
+}
+
+/// The date `text` names, as one of human-date-parser's phrases or else in GNU `date` syntax.
+/// `Some(None)` is a phrase that names no date, such as `2022-02-30`.
+fn read(text: &str, now: &ZonedDateTime) -> Option<Option<DateTime>> {
+    if let Some(phrase) = Phrase::parse(text) {
+        return Some(phrase.date(now));
+    }
+    let date = parse_gnu_date(&to_gnu_date(text))?;
+    Some(with_time_of_day(date, text, now))
+}
+
 /// Matches the parts of a phrase that name a time of day or a span shorter than a day.
 static TIME_OF_DAY: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -148,18 +170,15 @@ static TIME_OF_DAY: LazyLock<Regex> = LazyLock::new(|| {
     .expect("time of day pattern should be valid")
 });
 
-/// `date` the way `date from-human` read it before: a phrase that names no time of day (`Friday`,
-/// `2022-11-07`) is at the current time of day, and the wall-clock time is at the current UTC
-/// offset, even across a DST change.
-fn as_before(date: DateTime, input: &str) -> Option<DateTime> {
-    let now = jiff::ZonedDateTime::now();
-    let wall = date.to_civil()?;
-    let wall = if TIME_OF_DAY.is_match(input).unwrap_or(false) {
-        wall
-    } else {
-        wall.date().to_datetime(now.time())
-    };
-    DateTime::from_civil(wall, now.offset())
+/// A GNU `date` reading of a phrase that names no time of day (`Friday`, `2022-11-07`) is at the
+/// current time of day, as a human-date-parser phrase that names a day is.
+fn with_time_of_day(date: DateTime, text: &str, now: &ZonedDateTime) -> Option<DateTime> {
+    if TIME_OF_DAY.is_match(text).unwrap_or(false) {
+        return Some(date);
+    }
+    let wall = date.to_civil()?.date().to_datetime(now.time());
+    let zoned = wall.to_zoned_datetime(now.time_zone().clone()).ok()?;
+    Some(DateTime::from_zoned(&zoned))
 }
 
 /// Rewrites the English the GNU `date` grammar doesn't read: `at` and `and` go, `in 2 hours`
@@ -261,5 +280,27 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(DateFromHuman)
+    }
+
+    #[cfg(feature = "os")]
+    #[test]
+    fn text_after_a_phrase_keeps_its_time() {
+        let now = ZonedDateTime::now();
+        let hour = |text: &str| read_start(text, &now).map(|date| date.parts().hour);
+        // `6pm` is GNU syntax; human-date-parser's grammar reads `18:00`.
+        for text in ["today at 6pm", "today at 6pm blah", "today at 18:00 blah"] {
+            assert_eq!(hour(text), Some(18), "{text}");
+        }
+        // Text that doesn't start with a phrase is no date, even when GNU syntax reads a word
+        // of it.
+        for text in [
+            "blah",
+            "5 apples",
+            "a b c",
+            "utc time please",
+            "10 apples ago",
+        ] {
+            assert!(read_start(text, &now).is_none(), "{text}");
+        }
     }
 }

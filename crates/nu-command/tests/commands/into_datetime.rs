@@ -2,7 +2,6 @@ use nu_protocol::casing::Casing;
 use nu_protocol::{ast::PathMember, record};
 
 use nu_test_support::prelude::*;
-use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 // Tests happy paths
@@ -542,13 +541,43 @@ fn named_timezone_interprets_formatted_time_only() -> Result {
     test().run(code).expect_value_eq("12:30 +05:30")
 }
 
+// A time the clock skips moves forward by the jump; a repeated one reads as the earlier, as
+// `into datetime` reads them without `--format`.
 #[rstest]
-#[case::nonexistent("2024-03-31 02:30")]
-#[case::ambiguous("2024-10-27 02:30")]
-fn named_timezone_rejects_invalid_wall_clock(#[case] input: &str) -> Result {
-    let code = "$in | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin";
-    let err = test().run_with_data(code, input).expect_shell_error()?;
-    assert_matches!(err, ShellError::DatetimeParseError { .. });
+#[case::skipped("2024-03-31 02:30", "2024-03-31T03:30:00+02:00")]
+#[case::repeated("2024-10-27 02:30", "2024-10-27T02:30:00+02:00")]
+fn named_timezone_reads_dst_change_times(#[case] input: &str, #[case] expected: &str) -> Result {
+    let code = "$in | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin | to nuon";
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+// An offset in the text places a date without a time, or a time without a date.
+#[rstest]
+#[case::date(
+    "'2021-03-04 +0530' | into datetime --format '%F %z' | to nuon",
+    "2021-03-04T00:00:00+05:30"
+)]
+#[case::time(
+    "'10:30 +0530' | into datetime --format '%H:%M %z' | format date '%H:%M %:z'",
+    "10:30 +05:30"
+)]
+#[case::utc(
+    "'2021-03-04 10:00 utc' | into datetime --format '%F %H:%M %Z' | to nuon",
+    "2021-03-04T10:00:00+00:00"
+)]
+#[case::zone_round_trip(
+    "2021-03-04T10:00:00+05:30 | format date '%F %T %Z' | into datetime --format '%F %T %Z' | to nuon",
+    "2021-03-04T10:00:00+05:30"
+)]
+fn format_keeps_the_offset(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+// `%Z` reads UTC and GMT; an abbreviation such as PST names no single offset.
+#[test]
+fn format_rejects_other_zone_names() -> Result {
+    let code = "'2021-03-04 10:00 PST' | into datetime --format '%F %H:%M %Z'";
+    test().run(code).expect_shell_error()?;
     Ok(())
 }
 

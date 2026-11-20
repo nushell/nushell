@@ -570,6 +570,8 @@ fn build(
     let (minute, second) = (field(BrokenDownTime::minute), field(BrokenDownTime::second));
     let nanosecond = time.and_then(|t| t.subsec_nanosecond()).unwrap_or(0);
     let civil = day_date.to_datetime(civil::Time::new(hour, minute, second, nanosecond).ok()?);
+    // In a time zone, a time the clock repeats at a DST change reads as the earlier one, and a
+    // time it skips moves forward by the jump (02:30 on the spring-forward day reads as 03:30).
     if let Some(name) = zone.and_then(|z| z.iana_time_zone()) {
         let zone = TimeZone::get(name).ok()?;
         return DateTime::from_civil_in(civil, &zone, Disambiguation::Compatible);
@@ -580,17 +582,7 @@ fn build(
             DateTime::from_civil(civil, offset)
         }
         Some(_) => None,
-        // Local time is read as chrono's `Local` read it: when the clock goes back and repeats
-        // a time, the earlier reading; when it jumps ahead and skips one, the offset from
-        // before the jump, which moves it forward by the jump (02:30 on the spring-forward day
-        // reads as 03:30).
-        None => {
-            let local = TimeZone::system();
-            DateTime::chrono_local_readings(civil, &local)
-                .first()
-                .copied()
-                .or_else(|| DateTime::from_civil_in(civil, &local, Disambiguation::Compatible))
-        }
+        None => DateTime::from_civil_in(civil, &TimeZone::system(), Disambiguation::Compatible),
     }
 }
 

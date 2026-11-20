@@ -1,12 +1,38 @@
+// This file is a port of human-date-parser 0.3.1
+// (https://github.com/technologicalMayhem/human-date-parser), under its license:
+//
+// MIT License
+//
+// Copyright (c) 2022 Tobias Freese
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 //! The phrases `date from-human` read with human-date-parser, read the same way.
 //!
-//! This is a port of human-date-parser 0.3.1 (its `date_time.pest` grammar and the date
-//! arithmetic in `lib.rs`; MIT licensed). It differs where human-date-parser misread a phrase.
-//! The whole phrase must match, trying every way it can, so `next month` is a month away rather
-//! than `next mon(day)` and `this week sunday` is that Sunday. `this hour` and the other units
-//! under a day, which panicked, name the current time give or take one unit.
+//! This is a port of human-date-parser 0.3.1's `date_time.pest` grammar and the date arithmetic
+//! in its `lib.rs`. It differs where human-date-parser misread a phrase. The whole phrase must
+//! match, trying every way it can, so `next month` is a month away rather than `next mon(day)`
+//! and `this week sunday` is that Sunday. `this hour` and the other units under a day, which
+//! panicked, name the current time give or take one unit. Dates are worked out in the system
+//! time zone, where human-date-parser kept the current UTC offset for every date.
 
-use jiff::{ZonedDateTime, tz::Offset};
+use jiff::{Span, ZonedDateTime, civil};
 use nu_protocol::DateTime;
 
 /// A phrase the grammar matched.
@@ -21,41 +47,28 @@ impl Phrase {
         (text.len() <= MAX_LEN).then(|| whole(&text.to_lowercase()))?
     }
 
-    /// Reads the longest start of `text` the grammar matches, as human-date-parser did when
-    /// other text followed a phrase (`today blah`).
-    pub(super) fn parse_prefix(text: &str) -> Option<Self> {
-        let end = (0..=MAX_LEN.min(text.len()))
-            .rev()
-            .find(|&i| text.is_char_boundary(i))?;
-        let text = text[..end].to_lowercase();
-        let ends: Vec<usize> = text.char_indices().map(|(i, _)| i).skip(1).collect();
-        ends.into_iter().rev().find_map(|end| whole(&text[..end]))
+    /// The starts of `text` shorter than all of it, longest first, up to the longest phrase
+    /// tried. Other text may follow a phrase (`today blah`), as human-date-parser allowed.
+    pub(super) fn starts(text: &str) -> Vec<&str> {
+        let mut starts: Vec<&str> = text
+            .char_indices()
+            .skip(1)
+            .map(|(end, _)| &text[..end])
+            .take_while(|start| start.len() <= MAX_LEN)
+            .collect();
+        starts.reverse();
+        starts
     }
 
-    /// The date the phrase names relative to `now`, with the time of day `now` has when it
-    /// names only a date, at `now`'s UTC offset. `None` for a date that doesn't exist, such as
-    /// `2022-02-30`.
+    /// The date the phrase names relative to `now`, in `now`'s time zone. A phrase that names
+    /// only a day is at `now`'s time of day. Years, months, weeks and days move the date and
+    /// keep the time of day; hours, minutes and seconds move the instant, so `in 24 hours` and
+    /// `in 1 day` differ across a DST change. A time the clock skips or repeats reads as jiff's
+    /// `compatible` rule reads it. `None` for a date that doesn't exist, such as `2022-02-30`,
+    /// or one outside years -9999 to 9999.
     pub(super) fn date(&self, now: &ZonedDateTime) -> Option<DateTime> {
-        let offset = now.offset();
-        let now = DateTime::from_civil(now.datetime(), Offset::UTC)?;
-        let at = |wall: DateTime, time: DateTime| {
-            let (d, t) = (wall.parts(), time.parts());
-            DateTime::from_parts(
-                d.year,
-                d.month,
-                d.day,
-                t.hour,
-                t.minute,
-                t.second,
-                t.nanosecond,
-                offset,
-            )
-        };
-        match self.0.read(now)? {
-            Reading::DateTime(wall) => at(wall, wall),
-            Reading::Date(day) => at(day, now),
-            Reading::Time(time) => at(now, time),
-        }
+        let zoned = self.0.read(now)?.at(now)?;
+        Some(DateTime::from_zoned(&zoned))
     }
 }
 
@@ -67,13 +80,28 @@ fn whole(text: &str) -> Option<Phrase> {
         .map(|(human, _)| Phrase(human))
 }
 
-/// What a phrase names. Each is a wall-clock reading held at UTC.
+/// What a phrase names.
 enum Reading {
-    DateTime(DateTime),
-    /// A day, at midnight.
-    Date(DateTime),
-    /// A time of day, on 1970-01-01.
-    Time(DateTime),
+    /// `now`, or `now` moved by a duration.
+    Instant(ZonedDateTime),
+    DateTime(civil::DateTime),
+    /// A day, at the current time of day.
+    Date(civil::Date),
+    /// A time of day, today.
+    Time(civil::Time),
+}
+
+impl Reading {
+    /// The instant in `now`'s time zone.
+    fn at(self, now: &ZonedDateTime) -> Option<ZonedDateTime> {
+        let wall = match self {
+            Self::Instant(zoned) => return Some(zoned),
+            Self::DateTime(wall) => wall,
+            Self::Date(day) => day.to_datetime(now.time()),
+            Self::Time(time) => now.date().to_datetime(time),
+        };
+        wall.to_zoned_datetime(now.time_zone().clone()).ok()
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -128,45 +156,38 @@ enum Human {
 }
 
 impl Human {
-    fn read(&self, now: DateTime) -> Option<Reading> {
+    fn read(&self, now: &ZonedDateTime) -> Option<Reading> {
         Some(match self {
             Self::DateTime(date, time) => {
-                let (day, time) = (date.day(now)?, time.read()?);
-                Reading::DateTime(day.checked_add_nanos(time_of_day(time))?)
+                Reading::DateTime(date.day(now)?.to_datetime(time.read()?))
             }
             Self::Date(Date::RelativeUnit(
                 relative,
                 unit @ (Unit::Hour | Unit::Minute | Unit::Second),
-            )) => Reading::DateTime(relative_unit(*relative, *unit, now)?),
+            )) => Reading::Instant(relative_unit(*relative, *unit, now)?),
             Self::Date(date) => Reading::Date(date.day(now)?),
             Self::Time(time) => Reading::Time(time.read()?),
-            Self::In(duration) => Reading::DateTime(apply(duration, now, 1)?),
-            Self::Ago(duration, None) => Reading::DateTime(apply(duration, now, -1)?),
+            Self::In(duration) => Reading::Instant(apply(duration, now.clone(), 1)?),
+            Self::Ago(duration, None) => Reading::Instant(apply(duration, now.clone(), -1)?),
             Self::Ago(duration, Some(from)) => {
-                let from = match from.read(now)? {
-                    Reading::DateTime(wall) => wall,
-                    Reading::Date(day) => day.checked_add_nanos(time_of_day(now))?,
-                    Reading::Time(time) => midnight(now)?.checked_add_nanos(time_of_day(time))?,
-                };
-                Reading::DateTime(apply(duration, from, -1)?)
+                Reading::Instant(apply(duration, from.read(now)?.at(now)?, -1)?)
             }
-            Self::Now => Reading::DateTime(now),
+            Self::Now => Reading::Instant(now.clone()),
         })
     }
 }
 
 impl Date {
-    /// The day, at midnight.
-    fn day(&self, now: DateTime) -> Option<DateTime> {
-        let today = midnight(now)?;
+    fn day(&self, now: &ZonedDateTime) -> Option<civil::Date> {
+        let today = now.date();
         match *self {
             Self::Today => Some(today),
             Self::Tomorrow => add_days(today, 1),
             Self::Overmorrow => add_days(today, 2),
             Self::Yesterday => add_days(today, -1),
-            Self::Iso(year, month, day) => ymd(year as i32, month, day),
-            Self::DayMonthYear(day, month, year) => ymd(year as i32, u32::from(month), day),
-            Self::DayMonth(day, month) => ymd(now.year(), u32::from(month), day),
+            Self::Iso(year, month, day) => ymd(year.into(), month, day),
+            Self::DayMonthYear(day, month, year) => ymd(year.into(), month.into(), day),
+            Self::DayMonth(day, month) => ymd(today.year().into(), month.into(), day),
             Self::RelativeWeekday(relative, weekday) => find_weekday(relative, weekday, today),
             Self::RelativeWeekWeekday(relative, weekday) => {
                 let week = match relative {
@@ -177,58 +198,39 @@ impl Date {
                 let monday = add_days(today, week - i64::from(weekday_of(today)))?;
                 find_weekday(Relative::This, weekday, monday)
             }
-            Self::RelativeUnit(relative, unit) => midnight(relative_unit(relative, unit, now)?),
+            Self::RelativeUnit(relative, unit) => Some(relative_unit(relative, unit, now)?.date()),
             Self::Upcoming(weekday) => find_weekday(Relative::Next, weekday, today),
         }
     }
 }
 
 impl Time {
-    /// The time of day, on 1970-01-01.
-    fn read(self) -> Option<DateTime> {
+    fn read(self) -> Option<civil::Time> {
         let Self(hour, minute, second) = self;
-        if hour >= 24 || minute >= 60 || second >= 60 {
-            return None;
-        }
-        DateTime::from_parts(
-            1970,
-            1,
-            1,
-            hour as i8,
-            minute as i8,
-            second as i8,
-            0,
-            Offset::UTC,
-        )
+        let field = |value: u32| i8::try_from(value).ok();
+        civil::Time::new(field(hour)?, field(minute)?, field(second)?, 0).ok()
     }
 }
 
-fn midnight(date: DateTime) -> Option<DateTime> {
-    let p = date.parts();
-    DateTime::from_parts(p.year, p.month, p.day, 0, 0, 0, 0, Offset::UTC)
+fn ymd(year: i64, month: u32, day: u32) -> Option<civil::Date> {
+    civil::Date::new(
+        i16::try_from(year).ok()?,
+        i8::try_from(month).ok()?,
+        i8::try_from(day).ok()?,
+    )
+    .ok()
 }
 
-/// Nanoseconds since midnight.
-fn time_of_day(date: DateTime) -> i64 {
-    midnight(date).map_or(0, |day| date.nanos_since(day) as i64)
+fn add_days(date: civil::Date, days: i64) -> Option<civil::Date> {
+    date.checked_add(Span::new().try_days(days).ok()?).ok()
 }
 
-fn ymd(year: i32, month: u32, day: u32) -> Option<DateTime> {
-    let (month, day) = (i8::try_from(month).ok()?, i8::try_from(day).ok()?);
-    DateTime::from_parts(year, month, day, 0, 0, 0, 0, Offset::UTC)
-}
-
-fn add_days(date: DateTime, days: i64) -> Option<DateTime> {
-    date.checked_add_seconds(days.checked_mul(86_400)?)
-}
-
-fn weekday_of(date: DateTime) -> Weekday {
-    // `parts().weekday` counts from Sunday.
-    ((date.parts().weekday + 6) % 7) as Weekday
+fn weekday_of(date: civil::Date) -> Weekday {
+    date.weekday().to_monday_zero_offset() as Weekday
 }
 
 /// The `weekday` on or after `day` (`this`), after it (`next`), or before it (`last`).
-fn find_weekday(relative: Relative, weekday: Weekday, day: DateTime) -> Option<DateTime> {
+fn find_weekday(relative: Relative, weekday: Weekday, day: civil::Date) -> Option<civil::Date> {
     let current = i64::from(weekday_of(day));
     let target = i64::from(weekday);
     match relative {
@@ -253,56 +255,32 @@ fn find_weekday(relative: Relative, weekday: Weekday, day: DateTime) -> Option<D
 }
 
 /// `now` (`this`), or one `unit` after (`next`) or before (`last`) it.
-fn relative_unit(relative: Relative, unit: Unit, now: DateTime) -> Option<DateTime> {
+fn relative_unit(relative: Relative, unit: Unit, now: &ZonedDateTime) -> Option<ZonedDateTime> {
     match relative {
-        Relative::This => Some(now),
-        Relative::Next => apply(&[(1, unit)], now, 1),
-        Relative::Last => apply(&[(1, unit)], now, -1),
+        Relative::This => Some(now.clone()),
+        Relative::Next => apply(&[(1, unit)], now.clone(), 1),
+        Relative::Last => apply(&[(1, unit)], now.clone(), -1),
     }
 }
 
-/// `date` moved by each amount in turn, forward for a `sign` of 1 and back for -1. A year
-/// that has no such day (February 29) names no date; a month past the end of the next month's
-/// days ends on its last day.
-fn apply(duration: &[(u32, Unit)], mut date: DateTime, sign: i64) -> Option<DateTime> {
+/// `date` moved by each amount in turn, forward for a `sign` of 1 and back for -1. A day past
+/// the end of the month it lands in becomes that month's last day (`in 1 month` on January 31,
+/// `in 1 year` on February 29).
+fn apply(duration: &[(u32, Unit)], mut date: ZonedDateTime, sign: i64) -> Option<ZonedDateTime> {
     for &(count, unit) in duration {
         let count = sign * i64::from(count);
-        let p = date.parts();
-        date = match unit {
-            Unit::Year => DateTime::from_parts(
-                p.year.checked_add(i32::try_from(count).ok()?)?,
-                p.month,
-                p.day,
-                p.hour,
-                p.minute,
-                p.second,
-                p.nanosecond,
-                Offset::UTC,
-            )?,
-            Unit::Month => {
-                let months = i64::from(p.year) * 12 + i64::from(p.month) - 1 + count;
-                let year = i32::try_from(months.div_euclid(12)).ok()?;
-                let month = (months.rem_euclid(12) + 1) as i8;
-                let last = (28..=31)
-                    .rev()
-                    .find(|&day| ymd(year, month as u32, day).is_some())?;
-                DateTime::from_parts(
-                    year,
-                    month,
-                    p.day.min(last as i8),
-                    p.hour,
-                    p.minute,
-                    p.second,
-                    p.nanosecond,
-                    Offset::UTC,
-                )?
-            }
-            Unit::Week => add_days(date, count.checked_mul(7)?)?,
-            Unit::Day => add_days(date, count)?,
-            Unit::Hour => date.checked_add_seconds(count * 3600)?,
-            Unit::Minute => date.checked_add_seconds(count * 60)?,
-            Unit::Second => date.checked_add_seconds(count)?,
-        };
+        let span = Span::new();
+        let span = match unit {
+            Unit::Year => span.try_years(count),
+            Unit::Month => span.try_months(count),
+            Unit::Week => span.try_weeks(count),
+            Unit::Day => span.try_days(count),
+            Unit::Hour => span.try_hours(count),
+            Unit::Minute => span.try_minutes(count),
+            Unit::Second => span.try_seconds(count),
+        }
+        .ok()?;
+        date = date.checked_add(span).ok()?;
     }
     Some(date)
 }
@@ -699,7 +677,7 @@ mod tests {
             .to_zoned_datetime(jiff::tz::TimeZone::UTC);
         for (text, expected) in CASES {
             let phrase = Phrase::parse(text)
-                .or_else(|| Phrase::parse_prefix(text))
+                .or_else(|| Phrase::starts(text).into_iter().find_map(Phrase::parse))
                 .unwrap_or_else(|| panic!("{text:?} should parse"));
             let date = phrase
                 .date(&now)
@@ -722,8 +700,51 @@ mod tests {
             "next mönday",
         ] {
             let _ = Phrase::parse(text);
-            let _ = Phrase::parse_prefix(text);
+            let _ = Phrase::starts(text).into_iter().find_map(Phrase::parse);
         }
         assert!(Phrase::parse("tomorrow 10am").is_none());
+    }
+
+    /// Days move the date and keep the time of day, hours move the instant, and each date has
+    /// the offset in effect on it.
+    #[test]
+    fn phrases_follow_the_time_zone() {
+        let new_york = jiff::tz::TimeZone::get("America/New_York").unwrap();
+        let at = |utc: &str| {
+            utc.parse::<jiff::Timestamp>()
+                .unwrap()
+                .to_zoned_datetime(new_york.clone())
+        };
+        let read = |text: &str, now: &ZonedDateTime| {
+            Phrase::parse(text)
+                .and_then(|phrase| phrase.date(now))
+                .map(|date| date.to_rfc3339())
+        };
+        // Noon the day before the clock goes forward.
+        let now = at("2025-03-08T17:00:00Z");
+        for (text, expected) in [
+            ("tomorrow", "2025-03-09T12:00:00-04:00"),
+            ("in 1 day", "2025-03-09T12:00:00-04:00"),
+            ("in 24 hours", "2025-03-09T13:00:00-04:00"),
+            ("tomorrow 02:30", "2025-03-09T03:30:00-04:00"),
+            ("in 4 months", "2025-07-08T12:00:00-04:00"),
+        ] {
+            assert_eq!(read(text, &now).as_deref(), Some(expected), "{text}");
+        }
+        // 01:30 for the second time, after the clock goes back.
+        let now = at("2025-11-02T06:30:00Z");
+        for (text, expected) in [
+            ("now", "2025-11-02T01:30:00-05:00"),
+            ("in 10 minutes", "2025-11-02T01:40:00-05:00"),
+            ("an hour ago", "2025-11-02T01:30:00-04:00"),
+        ] {
+            assert_eq!(read(text, &now).as_deref(), Some(expected), "{text}");
+        }
+        // A year on from February 29 is February 28.
+        let now = at("2024-02-29T17:00:00Z");
+        assert_eq!(
+            read("in 1 year", &now).as_deref(),
+            Some("2025-02-28T12:00:00-05:00")
+        );
     }
 }
