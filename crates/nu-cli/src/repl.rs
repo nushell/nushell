@@ -13,7 +13,7 @@ use crate::{
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
     status_line::{NuStatusLine, StatusStyles},
     syntax_highlight::NoOpHighlighter,
-    util::{eval_source, evaluate_source},
+    util::{eval_source, evaluate_source, set_last_exit_code_after_source},
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -1446,10 +1446,7 @@ fn do_run_cmd(
             report_shell_error(Some(stack), engine_state, &err);
             stack.set_last_error(&err);
         }
-        Ok(failed) => {
-            let code: i32 = failed.into();
-            stack.set_last_exit_code(code, Span::unknown());
-        }
+        Ok(failed) => set_last_exit_code_after_source(stack, failed),
     }
 
     // if there was a warning before, and we got to this point, it means

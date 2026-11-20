@@ -22,15 +22,18 @@ pub fn eval_env_change_hook(
             let before = before.cloned().unwrap_or_default();
             let after = after.cloned().unwrap_or_default();
 
-            eval_hooks(
+            let result = eval_event_hooks(
                 engine_state,
                 stack,
                 &[("$before".into(), before), ("$after".into(), after.clone())],
                 hooks,
                 "env_change",
-            )?;
+            );
 
+            // Record the change even when a hook failed, so the failure shows once rather than
+            // the hooks running again before every prompt.
             Arc::make_mut(&mut engine_state.previous_env_vars).insert(env.clone(), after);
+            result?;
         }
     }
 
@@ -42,7 +45,7 @@ pub fn eval_pre_prompt_hooks(
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
     let hook = engine_state.get_config().hooks.pre_prompt.clone();
-    eval_hooks(engine_state, stack, &[], &hook, "pre_prompt")?;
+    eval_event_hooks(engine_state, stack, &[], &hook, "pre_prompt")?;
 
     Ok(())
 }
@@ -59,7 +62,7 @@ pub fn eval_pre_execution_hooks(
         .buffer = commandline.into();
 
     let hook = engine_state.get_config().hooks.pre_execution.clone();
-    eval_hooks(engine_state, stack, &[], &hook, "pre_execution")?;
+    eval_event_hooks(engine_state, stack, &[], &hook, "pre_execution")?;
 
     Ok(())
 }
@@ -77,6 +80,33 @@ pub fn eval_repl_hooks(
     eval_env_change_hook(&hook, engine_state, stack)?;
 
     eval_pre_execution_hooks(engine_state, stack, commandline)
+}
+
+/// Run the hooks for a REPL event, whose output nothing reads.
+///
+/// An external that ends a hook is waited for, so it fails the hook as it would anywhere else in
+/// the hook. A failure the hooks don't catch sets `$env.LAST_EXIT_CODE` before it is returned; a
+/// failing closure hook's own environment changes, its write of the code among them, are dropped.
+fn eval_event_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    arguments: &[(String, Value)],
+    hooks: &[Value],
+    hook_name: &str,
+) -> Result<(), ShellError> {
+    let name = format!("{hook_name} list, recursive");
+
+    hooks
+        .iter()
+        .try_for_each(
+            |hook| match eval_hook(engine_state, stack, None, arguments, hook, &name)? {
+                PipelineData::ByteStream(stream, ..) if stream.source().is_external() => {
+                    stream.drain()
+                }
+                _ => Ok(()),
+            },
+        )
+        .inspect_err(|err| stack.set_last_error(err))
 }
 
 /// Returns the first non-empty output
@@ -275,7 +305,7 @@ pub fn eval_hook(
                         };
 
                         engine_state.merge_delta(delta)?;
-                        let input = PipelineData::empty();
+                        let input = input.unwrap_or_else(PipelineData::empty);
 
                         let var_ids: Vec<VarId> = vars
                             .into_iter()
@@ -285,9 +315,14 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input)
-                            .map(|p| p.body)
-                        {
+                        // Clear pipe redirections, as the plain string form does.
+                        let result = eval_block::<WithoutDebug>(
+                            engine_state,
+                            &mut stack.push_redirection(None, None),
+                            &block,
+                            input,
+                        );
+                        match result.map(|p| p.body) {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
                             }
