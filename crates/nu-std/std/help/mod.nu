@@ -711,7 +711,7 @@ def build-command-page [command: record] {
     let examples = (if ($command.examples | is-not-empty) {[
         (build-help-header "Examples")
         ($command.examples | each {|example| [
-            $"  ($example.description)"
+            $"  ($example.description | highlight-description)"
             $"  > ($example.example | if (config use-colors) { nu-highlight } else {})"
             ...[(if ($example.result | is-not-empty) {
                 $example.result
