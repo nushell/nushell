@@ -250,6 +250,16 @@ fn to_csv_escape_round_trips_header_containing_escape_char() -> Result {
 }
 
 #[test]
+fn to_csv_escape_round_trips_when_escape_equals_quote() -> Result {
+    // Regression test: escape_delimited_field used to double the escape byte even when it
+    // was also the quote byte, but csv-core's own writer already doubles every quote byte
+    // inside a quoted field, so the two doublings stacked into "a\"\"\"\"b" instead of
+    // "a\"\"b".
+    let code = r#"[[foo]; ['a"b']] | to csv --escape '"' | from csv --escape '"' | get 0.foo"#;
+    test().run(code).expect_value_eq(r#"a"b"#)
+}
+
+#[test]
 fn to_csv_quote_rejects_non_ascii() -> Result {
     let code = "[[foo]; ['a,b']] | to csv --quote 'é'";
     let outcome = test().run(code).expect_shell_error()?;

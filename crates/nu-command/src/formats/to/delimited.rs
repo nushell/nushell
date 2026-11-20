@@ -195,8 +195,8 @@ fn write_csv_row(
     Ok(())
 }
 
-/// Writes a header row, escaping column names the same way data fields are escaped (comment 1
-/// applies to headers too: a column name can contain the escape character).
+/// Writes a header row, escaping column names the same way data fields are escaped, since a
+/// column name can contain the escape character too.
 fn write_csv_header(
     wtr: &mut csv::Writer<&mut Vec<u8>>,
     columns: &[String],
@@ -251,12 +251,14 @@ pub fn to_delimited_data(
             right_span: quote_span,
         });
     }
-    if escape == Some(separator) {
+    if escape == Some(separator)
+        && let Some(escape_span) = escape_span
+    {
         return Err(ShellError::IncompatibleParameters {
             left_message: "separator".into(),
             left_span: separator_span,
             right_message: "escape".into(),
-            right_span: escape_span.expect("escape is Some, so escape_span is Some"),
+            right_span: escape_span,
         });
     }
 
@@ -267,6 +269,9 @@ pub fn to_delimited_data(
         // doubled-quote escaping) is turned off.
         builder.double_quote(false).escape(escape);
     }
+    // csv-core already writes `escape, quote` for every quote byte, so an escape byte that is
+    // also the quote byte must not be doubled a second time by escape_delimited_field.
+    let escape = escape.filter(|&e| e != quote);
 
     // Check to ensure the input is likely one of our supported types first. We can't check a stream
     // without consuming it though
