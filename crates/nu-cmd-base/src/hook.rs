@@ -6,6 +6,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Closure, EngineState, EnvName, Stack, StateWorkingSet},
     report_error::report_parse_error,
+    report_shell_error,
     shell_error::generic::GenericError,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -22,15 +23,18 @@ pub fn eval_env_change_hook(
             let before = before.cloned().unwrap_or_default();
             let after = after.cloned().unwrap_or_default();
 
-            eval_hooks(
+            let result = eval_event_hooks(
                 engine_state,
                 stack,
                 &[("$before".into(), before), ("$after".into(), after.clone())],
                 hooks,
                 "env_change",
-            )?;
+            );
 
+            // Record the change even when a hook failed, so the failure shows once rather than
+            // the hooks running again before every prompt.
             Arc::make_mut(&mut engine_state.previous_env_vars).insert(env.clone(), after);
+            result?;
         }
     }
 
@@ -42,7 +46,7 @@ pub fn eval_pre_prompt_hooks(
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
     let hook = engine_state.get_config().hooks.pre_prompt.clone();
-    eval_hooks(engine_state, stack, &[], &hook, "pre_prompt")?;
+    eval_event_hooks(engine_state, stack, &[], &hook, "pre_prompt")?;
 
     Ok(())
 }
@@ -59,7 +63,7 @@ pub fn eval_pre_execution_hooks(
         .buffer = commandline.into();
 
     let hook = engine_state.get_config().hooks.pre_execution.clone();
-    eval_hooks(engine_state, stack, &[], &hook, "pre_execution")?;
+    eval_event_hooks(engine_state, stack, &[], &hook, "pre_execution")?;
 
     Ok(())
 }
@@ -77,6 +81,33 @@ pub fn eval_repl_hooks(
     eval_env_change_hook(&hook, engine_state, stack)?;
 
     eval_pre_execution_hooks(engine_state, stack, commandline)
+}
+
+/// Run the hooks for a REPL event, whose output nothing reads.
+///
+/// An external that ends a hook is waited for, so it fails the hook as it would anywhere else in
+/// the hook. A failure the hooks don't catch sets `$env.LAST_EXIT_CODE` before it is returned; a
+/// failing closure hook's own environment changes, its write of the code among them, are dropped.
+fn eval_event_hooks(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    arguments: &[(String, Value)],
+    hooks: &[Value],
+    hook_name: &str,
+) -> Result<(), ShellError> {
+    let name = format!("{hook_name} list, recursive");
+
+    hooks
+        .iter()
+        .try_for_each(
+            |hook| match eval_hook(engine_state, stack, None, arguments, hook, &name)? {
+                PipelineData::ByteStream(stream, ..) if stream.source().is_external() => {
+                    stream.drain()
+                }
+                _ => Ok(()),
+            },
+        )
+        .inspect_err(|err| stack.set_last_error(err))
 }
 
 /// Returns the first non-empty output
@@ -114,9 +145,6 @@ pub fn eval_hook(
     let span = value.span();
     let output = match value {
         Value::String { val, .. } => {
-            // Clear pipe redirections, as `run_hook` does for closure hooks, so the hook's
-            // output goes where a statement's would.
-            let stack = &mut stack.push_redirection(None, None);
             eval_string_hook(engine_state, stack, input, arguments, val, span, hook_name)?
         }
         Value::List { vals, .. } => eval_hooks(engine_state, stack, arguments, vals, hook_name)?,
@@ -167,7 +195,7 @@ pub fn eval_hook(
                     Value::String { val, .. } => eval_string_hook(
                         engine_state,
                         stack,
-                        None,
+                        input,
                         arguments,
                         val,
                         span,
@@ -260,7 +288,8 @@ fn eval_string_hook(
 
     let result = eval_block::<WithoutDebug>(
         engine_state,
-        stack,
+        // Clear pipe redirections, so the hook's output goes where a statement's would.
+        &mut stack.push_redirection(None, None),
         &block,
         input.unwrap_or_else(PipelineData::empty),
     )
@@ -270,7 +299,10 @@ fn eval_string_hook(
         stack.remove_var(var_id);
     }
 
-    result
+    let ok = result
+        .inspect_err(|err| report_shell_error(Some(stack), engine_state, err))
+        .unwrap_or_else(|_| PipelineData::empty());
+    Ok(ok)
 }
 
 fn run_hook(

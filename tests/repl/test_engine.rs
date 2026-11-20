@@ -1,7 +1,5 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
-use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::playground::Playground;
-use nu_test_support::prelude::{TestResultExt, test};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -583,17 +581,18 @@ fn shadowed_variables_still_referenced(#[case] sources: &[&str]) -> TestResult {
 #[case::same_source(&["source f.nu; let y = 'mid'; source f.nu"])]
 #[case::later_source(&["source f.nu", "let y = 'mid'; source f.nu"])]
 #[case::new_overlay(&["overlay new o; source f.nu; let y = 'mid'; source f.nu"])]
-fn shadowed_variable_bound_again(#[case] sources: &[&str]) -> TestResult {
-    Playground::setup("shadowed_variable_bound_again", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("f.nu", r#"let y = "from-file""#)]);
-        let mut tester = test().cwd(dirs.test());
-        for source in sources {
-            let () = tester.run(source)?;
-            tester
-                .engine_state
-                .cleanup_stack_variables(&mut tester.stack);
-        }
-        tester.run("$y").expect_value_eq("from-file")?;
-        Ok(())
-    })
+fn shadowed_variable_bound_again(
+    #[ignore] playground: Playground,
+    #[case] sources: &[&str],
+) -> TestResult {
+    playground.file("f.nu", r#"let y = "from-file""#)?;
+    let mut tester = test().cwd(playground.path());
+    for source in sources {
+        let () = tester.run(source)?;
+        tester
+            .engine_state
+            .cleanup_stack_variables(&mut tester.stack);
+    }
+    tester.run("$y").expect_value_eq("from-file")?;
+    Ok(())
 }

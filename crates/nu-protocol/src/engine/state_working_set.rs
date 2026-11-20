@@ -8,6 +8,7 @@ use crate::{
         ScopeBindings, ScopeFrame, StateDelta, Variable, VirtualPath, Visibility, VisibilityStack,
         description::build_desc, engine_state::FileHint, signature_cache::SignatureCache,
     },
+    parser_path::ParserPath,
 };
 use core::panic;
 use std::{
@@ -1703,17 +1704,87 @@ impl miette::SourceCode for &StateWorkingSet<'_> {
     }
 }
 
+/// A file on the [`FileStack`].
+#[derive(Debug)]
+struct StackedFile {
+    /// The path the file was reached by, used for error messages and to resolve the paths
+    /// of the files it sources or imports.
+    path: PathBuf,
+    /// What the file is told apart from the other files on the stack by, or `None` for a file
+    /// put there by [`FileStack::with_file`] that hasn't been compared with another one yet.
+    identity: Option<FileIdentity>,
+}
+
+impl StackedFile {
+    /// Returns whether this is the file `identity` identifies.
+    fn is(&mut self, identity: &FileIdentity) -> bool {
+        match (&self.identity, identity) {
+            // A file that isn't identified yet is taken to be on disk, so it can't be virtual.
+            (None, FileIdentity::Virtual(_)) => false,
+            _ => {
+                self.identity
+                    .get_or_insert_with(|| FileIdentity::real(&self.path))
+                    == identity
+            }
+        }
+    }
+}
+
+/// What a file on the [`FileStack`] is told apart from the others by.
+#[derive(Debug, PartialEq)]
+enum FileIdentity {
+    /// A file on disk, by the canonical path of the directory it was reached in, joined with its
+    /// name.
+    Real(PathBuf),
+    /// A virtual file, such as a module of the standard library, by its path as given. These
+    /// exist only in the engine state, under relative names like `std/log/mod.nu`.
+    Virtual(PathBuf),
+}
+
+impl FileIdentity {
+    /// Identifies a file on disk.
+    ///
+    /// Paths from the parser are absolute but not canonical: on unix, `..` components are a kind
+    /// of link and so are kept as they are, which means one file can be reached under several
+    /// spellings (`mod.nu` and `sub/../mod.nu` for instance). Canonicalizing the directory
+    /// resolves those, and symlinks to a directory already on the stack, to a single path.
+    ///
+    /// The file name is kept as given, because a file's imports are resolved against the
+    /// directory it was reached in: a symlinked file reached from another directory imports
+    /// other files, and isn't a circular import. Two entries with the same identity are the same
+    /// file nested inside itself, read from the same directory. Its imports could still resolve
+    /// differently where `..` is collapsed textually (`path self`, and paths on Windows) after
+    /// going through a symlinked directory, but stopping there is what makes every chain of
+    /// `..` or symlinks end.
+    ///
+    /// The directory of a relative path, which the `--ide-*` flags pass as typed, is resolved
+    /// against the current directory of the process, which they read the file from. Windows
+    /// device paths are kept as given, as is a path whose directory can't be canonicalized,
+    /// with its dots expanded textually.
+    fn real(path: &Path) -> Self {
+        let canonical = match (path.parent(), path.file_name()) {
+            (Some(dir), Some(name)) if !nu_path::is_windows_device_path(path) => {
+                nu_path::canonicalize_with(dir, ".")
+                    .ok()
+                    .map(|dir| dir.join(name))
+            }
+            _ => None,
+        };
+
+        Self::Real(canonical.unwrap_or_else(|| nu_path::expand_path(path, false)))
+    }
+}
+
 /// Files being evaluated, arranged as a stack.
 ///
 /// The current active file is on the top of the stack.
 /// When a file source/import another file, the new file is pushed onto the stack.
 /// Attempting to add files that are already in the stack (circular import) results in an error.
 ///
-/// Note that file paths are compared without canonicalization, so the same
-/// physical file may still appear multiple times under different paths.
-/// This doesn't affect circular import detection though.
+/// Files on disk are recognized however the path to their directory was spelled, through `..`
+/// or symlinks (see [`FileIdentity`]). Virtual files are compared by their path as given.
 #[derive(Debug, Default)]
-pub struct FileStack(Vec<PathBuf>);
+pub struct FileStack(Vec<StackedFile>);
 
 impl FileStack {
     /// Creates an empty stack.
@@ -1725,42 +1796,75 @@ impl FileStack {
     ///
     /// This is a convenience method that creates an empty stack, then pushes the file onto it.
     /// It skips the circular import check and always succeeds.
+    ///
+    /// The file is taken to be on disk, and identified only when a file on disk is pushed after
+    /// it: every working set made while a script or config file runs starts its stack this way,
+    /// and most never push a file.
     pub fn with_file(path: PathBuf) -> Self {
-        Self(vec![path])
+        Self(vec![StackedFile {
+            path,
+            identity: None,
+        }])
     }
 
-    /// Adds a file to the stack.
+    /// Adds a file on disk to the stack.
     ///
     /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
     pub fn push(&mut self, path: PathBuf, span: Span) -> Result<(), ParseError> {
+        let identity = FileIdentity::real(&path);
+        self.push_identified(path, identity, span)
+    }
+
+    /// Adds the file a parser path points to, which may be a virtual file.
+    ///
+    /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
+    pub fn push_parser_path(&mut self, path: &ParserPath, span: Span) -> Result<(), ParseError> {
+        match path {
+            ParserPath::RealPath(path) => self.push(path.clone(), span),
+            ParserPath::VirtualFile(path, _) | ParserPath::VirtualDir(path, _) => {
+                self.push_identified(path.clone(), FileIdentity::Virtual(path.clone()), span)
+            }
+        }
+    }
+
+    fn push_identified(
+        &mut self,
+        path: PathBuf,
+        identity: FileIdentity,
+        span: Span,
+    ) -> Result<(), ParseError> {
         // Check for circular import.
-        if let Some(i) = self.0.iter().rposition(|p| p == &path) {
+        if let Some(i) = self.0.iter_mut().rposition(|f| f.is(&identity)) {
             let filenames: Vec<String> = self.0[i..]
                 .iter()
-                .chain(std::iter::once(&path))
+                .map(|f| f.path.as_path())
+                .chain(std::iter::once(path.as_path()))
                 .map(|p| p.to_string_lossy().to_string())
                 .collect();
             let msg = filenames.join("\nuses ");
             return Err(ParseError::CircularImport(msg, span));
         }
 
-        self.0.push(path);
+        self.0.push(StackedFile {
+            path,
+            identity: Some(identity),
+        });
         Ok(())
     }
 
     /// Removes a file from the stack and returns its path, or None if the stack is empty.
     pub fn pop(&mut self) -> Option<PathBuf> {
-        self.0.pop()
+        self.0.pop().map(|file| file.path)
     }
 
     /// Returns the active file (that is, the file on the top of the stack), or None if the stack is empty.
     pub fn top(&self) -> Option<&Path> {
-        self.0.last().map(PathBuf::as_path)
+        self.0.last().map(|file| file.path.as_path())
     }
 
     /// Returns the parent directory of the active file, or None if the stack is empty
     /// or the active file doesn't have a parent directory as part of its path.
     pub fn current_working_directory(&self) -> Option<&Path> {
-        self.0.last().and_then(|path| path.parent())
+        self.0.last().and_then(|file| file.path.parent())
     }
 }

@@ -3345,6 +3345,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "icu_locale"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "532b11722e350ab6bf916ba6eb0efe3ee54b932666afec989465f9243fe6dd60"
+dependencies = [
+ "icu_collections",
+ "icu_locale_core",
+ "icu_locale_data",
+ "icu_provider",
+ "potential_utf",
+ "tinystr",
+ "zerovec",
+]
+
+[[package]]
 name = "icu_locale_core"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3352,10 +3367,17 @@ checksum = "edba7861004dd3714265b4db54a3c390e880ab658fec5f7db895fae2046b5bb6"
 dependencies = [
  "displaydoc",
  "litemap",
+ "serde",
  "tinystr",
  "writeable",
  "zerovec",
 ]
+
+[[package]]
+name = "icu_locale_data"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c5f1d16b4c3a2642d3a719f18f6b06070ab0aef246a6418130c955ae08aa831"
 
 [[package]]
 name = "icu_normalizer"
@@ -3405,6 +3427,8 @@ checksum = "85962cf0ce02e1e0a629cc34e7ca3e373ce20dda4c4d7294bbd0bf1fdb59e614"
 dependencies = [
  "displaydoc",
  "icu_locale_core",
+ "serde",
+ "stable_deref_trait",
  "writeable",
  "yoke",
  "zerofrom",
@@ -4731,6 +4755,7 @@ dependencies = [
  "ctrlc",
  "dirs 7.0.0",
  "fancy-regex",
+ "indoc",
  "itertools 0.15.0",
  "lexopt",
  "log",
@@ -4748,6 +4773,7 @@ dependencies = [
  "nu-engine",
  "nu-experimental",
  "nu-explore",
+ "nu-glob",
  "nu-lsp",
  "nu-mcp",
  "nu-parser",
@@ -4792,6 +4818,7 @@ dependencies = [
  "chrono",
  "crossterm",
  "fancy-regex",
+ "indoc",
  "is_executable",
  "libc",
  "log",
@@ -4992,7 +5019,7 @@ dependencies = [
  "oem_cp",
  "open",
  "os_pipe",
- "parse_datetime 0.17.0",
+ "parse_datetime",
  "pathdiff",
  "percent-encoding",
  "pretty_assertions",
@@ -5512,6 +5539,7 @@ dependencies = [
  "num-format",
  "parking_lot 0.13.0",
  "pastey",
+ "rand 0.10.2",
  "rstest",
  "serde_json",
  "tempfile",
@@ -6250,17 +6278,6 @@ name = "parse-zoneinfo"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3c406c9e2aa74554e662d2c2ee11cd3e73756988800be7e6f5eddb16fed4699"
-
-[[package]]
-name = "parse_datetime"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "503fd4c8b0685e5eb32a8276533611f63e3b44768e9e8724e73f6852c2542f82"
-dependencies = [
- "jiff 0.2.23",
- "num-traits",
- "winnow 1.0.4",
-]
 
 [[package]]
 name = "parse_datetime"
@@ -7334,6 +7351,8 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b73949432f5e2a09657003c25bca5e19a0e9c84f8058ca374f49e0ebe605af77"
 dependencies = [
+ "serde_core",
+ "writeable",
  "zerovec",
 ]
 
@@ -10051,9 +10070,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uu_cp"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb4c15f0ba298a490b66abac0fefc3a44ff1b8004c38cf140d27c027f1f80784"
+checksum = "0b5bb40f891520c77dceb1acc73865d959dd017c4cad524224873aa7fa17b5f0"
 dependencies = [
  "clap",
  "filetime",
@@ -10070,21 +10089,20 @@ dependencies = [
 
 [[package]]
 name = "uu_mkdir"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "665e031110e8de62ebe483eb50b21c19f57c6f02c571e3c57cfb6cf344209370"
+checksum = "86c89e25220c5f75e3166b174dc25f644e3102339b9b8cb75d01c1bc92b54730"
 dependencies = [
  "clap",
  "fluent",
- "rustix 1.1.6",
  "uucore",
 ]
 
 [[package]]
 name = "uu_mktemp"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71146f15c55f02214362b2357630e0b8078e249657b234b52f25469dbbead79b"
+checksum = "e3845cec7849969d95e8597b0b1d31177170dfdd6913e6c48f410891fdb29800"
 dependencies = [
  "clap",
  "fluent",
@@ -10096,14 +10114,13 @@ dependencies = [
 
 [[package]]
 name = "uu_mv"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5108b8ea076d2d45f2aa4e546c0fa2cecd25fb2f5b44aa56a95c15d59c9da7c8"
+checksum = "f5b3d6ecf882d98f56d59aae508d7803774768e2bc83a434bd267ef644a724d3"
 dependencies = [
  "clap",
  "fluent",
  "indicatif",
- "libc",
  "nix 0.31.3",
  "rustc-hash",
  "rustix 1.1.6",
@@ -10114,16 +10131,16 @@ dependencies = [
 
 [[package]]
 name = "uu_touch"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1784987c9ae4beeb3153c173e5866e1907752180289f6d219cc6c1223ae7a5f0"
+checksum = "98d36c5c3487b79f5799c857995e560ec8d642fc05046e061501d6b64b34d1b6"
 dependencies = [
  "clap",
  "filetime",
  "fluent",
  "jiff 0.2.23",
  "libc",
- "parse_datetime 0.16.0",
+ "parse_datetime",
  "rustix 1.1.6",
  "thiserror 2.0.20",
  "uucore",
@@ -10132,9 +10149,9 @@ dependencies = [
 
 [[package]]
 name = "uu_uname"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53566dcd5e385c71e1fb277f1ebd5db0d3f04795fa07b58ccb038a440e28c906"
+checksum = "a4a9d5e28074710c2ff001219989cfe8cb850be3ed27091fa5ede13c47d4eb19"
 dependencies = [
  "clap",
  "fluent",
@@ -10144,9 +10161,9 @@ dependencies = [
 
 [[package]]
 name = "uu_whoami"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1267f81972136719195877c21cefd2fb1bc821c8fb692d16f8b0ce4b717108c"
+checksum = "168c75316bf6370048d0489b833e36d73f918566f8be33f41b32c37ede91ae4b"
 dependencies = [
  "clap",
  "fluent",
@@ -10157,16 +10174,18 @@ dependencies = [
 
 [[package]]
 name = "uucore"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f24a5910ebbf2c0baf486a9125705f8e026a8f7741a3ea8cf5eca3c9257c9bdf"
+checksum = "90cf14b33aa0368fd2842ef436d8890219dea9be20b2594836f0bba903533cca"
 dependencies = [
  "bigdecimal",
+ "cfg_aliases",
  "clap",
  "dunce",
  "fluent",
  "fluent-syntax",
  "glob",
+ "icu_locale",
  "itertools 0.15.0",
  "libc",
  "nix 0.31.3",
@@ -10187,9 +10206,9 @@ dependencies = [
 
 [[package]]
 name = "uucore_procs"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50aa1f3bba55168888ae6f1f2714ce58897d8020d742d21f474f01e86468fedd"
+checksum = "ab3d681c07e9a1613fc69fa57756c485c379c535e1947a4382e865a3b5aa9edb"
 dependencies = [
  "proc-macro2",
  "quote",

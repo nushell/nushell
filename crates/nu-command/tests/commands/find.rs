@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[rstest]
@@ -39,14 +39,16 @@ fn find_with_list_search_with_char(
 )]
 #[case::plain("-i --no-highlight abc", "ABC")]
 fn find_with_bytestream_search_with_char(
+    #[ignore] playground: Playground,
     #[case] find_args: &str,
     #[case] expected: impl IntoValue,
 ) -> Result {
-    Playground::setup("find_with_bytestream_search_with_char", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("foo.txt", "ABC")]);
-        let code = format!("open foo.txt | find {find_args} | get 0");
-        test().cwd(dirs.test()).run(code).expect_value_eq(expected)
-    })
+    playground.file("foo.txt", "ABC")?;
+    let code = format!("open foo.txt | find {find_args} | get 0");
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[rstest]

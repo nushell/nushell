@@ -1,3 +1,5 @@
+use nu_cmd_base::hook::eval_hook;
+use nu_protocol::{PipelineData, Span};
 use nu_test_support::prelude::*;
 
 #[test]
@@ -303,6 +305,21 @@ fn env_change_dont_panic_with_many_args() -> Result {
         .expect_error_code_eq("nu::shell::incompatible_parameters")
 }
 
+// A failing env_change hook runs once per change, as one that succeeds does, rather than again
+// before every prompt.
+#[test]
+fn failing_env_change_hook_runs_once_per_change() -> Result {
+    let mut tester = test();
+    let () = tester
+        .run_with_hooks("$env.config.hooks.env_change.FOO = [{|| error make {msg: boom} }]")?;
+    let () = tester.run_with_hooks("$env.FOO = 1")?;
+    tester
+        .run_with_hooks::<Value>("null")
+        .expect_shell_error()?;
+
+    tester.run_with_hooks("null").expect_value_eq(())
+}
+
 #[test]
 fn err_hook_wrong_env_type_1() -> Result {
     let code = "
@@ -436,6 +453,129 @@ fn command_not_found_hook_list_output_becomes_help(#[case] hook: &str) -> Result
     pretty_assertions::assert_matches!(
         err,
         ShellError::ExternalCommand { help, .. } if help == "ferris_is_not_here from hook"
+    );
+    Ok(())
+}
+
+// A failure inside a hook reaches the REPL in `$env.LAST_EXIT_CODE`, also when the hook catches it.
+// A hook with no failures leaves the code alone, and an assignment is kept. The tester doesn't set
+// the code itself, so each case starts from 3.
+#[rstest::rstest]
+#[case::caught_closure(
+    "$env.config.hooks.pre_prompt = [{|| try { error make {msg: boom} } catch { null } }]",
+    1
+)]
+#[case::caught_string(
+    r#"$env.config.hooks.pre_prompt = ["try { error make {msg: boom} } catch { null }"]"#,
+    1
+)]
+#[case::caught_record_string(
+    r#"$env.config.hooks.pre_prompt = [{ code: "try { error make {msg: boom} } catch { null }" }]"#,
+    1
+)]
+#[case::try_without_catch(
+    "$env.config.hooks.pre_prompt = [{|| try { error make {msg: boom} } }]",
+    1
+)]
+#[case::pre_execution(
+    "$env.config.hooks.pre_execution = [{|| try { error make {msg: boom} } catch { null } }]",
+    1
+)]
+#[case::env_change(
+    "$env.config.hooks.env_change.FOO = [{|| try { error make {msg: boom} } catch { null } }]",
+    1
+)]
+// String hooks report an uncaught error and go on, but the error has set the code by then.
+#[case::uncaught_string(r#"$env.config.hooks.pre_prompt = ["error make {msg: boom}"]"#, 1)]
+#[case::uncaught_record_string(
+    r#"$env.config.hooks.pre_prompt = [{ code: "error make {msg: boom}" }]"#,
+    1
+)]
+#[case::assignment("$env.config.hooks.pre_prompt = [{|| $env.LAST_EXIT_CODE = 0 }]", 0)]
+#[case::no_failure("$env.config.hooks.pre_prompt = [{|| $env.SPAM = 'spam' }]", 3)]
+fn hook_exit_code_reaches_repl(#[case] hook_config: &str, #[case] expected: i64) -> Result {
+    let mut tester = test();
+    let () = tester.run_with_hooks(hook_config)?;
+    let () = tester.run("$env.FOO = 1; $env.LAST_EXIT_CODE = 3")?;
+
+    tester
+        .run_with_hooks("$env.LAST_EXIT_CODE")
+        .expect_value_eq(expected)
+}
+
+// A hook that fails without catching the failure still sets the code, although a closure hook's
+// own environment changes are dropped when it fails. An external that ends a hook, maybe as the
+// only thing in it, fails the hook too.
+#[rstest::rstest]
+#[case::closure("{|| fail 42; null }")]
+#[case::record_closure("{code: {|| fail 42; null }}")]
+#[case::closure_ending_in_external("{|| fail 42 }")]
+#[case::record_closure_ending_in_external("{code: {|| fail 42 }}")]
+#[case::string_ending_in_external("'fail 42'")]
+#[nu_test_support::test]
+#[deps(TESTBIN_FAIL)]
+fn uncaught_hook_failure_sets_last_exit_code(#[case] hook: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run_with_hooks(format!("$env.config.hooks.pre_prompt = [{hook}]"))?;
+    let () = tester.run("$env.LAST_EXIT_CODE = 3")?;
+    tester.run_with_hooks("null").expect_shell_error()?;
+
+    tester.run("$env.LAST_EXIT_CODE").expect_value_eq(42)
+}
+
+// Every hook form gets the input it is called with, which is how `display_output` sees the value
+// to print.
+#[rstest::rstest]
+#[case::string("'$in | describe'")]
+#[case::closure("{|| $in | describe }")]
+#[case::record_string("{code: '$in | describe'}")]
+#[case::record_closure("{code: {|| $in | describe }}")]
+fn hook_gets_its_input(#[case] hook: &str) -> Result {
+    let mut tester = test();
+    let hook: Value = tester.run(hook)?;
+    let input = PipelineData::value(test_value!([1, 2, 3]), None);
+
+    let output = eval_hook(
+        &mut tester.engine_state,
+        &mut tester.stack,
+        Some(input),
+        &[],
+        &hook,
+        "display_output",
+    )?;
+    assert_eq!(
+        output.into_value(Span::test_data())?,
+        Value::test_string("list<int>")
+    );
+    Ok(())
+}
+
+// Every hook form clears the caller's pipe redirection, so an external in a `command_not_found`
+// hook, which runs while the caller collects a value, writes to the terminal rather than into the
+// hook's output.
+#[rstest::rstest]
+#[case::string("'cococo from-hook'")]
+#[case::closure("{|| cococo from-hook }")]
+#[case::record_string("{code: 'cococo from-hook'}")]
+#[case::record_closure("{code: {|| cococo from-hook }}")]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn hook_does_not_collect_external_output(#[case] hook: &str) -> Result {
+    let mut tester = test();
+    let hook: Value = tester.run(hook)?;
+
+    let output = eval_hook(
+        &mut tester.engine_state,
+        &mut tester.stack.start_collect_value(),
+        None,
+        &[],
+        &hook,
+        "command_not_found",
+    )?;
+    // The external's stdout went to the terminal, which leaves an empty string as its value.
+    assert_eq!(
+        output.into_value(Span::test_data())?,
+        Value::test_string("")
     );
     Ok(())
 }

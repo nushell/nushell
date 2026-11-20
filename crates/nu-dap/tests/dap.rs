@@ -1125,46 +1125,44 @@ fn lazy_top_level_pipeline_breakpoints_hit() {
 
 #[test]
 #[deps(NU, TESTBIN_ECHO_ENV_STDERR_FAIL)]
-fn failing_external_attaches_stderr() -> nu_test_support::Result {
-    Playground::setup("nu_dap_extfail", |dirs, _| {
-        let script = dirs.test().join("nu_dap_extfail.nu");
-        let testbin = TESTBIN_ECHO_ENV_STDERR_FAIL
-            .path()
-            .to_string_lossy()
-            .to_string();
-        let testbin = serde_json::to_string(&testbin).unwrap();
+fn failing_external_attaches_stderr(playground: Playground) -> nu_test_support::Result {
+    let script = playground.path().join("nu_dap_extfail.nu");
+    let testbin = TESTBIN_ECHO_ENV_STDERR_FAIL
+        .path()
+        .to_string_lossy()
+        .to_string();
+    let testbin = serde_json::to_string(&testbin).unwrap();
 
-        std::fs::write(
-            &script,
-            format!(
-                "print \"start\"\n$env.FOO = \"AADSTS-detail\"\nlet testbin = {testbin}\n^$testbin FOO\nprint \"unreachable\"\n"
-            ),
-        )?;
-        let script = script.to_string_lossy().into_owned();
+    std::fs::write(
+        &script,
+        format!(
+            "print \"start\"\n$env.FOO = \"AADSTS-detail\"\nlet testbin = {testbin}\n^$testbin FOO\nprint \"unreachable\"\n"
+        ),
+    )?;
+    let script = script.to_string_lossy().into_owned();
 
-        let mut d = Dap::spawn();
-        d.start(&script, json!({}), &[]);
-        let ev = d.event("stopped");
-        assert_eq!(ev["body"]["reason"], "exception");
-        let text = ev["body"]["text"].as_str().unwrap();
-        assert!(text.to_lowercase().contains("non-zero exit"));
-        assert!(text.contains("AADSTS-detail"), "stderr attached: {text}");
+    let mut d = Dap::spawn();
+    d.start(&script, json!({}), &[]);
+    let ev = d.event("stopped");
+    assert_eq!(ev["body"]["reason"], "exception");
+    let text = ev["body"]["text"].as_str().unwrap();
+    assert!(text.to_lowercase().contains("non-zero exit"));
+    assert!(text.contains("AADSTS-detail"), "stderr attached: {text}");
 
-        // Process scope (ref 5) exposes the stderr tail.
-        d.send("variables", json!({ "variablesReference": 5 }));
-        let proc = d.response("variables");
-        assert!(
-            proc["body"]["variables"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|v| v["name"] == "last error output")
-        );
+    // Process scope (ref 5) exposes the stderr tail.
+    d.send("variables", json!({ "variablesReference": 5 }));
+    let proc = d.response("variables");
+    assert!(
+        proc["body"]["variables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["name"] == "last error output")
+    );
 
-        d.cont();
-        assert_eq!(d.stop_or_term()["event"], "terminated");
-        Ok(())
-    })
+    d.cont();
+    assert_eq!(d.stop_or_term()["event"], "terminated");
+    Ok(())
 }
 
 #[test]
@@ -1370,100 +1368,98 @@ fn external_command_gets_empty_stdin() -> nu_test_support::Result {
 
 #[test]
 #[deps(NU)]
-fn debuggee_receives_converted_path_without_config() -> nu_test_support::Result {
-    Playground::setup("nu_dap_converted_path", |dirs, _| {
-        let script = dirs.test().join("path.nu");
-        std::fs::write(
-            &script,
-            "$env.PATH | describe --detailed | get type | print\n",
-        )?;
-        let mut dap = Dap::spawn_with_env("PATH", dirs.test().join("keep"));
-        dap.start(&script.to_string_lossy(), json!({}), &[]);
-        let output = dap.output_until_terminated();
-        assert!(output.lines().any(|line| line.trim() == "list"), "{output}");
-        Ok(())
-    })
+fn debuggee_receives_converted_path_without_config(
+    playground: Playground,
+) -> nu_test_support::Result {
+    let script = playground.path().join("path.nu");
+    std::fs::write(
+        &script,
+        "$env.PATH | describe --detailed | get type | print\n",
+    )?;
+    let mut dap = Dap::spawn_with_env("PATH", playground.path().join("keep"));
+    dap.start(&script.to_string_lossy(), json!({}), &[]);
+    let output = dap.output_until_terminated();
+    assert!(output.lines().any(|line| line.trim() == "list"), "{output}");
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn startup_config_reaches_the_debuggee() -> nu_test_support::Result {
+fn startup_config_reaches_the_debuggee(playground: Playground) -> nu_test_support::Result {
     // The adapter evaluates the user's startup files before serving, so a
     // debugged script sees the same shell the user has: custom commands and
     // `$env` from config.nu, not a bare engine.
-    Playground::setup("nu_dap_config", |dirs, _| {
-        let config = dirs.test().join("config.nu");
-        std::fs::write(
-            &config,
-            "def dap-config-helper [] { \"helper-ran\" }\n$env.DAP_FROM_CONFIG = \"env-ok\"\n",
-        )?;
+    let config = playground.path().join("config.nu");
+    std::fs::write(
+        &config,
+        "def dap-config-helper [] { \"helper-ran\" }\n$env.DAP_FROM_CONFIG = \"env-ok\"\n",
+    )?;
 
-        let script = dirs.test().join("uses_config.nu");
-        std::fs::write(
-            &script,
-            "print (dap-config-helper)\nprint $env.DAP_FROM_CONFIG\n",
-        )?;
+    let script = playground.path().join("uses_config.nu");
+    std::fs::write(
+        &script,
+        "print (dap-config-helper)\nprint $env.DAP_FROM_CONFIG\n",
+    )?;
 
-        let mut d = Dap::spawn_with_args(["--config", &config.to_string_lossy()]);
-        d.start(&script.to_string_lossy(), json!({}), &[]);
+    let mut d = Dap::spawn_with_args(["--config", &config.to_string_lossy()]);
+    d.start(&script.to_string_lossy(), json!({}), &[]);
 
-        let mut out = String::new();
-        loop {
-            let ev = d
-                .recv_until(|m| {
-                    m["type"] == "event" && (m["event"] == "output" || m["event"] == "terminated")
-                })
-                .expect("output or terminated");
-            if ev["event"] == "terminated" {
-                break;
-            }
-            out.push_str(ev["body"]["output"].as_str().unwrap_or(""));
+    let mut out = String::new();
+    loop {
+        let ev = d
+            .recv_until(|m| {
+                m["type"] == "event" && (m["event"] == "output" || m["event"] == "terminated")
+            })
+            .expect("output or terminated");
+        if ev["event"] == "terminated" {
+            break;
         }
-        assert!(out.contains("helper-ran"), "config.nu command: {out}");
-        assert!(out.contains("env-ok"), "config.nu env var: {out}");
-        Ok(())
-    })
+        out.push_str(ev["body"]["output"].as_str().unwrap_or(""));
+    }
+    assert!(out.contains("helper-ran"), "config.nu command: {out}");
+    assert!(out.contains("env-ok"), "config.nu env var: {out}");
+    Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn launch_cwd_survives_an_overlay_command_in_a_config_block() -> nu_test_support::Result {
+fn launch_cwd_survives_an_overlay_command_in_a_config_block(
+    playground: Playground,
+) -> nu_test_support::Result {
     // The overlay stays on the stack that ran the startup files, but the debuggee runs on a new
     // one, so the launch `cwd` must not be shadowed by the `PWD` that `overlay use` left in it.
-    Playground::setup("nu_dap_config_overlay", |dirs, _| {
-        let config = dirs.test().join("config.nu");
-        std::fs::write(
-            &config,
-            "module spam { export-env { $env.X = 1 } }\nif true { overlay use spam }\n",
-        )?;
-        let env_config = dirs.test().join("env.nu");
-        std::fs::write(&env_config, "")?;
+    let config = playground.path().join("config.nu");
+    std::fs::write(
+        &config,
+        "module spam { export-env { $env.X = 1 } }\nif true { overlay use spam }\n",
+    )?;
+    let env_config = playground.path().join("env.nu");
+    std::fs::write(&env_config, "")?;
 
-        let project = dirs.test().join("project");
-        std::fs::create_dir(&project)?;
-        std::fs::write(
-            project.join("helper.nu"),
-            "export def foo [] { \"from-helper\" }\n",
-        )?;
-        let script = project.join("uses_helper.nu");
-        std::fs::write(&script, "use ./helper.nu foo\nprint (foo)\n")?;
+    let project = playground.path().join("project");
+    std::fs::create_dir(&project)?;
+    std::fs::write(
+        project.join("helper.nu"),
+        "export def foo [] { \"from-helper\" }\n",
+    )?;
+    let script = project.join("uses_helper.nu");
+    std::fs::write(&script, "use ./helper.nu foo\nprint (foo)\n")?;
 
-        let mut d = Dap::spawn_with_args([
-            "--config",
-            &config.to_string_lossy(),
-            "--env-config",
-            &env_config.to_string_lossy(),
-        ]);
-        d.start(
-            &script.to_string_lossy(),
-            json!({ "cwd": project.to_string_lossy() }),
-            &[],
-        );
+    let mut d = Dap::spawn_with_args([
+        "--config",
+        &config.to_string_lossy(),
+        "--env-config",
+        &env_config.to_string_lossy(),
+    ]);
+    d.start(
+        &script.to_string_lossy(),
+        json!({ "cwd": project.to_string_lossy() }),
+        &[],
+    );
 
-        let out = d.output_until_terminated();
-        assert!(out.contains("from-helper"), "out: {out}");
-        Ok(())
-    })
+    let out = d.output_until_terminated();
+    assert!(out.contains("from-helper"), "out: {out}");
+    Ok(())
 }
 
 #[test]

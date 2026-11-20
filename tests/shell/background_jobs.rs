@@ -4,7 +4,7 @@
 
 #[cfg(unix)]
 use nix::libc;
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 use nu_utils::time::Instant;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -240,78 +240,69 @@ fn read(dir: &Path, file: &str) -> Result<String> {
 #[cfg(unix)]
 #[test]
 #[deps(NU)]
-fn repl_interrupt_keeps_background_jobs() -> Result {
-    Playground::setup("repl_interrupt_keeps_background_jobs", |dirs, _| {
-        let dir = dirs.test().as_std_path();
-        // With neither commands nor a script, Nu runs the REPL, which runs `-e` before it needs a
-        // terminal. Catching the interrupt stands in for returning to the prompt.
-        let code = format!(
-            "
+fn repl_interrupt_keeps_background_jobs(playground: Playground) -> Result {
+    let dir = playground.path();
+    // With neither commands nor a script, Nu runs the REPL, which runs `-e` before it needs a
+    // terminal. Catching the interrupt stands in for returning to the prompt.
+    let code = format!(
+        "
             job spawn {{ sleep 10min }} | ignore
             {CATCH_INTERRUPT}
             # Non-REPL cleanup finishes before the interrupt is visible to evaluation.
             job list | length | save jobs.txt
             "
-        );
-        let output = wait_for(nu(dir, &["-n", "--no-history", "-e", &code]).spawn()?)?;
+    );
+    let output = wait_for(nu(dir, &["-n", "--no-history", "-e", &code]).spawn()?)?;
 
-        // Then the REPL stops, as there is no terminal.
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains("STDIN is not a TTY"), "{output:?}");
-        assert!(
-            read(dir, "interrupt.txt")?.contains("interrupted"),
-            "{output:?}"
-        );
-        assert_eq!(read(dir, "jobs.txt")?, "1", "{output:?}");
-        Ok(())
-    })
+    // Then the REPL stops, as there is no terminal.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("STDIN is not a TTY"), "{output:?}");
+    assert!(
+        read(dir, "interrupt.txt")?.contains("interrupted"),
+        "{output:?}"
+    );
+    assert_eq!(read(dir, "jobs.txt")?, "1", "{output:?}");
+    Ok(())
 }
 
 /// Only an exit at the REPL prompt warns first; the next exit terminates the remaining jobs.
 #[test]
 #[deps(NU)]
-fn repl_exit_warns_once_before_killing_background_jobs() -> Result {
-    Playground::setup(
-        "repl_exit_warns_once_before_killing_background_jobs",
-        |dirs, _| {
-            let dir = dirs.test().as_std_path();
-            let code = format!(
-                "
+fn repl_exit_warns_once_before_killing_background_jobs(playground: Playground) -> Result {
+    let dir = playground.path();
+    let code = format!(
+        "
             {SPAWN_BACKGROUND_PROCESS}
             exit 3
             'warned' | save first-exit.txt
             exit 42
             'continued' | save after-exit.txt
             "
-            );
-            assert_nothing_outlives_nu(dir, &["-n", "--no-history", "-e", &code], 42)?;
-            assert_eq!(read(dir, "first-exit.txt")?, "warned");
-            assert!(!dir.join("after-exit.txt").exists());
-            Ok(())
-        },
-    )
+    );
+    assert_nothing_outlives_nu(dir, &["-n", "--no-history", "-e", &code], 42)?;
+    assert_eq!(read(dir, "first-exit.txt")?, "warned");
+    assert!(!dir.join("after-exit.txt").exists());
+    Ok(())
 }
 
 /// An exit in a background job ends the closure, rather than warning and continuing as at
 /// the REPL prompt. The foreground shell can still finish normally.
 #[test]
 #[deps(NU)]
-fn background_exit_does_not_warn() -> Result {
-    Playground::setup("background_exit_does_not_warn", |dirs, _| {
-        let dir = dirs.test().as_std_path();
-        let code = "
+fn background_exit_does_not_warn(playground: Playground) -> Result {
+    let dir = playground.path();
+    let code = "
             job spawn { exit 42; 'continued' | save after-exit.txt } | ignore
             let deadline = (date now) + 30sec
             while (job list | is-not-empty) and (date now) < $deadline { sleep 10ms }
             if (job list | is-not-empty) { error make {msg: 'background exit timed out'} }
             exit 0
         ";
-        let output = wait_for(nu(dir, &["-n", "--no-history", "-e", code]).spawn()?)?;
-        assert_eq!(output.status.code(), Some(0), "{output:?}");
-        assert!(output.stdout.is_empty(), "{output:?}");
-        assert!(!dir.join("after-exit.txt").exists());
-        Ok(())
-    })
+    let output = wait_for(nu(dir, &["-n", "--no-history", "-e", code]).spawn()?)?;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert!(output.stdout.is_empty(), "{output:?}");
+    assert!(!dir.join("after-exit.txt").exists());
+    Ok(())
 }
 
 /// Commands and scripts don't return to a prompt, so an interrupt kills their background jobs,
@@ -323,27 +314,26 @@ fn background_exit_does_not_warn() -> Result {
 fn interrupt_outside_repl_kills_background_jobs(
     #[values(false, true)] script: bool,
     #[values(false, true)] interactive: bool,
+    #[ignore] playground: Playground,
 ) -> Result {
-    Playground::setup("interrupt_outside_repl_kills_background_jobs", |dirs, _| {
-        let dir = dirs.test().as_std_path();
-        let code = format!(
-            "
+    let dir = playground.path();
+    let code = format!(
+        "
             job spawn {{ sleep 10min }} | ignore
             {CATCH_INTERRUPT}
             job list | length | save jobs.txt
             "
-        );
-        let args = code_args(dir, script, interactive, &code)?;
-        let output = wait_for(nu(dir, &args).spawn()?)?;
+    );
+    let args = code_args(dir, script, interactive, &code)?;
+    let output = wait_for(nu(dir, &args).spawn()?)?;
 
-        assert!(
-            read(dir, "interrupt.txt")?.contains("interrupted"),
-            "{output:?}"
-        );
-        assert_eq!(read(dir, "jobs.txt")?, "0", "{output:?}");
-        assert_eq!(output.status.code(), Some(0), "{output:?}");
-        Ok(())
-    })
+    assert!(
+        read(dir, "interrupt.txt")?.contains("interrupted"),
+        "{output:?}"
+    );
+    assert_eq!(read(dir, "jobs.txt")?, "0", "{output:?}");
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    Ok(())
 }
 
 /// When commands and scripts finish, fail or are interrupted, even with `-i`, their background
@@ -360,16 +350,12 @@ fn background_processes_end_with_commands_and_scripts(
     #[case] exit_code: i32,
     #[values(false, true)] script: bool,
     #[values(false, true)] interactive: bool,
+    #[ignore] playground: Playground,
 ) -> Result {
-    Playground::setup(
-        "background_processes_end_with_commands_and_scripts",
-        |dirs, _| {
-            let dir = dirs.test().as_std_path();
-            let code = format!("{SPAWN_BACKGROUND_PROCESS}\n{ending}");
-            let args = code_args(dir, script, interactive, &code)?;
-            assert_nothing_outlives_nu(dir, &args, exit_code)
-        },
-    )
+    let dir = playground.path();
+    let code = format!("{SPAWN_BACKGROUND_PROCESS}\n{ending}");
+    let args = code_args(dir, script, interactive, &code)?;
+    assert_nothing_outlives_nu(dir, &args, exit_code)
 }
 
 /// Exercise shutdown while jobs transition between short-lived and long-lived externals.
@@ -380,16 +366,15 @@ fn background_processes_end_with_commands_and_scripts(
 #[cfg(unix)]
 #[test]
 #[deps(NU)]
-fn chained_background_processes_end_with_nu() -> Result {
-    for _ in 0..20 {
-        Playground::setup("chained_background_processes_end_with_nu", |dirs, _| {
-            let code = format!(
-                "{SPAWN_BACKGROUND_PROCESS}
+fn chained_background_processes_end_with_nu(playground: Playground) -> Result {
+    for iteration in 0..20 {
+        let dir = playground.dir(iteration.to_string())?;
+        let code = format!(
+            "{SPAWN_BACKGROUND_PROCESS}
                  for _ in 1..8 {{ job spawn {{ ^true; ^sleep 75 }} | ignore }}
                  sleep 1ms"
-            );
-            assert_nothing_outlives_nu(dirs.test().as_std_path(), &["-n", "-c", &code], 0)
-        })?;
+        );
+        assert_nothing_outlives_nu(&dir, &["-n", "-c", &code], 0)?;
     }
     Ok(())
 }
@@ -404,16 +389,12 @@ fn chained_background_processes_end_with_nu() -> Result {
 #[case::repl_without_terminal(&["-n", "--no-history", "-e", SPAWN_BACKGROUND_PROCESS])]
 #[nu_test_support::test]
 #[deps(NU)]
-fn background_processes_end_with_failed_startup(#[case] args: &[&str]) -> Result {
-    Playground::setup(
-        "background_processes_end_with_failed_startup",
-        |dirs, sandbox| {
-            sandbox.with_files(&[
-                FileWithContent("spawn.nu", SPAWN_BACKGROUND_PROCESS),
-                FileWithContent("parse_error.nu", "("),
-                FileWithContent("error.nu", "error make {msg: boom}"),
-            ]);
-            assert_nothing_outlives_nu(dirs.test().as_std_path(), args, 1)
-        },
-    )
+fn background_processes_end_with_failed_startup(
+    #[case] args: &[&str],
+    #[ignore] playground: Playground,
+) -> Result {
+    playground.file("spawn.nu", SPAWN_BACKGROUND_PROCESS)?;
+    playground.file("parse_error.nu", "(")?;
+    playground.file("error.nu", "error make {msg: boom}")?;
+    assert_nothing_outlives_nu(playground.path(), args, 1)
 }

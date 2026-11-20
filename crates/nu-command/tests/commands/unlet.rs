@@ -141,14 +141,12 @@ fn unlet_constant_help() -> Result {
 /// A redirection target is evaluated before the command runs, so it can still use the constant
 /// that the command unlets.
 #[test]
-fn unlet_constant_in_redirection_target() -> Result {
-    Playground::setup("unlet_constant_in_redirection_target", |dirs, _sandbox| {
-        let () = test()
-            .cwd(dirs.test())
-            .run("const f = 'out.txt'; unlet $f o> $f")?;
-        assert!(dirs.test().join("out.txt").exists());
-        Ok(())
-    })
+fn unlet_constant_in_redirection_target(playground: Playground) -> Result {
+    let () = test()
+        .cwd(playground.path())
+        .run("const f = 'out.txt'; unlet $f o> $f")?;
+    assert!(playground.path().join("out.txt").exists());
+    Ok(())
 }
 
 /// In a nested block, `scope variables` leaves the constant out after `unlet`, as the parser
