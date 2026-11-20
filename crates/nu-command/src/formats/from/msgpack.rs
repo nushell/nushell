@@ -464,8 +464,7 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
 }
 
 fn make_date(secs: i64, nanos: u32, span: Span) -> Result<Value, ReadError> {
-    let nanos = i128::from(secs) * 1_000_000_000 + i128::from(nanos);
-    match DateTime::from_unix_nanos(nanos, jiff::tz::Offset::UTC) {
+    match DateTime::from_unix_timestamp(secs, nanos, jiff::tz::Offset::UTC) {
         Some(dt) => Ok(Value::date(dt, span)),
         None => Err(ShellError::Generic(
             GenericError::new(

@@ -199,20 +199,21 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
 }
 
 fn parse_date_into_record(date: nu_protocol::DateTime, span: Span) -> Value {
-    let civil = date.to_civil();
-    let nanosecond = i64::from(civil.subsec_nanosecond());
+    // chrono's fields: a leap second is second 59 with 1,000 or more milliseconds.
+    let parts = date.parts();
+    let nanosecond = i64::from(parts.nanosecond);
     // `%Z` is the offset as `+05:30`, which `into datetime` reads back.
     let timezone = date
         .format("%Z", pure_rust_locales::Locale::POSIX)
         .unwrap_or_default();
     Value::record(
         record! {
-            "year" => Value::int(civil.year().into(), span),
-            "month" => Value::int(civil.month().into(), span),
-            "day" => Value::int(civil.day().into(), span),
-            "hour" => Value::int(civil.hour().into(), span),
-            "minute" => Value::int(civil.minute().into(), span),
-            "second" => Value::int(civil.second().into(), span),
+            "year" => Value::int(parts.year.into(), span),
+            "month" => Value::int(parts.month.into(), span),
+            "day" => Value::int(parts.day.into(), span),
+            "hour" => Value::int(parts.hour.into(), span),
+            "minute" => Value::int(parts.minute.into(), span),
+            "second" => Value::int(parts.second.into(), span),
             "millisecond" => Value::int(nanosecond / 1_000_000, span),
             "microsecond" => Value::int(nanosecond / 1_000 % 1_000, span),
             "nanosecond" => Value::int(nanosecond % 1_000, span),

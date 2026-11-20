@@ -140,11 +140,9 @@ impl Command for UTouch {
                     right_span: date_span,
                 });
             }
-            // Whole seconds rounded down and a non-negative fraction, as `FileTime` takes them.
-            let nanos = timestamp.item.unix_nanos();
             Source::Timestamp(FileTime::from_unix_time(
-                nanos.div_euclid(1_000_000_000) as i64,
-                nanos.rem_euclid(1_000_000_000) as u32,
+                timestamp.item.unix_seconds(),
+                timestamp.item.subsec_nanos(),
             ))
         } else if let Some(reference_file) = reference_file {
             let reference_file = expand_path_with(reference_file, &cwd, true);

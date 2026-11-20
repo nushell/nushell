@@ -221,24 +221,24 @@ fn to_toml(
 /// Convert a nushell date into a toml::Value datetime. The latter uses its own ad-hoc datetime
 /// types, which makes this somewhat convoluted.
 fn to_toml_datetime(datetime: &nu_protocol::DateTime) -> toml::value::Datetime {
-    let civil = datetime.to_civil();
+    let civil = datetime.parts();
     let date = toml::value::Date {
         // TODO: figure out what to do with BC dates, because the toml crate doesn't support
         // them. Years before 1 CE count down from 1 BCE.
-        year: if civil.year() > 0 {
-            civil.year() as u16
+        year: if civil.year > 0 {
+            civil.year as u16
         } else {
-            (1 - i32::from(civil.year())) as u16
+            (1 - civil.year) as u16
         },
-        month: civil.month() as u8,
-        day: civil.day() as u8,
+        month: civil.month as u8,
+        day: civil.day as u8,
     };
 
     let time = toml::value::Time {
-        hour: civil.hour() as u8,
-        minute: civil.minute() as u8,
-        second: Some(civil.second() as u8),
-        nanosecond: Some(civil.subsec_nanosecond() as u32),
+        hour: civil.hour as u8,
+        minute: civil.minute as u8,
+        second: Some(civil.second as u8),
+        nanosecond: Some(civil.nanosecond as u32),
     };
 
     let offset = toml::value::Offset::Custom {

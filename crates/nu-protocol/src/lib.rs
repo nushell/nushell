@@ -49,8 +49,8 @@ pub use collection_columns::*;
 pub use completion::*;
 pub use config::*;
 pub use datetime::{
-    DateFormatError, DateParseError, DateTime, HumanTime, SecondsFormat, parse_utc_offset,
-    time_locale,
+    DateFormatError, DateParseError, DateTime, HumanTime, ParsedDate, SecondsFormat, TimeOfDay,
+    parse_utc_offset, time_locale,
 };
 pub use deprecation::*;
 pub use did_you_mean::did_you_mean;

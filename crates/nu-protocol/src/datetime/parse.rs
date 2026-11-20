@@ -1,11 +1,11 @@
 //! RFC 3339 readers for [`DateTime`] that accept exactly what nushell accepted with chrono:
 //! the strict form for date literals and the relaxed form for `FromStr` and serde.
 //!
-//! A leap second (`23:59:60`) reads as `23:59:59` with the same fraction, since jiff has no
-//! leap seconds.
+//! A leap second (`23:59:60`) is kept the way chrono kept it, as second 59 with a second's
+//! worth of extra nanoseconds.
 
-use super::DateTime;
-use jiff::{civil, tz::Offset};
+use super::{DateTime, NANOS_PER_SECOND};
+use jiff::tz::Offset;
 use std::fmt;
 
 /// Text that isn't a date-time in the form being read.
@@ -17,8 +17,14 @@ pub enum DateParseError {
     TooLong,
     /// A character doesn't fit the form.
     Invalid,
-    /// A field is out of range, such as month 13 or year 10000.
+    /// A field is out of range, such as month 13 or year 300000.
     OutOfRange,
+    /// The fields name no date and time, such as a weekday that isn't the date's.
+    Impossible,
+    /// The fields are not enough for a date and time, such as a year alone.
+    NotEnough,
+    /// The format has a directive that isn't supported.
+    BadFormat,
 }
 
 impl fmt::Display for DateParseError {
@@ -28,6 +34,9 @@ impl fmt::Display for DateParseError {
             Self::TooLong => "trailing input",
             Self::Invalid => "input contains invalid characters",
             Self::OutOfRange => "input is out of range",
+            Self::Impossible => "no possible date and time matching input",
+            Self::NotEnough => "input is not enough for unique date and time",
+            Self::BadFormat => "bad or unsupported format string",
         })
     }
 }
@@ -50,33 +59,31 @@ struct Fields {
 
 impl Fields {
     fn into_date_time(self) -> ParseResult<DateTime> {
-        let small = |v: i64, max: i64| {
-            if (0..=max).contains(&v) {
-                Ok(v as i8)
-            } else {
-                Err(DateParseError::OutOfRange)
-            }
+        let small = |v: i64| i8::try_from(v).map_err(|_| DateParseError::OutOfRange);
+        let year = i32::try_from(self.year).map_err(|_| DateParseError::OutOfRange)?;
+        // A leap second is second 59 with a second's worth of extra nanoseconds.
+        let (second, nanosecond) = if self.second == 60 {
+            (59, self.nanosecond + i64::from(NANOS_PER_SECOND))
+        } else {
+            (self.second, self.nanosecond)
         };
-        let year = i16::try_from(self.year).map_err(|_| DateParseError::OutOfRange)?;
-        // A leap second keeps its fraction on the last ordinary second.
-        let second = if self.second == 60 { 59 } else { self.second };
-        let datetime = civil::DateTime::new(
-            year,
-            small(self.month, 12)?,
-            small(self.day, 31)?,
-            small(self.hour, 23)?,
-            small(self.minute, 59)?,
-            small(second, 59)?,
-            i32::try_from(self.nanosecond).map_err(|_| DateParseError::OutOfRange)?,
-        )
-        .map_err(|_| DateParseError::OutOfRange)?;
         // chrono's offsets stop short of a full day.
         if self.offset_seconds.unsigned_abs() >= 86_400 {
             return Err(DateParseError::OutOfRange);
         }
         let offset =
             Offset::from_seconds(self.offset_seconds).map_err(|_| DateParseError::OutOfRange)?;
-        DateTime::from_civil(datetime, offset).ok_or(DateParseError::OutOfRange)
+        DateTime::from_parts(
+            year,
+            small(self.month)?,
+            small(self.day)?,
+            small(self.hour)?,
+            small(self.minute)?,
+            small(second)?,
+            i32::try_from(nanosecond).map_err(|_| DateParseError::OutOfRange)?,
+            offset,
+        )
+        .ok_or(DateParseError::OutOfRange)
     }
 }
 
@@ -179,8 +186,11 @@ pub(super) fn parse_rfc3339(s: &str) -> ParseResult<DateTime> {
     separator(7, b"-")?;
     let day = two_digits(bytes, 8)?;
     // The date is checked before the rest is read.
-    let date = civil::Date::new(year as i16, month as i8, day as i8)
-        .map_err(|_| DateParseError::OutOfRange)?;
+    if !(1..=12).contains(&month)
+        || !(1..=i64::from(super::days_in_month(year as i32, month as i8))).contains(&day)
+    {
+        return Err(DateParseError::OutOfRange);
+    }
     separator(10, b"tT ")?;
     let hour = two_digits(bytes, 11)?;
     separator(13, b":")?;
@@ -202,15 +212,17 @@ pub(super) fn parse_rfc3339(s: &str) -> ParseResult<DateTime> {
     if !rest.is_empty() {
         return Err(DateParseError::TooLong);
     }
-    // A leap second keeps its fraction on the last ordinary second.
-    let second = if second == 60 { 59 } else { second };
-    let time = civil::Time::new(hour as i8, minute as i8, second as i8, nanosecond as i32)
-        .map_err(|_| DateParseError::OutOfRange)?;
-    if offset_seconds.unsigned_abs() >= 86_400 {
-        return Err(DateParseError::OutOfRange);
+    Fields {
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second,
+        nanosecond,
+        offset_seconds,
     }
-    let offset = Offset::from_seconds(offset_seconds).map_err(|_| DateParseError::OutOfRange)?;
-    DateTime::from_civil(date.to_datetime(time), offset).ok_or(DateParseError::OutOfRange)
+    .into_date_time()
 }
 
 /// Relaxed RFC 3339, as chrono's `FromStr for DateTime<FixedOffset>` read it: fields need no

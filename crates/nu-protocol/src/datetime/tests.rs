@@ -72,9 +72,49 @@ fn equality_is_by_instant() {
 }
 
 #[test]
-fn leap_second_reads_as_last_second() {
+fn leap_seconds_are_kept() {
     let d = date("2016-12-31T23:59:60.5Z");
-    assert_eq!(d.to_rfc3339(), "2016-12-31T23:59:59.500+00:00");
+    assert_eq!(d.to_rfc3339(), "2016-12-31T23:59:60.500+00:00");
+    assert_eq!(
+        d.format("%T %S%.f", Locale::POSIX).unwrap(),
+        "23:59:60 60.500"
+    );
+    assert!(d > date("2016-12-31T23:59:59.999Z"));
+    assert!(d < date("2017-01-01T00:00:01Z"));
+}
+
+#[test]
+fn the_whole_of_years_0_to_9999_is_in_range() {
+    let last = date("9999-12-31T23:59:59.999999999Z");
+    assert_eq!(last.to_rfc3339(), "9999-12-31T23:59:59.999999999+00:00");
+    assert_eq!(
+        last.format("%a %F", Locale::POSIX).unwrap(),
+        "Fri 9999-12-31"
+    );
+    assert_eq!(
+        date("9999-01-01T00:00:00Z")
+            .checked_add_nanos(52 * 7 * 86_400 * 1_000_000_000)
+            .map(|d| d.to_rfc3339()),
+        Some("9999-12-31T00:00:00+00:00".into())
+    );
+    assert_eq!(
+        date("0000-01-01T00:00:00+05:00").to_rfc3339(),
+        "0000-01-01T00:00:00+05:00"
+    );
+}
+
+#[test]
+fn years_past_9999_work_as_chrono_did() {
+    let far: DateTime = "+12345-06-07T08:09:10Z".parse().unwrap();
+    assert_eq!(far.to_rfc3339(), "+12345-06-07T08:09:10+00:00");
+    assert_eq!(
+        far.format("%Y %a %j", Locale::POSIX).unwrap(),
+        "+12345 Thu 158"
+    );
+    let zone = jiff::tz::TimeZone::get("America/New_York").unwrap();
+    assert_eq!(far.to_time_zone(&zone).offset(), offset(-4 * 3600));
+    assert!("+262143-01-01T00:00:00Z".parse::<DateTime>().is_err());
+    assert!("-262144-12-31T00:00:00Z".parse::<DateTime>().is_err());
 }
 
 #[test]
@@ -180,13 +220,64 @@ fn humanize() {
     assert_eq!(text(-86_400 * 365 * 25), "25 years ago");
 }
 
+#[test]
+fn local_readings_keep_chrono_s_extra_second() {
+    let new_york = jiff::tz::TimeZone::get("America/New_York").unwrap();
+    let readings = |text: &str| -> Vec<String> {
+        let civil: jiff::civil::DateTime = text.parse().unwrap();
+        DateTime::chrono_local_readings(civil, &new_york)
+            .into_iter()
+            .map(|date| date.to_rfc3339())
+            .collect()
+    };
+    // Spring forward at 02:00: the first second of the skipped hour reads at the old offset.
+    assert_eq!(
+        readings("2025-03-09T01:59:59"),
+        ["2025-03-09T01:59:59-05:00"]
+    );
+    assert_eq!(
+        readings("2025-03-09T02:00:00"),
+        ["2025-03-09T02:00:00-05:00"]
+    );
+    assert_eq!(
+        readings("2025-03-09T02:00:00.5"),
+        ["2025-03-09T02:00:00.500-05:00"]
+    );
+    assert!(readings("2025-03-09T02:00:01").is_empty());
+    assert!(readings("2025-03-09T02:30:00").is_empty());
+    assert_eq!(
+        readings("2025-03-09T03:00:00"),
+        ["2025-03-09T03:00:00-04:00"]
+    );
+    // Fall back at 02:00: the repeated hour and the second after it have two readings.
+    assert_eq!(
+        readings("2025-11-02T01:30:00"),
+        ["2025-11-02T01:30:00-04:00", "2025-11-02T01:30:00-05:00"]
+    );
+    assert_eq!(
+        readings("2025-11-02T02:00:00"),
+        ["2025-11-02T02:00:00-04:00", "2025-11-02T02:00:00-05:00"]
+    );
+    assert_eq!(
+        readings("2025-11-02T02:00:01"),
+        ["2025-11-02T02:00:01-05:00"]
+    );
+    assert_eq!(
+        readings("2025-07-01T12:00:00"),
+        ["2025-07-01T12:00:00-04:00"]
+    );
+}
+
 /// Comparisons with chrono, which nushell used before, over a grid of inputs.
 mod chrono_compat {
     use super::*;
     use chrono::{FixedOffset, TimeZone};
 
     const OFFSETS: [i32; 7] = [0, 19_800, -28_800, 19_815, -1_800, 86_340, -86_340];
-    const YEARS: [i16; 9] = [-9998, -44, -1, 0, 1, 999, 1969, 2001, 9998];
+    const YEARS: [i32; 17] = [
+        -262_142, -12_345, -10_000, -9999, -9998, -44, -1, 0, 1, 999, 1969, 2001, 9998, 9999,
+        10_000, 12_345, 262_141,
+    ];
     const NANOS: [i32; 8] = [
         0,
         1,
@@ -202,11 +293,11 @@ mod chrono_compat {
         OFFSETS.into_iter().flat_map(|off| {
             YEARS.into_iter().flat_map(move |year| {
                 NANOS.into_iter().map(move |nanos| {
-                    let civil = civil::DateTime::new(year, 3, 4, 17, 6, 7, nanos).expect("civil");
-                    let ours = DateTime::from_civil(civil, offset(off)).expect("in range");
+                    let ours = DateTime::from_parts(year, 3, 4, 17, 6, 7, nanos, offset(off))
+                        .expect("in range");
                     let theirs = FixedOffset::east_opt(off)
                         .expect("offset")
-                        .with_ymd_and_hms(year.into(), 3, 4, 17, 6, 7)
+                        .with_ymd_and_hms(year, 3, 4, 17, 6, 7)
                         .single()
                         .expect("chrono date")
                         + chrono::Duration::nanoseconds(nanos.into());
@@ -345,8 +436,9 @@ mod chrono_compat {
         for (ours, theirs) in pairs().step_by(7) {
             for locale in locales {
                 for spec in SPECS {
-                    // chrono prints garbage for the century of a negative year (`?6`).
-                    if *spec == "%C" && chrono::Datelike::year(&theirs) < 0 {
+                    // chrono prints garbage for the century of a year outside 0 to 9999 (`?6`,
+                    // `<3`).
+                    if *spec == "%C" && !(0..=9999).contains(&chrono::Datelike::year(&theirs)) {
                         continue;
                     }
                     let expected = chrono_format(theirs, spec, locale);
@@ -383,7 +475,15 @@ mod chrono_compat {
             "2001-02-03T04:05:06",
             "2001-02-03",
             "0000-01-01T00:00:00Z",
-            "9999-12-30T21:59:59Z",
+            "9999-12-31T23:59:59.999999999Z",
+            "9999-12-31T23:59:59-05:00",
+            "2016-12-31T23:59:60.5Z",
+            "2016-12-31T12:00:60Z",
+            "2016-12-31T23:58:60Z",
+            "+262142-12-31T23:59:59.999999999Z",
+            "-262143-01-01T00:00:00Z",
+            "+262143-01-01T00:00:00Z",
+            "-262143-01-01T00:00:00+01:00",
             "2001-2-3T4:5:6Z",
             "2001-02-03T04:05:06 UTC",
             "2001-02-03T04:05:06 utc",
@@ -406,9 +506,7 @@ mod chrono_compat {
             let chrono_relaxed = text
                 .parse::<chrono::DateTime<FixedOffset>>()
                 .map(|d| d.to_rfc3339())
-                .ok()
-                // jiff stops at year 9999.
-                .filter(|t| !t.starts_with('+'));
+                .ok();
             assert_eq!(relaxed, chrono_relaxed, "relaxed {text:?}");
         }
     }
@@ -417,12 +515,66 @@ mod chrono_compat {
     #[test]
     fn chrono_conversions_round_trip() {
         for (ours, theirs) in pairs() {
-            assert_eq!(
-                DateTime::try_from(theirs).map(|d| d.to_rfc3339()),
-                Ok(ours.to_rfc3339())
-            );
+            assert_eq!(DateTime::from(theirs).to_rfc3339(), ours.to_rfc3339());
             let back: chrono::DateTime<FixedOffset> = ours.into();
             assert_eq!(back.to_rfc3339(), theirs.to_rfc3339());
+        }
+    }
+
+    #[test]
+    fn leap_second_arithmetic_matches() {
+        let texts = [
+            "2016-12-31T23:59:60Z",
+            "2016-12-31T23:59:60.3Z",
+            "2016-12-31T23:59:59.5Z",
+            "2017-01-01T00:00:00Z",
+            "2016-12-31T23:59:58Z",
+        ];
+        let steps = [
+            -1_500_000_000_i64,
+            -1_000_000_000,
+            -300_000_000,
+            0,
+            300_000_000,
+            700_000_000,
+            1_000_000_000,
+        ];
+        for text in texts {
+            let ours: DateTime = text.parse().unwrap();
+            let theirs: chrono::DateTime<FixedOffset> = text.parse().unwrap();
+            for step in steps {
+                assert_eq!(
+                    ours.checked_add_nanos(step).map(|d| d.to_rfc3339()),
+                    theirs
+                        .checked_add_signed(chrono::Duration::nanoseconds(step))
+                        .map(|d| d.to_rfc3339()),
+                    "{text} + {step}"
+                );
+            }
+            for days in [-200_000_i64, -1, 0, 1, 200_000, 100_000_000] {
+                assert_eq!(
+                    ours.checked_add_seconds(days * 86_400)
+                        .map(|d| d.to_rfc3339()),
+                    theirs
+                        .checked_add_signed(chrono::Duration::days(days))
+                        .map(|d| d.to_rfc3339()),
+                    "{text} + {days} days"
+                );
+            }
+            for other in texts {
+                let other_ours: DateTime = other.parse().unwrap();
+                let other_theirs: chrono::DateTime<FixedOffset> = other.parse().unwrap();
+                assert_eq!(
+                    ours.nanos_since(other_ours),
+                    i128::from(
+                        theirs
+                            .signed_duration_since(other_theirs)
+                            .num_nanoseconds()
+                            .unwrap()
+                    ),
+                    "{text} - {other}"
+                );
+            }
         }
     }
 
@@ -463,5 +615,298 @@ mod chrono_compat {
                 );
             }
         }
+    }
+}
+
+/// `ParsedDate` against chrono's four `parse_from_str` functions, which `into datetime
+/// --format`, `seq date` and `from kdl` used before.
+mod strptime_compat {
+    use super::*;
+    use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
+
+    /// Every directive chrono's parser knows, and some it rejects.
+    const DIRECTIVES: &[&str] = &[
+        "%Y", "%C", "%y", "%G", "%g", "%q", "%m", "%b", "%B", "%h", "%d", "%e", "%a", "%A", "%w",
+        "%u", "%U", "%W", "%V", "%j", "%D", "%x", "%F", "%v", "%H", "%k", "%I", "%l", "%P", "%p",
+        "%M", "%S", "%f", "%.f", "%.3f", "%.6f", "%.9f", "%3f", "%6f", "%9f", "%R", "%T", "%X",
+        "%r", "%Z", "%z", "%:z", "%::z", "%:::z", "%#z", "%c", "%+", "%s", "%t", "%n", "%%", "%-d",
+        "%_m", "%0e", "%-p", "%-T", "%#a", "%Ex", "%Q", "%J", "%.2f", "%:", "%",
+    ];
+
+    /// Formats people write.
+    const FORMATS: &[&str] = &[
+        "%Y-%m-%d %H:%M:%S",
+        "%F %T%.f %z",
+        "%Y-%m-%dT%H:%M:%S%.f%z",
+        "%Y-%m-%d %H:%M:%S%.f %z",
+        "%d/%m/%Y %I:%M %p",
+        "%F %l:%M",
+        "%F %H:%M %p",
+        "%d.%m.%Y %H:%M %P %z",
+        "%a, %d %b %Y %H:%M:%S %z",
+        "%A, %B %e, %Y",
+        "%Y%m%d%H%M%S",
+        "%Y-%j",
+        "%G-W%V-%u",
+        "%Y %U %a",
+        "%Y %W %w",
+        "%C%y-%m-%d",
+        "%q %Y",
+        "%s",
+        "%s%.f",
+        "%s %f",
+        "%s %z",
+        "%F %s",
+        "%H:%M %s",
+        "%F %T %s",
+        "%s %z %F %T",
+        "%s %S",
+        "%s %Y",
+        "%s %a",
+        "%s %I %p",
+        "%Z %F %T",
+        "%F %T %#z",
+        "%F %T %:z",
+        "%+",
+        "%c",
+        "%D %r",
+        "%x %X",
+        "%v %R",
+    ];
+
+    /// Dates whose chrono text the formats read back.
+    const DATES: &[&str] = &[
+        "2025-04-18T16:04:32.026490+05:30",
+        "2016-12-31T23:59:60.5Z",
+        "1969-07-20T20:17:40-04:00",
+        "0000-01-01T00:00:00Z",
+        "-0044-03-15T12:00:00+00:00",
+        "9999-12-31T23:59:59.999999999Z",
+        "+12345-06-07T08:09:10.1-09:30",
+        "2000-02-29T00:00:00-12:00",
+        "2024-12-30T23:59:59+14:00",
+        "2021-01-03T12:02:03Z",
+        "1970-01-01T00:00:00Z",
+    ];
+
+    /// Texts no date formats to: the cases that differed from main before this port.
+    const CASES: &[(&str, &str)] = &[
+        ("2025-04-03 4:04", "%F %l:%M"),
+        ("10:30", "%I:%M"),
+        ("2016-12-31 23:59:60", "%F %T"),
+        ("23:59:60", "%T"),
+        ("2016-12-31 23:59:60.5 +0000", "%F %T%.f %z"),
+        ("10:30.5", "%H:%M%.f"),
+        ("2025-04-18 10:34 1744972472", "%F %H:%M %s"),
+        ("1744972472 Sat", "%s %a"),
+        ("1744972472 2024", "%s %Y"),
+        ("1744972472 10 PM", "%s %I %p"),
+        ("1744972472 +0100 2025-04-18 10:34:32", "%s %z %F %T"),
+        ("1483228800 23:59:60", "%s %T"),
+        ("1483228799 60", "%s %S"),
+        ("2016-12-31 23:59:60 1483228800", "%F %T %s"),
+        ("2025-04-18 4:04 PM", "%F %H:%M %p"),
+        ("1999 12:00", "%Y %H:%M"),
+        ("253402300800", "%s"),
+        ("-5", "%s"),
+        ("+5", "%s"),
+        ("99999999999999999999", "%s"),
+        ("+12345-01-01", "%Y-%m-%d"),
+        ("12345-01-01", "%Y-%m-%d"),
+        ("2025-04-18T16:04:32Z", "%+"),
+        ("2025-04-18 16:04:32 UTC", "%+"),
+        ("2025-04-18 16:04 +05", "%F %H:%M %#z"),
+        ("2025-04-18 16:04 Z", "%F %H:%M %#z"),
+        ("2025-04-18 16:04 +0530", "%F %H:%M %:z"),
+        ("2025-04-18 16:04 +24:00", "%F %H:%M %z"),
+        ("2025-04-18 16:04 +99:59", "%F %H:%M %z"),
+        ("19 2025-04-18", "%C %F"),
+        ("20 2025-04-18", "%C %F"),
+        ("2025-W16-5 16:04", "%G-W%V-%u %H:%M"),
+        ("2025-108 16:04", "%Y-%j %H:%M"),
+        ("Mon 2025-04-18 16:04", "%a %F %H:%M"),
+        ("April 3 2025", "%b %e %Y"),
+        ("Apr 3 2025", "%B %e %Y"),
+        ("16:04:32 123", "%H:%M:%S %f"),
+        ("2025-04-18\t16:04", "%F%t%H:%M"),
+        ("2025-04-1816:04", "%F %H:%M"),
+        ("2025-04-18 16:04 PST", "%F %H:%M %Z"),
+        ("2 2025-04-18", "%q %F"),
+        ("-262143-01-01", "%F"),
+        ("-262144-12-31", "%F"),
+        ("262142-12-31", "%F"),
+        ("+262142-12-31 23:59 -01:00", "%F %R %z"),
+        ("2025", "%Y"),
+        ("", "%Y"),
+        ("x", ""),
+        ("", ""),
+        // Text that isn't ASCII, where a byte slice could split a character.
+        ("2025年04月18日", "%Y年%m月%d日"),
+        ("2025-04-18 ü", "%F ü"),
+        ("ü2025", "%Y"),
+        ("Mär 3 2025", "%b %e %Y"),
+        ("2025\u{2212}04\u{2212}18", "%Y\u{2212}%m\u{2212}%d"),
+        ("2025-04-18 16:04 \u{2212}05:00", "%F %H:%M %z"),
+        ("2025-04-18 16:04 \u{2212}05", "%F %H:%M %#z"),
+        ("\u{ff12}\u{ff10}\u{ff12}\u{ff15}", "%Y"),
+        ("2025-04-18 日本 16:04", "%F %Z %H:%M"),
+        ("2025-04-18 16:04 pé", "%F %H:%M %p"),
+        ("2025-04-18 16:04.é", "%F %H:%M%.f"),
+        ("2025-04-18 16:04:05.1é", "%F %T%.3f"),
+        ("é", "%a"),
+        ("Moné", "%A"),
+        ("2025-04-18Té16:04:05Z", "%+"),
+        ("2025-04-18 16:04 +0é", "%F %H:%M %z"),
+    ];
+
+    fn chrono_reads(text: &str, format: &str) -> [String; 4] {
+        fn show<T>(result: Result<T, chrono::ParseError>, text: impl Fn(T) -> String) -> String {
+            result.map_or_else(|err| format!("error: {err}"), text)
+        }
+        let day = NaiveDate::from_ymd_opt(2000, 1, 1).expect("date");
+        [
+            show(
+                chrono::DateTime::<FixedOffset>::parse_from_str(text, format),
+                |d| d.to_rfc3339(),
+            ),
+            show(NaiveDateTime::parse_from_str(text, format), |d| {
+                d.and_utc().to_rfc3339()
+            }),
+            show(NaiveDate::parse_from_str(text, format), |d| {
+                d.and_time(NaiveTime::MIN).and_utc().to_rfc3339()
+            }),
+            show(NaiveTime::parse_from_str(text, format), |t| {
+                day.and_time(t).and_utc().to_rfc3339()
+            }),
+        ]
+    }
+
+    fn our_reads(text: &str, format: &str) -> [String; 4] {
+        fn show<T>(result: Result<T, DateParseError>, text: impl Fn(T) -> String) -> String {
+            result.map_or_else(|err| format!("error: {err}"), text)
+        }
+        let parsed = match ParsedDate::parse(text, format) {
+            Ok(parsed) => parsed,
+            Err(err) => return std::array::from_fn(|_| format!("error: {err}")),
+        };
+        [
+            show(parsed.to_datetime(), |d| d.to_rfc3339()),
+            show(parsed.to_naive_datetime(), |d| d.to_rfc3339()),
+            show(parsed.to_naive_date(), |d| d.to_rfc3339()),
+            show(
+                parsed
+                    .to_naive_time()
+                    .and_then(|t| t.on(2000, 1, 1).ok_or(DateParseError::OutOfRange)),
+                |d| d.to_rfc3339(),
+            ),
+        ]
+    }
+
+    /// `text` and variations of it: padded, cut short, with trailing text, in other cases, and
+    /// with one digit run changed, which makes fields disagree or go out of range.
+    fn variations(text: &str) -> Vec<String> {
+        let mut out = vec![
+            text.to_string(),
+            format!(" {text}"),
+            format!("{text}x"),
+            text.to_uppercase(),
+            text.to_lowercase(),
+            text.replacen(' ', "  ", 1),
+        ];
+        if let Some((cut, _)) = text.char_indices().last() {
+            out.push(text[..cut].to_string());
+        }
+        let bytes = text.as_bytes();
+        let mut start = 0;
+        while start < bytes.len() {
+            if !bytes[start].is_ascii_digit() {
+                start += 1;
+                continue;
+            }
+            let end = start
+                + bytes[start..]
+                    .iter()
+                    .take_while(|b| b.is_ascii_digit())
+                    .count();
+            let last = bytes[end - 1];
+            let bumped = if last == b'9' { b'0' } else { last + 1 };
+            let mut changed = bytes.to_vec();
+            changed[end - 1] = bumped;
+            out.push(String::from_utf8(changed).expect("ASCII digit swap"));
+            start = end;
+        }
+        out
+    }
+
+    fn compare(text: &str, format: &str, mismatches: &mut Vec<String>) {
+        let ours = our_reads(text, format);
+        let theirs = chrono_reads(text, format);
+        if ours != theirs {
+            mismatches.push(format!(
+                "{text:?} with {format:?}:\n  ours   {ours:?}\n  chrono {theirs:?}"
+            ));
+        }
+    }
+
+    /// The chrono text of every date in `format`, where chrono can write it.
+    fn texts(format: &str) -> Vec<String> {
+        use std::fmt::Write;
+        DATES
+            .iter()
+            .filter_map(|date| {
+                let date: chrono::DateTime<FixedOffset> = date.parse().expect("test date");
+                let mut out = String::new();
+                write!(out, "{}", date.format(format)).ok()?;
+                Some(out)
+            })
+            .collect()
+    }
+
+    fn check(formats: impl IntoIterator<Item = String>) {
+        let mut mismatches = Vec::new();
+        for format in formats {
+            for text in texts(&format) {
+                for text in variations(&text) {
+                    compare(&text, &format, &mut mismatches);
+                }
+            }
+        }
+        let count = mismatches.len();
+        mismatches.truncate(40);
+        assert!(count == 0, "{count} mismatches:\n{}", mismatches.join("\n"));
+    }
+
+    #[test]
+    fn cases_match() {
+        let mut mismatches = Vec::new();
+        for (text, format) in CASES {
+            for text in variations(text) {
+                compare(&text, format, &mut mismatches);
+            }
+        }
+        assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
+    }
+
+    #[test]
+    fn common_formats_match() {
+        check(FORMATS.iter().map(|f| f.to_string()));
+    }
+
+    #[test]
+    fn single_directives_match() {
+        check(
+            DIRECTIVES
+                .iter()
+                .flat_map(|d| [d.to_string(), format!("%F %T {d}")]),
+        );
+    }
+
+    #[test]
+    fn directive_pairs_match() {
+        check(DIRECTIVES.iter().flat_map(|a| {
+            DIRECTIVES
+                .iter()
+                .flat_map(move |b| [format!("{a} {b}"), format!("{a}{b}")])
+        }));
     }
 }

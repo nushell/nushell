@@ -186,7 +186,7 @@ mod test {
         let epoch = SystemTime::UNIX_EPOCH;
         let plist_date = epoch.into();
 
-        let datetime = convert_date(&plist_date).unwrap().to_civil();
+        let datetime = convert_date(&plist_date).unwrap().to_civil().unwrap();
         assert_eq!(1970, datetime.year());
         assert_eq!(1, datetime.month());
         assert_eq!(1, datetime.day());

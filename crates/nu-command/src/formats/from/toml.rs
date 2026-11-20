@@ -67,26 +67,6 @@ pub(crate) fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value
         _ => return Value::string(dt.to_string(), span),
     }
 
-    let date = dt.date.and_then(|date| {
-        jiff::civil::Date::new(
-            i16::try_from(date.year).ok()?,
-            date.month as i8,
-            date.day as i8,
-        )
-        .ok()
-    });
-
-    let time = match dt.time {
-        Some(time) => jiff::civil::Time::new(
-            time.hour as i8,
-            time.minute as i8,
-            time.second.unwrap_or_default() as i8,
-            i32::try_from(time.nanosecond.unwrap_or_default()).unwrap_or(i32::MAX),
-        )
-        .ok(),
-        None => Some(jiff::civil::Time::midnight()),
-    };
-
     // A date-time without an offset is read at UTC; an offset of a day or more isn't read.
     let offset_seconds = match dt.offset {
         Some(Offset::Custom { minutes }) => i32::from(minutes) * 60,
@@ -96,10 +76,27 @@ pub(crate) fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value
         .then(|| jiff::tz::Offset::from_seconds(offset_seconds).ok())
         .flatten();
 
-    let datetime = match (date, time, offset) {
-        (Some(date), Some(time), Some(offset)) => {
-            nu_protocol::DateTime::from_civil(date.to_datetime(time), offset)
-        }
+    // A date alone is midnight.
+    let (hour, minute, second, nanosecond) = match dt.time {
+        Some(time) => (
+            time.hour,
+            time.minute,
+            time.second.unwrap_or_default(),
+            time.nanosecond.unwrap_or_default(),
+        ),
+        None => (0, 0, 0, 0),
+    };
+    let datetime = match (dt.date, offset) {
+        (Some(date), Some(offset)) => nu_protocol::DateTime::from_parts(
+            date.year.into(),
+            date.month as i8,
+            date.day as i8,
+            hour as i8,
+            minute as i8,
+            second as i8,
+            i32::try_from(nanosecond).unwrap_or(i32::MAX),
+            offset,
+        ),
         _ => None,
     };
 

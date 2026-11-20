@@ -141,7 +141,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%q",
-            description: "Quarter of the year (1--4). Formatting only.",
+            description: "Quarter of the year (1--4).",
         },
         FormatSpecification {
             spec: "%j",
@@ -229,7 +229,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%N",
-            description: "Nanoseconds, always 9 digits. Same as %9f.",
+            description: "Nanoseconds, always 9 digits. Same as %9f. Formatting only.",
         },
         FormatSpecification {
             spec: "%R",
@@ -261,11 +261,11 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%::z",
-            description: "Same as %:z but with seconds, such as +05:30:00.",
+            description: "Same as %:z but with seconds, such as +05:30:00. Formatting only.",
         },
         FormatSpecification {
             spec: "%:::z",
-            description: "The offset in whole hours, such as +05.",
+            description: "The offset in whole hours, such as +05. Formatting only; %#z reads it.",
         },
         FormatSpecification {
             spec: "%c",

@@ -10,9 +10,15 @@
 //!   `%+` RFC 3339, and nushell's own `%J` and `%Q` are `%Y%m%d` and `%H%M%S`.
 //!
 //! Anything else goes to jiff unchanged, so jiff-only specifiers such as `%N` and `%q` work too.
+//!
+//! jiff's dates stop at years -9999 and 9999. For a year past them, jiff formats a date whole
+//! 400-year cycles closer, which has the same calendar and weekdays, and this module writes the
+//! year itself. Seconds are written here for a leap second, which jiff has no form for.
 
-use super::{DateTime, OffsetStyle, SecondsFormat, write_fraction, write_offset};
-use jiff::fmt::strtime;
+use super::{
+    DateParts, DateTime, NANOS_PER_SECOND, OffsetStyle, SecondsFormat, write_fraction, write_offset,
+};
+use jiff::{civil, fmt::strtime::BrokenDownTime};
 use pure_rust_locales::{Locale, locale_match};
 use std::fmt;
 
@@ -50,11 +56,30 @@ pub(super) fn format(
     format: &str,
     locale: Locale,
 ) -> Result<String, DateFormatError> {
-    let expanded = expand_locale_formats(format, locale);
-    let jiff_format = to_jiff_format(date, &expanded, locale);
-    strtime::format(&jiff_format, &date.to_zoned()).map_err(|_| DateFormatError {
+    let error = || DateFormatError {
         format: format.to_string(),
-    })
+    };
+    let parts = date.parts();
+    let proxy_year = if (-9999..=9999).contains(&parts.year) {
+        parts.year
+    } else {
+        2000 + (parts.year - 2000).rem_euclid(400)
+    };
+    let proxy = civil::DateTime::new(
+        proxy_year as i16,
+        parts.month,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
+        parts.nanosecond % NANOS_PER_SECOND as i32,
+    )
+    .map_err(|_| error())?;
+    let expanded = expand_locale_formats(format, locale);
+    let jiff_format = to_jiff_format(date, parts, proxy, &expanded, locale);
+    let mut fields = BrokenDownTime::from(proxy);
+    fields.set_offset(Some(date.offset()));
+    fields.to_string(&jiff_format).map_err(|_| error())
 }
 
 /// Expands `%c`, `%x`, `%X` and `%r` from `locale`, dropping `%E`/`%O` modifiers before and
@@ -195,8 +220,14 @@ fn read_directive(format: &str) -> Directive<'_> {
 
 /// Rewrites `format` into a jiff format string, putting the text of the specifiers nushell
 /// renders itself in as escaped literals.
-fn to_jiff_format(date: DateTime, format: &str, locale: Locale) -> String {
-    let civil = date.to_civil();
+fn to_jiff_format(
+    date: DateTime,
+    parts: DateParts,
+    proxy: civil::DateTime,
+    format: &str,
+    locale: Locale,
+) -> String {
+    let leap = parts.is_leap_second();
     let mut out = String::with_capacity(format.len() * 2);
     let mut rest = format;
     while let Some(start) = rest.find('%') {
@@ -211,31 +242,41 @@ fn to_jiff_format(date: DateTime, format: &str, locale: Locale) -> String {
                 text.to_string()
             }
         };
-        let weekday = civil.weekday().to_sunday_zero_offset() as usize;
-        let month = civil.month() as usize - 1;
-        let pm = civil.hour() >= 12;
+        let weekday = parts.weekday as usize;
+        let month = parts.month as usize - 1;
+        let pm = parts.hour >= 12;
         let plain = directive.colons == 0 && !directive.dot;
-        // Years print as chrono printed them only without a flag or width; with one, jiff's
-        // own padding rules apply.
+        // Without a flag or width, numbers print as chrono printed them; with one, they follow
+        // jiff's padding rules.
         let bare = plain && directive.flag.is_none() && directive.width.is_none();
-        let year = i32::from(civil.year());
-        let iso_year = i32::from(civil.iso_week_date().year());
+        let year = parts.year;
+        let iso_year = i32::from(proxy.iso_week_date().year()) + (year - i32::from(proxy.year()));
+        let padded = |value: i32, default_width: usize| pad(value, &directive, default_width);
         match directive.spec {
             Some('Y') if bare => literal(&four_digit_year(year), &mut out),
             Some('G') if bare => literal(&four_digit_year(iso_year), &mut out),
             Some('C') if bare => literal(&two_digits(year.div_euclid(100)), &mut out),
             Some('y') if bare => literal(&two_digits(year.rem_euclid(100)), &mut out),
             Some('g') if bare => literal(&two_digits(iso_year.rem_euclid(100)), &mut out),
+            Some('Y') if plain => literal(&padded(year, 4), &mut out),
+            Some('G') if plain => literal(&padded(iso_year, 4), &mut out),
+            Some('C') if plain => literal(&padded(year.div_euclid(100), 2), &mut out),
+            Some('y') if plain => literal(&padded(year.rem_euclid(100), 2), &mut out),
+            Some('g') if plain => literal(&padded(iso_year.rem_euclid(100), 2), &mut out),
             Some('D') if bare => {
                 out.push_str("%m/%d/");
                 literal(&two_digits(year.rem_euclid(100)), &mut out);
             }
+            Some('F') if bare => {
+                literal(&four_digit_year(year), &mut out);
+                out.push_str("-%m-%d");
+            }
+            // A leap second's seconds field reads 60.
+            Some('S') if plain && leap => literal(&padded(60, 2), &mut out),
+            Some('T') if plain && leap => out.push_str("%H:%M:60"),
             // chrono's Unix seconds round down, so a time before 1970 with a fraction gives the
             // earlier second.
-            Some('s') if bare => literal(
-                &date.unix_nanos().div_euclid(1_000_000_000).to_string(),
-                &mut out,
-            ),
+            Some('s') if bare => literal(&date.seconds.to_string(), &mut out),
             Some('%') if plain => out.push_str("%%"),
             Some('a') if plain => literal(
                 &upper(locale_match!(locale => LC_TIME::ABDAY)[weekday]),
@@ -288,7 +329,7 @@ fn to_jiff_format(date: DateTime, format: &str, locale: Locale) -> String {
             }
             Some('+') if plain => literal(&date.to_rfc3339(), &mut out),
             Some('f') if directive.colons == 0 => {
-                let nanos = civil.subsec_nanosecond();
+                let nanos = parts.nanosecond;
                 let seconds = match directive.width {
                     None if directive.dot => Some(SecondsFormat::AutoSi),
                     None => Some(SecondsFormat::Nanos),
@@ -319,12 +360,29 @@ fn to_jiff_format(date: DateTime, format: &str, locale: Locale) -> String {
     out
 }
 
-/// A year as chrono wrote it: at least 4 digits, with `-` before negative years.
+/// A year as chrono wrote it: at least 4 digits, with `-` before negative years and `+` before
+/// years past 9999.
 fn four_digit_year(year: i32) -> String {
-    if year < 0 {
-        format!("-{:04}", year.unsigned_abs())
-    } else {
-        format!("{year:04}")
+    let mut text = String::new();
+    super::write_year(&mut text, year);
+    text
+}
+
+/// `value` padded the way the directive's flag and width ask: `-` for none, `_` for spaces, and
+/// zeros otherwise, to the width or `default_width`.
+fn pad(value: i32, directive: &Directive<'_>, default_width: usize) -> String {
+    let width = directive
+        .width
+        .map_or(default_width, |width| width.min(20) as usize);
+    let digits = value.unsigned_abs().to_string();
+    let sign = if value < 0 { "-" } else { "" };
+    match directive.flag {
+        Some('-') => format!("{sign}{digits}"),
+        Some('_') => format!("{:>width$}", format!("{sign}{digits}")),
+        _ => format!(
+            "{sign}{digits:0>width$}",
+            width = width.saturating_sub(sign.len())
+        ),
     }
 }
 

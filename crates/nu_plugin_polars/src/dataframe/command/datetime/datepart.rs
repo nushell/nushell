@@ -67,10 +67,7 @@ impl PluginCommand for ExprDatePart {
                         vec![
                             Column::new(
                                 "datetime".to_string(),
-                                vec![Value::test_date(
-                                    nu_protocol::DateTime::try_from(dt)
-                                        .expect("date calculation should not fail in test"),
-                                )],
+                                vec![Value::test_date(nu_protocol::DateTime::from(dt))],
                             ),
                             Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
                         ],

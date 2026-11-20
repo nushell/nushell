@@ -1,4 +1,4 @@
-use jiff::civil;
+use jiff::tz::Offset;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::{self, Expr, Expression};
@@ -189,23 +189,48 @@ struct MonthHelper {
 
 impl MonthHelper {
     pub fn new(selected_year: i32, selected_month: u32) -> Result<MonthHelper, ()> {
-        let year = i16::try_from(selected_year).map_err(|_| ())?;
+        const MONTH_NAMES: [&str; 12] = [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ];
         let month = i8::try_from(selected_month).map_err(|_| ())?;
-        let first = civil::Date::new(year, month, 1).map_err(|_| ())?;
+        let first_of = |year: i32, month: i8| {
+            nu_protocol::DateTime::from_parts(year, month, 1, 0, 0, 0, 0, Offset::UTC).ok_or(())
+        };
+        let first = first_of(selected_year, month)?;
+        let next = if month == 12 {
+            first_of(selected_year + 1, 1)?
+        } else {
+            first_of(selected_year, month + 1)?
+        };
+        let number_of_days_in_month = (next.nanos_since(first) / (86_400 * 1_000_000_000)) as u32;
 
         Ok(MonthHelper {
             selected_year,
             selected_month,
-            day_number_of_week_month_starts_on: first.weekday().to_sunday_zero_offset() as u32,
-            number_of_days_in_month: first.days_in_month() as u32,
+            day_number_of_week_month_starts_on: first.parts().weekday as u32,
+            number_of_days_in_month,
             quarter_number: ((selected_month - 1) / 3) + 1,
-            month_name: first.strftime("%B").to_string().to_ascii_lowercase(),
+            month_name: MONTH_NAMES
+                .get(selected_month as usize - 1)
+                .ok_or(())?
+                .to_string(),
         })
     }
 }
 
 fn get_current_date() -> (i32, u32, u32) {
-    let today = nu_protocol::DateTime::now().to_civil();
+    let today = jiff::ZonedDateTime::now();
 
     let current_year = i32::from(today.year());
     let current_month = today.month() as u32;

@@ -1101,7 +1101,7 @@ impl Value {
                 None => {
                     format!(
                         "{} ({})",
-                        if (0..=9999).contains(&val.to_civil().year()) {
+                        if (0..=9999).contains(&val.year()) {
                             val.to_rfc2822()
                         } else {
                             val.to_rfc3339()

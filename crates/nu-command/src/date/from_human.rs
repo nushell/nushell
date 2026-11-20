@@ -1,5 +1,8 @@
-use super::formats::parse_gnu_date;
+use super::{formats::parse_gnu_date, human::Phrase};
+use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct DateFromHuman;
@@ -115,7 +118,16 @@ fn helper(value: Value, head: Span) -> Value {
         }
     };
 
-    match parse_gnu_date(&to_gnu_date(&input_val)) {
+    // human-date-parser's phrases first, as main read them; then the GNU `date` grammar; then a
+    // human-date-parser phrase followed by other text, which main read by ignoring the rest.
+    let now = jiff::ZonedDateTime::now();
+    let date = match Phrase::parse(&input_val) {
+        Some(phrase) => phrase.date(&now),
+        None => parse_gnu_date(&to_gnu_date(&input_val))
+            .and_then(|date| as_before(date, &input_val))
+            .or_else(|| Phrase::parse_prefix(&input_val).and_then(|phrase| phrase.date(&now))),
+    };
+    match date {
         Some(date) => Value::date(date, span),
         None => Value::error(
             ShellError::IncorrectValue {
@@ -126,6 +138,28 @@ fn helper(value: Value, head: Span) -> Value {
             span,
         ),
     }
+}
+
+/// Matches the parts of a phrase that name a time of day or a span shorter than a day.
+static TIME_OF_DAY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)\d:\d|\d\s*[ap]\.?m\b|\b(noon|midnight|now|hours?|hrs?|minutes?|mins?|seconds?|secs?)\b",
+    )
+    .expect("time of day pattern should be valid")
+});
+
+/// `date` the way `date from-human` read it before: a phrase that names no time of day (`Friday`,
+/// `2022-11-07`) is at the current time of day, and the wall-clock time is at the current UTC
+/// offset, even across a DST change.
+fn as_before(date: DateTime, input: &str) -> Option<DateTime> {
+    let now = jiff::ZonedDateTime::now();
+    let wall = date.to_civil()?;
+    let wall = if TIME_OF_DAY.is_match(input).unwrap_or(false) {
+        wall
+    } else {
+        wall.date().to_datetime(now.time())
+    };
+    DateTime::from_civil(wall, now.offset())
 }
 
 /// Rewrites the English the GNU `date` grammar doesn't read: `at` and `and` go, `in 2 hours`

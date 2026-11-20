@@ -11,7 +11,7 @@ use fancy_regex::Regex;
 use jiff::{
     civil::{self, Weekday},
     fmt::strtime::{BrokenDownTime, Meridiem},
-    tz::{Offset, TimeZone},
+    tz::{Disambiguation, Offset, TimeZone},
 };
 use nu_protocol::DateTime;
 use std::{borrow::Cow, cell::LazyCell, sync::LazyLock};
@@ -535,7 +535,7 @@ fn build(
         return DateTime::from_unix_seconds(timestamp.as_second(), 0, Offset::UTC);
     }
     // read the clock only when the string leaves out part of the date
-    let today = LazyCell::new(|| DateTime::now().to_civil().date());
+    let today = LazyCell::new(|| jiff::ZonedDateTime::now().date());
     let mut day_date = match date {
         Some(d) if d.iso_week().is_some() || d.day_of_year().is_some() => d.to_date().ok()?,
         _ => {
@@ -572,7 +572,7 @@ fn build(
     let civil = day_date.to_datetime(civil::Time::new(hour, minute, second, nanosecond).ok()?);
     if let Some(name) = zone.and_then(|z| z.iana_time_zone()) {
         let zone = TimeZone::get(name).ok()?;
-        return Some(DateTime::from_zoned(&civil.to_zoned_datetime(zone).ok()?));
+        return DateTime::from_civil_in(civil, &zone, Disambiguation::Compatible);
     }
     match zone.and_then(|z| z.offset()) {
         // an offset of a day or more isn't one nushell reads
@@ -580,13 +580,17 @@ fn build(
             DateTime::from_civil(civil, offset)
         }
         Some(_) => None,
-        // Local time follows jiff's rule for IANA zones: when the clock goes back and repeats
-        // a time, the earlier offset; when it jumps ahead and skips one, the offset from before
-        // the jump, which moves it forward by the jump (02:30 on the spring-forward day reads
-        // as 03:30).
-        None => Some(DateTime::from_zoned(
-            &civil.to_zoned_datetime(TimeZone::system()).ok()?,
-        )),
+        // Local time is read as chrono's `Local` read it: when the clock goes back and repeats
+        // a time, the earlier reading; when it jumps ahead and skips one, the offset from
+        // before the jump, which moves it forward by the jump (02:30 on the spring-forward day
+        // reads as 03:30).
+        None => {
+            let local = TimeZone::system();
+            DateTime::chrono_local_readings(civil, &local)
+                .first()
+                .copied()
+                .or_else(|| DateTime::from_civil_in(civil, &local, Disambiguation::Compatible))
+        }
     }
 }
 
@@ -821,7 +825,7 @@ mod tests {
     use pure_rust_locales::Locale;
 
     fn today() -> civil::Date {
-        DateTime::now().to_civil().date()
+        jiff::ZonedDateTime::now().date()
     }
 
     /// The wall-clock reading, without the offset, which depends on the local zone.
@@ -984,13 +988,17 @@ mod tests {
         assert_eq!(wall("4 PM"), at(16, 0));
         assert_eq!(wall("10:00a.m."), at(10, 0));
         assert_eq!(wall("12am"), at(0, 0));
-        let friday = parse_date_text("Friday").map(|d| d.to_civil().date());
+        let friday = parse_date_text("Friday")
+            .and_then(|d| d.to_civil())
+            .map(|d| d.date());
         assert_eq!(friday.map(|d| d.weekday()), Some(Weekday::Friday));
         let week_later = today.checked_add(jiff::Span::new().days(7)).ok();
         assert!(friday.is_some_and(|d| d >= today && Some(d) < week_later));
         assert_eq!(wall("4:04PM"), at(16, 4));
         for (input, month, day) in [("April 18", 4, 18), ("18 Apr", 4, 18), ("18 APR", 4, 18)] {
-            let date = parse_date_text(input).map(|d| d.to_civil().date());
+            let date = parse_date_text(input)
+                .and_then(|d| d.to_civil())
+                .map(|d| d.date());
             assert_eq!(
                 date.map(|d| (d.year(), d.month(), d.day())),
                 Some((today.year(), month, day)),
@@ -999,13 +1007,15 @@ mod tests {
         }
         assert_eq!(
             parse_date_text("12 25 10:00")
-                .map(|d| d.to_civil())
+                .and_then(|d| d.to_civil())
                 .map(|d| (d.month(), d.day(), d.hour())),
             Some((12, 25, 10))
         );
         // a year and month
         for (input, month) in [("2025 Dec", 12), ("2025 MAY", 5)] {
-            let date = parse_date_text(input).map(|d| d.to_civil().date());
+            let date = parse_date_text(input)
+                .and_then(|d| d.to_civil())
+                .map(|d| d.date());
             assert_eq!(
                 date.map(|d| (d.year(), d.month())),
                 Some((2025, month)),
@@ -1057,7 +1067,7 @@ mod tests {
 
     /// `date` as a jiff time at the same offset, to write it through a layout.
     fn to_zoned(date: DateTime) -> Option<jiff::ZonedDateTime> {
-        Some(date.to_zoned())
+        date.to_zoned()
     }
 
     /// Each layout's example reads back as that layout: written through it again, it comes out
@@ -1115,11 +1125,17 @@ mod tests {
     fn relative_dates() {
         let today = today();
         let days = |n| today.checked_add(jiff::Span::new().days(n)).ok();
-        let date = |input| parse_date_text(input).map(|d| d.to_civil().date());
+        let date = |input| {
+            parse_date_text(input)
+                .and_then(|d| d.to_civil())
+                .map(|d| d.date())
+        };
         assert_eq!(date("tomorrow"), days(1));
         assert_eq!(date("3 days ago"), days(-3));
         assert_eq!(
-            parse_date_text("tomorrow 10am").map(|d| (d.to_civil().date(), d.to_civil().hour())),
+            parse_date_text("tomorrow 10am")
+                .and_then(|d| d.to_civil())
+                .map(|d| (d.date(), d.hour())),
             days(1).map(|d| (d, 10))
         );
         assert_eq!(

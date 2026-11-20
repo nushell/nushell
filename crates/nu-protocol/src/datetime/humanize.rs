@@ -42,7 +42,7 @@ impl HumanTime {
             let seconds = (nanos as f64 / 1_000_000_000.0).round() as i64;
             Self::from_seconds(seconds)
         } else {
-            let years = i64::from(date.to_civil().year()) - i64::from(now.to_civil().year());
+            let years = i64::from(date.year()) - i64::from(now.year());
             Self::from_seconds(years * 365 * DAY as i64)
         }
     }

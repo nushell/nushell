@@ -1,13 +1,13 @@
 use crate::{
-    Parsed, TIME_ZONE_NAMES, generate_date_formats_list, generate_strftime_list,
-    parse_date_from_string, parse_with_format,
+    TIME_ZONE_NAMES, generate_date_formats_list, generate_strftime_list, parse_date_from_string,
 };
 use jiff::{
     Timestamp, civil,
-    tz::{Offset, TimeZone},
+    tz::{Disambiguation, Offset, TimeZone},
 };
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::ParsedDate;
 use std::{ops::Deref, sync::LazyLock};
 
 const HOUR: i32 = 60 * 60;
@@ -497,51 +497,50 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     let parse_as_string = |val: &str| {
         match dateformat {
-            Some(dt_format) => match parse_with_format(val, &dt_format.item.0) {
-                Ok(Parsed::Instant(date)) => match timezone {
-                    None => Value::date(date, head),
-                    Some(Spanned { item, span }) => match item.time_zone() {
-                        Some(time_zone) => {
-                            Value::date(in_time_zone(date.timestamp(), &time_zone), *span)
+            Some(dt_format) => {
+                // `%J` and `%Q` are nushell's joined date (YYYYMMDD) and time (HHMMSS).
+                let format = dt_format
+                    .item
+                    .0
+                    .replace("%J", "%Y%m%d")
+                    .replace("%Q", "%H%M%S");
+                let parsed = ParsedDate::parse(val, &format);
+                match parsed
+                    .as_ref()
+                    .map_err(|err| *err)
+                    .and_then(ParsedDate::to_datetime)
+                {
+                    Ok(date) => match timezone {
+                        None => Value::date(date, head),
+                        Some(Spanned { item, span }) => match item.time_zone() {
+                            Some(time_zone) => Value::date(date.to_time_zone(&time_zone), *span),
+                            None => invalid_timezone_value(*span),
+                        },
+                    },
+                    // Without an offset, read a wall-clock date and time, a date or a time.
+                    Err(reason) => match parsed.ok().as_ref().and_then(wall_clock) {
+                        Some(wall) => {
+                            interpret_wall_clock_datetime(wall, timezone.as_ref(), head, val)
                         }
-                        None => invalid_timezone_value(*span),
-                    },
-                },
-                Ok(Parsed::Civil(civil)) => {
-                    interpret_wall_clock_datetime(civil, timezone.as_ref(), head, val)
-                }
-                Ok(Parsed::Date(date)) => interpret_wall_clock_datetime(
-                    date.to_datetime(civil::Time::midnight()),
-                    timezone.as_ref(),
-                    head,
-                    val,
-                ),
-                Ok(Parsed::Time(time)) => {
-                    let today = nu_protocol::DateTime::now().to_civil().date();
-                    interpret_wall_clock_datetime(
-                        today.to_datetime(time),
-                        timezone.as_ref(),
-                        head,
-                        val,
-                    )
-                }
-                Err(reason) => Value::error(
-                    ShellError::CantConvert {
-                        to_type: format!(
-                            "could not parse as datetime using format '{}'",
-                            dt_format.item.0
-                        ),
-                        from_type: reason,
-                        span: head,
-                        help: Some(
-                            "you can use `into datetime` without a format string to \
-                             enable flexible parsing"
-                                .to_string(),
+                        None => Value::error(
+                            ShellError::CantConvert {
+                                to_type: format!(
+                                    "could not parse as datetime using format '{}'",
+                                    dt_format.item.0
+                                ),
+                                from_type: reason.to_string(),
+                                span: head,
+                                help: Some(
+                                    "you can use `into datetime` without a format string to \
+                                     enable flexible parsing"
+                                        .to_string(),
+                                ),
+                            },
+                            head,
                         ),
                     },
-                    head,
-                ),
-            },
+                }
+            }
 
             // Tries to automatically parse the date
             // (i.e. without a format string)
@@ -590,8 +589,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
     let mut record_column_default = RecordColumnDefault::Now;
 
     let now = nu_protocol::DateTime::now();
-    let now_civil = now.to_civil();
-    let mut now_nanosecond = now_civil.subsec_nanosecond() as u32;
+    let now_parts = now.parts();
+    let mut now_nanosecond = now_parts.nanosecond as u32;
     let now_millisecond = now_nanosecond / 1_000_000;
     now_nanosecond %= 1_000_000;
     let now_microsecond = now_nanosecond / 1_000;
@@ -612,7 +611,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 }
             }
         }
-        None => now_civil.year().into(),
+        None => now_parts.year,
     };
     let mut field = |name: &str, now: i8, zero: u32| match record.get(name) {
         Some(col_val) => {
@@ -624,11 +623,11 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
             RecordColumnDefault::Zero => zero,
         }),
     };
-    let month = field("month", now_civil.month(), 1)?;
-    let day = field("day", now_civil.day(), 1)?;
-    let hour = field("hour", now_civil.hour(), 0)?;
-    let minute = field("minute", now_civil.minute(), 0)?;
-    let second = field("second", now_civil.second(), 0)?;
+    let month = field("month", now_parts.month, 1)?;
+    let day = field("day", now_parts.day, 1)?;
+    let hour = field("hour", now_parts.hour, 0)?;
+    let minute = field("minute", now_parts.minute, 0)?;
+    let second = field("second", now_parts.second, 0)?;
     let millisecond = match record.get("millisecond") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
@@ -670,20 +669,32 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         call_span: span,
     };
     let small = |value: u32| i8::try_from(value).unwrap_or(i8::MAX);
-    let date = i16::try_from(year)
-        .ok()
-        .and_then(|year| civil::Date::new(year, small(month), small(day)).ok())
+    let (month, day, hour, minute, second) = (
+        small(month),
+        small(day),
+        small(hour),
+        small(minute),
+        small(second),
+    );
+    // The date alone, at UTC midnight, tells a bad date from a bad time.
+    nu_protocol::DateTime::from_parts(year, month, day, 0, 0, 0, 0, Offset::UTC)
         .ok_or_else(|| invalid("date"))?;
     let total_nanoseconds = millisecond
         .checked_mul(1_000_000)
         .zip(microsecond.checked_mul(1_000))
         .and_then(|(millis, micros)| millis.checked_add(micros)?.checked_add(nanosecond))
         .and_then(|nanos| i32::try_from(nanos).ok());
-    let time = total_nanoseconds
-        .and_then(|nanos| civil::Time::new(small(hour), small(minute), small(second), nanos).ok())
+    // As before, a second's worth of extra nanoseconds on second 59 is a leap second.
+    let nanos = total_nanoseconds
+        .filter(|&nanos| {
+            hour < 24
+                && minute < 60
+                && second < 60
+                && (nanos < 1_000_000_000 || (nanos < 2_000_000_000 && second == 59))
+        })
         .ok_or_else(|| invalid("time"))?;
 
-    match nu_protocol::DateTime::from_civil(date.to_datetime(time), offset) {
+    match nu_protocol::DateTime::from_parts(year, month, day, hour, minute, second, nanos, offset) {
         Some(date_time) => Ok(Value::date(date_time, span)),
         None => Err(ShellError::IncorrectValue {
             msg: "Ambiguous or invalid timezone conversion".to_string(),
@@ -771,24 +782,48 @@ fn invalid_timezone_value(span: Span) -> Value {
     )
 }
 
+/// The wall-clock reading `parsed` names, held at UTC: a date and time, else midnight on a date,
+/// else a time today.
+fn wall_clock(parsed: &ParsedDate) -> Option<nu_protocol::DateTime> {
+    parsed
+        .to_naive_datetime()
+        .or_else(|_| parsed.to_naive_date())
+        .ok()
+        .or_else(|| {
+            let today = jiff::ZonedDateTime::now().date();
+            let time = parsed.to_naive_time().ok()?;
+            time.on(today.year().into(), today.month(), today.day())
+        })
+}
+
 /// The instant the wall-clock `dt` names in `timezone`, or local time without one. A time the
 /// zone skips or repeats at a DST change is an error.
 fn interpret_wall_clock_datetime(
-    dt: civil::DateTime,
+    dt: nu_protocol::DateTime,
     timezone: Option<&Spanned<Zone>>,
     head: Span,
     val: &str,
 ) -> Value {
-    let (time_zone, span) = match timezone {
-        None => (Some(TimeZone::system()), head),
-        Some(Spanned { item, span }) => (item.time_zone(), *span),
+    let (time_zone, span, local) = match timezone {
+        None => (Some(TimeZone::system()), head, true),
+        Some(Spanned { item, span }) => (item.time_zone(), *span, matches!(item, Zone::Local)),
     };
     let Some(time_zone) = time_zone else {
         return invalid_timezone_value(span);
     };
-    match time_zone.to_ambiguous_timestamp(dt).unambiguous() {
-        Ok(timestamp) => Value::date(in_time_zone(timestamp, &time_zone), span),
-        Err(_) => datetime_parse_error_value(val, span),
+    // Local time is read as chrono's `Local` read it, taking a single reading only.
+    let date = match dt.to_civil() {
+        Some(civil) if local && !dt.parts().is_leap_second() => {
+            match nu_protocol::DateTime::chrono_local_readings(civil, &time_zone)[..] {
+                [date] => Some(date),
+                _ => None,
+            }
+        }
+        _ => dt.wall_clock_in(&time_zone, Disambiguation::Reject),
+    };
+    match date {
+        Some(date) => Value::date(date, span),
+        None => datetime_parse_error_value(val, span),
     }
 }
 

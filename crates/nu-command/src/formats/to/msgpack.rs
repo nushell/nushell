@@ -189,10 +189,10 @@ pub(crate) fn write_value(
             mp::write_sint(out, *val).err_span(span)?;
         }
         Value::Date { val, .. } => {
-            // Whole seconds rounded down and a non-negative fraction, as the extension holds.
-            let nanos = val.unix_nanos();
-            let seconds = nanos.div_euclid(1_000_000_000) as i64;
-            let subsec = nanos.rem_euclid(1_000_000_000) as u32;
+            // Whole seconds rounded down and the nanoseconds after them, as the extension holds;
+            // a leap second keeps its 1,000,000,000 or more nanoseconds.
+            let seconds = val.unix_seconds();
+            let subsec = val.subsec_nanos();
             if subsec == 0 && seconds >= 0 && seconds < u32::MAX as i64 {
                 // Timestamp extension type, 32-bit. u32 seconds since UNIX epoch only.
                 mp::write_ext_meta(out, 4, -1).err_span(span)?;

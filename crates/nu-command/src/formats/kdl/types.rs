@@ -6,7 +6,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use kdl::{KdlEntry, KdlValue};
 use nu_engine::command_prelude::*;
-use nu_protocol::DateTime;
+use nu_protocol::{DateTime, ParsedDate};
 use nu_protocol::{Range, ast::CellPath, engine::EngineState};
 use num_traits::ToPrimitive;
 use std::str::FromStr;
@@ -197,17 +197,13 @@ fn parse_timestamp(s: &str) -> Result<DateTime, String> {
         return Ok(dt);
     }
     for format in ["%Y-%m-%dT%H:%M:%S%.f%z", "%Y-%m-%d %H:%M:%S%.f %z"] {
-        if let Ok(crate::Parsed::Instant(dt)) = crate::parse_with_format(s, format) {
+        if let Ok(dt) = ParsedDate::parse(s, format).and_then(|parsed| parsed.to_datetime()) {
             return Ok(dt);
         }
     }
     // Date-only → midnight UTC
-    if let Ok(date) = jiff::civil::Date::strptime("%Y-%m-%d", s) {
-        return DateTime::from_civil(
-            date.to_datetime(jiff::civil::Time::midnight()),
-            jiff::tz::Offset::UTC,
-        )
-        .ok_or_else(|| format!("invalid date '{s}'"));
+    if let Ok(date) = ParsedDate::parse(s, "%Y-%m-%d").and_then(|parsed| parsed.to_naive_date()) {
+        return Ok(date);
     }
     Err(format!("could not parse timestamp '{s}'"))
 }
