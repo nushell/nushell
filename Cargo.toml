@@ -277,7 +277,6 @@ syn = "3.0.4"
 sysinfo = "0.40.3"
 tabled = { version = "0.22", default-features = false }
 tempfile = "3.27"
-terminal-colorsaurus = "1.0.3"
 thiserror = "2.0.20"
 tokio = { version = "1.53.1" }
 toml = "1.1.4"

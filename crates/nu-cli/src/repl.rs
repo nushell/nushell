@@ -657,65 +657,6 @@ fn is_usable_dir(path: &Path) -> bool {
     path.is_dir() && matches!(have_permission(path), PermissionResult::PermissionOk)
 }
 
-/// Asks the terminal for its background color, which striped tables are drawn
-/// from, when it is needed and not known yet.
-///
-/// It is asked here, before the line editor reads the terminal, so that no
-/// table drawn while it does (by a completer or a hint) has to ask. Reading its
-/// reply would take typed-ahead input with it, so it is asked at a later prompt
-/// when there is some.
-fn update_terminal_background(engine_state: &EngineState) {
-    let wanted = nu_table::common::needs_terminal_background(engine_state.get_config());
-    nu_utils::update_terminal_background(wanted, || !has_typed_ahead_input());
-}
-
-/// Whether keys were typed that nothing has read yet.
-///
-/// This is [`has_pending_terminal_input`] with the terminal in raw mode, where
-/// a line not ended with Enter is input too: the terminal holds it back
-/// otherwise.
-#[cfg(not(windows))]
-fn has_typed_ahead_input() -> bool {
-    let raw = crossterm::terminal::enable_raw_mode().is_ok();
-    let pending = has_pending_terminal_input();
-    if raw {
-        let _ = crossterm::terminal::disable_raw_mode();
-    }
-    pending
-}
-
-/// Whether keys were typed that nothing has read yet.
-///
-/// The console queues more than key presses: the release of the Enter that
-/// ended the last line is still there at the next prompt, and it is no input to
-/// lose. So the queue is looked at, without taking anything off it, for a key
-/// press. A queue that cannot be looked at counts as having one.
-#[cfg(windows)]
-fn has_typed_ahead_input() -> bool {
-    use windows_sys::Win32::System::Console::{
-        GetStdHandle, INPUT_RECORD, KEY_EVENT, PeekConsoleInputW, STD_INPUT_HANDLE,
-    };
-
-    let mut records = [INPUT_RECORD::default(); 64];
-    let mut count = 0;
-    // SAFETY: `records` is a valid buffer of the length that is passed, and
-    // `count` is a valid place for the number of records written to it.
-    let peeked = unsafe {
-        PeekConsoleInputW(
-            GetStdHandle(STD_INPUT_HANDLE),
-            records.as_mut_ptr(),
-            records.len() as u32,
-            &mut count,
-        )
-    };
-    peeked == 0
-        || records.iter().take(count as usize).any(|record| {
-            // SAFETY: a record of type `KEY_EVENT` holds a `KeyEvent`.
-            u32::from(record.EventType) == KEY_EVENT
-                && unsafe { record.Event.KeyEvent.bKeyDown } != 0
-        })
-}
-
 /// Returns `true` if terminal input is already queued (so recovery waits until after the pending
 /// line executes) or if polling fails (falling back to skipping recovery).
 fn has_pending_terminal_input() -> bool {
@@ -946,8 +887,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // probe in the builder below does a round trip in raw mode, then `read_line` draws the prompt.
     // Hold what background jobs write until the line editor can print it.
     engine_state.job_output.hold();
-    update_terminal_background(engine_state);
-
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
 

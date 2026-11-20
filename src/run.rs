@@ -230,11 +230,6 @@ pub(crate) fn run_repl(
         engine_state.history_session_id = session_id.into();
     }
 
-    // The terminal is asked for its background color at the first prompt. A
-    // striped table drawn before it, by a config file, must not ask: keys typed
-    // while nu starts would be lost to the reading of the reply.
-    nu_utils::update_terminal_background(false, || false);
-
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(
             engine_state,

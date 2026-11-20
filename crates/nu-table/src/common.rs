@@ -8,7 +8,7 @@ use nu_protocol::{
     Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, UseAnsiColoring, Value,
     shell_error::generic::GenericError,
 };
-use nu_utils::{Rgb, terminal_background, terminal_size};
+use nu_utils::terminal_size;
 use std::sync::Arc;
 
 pub type NuText = (String, TextStyle);
@@ -241,29 +241,21 @@ pub type RowStripes = [Option<Style>; 2];
 /// The backgrounds of the rows of a table: none when tables are not striped.
 ///
 /// Without `row_stripe_alt` (see [`stripe_colors`]), it is made from
-/// `row_stripe_bg`, or from the background of the terminal when that is not set
-/// or is a named color,
-/// and `table.stripe_blend` (see [`stripe_over`]); the rows between have no
-/// background of their own when the terminal does not tell its background
-/// either.
+/// `row_stripe_bg` and `table.stripe_blend` (see [`stripe_over`]), which takes
+/// a `row_stripe_bg` given as "#rrggbb": the rows between have no background of
+/// their own otherwise.
 pub fn row_stripes(config: &Config) -> RowStripes {
     let Some((bg, alt)) = stripe_colors(config) else {
         return [None; 2];
     };
     let alt = alt.or_else(|| {
-        let background = match bg {
-            Some(Color::Rgb(red, green, blue)) => [red, green, blue],
-            _ => terminal_background()?,
+        let Some(Color::Rgb(red, green, blue)) = bg else {
+            return None;
         };
+        let background = [red, green, blue];
         Some(stripe_over(background, config.table.stripe_blend as f32))
     });
     [bg, alt].map(|color| color.map(|color| Style::new().on(color)))
-}
-
-/// Whether [`row_stripes`] makes a background from the terminal's own, which
-/// the terminal has to be asked for.
-pub fn needs_terminal_background(config: &Config) -> bool {
-    matches!(stripe_colors(config), Some((bg, None)) if !matches!(bg, Some(Color::Rgb(..))))
 }
 
 /// The colors `color_config` sets, or `None` when tables are not striped, which
@@ -287,7 +279,7 @@ fn stripe_colors(config: &Config) -> Option<(Option<Color>, Option<Color>)> {
 /// The background is dark when white contrasts with it more than black does,
 /// by the WCAG 2 contrast ratio. The overlay is composited "source over" on
 /// the sRGB values, as CSS does for a translucent color.
-fn stripe_over(background: Rgb, opacity: f32) -> Color {
+fn stripe_over(background: [u8; 3], opacity: f32) -> Color {
     /// The relative luminance at which black and white contrast the same.
     const MIDDLE_LUMINANCE: f32 = 0.179;
 

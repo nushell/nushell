@@ -32,7 +32,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 sys-locale = "0.3"
-terminal-colorsaurus = { workspace = true }
 unicase = "2.9.0"
 
 [features]
@@ -43,7 +42,7 @@ os = ["crossterm"]
 crossterm_winapi = "0.9"
 
 [target.'cfg(unix)'.dependencies]
-nix = { workspace = true, default-features = false, features = ["user", "fs", "term", "process"] }
+nix = { workspace = true, default-features = false, features = ["user", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { workspace = true }
