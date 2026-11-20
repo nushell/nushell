@@ -343,6 +343,13 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Startup,
         "nu --stdin -c \"print $in\"",
     ),
+    CliFlag::switch(
+        "structured-io",
+        None,
+        "when another nu runs this one, take its input and give it the result as values, not text",
+        CliCategory::Startup,
+        "nu --structured-io -c \"ls\" | where size > 1kb",
+    ),
     CliFlag::value(
         "experimental-options",
         None,
@@ -794,6 +801,9 @@ fn parse_cli_args_with_command_line(
                     .extend(parsed.into_iter().map(spanned_value));
             }
             Long("stdin") => cli.redirect_stdin = Some(spanned_true()),
+            // The `nu` running this one reads it from the command line, and tells this one how
+            // to reach it in `NU_STRUCTURED_IO`.
+            Long("structured-io") => {}
             Long("experimental-options") => {
                 let values = parse_experimental_options(&mut parser)?;
                 cli.experimental_options

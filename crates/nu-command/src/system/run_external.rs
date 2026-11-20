@@ -1,9 +1,13 @@
-use itertools::Itertools;
+use super::structured_io::{
+    StructuredIoServer, read_structured_output, send_structured_input, structured_io_for_child,
+};
+use itertools::{Either, Itertools};
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, eval_ir_call};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
+    ByteStream, DeclId, NuGlob, OutDest, STRUCTURED_IO_ENV, Signals, UseAnsiColoring, did_you_mean,
+    ir,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::{ErrorKind, IoError},
 };
@@ -185,6 +189,20 @@ If you create a custom command with this name, that will be used instead."
 
         // Configure args.
         let args = eval_external_arguments(engine_state, stack, call_args)?;
+
+        // A `nu` started with `--structured-io` takes its input and gives its result as values,
+        // over a socket of its own. Its stdin and stdout stay the terminal's, like a custom
+        // command's. Any other child never gets the variable, even one the user set.
+        let structured_io =
+            structured_io_for_child(&executable, &args, stack.stdout(), stack.stderr(), &input);
+        let structured_io_server = if structured_io.any() {
+            let (server, connections) = StructuredIoServer::bind(structured_io, call.head)?;
+            command.env(STRUCTURED_IO_ENV, server.env_value());
+            Some((server, connections))
+        } else {
+            command.env_remove(STRUCTURED_IO_ENV);
+            None
+        };
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -215,7 +233,11 @@ If you create a custom command with this name, that will be used instead."
         // `isatty(stdout)` is false and `store_byte_stream_prefix` blocks reading the
         // pipe. Bare externals keep the terminal; `$ans.last` only receives external
         // bytes when stdout is already redirected into the pipeline (e.g. `^cmd | collect`).
-        let stdout = stack.stdout();
+        let stdout = if structured_io.output {
+            &OutDest::Inherit
+        } else {
+            stack.stdout()
+        };
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
             let (reader, writer) =
@@ -251,10 +273,24 @@ If you create a custom command with this name, that will be used instead."
             None
         };
 
+        // MCP and background completions must not inherit the live terminal.
+        let terminal_stdin = || {
+            if engine_state.is_mcp || stack.suppress_stdin {
+                Stdio::null()
+            } else {
+                Stdio::inherit()
+            }
+        };
+
         // Configure stdin. We'll try connecting input to the child process
         // directly. If that's not possible, we'll set up a pipe and spawn a
         // thread to copy data into the child process.
         let data_to_copy_into_stdin = match input {
+            // A `nu` with structured input gets it over its socket.
+            input if structured_io.input => {
+                command.stdin(terminal_stdin());
+                Some(input)
+            }
             PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
                 Ok(stdin) => {
                     command.stdin(stdin);
@@ -266,12 +302,7 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // MCP and background completions must not inherit the live terminal.
-                if engine_state.is_mcp || stack.suppress_stdin {
-                    command.stdin(Stdio::null());
-                } else {
-                    command.stdin(Stdio::inherit());
-                }
+                command.stdin(terminal_stdin());
                 None
             }
             value => {
@@ -341,10 +372,20 @@ If you create a custom command with this name, that will be used instead."
             })?
             .ok_or(ShellError::Interrupted { span: call.head })?;
 
+        let (structured_io_server, structured_input, structured_output) = match structured_io_server
+        {
+            Some((server, connections)) => (Some(server), connections.input, connections.output),
+            None => (None, None, None),
+        };
+
         // If we need to copy data into the child process, do it now.
         let mut stdin_failure = None;
         if let Some(data) = data_to_copy_into_stdin {
-            let mut stdin = child.as_mut().stdin.take().expect("stdin is piped");
+            // A `nu` with structured input reads it from its socket instead.
+            let mut destination = match structured_input {
+                Some(input) => Either::Left(input),
+                None => Either::Right(child.as_mut().stdin.take().expect("stdin is piped")),
+            };
             let engine_state = engine_state.clone();
             let stack = stack.clone();
             let failure = Arc::new(OnceLock::new());
@@ -353,7 +394,13 @@ If you create a custom command with this name, that will be used instead."
                 .name("external stdin worker".into())
                 .spawn(move || {
                     // Write through a reference, so that stdin stays open until the failure is set.
-                    if let Err(err) = write_pipeline_data(engine_state, stack, data, &mut stdin)
+                    let written = match &mut destination {
+                        Either::Left(input) => send_structured_input(&engine_state, data, input),
+                        Either::Right(stdin) => {
+                            write_pipeline_data(engine_state, stack, data, stdin)
+                        }
+                    };
+                    if let Err(err) = written
                         && !is_expected_stdin_error(&err)
                     {
                         let _ = failure.set(err);
@@ -371,28 +418,46 @@ If you create a custom command with this name, that will be used instead."
 
         let child_pid = child.pid();
 
+        let mut post_wait = PostWaitCallback::for_job_control(
+            engine_state,
+            Some(child_pid),
+            executable
+                .as_path()
+                .file_name()
+                .and_then(|it| it.to_str())
+                .map(|it| it.to_string()),
+        );
+        // Once a structured `nu` exits, it can't connect anymore, so stop waiting for it.
+        if let Some(server) = &structured_io_server {
+            let wake = server.waker();
+            post_wait = PostWaitCallback::new(move |status| {
+                (post_wait.0)(status);
+                wake();
+            });
+        }
+
         // Wrap the output into a `PipelineData::byte_stream`.
         let child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
-            Some(PostWaitCallback::for_job_control(
-                engine_state,
-                Some(child_pid),
-                executable
-                    .as_path()
-                    .file_name()
-                    .and_then(|it| it.to_str())
-                    .map(|it| it.to_string()),
-            )),
+            Some(post_wait),
         )?
         .with_stdin_failure(stdin_failure);
 
-        Ok(PipelineData::byte_stream(
-            ByteStream::child(child, call.head),
-            None,
-        ))
+        if let Some(server) = structured_io_server {
+            server.start(call.head)?;
+        }
+        match structured_output {
+            Some(output) => {
+                read_structured_output(child, output, engine_state.signals(), call.head)
+            }
+            None => Ok(PipelineData::byte_stream(
+                ByteStream::child(child, call.head),
+                None,
+            )),
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -603,17 +668,9 @@ fn is_expected_stdin_error(err: &ShellError) -> bool {
 /// the interpreter to blame. Otherwise a file it needs, such as a shared library or its program
 /// loader, is missing.
 fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Error) -> String {
-    let shebang_interpreter = || {
-        let mut first_line = Vec::new();
-        BufReader::new(File::open(executable).ok()?.take(256))
-            .read_until(b'\n', &mut first_line)
-            .ok()?;
-        let first_line = String::from_utf8_lossy(&first_line).into_owned();
-        let interpreter = first_line.strip_prefix("#!")?.split_whitespace().next()?;
-        Some(interpreter.to_owned())
-    };
+    let shebang_interpreter = shebang_words(executable).and_then(|words| words.into_iter().next());
 
-    match shebang_interpreter() {
+    match shebang_interpreter {
         Some(interpreter) if !cwd.as_std_path().join(&interpreter).exists() => format!(
             "`{}` starts with `#!{interpreter}`, but `{interpreter}` was not found ({err})",
             executable.display()
@@ -623,6 +680,23 @@ fn start_failure_help(executable: &Path, cwd: &AbsolutePath, err: &std::io::Erro
             executable.display()
         ),
     }
+}
+
+/// The words of `path`'s shebang line (`#!/usr/bin/env nu` gives `/usr/bin/env` and `nu`), or
+/// `None` when it has none or can't be read. Reads at most 256 bytes, so a binary costs one small
+/// read.
+pub(crate) fn shebang_words(path: &Path) -> Option<Vec<String>> {
+    let mut first_line = Vec::new();
+    BufReader::new(File::open(path).ok()?.take(256))
+        .read_until(b'\n', &mut first_line)
+        .ok()?;
+    let rest = first_line.strip_prefix(b"#!")?;
+    Some(
+        String::from_utf8_lossy(rest)
+            .split_whitespace()
+            .map(str::to_owned)
+            .collect(),
+    )
 }
 
 /// Returns a helpful error message given an invalid command name.

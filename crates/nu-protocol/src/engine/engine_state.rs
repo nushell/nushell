@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
-    Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
-    TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
+    Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId,
+    StructuredIoLink, Type, TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
     ast::{Block, Expr, Traverse},
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -235,6 +235,11 @@ pub struct EngineState {
     /// `is_lsp`/`is_mcp`, this means stdout is a protocol stream, so anything
     /// that would print to it must go to stderr instead.
     pub is_dap: bool,
+    /// Set when the `nu` that started this one reads its result as a value (see
+    /// [`STRUCTURED_IO_ENV`](crate::STRUCTURED_IO_ENV)). The `nu` binary sets it once the startup
+    /// files have run, so only the result of the commands or the script goes there, and the
+    /// first result sent takes it.
+    pub structured_io_output: Option<StructuredIoLink>,
     /// When startup began: the top of `main` for the `nu` binary, otherwise when this engine
     /// was created. See [`EngineState::startup_time`].
     startup_start: Instant,
@@ -359,6 +364,7 @@ impl EngineState {
             is_lsp: false,
             is_mcp: false,
             is_dap: false,
+            structured_io_output: None,
             startup_start: Instant::now(),
             startup_time: None,
             is_debugging: IsDebugging::new(false),

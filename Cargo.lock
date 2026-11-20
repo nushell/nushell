@@ -4977,6 +4977,7 @@ dependencies = [
  "indexmap 2.14.1",
  "indicatif",
  "indoc",
+ "interprocess",
  "itertools 0.15.0",
  "jiff 1.0.0",
  "kdl 6.7.1",
@@ -5343,7 +5344,6 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "windows 0.62.2",
 ]
 
 [[package]]
@@ -5593,6 +5593,7 @@ dependencies = [
  "crossterm_winapi",
  "derive_more 2.1.1",
  "fancy-regex",
+ "interprocess",
  "lean_string",
  "log",
  "lscolors",
@@ -5606,6 +5607,7 @@ dependencies = [
  "sys-locale",
  "unicase",
  "web-time",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

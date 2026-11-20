@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, env_to_strings};
-use nu_protocol::{ShellError, shell_error::generic::GenericError};
+use nu_protocol::{STRUCTURED_IO_ENV, ShellError, shell_error::generic::GenericError};
 use std::{
     ffi::{OsStr, OsString},
     path::PathBuf,
@@ -150,8 +150,11 @@ fn try_commands(
     let mut last_err = None;
 
     for mut cmd in commands {
+        // The opener keeps this process's environment, which can hold the link to the `nu` that
+        // started this one with `--structured-io`. A `nu` it starts mustn't use that link.
         let status = cmd
             .envs(&env_vars_str)
+            .env_remove(STRUCTURED_IO_ENV)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
