@@ -170,7 +170,7 @@ def build-module-page [module: record] {
         ""
     ]
 
-    let submodules = if ($module.submodules? | is-not-empty) {[
+    let submodules = (if ($module.submodules? | is-not-empty) {[
         (build-help-header "Submodules")
         $"(
             $module.submodules
@@ -180,7 +180,8 @@ def build-module-page [module: record] {
             | str join (char newline)
 
         )"
-    ]}
+        ""
+    ]} else { [] })
 
     let commands = (if ($module.commands? | is-not-empty) {[
         (build-help-header "Exported commands")
@@ -304,6 +305,7 @@ def build-alias-page [alias: record] {
     let rest = [
         (build-help-header "Alias")
         $"  ($alias.name)"
+        ""
         (build-help-header "Expansion")
         $"  ($alias.expansion)"
     ]
@@ -437,10 +439,13 @@ def build-operator-page [operator: record] {
     [
         (build-help-header "Description")
         $"    ($operator.description)"
+        ""
         (build-help-header "Operator")
         $"    ($operator.name) (char lparen)(colorize $operator.operator yellow shape_operator)(char rparen)"
+        ""
         (build-help-header "Type")
         $"    ($operator.type)"
+        ""
         (build-help-header "Precedence")
         $"    ($operator.precedence)"
     ] | str join "\n"
@@ -554,20 +559,21 @@ def get-command-extensions [command: string] {
 def build-command-page [command: record] {
     let description = (if ($command.description? | is-not-empty) {[
         ($command.description | highlight-description)
+        ""
     ]} else { [] })
     let extra_description = (if ($command.extra_description? | is-not-empty) {[
-        ""
         ($command.extra_description | highlight-description)
+        ""
     ]} else { [] })
 
     let search_terms = (if ($command.search_terms? | is-not-empty) {[
-        ""
         $"(build-help-header 'Search terms') (colorize $command.search_terms cyan shape_external)"
+        ""
     ]} else { [] })
 
     let category = (if ($command.category? | is-not-empty) {[
-        ""
         $"(build-help-header 'Category') ($command.category)"
+        ""
     ]} else { [] })
 
     let signatures = ($command.signatures | transpose | get column1)
@@ -579,7 +585,6 @@ def build-command-page [command: record] {
         let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
 
         [
-            ""
             (build-help-header "Usage")
             ([
                 $"  > ($command.name) "
@@ -598,6 +603,7 @@ def build-command-page [command: record] {
         ($subcommands | each {|subcommand |
             $"  (colorize $subcommand.name cyan shape_external) - ($subcommand.description)"
         } | str join "\n")
+        ""
     ]} else { [] })
 
     let rest = (if ($signatures | is-not-empty) {
@@ -623,7 +629,6 @@ def build-command-page [command: record] {
             #     $"  -(ansi teal)h(ansi reset), --(ansi teal)help(ansi reset) - Display the help message for this command"
             # })]
         ([
-            ""
             (build-help-header "Flags")
             ($flags | each {|flag|
                 [
@@ -645,9 +650,9 @@ def build-command-page [command: record] {
                     }),
                 ] | str join ""
             } | str join "\n")
-
-
             ""
+
+
             (build-help-header "Signatures")
             ($signatures | each {|signature|
                 let input = ($signature | where parameter_type == input | get 0)
@@ -661,30 +666,32 @@ def build-command-page [command: record] {
                     $" -> <(colorize $output.syntax_shape blue_bold shape_block)>"
                 ] | str join "")
             } | str join "\n")
+            ""
 
             (if (not ($positionals | is-empty)) or $is_rest {[
-                ""
                 (build-help-header "Parameters")
-                ($positionals | each {|positional|
-                    ([
-                        "  ",
-                        (colorize $positional.parameter_name cyan shape_external),
-                        (if ($positional.syntax_shape | is-empty) { "" } else {
-                            $": <(colorize $positional.syntax_shape blue_bold shape_block)>"
-                        }),
-                        (if ($positional.description | is-empty) { "" } else {
-                            $" ($positional.description)"
-                        }),
-                        (if ($positional.parameter_default | is-empty) { "" } else {
-                            $" \(optional, default: ($positional.parameter_default)\)"
-                        })
-                    ] | str join "")
-                } | str join "\n")
-
-                (if $is_rest {
+                ...(if ($positionals | is-not-empty) {
+                    [($positionals | each {|positional|
+                        ([
+                            "  ",
+                            (colorize $positional.parameter_name cyan shape_external),
+                            (if ($positional.syntax_shape | is-empty) { "" } else {
+                                $": <(colorize $positional.syntax_shape blue_bold shape_block)>"
+                            }),
+                            (if ($positional.description | is-empty) { "" } else {
+                                $" ($positional.description)"
+                            }),
+                            (if ($positional.parameter_default | is-empty) { "" } else {
+                                $" \(optional, default: ($positional.parameter_default)\)"
+                            })
+                        ] | str join "")
+                    } | str join "\n")]
+                } else { [] })
+                ...(if $is_rest {
                     let rest = ($parameters | where parameter_type == rest | get 0)
-                    $"  ...(colorize 'rest' cyan shape_external): <(colorize $rest.syntax_shape blue_bold shape_block)> ($rest.description)"
-                })
+                    [$"  ...(colorize 'rest' cyan shape_external): <(colorize $rest.syntax_shape blue_bold shape_block)> ($rest.description)"]
+                } else { [] })
+                ""
             ]} else { [] })
         ] | flatten)
     } else { [] })
@@ -695,14 +702,12 @@ def build-command-page [command: record] {
       get-command-extensions $command.name
       | if ($in | is-not-empty) {
         prepend [
-          ""
           (build-help-header "Extensions")
-        ]
+        ] | append ""
       } else {}
     )
 
     let examples = (if ($command.examples | is-not-empty) {[
-        ""
         (build-help-header "Examples")
         ($command.examples | each {|example| [
             $"  ($example.description)"
@@ -721,6 +726,7 @@ def build-command-page [command: record] {
                 | str join "\n"
             })]
         ] | str join "\n"})
+        ""
     ] | flatten} else { [] })
 
     [
@@ -733,7 +739,7 @@ def build-command-page [command: record] {
         $rest
         $extensions
         $examples
-    ] | flatten | str join "\n"
+    ] | flatten | str join "\n" | str trim --right
 }
 
 def scope-commands [
