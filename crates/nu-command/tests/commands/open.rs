@@ -518,6 +518,75 @@ fn open_files_inside_glob_metachars_dir(playground: Playground) -> Result {
         .expect_value_eq("hello")
 }
 
+#[cfg(unix)]
+fn assert_open_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
+    playground.file("work[1]/marker.txt", "inside")?;
+    playground.file("outer.txt", "outside")?;
+    playground.symlink("work[1]", "work[1]/a/up")?;
+    let mut tester = test().cwd(playground.path());
+
+    tester
+        .run("open --raw 'work[1]/a/up/marker.txt'")
+        .expect_value_eq("inside")?;
+    tester
+        .run("open --raw 'work[1]/a/up/../outer.txt'")
+        .expect_value_eq("outside")
+}
+
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn open_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
+    assert_open_quoted_symlink_in_bracket_path(playground)
+}
+
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn open_dc_glob_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
+    assert_open_quoted_symlink_in_bracket_path(playground)
+}
+
+#[cfg(unix)]
+fn assert_open_quoted_path_reports_permission_denied(playground: Playground) -> Result {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    if nix::unistd::Uid::effective().is_root() {
+        return Ok(());
+    }
+
+    playground.file("private/[1]", "contents")?;
+    let directory = playground.path().join("private");
+    let permissions = fs::metadata(&directory)?.permissions();
+    fs::set_permissions(&directory, fs::Permissions::from_mode(0o000))?;
+    let result = test()
+        .cwd(playground.path())
+        .run("open --raw 'private/[1]'")
+        .expect_io_error();
+    fs::set_permissions(&directory, permissions)?;
+
+    pretty_assertions::assert_matches!(
+        result?.kind,
+        shell_error::io::ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+    );
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn open_quoted_path_reports_permission_denied(playground: Playground) -> Result {
+    assert_open_quoted_path_reports_permission_denied(playground)
+}
+
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn open_dc_glob_quoted_path_reports_permission_denied(playground: Playground) -> Result {
+    assert_open_quoted_path_reports_permission_denied(playground)
+}
+
 #[rstest]
 #[case::csv("random_numbers.csv", "text/csv")]
 #[case::tsv("caco3_plastics.tsv", "text/tab-separated-values")]

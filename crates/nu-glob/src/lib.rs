@@ -64,6 +64,7 @@
 )]
 #![deny(missing_docs)]
 
+mod ancestors;
 pub mod dc_glob;
 
 #[cfg(test)]
@@ -81,6 +82,8 @@ use std::fs;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
 use std::str::FromStr;
+
+use ancestors::Ancestors;
 
 use CharSpecifier::{CharRange, SingleChar};
 use MatchResult::{EntirePatternDoesntMatch, Match, SubPatternDoesntMatch};
@@ -124,9 +127,16 @@ pub struct Paths<I = Uninterruptible> {
     dir_patterns: Vec<Pattern>,
     require_dir: bool,
     options: MatchOptions,
-    todo: Vec<Result<(PathBuf, usize), GlobError>>,
+    todo: Vec<Result<PendingPath, GlobError>>,
     scope: Option<PathBuf>,
     interrupt: I,
+}
+
+#[derive(Debug)]
+struct PendingPath {
+    path: PathBuf,
+    idx: usize,
+    ancestors: Ancestors,
 }
 
 impl Paths<Uninterruptible> {
@@ -136,7 +146,11 @@ impl Paths<Uninterruptible> {
             dir_patterns: vec![Pattern::new("*").expect("hard coded pattern")],
             require_dir: false,
             options: MatchOptions::default(),
-            todo: vec![Ok((path.to_path_buf(), 0))],
+            todo: vec![Ok(PendingPath {
+                path: path.to_path_buf(),
+                idx: 0,
+                ancestors: Ancestors::default(),
+            })],
             scope: Some(relative_to.into()),
             interrupt: Uninterruptible,
         }
@@ -480,6 +494,7 @@ impl<I: Interruptible> Iterator for Paths<I> {
                     &scope,
                     self.options,
                     &self.interrupt,
+                    &Ancestors::default(),
                 );
             }
         }
@@ -489,7 +504,11 @@ impl<I: Interruptible> Iterator for Paths<I> {
                 return None;
             }
 
-            let (path, mut idx) = match self
+            let PendingPath {
+                path,
+                mut idx,
+                ancestors,
+            } = match self
                 .todo
                 .pop()
                 .expect("internal error: already checked for non-empty")
@@ -537,6 +556,7 @@ impl<I: Interruptible> Iterator for Paths<I> {
                         &path,
                         self.options,
                         &self.interrupt,
+                        &ancestors,
                     );
 
                     if next == self.dir_patterns.len() - 1 {
@@ -589,6 +609,7 @@ impl<I: Interruptible> Iterator for Paths<I> {
                         &path,
                         self.options,
                         &self.interrupt,
+                        &ancestors,
                     );
                 }
             }
@@ -973,12 +994,13 @@ impl Pattern {
 // special-casing patterns to match `.` and `..`, and avoiding `readdir()`
 // calls when there are no metacharacters in the pattern.
 fn fill_todo(
-    todo: &mut Vec<Result<(PathBuf, usize), GlobError>>,
+    todo: &mut Vec<Result<PendingPath, GlobError>>,
     patterns: &[Pattern],
     idx: usize,
     path: &Path,
     options: MatchOptions,
     interrupt: &impl Interruptible,
+    ancestors: &Ancestors,
 ) {
     // convert a pattern that's just many Char(_) to a string
     fn pattern_as_str(pattern: &Pattern) -> Option<String> {
@@ -993,21 +1015,56 @@ fn fill_todo(
         Some(s)
     }
 
-    let add = |todo: &mut Vec<_>, next_path: PathBuf| {
+    let pattern = &patterns[idx];
+    let literal = pattern_as_str(pattern);
+    let metadata = fs::metadata(path).ok().filter(fs::Metadata::is_dir);
+    let is_dir = metadata.is_some();
+    let curdir = path == Path::new(".");
+    // Start tracking where wildcard discovery starts, so an explicitly named
+    // directory or symlink prefix can still serve as the root of the walk.
+    let branch = if let Some(metadata) = metadata.as_ref()
+        && (literal.is_none() || !ancestors.is_empty())
+    {
+        let Some(branch) = ancestors.enter(path, metadata) else {
+            return;
+        };
+        branch
+    } else {
+        ancestors.clone()
+    };
+
+    let add = |todo: &mut Vec<_>, next_path: PathBuf, component: Option<&str>| {
         if idx + 1 == patterns.len() {
             // We know it's good, so don't make the iterator match this path
             // against the pattern again. In particular, it can't match
             // . or .. globs since these never show up as path components.
-            todo.push(Ok((next_path, !0)));
+            todo.push(Ok(PendingPath {
+                path: next_path,
+                idx: !0,
+                ancestors: Ancestors::default(),
+            }));
         } else {
-            fill_todo(todo, patterns, idx + 1, &next_path, options, interrupt);
+            let branch = match component {
+                // `.` opens the same directory again, so keep its parents and
+                // let the next call add the directory back to the branch.
+                Some(".") => ancestors,
+                // An explicit parent component starts discovery from that parent.
+                Some("..") => &Ancestors::default(),
+                _ => &branch,
+            };
+            fill_todo(
+                todo,
+                patterns,
+                idx + 1,
+                &next_path,
+                options,
+                interrupt,
+                branch,
+            );
         }
     };
 
-    let pattern = &patterns[idx];
-    let is_dir = is_dir(path);
-    let curdir = path == Path::new(".");
-    match pattern_as_str(pattern) {
+    match literal {
         Some(s) => {
             // This pattern component doesn't have any metacharacters, so we
             // don't need to read the current directory to know where to
@@ -1016,7 +1073,7 @@ fn fill_todo(
             // right away.
             let special = "." == s || ".." == s;
             let next_path = if curdir {
-                PathBuf::from(s)
+                PathBuf::from(&s)
             } else {
                 path.join(&s)
             };
@@ -1025,7 +1082,7 @@ fn fill_todo(
                     && (fs::metadata(&next_path).is_ok()
                         || fs::symlink_metadata(&next_path).is_ok()))
             {
-                add(todo, next_path);
+                add(todo, next_path, special.then_some(s.as_str()));
             }
         }
         None if is_dir => {
@@ -1061,7 +1118,13 @@ fn fill_todo(
                     //     });
                     // }
                     children.sort_by(|p1, p2| p2.file_name().cmp(&p1.file_name()));
-                    todo.extend(children.into_iter().map(|x| Ok((x, idx))));
+                    todo.extend(children.into_iter().map(|path| {
+                        Ok(PendingPath {
+                            path,
+                            idx,
+                            ancestors: branch.clone(),
+                        })
+                    }));
 
                     // Matching the special directory entries . and .. that
                     // refer to the current and parent directory respectively
@@ -1071,7 +1134,7 @@ fn fill_todo(
                     if !pattern.tokens.is_empty() && pattern.tokens[0] == Char('.') {
                         for &special in &[".", ".."] {
                             if pattern.matches_with(special, options) {
-                                add(todo, path.join(special));
+                                add(todo, path.join(special), Some(special));
                             }
                         }
                     }

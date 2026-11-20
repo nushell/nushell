@@ -2,6 +2,7 @@ use super::DcPattern;
 use super::compiler::{Instruction, Program};
 use super::matcher::{MatchResult, is_hidden, path_matches};
 use crate::MatchOptions;
+use crate::ancestors::Ancestors;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -106,6 +107,7 @@ pub fn glob_with_options(
             exclude_patterns: &exclude_patterns,
             has_excludes: !exclude_patterns.is_empty(),
             needs_parent_probe,
+            literal_prefix_depth: left_to_matcher,
             program: &program,
             fast_path: fast_path.as_ref(),
         };
@@ -115,7 +117,7 @@ pub fn glob_with_options(
         if literal_pattern {
             maybe_emit_start(&current_dir, &state);
         } else {
-            glob_to(&current_dir, 0, state)
+            glob_to(&current_dir, 0, state, &Ancestors::default())
         }
     });
     rx.into_iter()
@@ -332,7 +334,19 @@ fn component_is_purely_literal(instructions: &[Instruction], start: usize) -> bo
     true
 }
 
-fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
+fn glob_to(target: &Path, depth: usize, state: WalkState<'_>, ancestors: &Ancestors) {
+    let branch = if state.options.follow_symlinks
+        && depth >= state.literal_prefix_depth
+        && let Ok(metadata) = fs::metadata(target)
+    {
+        let Some(branch) = ancestors.enter(target, &metadata) else {
+            return;
+        };
+        branch
+    } else {
+        ancestors.clone()
+    };
+
     match fs::read_dir(target) {
         Ok(results) => rayon::scope(|scope| -> Result<(), SendError<_>> {
             // Parent-path probing is only needed for patterns containing `..`.
@@ -342,7 +356,7 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
                 }
                 let parent_path = target.join("..");
 
-                handle_path_candidate(&parent_path, None, depth, true, state, scope)?;
+                handle_path_candidate(&parent_path, None, depth, true, state, &branch, scope)?;
             }
 
             // All of the real results from the directory listing, streamed in the order the
@@ -369,6 +383,7 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
                             depth,
                             false,
                             state,
+                            &branch,
                             scope,
                         )?;
                     }
@@ -410,6 +425,9 @@ struct WalkState<'a> {
     exclude_patterns: &'a [DcPattern],
     has_excludes: bool,
     needs_parent_probe: bool,
+    // Case-insensitive literal components are discovered by the matcher. Each
+    // matching directory at this depth is the root of its own wildcard walk.
+    literal_prefix_depth: usize,
     program: &'a Program,
     fast_path: Option<&'a RecursiveFastPath>,
 }
@@ -509,6 +527,7 @@ fn handle_path_candidate<'a>(
     depth: usize,
     is_parent: bool,
     state: WalkState<'a>,
+    ancestors: &Ancestors,
     scope: &rayon::Scope<'a>,
 ) -> Result<(), SendError<anyhow::Result<PathBuf>>> {
     let output_relative_to = state.output_relative_to;
@@ -591,9 +610,10 @@ fn handle_path_candidate<'a>(
     {
         let recurse_path = path.to_owned();
         if candidate_depth <= PARALLEL_DEPTH_CUTOFF {
-            scope.spawn(move |_| glob_to(&recurse_path, candidate_depth, state));
+            let ancestors = ancestors.clone();
+            scope.spawn(move |_| glob_to(&recurse_path, candidate_depth, state, &ancestors));
         } else {
-            glob_to(&recurse_path, candidate_depth, state);
+            glob_to(&recurse_path, candidate_depth, state, ancestors);
         }
     }
 

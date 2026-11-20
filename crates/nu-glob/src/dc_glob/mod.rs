@@ -353,6 +353,147 @@ mod tests {
         Ok(out)
     }
 
+    #[cfg(unix)]
+    fn assert_walk_paths(root: &Path, pattern: &str, expected: &[&str]) {
+        let options = crate::MatchOptions::default();
+        let limit = expected.len() + 1;
+        let legacy = crate::glob_with_parent(pattern, options, root, crate::Uninterruptible)
+            .expect("legacy glob should compile");
+        let legacy = collect_ok_paths(
+            legacy
+                .take(limit)
+                .map(|path| Ok(path?.strip_prefix(root)?.to_owned())),
+        )
+        .expect("legacy glob should walk");
+        assert_eq!(legacy, expected, "legacy glob: {pattern}");
+
+        let dc = glob_with(root, pattern, &GlobWalkOptions::nu_glob(options))
+            .expect("dc-glob should compile");
+        let dc = collect_ok_paths(dc.take(limit)).expect("dc-glob should walk");
+        assert_eq!(dc, expected, "dc-glob: {pattern}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wildcard_walk_prunes_ancestor_cycles() {
+        let root = unique_test_dir("ancestor_cycle");
+        write_file(&root.join("a/marker.txt"));
+        write_file(&root.join("z/marker.txt"));
+        let branch = root.join("p/1");
+        fs::create_dir_all(&branch).expect("create loop parent");
+
+        for link in ["up", "again"] {
+            std::os::unix::fs::symlink("../..", branch.join(link)).expect("create ancestor link");
+            assert_walk_paths(&root, "**/*.txt", &["a/marker.txt", "z/marker.txt"]);
+        }
+        assert_walk_paths(
+            &root,
+            "**/*",
+            &[
+                "a",
+                "a/marker.txt",
+                "p",
+                "p/1",
+                "p/1/again",
+                "p/1/up",
+                "z",
+                "z/marker.txt",
+            ],
+        );
+        assert_walk_paths(&root, "*/*/*/*/*.txt", &[]);
+        assert_walk_paths(
+            &root,
+            "p/1/up/**/*.txt",
+            &["p/1/up/a/marker.txt", "p/1/up/z/marker.txt"],
+        );
+        assert_walk_paths(&root, "a/../a/*.txt", &["a/../a/marker.txt"]);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wildcard_walk_prunes_ancestor_reentered_via_ordinary_directory() {
+        let parent = unique_test_dir("ancestor_reentry");
+        let root = parent.join("tree");
+        write_file(&root.join("own.txt"));
+        write_file(&parent.join("other.txt"));
+        std::os::unix::fs::symlink("..", root.join("up")).expect("create parent link");
+
+        assert_walk_paths(&root, "**/*.txt", &["own.txt", "up/other.txt"]);
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn legacy_walk_preserves_ancestors_through_dot_components() {
+        let parent = unique_test_dir("dot_ancestor_cycle");
+        let root = parent.join("tree");
+        write_file(&root.join("marker.txt"));
+        write_file(&root.join("a/inner.txt"));
+        std::os::unix::fs::symlink("..", root.join("a/up")).expect("create parent link");
+
+        for pattern in ["a*/./**/*.txt", "a*/.*/**/*.txt"] {
+            let paths = crate::glob_with_parent(
+                pattern,
+                crate::MatchOptions::default(),
+                &root,
+                crate::Uninterruptible,
+            )
+            .expect("legacy glob should compile");
+            let paths = collect_ok_paths(paths.take(12).map(|path| Ok(path?)))
+                .expect("legacy glob should walk");
+            let from_dot = root.join("a/./inner.txt").to_string_lossy().into_owned();
+            let via_parent = root.join("a/../marker.txt").to_string_lossy().into_owned();
+            assert!(paths.contains(&from_dot), "{pattern}: {paths:?}");
+            assert!(
+                !paths.iter().any(|path| path.contains("/a/./up/")),
+                "{pattern}: {paths:?}",
+            );
+            if pattern.contains(".*") {
+                assert!(paths.contains(&via_parent), "{pattern}: {paths:?}");
+            }
+        }
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wildcard_walk_preserves_ordinary_paths_aliases_and_broken_links() {
+        let root = unique_test_dir("symlink_aliases");
+        write_file(&root.join("target/marker.txt"));
+        for alias in ["alias-a", "alias-b"] {
+            std::os::unix::fs::symlink("target", root.join(alias)).expect("create alias");
+        }
+        std::os::unix::fs::symlink("missing", root.join("broken")).expect("create dangling link");
+
+        assert_walk_paths(
+            &root,
+            "**/*",
+            &[
+                "alias-a",
+                "alias-a/marker.txt",
+                "alias-b",
+                "alias-b/marker.txt",
+                "broken",
+                "target",
+                "target/marker.txt",
+            ],
+        );
+        let dc =
+            glob_with(&root, "**/*", &GlobWalkOptions::default()).expect("dc-glob should compile");
+        assert_eq!(
+            collect_ok_paths(dc).expect("dc-glob should walk without following"),
+            [
+                "alias-a",
+                "alias-b",
+                "broken",
+                "target",
+                "target/marker.txt"
+            ],
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
     #[test]
     fn negated_character_classes_exclude_members() {
         for (pattern, path, expected) in [

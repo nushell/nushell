@@ -5187,6 +5187,7 @@ dependencies = [
  "log",
  "nu-experimental",
  "rayon",
+ "same-file",
 ]
 
 [[package]]

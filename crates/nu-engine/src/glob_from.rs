@@ -37,7 +37,6 @@ pub fn glob_from(
     let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
     let pattern_span = pattern.span;
     let skip_hidden = options.is_some_and(|options| options.require_literal_leading_dot);
-    let mut hidden_name_filter = None;
     let (prefix, pattern) = if nu_glob::is_glob_with_backend(pattern.item.as_ref()) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();
@@ -63,41 +62,38 @@ pub fn glob_from(
                 just_pattern.push(comp);
             }
         }
+        // Keep the concrete prefix out of the pattern. Escaping a directory name
+        // could turn it into a wildcard component and start traversal too high.
+        let prefix = expand_path_with(p, cwd, pattern.item.is_expand());
         if no_glob_for_pattern {
-            just_pattern = PathBuf::from(nu_glob::escape_with_backend(
-                &just_pattern.to_string_lossy(),
-            ));
+            signals.check(&span)?;
+            // Look up the quoted suffix literally. Leave any `..` in it for the
+            // filesystem to resolve after following symlinks.
+            let path = prefix.join(just_pattern);
+            let matched = match fs::symlink_metadata(&path) {
+                Ok(_) => Some(Ok(path)),
+                Err(err)
+                    if matches!(
+                        err.kind(),
+                        io::ErrorKind::NotFound | io::ErrorKind::NotADirectory
+                    ) =>
+                {
+                    None
+                }
+                Err(err) => Some(Err(IoError::new(err, pattern_span, path).into())),
+            };
+            return Ok((Some(prefix), Box::new(matched.into_iter())));
         }
 
-        // Now expand `p` to get full prefix
-        let path = expand_path_with(p, cwd, pattern.item.is_expand());
-        let escaped_prefix = PathBuf::from(nu_glob::escape_with_backend(&path.to_string_lossy()));
-
-        if skip_hidden && !no_glob_for_pattern {
-            hidden_name_filter = Some(HiddenNameFilter::new(path.clone(), &just_pattern));
-        }
-
-        (Some(path), escaped_prefix.join(just_pattern))
+        (prefix, just_pattern)
     } else {
         let path = PathBuf::from(&pattern.item.as_ref());
         let path = expand_path_with(path, cwd, pattern.item.is_expand());
-        let is_symlink = match fs::symlink_metadata(&path) {
-            Ok(attr) => attr.file_type().is_symlink(),
-            Err(_) => false,
-        };
-
-        if is_symlink {
-            // Escaped for the same reason as an existing path below.
-            let pattern = PathBuf::from(nu_glob::escape_with_backend(&path.to_string_lossy()));
-            (path.parent().map(|parent| parent.to_path_buf()), pattern)
+        let path = if fs::symlink_metadata(&path).is_ok_and(|attr| attr.is_symlink()) {
+            path
         } else {
-            let path = match absolute_with(path.clone(), cwd) {
-                // Our path might contain glob metacharacters too, or braces that dc-glob would
-                // read as alternatives, so escape it to make glob match it literally. Escaping
-                // leaves a path without them unchanged.
-                Ok(p) if p.exists() => {
-                    PathBuf::from(nu_glob::escape_with_backend(&p.to_string_lossy()))
-                }
+            match absolute_with(&path, cwd) {
+                Ok(p) if p.exists() => p,
                 Ok(_) => {
                     return Err(IoError::new(
                         io::Error::from(io::ErrorKind::NotFound),
@@ -109,46 +105,38 @@ pub fn glob_from(
                 Err(err) => {
                     return Err(IoError::new(err, pattern_span, path).into());
                 }
-            };
-            (path.parent().map(|parent| parent.to_path_buf()), path)
-        }
+            }
+        };
+        signals.check(&span)?;
+        let prefix = path.parent().map(Path::to_path_buf);
+        return Ok((prefix, Box::new(std::iter::once(Ok(path)))));
     };
 
-    let pattern = pattern.to_string_lossy().to_string();
+    let hidden_name_filter = skip_hidden.then(|| HiddenNameFilter::new(prefix.clone(), &pattern));
+    let pattern = pattern.to_string_lossy();
 
     if nu_experimental::DC_GLOB.get() {
-        // The dc-glob traversal handles literal paths itself: a pattern that
-        // names an existing path matches that path, and a pattern that still
-        // contains glob metacharacters keeps going through the walker even
-        // when a same-named path exists (e.g. a file named `*` must not make
-        // bare `*` / `ls` return only that one entry). See #18631.
-        //
         // The caller's match options carry over, so hidden names are skipped the same way the
         // legacy backend skips them (`rm *` must not reach dotfiles).
         let walk_options = nu_glob::dc_glob::GlobWalkOptions {
             interrupt: signals.interrupt_flag(),
             ..nu_glob::dc_glob::GlobWalkOptions::nu_glob(options.unwrap_or_default())
         };
-        let iter = nu_glob::dc_glob::glob_with(cwd, &pattern, &walk_options).map_err(|e| {
-            ShellError::Generic(GenericError::new(
-                "Error extracting glob pattern",
-                e.to_string(),
-                span,
-            ))
-        })?;
+        let iter =
+            nu_glob::dc_glob::glob_with(&prefix, pattern.as_ref(), &walk_options).map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error extracting glob pattern",
+                    e.to_string(),
+                    span,
+                ))
+            })?;
 
         // dc-glob returns paths relative to the traversal start directory.
         // Join them with `prefix` to produce absolute paths, matching the
         // legacy backend's behaviour.
         let prefix_for_map = prefix.clone();
         let mapped = iter.map(move |x| match x {
-            Ok(v) => {
-                let v = match &prefix_for_map {
-                    Some(p) if v.is_relative() => p.join(&v),
-                    _ => v,
-                };
-                Ok(v)
-            }
+            Ok(v) => Ok(prefix_for_map.join(v)),
             Err(e) => Err(ShellError::Generic(GenericError::new(
                 "Error extracting glob pattern",
                 e.to_string(),
@@ -156,16 +144,17 @@ pub fn glob_from(
             ))),
         });
 
-        Ok((prefix, keep_allowed(mapped, hidden_name_filter)))
+        Ok((Some(prefix), keep_allowed(mapped, hidden_name_filter)))
     } else {
         let glob_options = options.unwrap_or_default();
-        let glob = nu_glob::glob_with(&pattern, glob_options, signals).map_err(|e| {
-            ShellError::Generic(GenericError::new(
-                "Error extracting glob pattern",
-                e.to_string(),
-                span,
-            ))
-        })?;
+        let glob =
+            nu_glob::glob_with_parent(&pattern, glob_options, &prefix, signals).map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error extracting glob pattern",
+                    e.to_string(),
+                    span,
+                ))
+            })?;
 
         let mapped = glob.map(move |x| match x {
             Ok(v) => Ok(v),
@@ -176,7 +165,7 @@ pub fn glob_from(
             ))),
         });
 
-        Ok((prefix, keep_allowed(mapped, hidden_name_filter)))
+        Ok((Some(prefix), keep_allowed(mapped, hidden_name_filter)))
     }
 }
 

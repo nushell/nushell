@@ -465,6 +465,44 @@ fn glob_dc_glob_supports_follow_symlinks(playground: Playground) -> Result {
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_follows_aliases_without_descending_into_cycles(playground: Playground) -> Result {
+    playground.empty_file("target/marker.txt")?;
+    playground.symlink("target", "alias")?;
+    playground.symlink(".", "target/up")?;
+
+    test()
+        .cwd(playground.path())
+        .run("glob '**/*.txt' | length")
+        .expect_value_eq(1)?;
+
+    test()
+        .cwd(playground.path())
+        .run("glob '**/*.txt' --follow-symlinks | first 3 | each { path relative-to (pwd) } | sort")
+        .expect_value_eq(["alias/marker.txt", "target/marker.txt"])
+}
+
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_ignore_case_resolves_symlink_prefix_before_tracking_cycles(
+    playground: Playground,
+) -> Result {
+    playground.empty_file("marker.txt")?;
+    playground.empty_file("nested/other.txt")?;
+    playground.symlink(".", "alias")?;
+    let mut tester = test().cwd(playground.path());
+
+    tester
+        .run("glob -i -d 1 'ALIAS/*.txt' --follow-symlinks | path basename")
+        .expect_value_eq(["marker.txt"])?;
+    tester
+        .run("glob -i 'ALIAS/**' --follow-symlinks | first 3 | each { path relative-to (pwd) } | sort")
+        .expect_value_eq(["alias/alias", "alias/nested"])
+}
+
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_debug_subcommands_enabled(playground: Playground) -> Result {
