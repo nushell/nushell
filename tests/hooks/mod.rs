@@ -485,12 +485,6 @@ fn command_not_found_hook_list_output_becomes_help(#[case] hook: &str) -> Result
     "$env.config.hooks.env_change.FOO = [{|| try { error make {msg: boom} } catch { null } }]",
     1
 )]
-// String hooks report an uncaught error and go on, but the error has set the code by then.
-#[case::uncaught_string(r#"$env.config.hooks.pre_prompt = ["error make {msg: boom}"]"#, 1)]
-#[case::uncaught_record_string(
-    r#"$env.config.hooks.pre_prompt = [{ code: "error make {msg: boom}" }]"#,
-    1
-)]
 #[case::assignment("$env.config.hooks.pre_prompt = [{|| $env.LAST_EXIT_CODE = 0 }]", 0)]
 #[case::no_failure("$env.config.hooks.pre_prompt = [{|| $env.SPAM = 'spam' }]", 3)]
 fn hook_exit_code_reaches_repl(#[case] hook_config: &str, #[case] expected: i64) -> Result {
@@ -512,6 +506,8 @@ fn hook_exit_code_reaches_repl(#[case] hook_config: &str, #[case] expected: i64)
 #[case::closure_ending_in_external("{|| fail 42 }")]
 #[case::record_closure_ending_in_external("{code: {|| fail 42 }}")]
 #[case::string_ending_in_external("'fail 42'")]
+#[case::string("'fail 42; null'")]
+#[case::record_string("{code: 'fail 42; null'}")]
 #[nu_test_support::test]
 #[deps(TESTBIN_FAIL)]
 fn uncaught_hook_failure_sets_last_exit_code(#[case] hook: &str) -> Result {
@@ -578,11 +574,4 @@ fn hook_does_not_collect_external_output(#[case] hook: &str) -> Result {
         Value::test_string("")
     );
     Ok(())
-}
-
-#[test]
-fn string_hook_error_propagates_like_closure_hook() {
-    let string = r#" $env.config.hooks.display_output = "error make {msg: boom}"; 42 "#;
-    let closure = " $env.config.hooks.display_output = {error make {msg: boom}}; 42 ";
-    pretty_assertions::assert_eq!(test().run::<Value>(string), test().run::<Value>(closure));
 }

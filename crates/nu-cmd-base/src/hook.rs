@@ -5,7 +5,7 @@ use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value,
     debugger::WithoutDebug,
     engine::{Closure, EngineState, EnvName, Stack, StateWorkingSet},
-    report_error::{report_parse_error, report_shell_error},
+    report_error::report_parse_error,
     shell_error::generic::GenericError,
 };
 use std::{collections::HashMap, sync::Arc};
@@ -298,10 +298,7 @@ fn eval_string_hook(
         stack.remove_var(var_id);
     }
 
-    let ok = result
-        .inspect_err(|err| report_shell_error(Some(stack), engine_state, err))
-        .unwrap_or_else(|_| PipelineData::empty());
-    Ok(ok)
+    result
 }
 
 fn run_hook(
