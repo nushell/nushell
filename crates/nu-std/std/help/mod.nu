@@ -1,7 +1,18 @@
 # Show help information
 
+# Apply a color from `$env.config.color_config` to the given string if the color exists.
+# Otherwise use the fallback color or no colors at all if colors are disabled.
+def colorize [text: string, fallback: string, key?: string] {
+    if (config use-colors) {
+        let color = ($env.config.color_config? | get -o $"($key)" | default $fallback)
+        $"(ansi $color)($text)(ansi reset)"
+    } else {
+        $text
+    }
+}
+
 def error-fmt [] {
-    $"(ansi red)($in)(ansi reset)"
+    colorize $in red
 }
 
 def throw-error [error: string, msg: string, span: record] {
@@ -122,7 +133,7 @@ def build-help-header [
     text: string
     --newline (-n)
 ] {
-    let header = $"(ansi green)($text)(ansi reset):"
+    let header = $"(colorize $text green shape_string):"
 
     if not $newline {
         $header
@@ -141,9 +152,9 @@ def highlight-description [] {
             | try {
                 nu-highlight --reject-garbage
             } catch {
-                $"(ansi d)($s)(ansi rst_d)"
+                colorize $s default_dimmed
             }
-            | $"(ansi i)($in)(ansi rst_i)"
+            | colorize $in default_italic
         }
     } else {}
 }
@@ -164,7 +175,7 @@ def build-module-page [module: record] {
         $"(
             $module.submodules
             | each {|submodule|
-                $'    (ansi cb)($submodule.name)(ansi rst) (char lparen)($module.name) ($submodule.name)(char rparen) - ($submodule.description)'
+                $'    (colorize $submodule.name cyan_bold shape_internalcall) (char lparen)($module.name) ($submodule.name)(char rparen) - ($submodule.description)'
             }
             | str join (char newline)
 
@@ -175,7 +186,7 @@ def build-module-page [module: record] {
         (build-help-header "Exported commands")
         $"(
             $module.commands | each {|command|
-                $'    (ansi cb)($command.name)(ansi rst) (char lparen)($module.name) ($command.name)(char rparen)'
+                $'    (colorize $command.name cyan_bold shape_internalcall) (char lparen)($module.name) ($command.name)(char rparen)'
             }
             | str join (char newline)
         )"
@@ -195,9 +206,9 @@ def build-module-page [module: record] {
     ]} else { [] })
 
     let env_block = (if not $module.has_env_block {[
-        $"This module (ansi cyan)does not export(ansi reset) environment."
+        $"This module (colorize 'does not export' cyan) environment."
     ]} else {[
-        $"This module (ansi cyan)exports(ansi reset) environment."
+        $"This module (colorize 'exports' cyan) environment."
     ]})
 
     [$description $name $submodules $commands $aliases $type_aliases $env_block] | flatten | str join "\n"
@@ -427,7 +438,7 @@ def build-operator-page [operator: record] {
         (build-help-header "Description")
         $"    ($operator.description)"
         (build-help-header "Operator")
-        $"    ($operator.name) (char lparen)(ansi cyan_bold)($operator.operator)(ansi reset)(char rparen)"
+        $"    ($operator.name) (char lparen)(colorize $operator.operator yellow shape_operator)(char rparen)"
         (build-help-header "Type")
         $"    ($operator.type)"
         (build-help-header "Precedence")
@@ -496,8 +507,7 @@ def get-extension-by-prefix [prefix: string] {
 def get-command-extensions [command: string] {
   # low-tech version of `nu-highlight`, which produces suboptimal results with unknown commands
   def hl [shape: string] {
-    let color = $env.config.color_config | get $"shape_($shape)"
-    $"(ansi $color)($in)(ansi reset)"
+    colorize $in default $"shape_($shape)"
   }
 
   let extensions = {
@@ -552,7 +562,7 @@ def build-command-page [command: record] {
 
     let search_terms = (if ($command.search_terms? | is-not-empty) {[
         ""
-        $"(build-help-header 'Search terms') ($command.search_terms)"
+        $"(build-help-header 'Search terms') (colorize $command.search_terms cyan shape_external)"
     ]} else { [] })
 
     let category = (if ($command.category? | is-not-empty) {[
@@ -586,7 +596,7 @@ def build-command-page [command: record] {
     let subcommands = (if ($subcommands | is-not-empty) {[
         (build-help-header "Subcommands")
         ($subcommands | each {|subcommand |
-            $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.description)"
+            $"  (colorize $subcommand.name cyan shape_external) - ($subcommand.description)"
         } | str join "\n")
     ]} else { [] })
 
@@ -619,13 +629,13 @@ def build-command-page [command: record] {
                 [
                     "  ",
                     (if ($flag.parameter_name | is-empty) { "" } else {
-                        $"--(ansi teal)($flag.parameter_name)(ansi reset)"
+                        $"--(colorize $flag.parameter_name cyan shape_external)"
                     }),
                     (if ($flag.short_flag | is-empty) { "" } else {
-                        $", -(ansi teal)($flag.short_flag)(ansi reset)"
+                        $", -(colorize $flag.short_flag cyan shape_external)"
                     }),
                     (if ($flag.syntax_shape | is-empty) { "" } else {
-                        $": <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
+                        $": <(colorize $flag.syntax_shape blue_bold shape_block)>"
                     }),
                     (if ($flag.description | is-empty) { "" } else {
                         $" - ($flag.description)"
@@ -645,10 +655,10 @@ def build-command-page [command: record] {
                 ([
                     "  "
                     ...[(if $input.syntax_shape != nothing {
-                        $"<(ansi b)($input.syntax_shape)(ansi rst)> | "
+                        $"<(colorize $input.syntax_shape blue_bold shape_block)> | "
                     })]
                     $"($command.name | nu-highlight)"
-                    $" -> <(ansi blue)($output.syntax_shape)(ansi rst)>"
+                    $" -> <(colorize $output.syntax_shape blue_bold shape_block)>"
                 ] | str join "")
             } | str join "\n")
 
@@ -658,9 +668,9 @@ def build-command-page [command: record] {
                 ($positionals | each {|positional|
                     ([
                         "  ",
-                        $"(ansi teal)($positional.parameter_name)(ansi reset)",
+                        (colorize $positional.parameter_name cyan shape_external),
                         (if ($positional.syntax_shape | is-empty) { "" } else {
-                            $": <(ansi light_blue)($positional.syntax_shape)(ansi reset)>"
+                            $": <(colorize $positional.syntax_shape blue_bold shape_block)>"
                         }),
                         (if ($positional.description | is-empty) { "" } else {
                             $" ($positional.description)"
@@ -673,7 +683,7 @@ def build-command-page [command: record] {
 
                 (if $is_rest {
                     let rest = ($parameters | where parameter_type == rest | get 0)
-                    $"  ...(ansi teal)rest(ansi reset): <(ansi light_blue)($rest.syntax_shape)(ansi reset)> ($rest.description)"
+                    $"  ...(colorize 'rest' cyan shape_external): <(colorize $rest.syntax_shape blue_bold shape_block)> ($rest.description)"
                 })
             ]} else { [] })
         ] | flatten)
@@ -695,7 +705,7 @@ def build-command-page [command: record] {
         ""
         (build-help-header "Examples")
         ($command.examples | each {|example| [
-            $"  (ansi d)($example.description)(ansi rst)"
+            $"  ($example.description)"
             $"  > ($example.example | if (config use-colors) { nu-highlight } else {})"
             ...[(if ($example.result | is-not-empty) {
                 $example.result
@@ -761,7 +771,8 @@ def external-commands [
         }
     )
 
-    print $"(ansi default_italic)Help pages from external command (($target_command | str join " ") | pretty-cmd):(ansi reset)"
+    let msg = $"Help pages from external command (($target_command | str join " ") | pretty-cmd):"
+    print (colorize $msg default_italic)
     if $env.NU_HELPER? == "--help" {
         run-external ...$target_command "--help" | if $nu.os-info.name == "windows" { collect } else {}
     } else {
@@ -782,8 +793,7 @@ export def commands [
 }
 
 def pretty-cmd [] {
-    let cmd = $in
-    $"(ansi default_dimmed)(ansi default_italic)($cmd)(ansi reset)"
+    colorize (colorize $in default_italic) default_dimmed
 }
 
 # Welcome to Nushell! Display help information about different parts of Nushell.
