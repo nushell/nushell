@@ -782,7 +782,7 @@ fn parse_module_file(
     {
         module_id
     } else {
-        if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
+        if let Err(e) = working_set.files.push_parser_path(&path, path_span) {
             working_set.error(e);
             return None;
         }
