@@ -47,11 +47,22 @@ impl Command for MathLn {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Get the natural logarithm of e",
-            example: "2.7182818 | math ln | math round --precision 4",
-            result: Some(Value::test_float(1.0f64)),
-        }]
+        vec![
+            Example {
+                description: "Apply the natural logarithm to a range",
+                example: "1..3..5 | math ln | math round --precision 4",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(0f64),
+                    Value::test_float(1.0986f64),
+                    Value::test_float(1.6094f64),
+                ])),
+            },
+            Example {
+                description: "Get the natural logarithm of e",
+                example: "2.7182818 | math ln | math round --precision 4",
+                result: Some(Value::test_float(1.0f64)),
+            },
+        ]
     }
 }
 

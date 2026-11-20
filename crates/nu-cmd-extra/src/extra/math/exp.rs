@@ -50,11 +50,11 @@ impl Command for MathExp {
         vec![
             Example {
                 description: "Apply the exponential to a range",
-                example: "0..2 | math exp | math round --precision 4",
+                example: "0..2..4 | math exp | math round --precision 4",
                 result: Some(Value::test_list(vec![
                     Value::test_float(1f64),
-                    Value::test_float(2.7183f64),
                     Value::test_float(7.3891f64),
+                    Value::test_float(54.5982f64),
                 ])),
             },
             Example {
