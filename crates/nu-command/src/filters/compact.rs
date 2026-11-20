@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct Compact;
@@ -128,10 +129,18 @@ fn do_keep_row(row: &Value, compact_empties: bool, columns: &[CellPath]) -> bool
     let do_keep = move |value| do_keep_value(value, compact_empties);
 
     do_keep(row)
-        && row.as_record().map_or(true, |_| {
-            columns.iter().all(|col| {
-                row.follow_cell_path(&col.members)
-                    .is_ok_and(|value| do_keep_value(&value, compact_empties))
+        && row.as_record().map_or(true, |record| {
+            columns.iter().all(|col| match col.members.as_slice() {
+                // A plain column name is one record lookup, no path walk needed.
+                // A missing member, optional or not, drops the row, as in the path walk
+                // where an optional miss becomes null and null is dropped.
+                [PathMember::String { val, casing, .. }] => record
+                    .cased(*casing)
+                    .get(val)
+                    .is_some_and(|value| do_keep_value(value, compact_empties)),
+                _ => row
+                    .follow_cell_path(&col.members)
+                    .is_ok_and(|value| do_keep_value(&value, compact_empties)),
             })
         })
 }
