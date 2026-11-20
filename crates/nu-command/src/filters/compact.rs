@@ -21,8 +21,8 @@ impl Command for Compact {
             )
             .rest(
                 "columns",
-                SyntaxShape::Any,
-                "The columns to compact from the table.",
+                SyntaxShape::CellPath,
+                "The columns (or cell paths) to compact from the table.",
             )
             .category(Category::Filters)
     }
@@ -47,7 +47,7 @@ impl Command for Compact {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
-        let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+        let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
         match input {
             PipelineData::Value(Value::Record { ref mut val, .. }, ..) => {
@@ -74,6 +74,15 @@ impl Command for Compact {
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "Hello" => Value::nothing(Span::test_data()),
                     "World" => Value::test_int(3),
+                })])),
+            },
+            Example {
+                description: "Filter out all records where a nested value is null",
+                example: "[{labels: {c: 1}} {labels: {c: null}}] | compact labels.c",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "labels" => Value::test_record(record! {
+                        "c" => Value::test_int(1),
+                    }),
                 })])),
             },
             Example {
@@ -115,14 +124,15 @@ fn do_keep_value(value: &Value, compact_empties: bool) -> bool {
     !remove
 }
 
-fn do_keep_row(row: &Value, compact_empties: bool, columns: &[impl AsRef<str>]) -> bool {
+fn do_keep_row(row: &Value, compact_empties: bool, columns: &[CellPath]) -> bool {
     let do_keep = move |value| do_keep_value(value, compact_empties);
 
     do_keep(row)
-        && row.as_record().map_or(true, |record| {
-            columns
-                .iter()
-                .all(|col| record.get(col).map(do_keep).unwrap_or(false))
+        && row.as_record().map_or(true, |_| {
+            columns.iter().all(|col| {
+                row.follow_cell_path(&col.members)
+                    .is_ok_and(|value| do_keep_value(&value, compact_empties))
+            })
         })
 }
 
