@@ -518,29 +518,29 @@ fn open_files_inside_glob_metachars_dir(playground: Playground) -> Result {
         .expect_value_eq("hello")
 }
 
-#[cfg(unix)]
 fn assert_open_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
     playground.file("work[1]/marker.txt", "inside")?;
     playground.file("outer.txt", "outside")?;
+    playground.file("work[1]/a/outer.txt", "lexical parent")?;
     playground.symlink("work[1]", "work[1]/a/up")?;
     let mut tester = test().cwd(playground.path());
 
     tester
         .run("open --raw 'work[1]/a/up/marker.txt'")
         .expect_value_eq("inside")?;
+    // Compare with the platform's own resolution of `..` through a directory link.
+    let expected = std::fs::read_to_string(playground.path().join("work[1]/a/up/../outer.txt"))?;
     tester
         .run("open --raw 'work[1]/a/up/../outer.txt'")
-        .expect_value_eq("outside")
+        .expect_value_eq(expected)
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB = false)]
 fn open_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
     assert_open_quoted_symlink_in_bracket_path(playground)
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn open_dc_glob_quoted_symlink_in_bracket_path(playground: Playground) -> Result {

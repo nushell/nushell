@@ -308,6 +308,10 @@ mod tests {
     use super::parser::{AstNode, CharacterClass};
     use super::*;
     use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::fs::{symlink as symlink_dir, symlink as symlink_file};
+    #[cfg(windows)]
+    use std::os::windows::fs::{symlink_dir, symlink_file};
     use std::path::Path;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -353,10 +357,13 @@ mod tests {
         Ok(out)
     }
 
-    #[cfg(unix)]
     fn assert_walk_paths(root: &Path, pattern: &str, expected: &[&str]) {
         let options = crate::MatchOptions::default();
         let limit = expected.len() + 1;
+        let expected: Vec<_> = expected
+            .iter()
+            .map(|path| path.replace('/', std::path::MAIN_SEPARATOR_STR))
+            .collect();
         let legacy = crate::glob_with_parent(pattern, options, root, crate::Uninterruptible)
             .expect("legacy glob should compile");
         let legacy = collect_ok_paths(
@@ -373,7 +380,6 @@ mod tests {
         assert_eq!(dc, expected, "dc-glob: {pattern}");
     }
 
-    #[cfg(unix)]
     #[test]
     fn wildcard_walk_prunes_ancestor_cycles() {
         let root = unique_test_dir("ancestor_cycle");
@@ -383,7 +389,7 @@ mod tests {
         fs::create_dir_all(&branch).expect("create loop parent");
 
         for link in ["up", "again"] {
-            std::os::unix::fs::symlink("../..", branch.join(link)).expect("create ancestor link");
+            symlink_dir(&root, branch.join(link)).expect("create ancestor link");
             assert_walk_paths(&root, "**/*.txt", &["a/marker.txt", "z/marker.txt"]);
         }
         assert_walk_paths(
@@ -419,40 +425,37 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
-    #[cfg(unix)]
     #[test]
     fn wildcard_walk_prunes_ancestor_reentered_via_ordinary_directory() {
         let parent = unique_test_dir("ancestor_reentry");
         let root = parent.join("tree");
         write_file(&root.join("own.txt"));
         write_file(&parent.join("other.txt"));
-        std::os::unix::fs::symlink("..", root.join("up")).expect("create parent link");
+        symlink_dir(&parent, root.join("up")).expect("create parent link");
 
         assert_walk_paths(&root, "**/*.txt", &["own.txt", "up/other.txt"]);
         let _ = fs::remove_dir_all(parent);
     }
 
-    #[cfg(unix)]
     #[test]
     fn wildcard_walk_prunes_a_link_to_an_intermediate_ancestor() {
         let root = unique_test_dir("intermediate_ancestor");
         write_file(&root.join("start/a/marker.txt"));
         let branch = root.join("start/a/b/c");
         fs::create_dir_all(&branch).expect("create loop parent");
-        std::os::unix::fs::symlink("../..", branch.join("up")).expect("create ancestor link");
+        symlink_dir(root.join("start/a"), branch.join("up")).expect("create ancestor link");
 
         assert_walk_paths(&root, "start/**/*.txt", &["start/a/marker.txt"]);
         let _ = fs::remove_dir_all(root);
     }
 
-    #[cfg(unix)]
     #[test]
     fn legacy_walk_preserves_ancestors_through_dot_components() {
         let parent = unique_test_dir("dot_ancestor_cycle");
         let root = parent.join("tree");
         write_file(&root.join("marker.txt"));
         write_file(&root.join("a/inner.txt"));
-        std::os::unix::fs::symlink("..", root.join("a/up")).expect("create parent link");
+        symlink_dir(&root, root.join("a/up")).expect("create parent link");
 
         for pattern in ["a*/./**/*.txt", "a*/.*/**/*.txt"] {
             let paths = crate::glob_with_parent(
@@ -462,13 +465,18 @@ mod tests {
                 crate::Uninterruptible,
             )
             .expect("legacy glob should compile");
-            let paths = collect_ok_paths(paths.take(12).map(|path| Ok(path?)))
-                .expect("legacy glob should walk");
-            let from_dot = root.join("a/./inner.txt").to_string_lossy().into_owned();
-            let via_parent = root.join("a/../marker.txt").to_string_lossy().into_owned();
+            let paths = collect_ok_paths(
+                paths
+                    .take(12)
+                    .map(|path| Ok(path?.strip_prefix(&root)?.to_owned())),
+            )
+            .expect("legacy glob should walk");
+            let from_dot = expected_path(&["a", ".", "inner.txt"]);
+            let via_parent = expected_path(&["a", "..", "marker.txt"]);
+            let through_link = expected_path(&["a", ".", "up", ""]);
             assert!(paths.contains(&from_dot), "{pattern}: {paths:?}");
             assert!(
-                !paths.iter().any(|path| path.contains("/a/./up/")),
+                !paths.iter().any(|path| path.starts_with(&through_link)),
                 "{pattern}: {paths:?}",
             );
             if pattern.contains(".*") {
@@ -478,15 +486,14 @@ mod tests {
         let _ = fs::remove_dir_all(parent);
     }
 
-    #[cfg(unix)]
     #[test]
     fn wildcard_walk_preserves_ordinary_paths_aliases_and_broken_links() {
         let root = unique_test_dir("symlink_aliases");
         write_file(&root.join("target/marker.txt"));
         for alias in ["alias-a", "alias-b"] {
-            std::os::unix::fs::symlink("target", root.join(alias)).expect("create alias");
+            symlink_dir(root.join("target"), root.join(alias)).expect("create alias");
         }
-        std::os::unix::fs::symlink("missing", root.join("broken")).expect("create dangling link");
+        symlink_file(root.join("missing"), root.join("broken")).expect("create dangling link");
 
         assert_walk_paths(
             &root,
@@ -510,10 +517,10 @@ mod tests {
                 "alias-b",
                 "broken",
                 "target",
-                "target/marker.txt"
+                &expected_path(&["target", "marker.txt"])
             ],
         );
-        std::os::unix::fs::symlink(".", root.join("target/up")).expect("create self link");
+        symlink_dir(root.join("target"), root.join("target/up")).expect("create self link");
         assert_walk_paths(
             &root,
             "*/up/*.txt",

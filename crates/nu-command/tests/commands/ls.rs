@@ -41,22 +41,21 @@ fn ls_dc_glob_prunes_directory_cycle(playground: Playground) -> Result {
     assert_ls_prunes_directory_cycle(playground)
 }
 
-#[cfg(unix)]
 fn assert_ls_resolves_explicit_symlink_in_bracket_cwd(playground: Playground) -> Result {
     playground.empty_file("work[1]/marker.txt")?;
     playground.symlink("work[1]", "work[1]/a/up")?;
     let mut tester = test().cwd(playground.path().join("work[1]"));
 
     tester
-        .run("ls a/up/*.txt | get name")
+        .run("ls a/up/*.txt | get name | each { path split | str join '/' }")
         .expect_value_eq(["a/up/marker.txt"])?;
     tester
-        .run("ls a/up/marker.txt | get name")
+        .run("ls a/up/marker.txt | get name | each { path split | str join '/' }")
         .expect_value_eq(["a/up/marker.txt"])?;
 
     let mut tester = test().cwd(playground.path());
     tester
-        .run("ls 'work[1]/a/up/marker.txt' | get name")
+        .run("ls 'work[1]/a/up/marker.txt' | get name | each { path split | str join '/' }")
         .expect_value_eq(["work[1]/a/up/marker.txt"])?;
     let err = tester
         .run("ls 'work[1]/a/up/missing.txt'")
@@ -68,14 +67,12 @@ fn assert_ls_resolves_explicit_symlink_in_bracket_cwd(playground: Playground) ->
     Ok(())
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB = false)]
 fn ls_resolves_explicit_symlink_in_bracket_cwd(playground: Playground) -> Result {
     assert_ls_resolves_explicit_symlink_in_bracket_cwd(playground)
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_resolves_explicit_symlink_in_bracket_cwd(playground: Playground) -> Result {

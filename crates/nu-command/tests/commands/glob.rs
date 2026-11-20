@@ -482,7 +482,6 @@ fn glob_dc_glob_follows_aliases_without_descending_into_cycles(playground: Playg
         .expect_value_eq(2)
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_ignore_case_resolves_symlink_prefix_before_tracking_cycles(
@@ -497,7 +496,7 @@ fn glob_dc_glob_ignore_case_resolves_symlink_prefix_before_tracking_cycles(
         .run("glob -i -d 1 'ALIAS/*.txt' --follow-symlinks | path basename")
         .expect_value_eq(["marker.txt"])?;
     tester
-        .run("glob -i 'ALIAS/**' --follow-symlinks | first 3 | each { path relative-to (pwd) } | sort")
+        .run("glob -i 'ALIAS/**' --follow-symlinks | first 3 | each { path relative-to (pwd) | path split | str join '/' } | sort")
         .expect_value_eq(["alias/alias", "alias/nested"])
 }
 
