@@ -139,6 +139,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "Same as %U but uses the week number in ISO 8601 week date (01--53).",
         },
         FormatSpecification {
+            spec: "%q",
+            description: "Quarter of the year (1--4). Formatting only.",
+        },
+        FormatSpecification {
             spec: "%j",
             description: "Day of the year (001--366), zero-padded to 3 digits.",
         },
@@ -188,7 +192,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%S",
-            description: "Second number (00--60), zero-padded to 2 digits.",
+            description: "Second number (00--59), zero-padded to 2 digits.",
         },
         FormatSpecification {
             spec: "%f",
@@ -223,6 +227,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "Similar to %.9f but without the leading dot.",
         },
         FormatSpecification {
+            spec: "%N",
+            description: "Nanoseconds, always 9 digits. Same as %9f.",
+        },
+        FormatSpecification {
             spec: "%R",
             description: "Hour-minute format. Same as %H:%M.",
         },
@@ -240,7 +248,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%Z",
-            description: "Local time zone name. Skips all non-whitespace characters during parsing.",
+            description: "The offset, such as +05:30, since dates keep an offset rather than a zone name. Skips all non-whitespace characters during parsing.",
         },
         FormatSpecification {
             spec: "%z",
@@ -249,6 +257,14 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         FormatSpecification {
             spec: "%:z",
             description: "Same as %z but with a colon.",
+        },
+        FormatSpecification {
+            spec: "%::z",
+            description: "Same as %:z but with seconds, such as +05:30:00.",
+        },
+        FormatSpecification {
+            spec: "%:::z",
+            description: "The offset in whole hours, such as +05.",
         },
         FormatSpecification {
             spec: "%c",
