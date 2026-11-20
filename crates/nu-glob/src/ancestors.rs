@@ -1,4 +1,4 @@
-use std::fs::Metadata;
+use std::fs::{self, Metadata};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -38,8 +38,23 @@ fn directory_id(path: &Path, _: &Metadata) -> Option<DirectoryId> {
 }
 
 impl Ancestors {
-    pub(crate) fn is_empty(&self) -> bool {
-        self.0.is_none()
+    /// Resolve the directories between a followed link and the branch's walk root.
+    pub(crate) fn from_parents(link: &Path, count: usize) -> Option<Self> {
+        link.ancestors()
+            .skip(1)
+            .take(count)
+            .try_fold(Self::default(), |ancestors, path| {
+                // A bare relative child has an empty lexical parent, meaning the cwd.
+                let path = if path.as_os_str().is_empty() {
+                    Path::new(".")
+                } else {
+                    path
+                };
+                match fs::metadata(path) {
+                    Ok(metadata) => ancestors.enter(path, &metadata),
+                    Err(_) => Some(ancestors),
+                }
+            })
     }
 
     /// Return the extended branch, or `None` if entering would revisit an ancestor.

@@ -118,10 +118,10 @@ pub fn glob_with(
     pattern: impl AsRef<str>,
     options: &GlobWalkOptions,
 ) -> anyhow::Result<Box<dyn Iterator<Item = anyhow::Result<PathBuf>> + Send>> {
-    let pattern = pattern.as_ref().to_owned();
+    let pattern = pattern.as_ref();
     // A mistyped `rm ***` fails rather than expanding.
-    check_nu_glob_syntax(&pattern)?;
-    let parsed = parser::parse(&pattern);
+    check_nu_glob_syntax(pattern)?;
+    let parsed = parser::parse(pattern);
     // The fast path compares only the file name, which can't tell whether a leading `.` came
     // from a literal in the pattern, so the matcher handles those patterns.
     let fast_path = if options.require_literal_leading_dot {
@@ -400,7 +400,16 @@ mod tests {
                 "z/marker.txt",
             ],
         );
-        assert_walk_paths(&root, "*/*/*/*/*.txt", &[]);
+        assert_walk_paths(
+            &root,
+            "*/*/*/*/*.txt",
+            &[
+                "p/1/again/a/marker.txt",
+                "p/1/again/z/marker.txt",
+                "p/1/up/a/marker.txt",
+                "p/1/up/z/marker.txt",
+            ],
+        );
         assert_walk_paths(
             &root,
             "p/1/up/**/*.txt",
@@ -421,6 +430,19 @@ mod tests {
 
         assert_walk_paths(&root, "**/*.txt", &["own.txt", "up/other.txt"]);
         let _ = fs::remove_dir_all(parent);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wildcard_walk_prunes_a_link_to_an_intermediate_ancestor() {
+        let root = unique_test_dir("intermediate_ancestor");
+        write_file(&root.join("start/a/marker.txt"));
+        let branch = root.join("start/a/b/c");
+        fs::create_dir_all(&branch).expect("create loop parent");
+        std::os::unix::fs::symlink("../..", branch.join("up")).expect("create ancestor link");
+
+        assert_walk_paths(&root, "start/**/*.txt", &["start/a/marker.txt"]);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[cfg(unix)]
@@ -489,6 +511,16 @@ mod tests {
                 "broken",
                 "target",
                 "target/marker.txt"
+            ],
+        );
+        std::os::unix::fs::symlink(".", root.join("target/up")).expect("create self link");
+        assert_walk_paths(
+            &root,
+            "*/up/*.txt",
+            &[
+                "alias-a/up/marker.txt",
+                "alias-b/up/marker.txt",
+                "target/up/marker.txt",
             ],
         );
         let _ = fs::remove_dir_all(root);

@@ -14,27 +14,27 @@ fn lists_regular_files(playground: Playground) -> Result {
         .expect_value_eq(["andres.txt", "jt.txt", "yehuda.txt"])
 }
 
-#[cfg(unix)]
 fn assert_ls_prunes_directory_cycle(playground: Playground) -> Result {
     playground.empty_file("a/first.txt")?;
     playground.empty_file("z/last.txt")?;
     playground.symlink(".", "a/up")?;
     playground.symlink(".", "a/again")?;
 
-    test()
-        .cwd(playground.path())
-        .run("ls -a **/*.txt | first 3 | get name | sort")
-        .expect_value_eq(["a/first.txt", "z/last.txt"])
+    let mut tester = test().cwd(playground.path());
+    tester
+        .run("ls -a **/*.txt | first 3 | get name | each { path split | str join '/' } | sort")
+        .expect_value_eq(["a/first.txt", "z/last.txt"])?;
+    tester
+        .run("ls */up/*/*.txt | get name | each { path split | str join '/' } | sort")
+        .expect_value_eq(["a/up/a/first.txt", "a/up/z/last.txt"])
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB = false)]
 fn ls_prunes_directory_cycle(playground: Playground) -> Result {
     assert_ls_prunes_directory_cycle(playground)
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn ls_dc_glob_prunes_directory_cycle(playground: Playground) -> Result {

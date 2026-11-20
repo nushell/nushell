@@ -465,23 +465,21 @@ fn glob_dc_glob_supports_follow_symlinks(playground: Playground) -> Result {
     Ok(())
 }
 
-#[cfg(unix)]
 #[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_follows_aliases_without_descending_into_cycles(playground: Playground) -> Result {
     playground.empty_file("target/marker.txt")?;
     playground.symlink("target", "alias")?;
-    playground.symlink(".", "target/up")?;
+    playground.symlink("target", "target/up")?;
 
-    test()
-        .cwd(playground.path())
-        .run("glob '**/*.txt' | length")
-        .expect_value_eq(1)?;
-
-    test()
-        .cwd(playground.path())
-        .run("glob '**/*.txt' --follow-symlinks | first 3 | each { path relative-to (pwd) } | sort")
-        .expect_value_eq(["alias/marker.txt", "target/marker.txt"])
+    let mut tester = test().cwd(playground.path());
+    tester.run("glob '**/*.txt' | length").expect_value_eq(1)?;
+    tester
+        .run("glob '**/*.txt' --follow-symlinks | first 3 | each { path relative-to (pwd) | path split | str join '/' } | sort")
+        .expect_value_eq(["alias/marker.txt", "target/marker.txt"])?;
+    tester
+        .run("glob '*/up/*.txt' --follow-symlinks | length")
+        .expect_value_eq(2)
 }
 
 #[cfg(unix)]

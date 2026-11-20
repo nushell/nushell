@@ -3,6 +3,7 @@ use super::compiler::{Instruction, Program};
 use super::matcher::{MatchResult, is_hidden, path_matches};
 use crate::MatchOptions;
 use crate::ancestors::Ancestors;
+use std::cell::OnceCell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -81,17 +82,12 @@ pub fn glob_with_options(
         if interrupt.is_set() {
             return;
         }
-        // For relative programs we can start traversal at a static prefix, but we
-        // still emit and match paths relative to the original base directory.
-        let output_relative_to = if program.absolute_prefix.is_some() {
-            &current_dir
-        } else {
-            base_dir.as_path()
-        };
+        // A relative pattern still matches against the original base directory,
+        // even when traversal starts at a deeper literal prefix.
         let match_relative_to = if program.absolute_prefix.is_some() {
             Path::new("")
         } else {
-            output_relative_to
+            &base_dir
         };
         let needs_parent_probe = program
             .instructions
@@ -101,7 +97,6 @@ pub fn glob_with_options(
         let state = WalkState {
             tx: &tx,
             interrupt: &interrupt,
-            output_relative_to,
             match_relative_to,
             options,
             exclude_patterns: &exclude_patterns,
@@ -117,7 +112,7 @@ pub fn glob_with_options(
         if literal_pattern {
             maybe_emit_start(&current_dir, &state);
         } else {
-            glob_to(&current_dir, 0, state, &Ancestors::default())
+            glob_to(&current_dir, 0, state, None, None)
         }
     });
     rx.into_iter()
@@ -334,21 +329,41 @@ fn component_is_purely_literal(instructions: &[Instruction], start: usize) -> bo
     true
 }
 
-fn glob_to(target: &Path, depth: usize, state: WalkState<'_>, ancestors: &Ancestors) {
-    let branch = if state.options.follow_symlinks
-        && depth >= state.literal_prefix_depth
-        && let Ok(metadata) = fs::metadata(target)
-    {
-        let Some(branch) = ancestors.enter(target, &metadata) else {
-            return;
+fn glob_to(
+    target: &Path,
+    depth: usize,
+    state: WalkState<'_>,
+    ancestors: Option<&Ancestors>,
+    symlink_target: Option<&fs::Metadata>,
+) {
+    let ancestors = if let Some(ancestors) = ancestors {
+        let directory_metadata;
+        let metadata = match symlink_target {
+            Some(metadata) => Some(metadata),
+            None => {
+                directory_metadata = fs::metadata(target).ok();
+                directory_metadata.as_ref()
+            }
         };
-        branch
+        match metadata {
+            Some(metadata) => {
+                let Some(branch) = ancestors.enter(target, metadata) else {
+                    return;
+                };
+                Some(branch)
+            }
+            None => Some(ancestors.clone()),
+        }
     } else {
-        ancestors.clone()
+        None
     };
 
     match fs::read_dir(target) {
         Ok(results) => rayon::scope(|scope| -> Result<(), SendError<_>> {
+            let branch = WalkBranch {
+                ancestors,
+                before_link: OnceCell::new(),
+            };
             // Parent-path probing is only needed for patterns containing `..`.
             if depth > 0 && state.needs_parent_probe {
                 if state.interrupt.is_set() {
@@ -415,11 +430,28 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>, ancestors: &Ancest
     }
 }
 
+struct WalkBranch {
+    ancestors: Option<Ancestors>,
+    before_link: OnceCell<Option<Ancestors>>,
+}
+
+impl WalkBranch {
+    fn ancestors_for_link(&self, link: &Path, parent_count: usize) -> Option<&Ancestors> {
+        if let Some(ancestors) = &self.ancestors {
+            return Some(ancestors);
+        }
+        // Each step since the resolved walk root appended one real directory component.
+        // Resolve their identities on the first symlink descent and reuse them for sibling links.
+        self.before_link
+            .get_or_init(|| Ancestors::from_parents(link, parent_count))
+            .as_ref()
+    }
+}
+
 #[derive(Clone, Copy)]
 struct WalkState<'a> {
     tx: &'a SyncSender<anyhow::Result<PathBuf>>,
     interrupt: &'a InterruptFlag,
-    output_relative_to: &'a Path,
     match_relative_to: &'a Path,
     options: TraversalOptions,
     exclude_patterns: &'a [DcPattern],
@@ -527,24 +559,16 @@ fn handle_path_candidate<'a>(
     depth: usize,
     is_parent: bool,
     state: WalkState<'a>,
-    ancestors: &Ancestors,
+    branch: &WalkBranch,
     scope: &rayon::Scope<'a>,
 ) -> Result<(), SendError<anyhow::Result<PathBuf>>> {
-    let output_relative_to = state.output_relative_to;
     let match_relative_to = state.match_relative_to;
     let options = state.options;
     let exclude_patterns = state.exclude_patterns;
     let has_excludes = state.has_excludes;
     let program = state.program;
-    let fast_path = state.fast_path;
+    let fast_path = state.fast_path.filter(|_| !program.case_insensitive);
 
-    let output_path_candidate = if program.absolute_prefix.is_some() {
-        path.to_path_buf()
-    } else {
-        path.strip_prefix(output_relative_to)
-            .unwrap_or(path)
-            .to_path_buf()
-    };
     let match_path_candidate = path.strip_prefix(match_relative_to).unwrap_or(path);
     let candidate_depth = if is_parent {
         depth.saturating_sub(1)
@@ -565,15 +589,18 @@ fn handle_path_candidate<'a>(
     };
 
     let is_symlink = file_type.is_symlink();
+    let symlink_target = if is_symlink && options.follow_symlinks {
+        fs::metadata(path).ok()
+    } else {
+        None
+    };
     let is_dir = if is_symlink {
-        options.follow_symlinks && fs::metadata(path).map(|m| m.is_dir()).unwrap_or(false)
+        symlink_target.as_ref().is_some_and(fs::Metadata::is_dir)
     } else {
         file_type.is_dir()
     };
 
-    let result = if program.case_insensitive {
-        path_matches(match_path_candidate, is_dir, program)
-    } else if let Some(fast_path) = fast_path {
+    let result = if let Some(fast_path) = fast_path {
         recursive_fast_path_match(
             match_path_candidate,
             fast_path,
@@ -608,12 +635,37 @@ fn handle_path_candidate<'a>(
         && result.valid_as_prefix
         && options.max_depth.is_none_or(|max| candidate_depth < max)
     {
-        let recurse_path = path.to_owned();
-        if candidate_depth <= PARALLEL_DEPTH_CUTOFF {
-            let ancestors = ancestors.clone();
-            scope.spawn(move |_| glob_to(&recurse_path, candidate_depth, state, &ancestors));
-        } else {
-            glob_to(&recurse_path, candidate_depth, state, ancestors);
+        let ancestors =
+            if is_symlink && program.is_recursive && candidate_depth > state.literal_prefix_depth {
+                branch
+                    .ancestors_for_link(path, candidate_depth - state.literal_prefix_depth)
+                    .map(Some)
+            } else {
+                Some(branch.ancestors.as_ref())
+            };
+        // A repeated directory blocks descent. The link can still match below.
+        if let Some(ancestors) = ancestors {
+            if candidate_depth <= PARALLEL_DEPTH_CUTOFF {
+                let path = path.to_owned();
+                let ancestors = ancestors.cloned();
+                scope.spawn(move |_| {
+                    glob_to(
+                        &path,
+                        candidate_depth,
+                        state,
+                        ancestors.as_ref(),
+                        symlink_target.as_ref(),
+                    )
+                });
+            } else {
+                glob_to(
+                    path,
+                    candidate_depth,
+                    state,
+                    ancestors,
+                    symlink_target.as_ref(),
+                );
+            }
         }
     }
 
@@ -624,7 +676,12 @@ fn handle_path_candidate<'a>(
         && options.max_depth.is_none_or(|max| candidate_depth <= max)
         && (!program.dirs_only || is_dir)
     {
-        state.tx.send(Ok(output_path_candidate.to_owned()))?;
+        let output_path = if program.absolute_prefix.is_some() {
+            path
+        } else {
+            match_path_candidate
+        };
+        state.tx.send(Ok(output_path.to_owned()))?;
     }
 
     Ok(())

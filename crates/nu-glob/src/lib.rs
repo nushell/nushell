@@ -82,6 +82,7 @@ use std::fs;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
 use std::str::FromStr;
+use std::sync::{Arc, OnceLock};
 
 use ancestors::Ancestors;
 
@@ -136,7 +137,19 @@ pub struct Paths<I = Uninterruptible> {
 struct PendingPath {
     path: PathBuf,
     idx: usize,
-    ancestors: Ancestors,
+    ancestors: WalkAncestors,
+}
+
+#[derive(Clone, Debug)]
+enum WalkAncestors {
+    FixedDepth,
+    LiteralPrefix,
+    BeforeLink {
+        // Number of directories already entered since wildcard discovery started.
+        parent_count: usize,
+        sibling_seed: Option<Arc<OnceLock<Option<Ancestors>>>>,
+    },
+    FollowingLink(Ancestors),
 }
 
 impl Paths<Uninterruptible> {
@@ -149,7 +162,7 @@ impl Paths<Uninterruptible> {
             todo: vec![Ok(PendingPath {
                 path: path.to_path_buf(),
                 idx: 0,
-                ancestors: Ancestors::default(),
+                ancestors: WalkAncestors::FixedDepth,
             })],
             scope: Some(relative_to.into()),
             interrupt: Uninterruptible,
@@ -487,6 +500,11 @@ impl<I: Interruptible> Iterator for Paths<I> {
 
             // if there's one prefilled result, take it, otherwise fill the todo buffer
             if self.todo.len() != 1 {
+                let ancestors = if self.dir_patterns.iter().any(|pattern| pattern.is_recursive) {
+                    WalkAncestors::LiteralPrefix
+                } else {
+                    WalkAncestors::FixedDepth
+                };
                 fill_todo(
                     &mut self.todo,
                     &self.dir_patterns,
@@ -494,7 +512,7 @@ impl<I: Interruptible> Iterator for Paths<I> {
                     &scope,
                     self.options,
                     &self.interrupt,
-                    &Ancestors::default(),
+                    &ancestors,
                 );
             }
         }
@@ -1000,7 +1018,7 @@ fn fill_todo(
     path: &Path,
     options: MatchOptions,
     interrupt: &impl Interruptible,
-    ancestors: &Ancestors,
+    ancestors: &WalkAncestors,
 ) {
     // convert a pattern that's just many Char(_) to a string
     fn pattern_as_str(pattern: &Pattern) -> Option<String> {
@@ -1017,20 +1035,60 @@ fn fill_todo(
 
     let pattern = &patterns[idx];
     let literal = pattern_as_str(pattern);
-    let metadata = fs::metadata(path).ok().filter(fs::Metadata::is_dir);
+    // Before the first followed link, inspect the directory entry itself. For a real
+    // directory this is the only lookup needed. Follow the path if it is a link or
+    // its type could not be read.
+    let (metadata, may_be_symlink) = if matches!(ancestors, WalkAncestors::BeforeLink { .. }) {
+        match fs::symlink_metadata(path) {
+            Ok(metadata) if !metadata.is_symlink() => (Some(metadata), false),
+            _ => (fs::metadata(path).ok(), true),
+        }
+    } else {
+        (fs::metadata(path).ok(), false)
+    };
+    let metadata = metadata.filter(fs::Metadata::is_dir);
     let is_dir = metadata.is_some();
     let curdir = path == Path::new(".");
-    // Start tracking where wildcard discovery starts, so an explicitly named
-    // directory or symlink prefix can still serve as the root of the walk.
-    let branch = if let Some(metadata) = metadata.as_ref()
-        && (literal.is_none() || !ancestors.is_empty())
+    let seed;
+    let ancestors = if let WalkAncestors::BeforeLink {
+        parent_count,
+        sibling_seed,
+    } = ancestors
+        && may_be_symlink
+        && is_dir
     {
-        let Some(branch) = ancestors.enter(path, metadata) else {
+        let parents = if let Some(sibling_seed) = sibling_seed {
+            sibling_seed
+                .get_or_init(|| Ancestors::from_parents(path, *parent_count))
+                .clone()
+        } else {
+            Ancestors::from_parents(path, *parent_count)
+        };
+        let Some(ancestors) = parents else {
             return;
         };
-        branch
+        seed = WalkAncestors::FollowingLink(ancestors);
+        &seed
     } else {
-        ancestors.clone()
+        ancestors
+    };
+    let branch = match (ancestors, metadata.as_ref()) {
+        (WalkAncestors::FollowingLink(ancestors), Some(metadata)) => {
+            let Some(branch) = ancestors.enter(path, metadata) else {
+                return;
+            };
+            WalkAncestors::FollowingLink(branch)
+        }
+        // The literal prefix may name a symlink. Its target is the root of this walk.
+        (WalkAncestors::LiteralPrefix, Some(_)) if literal.is_none() => WalkAncestors::BeforeLink {
+            parent_count: 1,
+            sibling_seed: None,
+        },
+        (WalkAncestors::BeforeLink { parent_count, .. }, Some(_)) => WalkAncestors::BeforeLink {
+            parent_count: parent_count + 1,
+            sibling_seed: None,
+        },
+        _ => ancestors.clone(),
     };
 
     let add = |todo: &mut Vec<_>, next_path: PathBuf, component: Option<&str>| {
@@ -1041,7 +1099,7 @@ fn fill_todo(
             todo.push(Ok(PendingPath {
                 path: next_path,
                 idx: !0,
-                ancestors: Ancestors::default(),
+                ancestors: WalkAncestors::FixedDepth,
             }));
         } else {
             let branch = match component {
@@ -1049,7 +1107,9 @@ fn fill_todo(
                 // let the next call add the directory back to the branch.
                 Some(".") => ancestors,
                 // An explicit parent component starts discovery from that parent.
-                Some("..") => &Ancestors::default(),
+                Some("..") if !matches!(ancestors, WalkAncestors::FixedDepth) => {
+                    &WalkAncestors::LiteralPrefix
+                }
                 _ => &branch,
             };
             fill_todo(
@@ -1086,13 +1146,16 @@ fn fill_todo(
             }
         }
         None if is_dir => {
+            // Only queued links need to share the lazy seed. The first one we follow
+            // resolves the parents, and each sibling extends that chain independently.
+            let mut sibling_seed = None;
             let dirs = fs::read_dir(path).and_then(|d| {
                 d.map(|e| {
                     if interrupt.interrupted() {
                         return Err(io::Error::from(io::ErrorKind::Interrupted));
                     }
                     e.map(|e| {
-                        if curdir {
+                        let path = if curdir {
                             PathBuf::from(
                                 e.path()
                                     .file_name()
@@ -1100,6 +1163,24 @@ fn fill_todo(
                             )
                         } else {
                             e.path()
+                        };
+                        let ancestors = match &branch {
+                            WalkAncestors::BeforeLink { parent_count, .. }
+                                if e.file_type().map_or(true, |kind| kind.is_symlink()) =>
+                            {
+                                WalkAncestors::BeforeLink {
+                                    parent_count: *parent_count,
+                                    sibling_seed: Some(Arc::clone(
+                                        sibling_seed.get_or_insert_with(Arc::default),
+                                    )),
+                                }
+                            }
+                            _ => branch.clone(),
+                        };
+                        PendingPath {
+                            path,
+                            idx,
+                            ancestors,
                         }
                     })
                 })
@@ -1117,14 +1198,8 @@ fn fill_todo(
                     //             .starts_with('.')
                     //     });
                     // }
-                    children.sort_by(|p1, p2| p2.file_name().cmp(&p1.file_name()));
-                    todo.extend(children.into_iter().map(|path| {
-                        Ok(PendingPath {
-                            path,
-                            idx,
-                            ancestors: branch.clone(),
-                        })
-                    }));
+                    children.sort_by(|p1, p2| p2.path.file_name().cmp(&p1.path.file_name()));
+                    todo.extend(children.into_iter().map(Ok));
 
                     // Matching the special directory entries . and .. that
                     // refer to the current and parent directory respectively
