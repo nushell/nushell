@@ -850,6 +850,8 @@ $env.config.prompt.transient.multiline = ""
 # -----
 # Hooks run code at specific shell events.
 # Most accept a string (code), closure, or list of strings/closures.
+# An error inside a hook, caught or not, sets $env.LAST_EXIT_CODE: the prompt sees it after a
+# pre_prompt or env_change hook, and a display_output hook's error counts as the line's code.
 # See https://www.nushell.sh/book/hooks for details.
 
 # hooks.pre_prompt (list): Hook(s) to run before each prompt is displayed.
@@ -876,7 +878,7 @@ $env.config.hooks.env_change = {}
 # Default: "if (term size).columns >= 100 { table -e } else { table }"
 $env.config.hooks.display_output = "if (term size).columns >= 100 { table -e } else { table }"
 
-# hooks.command_not_found (closure|null): Hook when a command is not found.
+# hooks.command_not_found (closure|list|null): Hook when a command is not found.
 # Can suggest packages or provide custom error handling.
 # Default: null
 $env.config.hooks.command_not_found = null

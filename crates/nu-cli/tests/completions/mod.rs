@@ -3462,7 +3462,12 @@ fn flag_completions() {
 
     // https://github.com/nushell/nushell/issues/16375
     let suggestions = completer.complete_blocking("table -", 7);
-    assert_eq!(22, suggestions.len());
+    assert_eq!(23, suggestions.len());
+    assert!(
+        suggestions
+            .iter()
+            .any(|suggestion| suggestion.value == "--no-headers")
+    );
 }
 
 #[test]
@@ -4551,28 +4556,27 @@ fn exact_match() {
 
 #[cfg(all(not(windows), not(target_os = "macos")))]
 #[test]
-fn exact_match_case_insensitive() {
-    use nu_test_support::playground::Playground;
+fn exact_match_case_insensitive(playground: Playground) -> Result {
     use support::completions_helpers::new_engine_helper;
 
-    Playground::setup("exact_match_case_insensitive", |dirs, playground| {
-        playground.mkdir("AA/foo");
-        playground.mkdir("aa/foo");
-        playground.mkdir("aaa/foo");
+    playground.dir("AA/foo")?;
+    playground.dir("aa/foo")?;
+    playground.dir("aaa/foo")?;
 
-        let (dir, _, engine, stack) = new_engine_helper(dirs.test().into());
-        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let (dir, _, engine, stack) = new_engine_helper(playground.path().try_into().unwrap());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-        let target = format!("open {}", folder(dir.join("aa")));
-        match_suggestions(
-            &vec![
-                folder(dir.join("AA").join("foo")).as_str(),
-                folder(dir.join("aa").join("foo")).as_str(),
-                folder(dir.join("aaa").join("foo")).as_str(),
-            ],
-            &completer.complete_blocking(&target, target.len()),
-        );
-    });
+    let target = format!("open {}", folder(dir.join("aa")));
+    match_suggestions(
+        &vec![
+            folder(dir.join("AA").join("foo")).as_str(),
+            folder(dir.join("aa").join("foo")).as_str(),
+            folder(dir.join("aaa").join("foo")).as_str(),
+        ],
+        &completer.complete_blocking(&target, target.len()),
+    );
+
+    Ok(())
 }
 
 #[rstest]

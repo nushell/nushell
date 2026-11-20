@@ -162,6 +162,7 @@ fn from_tsv(
 #[cfg(test)]
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+    use nu_test_support::TestResultExt;
 
     use crate::Reject;
     use crate::{Metadata, MetadataSet};
@@ -171,6 +172,13 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(FromTsv)
+    }
+
+    #[test]
+    fn test_duplicate_headers_are_renamed() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run(r#""name\tname\nAlice\tBob" | from tsv | to nuon"#)
+            .expect_value_eq(r#"[[name, "name_1"]; [Alice, Bob]]"#)
     }
 
     #[test]

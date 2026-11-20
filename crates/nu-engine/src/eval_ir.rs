@@ -544,10 +544,13 @@ fn prepare_error_handler(
     error_handler: ErrorHandler,
     error: Option<Spanned<ShellError>>,
 ) {
+    // A handled failure still sets $env.LAST_EXIT_CODE, also for a `try` without `catch`, which
+    // has no register to put the error in.
+    if let Some(error) = &error {
+        ctx.stack.set_last_error(&error.item);
+    }
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
-            // Stack state has to be updated for stuff like LAST_EXIT_CODE
-            ctx.stack.set_last_error(&error.item);
             // Create the error value and put it in the register
             ctx.put_reg(
                 reg_id,
@@ -766,6 +769,9 @@ fn eval_instruction<D: DebugContext>(
             if !is_automatic_env_var(&key) {
                 let is_config = env_var_eq(&key, var::CONFIG);
                 let update_conversions = env_var_eq(&key, var::ENV_CONVERSIONS);
+                if env_var_eq(&key, var::LAST_EXIT_CODE) {
+                    ctx.stack.last_exit_code_written = true;
+                }
 
                 ctx.stack.add_env_var(key.into_owned(), value.clone());
 
@@ -2521,6 +2527,7 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+    caller_stack.last_exit_code_written |= callee_stack.last_exit_code_written;
 
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);

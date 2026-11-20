@@ -38,11 +38,16 @@ impl Command for HttpPost {
                 "The password when authenticating.",
                 Some('p'),
             )
-            .named(
-                "content-type",
-                SyntaxShape::Any,
-                "The MIME type of content to post.",
-                Some('t'),
+            .param(
+                Flag::new("content-type")
+                    .short('t')
+                    .arg(SyntaxShape::Any)
+                    .desc("The MIME type of content to post.")
+                    .completion(Completion::new_list(&[
+                        "application/json",
+                        "application/x-www-form-urlencoded",
+                        "multipart/form-data",
+                    ])),
             )
             .named(
                 "max-time",

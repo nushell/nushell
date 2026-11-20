@@ -1,6 +1,4 @@
 use nu_protocol::ConfigError;
-use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
 #[test]
@@ -434,54 +432,48 @@ fn box_is_a_bordered_group_and_tabs_cannot_nest() -> Result {
 }
 
 #[test]
-fn preview_shows_file_contents_on_selection() -> Result {
-    Playground::setup("tui_preview", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent("one.txt", "ONE-FILE-BODY"),
-            FileWithContent("two.txt", "TWO-FILE-BODY"),
-        ]);
+fn preview_shows_file_contents_on_selection(playground: Playground) -> Result {
+    playground.file("one.txt", "ONE-FILE-BODY")?;
+    playground.file("two.txt", "TWO-FILE-BODY")?;
 
-        let screen: String = test().cwd(dirs.test()).run(
-            "
-                ls
-                | sort-by name
-                | tui split [(tui table --columns [name type]) (tui preview)]
-                | tui debug --size [80 16]
-                | get screen
-            ",
-        )?;
-        assert_contains("ONE-FILE-BODY", &screen);
+    let screen: String = test().cwd(playground.path()).run(
+        "
+            ls
+            | sort-by name
+            | tui split [(tui table --columns [name type]) (tui preview)]
+            | tui debug --size [80 16]
+            | get screen
+        ",
+    )?;
+    assert_contains("ONE-FILE-BODY", &screen);
 
-        let screen: String = test().cwd(dirs.test()).run(
-            "
-                ls
-                | sort-by name
-                | tui split [(tui table --columns [name type]) (tui preview)]
-                | tui debug --keys down --size [80 16]
-                | get screen
-            ",
-        )?;
-        assert_contains("TWO-FILE-BODY", &screen);
-        Ok(())
-    })
+    let screen: String = test().cwd(playground.path()).run(
+        "
+            ls
+            | sort-by name
+            | tui split [(tui table --columns [name type]) (tui preview)]
+            | tui debug --keys down --size [80 16]
+            | get screen
+        ",
+    )?;
+    assert_contains("TWO-FILE-BODY", &screen);
+    Ok(())
 }
 
 #[test]
-fn preview_closure_transforms_file_contents() -> Result {
-    Playground::setup("tui_preview_closure", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("note.txt", "hello-preview")]);
+fn preview_closure_transforms_file_contents(playground: Playground) -> Result {
+    playground.file("note.txt", "hello-preview")?;
 
-        let screen: String = test().cwd(dirs.test()).run(
-            r#"
-                [{name: "note.txt", type: "file"}]
-                | tui split [(tui table) (tui preview { $in | str upcase })]
-                | tui debug --size [80 16]
-                | get screen
-            "#,
-        )?;
-        assert_contains("HELLO-PREVIEW", &screen);
-        Ok(())
-    })
+    let screen: String = test().cwd(playground.path()).run(
+        r#"
+            [{name: "note.txt", type: "file"}]
+            | tui split [(tui table) (tui preview { $in | str upcase })]
+            | tui debug --size [80 16]
+            | get screen
+        "#,
+    )?;
+    assert_contains("HELLO-PREVIEW", &screen);
+    Ok(())
 }
 
 #[test]
@@ -495,6 +487,36 @@ fn preview_closure_with_row_param_is_the_source() -> Result {
         "#,
     )?;
     assert_contains("OpenHistory", &screen);
+    Ok(())
+}
+
+#[test]
+fn hyperlinks_show_only_their_text() -> Result {
+    // `ansi link` ends OSC 8 with ESC `\`; glow ends it with BEL, adds an
+    // `id=`, and prints text after the closing sequence (#19174).
+    let st = r#"$"('https://x.dev' | ansi link --text here) after""#;
+    let bel = r#"$"(char -u '1b')]8;id=7;https://x.dev(char -u '7')here(char -u '1b')]8;;(char -u '7') after""#;
+    for link in [st, bel] {
+        let widgets = [
+            format!("[x] | tui table | tui preview {{|v| {link} }}"),
+            format!("tui label {link}"),
+            format!("tui label --titlebar {link}"),
+            format!("[x] | tui table | tui label --status {link}"),
+            format!("[{link}] | tui log"),
+            format!("[{link}] | tui select"),
+            format!("[{link}] | tui tree"),
+            format!("tui menu [{link}] | tui table"),
+        ]
+        .map(|widget| format!("{widget} | tui debug"));
+        // The titlebar text is also the dialog's border title.
+        let dialog = format!("tui label --titlebar {link} | tui debug --dialog");
+        for run in widgets.into_iter().chain([dialog]) {
+            let screen: String = test().run(format!("{run} | get screen"))?;
+            assert_contains("here after", &screen);
+            assert_contains_not("]8;", &screen);
+            assert_contains_not("x.dev", &screen);
+        }
+    }
     Ok(())
 }
 

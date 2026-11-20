@@ -13,7 +13,7 @@ use crate::{
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
     status_line::{NuStatusLine, StatusStyles},
     syntax_highlight::NoOpHighlighter,
-    util::{eval_source, evaluate_source},
+    util::{eval_source, evaluate_source, set_last_exit_code_after_source},
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -1446,10 +1446,7 @@ fn do_run_cmd(
             report_shell_error(Some(stack), engine_state, &err);
             stack.set_last_error(&err);
         }
-        Ok(failed) => {
-            let code: i32 = failed.into();
-            stack.set_last_exit_code(code, Span::unknown());
-        }
+        Ok(failed) => set_last_exit_code_after_source(stack, failed),
     }
 
     // if there was a warning before, and we got to this point, it means
@@ -2054,7 +2051,7 @@ mod job_output_tests {
 
 #[cfg(test)]
 mod osc7_tests {
-    use super::osc7_sequence;
+    use super::*;
     use std::path::Path;
 
     #[test]
@@ -2608,9 +2605,7 @@ mod test_auto_cd {
 
 #[cfg(test)]
 mod test_recover_cwd {
-    use super::{
-        CwdRecovery, ReplBuffer, osc7_sequence, prepare_repl_iteration, recover_cwd_if_needed,
-    };
+    use super::*;
     use miette::Diagnostic;
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
@@ -2859,6 +2854,7 @@ mod test_recover_cwd {
     }
 
     #[test]
+    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_normalizes_trailing_slash_silently_and_updates_osc()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
@@ -2926,6 +2922,7 @@ mod test_recover_cwd {
     }
 
     #[test]
+    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_recovers_warns_hooks_and_updates_terminal_cwd()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
