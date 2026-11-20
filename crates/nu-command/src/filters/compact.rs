@@ -134,9 +134,7 @@ fn do_keep_value(value: &Value, compact_empties: bool) -> bool {
 }
 
 fn do_keep_row(row: &Value, compact_empties: bool, columns: &[CellPath]) -> bool {
-    let do_keep = move |value| do_keep_value(value, compact_empties);
-
-    do_keep(row)
+    do_keep_value(row, compact_empties)
         && row.as_record().map_or(true, |record| {
             columns.iter().all(|col| match col.members.as_slice() {
                 // A plain column name is one record lookup, no path walk needed.
