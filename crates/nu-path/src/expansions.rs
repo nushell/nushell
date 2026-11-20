@@ -8,6 +8,8 @@ use super::dots::{expand_dots, expand_ndots};
 use super::tilde::expand_tilde;
 
 // Join a path relative to another path. Paths starting with tilde are considered as absolute.
+// On Windows, a drive-relative path like `C:foo` is first resolved with [`resolve_drive_relative`]:
+// against `relative_to` when it is on the same drive, otherwise through `std::path::absolute`.
 fn join_path_relative<P, Q>(path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
 where
     P: AsRef<Path>,
@@ -25,7 +27,8 @@ where
         // do not end up with "/some/path/~" or "/some/path/~user"
         path.into()
     } else {
-        relative_to.join(path)
+        // `join` would let a drive-relative path like `C:foo` replace `relative_to`
+        relative_to.join(resolve_drive_relative(path, relative_to))
     }
 }
 
@@ -101,6 +104,10 @@ pub fn expand_path(path: impl AsRef<Path>, need_expand_tilde: bool) -> PathBuf {
 /// version if the expansion is not possible.
 ///
 /// Furthermore, unlike canonicalize(), it does not use sys calls (such as readlink).
+/// The one exception is a Windows drive-relative path like `D:foo` on a drive other than the
+/// one of `relative_to`: it is resolved with `std::path::absolute`, which reads the per-drive
+/// current directory Windows tracks (see [`resolve_drive_relative`]). On the same drive it is
+/// resolved against `relative_to`.
 ///
 /// Converts to absolute form but does not resolve symlinks.
 /// The input path is specified relative to another path
@@ -231,6 +238,17 @@ mod tests {
         let resolved = resolve_drive_relative(Path::new("q:"), Path::new(r"C:\Users\me"));
         assert!(resolved.is_absolute(), "{resolved:?}");
         assert!(resolved.starts_with(r"Q:\"), "{resolved:?}");
+    }
+
+    #[test]
+    fn expand_path_with_resolves_drive_relative_against_relative_to() {
+        let cwd = Path::new(r"C:\Users\me");
+        assert_eq!(expand_path_with("c:", cwd, true), cwd);
+        assert_eq!(
+            expand_path_with("C:src", cwd, true),
+            Path::new(r"C:\Users\me\src")
+        );
+        assert_eq!(expand_path_with("c:..", cwd, true), Path::new(r"C:\Users"));
     }
 
     #[test]

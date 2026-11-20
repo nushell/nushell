@@ -2,7 +2,7 @@ use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
     EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
-    OperatorCompletion, VariableCompletion,
+    OperatorCompletion, OverlayCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
@@ -767,6 +767,11 @@ fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Optio
         return Some(SiteCompleter::Decl(decl_id));
     }
 
+    command_wide_completer(&signature)
+}
+
+/// The command-wide completer that `signature` declares with `@complete`.
+fn command_wide_completer(signature: &Signature) -> Option<SiteCompleter> {
     match signature.complete {
         Some(CommandWideCompleter::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
         Some(CommandWideCompleter::External) => Some(SiteCompleter::External),
@@ -1188,7 +1193,16 @@ impl<'engine> CompletionEngine<'engine> {
 
     /// Whether the completer that would run first at `site` is interactive.
     fn site_is_interactive(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
-        match site_completer(site, working_set) {
+        self.completer_is_interactive(site_completer(site, working_set), working_set)
+    }
+
+    /// Whether `completer` is an `@interactive` command or an external completer that runs one.
+    fn completer_is_interactive(
+        &self,
+        completer: Option<SiteCompleter>,
+        working_set: &StateWorkingSet,
+    ) -> bool {
+        match completer {
             Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
             Some(SiteCompleter::External) => self
                 .stack
@@ -1563,9 +1577,15 @@ impl<'engine> CompletionEngine<'engine> {
             resolved_head.as_deref(),
         );
 
-        // Value kinds share one shape; only the `ArgType`, completer lookup, and the
-        // `declared_shape` used for the empty-slot fallback differ.
-        let argument_value = |engine: &Self, arg_type, custom, arg_slot, declared_shape| {
+        // Value kinds share one shape; only the `ArgType`, completer lookup, the
+        // `declared_shape` used for the empty-slot fallback, and a command-wide result
+        // computed ahead differ.
+        let argument_value = |engine: &Self,
+                              arg_type,
+                              custom,
+                              arg_slot,
+                              declared_shape,
+                              command_wide: &mut Option<Fetched>| {
             engine.complete_argument_value(
                 custom,
                 ArgValueCompletion {
@@ -1578,6 +1598,7 @@ impl<'engine> CompletionEngine<'engine> {
                 },
                 completion_context,
                 &signature,
+                command_wide,
             )
         };
 
@@ -1592,20 +1613,43 @@ impl<'engine> CompletionEngine<'engine> {
                     signature.allows_unknown_args && positional.completion.is_some()
                 }) {
                 // `def --wrapped` binds an unknown `--x` to a positional, so its declared
-                // completer answers next to the flags (#19097); it already falls back to
-                // the command-wide one. An undeclared one would only list files.
+                // completer answers next to the flags (#19097). An undeclared one would only
+                // list files.
+                //
+                // The command-wide completer, such as an external one, knows the flags the
+                // signature doesn't declare, so its flags join even when the positional
+                // completer answers. It runs once: computed here, it is also the positional
+                // completer's fallback. When either completer is `@interactive`, it only runs
+                // as that fallback: an `@interactive` command-wide one isn't the site's first
+                // completer, and an `@interactive` positional one's answer, a pick or a
+                // cancel, isn't mixed with the command-wide flags.
                 Some(positional) => {
+                    let runs_alongside = !self.site_is_interactive(site, working_set)
+                        && !self.completer_is_interactive(
+                            command_wide_completer(&signature),
+                            working_set,
+                        );
+                    let mut command_wide = runs_alongside.then(|| {
+                        self.command_wide_completion_helper(&signature, completion_context)
+                    });
                     let mut flags = FlagCompletion {
                         decl_id: call.decl_id,
                     }
                     .fetch(completion_context);
-                    flags.merge(argument_value(
+                    // Without the declared flags it repeats, as the command-wide fallback
+                    // may.
+                    flags.merge_new(argument_value(
                         self,
                         ArgType::Positional(*sig_positional),
                         positional.completion.clone(),
                         *arg_slot,
                         Some(positional.shape.clone()),
+                        &mut command_wide,
                     ));
+                    // Left over when the positional completer answered without it.
+                    if let Some(command_wide) = command_wide {
+                        flags.merge_new(command_wide);
+                    }
                     flags
                 }
                 None => self.complete_flag_names(call.decl_id, completion_context, &signature),
@@ -1618,6 +1662,7 @@ impl<'engine> CompletionEngine<'engine> {
                     resolved.as_ref().and_then(|flag| flag.completion.clone()),
                     *arg_slot,
                     resolved.as_ref().and_then(|flag| flag.arg.clone()),
+                    &mut None,
                 )
             }
             SiteKind::Positional {
@@ -1632,6 +1677,7 @@ impl<'engine> CompletionEngine<'engine> {
                     positional.and_then(|positional| positional.completion.clone()),
                     *arg_slot,
                     positional.map(|positional| positional.shape.clone()),
+                    &mut None,
                 )
             }
             _ => Fetched::default(),
@@ -1999,6 +2045,29 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
+        // The lexer can split a trailing escape out of its unclosed quoted argument.
+        if matches!(argument, Argument::Positional(expression) if matches!(expression.expr, Expr::Garbage))
+            && working_set.get_span_contents(argument.span()) == b"\\"
+            && let Some(previous_index) = argument_index.checked_sub(1)
+            && let Some(previous) = site.call.arguments.get(previous_index)
+            && matches!(previous, Argument::Positional(_))
+            && previous.span().end == argument.span().start
+            && working_set.parse_errors.iter().any(|error| {
+                matches!(error, nu_protocol::ParseError::Unclosed(delimiter, opener, _, _)
+                    if delimiter == "\"" && opener.start == previous.span().start)
+            })
+        {
+            return CompletionSite::at(
+                absolute_position,
+                SiteKind::Positional {
+                    site,
+                    sig_positional: count_positionals(site.call, previous_index),
+                    arg_slot: previous_index,
+                },
+                Span::new(previous.span().start, argument.span().end),
+            );
+        }
+
         let sig_positional = count_positionals(site.call, argument_index);
         let flag_name = SiteKind::FlagName {
             site,
@@ -2102,12 +2171,19 @@ impl<'engine> CompletionEngine<'engine> {
 
         CompletionSite::at(absolute_position, kind, Span::point(absolute_position))
     }
+
+    /// Completes an argument's value: its own completer first, then, if that declines, the
+    /// command-wide completer, then its type.
+    ///
+    /// A `command_wide` result computed ahead stands in for running the command-wide
+    /// completer, and is taken only when it is needed.
     fn complete_argument_value(
         &self,
         custom: Option<Completion>,
         mut arg_value: ArgValueCompletion,
         context: &Context,
         signature: &Signature,
+        command_wide: &mut Option<Fetched>,
     ) -> Fetched {
         // Neutral seed: answered until a source declines, unreusable until one keeps.
         let mut results = Fetched::default();
@@ -2137,7 +2213,10 @@ impl<'engine> CompletionEngine<'engine> {
             }
         }
 
-        if results.absorb(self.command_wide_completion_helper(signature, context)) {
+        let command_wide = command_wide
+            .take()
+            .unwrap_or_else(|| self.command_wide_completion_helper(signature, context));
+        if results.absorb(command_wide) {
             return results;
         }
 
@@ -2162,7 +2241,56 @@ impl<'engine> CompletionEngine<'engine> {
                 arg_value.complete_module_exports(context, context.working_set)
             }
             BuiltinCompletion::EnvVar => EnvVarCompletion.fetch(context),
+            BuiltinCompletion::Overlay => OverlayCompletion.fetch(context),
             BuiltinCompletion::Command { internal_only } => {
+                if internal_only {
+                    // For commands like `help` where multiple positional rest arguments form
+                    // a single command path (e.g. `help str join`), complete words after the
+                    // first as subcommands of earlier words. Starting the replacement span at
+                    // the first rest word ensures the suggestion replaces the full sub-path
+                    // (e.g. `str ca` -> `str camel-case`).
+                    let earlier_positionals: Vec<_> = arg_value
+                        .call
+                        .arguments
+                        .iter()
+                        .take(arg_value.arg_idx)
+                        .filter_map(|arg| match arg {
+                            Argument::Positional(expr) | Argument::Unknown(expr) => Some(expr),
+                            _ => None,
+                        })
+                        .collect();
+
+                    if !earlier_positionals.is_empty() {
+                        let first_span = earlier_positionals[0].span;
+                        if first_span.start <= context.span.end {
+                            let span = Span::new(first_span.start, context.span.end);
+                            let prefix = context.working_set.get_span_contents(span);
+                            let sub_context = Context {
+                                span,
+                                prefix,
+                                ..*context
+                            };
+                            let parent_heads = vec![
+                                earlier_positionals
+                                    .iter()
+                                    .map(|expr| match &expr.expr {
+                                        Expr::String(s) => s.as_str(),
+                                        _ => {
+                                            let bytes =
+                                                context.working_set.get_span_contents(expr.span);
+                                            std::str::from_utf8(bytes).unwrap_or_default()
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(" "),
+                            ];
+
+                            return CommandCompletion::subcommands(parent_heads)
+                                .fetch(&sub_context);
+                        }
+                    }
+                }
+
                 let scope = if internal_only {
                     CommandScope::InternalsOnly
                 } else {
@@ -2971,6 +3099,69 @@ mod completer_tests {
                 .collect(),
         );
         assert_eq!(expected, settled);
+    }
+
+    #[test]
+    fn dangling_escape_stays_with_its_unclosed_argument() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        apply_source(
+            &mut engine,
+            &mut Stack::new(),
+            b"def sample [name?: string] {}",
+        );
+        for (line, index, token) in [
+            (r#"sample "say\"#, 0, r#""say\"#),
+            (r#"sample "say\\\"#, 0, r#""say\\\"#),
+            (r#"sample "say" \"#, 1, r"\"),
+            (r"sample say\", 0, r"say\"),
+        ] {
+            let mut working_set = StateWorkingSet::new(&engine);
+            let offset = working_set.next_span_start();
+            let block = parse(&mut working_set, None, line.as_bytes(), false);
+            let site = CompletionEngine::resolve_completion_site(
+                &block,
+                &working_set,
+                Buffer { text: line, offset },
+                line,
+            );
+            assert_eq!(
+                site.kind.resolved(),
+                ResolvedCursor::Positional { index },
+                "{line:?}"
+            );
+            assert_eq!(site.typed_prefix, token, "{line:?}");
+            assert_eq!(
+                site.span,
+                Span::new(offset + line.len() - token.len(), offset + line.len()),
+                "{line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_hide_completions_follow_changes_across_prompts() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        let mut stack = Stack::new();
+        let cache = NarrowingCache::default();
+        let line = "overlay hide ";
+
+        for (source, expected) in [
+            ("overlay new alpha", vec!["alpha"]),
+            ("overlay hide alpha", vec![]),
+            ("overlay use alpha", vec!["alpha"]),
+            ("overlay new beta", vec!["alpha", "beta"]),
+        ] {
+            apply_source(&mut engine, &mut stack, source.as_bytes());
+            let mut completer = NuCompleter::with_cache(
+                Arc::new(engine.clone()),
+                Arc::new(stack.clone()),
+                cache.clone(),
+            );
+            let suggestions = completer.complete_blocking(line, line.len());
+            let values: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
+            assert_eq!(values, expected, "after {source}");
+            assert!(cache.fresh(&q(line), completer.cache_env).is_none());
+        }
     }
 
     /// A cache handed to a new per-prompt completer must still answer the previous prompt's

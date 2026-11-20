@@ -27,6 +27,9 @@ fn collapsed_table(mut value: Value, opts: TableOpts<'_>) -> StringResult {
     }
 
     let mut table = UnstructuredTable::new(value, opts.config);
+    if opts.header_remove {
+        table.remove_headers();
+    }
 
     let theme = load_theme(opts.mode);
     let is_empty = table.truncate(&theme, opts.width);

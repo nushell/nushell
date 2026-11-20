@@ -923,6 +923,7 @@ fn byte_stream_is_not_drained_ahead_of_display() -> Result {
 }
 
 #[test]
+#[serial]
 fn truncation_warning_blames_the_limit_for_an_oversized_result() -> Result {
     let budget = Value::test_list(vec![]).memory_size() + Value::test_int(0).memory_size() * 2;
     let mut session = Interactive::new().with_max_last_result_size(Filesize::new(budget as i64));

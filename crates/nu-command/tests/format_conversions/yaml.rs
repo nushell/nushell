@@ -135,9 +135,10 @@ fn convert_multiline_string_uses_chomping_indicators() -> Result {
         .run("{string: \"Hello\\nworld\\n\"} | to yaml")
         .expect_value_eq("string: |\n  Hello\n  world\n")?;
 
+    // The kept trailing blank line is written without indentation, so it carries no trailing whitespace.
     test()
         .run("{string: \"Hello\\nworld\\n\\n\"} | to yaml")
-        .expect_value_eq("string: |+\n  Hello\n  world\n  \n")
+        .expect_value_eq("string: |+\n  Hello\n  world\n\n")
 }
 
 #[test]

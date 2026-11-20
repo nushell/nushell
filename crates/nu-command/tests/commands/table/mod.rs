@@ -3,6 +3,7 @@ mod collapse_expand;
 mod config_matrix;
 mod display;
 mod footer;
+mod headers;
 mod indexes;
 mod large_outputs;
 mod padding;

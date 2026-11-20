@@ -611,6 +611,10 @@ fn eval_inner(
     } = &mut state;
 
     let result = eval_on_state(engine_state, stack, history, nu_source);
+    // Like the REPL after each line, free the values this evaluation shadowed, or a long session
+    // keeps every one of them. The state is kept even when the evaluation failed, so clean up
+    // either way.
+    engine_state.cleanup_stack_variables(stack);
     (state, result)
 }
 
@@ -797,6 +801,15 @@ fn process_pipeline(
         }
     }
 
+    // Lists, streamed or not, are collected item by item like everything
+    // else, so remember which results were one: a lone item is only the value
+    // itself when the pipeline did not produce a list. Unwrapped, `[{a: 1}]`
+    // would come back as `{a: 1}`.
+    let is_list = matches!(
+        pipeline_execution_data.body,
+        PipelineData::ListStream(..) | PipelineData::Value(Value::List { .. }, ..)
+    );
+
     let mut values = Vec::new();
     for item in pipeline_execution_data.body {
         if let Value::Error { error, .. } = &item {
@@ -810,7 +823,7 @@ fn process_pipeline(
     }
 
     let value_to_store = match values.len() {
-        1 => values.pop().unwrap_or_else(|| Value::nothing(span)),
+        1 if !is_list => values.pop().unwrap_or_else(|| Value::nothing(span)),
         _ => Value::list(values, span),
     };
 
@@ -1023,6 +1036,28 @@ mod tests {
             ),
             "list field should remain a list, got: {result_nuon}"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_item_list_stays_a_list() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        for source in ["[{a: 1}]", "$history.0"] {
+            let result_nuon = evaluator.eval(source)?;
+            let result = nuon::from_nuon(&result_nuon, None)?;
+            let output = result
+                .into_record()?
+                .remove("output")
+                .ok_or("missing output field in evaluate response")?;
+            assert_eq!(
+                output.into_list()?.len(),
+                1,
+                "`{source}` should give a list of one record, got: {result_nuon}"
+            );
+        }
 
         Ok(())
     }
@@ -1283,6 +1318,29 @@ mod tests {
             output.contains("hello_repl"),
             "Env var should be 'hello_repl', got: {output}"
         );
+    }
+
+    /// Like the REPL, the session frees a value once a later binding shadows it.
+    #[test]
+    fn shadowed_variable_is_cleaned_up() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        evaluator.eval(r#"let x = "first"; let x = "second""#)?;
+
+        let first_kept = evaluator
+            .state
+            .blocking_lock()
+            .stack
+            .vars
+            .iter()
+            .any(|(_, value)| value.as_str().is_ok_and(|s| s == "first"));
+        assert!(!first_kept, "the shadowed value is still on the stack");
+
+        let result = evaluator.eval("$x")?;
+        assert!(
+            result.contains("second"),
+            "$x should be second, got: {result}"
+        );
+        Ok(())
     }
 
     /// An evaluator with a documented `foo bar`, an alias `fb` of it, and a module command that

@@ -229,7 +229,7 @@ pub fn print_pipeline(
             engine_state,
             stack,
             Some(pipeline),
-            vec![],
+            &[],
             &hook,
             "display_output",
         )?;

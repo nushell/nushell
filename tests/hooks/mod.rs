@@ -426,3 +426,16 @@ fn env_change_overlay() -> Result {
 
     tester.run_with_hooks("$env.BAR").expect_value_eq(2)
 }
+
+#[rstest::rstest]
+#[case::closure_appended_to_null("null | append {|cmd| $'($cmd) from hook' }")]
+#[case::printing_hook_first("[{|cmd| print hi } {|cmd| $'($cmd) from hook' }]")]
+fn command_not_found_hook_list_output_becomes_help(#[case] hook: &str) -> Result {
+    let code = format!("$env.config.hooks.command_not_found = ({hook}); ferris_is_not_here");
+    let err = test().run(code).expect_shell_error()?;
+    pretty_assertions::assert_matches!(
+        err,
+        ShellError::ExternalCommand { help, .. } if help == "ferris_is_not_here from hook"
+    );
+    Ok(())
+}

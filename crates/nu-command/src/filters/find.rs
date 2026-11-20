@@ -74,6 +74,10 @@ impl Command for Find {
         "Search for terms in the input data."
     }
 
+    fn extra_description(&self) -> &str {
+        "A search term or `--regex` is required."
+    }
+
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
@@ -359,6 +363,13 @@ fn get_match_pattern_from_arguments(
     let regex = call.get_flag::<String>(engine_state, stack, "regex")?;
     let terms = call.rest::<Value>(engine_state, stack, 0)?;
 
+    if regex.is_none() && terms.is_empty() {
+        return Err(ShellError::MissingParameter {
+            param_name: "search term or --regex".into(),
+            span: call.head,
+        });
+    }
+
     let invert = call.has_flag(engine_state, stack, "invert")?;
     let highlight = !call.has_flag(engine_state, stack, "no-highlight")?;
     let only_matching = call.has_flag(engine_state, stack, "only-matching")?;
@@ -410,8 +421,6 @@ fn get_match_pattern_from_arguments(
                 span: call.get_flag_span(stack, "dotall").expect("has flag"),
             });
         }
-        // NOTE: Should this be an error? It doesn't make sense to call `find` with no arguments.
-        // (None, []) => {}
         (None, terms) => {
             let mut regex = String::new();
 

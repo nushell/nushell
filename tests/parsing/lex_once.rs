@@ -8,7 +8,7 @@
 
 use nu_parser::{FlatShape, flatten_block};
 use nu_protocol::{DeclId, Span, VarId, ast::Block, engine::StateWorkingSet};
-use nu_test_support::{fs::nu_files, prelude::*, tester::parse_file};
+use nu_test_support::{prelude::*, tester::parse_file};
 
 /// The smallest file that gets a bracket table (`BRACKET_TABLE_LEN` in
 /// `crates/nu-parser/src/lex_once.rs`). Smaller inputs are padded to it with trailing spaces,
@@ -101,7 +101,17 @@ fn lex_once_parses_like_scanning() -> Result {
         "crates/nu-config/default_files",
         "toolkit",
     ] {
-        let found = nu_files(WORKSPACE_ROOT.join(dir));
+        let mut found = nu_glob::glob_with_parent(
+            "**/*.nu",
+            nu_glob::MatchOptions::default(),
+            &WORKSPACE_ROOT.join(dir),
+            nu_glob::Uninterruptible,
+        )
+        .expect("valid glob pattern")
+        .map(|entry| entry.map_err(nu_glob::GlobError::into_error))
+        .collect::<std::io::Result<Vec<_>>>()?;
+        found.retain(|path| !path.is_dir());
+        found.sort();
         assert!(!found.is_empty(), "no .nu files under {dir}");
         files.extend(found);
     }

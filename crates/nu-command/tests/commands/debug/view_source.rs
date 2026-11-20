@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn view_source_returns_string() -> Result {
@@ -95,54 +95,50 @@ fn names_a_dep_the_way_its_call_site_does() -> Result {
 }
 
 #[test]
-fn keeps_metadata_of_the_root() -> Result {
-    Playground::setup("view_source_dependencies_metadata", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "mdata.nu",
-            "
+fn keeps_metadata_of_the_root(playground: Playground) -> Result {
+    playground.file(
+        "mdata.nu",
+        indoc::indoc! {"
                 def helper [] { 42 }
                 def foo [] { helper }
-            ",
-        )]);
+            "},
+    )?;
 
-        // Why: assert the dependency is there too, otherwise the metadata alone would still pass
-        // with the whole feature removed.
-        let expanded: String = test()
-            .cwd(dirs.test())
-            .run("source mdata.nu; view source foo --dependencies")?;
-        assert_contains("def helper [] { 42 }", expanded);
+    // Why: assert the dependency is there too, otherwise the metadata alone would still pass
+    // with the whole feature removed.
+    let expanded: String = test()
+        .cwd(playground.path())
+        .run("source mdata.nu; view source foo --dependencies")?;
+    assert_contains("def helper [] { 42 }", expanded);
 
-        let code = "
+    let code = "
             source mdata.nu
             view source foo --dependencies | metadata | get source
         ";
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_contains("mdata.nu", outcome);
-        Ok(())
-    })
+    let outcome: String = test().cwd(playground.path()).run(code)?;
+    assert_contains("mdata.nu", outcome);
+    Ok(())
 }
 
 #[test]
-fn datasource_filepath_metadata() -> Result {
-    Playground::setup("cd_ds_filepath_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "mdata.nu",
-            "
+fn datasource_filepath_metadata(playground: Playground) -> Result {
+    playground.file(
+        "mdata.nu",
+        indoc::indoc! {"
                 def foo [] { echo hi }
-            ",
-        )]);
+            "},
+    )?;
 
-        let code = "
+    let code = "
             source mdata.nu
             view source foo | metadata | get source
         ";
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        // expect path printed somehow
-        assert_contains("mdata.nu", outcome);
-        Ok(())
-    })
+    let outcome: String = test().cwd(playground.path()).run(code)?;
+    // expect path printed somehow
+    assert_contains("mdata.nu", outcome);
+    Ok(())
 }
 
 #[test]

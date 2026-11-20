@@ -1,5 +1,5 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
-use nu_test_support::prelude::{TestResultExt, test};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -532,5 +532,67 @@ fn shadowed_variables_in_aliases() -> TestResult {
         .engine_state
         .cleanup_stack_variables(&mut tester.stack);
     tester.run("foo").expect_value_eq(10)?;
+    Ok(())
+}
+
+/// The REPL cleans up after each line, so a value shadowed within one line is freed too.
+#[test]
+fn shadowed_variable_in_same_source_is_cleaned_up() -> TestResult {
+    let mut tester = test();
+    let () = tester.run(r#"let x = "first"; let x = "second""#)?;
+    tester
+        .engine_state
+        .cleanup_stack_variables(&mut tester.stack);
+    let first_kept = tester
+        .stack
+        .vars
+        .iter()
+        .any(|(_, value)| value.as_str().is_ok_and(|s| s == "first"));
+    assert!(!first_kept, "the shadowed value is still on the stack");
+    tester.run("$x").expect_value_eq("second")?;
+    Ok(())
+}
+
+/// Aliases and `def` bodies read the shadowed variable when called, so cleanup keeps it.
+#[rstest]
+#[case::alias_same_source(&["let x = 10; alias foo = echo $x; let x = 20"])]
+#[case::alias_subexpression_same_source(&["let x = 10; alias foo = echo ($x + 0); let x = 20"])]
+#[case::alias_subexpression_later_source(&["let x = 10; alias foo = echo ($x + 0)", "let x = 20"])]
+#[case::alias_record_same_source(&["let x = 10; alias foo = echo {a: $x}.a; let x = 20"])]
+#[case::alias_list_same_source(&["let x = 10; alias foo = echo [$x].0; let x = 20"])]
+#[case::alias_closure_same_source(&["let x = 10; alias foo = do { $x }; let x = 20"])]
+#[case::def_same_source(&["let x = 10; def foo [] { $x }; let x = 20"])]
+#[case::def_later_source(&["let x = 10; def foo [] { $x }", "let x = 20"])]
+fn shadowed_variables_still_referenced(#[case] sources: &[&str]) -> TestResult {
+    let mut tester = test();
+    for source in sources {
+        let () = tester.run(source)?;
+        tester
+            .engine_state
+            .cleanup_stack_variables(&mut tester.stack);
+    }
+    tester.run("foo").expect_value_eq(10)?;
+    Ok(())
+}
+
+/// `source` of a file it already read binds the file's names to the same variables again, so
+/// cleanup keeps a variable that was shadowed and then bound again.
+#[rstest]
+#[case::same_source(&["source f.nu; let y = 'mid'; source f.nu"])]
+#[case::later_source(&["source f.nu", "let y = 'mid'; source f.nu"])]
+#[case::new_overlay(&["overlay new o; source f.nu; let y = 'mid'; source f.nu"])]
+fn shadowed_variable_bound_again(
+    #[ignore] playground: Playground,
+    #[case] sources: &[&str],
+) -> TestResult {
+    playground.file("f.nu", r#"let y = "from-file""#)?;
+    let mut tester = test().cwd(playground.path());
+    for source in sources {
+        let () = tester.run(source)?;
+        tester
+            .engine_state
+            .cleanup_stack_variables(&mut tester.stack);
+    }
+    tester.run("$y").expect_value_eq("from-file")?;
     Ok(())
 }

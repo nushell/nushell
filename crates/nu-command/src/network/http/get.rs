@@ -1,8 +1,9 @@
 use crate::network::http::client::{
     RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
-    expand_unix_socket_path, http_client, http_client_pool, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_host_header, request_set_timeout, send_request_no_body,
+    expand_unix_socket_path, handle_transport_error, http_client, http_client_pool,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_host_header,
+    request_set_timeout, send_request_no_body, transport_error_response,
 };
 use nu_engine::command_prelude::*;
 
@@ -66,7 +67,7 @@ impl Command for HttpGet {
             )
             .switch(
                 "allow-errors",
-                "Do not fail if the server returns an error code.",
+                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or under --full a record with an error field; status is null when no response arrived).",
                 Some('e'),
             )
             .switch("pool", "Using a global pool as a client.", None)
@@ -233,7 +234,10 @@ fn helper(
         allow_errors: args.allow_errors,
     };
 
-    let response = response?;
+    let response = handle_transport_error(response, args.allow_errors)?;
+    let Some(response) = response else {
+        return Ok(transport_error_response(args.full, span));
+    };
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(

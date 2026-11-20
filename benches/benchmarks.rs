@@ -14,7 +14,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
-use nu_test_support::{fs::nu_files, tester::parse_file};
+use nu_test_support::tester::parse_file;
 use std::{
     env,
     fmt::Write,
@@ -1214,7 +1214,17 @@ const PARSER_DOC_CONFIG: &str = include_str!("../crates/nu-config/default_files/
 /// Returns None if no file could be read (will panic at benchmark time to fail loudly).
 fn collect_all_std_nu_sources() -> Option<String> {
     let std_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/nu-std/std");
-    let files = nu_files(std_root);
+    let mut files = nu_glob::glob_with_parent(
+        "**/*.nu",
+        nu_glob::MatchOptions::default(),
+        &std_root,
+        nu_glob::Uninterruptible,
+    )
+    .expect("valid glob pattern")
+    .collect::<Result<Vec<_>, _>>()
+    .expect("standard-library directory is readable");
+    files.retain(|path| !path.is_dir());
+    files.sort();
 
     let mut combined = String::new();
     for path in files {
@@ -1400,7 +1410,18 @@ fn bench_parser_full_parse_ctx(dataset: &str, source: String) -> impl IntoBenchm
 fn parser_shell_corpus() -> Vec<(String, PathBuf)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let std_root = root.join("crates/nu-std/std");
-    let mut corpus: Vec<(String, PathBuf)> = nu_files(&std_root)
+    let mut files = nu_glob::glob_with_parent(
+        "**/*.nu",
+        nu_glob::MatchOptions::default(),
+        &std_root,
+        nu_glob::Uninterruptible,
+    )
+    .expect("valid glob pattern")
+    .collect::<Result<Vec<_>, _>>()
+    .expect("standard-library directory is readable");
+    files.retain(|path| !path.is_dir());
+    files.sort();
+    let mut corpus: Vec<(String, PathBuf)> = files
         .into_iter()
         .map(|path| {
             // `std/mod.nu` is "std", `std/help/mod.nu` is "std_help".

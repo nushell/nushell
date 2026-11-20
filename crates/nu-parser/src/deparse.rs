@@ -163,7 +163,7 @@ mod test {
 
     #[test]
     fn test_quote_newline() {
-        assert_eq!(escape_for_script_arg("c\nd"), format!("\"c\nd\""));
+        assert_eq!(escape_for_script_arg("c\nd"), "\"c\nd\"");
     }
 
     #[test]

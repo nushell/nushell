@@ -17,7 +17,7 @@ impl Command for TuiSelect {
     }
 
     fn extra_description(&self) -> &str {
-        "Items come from the list argument, from `--data`, or from the pipeline. Up/Down move, Space checks (with `--multi`), Enter submits the chosen item(s); `--index` submits positions instead.\n\
+        "Items come from the list argument, from `--data`, or from the pipeline. Up/Down move, Space checks (with `--multi`), Enter submits the chosen item(s); `--index` submits their positions in the unfiltered items instead.\n\
          \n\
          `--display` picks the text shown for each item: a column name for records, or a closure over the item. The original item is what gets selected, as with `input list --display`."
     }
