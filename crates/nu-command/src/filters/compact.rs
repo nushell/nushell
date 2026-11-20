@@ -49,6 +49,14 @@ impl Command for Compact {
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        for path in &columns {
+            if let Some(PathMember::Int { span, .. }) = path.members.first() {
+                return Err(ShellError::TypeMismatch {
+                    err_message: "compact needs a column name; quote a number to match a column, like \"2024\"".into(),
+                    span: *span,
+                });
+            }
+        }
 
         match input {
             PipelineData::Value(Value::Record { ref mut val, .. }, ..) => {

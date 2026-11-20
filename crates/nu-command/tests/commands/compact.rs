@@ -178,12 +178,51 @@ fn optional_nested_cell_path_drops_rows_where_it_is_missing_or_null() -> Result 
 }
 
 #[test]
-fn int_cell_path_leaves_list_rows_unchanged() -> Result {
+fn int_cell_path_is_rejected() -> Result {
+    let err = test()
+        .run("[[1 null] [2 3]] | compact 0")
+        .expect_shell_error()?;
+    match err {
+        ShellError::TypeMismatch { err_message, .. } => {
+            assert!(err_message.contains("quote a number"));
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn number_column_is_rejected() -> Result {
+    let err = test()
+        .run(r#"[{"2024": null} {"2024": 5}] | compact 2024"#)
+        .expect_shell_error()?;
+    match err {
+        ShellError::TypeMismatch { err_message, .. } => {
+            assert!(err_message.contains("quote a number"));
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn quoted_number_column_works() -> Result {
+    let code = r#"
+        [{"2024": null} {"2024": 5}]
+        | compact "2024"
+        | to nuon
+    "#;
+
+    test().run(code).expect_value_eq(r#"[["2024"]; [5]]"#)
+}
+
+#[test]
+fn int_member_after_column_works() -> Result {
     let code = "
-        [[1 null] [2 3]]
-        | compact 0
+        [{a: [null 1]} {a: [2 3]}]
+        | compact a.0
         | to nuon
     ";
 
-    test().run(code).expect_value_eq("[[1, null], [2, 3]]")
+    test().run(code).expect_value_eq("[[a]; [[2, 3]]]")
 }
