@@ -76,8 +76,10 @@ pub fn glob_from(
                     if matches!(
                         err.kind(),
                         io::ErrorKind::NotFound | io::ErrorKind::NotADirectory
-                    ) =>
+                    ) || (cfg!(windows) && err.kind() == io::ErrorKind::InvalidFilename) =>
                 {
+                    // Windows rejects literal wildcard characters such as `*`
+                    // as invalid filenames. They can't match a quoted path.
                     None
                 }
                 Err(err) => Some(Err(IoError::new(err, pattern_span, path).into())),
