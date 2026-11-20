@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use std::ops::Bound;
 
 use crate::{grapheme_flags, grapheme_flags_const};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::{IntRange, engine::StateWorkingSet};
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::{GraphemeCursor, UnicodeSegmentation};
 
 struct Arguments {
     end: bool,
@@ -241,39 +240,51 @@ fn action(
             };
 
             if *graphemes {
-                // Map each byte offset in `s` to its grapheme index in a single pass, so scoring
-                // any number of matches against it costs one walk of `s`, not one walk per match.
-                let graphemes: Vec<(usize, &str)> = s.grapheme_indices(true).collect();
-                let mut grapheme_index_by_byte_offset: HashMap<usize, i64> = graphemes
-                    .iter()
-                    .enumerate()
-                    .map(|(grapheme_index, (byte_offset, _))| (*byte_offset, grapheme_index as i64))
-                    .collect();
-                // An empty pattern matches at the position right after the last grapheme too
-                // (mirrors how `match_indices("")` always includes the end of the string), but
-                // `grapheme_indices` has no entry there since no grapheme starts at that byte
-                // offset. Add it so that boundary resolves to the total grapheme count instead of
-                // being dropped as "inside a cluster".
-                grapheme_index_by_byte_offset.insert(s.len(), graphemes.len() as i64);
-
-                // A match that doesn't start exactly on a grapheme boundary falls inside a
-                // cluster, so it isn't a real grapheme-level match and is dropped rather than
-                // rounded up to the next cluster (or past the end of the string).
-                let offsets = match_offsets(search_str, substring, *end)
-                    .into_iter()
-                    .map(|offset| offset + start_index);
-
-                if *all {
-                    let indices = offsets
-                        .filter_map(|offset| grapheme_index_by_byte_offset.get(&offset).copied())
-                        .map(|index| Value::int(index, head));
-                    Value::list(indices.collect(), head)
+                if substring.is_empty() {
+                    // An empty pattern matches at every grapheme boundary, including the
+                    // position right after the last grapheme -- the same set
+                    // `match_indices("")` produces at the byte level.
+                    let total = s.graphemes(true).count() as i64;
+                    let mut indices: Vec<i64> = (0..=total).collect();
+                    if *end {
+                        indices.reverse();
+                    }
+                    if *all {
+                        Value::list(
+                            indices.into_iter().map(|i| Value::int(i, head)).collect(),
+                            head,
+                        )
+                    } else {
+                        Value::int(indices.into_iter().next().unwrap_or(-1), head)
+                    }
                 } else {
-                    let result = offsets
-                        .filter_map(|offset| grapheme_index_by_byte_offset.get(&offset).copied())
-                        .next()
-                        .unwrap_or(-1);
-                    Value::int(result, head)
+                    // A match that doesn't start exactly on a grapheme boundary falls inside a
+                    // cluster, so it isn't a real grapheme-level match. `grapheme_match_offsets`
+                    // drops it and keeps looking one `char` further in, rather than skipping the
+                    // whole pattern length and missing a real match that overlaps those bytes.
+                    let hits =
+                        grapheme_match_offsets(s, search_str, start_index, substring, *end, *all);
+                    if *all {
+                        let mut ascending = hits;
+                        if *end {
+                            ascending.reverse();
+                        }
+                        let mut indices = grapheme_indices_for(s, &ascending);
+                        if *end {
+                            indices.reverse();
+                        }
+                        Value::list(
+                            indices.into_iter().map(|i| Value::int(i, head)).collect(),
+                            head,
+                        )
+                    } else {
+                        match hits.first() {
+                            Some(&offset) => {
+                                Value::int(grapheme_indices_for(s, &[offset])[0], head)
+                            }
+                            None => Value::int(-1, head),
+                        }
+                    }
                 }
             } else if *all {
                 let indices = match_offsets(search_str, substring, *end)
@@ -317,6 +328,90 @@ fn match_offsets(haystack: &str, pattern: &str, from_end: bool) -> Vec<usize> {
     } else {
         haystack.match_indices(pattern).map(|(i, _)| i).collect()
     }
+}
+
+/// Every grapheme-boundary-aligned start byte offset (as an absolute index into `s`, not
+/// `search_str`) at which the non-empty `substring` matches within `search_str`, a byte range of
+/// `s` starting at `start_index`. Offsets come out in the same order `match_offsets` would report
+/// them: ascending for a forward scan, descending when `from_end` is set.
+///
+/// A hit that starts inside a grapheme cluster doesn't count as a real match: the scan advances
+/// by a single `char` and keeps looking from there, instead of skipping over the whole pattern's
+/// length, so it doesn't walk past a genuine match that overlaps those same bytes.
+///
+/// Stops after the first valid hit when `want_all` is false, so a single lookup doesn't have to
+/// scan the rest of `search_str` once a match has already been found.
+fn grapheme_match_offsets(
+    s: &str,
+    search_str: &str,
+    start_index: usize,
+    substring: &str,
+    from_end: bool,
+    want_all: bool,
+) -> Vec<usize> {
+    let mut hits = Vec::new();
+    if from_end {
+        let last_char_len = substring.chars().next_back().map_or(1, char::len_utf8);
+        let mut limit = search_str.len();
+        while let Some(o) = search_str[..limit].rfind(substring) {
+            if is_grapheme_boundary(s, o + start_index) {
+                hits.push(o + start_index);
+                if !want_all {
+                    break;
+                }
+                limit = o;
+            } else {
+                // This hit fell inside a cluster, so give back the bytes it covered except for
+                // the pattern's own last char -- a real match further left that overlaps those
+                // bytes still needs a chance to be found.
+                limit = o + substring.len() - last_char_len;
+            }
+        }
+    } else {
+        let mut from = 0;
+        while let Some(i) = search_str[from..].find(substring) {
+            let o = from + i;
+            if is_grapheme_boundary(s, o + start_index) {
+                hits.push(o + start_index);
+                if !want_all {
+                    break;
+                }
+                from = o + substring.len();
+            } else {
+                from = o + search_str[o..].chars().next().map_or(1, char::len_utf8);
+            }
+        }
+    }
+    hits
+}
+
+fn is_grapheme_boundary(s: &str, byte_offset: usize) -> bool {
+    GraphemeCursor::new(byte_offset, s.len(), true)
+        .is_boundary(s, 0)
+        .unwrap_or(false)
+}
+
+/// Converts absolute byte offsets into `s` -- each guaranteed by its caller to be exactly some
+/// grapheme's own start, as `grapheme_match_offsets` only ever returns boundary-validated offsets
+/// -- to their grapheme indices. `ascending_offsets` must be sorted ascending; the whole call is a
+/// single pass over `s`'s graphemes regardless of how many offsets are given, so scoring every
+/// match found by `--all` still costs one walk of `s`, not one walk per match.
+fn grapheme_indices_for(s: &str, ascending_offsets: &[usize]) -> Vec<i64> {
+    let mut result = Vec::with_capacity(ascending_offsets.len());
+    let mut iter = s.grapheme_indices(true).enumerate();
+    let mut current = iter.next();
+    for &offset in ascending_offsets {
+        while let Some((_, (byte_offset, _))) = current {
+            if byte_offset < offset {
+                current = iter.next();
+            } else {
+                break;
+            }
+        }
+        let (grapheme_index, _) = current.expect("offset is a valid grapheme boundary in s");
+        result.push(grapheme_index as i64);
+    }
+    result
 }
 
 #[cfg(test)]
@@ -745,5 +840,151 @@ mod tests {
 
         let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(-1));
+    }
+
+    #[test]
+    fn grapheme_clusters_finds_a_match_that_overlaps_a_mid_cluster_hit() {
+        // "👨\u{200D}👩👩👩👩" is 4 clusters: 👨‍👩 (a ZWJ sequence), 👩, 👩, 👩. A plain byte
+        // search for "👩👩" hits first at byte 7, inside the 👨‍👩 cluster (its trailing 👩).
+        // Skipping ahead by the whole pattern length from that hit jumps over the real match at
+        // cluster 1 (byte 11) and lands on cluster 2 instead -- the match must be found by
+        // retreating to just past the mid-cluster hit's single char, not its whole pattern width.
+        let word = Value::test_string("👨\u{200D}👩👩👩👩");
+        let options = Arguments {
+            substring: String::from("👩👩"),
+            range: None,
+            cell_paths: None,
+            end: false,
+            all: false,
+            graphemes: true,
+        };
+        assert_eq!(
+            action(&word, &options, Span::test_data()),
+            Value::test_int(1)
+        );
+
+        let all = Arguments {
+            all: true,
+            ..options
+        };
+        assert_eq!(
+            action(&word, &all, Span::test_data()),
+            Value::test_list(vec![Value::test_int(1)])
+        );
+    }
+
+    #[test]
+    fn grapheme_clusters_finds_the_only_real_match_with_one_fewer_trailing_cluster() {
+        let word = Value::test_string("👨\u{200D}👩👩👩");
+        let options = Arguments {
+            substring: String::from("👩👩"),
+            range: None,
+            cell_paths: None,
+            end: false,
+            all: false,
+            graphemes: true,
+        };
+        assert_eq!(
+            action(&word, &options, Span::test_data()),
+            Value::test_int(1)
+        );
+    }
+
+    #[test]
+    fn grapheme_clusters_all_finds_a_match_that_overlaps_a_mid_cluster_hit_in_regional_indicators()
+    {
+        // "🇯🇵🇵🇵" pairs its 4 regional indicators into 2 clusters: 🇯🇵 (bytes 0-7), 🇵🇵
+        // (bytes 8-15). A byte search for "🇵🇵" hits first at byte 4 (the second half of
+        // cluster 0 plus the first half of cluster 1) before the real, boundary-aligned match at
+        // byte 8.
+        let word = Value::test_string("🇯🇵🇵🇵");
+        let options = Arguments {
+            substring: String::from("🇵🇵"),
+            range: None,
+            cell_paths: None,
+            end: false,
+            all: true,
+            graphemes: true,
+        };
+        assert_eq!(
+            action(&word, &options, Span::test_data()),
+            Value::test_list(vec![Value::test_int(1)])
+        );
+    }
+
+    #[test]
+    fn grapheme_clusters_from_end_finds_a_match_that_overlaps_a_mid_cluster_hit() {
+        // "🇵🇵🇵" is 2 clusters: 🇵🇵 (bytes 0-7), 🇵 (bytes 8-11, an unpaired trailing
+        // indicator). Searching backward for "🇵🇵" hits first at byte 4 (straddling both
+        // clusters) before the real match at byte 0.
+        let word = Value::test_string("🇵🇵🇵");
+        let options = Arguments {
+            substring: String::from("🇵🇵"),
+            range: None,
+            cell_paths: None,
+            end: true,
+            all: false,
+            graphemes: true,
+        };
+        assert_eq!(
+            action(&word, &options, Span::test_data()),
+            Value::test_int(0)
+        );
+    }
+
+    /// Brute-force reference: every non-overlapping match of `substring` in `s` that starts on a
+    /// grapheme boundary, found by trying every boundary left-to-right and taking the first
+    /// substring-length match at or after each search position -- the same contract
+    /// `grapheme_match_offsets` implements, just without its early-exit or backward-scan
+    /// optimizations.
+    fn brute_force_grapheme_hits(s: &str, substring: &str) -> Vec<i64> {
+        let boundaries: Vec<usize> = s.grapheme_indices(true).map(|(i, _)| i).collect();
+        let mut hits = Vec::new();
+        let mut i = 0;
+        while i < boundaries.len() {
+            let start = boundaries[i];
+            if s[start..].starts_with(substring) {
+                hits.push(i as i64);
+                // Advance to the first boundary at or after the end of this match.
+                let end = start + substring.len();
+                i = boundaries.partition_point(|&b| b < end).max(i + 1);
+            } else {
+                i += 1;
+            }
+        }
+        hits
+    }
+
+    #[test]
+    fn grapheme_clusters_all_matches_a_brute_force_reference_on_random_regional_indicator_strings()
+    {
+        use rand::RngExt;
+
+        let alphabet = ['🇯', '🇵', 'a', '👩'];
+        let mut rng = rand::rng();
+        for _ in 0..2000 {
+            let len = rng.random_range(1..12);
+            let s: String = (0..len)
+                .map(|_| alphabet[rng.random_range(0..alphabet.len())])
+                .collect();
+            for substring in ["🇵🇵", "👩👩", "🇵", "a"] {
+                let word = Value::test_string(s.clone());
+                let options = Arguments {
+                    substring: String::from(substring),
+                    range: None,
+                    cell_paths: None,
+                    end: false,
+                    all: true,
+                    graphemes: true,
+                };
+                let actual = action(&word, &options, Span::test_data());
+                let expected = brute_force_grapheme_hits(&s, substring);
+                assert_eq!(
+                    actual,
+                    Value::test_list(expected.into_iter().map(Value::test_int).collect()),
+                    "s: {s:?}, substring: {substring:?}"
+                );
+            }
+        }
     }
 }
