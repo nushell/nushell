@@ -165,3 +165,25 @@ fn quoted_dotted_name_still_matches_literal_key() -> Result {
 
     test().run(code).expect_value_eq(1)
 }
+
+#[test]
+fn optional_nested_cell_path_drops_rows_where_it_is_missing_or_null() -> Result {
+    let code = "
+        [{a: {b: 1}} {a: {}} {x: 2} {a: {b: null}}]
+        | compact a?.b
+        | length
+    ";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn int_cell_path_leaves_list_rows_unchanged() -> Result {
+    let code = "
+        [[1 null] [2 3]]
+        | compact 0
+        | to nuon
+    ";
+
+    test().run(code).expect_value_eq("[[1, null], [2, 3]]")
+}
