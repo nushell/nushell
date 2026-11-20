@@ -157,3 +157,52 @@ export def env-conversions [] {
         }
     }
 }
+
+# Asks the terminal for one of its colors: `osc` is the number of the OSC query
+# for it, 10 for the foreground and 11 for the background.
+#
+# Returns the color as "#rrggbb", or nothing when there is no terminal to ask or
+# it does not report its colors.
+def terminal-color [osc: int]: [nothing -> oneof<string, nothing>] {
+    # The cursor position, which terminals do report, is asked for after the
+    # color and read up to its ending "R": a terminal that does not report its
+    # colors still answers, instead of keeping this waiting.
+    let reply = try {
+        term query $"(ansi osc)($osc);?(ansi st)(ansi cursor_position)" --terminator R | decode
+    } catch {
+        return null
+    }
+    let channels = $reply | parse --regex 'rgb:(?<r>[[:xdigit:]]+)/(?<g>[[:xdigit:]]+)/(?<b>[[:xdigit:]]+)'
+    if ($channels | is-empty) {
+        return null
+    }
+    # A channel has one to four digits. Its first two are the "rr" of "#rrggbb",
+    # and a single one is repeated, as "f" is "ff".
+    $channels | first | values | each { $"($in)($in)" | str substring 0..1 } | str join | $"#($in)"
+}
+
+# Returns the background color of the terminal as "#rrggbb", or nothing when the
+# terminal does not report it
+#
+# The terminal is asked, and its answer is read from the same input as what is
+# typed: keys typed before the answer comes are lost. Ask once, when nushell
+# starts.
+@example "Stripe tables with a color made from the background of the terminal, or from one of your own when it does not report it" {
+    $env.config.color_config.row_stripe_bg = (terminal-background | default "#282c34")
+}
+export def terminal-background []: [nothing -> oneof<string, nothing>] {
+    terminal-color 11
+}
+
+# Returns the foreground (text) color of the terminal as "#rrggbb", or nothing
+# when the terminal does not report it
+#
+# The terminal is asked, and its answer is read from the same input as what is
+# typed: keys typed before the answer comes are lost. Ask once, when nushell
+# starts.
+@example "Get the color of the text of the terminal, or white when it does not report it" {
+    terminal-foreground | default "#ffffff"
+}
+export def terminal-foreground []: [nothing -> oneof<string, nothing>] {
+    terminal-color 10
+}

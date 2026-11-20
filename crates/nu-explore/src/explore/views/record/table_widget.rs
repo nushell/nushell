@@ -243,6 +243,22 @@ impl TableWidget<'_> {
                 render_space(buf, width, head_y, 1, rest);
             }
         }
+
+        // Stripes belong to the rows of the data, so they scroll with them. A
+        // cell with a background of its own keeps it.
+        for row in 0..data.len() {
+            let stripe = self.config.stripes[(self.index_row + row) % 2];
+            let Some(stripe) = stripe.and_then(|stripe| nu_style_to_tui(stripe).bg) else {
+                continue;
+            };
+            for x in area.left()..area.right() {
+                if let Some(cell) = buf.cell_mut((x, data_y + row as u16))
+                    && cell.bg == ratatui::style::Color::Reset
+                {
+                    cell.set_bg(stripe);
+                }
+            }
+        }
     }
 
     // header at the left; header is always 1 line
@@ -753,4 +769,78 @@ fn head_style(head: &str, style_computer: &StyleComputer) -> TextStyle {
     let style =
         style_computer.compute("header", &Value::string(head, nu_protocol::Span::unknown()));
     TextStyle::with_style(Alignment::Center, style)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_ansi_term::{Color, Style};
+    use nu_protocol::engine::{EngineState, Stack};
+
+    #[test]
+    fn stripes_follow_the_rows_of_the_data() {
+        let engine_state = EngineState::new();
+        let stack = Stack::new();
+        let style_computer = StyleComputer::new(&engine_state, &stack, Default::default());
+        let columns = [String::from("a")];
+        let data: Vec<Vec<NuText>> = (0..4)
+            .map(|row| vec![(row.to_string(), TextStyle::default())])
+            .collect();
+        let config = TableConfig {
+            stripes: [None, Some(Style::new().on(Color::Rgb(1, 2, 3)))],
+            ..Default::default()
+        };
+        let area = Rect::new(0, 0, 10, 3);
+
+        // The lines drawn on the stripe when the view starts at row `index_row`.
+        let striped_lines = |index_row| {
+            let mut buf = Buffer::empty(area);
+            TableWidget::new(
+                &columns,
+                &data,
+                &style_computer,
+                index_row,
+                0,
+                config,
+                Orientation::Top,
+            )
+            .render(area, &mut buf, &mut TableWidgetState::default());
+            (0..area.height)
+                .filter(|&y| buf[(0, y)].bg == ratatui::style::Color::Rgb(1, 2, 3))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(striped_lines(0), [1]);
+        assert_eq!(striped_lines(1), [0, 2]);
+    }
+
+    #[test]
+    fn stripes_leave_a_background_of_its_own() {
+        let engine_state = EngineState::new();
+        let stack = Stack::new();
+        let style_computer = StyleComputer::new(&engine_state, &stack, Default::default());
+        let columns = [String::from("a")];
+        let on_red = TextStyle::default().bg(Color::Red);
+        let data: Vec<Vec<NuText>> = (0..2).map(|_| vec![(String::from("x"), on_red)]).collect();
+        let config = TableConfig {
+            stripes: [None, Some(Style::new().on(Color::Rgb(1, 2, 3)))],
+            ..Default::default()
+        };
+        let area = Rect::new(0, 0, 10, 2);
+        let mut buf = Buffer::empty(area);
+        TableWidget::new(
+            &columns,
+            &data,
+            &style_computer,
+            0,
+            0,
+            config,
+            Orientation::Top,
+        )
+        .render(area, &mut buf, &mut TableWidgetState::default());
+
+        // On the striped row, the cell stays red and the rest is on the stripe.
+        let backgrounds: Vec<_> = (0..area.width).map(|x| buf[(x, 1)].bg).collect();
+        assert!(backgrounds.contains(&ratatui::style::Color::Red));
+        assert!(backgrounds.contains(&ratatui::style::Color::Rgb(1, 2, 3)));
+    }
 }
