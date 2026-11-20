@@ -641,7 +641,7 @@ def build-command-page [command: record] {
                         $", -(colorize $flag.short_flag cyan shape_external)"
                     }),
                     (if ($flag.syntax_shape | is-empty) { "" } else {
-                        $": <(colorize $flag.syntax_shape blue_bold shape_block)>"
+                        $": <(colorize $flag.syntax_shape light_blue shape_block)>"
                     }),
                     (if ($flag.description | is-empty) { "" } else {
                         $" - ($flag.description)"
@@ -661,10 +661,10 @@ def build-command-page [command: record] {
                 ([
                     "  "
                     ...[(if $input.syntax_shape != nothing {
-                        $"<(colorize $input.syntax_shape blue_bold shape_block)> | "
+                        $"<(colorize $input.syntax_shape light_blue shape_block)> | "
                     })]
                     ($command.name | if (config use-colors) { nu-highlight } else {})
-                    $" -> <(colorize $output.syntax_shape blue_bold shape_block)>"
+                    $" -> <(colorize $output.syntax_shape light_blue shape_block)>"
                 ] | str join "")
             } | str join "\n")
             ""
@@ -677,7 +677,7 @@ def build-command-page [command: record] {
                             "  ",
                             (colorize $positional.parameter_name cyan shape_external),
                             (if ($positional.syntax_shape | is-empty) { "" } else {
-                                $": <(colorize $positional.syntax_shape blue_bold shape_block)>"
+                                $": <(colorize $positional.syntax_shape light_blue shape_block)>"
                             }),
                             (if ($positional.description | is-empty) { "" } else {
                                 $" ($positional.description)"
@@ -690,7 +690,7 @@ def build-command-page [command: record] {
                 } else { [] })
                 ...(if $is_rest {
                     let rest = ($parameters | where parameter_type == rest | get 0)
-                    [$"  ...(colorize 'rest' cyan shape_external): <(colorize $rest.syntax_shape blue_bold shape_block)> ($rest.description)"]
+                    [$"  ...(colorize 'rest' cyan shape_external): <(colorize $rest.syntax_shape light_blue shape_block)> ($rest.description)"]
                 } else { [] })
                 ""
             ]} else { [] })
