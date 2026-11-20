@@ -236,7 +236,7 @@ pub fn uniq(
     stack: &mut Stack,
     call: &Call,
     input: Vec<Value>,
-    item_mapper: Box<dyn Fn(ItemMapperState) -> Result<ValueCounter, ShellError>>,
+    mut item_mapper: Box<dyn FnMut(ItemMapperState) -> Result<ValueCounter, ShellError>>,
     metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;

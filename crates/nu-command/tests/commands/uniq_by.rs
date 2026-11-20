@@ -143,6 +143,30 @@ fn uniq_by_multiple_columns() -> Result {
 }
 
 #[test]
+fn uniq_by_nested_cell_path() -> Result {
+    let code = "[{a: {b: 1} c: x} {a: {b: 1} c: y} {a: {b: 2} c: z}] | uniq-by a.b | get c";
+    test().run(code).expect_value_eq(["x", "z"])
+}
+
+#[test]
+fn uniq_by_closure() -> Result {
+    let code = "[1 2 3 4 5 6] | uniq-by { $in mod 3 }";
+    test().run(code).expect_value_eq([1, 2, 3])
+}
+
+#[test]
+fn uniq_by_closure_with_parameter() -> Result {
+    let code = "[[fruit]; [apple] [Apple] [pear]] | uniq-by {|row| $row.fruit | str downcase } | get fruit";
+    test().run(code).expect_value_eq(["apple", "pear"])
+}
+
+#[test]
+fn uniq_by_cell_path_and_closure() -> Result {
+    let code = "[{a: 1 b: 2} {a: 1 b: 4} {a: 1 b: 3}] | uniq-by a { $in.b mod 2 } | get b";
+    test().run(code).expect_value_eq([2, 3])
+}
+
+#[test]
 fn table_with_ignore_case() -> Result {
     let code = "
         [
