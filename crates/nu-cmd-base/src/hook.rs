@@ -5,8 +5,7 @@ use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value,
     debugger::WithoutDebug,
     engine::{Closure, EngineState, EnvName, Stack, StateWorkingSet},
-    report_error::report_parse_error,
-    report_shell_error,
+    report_error::{report_parse_error, report_shell_error},
     shell_error::generic::GenericError,
 };
 use std::{collections::HashMap, sync::Arc};
