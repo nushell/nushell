@@ -106,7 +106,7 @@ fn from_delimited_stream(
 /// name-based lookup (`get`, `to csv`, ...). A suffixed name never matches a
 /// name the header row already uses, so the names the file spells out stay
 /// as they are.
-fn dedupe_headers(headers: Vec<String>) -> Vec<String> {
+pub(crate) fn dedupe_headers(headers: Vec<String>) -> Vec<String> {
     let mut taken: HashSet<String> = headers.iter().cloned().collect();
     // The next suffix to try for each name, so a repeat picks up where the
     // previous one stopped instead of probing `_1`, `_2`, ... again.
