@@ -179,9 +179,8 @@ pub(super) fn parse_rfc3339(s: &str) -> ParseResult<DateTime> {
     separator(7, b"-")?;
     let day = two_digits(bytes, 8)?;
     // The date is checked before the rest is read.
-    if civil::Date::new(year as i16, month as i8, day as i8).is_err() || month == 0 || day == 0 {
-        return Err(DateParseError::OutOfRange);
-    }
+    let date = civil::Date::new(year as i16, month as i8, day as i8)
+        .map_err(|_| DateParseError::OutOfRange)?;
     separator(10, b"tT ")?;
     let hour = two_digits(bytes, 11)?;
     separator(13, b":")?;
@@ -203,17 +202,15 @@ pub(super) fn parse_rfc3339(s: &str) -> ParseResult<DateTime> {
     if !rest.is_empty() {
         return Err(DateParseError::TooLong);
     }
-    Fields {
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second,
-        nanosecond,
-        offset_seconds,
+    // A leap second keeps its fraction on the last ordinary second.
+    let second = if second == 60 { 59 } else { second };
+    let time = civil::Time::new(hour as i8, minute as i8, second as i8, nanosecond as i32)
+        .map_err(|_| DateParseError::OutOfRange)?;
+    if offset_seconds.unsigned_abs() >= 86_400 {
+        return Err(DateParseError::OutOfRange);
     }
-    .into_date_time()
+    let offset = Offset::from_seconds(offset_seconds).map_err(|_| DateParseError::OutOfRange)?;
+    DateTime::from_civil(date.to_datetime(time), offset).ok_or(DateParseError::OutOfRange)
 }
 
 /// Relaxed RFC 3339, as chrono's `FromStr for DateTime<FixedOffset>` read it: fields need no

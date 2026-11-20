@@ -16,10 +16,12 @@ pub enum ParseErrorKind {
     TooShort,
 }
 
-/// The IANA time zone names jiff's database knows, sorted, for completions and
-/// `date list-timezone`.
+/// The IANA time zone names in jiff's bundled database, sorted, for completions and
+/// `date list-timezone`. Command signatures build this list at startup, so it comes from the
+/// copy compiled into nushell rather than a walk of the system's zoneinfo directory, and every
+/// host lists the same names. Lookups still prefer the system's data.
 pub(crate) static TIME_ZONE_NAMES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
-    let mut names: Vec<&'static str> = jiff::tz::db()
+    let mut names: Vec<&'static str> = jiff::tz::TimeZoneDatabase::bundled()
         .available()
         .map(|name| &*name.as_str().to_owned().leak())
         .collect();

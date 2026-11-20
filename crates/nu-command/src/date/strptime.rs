@@ -3,8 +3,10 @@
 //! jiff's `strptime` reads the fields. A pre-pass keeps the meanings these commands have always
 //! had: `%J` and `%Q` are `%Y%m%d` and `%H%M%S`; `%c`, `%x`, `%X`, `%r`, `%+` and `%v` read the
 //! POSIX layouts; `%Z` skips a time zone name (it doesn't set one); `%z` reads `+08:00`, `+0800`
-//! or `+08 00`, and `%#z` also `Z` and `+08`; `%E`/`%O` modifiers are dropped; and a two-digit
-//! year of `69` is 2069, as with any `%y` below 70.
+//! or `+08 00`, and `%#z` also `Z` and `+08`; `%f` reads its digits as nanoseconds; `%B` and `%A`
+//! also read the abbreviated name; `%t` and `%n` match any whitespace, or none; a `%C` beside
+//! `%Y` and a `%I` or `%l` beside `%H` or `%k` are read but don't override; `%E`/`%O` modifiers
+//! are dropped; and a two-digit year of `69` is 2069, as with any `%y` below 70.
 
 use jiff::{civil, fmt::strtime::BrokenDownTime, tz::Offset};
 use nu_protocol::DateTime;
@@ -67,6 +69,14 @@ enum Special {
     ZoneName,
     /// `%z` and its colon forms; `permissive` (`%#z`) also reads `Z` and a bare hour.
     Offset { permissive: bool },
+    /// `%f`: up to 9 digits, as a count of nanoseconds.
+    Nanoseconds,
+    /// `%B`: an English month name, full or abbreviated.
+    MonthName,
+    /// `%A`: an English weekday name, full or abbreviated.
+    WeekdayName,
+    /// A field another directive already gives: up to 2 digits, read and dropped.
+    Redundant,
 }
 
 /// The format as jiff segments split at each [`Special`], and whether it reads a two-digit year.
@@ -81,6 +91,11 @@ fn rewrite_format(format: &str) -> Rewritten {
     let mut specials = Vec::new();
     let mut out = String::new();
     let mut two_digit_year = false;
+    // chrono checked a century against a full year, and a 12-hour hour against a 24-hour one;
+    // the full field wins here.
+    let has_any = |specs: &[&str]| specs.iter().any(|spec| format.contains(spec));
+    let has_year = has_any(&["%Y", "%F", "%c", "%+", "%v", "%J"]);
+    let has_hour = has_any(&["%H", "%k", "%T", "%R", "%X", "%c", "%+", "%Q"]);
     let mut special = |out: &mut String, kind: Special| {
         segments.push(std::mem::take(out));
         specials.push(kind);
@@ -128,6 +143,27 @@ fn rewrite_format(format: &str) -> Rewritten {
             Some('y') => {
                 two_digit_year = true;
                 "%y"
+            }
+            Some('t' | 'n') => " ",
+            Some(spec @ ('f' | 'B' | 'A')) => {
+                let kind = match spec {
+                    'f' => Special::Nanoseconds,
+                    'B' => Special::MonthName,
+                    _ => Special::WeekdayName,
+                };
+                chars.next();
+                special(&mut out, kind);
+                continue;
+            }
+            Some('C') if has_year => {
+                chars.next();
+                special(&mut out, Special::Redundant);
+                continue;
+            }
+            Some('I' | 'l') if has_hour => {
+                chars.next();
+                special(&mut out, Special::Redundant);
+                continue;
             }
             Some('%') => "%%",
             _ => {
@@ -181,9 +217,95 @@ fn parse_segments(text: &str, rewritten: &Rewritten) -> Result<BrokenDownTime, S
                 tm.set_offset(Some(offset));
                 used
             }
+            Special::Nanoseconds => {
+                let (nanos, used) = scan_digits(remaining, 9)
+                    .ok_or_else(|| "input does not have fractional seconds".to_string())?;
+                tm.set_subsec_nanosecond(Some(nanos))
+                    .map_err(|err| err.to_string())?;
+                used
+            }
+            Special::MonthName => {
+                let (month, used) = scan_name(remaining, &MONTHS)
+                    .ok_or_else(|| "input does not have a month name".to_string())?;
+                tm.set_month(Some(month as i8 + 1))
+                    .map_err(|err| err.to_string())?;
+                used
+            }
+            Special::WeekdayName => {
+                let (day, used) = scan_name(remaining, &WEEKDAYS)
+                    .ok_or_else(|| "input does not have a weekday name".to_string())?;
+                tm.set_weekday(Some(WEEKDAY_VALUES[day]));
+                used
+            }
+            Special::Redundant => {
+                scan_digits(remaining, 2)
+                    .ok_or_else(|| "input is missing a number".to_string())?
+                    .1
+            }
         };
     }
     Ok(tm)
+}
+
+const MONTHS: [&str; 12] = [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+];
+const WEEKDAYS: [&str; 7] = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+];
+const WEEKDAY_VALUES: [jiff::civil::Weekday; 7] = [
+    jiff::civil::Weekday::Monday,
+    jiff::civil::Weekday::Tuesday,
+    jiff::civil::Weekday::Wednesday,
+    jiff::civil::Weekday::Thursday,
+    jiff::civil::Weekday::Friday,
+    jiff::civil::Weekday::Saturday,
+    jiff::civil::Weekday::Sunday,
+];
+
+/// Reads 1 to `max` digits after any leading whitespace, as chrono's numeric fields did.
+/// Returns the value and the bytes read.
+fn scan_digits(s: &str, max: usize) -> Option<(i32, usize)> {
+    let trimmed = s.trim_start();
+    let len = trimmed
+        .bytes()
+        .take(max)
+        .take_while(u8::is_ascii_digit)
+        .count();
+    let value = trimmed.get(..len)?.parse().ok()?;
+    Some((value, s.len() - trimmed.len() + len))
+}
+
+/// Reads one of `names` at the start of `s`, in full or as its first three letters, ignoring
+/// case. Returns the index and the bytes read.
+fn scan_name(s: &str, names: &[&str]) -> Option<(usize, usize)> {
+    let lower = s.get(..s.len().min(9))?.to_ascii_lowercase();
+    names.iter().enumerate().find_map(|(i, name)| {
+        if lower.starts_with(name) {
+            Some((i, name.len()))
+        } else if lower.starts_with(&name[..3]) {
+            Some((i, 3))
+        } else {
+            None
+        }
+    })
 }
 
 /// Reads an offset at the start of `s` as chrono's `%z` did: leading whitespace, a sign, two
@@ -334,6 +456,33 @@ mod tests {
             "instant 2021-02-27T21:55:00+08:00"
         );
         assert_eq!(parse("2021-02-27 21:55 Z", "%Y-%m-%d %H:%M %z"), "error");
+    }
+
+    #[test]
+    fn chrono_field_rules_are_kept() {
+        assert_eq!(
+            parse("16:04:32 123", "%H:%M:%S %f"),
+            "time 16:04:32.000000123"
+        );
+        assert_eq!(parse("Apr 3 2025", "%B %e %Y"), "date 2025-04-03");
+        assert_eq!(parse("April 3 2025", "%B %e %Y"), "date 2025-04-03");
+        assert_eq!(
+            parse("Fri 2025-04-18 16:04", "%A %F %H:%M"),
+            "civil 2025-04-18T16:04:00"
+        );
+        assert_eq!(
+            parse("2025-04-18 16:04", "%F %H:%M%t"),
+            "civil 2025-04-18T16:04:00"
+        );
+        assert_eq!(
+            parse("2025-04-18 16:04 20", "%F %H:%M %C"),
+            "civil 2025-04-18T16:04:00"
+        );
+        assert_eq!(
+            parse("2025-04-18 16:04 04", "%F %H:%M %I"),
+            "civil 2025-04-18T16:04:00"
+        );
+        assert_eq!(parse("20 25-04-18", "%C %y-%m-%d"), "date 2025-04-18");
     }
 
     #[test]

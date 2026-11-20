@@ -21,7 +21,7 @@ use jiff::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     cmp::Ordering,
-    fmt::{self, Write},
+    fmt,
     hash::{Hash, Hasher},
     str::FromStr,
     time::SystemTime,
@@ -233,7 +233,10 @@ impl DateTime {
         let civil = self.to_civil();
         let mut out = String::with_capacity(31);
         out.push_str(format::SHORT_WEEKDAYS[weekday_from_sunday(civil)]);
-        let _ = write!(out, ", {} ", civil.day());
+        out.push_str(", ");
+        let day = civil.day() as u32;
+        push_digits(&mut out, day, if day < 10 { 1 } else { 2 });
+        out.push(' ');
         out.push_str(format::SHORT_MONTHS[civil.month() as usize - 1]);
         out.push(' ');
         write_year(&mut out, civil.year());
@@ -399,14 +402,14 @@ fn write_offset(out: &mut String, offset: Offset, style: OffsetStyle) {
         OffsetStyle::Seconds { colon } => (total / 3600, total / 60 % 60, total % 60, colon),
         OffsetStyle::Hours => (total / 3600, 0, 0, false),
     };
-    let _ = write!(out, "{hours:02}");
+    push_digits(out, hours, 2);
     if matches!(style, OffsetStyle::Hours) {
         return;
     }
     if colon {
         out.push(':');
     }
-    let _ = write!(out, "{minutes:02}");
+    push_digits(out, minutes, 2);
     let with_seconds = match style {
         OffsetStyle::Full => seconds != 0,
         OffsetStyle::Seconds { .. } => true,
@@ -416,37 +419,45 @@ fn write_offset(out: &mut String, offset: Offset, style: OffsetStyle) {
         if colon {
             out.push(':');
         }
-        let _ = write!(out, "{seconds:02}");
+        push_digits(out, seconds, 2);
+    }
+}
+
+/// Writes the last `width` decimal digits of `value`, zero-padded. Faster than `write!`, which
+/// matters for tables and serialization with many dates.
+fn push_digits(out: &mut String, mut value: u32, width: usize) {
+    let mut digits = [b'0'; 10];
+    for digit in digits[..width].iter_mut().rev() {
+        *digit = b'0' + (value % 10) as u8;
+        value /= 10;
+    }
+    for &digit in &digits[..width] {
+        out.push(char::from(digit));
     }
 }
 
 /// A year as chrono wrote it: 4 digits, with `-` before negative years.
 fn write_year(out: &mut String, year: i16) {
     if year < 0 {
-        let _ = write!(out, "-{:04}", year.unsigned_abs());
-    } else {
-        let _ = write!(out, "{year:04}");
+        out.push('-');
     }
+    push_digits(out, u32::from(year.unsigned_abs()), 4);
 }
 
 fn write_civil_date(out: &mut String, civil: civil::DateTime, separator: char) {
     write_year(out, civil.year());
-    let _ = write!(
-        out,
-        "{separator}{:02}{separator}{:02}",
-        civil.month(),
-        civil.day()
-    );
+    out.push(separator);
+    push_digits(out, civil.month() as u32, 2);
+    out.push(separator);
+    push_digits(out, civil.day() as u32, 2);
 }
 
 fn write_civil_time(out: &mut String, civil: civil::DateTime) {
-    let _ = write!(
-        out,
-        "{:02}:{:02}:{:02}",
-        civil.hour(),
-        civil.minute(),
-        civil.second()
-    );
+    push_digits(out, civil.hour() as u32, 2);
+    out.push(':');
+    push_digits(out, civil.minute() as u32, 2);
+    out.push(':');
+    push_digits(out, civil.second() as u32, 2);
 }
 
 /// Writes `nanos` as a fraction after `point`, with the digits `seconds` asks for.
@@ -462,8 +473,8 @@ fn write_fraction(out: &mut String, nanos: i32, seconds: SecondsFormat, point: &
         SecondsFormat::AutoSi => 9,
     };
     out.push_str(point);
-    let value = nanos / 10_i32.pow(9 - digits);
-    let _ = write!(out, "{value:0width$}", width = digits as usize);
+    let value = nanos.unsigned_abs() / 10_u32.pow(9 - digits as u32);
+    push_digits(out, value, digits);
 }
 
 /// 0 for Sunday through 6 for Saturday.

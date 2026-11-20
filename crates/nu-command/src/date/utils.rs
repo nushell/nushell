@@ -7,8 +7,9 @@ pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime
     // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and read
     // many times faster than trying layouts. Leap seconds (`23:59:60`), which the RFC 3339
     // reader accepts, go on to the layouts, which reject them.
-    if !input.contains(":60")
-        && let Ok(date) = DateTime::parse_rfc3339(input)
+    if let Ok(date) = DateTime::parse_rfc3339(input)
+        // RFC 3339 puts the seconds at a fixed position.
+        && input.get(17..19) != Some("60")
     {
         return Ok(date);
     }

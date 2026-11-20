@@ -72,6 +72,8 @@ pub use one_of::*;
 pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
+/// The locale tables [`DateTime::format`] takes its `Locale` from, re-exported for plugins.
+pub use pure_rust_locales;
 pub use signature::*;
 pub use span::*;
 pub use syntax_shape::*;
