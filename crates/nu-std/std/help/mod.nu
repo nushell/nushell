@@ -5,7 +5,8 @@
 def colorize [text: string, fallback: string, key?: string] {
     if (config use-colors) {
         let color = ($env.config.color_config? | get -o $"($key)" | default $fallback)
-        $"(ansi $color)($text)(ansi reset)"
+        let code = try { ansi $color } catch { ansi $fallback }
+        $"($code)($text)(ansi reset)"
     } else {
         $text
     }
