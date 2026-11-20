@@ -1,6 +1,23 @@
 use nu_test_support::prelude::*;
 
 #[test]
+#[deps(NU, TESTBIN_ECHO_ENV)]
+fn exec_preserves_internal_environment() -> Result {
+    test()
+        .run(
+            r#"
+            nu -n --no-std-lib -c '
+                $env.PROMPT_INDICATOR = "internal-sentinel"
+                $env.NU_VERSION = "version-sentinel"
+                $env.EXPORT_TEST = "exported-sentinel"
+                exec echo_env PROMPT_INDICATOR NU_VERSION EXPORT_TEST
+            '
+        "#,
+        )
+        .expect_value_eq("internal-sentinel\nversion-sentinel\nexported-sentinel")
+}
+
+#[test]
 #[deps(TESTBIN_COCOCO)]
 fn basic_exec() -> Result {
     test()

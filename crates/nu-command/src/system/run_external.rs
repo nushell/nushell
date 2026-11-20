@@ -28,6 +28,31 @@ use std::{
 #[derive(Clone)]
 pub struct External;
 
+/// Shell state kept in `$env` but not passed to commands launched by `run-external`.
+/// `NU_LIB_DIRS` and `NU_PLUGIN_DIRS` remain exported so child Nushell processes inherit module
+/// and plugin search paths.
+/// `NU_VERSION` remains exported because external programs such as `uv` use it to detect Nushell:
+/// <https://docs.astral.sh/uv/reference/environment/#nu_version>.
+const INTERNAL_ENV_VARS: &[&str] = &[
+    "CMD_DURATION_MS",
+    "LAST_EXIT_CODE",
+    "FILE_PWD",
+    "CURRENT_FILE",
+    "PROCESS_PATH",
+    "PROMPT_COMMAND",
+    "PROMPT_COMMAND_RIGHT",
+    "PROMPT_INDICATOR",
+    "PROMPT_INDICATOR_VI_INSERT",
+    "PROMPT_INDICATOR_VI_NORMAL",
+    "PROMPT_MULTILINE_INDICATOR",
+    "TRANSIENT_PROMPT_COMMAND",
+    "TRANSIENT_PROMPT_COMMAND_RIGHT",
+    "TRANSIENT_PROMPT_INDICATOR",
+    "TRANSIENT_PROMPT_INDICATOR_VI_INSERT",
+    "TRANSIENT_PROMPT_INDICATOR_VI_NORMAL",
+    "TRANSIENT_PROMPT_MULTILINE_INDICATOR",
+];
+
 impl Command for External {
     fn name(&self) -> &str {
         "run-external"
@@ -179,7 +204,12 @@ If you create a custom command with this name, that will be used instead."
         command.current_dir(&cwd);
 
         // Configure environment variables.
-        let envs = env_to_strings(engine_state, stack)?;
+        let mut envs = env_to_strings(engine_state, stack)?;
+        envs.retain(|env_name, _| {
+            !INTERNAL_ENV_VARS
+                .iter()
+                .any(|internal_name| env_name.eq_ignore_ascii_case(internal_name))
+        });
         command.env_clear();
         command.envs(envs);
 
