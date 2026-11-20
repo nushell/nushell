@@ -663,7 +663,7 @@ def build-command-page [command: record] {
                     ...[(if $input.syntax_shape != nothing {
                         $"<(colorize $input.syntax_shape blue_bold shape_block)> | "
                     })]
-                    $"($command.name | nu-highlight)"
+                    ($command.name | if (config use-colors) { nu-highlight } else {})
                     $" -> <(colorize $output.syntax_shape blue_bold shape_block)>"
                 ] | str join "")
             } | str join "\n")
