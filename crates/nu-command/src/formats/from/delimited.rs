@@ -104,8 +104,8 @@ fn from_delimited_stream(
 ///
 /// Records with duplicate keys lose the earlier values on every later
 /// name-based lookup (`get`, `to csv`, ...). A suffixed name never matches a
-/// name the header row already uses, so the names the file spells out stay
-/// as they are.
+/// name the header row already uses, so the names it spells out stay as they
+/// are. Used by `from csv`, `from tsv` and `headers`.
 pub(crate) fn dedupe_headers(headers: Vec<String>) -> Vec<String> {
     let mut taken: HashSet<String> = headers.iter().cloned().collect();
     // The next suffix to try for each name, so a repeat picks up where the
