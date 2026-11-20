@@ -547,18 +547,14 @@ pub fn value_to_sql(
         Value::Duration { val, .. } => Ok(Box::new(val)),
         // The text rusqlite's chrono support wrote, so dates compare and sort as before:
         // `2001-02-03 04:05:06.500+05:30`.
-        Value::Date { val, .. } => nu_protocol::DateTime::try_from(val)
-            .ok()
-            .and_then(|date| {
-                date.format("%F %T%.f%:z", pure_rust_locales::Locale::POSIX)
-                    .ok()
-            })
+        Value::Date { val, .. } => val
+            .format("%F %T%.f%:z", pure_rust_locales::Locale::POSIX)
             .map(|text| Box::new(text) as Box<dyn rusqlite::ToSql>)
-            .ok_or_else(|| ShellError::CantConvert {
+            .map_err(|_| ShellError::CantConvert {
                 to_type: "SQLite text".into(),
                 from_type: "date".into(),
                 span: call_span,
-                help: Some("the date is outside the years -9999 to 9999".into()),
+                help: None,
             }),
         Value::String { val, .. } => Ok(Box::new(val)),
         Value::Binary { val, .. } => Ok(Box::new(val.into_owned())),
@@ -847,7 +843,7 @@ fn convert_sqlite_value_to_nu_value_with_adapter(
         Some(SQLiteColumnAdapter::UnixMillisToDate) => match value {
             ValueRef::Integer(i) => {
                 nu_protocol::DateTime::from_unix_millis(i, jiff::tz::Offset::UTC)
-                    .map(|datetime| Value::date(datetime.into(), span))
+                    .map(|datetime| Value::date(datetime, span))
                     .unwrap_or_else(|| Value::int(i, span))
             }
             _ => convert_sqlite_value_to_nu_value(value, decl_type, span),

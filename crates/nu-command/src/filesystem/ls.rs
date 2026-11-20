@@ -1,8 +1,8 @@
 use crate::{DirBuilder, DirInfo, SeenSet};
-use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, glob_from};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
+use nu_protocol::DateTime;
 use nu_protocol::{
     NuGlob, PipelineMetadata, Signals,
     shell_error::{self, generic::GenericError, io::IoError},
@@ -889,7 +889,7 @@ pub(crate) fn dir_entry_dict(
                 if let Ok(c) = md.created()
                     && let Some(local) = try_convert_to_local_date_time(c)
                 {
-                    val = Value::date(local.with_timezone(local.offset()), span);
+                    val = Value::date(local, span);
                 }
                 val
             });
@@ -899,7 +899,7 @@ pub(crate) fn dir_entry_dict(
                 if let Ok(a) = md.accessed()
                     && let Some(local) = try_convert_to_local_date_time(a)
                 {
-                    val = Value::date(local.with_timezone(local.offset()), span)
+                    val = Value::date(local, span)
                 }
                 val
             });
@@ -910,7 +910,7 @@ pub(crate) fn dir_entry_dict(
             if let Ok(m) = md.modified()
                 && let Some(local) = try_convert_to_local_date_time(m)
             {
-                val = Value::date(local.with_timezone(local.offset()), span);
+                val = Value::date(local, span);
             }
             val
         })
@@ -928,40 +928,24 @@ pub(crate) fn dir_entry_dict(
 
 // TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC
 // and left the conversion to local time to the display layer
-fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
-    // Adapted from https://github.com/chronotope/chrono/blob/v0.4.19/src/datetime.rs#L755-L767.
-    let (sec, nsec) = match t.duration_since(UNIX_EPOCH) {
-        Ok(dur) => (dur.as_secs() as i64, dur.subsec_nanos()),
-        Err(e) => {
-            // unlikely but should be handled
-            let dur = e.duration();
-            let (sec, nsec) = (dur.as_secs() as i64, dur.subsec_nanos());
-            if nsec == 0 {
-                (-sec, 0)
-            } else {
-                (-sec - 1, 1_000_000_000 - nsec)
-            }
-        }
-    };
-
-    const NEG_UNIX_EPOCH: i64 = -11644473600; // t was invalid 0, UNIX_EPOCH subtracted above.
-    if sec == NEG_UNIX_EPOCH {
-        // do not tz lookup invalid SystemTime
+fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime> {
+    // An unset Windows file time (0) is 1601-01-01, 11644473600 seconds before the Unix epoch;
+    // it has no local time to look up.
+    const UNSET_FILE_TIME: std::time::Duration = std::time::Duration::from_secs(11_644_473_600);
+    if t.duration_since(UNIX_EPOCH)
+        .is_err_and(|before| before.duration() == UNSET_FILE_TIME)
+    {
         return None;
     }
-    match Utc.timestamp_opt(sec, nsec) {
-        LocalResult::Single(t) => Some(t.with_timezone(&Local)),
-        _ => None,
-    }
+    DateTime::from_system_time(t)
 }
 
 // #[cfg(windows)] is just to make Clippy happy, remove if you ever want to use this on other platforms
 #[cfg(windows)]
-fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime<Local>> {
-    match Utc.timestamp_opt(secs, 0) {
-        LocalResult::Single(t) => Some(t.with_timezone(&Local)),
-        _ => None,
-    }
+fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime> {
+    jiff::Timestamp::from_second(secs)
+        .ok()
+        .map(DateTime::from_timestamp_local)
 }
 
 #[cfg(windows)]
@@ -1042,7 +1026,7 @@ mod windows_helper {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = Value::date(local.with_timezone(local.offset()), span);
+                    val = Value::date(local, span);
                 }
                 val
             });
@@ -1051,7 +1035,7 @@ mod windows_helper {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = Value::date(local.with_timezone(local.offset()), span);
+                    val = Value::date(local, span);
                 }
                 val
             });
@@ -1061,7 +1045,7 @@ mod windows_helper {
             let mut val = Value::nothing(span);
             let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
             if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                val = Value::date(local.with_timezone(local.offset()), span);
+                val = Value::date(local, span);
             }
             val
         });

@@ -58,7 +58,7 @@ pub enum ParseError<'i> {
     },
     Date {
         attempted: String,
-        err: chrono::ParseError,
+        err: nu_protocol::DateParseError,
         span: Span,
     },
     Range {

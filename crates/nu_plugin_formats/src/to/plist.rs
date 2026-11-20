@@ -2,7 +2,6 @@ use crate::FormatCmdsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand, SimplePluginCommand};
 use nu_protocol::{Category, Example, LabeledError, Record, Signature, Span, Value as NuValue};
 use plist::Value as PlistValue;
-use std::time::SystemTime;
 
 pub(crate) struct IntoPlist;
 
@@ -74,7 +73,10 @@ fn convert_nu_value(nu_val: &NuValue) -> Result<PlistValue, LabeledError> {
                 .map(convert_nu_value)
                 .collect::<Result<_, _>>()?,
         )),
-        NuValue::Date { val, .. } => Ok(PlistValue::Date(SystemTime::from(val.to_owned()).into())),
+        NuValue::Date { val, .. } => val
+            .to_system_time()
+            .map(|time| PlistValue::Date(time.into()))
+            .ok_or_else(|| build_label_error(format!("{val} is out of range"), span)),
         NuValue::Filesize { val, .. } => Ok(PlistValue::Integer(val.get().into())),
         _ => Err(build_label_error(
             format!("{nu_val:?} is not convertible"),

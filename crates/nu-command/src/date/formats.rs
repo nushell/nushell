@@ -7,12 +7,13 @@
 //! feature, strings with relative words (`tomorrow 10am`, `3 days ago`, `next friday`) go to
 //! parse_datetime, which reads GNU `date -d` syntax.
 
-use chrono::{
-    DateTime, Datelike, Days, FixedOffset, Local, LocalResult, Months, NaiveDate, NaiveDateTime,
-    NaiveTime, TimeZone, Weekday,
-};
 use fancy_regex::Regex;
-use jiff::fmt::strtime::{BrokenDownTime, Meridiem};
+use jiff::{
+    civil::{self, Weekday},
+    fmt::strtime::{BrokenDownTime, Meridiem},
+    tz::{Offset, TimeZone},
+};
+use nu_protocol::DateTime;
 use std::{borrow::Cow, cell::LazyCell, sync::LazyLock};
 
 /// Date layouts, tried in order as a prefix of the input. Two-digit years come before four-digit
@@ -197,7 +198,7 @@ static RELATIVE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Read `input` as a date-time, or `None` if it isn't one.
-pub(crate) fn parse_date_text(input: &str) -> Option<DateTime<FixedOffset>> {
+pub(crate) fn parse_date_text(input: &str) -> Option<DateTime> {
     let input = input.trim();
     // jiff reads a leap second (`23:59:60`) as `:59`; nushell rejects leap seconds. The check
     // runs again after normalize, which writes basic-format seconds (`T235960`) as `:60`.
@@ -207,7 +208,7 @@ pub(crate) fn parse_date_text(input: &str) -> Option<DateTime<FixedOffset>> {
     if may_be_rfc2822(input)
         && let Ok(zoned) = jiff::fmt::rfc2822::parse(input)
     {
-        return zoned_to_chrono(&zoned);
+        return Some(DateTime::from_zoned(&zoned));
     }
     let (text, weekday) = normalize(input);
     if text.contains(":60") {
@@ -224,43 +225,45 @@ pub(crate) fn parse_date_text(input: &str) -> Option<DateTime<FixedOffset>> {
     }
     // RFC 9557: 2025-04-18T04:04:32-05:00[America/Chicago]
     if input.ends_with(']') {
-        return zoned_to_chrono(&input.parse::<jiff::ZonedDateTime>().ok()?);
+        return Some(DateTime::from_zoned(
+            &input.parse::<jiff::ZonedDateTime>().ok()?,
+        ));
     }
     parse_relative(input)
 }
 
 #[cfg(feature = "os")]
-fn parse_relative(input: &str) -> Option<DateTime<FixedOffset>> {
+fn parse_relative(input: &str) -> Option<DateTime> {
     if !RELATIVE.is_match(input).unwrap_or(false) {
         return None;
     }
-    parse_gnu_date(input).map(Into::into)
+    parse_gnu_date(input)
 }
 
 /// Reads `input` with the GNU `date` grammar (`tomorrow 10am`, `3 days ago`, `@1744972472`).
 #[cfg(feature = "os")]
-pub(crate) fn parse_gnu_date(input: &str) -> Option<nu_protocol::DateTime> {
+pub(crate) fn parse_gnu_date(input: &str) -> Option<DateTime> {
     // parse_datetime returns jiff 0.2's `Zoned`, so its parts cross over, not the type.
     let zoned = parse_datetime::parse_datetime(input).ok()?.into_zoned()?;
     let timestamp = zoned.timestamp();
-    nu_protocol::DateTime::from_unix_seconds(
+    DateTime::from_unix_seconds(
         timestamp.as_second(),
         timestamp.subsec_nanosecond(),
-        jiff::tz::Offset::from_seconds(zoned.offset().seconds()).ok()?,
+        Offset::from_seconds(zoned.offset().seconds()).ok()?,
     )
 }
 
 /// Relative dates are read by parse_datetime, which nu-command depends on only with the `os`
 /// feature.
 #[cfg(not(feature = "os"))]
-fn parse_relative(_input: &str) -> Option<DateTime<FixedOffset>> {
+fn parse_relative(_input: &str) -> Option<DateTime> {
     None
 }
 
 /// Relative dates are read by parse_datetime, which nu-command depends on only with the `os`
 /// feature.
 #[cfg(not(feature = "os"))]
-pub(crate) fn parse_gnu_date(_input: &str) -> Option<nu_protocol::DateTime> {
+pub(crate) fn parse_gnu_date(_input: &str) -> Option<DateTime> {
     None
 }
 
@@ -295,6 +298,20 @@ fn is_number(text: &str) -> bool {
 }
 
 /// Trim, rewrite spelling variants, and take off a leading weekday name (returned separately).
+/// The weekday a three-letter English abbreviation names, in any case.
+fn weekday_from_abbreviation(abbreviation: &str) -> Option<Weekday> {
+    Some(match abbreviation.to_ascii_lowercase().as_str() {
+        "mon" => Weekday::Monday,
+        "tue" => Weekday::Tuesday,
+        "wed" => Weekday::Wednesday,
+        "thu" => Weekday::Thursday,
+        "fri" => Weekday::Friday,
+        "sat" => Weekday::Saturday,
+        "sun" => Weekday::Sunday,
+        _ => return None,
+    })
+}
+
 fn normalize(input: &str) -> (String, Option<Weekday>) {
     let trimmed = input.trim_matches(['\'', '"']);
     let mut text = expand_basic(trimmed).unwrap_or_else(|| trimmed.to_string());
@@ -314,7 +331,7 @@ fn normalize(input: &str) -> (String, Option<Weekday>) {
     }
     let mut weekday = None;
     if let Ok(Some(found)) = WEEKDAY.find(&text) {
-        weekday = found.as_str().get(..3).and_then(|w| w.parse().ok());
+        weekday = found.as_str().get(..3).and_then(weekday_from_abbreviation);
         text = text
             .get(found.end()..)
             .unwrap_or_default()
@@ -464,7 +481,7 @@ fn time_and_zone(
 
 /// The first reading of `text` in layout order that makes a valid date-time. A reading that
 /// doesn't (`2025-02-30`, or `18/04/2025` month-first) falls through to the next layout.
-fn read_layouts(text: &str, weekday: Option<Weekday>) -> Option<DateTime<FixedOffset>> {
+fn read_layouts(text: &str, weekday: Option<Weekday>) -> Option<DateTime> {
     let whole = |layout: &str| {
         prefix(layout, text)
             .filter(|(_, rest)| rest.is_empty())
@@ -513,131 +530,64 @@ fn build(
     time: Option<&BrokenDownTime>,
     zone: Option<&BrokenDownTime>,
     weekday: Option<Weekday>,
-) -> Option<DateTime<FixedOffset>> {
+) -> Option<DateTime> {
     if let Some(timestamp) = date.and_then(|d| d.timestamp()) {
-        return DateTime::from_timestamp(timestamp.as_second(), 0).map(|d| d.fixed_offset());
+        return DateTime::from_unix_seconds(timestamp.as_second(), 0, Offset::UTC);
     }
     // read the clock only when the string leaves out part of the date
-    let today = LazyCell::new(|| Local::now().date_naive());
+    let today = LazyCell::new(|| DateTime::now().to_civil().date());
     let mut day_date = match date {
-        Some(d) if d.iso_week().is_some() || d.day_of_year().is_some() => {
-            let d = d.to_date().ok()?;
-            let month = u32::try_from(d.month()).ok()?;
-            let day = u32::try_from(d.day()).ok()?;
-            NaiveDate::from_ymd_opt(d.year().into(), month, day)?
-        }
+        Some(d) if d.iso_week().is_some() || d.day_of_year().is_some() => d.to_date().ok()?,
         _ => {
-            let year = date
-                .and_then(|d| d.year())
-                .map_or_else(|| today.year(), i32::from);
-            let month = match date.and_then(|d| d.month()) {
-                Some(month) => u32::try_from(month).ok()?,
-                None => today.month(),
-            };
+            let year = date.and_then(|d| d.year()).unwrap_or_else(|| today.year());
+            let month = date
+                .and_then(|d| d.month())
+                .unwrap_or_else(|| today.month());
             let day = match date.and_then(|d| d.day()) {
-                Some(day) => u32::try_from(day).ok()?,
+                Some(day) => day,
                 // today's day, kept within the month: `Feb 2025` on the 30th is February 28
-                None => {
-                    let first = NaiveDate::from_ymd_opt(year, month, 1)?;
-                    let last = first.checked_add_months(Months::new(1))?.pred_opt()?;
-                    today.day().min(last.day())
-                }
+                None => today
+                    .day()
+                    .min(civil::Date::new(year, month, 1).ok()?.days_in_month()),
             };
-            NaiveDate::from_ymd_opt(year, month, day)?
+            civil::Date::new(year, month, day).ok()?
         }
     };
     if let (Some(weekday), None) = (weekday, date.and_then(|d| d.day())) {
         let ahead =
-            (7 + weekday.num_days_from_monday() - day_date.weekday().num_days_from_monday()) % 7;
-        day_date = day_date.checked_add_days(Days::new(ahead.into()))?;
+            (7 + weekday.to_monday_zero_offset() - day_date.weekday().to_monday_zero_offset()) % 7;
+        day_date = day_date
+            .checked_add(jiff::Span::new().days(i64::from(ahead)))
+            .ok()?;
     }
-    let field = |get: fn(&BrokenDownTime) -> Option<i8>| {
-        time.and_then(get)
-            .map_or(Some(0), |v| u32::try_from(v).ok())
-    };
-    let mut hour = field(BrokenDownTime::hour)?;
+    let field = |get: fn(&BrokenDownTime) -> Option<i8>| time.and_then(get).unwrap_or(0);
+    let mut hour = field(BrokenDownTime::hour);
     match time.and_then(|t| t.meridiem()) {
         Some(Meridiem::PM) if hour < 12 => hour += 12,
         Some(Meridiem::AM) if hour == 12 => hour = 0,
         _ => {}
     }
-    let (minute, second) = (
-        field(BrokenDownTime::minute)?,
-        field(BrokenDownTime::second)?,
-    );
-    let nanosecond = match time.and_then(|t| t.subsec_nanosecond()) {
-        Some(nanosecond) => u32::try_from(nanosecond).ok()?,
-        None => 0,
-    };
-    let naive = day_date.and_time(NaiveTime::from_hms_nano_opt(
-        hour, minute, second, nanosecond,
-    )?);
+    let (minute, second) = (field(BrokenDownTime::minute), field(BrokenDownTime::second));
+    let nanosecond = time.and_then(|t| t.subsec_nanosecond()).unwrap_or(0);
+    let civil = day_date.to_datetime(civil::Time::new(hour, minute, second, nanosecond).ok()?);
     if let Some(name) = zone.and_then(|z| z.iana_time_zone()) {
-        let civil = jiff::civil::DateTime::new(
-            i16::try_from(naive.year()).ok()?,
-            i8::try_from(naive.month()).ok()?,
-            i8::try_from(naive.day()).ok()?,
-            i8::try_from(hour).ok()?,
-            i8::try_from(minute).ok()?,
-            i8::try_from(second).ok()?,
-            i32::try_from(nanosecond).ok()?,
-        )
-        .ok()?;
-        let zone = jiff::tz::TimeZone::get(name).ok()?;
-        return zoned_to_chrono(&civil.to_zoned_datetime(zone).ok()?);
+        let zone = TimeZone::get(name).ok()?;
+        return Some(DateTime::from_zoned(&civil.to_zoned_datetime(zone).ok()?));
     }
-    let offset = match zone.and_then(|z| z.offset()) {
-        Some(offset) => Some(FixedOffset::east_opt(offset.seconds())?),
-        None => None,
-    };
-    with_offset(naive, offset)
-}
-
-/// `naive` at `offset`, or in local time. Local time follows jiff's rule for IANA zones, so both
-/// read a wall-clock time the same way: when the clock goes back and repeats it, the earlier
-/// offset; when the clock jumps ahead and skips it, the offset from before the jump, which moves
-/// it forward by the jump (02:30 on the spring-forward day reads as 03:30).
-fn with_offset(naive: NaiveDateTime, offset: Option<FixedOffset>) -> Option<DateTime<FixedOffset>> {
-    if let Some(offset) = offset {
-        return offset.from_local_datetime(&naive).single();
-    }
-    match Local.from_local_datetime(&naive) {
-        LocalResult::Single(date) => Some(date.fixed_offset()),
-        // chrono lists the later reading first
-        LocalResult::Ambiguous(first, second) => Some(first.min(second).fixed_offset()),
-        LocalResult::None => {
-            // a day earlier is before the jump
-            let before = Local.offset_from_utc_datetime(&naive.checked_sub_days(Days::new(1))?);
-            let date = before.from_local_datetime(&naive).single()?;
-            Some(date.with_timezone(&Local).fixed_offset())
+    match zone.and_then(|z| z.offset()) {
+        // an offset of a day or more isn't one nushell reads
+        Some(offset) if offset.seconds().unsigned_abs() < 86_400 => {
+            DateTime::from_civil(civil, offset)
         }
+        Some(_) => None,
+        // Local time follows jiff's rule for IANA zones: when the clock goes back and repeats
+        // a time, the earlier offset; when it jumps ahead and skips one, the offset from before
+        // the jump, which moves it forward by the jump (02:30 on the spring-forward day reads
+        // as 03:30).
+        None => Some(DateTime::from_zoned(
+            &civil.to_zoned_datetime(TimeZone::system()).ok()?,
+        )),
     }
-}
-
-/// jiff's `ZonedDateTime` as nushell's date value, keeping the instant and the offset.
-fn zoned_to_chrono(zoned: &jiff::ZonedDateTime) -> Option<DateTime<FixedOffset>> {
-    let timestamp = zoned.timestamp();
-    instant_to_chrono(
-        zoned.offset().seconds(),
-        timestamp.as_second(),
-        timestamp.subsec_nanosecond(),
-    )
-}
-
-/// The instant `seconds` + `nanoseconds` after the Unix epoch at `offset_seconds`, as nushell's
-/// date value. jiff gives a negative `nanoseconds` for instants before the epoch.
-fn instant_to_chrono(
-    offset_seconds: i32,
-    seconds: i64,
-    nanoseconds: i32,
-) -> Option<DateTime<FixedOffset>> {
-    let offset = FixedOffset::east_opt(offset_seconds)?;
-    let (seconds, nanoseconds) = match nanoseconds {
-        n if n < 0 => (seconds - 1, n + 1_000_000_000),
-        n => (seconds, n),
-    };
-    let utc = DateTime::from_timestamp(seconds, u32::try_from(nanoseconds).ok()?)?;
-    Some(utc.with_timezone(&offset))
 }
 
 /// A row of `into datetime --formats`: one of the layouts above, or another form
@@ -868,11 +818,15 @@ pub(crate) fn format_rows() -> Vec<FormatRow> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Timelike;
+    use pure_rust_locales::Locale;
+
+    fn today() -> civil::Date {
+        DateTime::now().to_civil().date()
+    }
 
     /// The wall-clock reading, without the offset, which depends on the local zone.
     fn wall(input: &str) -> Option<String> {
-        parse_date_text(input).map(|d| d.naive_local().format("%Y-%m-%d %H:%M:%S%.f").to_string())
+        parse_date_text(input).and_then(|d| d.format("%Y-%m-%d %H:%M:%S%.f", Locale::POSIX).ok())
     }
 
     /// The reading with its offset, for inputs that carry one.
@@ -1017,22 +971,26 @@ mod tests {
 
     #[test]
     fn missing_parts_come_from_today() {
-        let today = Local::now().date_naive();
+        let today = today();
         let at = |h, m| {
-            today
-                .and_hms_opt(h, m, 0)
-                .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string())
+            Some(
+                today
+                    .at(h, m, 0, 0)
+                    .strftime("%Y-%m-%d %H:%M:%S")
+                    .to_string(),
+            )
         };
         assert_eq!(wall("10:36"), at(10, 36));
         assert_eq!(wall("4 PM"), at(16, 0));
         assert_eq!(wall("10:00a.m."), at(10, 0));
         assert_eq!(wall("12am"), at(0, 0));
-        let friday = parse_date_text("Friday").map(|d| d.date_naive());
-        assert_eq!(friday.map(|d| d.weekday()), Some(Weekday::Fri));
-        assert!(friday.is_some_and(|d| d >= today && d < today + Days::new(7)));
+        let friday = parse_date_text("Friday").map(|d| d.to_civil().date());
+        assert_eq!(friday.map(|d| d.weekday()), Some(Weekday::Friday));
+        let week_later = today.checked_add(jiff::Span::new().days(7)).ok();
+        assert!(friday.is_some_and(|d| d >= today && Some(d) < week_later));
         assert_eq!(wall("4:04PM"), at(16, 4));
         for (input, month, day) in [("April 18", 4, 18), ("18 Apr", 4, 18), ("18 APR", 4, 18)] {
-            let date = parse_date_text(input).map(|d| d.date_naive());
+            let date = parse_date_text(input).map(|d| d.to_civil().date());
             assert_eq!(
                 date.map(|d| (d.year(), d.month(), d.day())),
                 Some((today.year(), month, day)),
@@ -1040,12 +998,14 @@ mod tests {
             );
         }
         assert_eq!(
-            parse_date_text("12 25 10:00").map(|d| (d.month(), d.day(), d.hour())),
+            parse_date_text("12 25 10:00")
+                .map(|d| d.to_civil())
+                .map(|d| (d.month(), d.day(), d.hour())),
             Some((12, 25, 10))
         );
         // a year and month
         for (input, month) in [("2025 Dec", 12), ("2025 MAY", 5)] {
-            let date = parse_date_text(input).map(|d| d.date_naive());
+            let date = parse_date_text(input).map(|d| d.to_civil().date());
             assert_eq!(
                 date.map(|d| (d.year(), d.month())),
                 Some((2025, month)),
@@ -1096,11 +1056,8 @@ mod tests {
     }
 
     /// `date` as a jiff time at the same offset, to write it through a layout.
-    fn to_zoned(date: DateTime<FixedOffset>) -> Option<jiff::ZonedDateTime> {
-        let offset = jiff::tz::Offset::from_seconds(date.offset().local_minus_utc()).ok()?;
-        let nanos = i32::try_from(date.timestamp_subsec_nanos()).ok()?;
-        let timestamp = jiff::Timestamp::new(date.timestamp(), nanos).ok()?;
-        Some(timestamp.to_zoned_datetime(jiff::tz::TimeZone::fixed(offset)))
+    fn to_zoned(date: DateTime) -> Option<jiff::ZonedDateTime> {
+        Some(date.to_zoned())
     }
 
     /// Each layout's example reads back as that layout: written through it again, it comes out
@@ -1156,13 +1113,14 @@ mod tests {
     #[cfg(feature = "os")]
     #[test]
     fn relative_dates() {
-        let today = Local::now().date_naive();
-        let date = |input| parse_date_text(input).map(|d| d.date_naive());
-        assert_eq!(date("tomorrow"), today.checked_add_days(Days::new(1)));
-        assert_eq!(date("3 days ago"), today.checked_sub_days(Days::new(3)));
+        let today = today();
+        let days = |n| today.checked_add(jiff::Span::new().days(n)).ok();
+        let date = |input| parse_date_text(input).map(|d| d.to_civil().date());
+        assert_eq!(date("tomorrow"), days(1));
+        assert_eq!(date("3 days ago"), days(-3));
         assert_eq!(
-            parse_date_text("tomorrow 10am").map(|d| (d.date_naive(), d.hour())),
-            today.checked_add_days(Days::new(1)).map(|d| (d, 10))
+            parse_date_text("tomorrow 10am").map(|d| (d.to_civil().date(), d.to_civil().hour())),
+            days(1).map(|d| (d, 10))
         );
         assert_eq!(
             exact("TZ=\"Europe/Paris\" 2025-04-18 04:04").as_deref(),

@@ -189,20 +189,19 @@ pub(crate) fn write_value(
             mp::write_sint(out, *val).err_span(span)?;
         }
         Value::Date { val, .. } => {
-            if val.timestamp_subsec_nanos() == 0
-                && val.timestamp() >= 0
-                && val.timestamp() < u32::MAX as i64
-            {
+            // Whole seconds rounded down and a non-negative fraction, as the extension holds.
+            let nanos = val.unix_nanos();
+            let seconds = nanos.div_euclid(1_000_000_000) as i64;
+            let subsec = nanos.rem_euclid(1_000_000_000) as u32;
+            if subsec == 0 && seconds >= 0 && seconds < u32::MAX as i64 {
                 // Timestamp extension type, 32-bit. u32 seconds since UNIX epoch only.
                 mp::write_ext_meta(out, 4, -1).err_span(span)?;
-                out.write_u32::<BigEndian>(val.timestamp() as u32)
-                    .err_span(span)?;
+                out.write_u32::<BigEndian>(seconds as u32).err_span(span)?;
             } else {
                 // Timestamp extension type, 96-bit. u32 nanoseconds and i64 seconds.
                 mp::write_ext_meta(out, 12, -1).err_span(span)?;
-                out.write_u32::<BigEndian>(val.timestamp_subsec_nanos())
-                    .err_span(span)?;
-                out.write_i64::<BigEndian>(val.timestamp()).err_span(span)?;
+                out.write_u32::<BigEndian>(subsec).err_span(span)?;
+                out.write_i64::<BigEndian>(seconds).err_span(span)?;
             }
         }
         Value::Range { val, .. } => {

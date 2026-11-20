@@ -46,7 +46,7 @@ impl PluginCommand for ListDF {
                 PolarsPluginObject::NuDataFrame(df) => Ok(Some(Value::record(
                     record! {
                         "key" => Value::string(key.to_string(), call.head),
-                        "created" => Value::date(value.created, call.head),
+                        "created" => nu_protocol::IntoValue::into_value(value.created, call.head),
                         "columns" => Value::int(df.as_ref().width() as i64, call.head),
                         "rows" => Value::int(df.as_ref().height() as i64, call.head),
                         "type" => Value::string("DataFrame", call.head),
@@ -63,7 +63,7 @@ impl PluginCommand for ListDF {
                     Ok(Some(Value::record(
                         record! {
                             "key" => Value::string(key.to_string(), call.head),
-                            "created" => Value::date(value.created, call.head),
+                            "created" => nu_protocol::IntoValue::into_value(value.created, call.head),
                             "columns" => Value::int(lf.as_ref().width() as i64, call.head),
                             "rows" => Value::int(lf.as_ref().height() as i64, call.head),
                             "type" => Value::string("LazyFrame", call.head),
@@ -79,7 +79,7 @@ impl PluginCommand for ListDF {
                 PolarsPluginObject::NuExpression(_) => Ok(Some(Value::record(
                     record! {
                         "key" => Value::string(key.to_string(), call.head),
-                        "created" => Value::date(value.created, call.head),
+                        "created" => nu_protocol::IntoValue::into_value(value.created, call.head),
                         "columns" => Value::nothing(call.head),
                         "rows" => Value::nothing(call.head),
                         "type" => Value::string("Expression", call.head),
@@ -136,7 +136,7 @@ impl PluginCommand for ListDF {
                 PolarsPluginObject::NuDataType(_) => Ok(Some(Value::record(
                     record! {
                         "key" => Value::string(key.to_string(), call.head),
-                        "created" => Value::date(value.created, call.head),
+                        "created" => nu_protocol::IntoValue::into_value(value.created, call.head),
                         "columns" => Value::nothing(call.head),
                         "rows" => Value::nothing(call.head),
                         "type" => Value::string("DataType", call.head),
@@ -151,7 +151,7 @@ impl PluginCommand for ListDF {
                 PolarsPluginObject::NuSchema(_) => Ok(Some(Value::record(
                     record! {
                         "key" => Value::string(key.to_string(), call.head),
-                        "created" => Value::date(value.created, call.head),
+                        "created" => nu_protocol::IntoValue::into_value(value.created, call.head),
                         "columns" => Value::nothing(call.head),
                         "rows" => Value::nothing(call.head),
                         "type" => Value::string("Schema", call.head),
@@ -166,7 +166,7 @@ impl PluginCommand for ListDF {
                 PolarsPluginObject::NuSelector(_) => Ok(Some(Value::record(
                     record! {
                         "key" => Value::string(key.to_string(), call.head),
-                        "created" => Value::date(value.created, call.head),
+                        "created" => nu_protocol::IntoValue::into_value(value.created, call.head),
                         "columns" => Value::nothing(call.head),
                         "rows" => Value::nothing(call.head),
                         "type" => Value::string("Selector", call.head),

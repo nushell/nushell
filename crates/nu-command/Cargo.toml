@@ -56,11 +56,6 @@ byteorder = { workspace = true }
 bytesize = { workspace = true }
 calamine = { workspace = true }
 chardetng = { workspace = true }
-chrono = { workspace = true, features = [
-	"std",
-	"unstable-locales",
-	"clock",
-], default-features = false }
 crossterm = { workspace = true, optional = true, features = ["use-dev-tty"] }
 csv = { workspace = true }
 devicons = { workspace = true }

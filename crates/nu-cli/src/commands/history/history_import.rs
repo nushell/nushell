@@ -228,9 +228,8 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
         command_line: cmd,
         id: None,
         start_timestamp: get(rec, fields::START_TIMESTAMP, |v| {
-            Ok(reedline::HistoryTimestamp::from_millis(
-                v.as_date()?.timestamp_millis(),
-            ))
+            let millis = v.as_date()?.unix_nanos().div_euclid(1_000_000);
+            Ok(reedline::HistoryTimestamp::from_millis(millis as i64))
         })?,
         hostname: get(rec, fields::HOSTNAME, |v| Ok(v.as_str()?.to_owned()))?,
         cwd: get(rec, fields::CWD, |v| Ok(v.as_str()?.to_owned()))?,
@@ -252,8 +251,8 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
 }
 
 fn duration_from_value(v: Value, span: Span) -> Result<std::time::Duration, ShellError> {
-    chrono::Duration::nanoseconds(v.as_duration()?)
-        .to_std()
+    u64::try_from(v.as_duration()?)
+        .map(std::time::Duration::from_nanos)
         .map_err(|_| ShellError::NeedsPositiveValue { span })
 }
 
@@ -312,7 +311,7 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::DateTime;
+    use nu_protocol::DateTime;
     use reedline::HistoryTimestamp;
     use rstest::rstest;
 
@@ -346,7 +345,7 @@ mod tests {
             (
                 "start_timestamp",
                 Value::date(
-                    DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00").unwrap(),
+                    DateTime::parse_rfc3339("1996-12-19T16:39:57-08:00").unwrap(),
                     span,
                 ),
             ),
@@ -362,9 +361,10 @@ mod tests {
                 command_line: "foo".to_string(),
                 id: None,
                 start_timestamp: Some(HistoryTimestamp::from_millis(
-                    DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00")
+                    (DateTime::parse_rfc3339("1996-12-19T16:39:57-08:00")
                         .unwrap()
-                        .timestamp_millis()
+                        .unix_nanos()
+                        / 1_000_000) as i64
                 )),
                 hostname: Some("localhost".to_string()),
                 cwd: Some("/home/test".to_string()),

@@ -1,6 +1,6 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, Datelike, FixedOffset};
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
 use nu_protocol::shell_error::generic::GenericError;
 use pure_rust_locales::Locale;
 
@@ -180,18 +180,10 @@ fn run(
 
 /// Formats `date_time` with `formatter`. The locale supplies names, `%c %x %X %r` and the
 /// decimal point; see [`nu_protocol::DateTime::format`].
-fn format_from(
-    date_time: DateTime<FixedOffset>,
-    formatter: &str,
-    span: Span,
-    locale: Locale,
-) -> Value {
-    match nu_protocol::DateTime::try_from(date_time)
-        .ok()
-        .and_then(|date| date.format(formatter, locale).ok())
-    {
-        Some(text) => Value::string(text, span),
-        None => Value::error(
+fn format_from(date_time: DateTime, formatter: &str, span: Span, locale: Locale) -> Value {
+    match date_time.format(formatter, locale) {
+        Ok(text) => Value::string(text, span),
+        Err(_) => Value::error(
             ShellError::TypeMismatch {
                 err_message: "invalid format".to_string(),
                 span,
@@ -294,18 +286,14 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
-    use chrono::{TimeZone, Utc};
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(FormatDate)
     }
 
-    fn date(hour: u32) -> DateTime<FixedOffset> {
-        Utc.with_ymd_and_hms(2026, 8, 27, hour, 45, 0)
-            .single()
-            .expect("valid date")
-            .fixed_offset()
+    fn date(hour: u32) -> DateTime {
+        DateTime::parse_rfc3339(&format!("2026-08-27T{hour:02}:45:00Z")).expect("valid date")
     }
 
     /// `de_DE` and `az_IR` have no am/pm time format, and `az_IR`'s plain one carries `%O`.

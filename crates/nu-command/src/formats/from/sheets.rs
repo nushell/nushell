@@ -167,7 +167,7 @@ fn cell_to_data(cell: &Data, head: Span, tz: Offset, prefer_integers: bool) -> V
         Data::Bool(val) => Value::bool(*val, head),
         Data::DateTime(d) => excel_datetime_to_value(d, tz, head),
         Data::DateTimeIso(datetime_str) => parse_iso_datetime(datetime_str, tz)
-            .map(|d| Value::date(d.into(), head))
+            .map(|d| Value::date(d, head))
             .unwrap_or_else(|| datetime_str.as_str().into_value(head)),
         Data::DurationIso(duration_str) => iso_duration_nanos(duration_str)
             .map(|nanos| Value::duration(nanos, head))
@@ -220,10 +220,7 @@ fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: Offset, span: Spa
         civil
             .ok()
             .and_then(|civil| DateTime::from_civil(civil, tz))
-            .map_or_else(
-                || Value::nothing(span),
-                |date| Value::date(date.into(), span),
-            )
+            .map_or_else(|| Value::nothing(span), |date| Value::date(date, span))
     } else if excel_datetime.is_duration() {
         // A duration is a number of days, kept to the millisecond.
         let millis = (excel_datetime.as_f64() * 86_400_000.0).round();

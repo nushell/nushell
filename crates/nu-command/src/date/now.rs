@@ -1,4 +1,3 @@
-use chrono::Local;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -31,8 +30,7 @@ impl Command for DateNow {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let dt = Local::now();
-        Ok(Value::date(dt.with_timezone(dt.offset()), head).into_pipeline_data())
+        Ok(Value::date(nu_protocol::DateTime::now(), head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

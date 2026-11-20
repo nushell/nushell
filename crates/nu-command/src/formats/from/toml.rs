@@ -67,35 +67,39 @@ pub(crate) fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value
         _ => return Value::string(dt.to_string(), span),
     }
 
-    let date = match dt.date {
-        Some(date) => {
-            chrono::NaiveDate::from_ymd_opt(date.year.into(), date.month.into(), date.day.into())
-        }
-        None => Some(chrono::NaiveDate::default()),
-    };
+    let date = dt.date.and_then(|date| {
+        jiff::civil::Date::new(
+            i16::try_from(date.year).ok()?,
+            date.month as i8,
+            date.day as i8,
+        )
+        .ok()
+    });
 
     let time = match dt.time {
-        Some(time) => chrono::NaiveTime::from_hms_nano_opt(
-            time.hour.into(),
-            time.minute.into(),
-            time.second.unwrap_or_default().into(),
-            time.nanosecond.unwrap_or_default(),
-        ),
-        None => Some(chrono::NaiveTime::default()),
+        Some(time) => jiff::civil::Time::new(
+            time.hour as i8,
+            time.minute as i8,
+            time.second.unwrap_or_default() as i8,
+            i32::try_from(time.nanosecond.unwrap_or_default()).unwrap_or(i32::MAX),
+        )
+        .ok(),
+        None => Some(jiff::civil::Time::midnight()),
     };
 
-    let tz = match dt.offset {
-        Some(offset) => match offset {
-            Offset::Z => chrono::FixedOffset::east_opt(0),
-            Offset::Custom { minutes: min } => chrono::FixedOffset::east_opt(min as i32 * 60),
-        },
-        None => chrono::FixedOffset::east_opt(0),
+    // A date-time without an offset is read at UTC; an offset of a day or more isn't read.
+    let offset_seconds = match dt.offset {
+        Some(Offset::Custom { minutes }) => i32::from(minutes) * 60,
+        Some(Offset::Z) | None => 0,
     };
+    let offset = (offset_seconds.unsigned_abs() < 86_400)
+        .then(|| jiff::tz::Offset::from_seconds(offset_seconds).ok())
+        .flatten();
 
-    let datetime = match (date, time, tz) {
-        (Some(date), Some(time), Some(tz)) => chrono::NaiveDateTime::new(date, time)
-            .and_local_timezone(tz)
-            .earliest(),
+    let datetime = match (date, time, offset) {
+        (Some(date), Some(time), Some(offset)) => {
+            nu_protocol::DateTime::from_civil(date.to_datetime(time), offset)
+        }
         _ => None,
     };
 
@@ -152,7 +156,6 @@ mod tests {
     use crate::{Metadata, MetadataSet};
 
     use super::*;
-    use chrono::TimeZone;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
     use toml::value::Datetime;
 
@@ -180,10 +183,7 @@ mod tests {
 
         let span = Span::test_data();
         let reference_date = Value::date(
-            chrono::FixedOffset::east_opt(60 * 120)
-                .unwrap()
-                .with_ymd_and_hms(1980, 10, 12, 10, 12, 44)
-                .unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("1980-10-12T10:12:44+02:00").unwrap(),
             Span::test_data(),
         );
 
@@ -248,10 +248,7 @@ mod tests {
 
         let span = Span::test_data();
         let reference_date = Value::date(
-            chrono::FixedOffset::east_opt(60 * 120)
-                .unwrap()
-                .with_ymd_and_hms(2000, 1, 1, 12, 12, 12)
-                .unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2000-01-01T12:12:12+02:00").unwrap(),
             span,
         );
 
@@ -279,10 +276,7 @@ mod tests {
 
         let span = Span::test_data();
         let reference_date = Value::date(
-            chrono::FixedOffset::east_opt(0)
-                .unwrap()
-                .with_ymd_and_hms(2000, 1, 1, 12, 12, 12)
-                .unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2000-01-01T12:12:12Z").unwrap(),
             span,
         );
 
@@ -305,10 +299,7 @@ mod tests {
 
         let span = Span::test_data();
         let reference_date = Value::date(
-            chrono::FixedOffset::east_opt(0)
-                .unwrap()
-                .with_ymd_and_hms(2000, 1, 1, 0, 0, 0)
-                .unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2000-01-01T00:00:00Z").unwrap(),
             span,
         );
 

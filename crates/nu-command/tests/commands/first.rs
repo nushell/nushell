@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use nu_protocol::DateTime;
 use nu_protocol::{
     Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
     Range, Signals, Span, Value, ast::RangeInclusion,
@@ -104,10 +104,10 @@ fn gets_first_rows_by_amount() -> Result {
             "$in | first 3 | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(3)
@@ -120,10 +120,10 @@ fn gets_all_rows_if_amount_higher_than_all_rows() -> Result {
             "$in | first 99 | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(4)
@@ -137,8 +137,8 @@ fn gets_first_row_when_no_amount_given() -> Result {
             "$in | first | values | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(4)

@@ -413,6 +413,7 @@ mod chrono_compat {
         }
     }
 
+    #[cfg(feature = "chrono")]
     #[test]
     fn chrono_conversions_round_trip() {
         for (ours, theirs) in pairs() {

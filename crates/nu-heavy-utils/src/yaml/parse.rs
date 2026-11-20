@@ -39,11 +39,11 @@ use crate::{
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
-use chrono::DateTime;
-use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use derive_setters::Setters;
+use jiff::{civil, tz::Offset};
 use nu_protocol::{
-    FromValue, Range, Record, ShellError, Span, Spanned, Type, Value, ast::CellPath, record,
+    DateTime, FromValue, Range, Record, ShellError, Span, Spanned, Type, Value, ast::CellPath,
+    record,
 };
 use nu_utils::location::Location;
 use regex::{Captures, Regex};
@@ -951,7 +951,12 @@ mod v1_x {
         ctx: &mut ParseCtx<'i>,
         input: &str,
         caps: Captures<'_>,
-    ) -> Result<DateTime<FixedOffset>, ParseError<'i>> {
+    ) -> Result<DateTime, ParseError<'i>> {
+        let issue = |issue| ParseError::Timestamp {
+            attempted: input.to_owned(),
+            issue: Some(issue),
+            span: ctx.yaml_span,
+        };
         let year = caps
             .name("y")
             .or(caps.name("year"))
@@ -974,19 +979,14 @@ mod v1_x {
             .parse()
             .expect("valid day, only 2 digits");
         let date =
-            NaiveDate::from_ymd_opt(year, month, day).ok_or_else(|| ParseError::Timestamp {
-                attempted: input.to_owned(),
-                issue: Some(TimestampIssue::InvalidDate),
-                span: ctx.yaml_span,
-            })?;
+            civil::Date::new(year, month, day).map_err(|_| issue(TimestampIssue::InvalidDate))?;
 
         let (Some(hour), Some(minute), Some(second)) =
             (caps.name("hour"), caps.name("minute"), caps.name("second"))
         else {
             // the TIMESTAMP regex guarantees hour, minute, and second are all present or all absent
-            return Ok(NaiveDateTime::new(date, NaiveTime::MIN)
-                .and_utc()
-                .fixed_offset());
+            return DateTime::from_civil(date.to_datetime(civil::Time::midnight()), Offset::UTC)
+                .ok_or_else(|| issue(TimestampIssue::InvalidDate));
         };
 
         let hour = hour
@@ -1002,24 +1002,21 @@ mod v1_x {
             .parse()
             .expect("valid second, only 1 or 2 digits");
 
-        let time = match caps.name("fraction") {
-            None => NaiveTime::from_hms_opt(hour, minute, second),
+        let nano = match caps.name("fraction") {
+            None => 0,
             Some(fraction) => {
                 let fraction = f64::from_str(fraction.as_str())
                     .expect("valid fraction, only 1 dot followed by digits");
-                let nano = Duration::from_secs_f64(fraction).subsec_nanos();
-                NaiveTime::from_hms_nano_opt(hour, minute, second, nano)
+                Duration::from_secs_f64(fraction).subsec_nanos() as i32
             }
-        }
-        .ok_or_else(|| ParseError::Timestamp {
-            attempted: input.to_owned(),
-            issue: Some(TimestampIssue::InvalidTime),
-            span: ctx.yaml_span,
-        })?;
+        };
+        let time = civil::Time::new(hour, minute, second, nano)
+            .map_err(|_| issue(TimestampIssue::InvalidTime))?;
 
-        let datetime = NaiveDateTime::new(date, time);
+        let datetime = date.to_datetime(time);
         let Some(tz_hour) = caps.name("tz_hour") else {
-            return Ok(datetime.and_utc().fixed_offset());
+            return DateTime::from_civil(datetime, Offset::UTC)
+                .ok_or_else(|| issue(TimestampIssue::InvalidDate));
         };
 
         let mut offset = Duration::from_hours(
@@ -1036,26 +1033,26 @@ mod v1_x {
                     .expect("valid minute, only 2 digits"),
             );
         }
-        let offset = match caps.name("tz_sign").map(|m| m.as_str()) {
-            None | Some("+") => FixedOffset::east_opt(offset.as_secs() as i32),
-            Some("-") => FixedOffset::west_opt(offset.as_secs() as i32),
+        let seconds = offset.as_secs() as i32;
+        let seconds = match caps.name("tz_sign").map(|m| m.as_str()) {
+            None | Some("+") => seconds,
+            Some("-") => -seconds,
             _ => unreachable!("regex only matches '+' or '-'"),
-        }
-        .ok_or_else(|| ParseError::Timestamp {
-            attempted: input.to_owned(),
-            issue: Some(TimestampIssue::InvalidOffset),
-            span: ctx.yaml_span,
-        })?;
+        };
+        // An offset of a day or more is invalid, as it always has been.
+        let offset = (seconds.unsigned_abs() < 86_400)
+            .then(|| Offset::from_seconds(seconds).ok())
+            .flatten()
+            .ok_or_else(|| issue(TimestampIssue::InvalidOffset))?;
 
-        // according to the docs, using `unwrap` is safe for `FixedOffset`
-        Ok(datetime.and_local_timezone(offset).unwrap())
+        DateTime::from_civil(datetime, offset).ok_or_else(|| issue(TimestampIssue::InvalidDate))
     }
 
     // this is placed in v1_x as we use it for 1.2 parsing too, but not implicitly
     pub fn maybe_parse_timestamp<'i>(
         ctx: &mut ParseCtx<'i>,
         input: &str,
-    ) -> Result<Option<DateTime<FixedOffset>>, ParseError<'i>> {
+    ) -> Result<Option<DateTime>, ParseError<'i>> {
         if let Some(caps) = TIMESTAMP.captures(input) {
             return parse_timestamp(ctx, input, caps).map(Some);
         }
@@ -1290,7 +1287,6 @@ mod v1_2 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::DateTime;
     use indoc::*;
     use miette::Diagnostic;
     use nu_protocol::*;
@@ -1795,33 +1791,23 @@ mod tests {
 
         assert_eq!(
             record["canonical"].as_date()?,
-            "2001-12-15T02:59:43.1Z"
-                .parse::<DateTime<FixedOffset>>()
-                .unwrap()
+            "2001-12-15T02:59:43.1Z".parse::<DateTime>().unwrap()
         );
         assert_eq!(
             record["valid iso8601"].as_date()?,
-            "2001-12-14T21:59:43.10-05:00"
-                .parse::<DateTime<FixedOffset>>()
-                .unwrap()
+            "2001-12-14T21:59:43.10-05:00".parse::<DateTime>().unwrap()
         );
         assert_eq!(
             record["space separated"].as_date()?,
-            "2001-12-14T21:59:43.10-05:00"
-                .parse::<DateTime<FixedOffset>>()
-                .unwrap()
+            "2001-12-14T21:59:43.10-05:00".parse::<DateTime>().unwrap()
         );
         assert_eq!(
             record["no time zone (Z)"].as_date()?,
-            "2001-12-15T02:59:43.10Z"
-                .parse::<DateTime<FixedOffset>>()
-                .unwrap()
+            "2001-12-15T02:59:43.10Z".parse::<DateTime>().unwrap()
         );
         assert_eq!(
             record["date (00:00:00Z)"].as_date()?,
-            "2002-12-14T00:00:00Z"
-                .parse::<DateTime<FixedOffset>>()
-                .unwrap()
+            "2002-12-14T00:00:00Z".parse::<DateTime>().unwrap()
         );
 
         Ok(())

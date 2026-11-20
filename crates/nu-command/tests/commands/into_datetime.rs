@@ -1,4 +1,3 @@
-use chrono::DateTime;
 use nu_protocol::casing::Casing;
 use nu_protocol::{ast::PathMember, record};
 
@@ -7,8 +6,6 @@ use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 // Tests happy paths
-
-const TEST_DATETIME_FMT: &str = "%Y-%m-%dT%H:%M:%S%z";
 
 #[rstest]
 #[case::string(
@@ -128,7 +125,10 @@ fn into_datetime_cell_path(
             &[PathMember::test_string(col, false, Casing::Sensitive)],
             Box::new(|val| {
                 Value::test_date(
-                    DateTime::parse_from_str(val.as_str().unwrap(), TEST_DATETIME_FMT).unwrap(),
+                    val.as_str()
+                        .unwrap()
+                        .parse::<nu_protocol::DateTime>()
+                        .unwrap(),
                 )
             }),
         )?;
@@ -149,7 +149,6 @@ fn into_datetime_cell_path(
         let actual_date = actual.get_data_by_key(col).unwrap().as_date()?;
         let expected_date = expected.get_data_by_key(col).unwrap().as_date()?;
 
-        assert_eq!(expected_date.timezone(), actual_date.timezone());
         assert_eq!(expected_date.offset(), actual_date.offset());
     }
 

@@ -99,7 +99,7 @@ impl PluginCommand for AsDateTime {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-30 00:00:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -107,7 +107,7 @@ impl PluginCommand for AsDateTime {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-31 00:00:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -132,7 +132,7 @@ impl PluginCommand for AsDateTime {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-30 00:00:00.123456789 +0000",
                                         "%Y-%m-%d %H:%M:%S.%9f %z",
@@ -140,7 +140,7 @@ impl PluginCommand for AsDateTime {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-31 00:00:00.123456789 +0000",
                                         "%Y-%m-%d %H:%M:%S.%9f %z",
@@ -169,7 +169,7 @@ impl PluginCommand for AsDateTime {
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "datetime".to_string(),
-                            vec![Value::date(
+                            vec![nu_protocol::IntoValue::into_value(
                                 DateTime::parse_from_str(
                                     "2021-12-30 00:00:00 +0000",
                                     "%Y-%m-%d %H:%M:%S %z",
@@ -198,7 +198,7 @@ impl PluginCommand for AsDateTime {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-11-02 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -206,7 +206,7 @@ impl PluginCommand for AsDateTime {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-11-02 01:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -214,7 +214,7 @@ impl PluginCommand for AsDateTime {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-11-02 02:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -222,7 +222,7 @@ impl PluginCommand for AsDateTime {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-11-02 03:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",

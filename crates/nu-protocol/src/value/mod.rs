@@ -24,12 +24,12 @@ pub use range::{FloatRange, IntRange, ParseRangeError, Range};
 pub use record::Record;
 
 use crate::{
-    BlockId, CompareTypes, Config, ShellError, Signals, Span, Type, TypeRelation,
+    BlockId, CompareTypes, Config, DateTime, HumanTime, SecondsFormat, ShellError, Signals, Span,
+    Type, TypeRelation,
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
 };
-use chrono::{DateTime, Datelike, FixedOffset};
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji};
 pub use semver::Version as SemVerVersion;
 use serde::{Deserialize, Serialize};
@@ -138,7 +138,7 @@ pub enum Value {
     },
     #[non_exhaustive]
     Date {
-        val: DateTime<FixedOffset>,
+        val: DateTime,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -552,7 +552,7 @@ impl Value {
     }
 
     /// Returns the inner [`DateTime`] value or an error if this `Value` is not a date
-    pub fn as_date(&self) -> Result<DateTime<FixedOffset>, ShellError> {
+    pub fn as_date(&self) -> Result<DateTime, ShellError> {
         if let Value::Date { val, .. } = self {
             Ok(*val)
         } else {
@@ -636,9 +636,9 @@ impl Value {
                 Ok(s) => Ok(Cow::Borrowed(s)),
                 Err(_) => self.cant_convert_to("string"),
             },
-            Value::Date { val, .. } => Ok(Cow::Owned(
-                val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-            )),
+            Value::Date { val, .. } => {
+                Ok(Cow::Owned(val.to_rfc3339_opts(SecondsFormat::Millis, true)))
+            }
             val => val.cant_convert_to("string"),
         }
     }
@@ -726,7 +726,7 @@ impl Value {
                 Ok(s) => Ok(s),
                 Err(err) => Value::binary(err.into_bytes(), span).cant_convert_to("string"),
             },
-            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(SecondsFormat::Millis, true)),
             val => val.cant_convert_to("string"),
         }
     }
@@ -1077,12 +1077,11 @@ impl Value {
         }
     }
 
-    fn format_datetime(&self, date_time: &DateTime<FixedOffset>, formatter: &str) -> String {
+    fn format_datetime(&self, date_time: &DateTime, formatter: &str) -> String {
         let locale = crate::datetime::time_locale(|name| std::env::var(name).ok());
-        crate::DateTime::try_from(*date_time)
-            .ok()
-            .and_then(|date| date.format(formatter, locale).ok())
-            .unwrap_or_else(|| format!("Invalid format string {formatter}"))
+        date_time
+            .format(formatter, locale)
+            .unwrap_or_else(|_| format!("Invalid format string {formatter}"))
     }
 
     /// Converts this `Value` to a string according to the given [`Config`] and separator
@@ -1102,7 +1101,7 @@ impl Value {
                 None => {
                     format!(
                         "{} ({})",
-                        if val.year() >= 0 && val.year() <= 9999 {
+                        if (0..=9999).contains(&val.to_civil().year()) {
                             val.to_rfc2822()
                         } else {
                             val.to_rfc3339()
@@ -1919,7 +1918,7 @@ impl Value {
         }
     }
 
-    pub fn date(val: DateTime<FixedOffset>, span: Span) -> Value {
+    pub fn date(val: DateTime, span: Span) -> Value {
         Value::Date {
             val,
             internal_span: span,
@@ -2043,7 +2042,7 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_date(val: DateTime<FixedOffset>) -> Value {
+    pub fn test_date(val: DateTime) -> Value {
         Value::date(val, Span::test_data())
     }
 
@@ -2118,7 +2117,7 @@ impl Value {
             Value::test_int(0),
             Value::test_filesize(0),
             Value::test_duration(0),
-            Value::test_date(DateTime::UNIX_EPOCH.into()),
+            Value::test_date(DateTime::UNIX_EPOCH),
             Value::test_range(Range::IntRange(IntRange {
                 start: 0,
                 step: 1,
@@ -2826,7 +2825,7 @@ impl Hash for Value {
             }
             Value::Filesize { val, .. } => val.hash(state),
             Value::Duration { val, .. } => val.hash(state),
-            // chrono hashes the UTC instant, so the offset does not matter, matching its `==`.
+            // Dates hash the instant, so the offset does not matter, matching their `==`.
             Value::Date { val, .. } => val.hash(state),
             // Per variant, like `strict_eq`: `0..5` and `0.0..5.0` are different keys.
             Value::Range { val, .. } => {
@@ -3027,7 +3026,7 @@ impl Value {
                 Ok(Value::string(lhs.to_string() + rhs, span))
             }
             (Value::Duration { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
-                if let Some(val) = rhs.checked_add_signed(chrono::Duration::nanoseconds(*lhs)) {
+                if let Some(val) = rhs.checked_add_nanos(*lhs) {
                     Ok(Value::date(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
@@ -3038,7 +3037,7 @@ impl Value {
                 }
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
+                if let Some(val) = lhs.checked_add_nanos(*rhs) {
                     Ok(Value::date(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
@@ -3108,8 +3107,7 @@ impl Value {
                 Ok(Value::float(lhs - rhs, span))
             }
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
-                let result = lhs.signed_duration_since(*rhs);
-                if let Some(v) = result.num_nanoseconds() {
+                if let Ok(v) = i64::try_from(lhs.nanos_since(*rhs)) {
                     Ok(Value::duration(v, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
@@ -3120,7 +3118,7 @@ impl Value {
                 }
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                match lhs.checked_sub_signed(chrono::Duration::nanoseconds(*rhs)) {
+                match lhs.checked_sub_nanos(*rhs) {
                     Some(val) => Ok(Value::date(val, span)),
                     _ => Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
@@ -4335,14 +4333,13 @@ impl Value {
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => (lhs, *rhs),
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 // The clock is read on every evaluation, just like `(date now) - 2wk` would be.
-                let point = crate::DateTime::now_utc()
-                    .checked_sub_nanos(*rhs)
-                    .map(DateTime::<FixedOffset>::from)
-                    .ok_or_else(|| ShellError::OperatorOverflow {
+                let point = DateTime::now_utc().checked_sub_nanos(*rhs).ok_or_else(|| {
+                    ShellError::OperatorOverflow {
                         msg: "subtracting the duration from now overflowed".into(),
                         span,
                         help: None,
-                    })?;
+                    }
+                })?;
                 (lhs, point)
             }
             _ => {
@@ -4575,16 +4572,8 @@ fn operator_type_error(
 }
 
 /// How far `val` is from now, rounded to the second, as text like `2 hours ago`.
-pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> crate::HumanTime {
-    match crate::DateTime::try_from(*val) {
-        Ok(date) => crate::HumanTime::from_now(date),
-        // Past jiff's years, count whole years.
-        Err(_) => crate::HumanTime::from_seconds(
-            (i64::from(val.year()) - i64::from(crate::DateTime::now().to_civil().year()))
-                * 365
-                * 86_400,
-        ),
-    }
+pub fn human_time_from_now(val: &DateTime) -> HumanTime {
+    HumanTime::from_now(*val)
 }
 
 #[cfg(test)]
@@ -4601,7 +4590,6 @@ mod tests {
             casing::Casing,
             engine::Closure,
         };
-        use chrono::DateTime;
         use pretty_assertions::assert_eq;
         use serde::{Deserialize, Serialize};
         use std::ops::Bound;
@@ -4745,7 +4733,10 @@ mod tests {
 
         #[test]
         fn date() {
-            let value = Value::test_date(DateTime::UNIX_EPOCH.into());
+            let value = Value::test_date(crate::DateTime::new(
+                jiff::Timestamp::UNIX_EPOCH,
+                jiff::tz::Offset::UTC,
+            ));
             DebugFormats {
                 value,
                 expanded: "Date { val: 1970-01-01T00:00:00+00:00, internal_span: Span(TEST) }",
@@ -5795,15 +5786,12 @@ mod tests {
     }
 
     mod into_string {
-        use chrono::{DateTime, FixedOffset};
-
         use super::*;
 
         #[test]
         fn test_datetime() {
-            let date = DateTime::from_timestamp_millis(-123456789)
-                .unwrap()
-                .with_timezone(&FixedOffset::east_opt(0).unwrap());
+            let date =
+                crate::DateTime::from_unix_millis(-123456789, jiff::tz::Offset::UTC).unwrap();
 
             let string = Value::test_date(date).to_expanded_string("", &Default::default());
 
@@ -5815,9 +5803,8 @@ mod tests {
 
         #[test]
         fn test_negative_year_datetime() {
-            let date = DateTime::from_timestamp_millis(-72135596800000)
-                .unwrap()
-                .with_timezone(&FixedOffset::east_opt(0).unwrap());
+            let date =
+                crate::DateTime::from_unix_millis(-72135596800000, jiff::tz::Offset::UTC).unwrap();
 
             let string = Value::test_date(date).to_expanded_string("", &Default::default());
 
@@ -5857,11 +5844,9 @@ mod tests {
                 .is_err()
         );
         assert!(
-            Value::test_date(
-                chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
-            )
-            .coerce_bool()
-            .is_err()
+            Value::test_date(crate::DateTime::parse_rfc3339("2024-01-01T12:00:00+00:00").unwrap())
+                .coerce_bool()
+                .is_err()
         );
         assert!(Value::test_glob("*.rs").coerce_bool().is_err());
         assert!(Value::test_binary(vec![1, 2, 3]).coerce_bool().is_err());
@@ -6076,7 +6061,6 @@ mod tests {
         use crate::{
             BlockId, CustomValue, Filesize, Range, Record, ShellError, Span, VarId, casing::Casing,
         };
-        use chrono::FixedOffset;
         use indexmap::IndexMap;
         use serde::{Deserialize, Serialize};
         use std::any::Any;
@@ -6321,18 +6305,18 @@ mod tests {
 
         #[test]
         fn date_offset_does_not_affect_identity() {
-            let utc = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.123456789Z")
-                .expect("rfc3339");
-            let east = utc.with_timezone(&FixedOffset::east_opt(3600).expect("offset"));
+            let utc =
+                crate::DateTime::parse_rfc3339("2020-01-01T00:00:00.123456789Z").expect("rfc3339");
+            let east = utc.with_offset(jiff::tz::Offset::from_seconds(3600).expect("offset"));
             assert_strict_eq_same_hash(&Value::test_date(utc), &Value::test_date(east));
         }
 
         #[test]
         fn date_subseconds_affect_identity() {
-            let a = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000000Z")
-                .expect("rfc3339");
-            let b = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00.000000001Z")
-                .expect("rfc3339");
+            let a =
+                crate::DateTime::parse_rfc3339("2020-01-01T00:00:00.000000000Z").expect("rfc3339");
+            let b =
+                crate::DateTime::parse_rfc3339("2020-01-01T00:00:00.000000001Z").expect("rfc3339");
             assert_strict_ne(&Value::test_date(a), &Value::test_date(b));
             assert_ne!(
                 hash_value(&Value::test_date(a)),
@@ -6721,9 +6705,12 @@ mod tests {
                 2 => Value::test_string(rng.pick(&["a", "b"])),
                 3 => Value::glob(rng.pick(&["a", "b"]), rng.below(2) == 0, Span::test_data()),
                 4 => {
-                    let date = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
-                        .expect("rfc3339");
-                    Value::test_date(date + chrono::Duration::nanoseconds(rng.below(2) as i64))
+                    let date =
+                        crate::DateTime::parse_rfc3339("2020-01-01T00:00:00Z").expect("rfc3339");
+                    Value::test_date(
+                        date.checked_add_nanos(rng.below(2) as i64)
+                            .expect("in range"),
+                    )
                 }
                 5 => Value::range(
                     Range::new_float(rng.pick(&[0.0, -0.0]), None, Some(Bound::Included(1.0))),
@@ -6774,8 +6761,9 @@ mod tests {
             match value {
                 Value::Float { val, .. } => Value::float(other_float_bits(rng, *val), span),
                 Value::Date { val, .. } => {
-                    let offset = FixedOffset::east_opt(rng.pick(&[3600, -7200])).expect("offset");
-                    Value::date(val.with_timezone(&offset), span)
+                    let offset =
+                        jiff::tz::Offset::from_seconds(rng.pick(&[3600, -7200])).expect("offset");
+                    Value::date(val.with_offset(offset), span)
                 }
                 // `random_value` only makes float ranges with the default step, so `None`
                 // rebuilds the same step.

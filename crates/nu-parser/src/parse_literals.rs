@@ -1454,7 +1454,7 @@ fn is_invalid_date_literal(bytes: &[u8]) -> bool {
         && time_follows
         && str::from_utf8(&bytes[..10])
             .ok()
-            .and_then(|date| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok())
+            .and_then(|date| jiff::civil::Date::strptime("%Y-%m-%d", date).ok())
             .is_none()
 }
 
@@ -1476,19 +1476,19 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let token = String::from_utf8_lossy(bytes).to_string();
 
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&token) {
+    if let Ok(datetime) = nu_protocol::DateTime::parse_rfc3339(&token) {
         return Expression::new(working_set, Expr::DateTime(datetime), span, Type::Date);
     }
 
     // Just the date
     let just_date = token.clone() + "T00:00:00+00:00";
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&just_date) {
+    if let Ok(datetime) = nu_protocol::DateTime::parse_rfc3339(&just_date) {
         return Expression::new(working_set, Expr::DateTime(datetime), span, Type::Date);
     }
 
     // Date and time, assume UTC
     let datetime = token + "+00:00";
-    if let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&datetime) {
+    if let Ok(datetime) = nu_protocol::DateTime::parse_rfc3339(&datetime) {
         return Expression::new(working_set, Expr::DateTime(datetime), span, Type::Date);
     }
 

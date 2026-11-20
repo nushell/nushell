@@ -243,7 +243,6 @@ impl UnknownTagError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::DateTime;
     use miette::Diagnostic;
     use nu_protocol::{engine::Closure, *};
     use nu_test_support::{assertions::assert_contains, prelude::*, test_cell_path};
@@ -260,7 +259,7 @@ mod tests {
     #[case::glob(Value::test_glob("*.nu"))]
     #[case::filesize(Value::test_filesize(1024))]
     #[case::duration(std::time::Duration::from_secs(1))]
-    #[case::date(DateTime::UNIX_EPOCH.fixed_offset())]
+    #[case::date(DateTime::UNIX_EPOCH)]
     #[case::range(Range::new_int(Some(1), Some(2), Some(Bound::Included(4)),))]
     #[case::record(test_record! { "name" => "nushell", "active" => true })]
     #[case::list(test_list!["nushell", 42, true])]

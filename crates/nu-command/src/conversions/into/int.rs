@@ -1,4 +1,3 @@
-use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
@@ -257,17 +256,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             }
         }
         Value::Date { val, .. } => {
-            if val
-                < &FixedOffset::east_opt(0)
-                    .expect("constant")
-                    .with_ymd_and_hms(1677, 9, 21, 0, 12, 44)
-                    .unwrap()
-                || val
-                    > &FixedOffset::east_opt(0)
-                        .expect("constant")
-                        .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
-                        .unwrap()
-            {
+            // Whole seconds inside the range of i64 nanoseconds.
+            const LIMIT: i128 = 9_223_372_036_000_000_000;
+            let nanos = val.unix_nanos();
+            if !(-LIMIT..=LIMIT).contains(&nanos) {
                 Value::error (
                     ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
@@ -277,7 +269,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     head,
                 )
             } else {
-                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), head)
+                Value::int(nanos as i64, head)
             }
         }
         Value::Duration { val, .. } => Value::int(*val, head),
@@ -469,7 +461,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
 
 #[cfg(test)]
 mod test {
-    use chrono::{DateTime, FixedOffset};
+    use nu_protocol::DateTime;
     use rstest::rstest;
 
     use super::Value;
@@ -554,10 +546,7 @@ mod test {
     #[case("2262-04-11T23:47:16+00:00", 0x7fff_ffff_ffff_ffff)]
     #[case("1970-01-01T00:00:00+00:00", 0)]
     #[case("1677-09-21T00:12:44+00:00", -0x7fff_ffff_ffff_ffff)]
-    fn datetime_to_int_values_that_work(
-        #[case] dt_in: DateTime<FixedOffset>,
-        #[case] int_expected: i64,
-    ) {
+    fn datetime_to_int_values_that_work(#[case] dt_in: DateTime, #[case] int_expected: i64) {
         let s = Value::test_date(dt_in);
         let actual = action(
             &s,
@@ -577,10 +566,7 @@ mod test {
     #[rstest]
     #[case("2262-04-11T23:47:17+00:00", "DateTime out of range for timestamp")]
     #[case("1677-09-21T00:12:43+00:00", "DateTime out of range for timestamp")]
-    fn datetime_to_int_values_that_fail(
-        #[case] dt_in: DateTime<FixedOffset>,
-        #[case] err_expected: &str,
-    ) {
+    fn datetime_to_int_values_that_fail(#[case] dt_in: DateTime, #[case] err_expected: &str) {
         let s = Value::test_date(dt_in);
         let actual = action(
             &s,

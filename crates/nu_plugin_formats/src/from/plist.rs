@@ -1,9 +1,10 @@
 use std::time::SystemTime;
 
-use chrono::{DateTime, FixedOffset, Offset, Utc};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand, SimplePluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, Record, Signature, Span, Value as NuValue, record,
+    Category, DateTime, Example, LabeledError, Record, Signature, Span, Value as NuValue,
+    jiff::{Timestamp, tz::Offset},
+    record,
 };
 use plist::{Date as PlistDate, Dictionary, Value as PlistValue};
 
@@ -78,7 +79,9 @@ fn convert_plist_value(plist_val: &PlistValue, span: Span) -> Result<NuValue, La
         PlistValue::String(s) => Ok(NuValue::string(s.to_owned(), span)),
         PlistValue::Boolean(b) => Ok(NuValue::bool(*b, span)),
         PlistValue::Real(r) => Ok(NuValue::float(*r, span)),
-        PlistValue::Date(d) => Ok(NuValue::date(convert_date(d), span)),
+        PlistValue::Date(d) => convert_date(d)
+            .map(|date| NuValue::date(date, span))
+            .ok_or_else(|| build_label_error("plist date is out of range", span)),
         PlistValue::Integer(i) => {
             let signed = i
                 .as_signed()
@@ -112,19 +115,18 @@ fn convert_array(plist_array: &[PlistValue], span: Span) -> Result<Vec<NuValue>,
         .collect()
 }
 
-pub fn convert_date(plist_date: &PlistDate) -> DateTime<FixedOffset> {
+/// The plist date at UTC, or `None` past the years -9999 to 9999.
+pub fn convert_date(plist_date: &PlistDate) -> Option<DateTime> {
     // In the docs the plist date object is listed as a utc timestamp, so this
     // conversion should be fine
     let plist_sys_time: SystemTime = plist_date.to_owned().into();
-    let utc_date: DateTime<Utc> = plist_sys_time.into();
-    let utc_offset = utc_date.offset().fix();
-    utc_date.with_timezone(&utc_offset)
+    let timestamp = Timestamp::try_from(plist_sys_time).ok()?;
+    Some(DateTime::new(timestamp, Offset::UTC))
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use chrono::Datelike;
     use plist::Uid;
     use std::time::SystemTime;
 
@@ -184,7 +186,7 @@ mod test {
         let epoch = SystemTime::UNIX_EPOCH;
         let plist_date = epoch.into();
 
-        let datetime = convert_date(&plist_date);
+        let datetime = convert_date(&plist_date).unwrap().to_civil();
         assert_eq!(1970, datetime.year());
         assert_eq!(1, datetime.month());
         assert_eq!(1, datetime.day());

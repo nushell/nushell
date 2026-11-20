@@ -1245,11 +1245,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "pure-rust-locales",
  "serde",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -4766,7 +4764,6 @@ dependencies = [
 name = "nu-cli"
 version = "0.117.1"
 dependencies = [
- "chrono",
  "crossterm",
  "fancy-regex",
  "indoc",
@@ -4906,7 +4903,6 @@ dependencies = [
  "bytesize",
  "calamine",
  "chardetng",
- "chrono",
  "crossterm",
  "csv",
  "data-encoding",
@@ -5041,7 +5037,6 @@ dependencies = [
 name = "nu-dap"
 version = "0.117.1"
 dependencies = [
- "chrono",
  "derive_more 2.1.1",
  "libc",
  "miette 7.6.0",
@@ -5143,9 +5138,9 @@ version = "0.117.1"
 dependencies = [
  "base64 0.23.1",
  "better_default",
- "chrono",
  "derive_setters",
  "indoc",
+ "jiff 1.0.0",
  "miette 7.6.0",
  "nu-protocol",
  "nu-test-support",
@@ -5211,10 +5206,10 @@ name = "nu-mcp"
 version = "0.117.1"
 dependencies = [
  "bytes",
- "chrono",
  "futures",
  "hyper-util",
  "indoc",
+ "jiff 1.0.0",
  "miette 7.6.0",
  "nix 0.32.0",
  "nu-cmd-lang",
@@ -5237,8 +5232,8 @@ dependencies = [
 name = "nu-parser"
 version = "0.117.1"
 dependencies = [
- "chrono",
  "itertools 0.15.0",
+ "jiff 1.0.0",
  "log",
  "memchr",
  "nu-engine",
@@ -5583,7 +5578,6 @@ dependencies = [
 name = "nu_plugin_formats"
 version = "0.117.1"
 dependencies = [
- "chrono",
  "eml-parser",
  "ical",
  "indexmap 2.14.1",
@@ -5812,7 +5806,6 @@ dependencies = [
 name = "nuon"
 version = "0.117.1"
 dependencies = [
- "chrono",
  "nu-engine",
  "nu-parser",
  "nu-protocol",

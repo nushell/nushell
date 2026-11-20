@@ -4,6 +4,7 @@
 //! serde and `strftime` output) match what nushell printed when dates were
 //! `chrono::DateTime<FixedOffset>`, so scripts, saved files and plugins see the same text.
 
+#[cfg(feature = "chrono")]
 mod chrono_compat;
 mod format;
 mod humanize;
@@ -64,6 +65,9 @@ pub enum SecondsFormat {
 }
 
 impl DateTime {
+    /// 1970-01-01T00:00:00Z.
+    pub const UNIX_EPOCH: Self = Self::new(Timestamp::UNIX_EPOCH, Offset::UTC);
+
     /// The date at `timestamp`, shown at `offset`.
     pub const fn new(timestamp: Timestamp, offset: Offset) -> Self {
         Self { timestamp, offset }
@@ -138,6 +142,11 @@ impl DateTime {
     /// The wall-clock date and time at the offset.
     pub fn to_civil(self) -> civil::DateTime {
         self.offset.to_datetime(self.timestamp)
+    }
+
+    /// The year at the offset.
+    pub fn year(self) -> i16 {
+        self.to_civil().year()
     }
 
     /// A jiff zoned date-time in a fixed time zone at this offset.
@@ -249,6 +258,13 @@ impl DateTime {
     /// between date and time, any number of fraction digits, `Z`, `z` or `±HH:MM`, and `:60`.
     pub fn parse_rfc3339(text: &str) -> Result<Self, DateParseError> {
         parse::parse_rfc3339(text)
+    }
+}
+
+/// The Unix epoch at UTC, as chrono's default was.
+impl Default for DateTime {
+    fn default() -> Self {
+        Self::UNIX_EPOCH
     }
 }
 

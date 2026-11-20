@@ -1,17 +1,14 @@
 use super::formats::{FormatRow, format_rows, parse_date_text};
-use chrono::{DateTime, FixedOffset, Timelike};
+use nu_protocol::DateTime;
 use nu_protocol::{ShellError, Span, Value, record};
 use pure_rust_locales::Locale;
 
-pub(crate) fn parse_date_from_string(
-    input: &str,
-    span: Span,
-) -> Result<DateTime<FixedOffset>, Value> {
-    // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and chrono
-    // reads them many times faster than trying layouts. Leap seconds (`23:59:60`), which chrono
-    // accepts, go on to the layouts, which reject them.
-    if let Ok(date) = DateTime::parse_from_rfc3339(input)
-        && date.nanosecond() < 1_000_000_000
+pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime, Value> {
+    // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and read
+    // many times faster than trying layouts. Leap seconds (`23:59:60`), which the RFC 3339
+    // reader accepts, go on to the layouts, which reject them.
+    if !input.contains(":60")
+        && let Ok(date) = DateTime::parse_rfc3339(input)
     {
         return Ok(date);
     }
@@ -331,9 +328,9 @@ mod test {
         let parse = |input| {
             parse_date_from_string(input, Span::test_data())
                 .ok()
-                .map(|date| (date, *date.offset()))
+                .map(|date| (date, date.offset()))
         };
-        let parse_with_layouts = |input| parse_date_text(input).map(|date| (date, *date.offset()));
+        let parse_with_layouts = |input| parse_date_text(input).map(|date| (date, date.offset()));
         for input in [
             "2025-04-18T04:04:32-07:00",
             "2026-05-14T03:37:00Z",

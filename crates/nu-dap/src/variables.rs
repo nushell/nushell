@@ -572,7 +572,6 @@ mod tests {
 
     use super::{JSON_MAX_ITEMS, RenderCtx, scalar_preview, short_render, to_preview_json};
     use crate::state::RenderCache;
-    use chrono::{DateTime, FixedOffset};
     use nu_protocol::ast::{CellPath, PathMember, RangeInclusion};
     use nu_protocol::casing::Casing;
     use nu_protocol::debugger::WithoutDebug;
@@ -680,8 +679,8 @@ mod tests {
 
     /// Fixed instant, never `now()`: the rendered row is asserted literally.
     fn date() -> Value {
-        let d: DateTime<FixedOffset> =
-            DateTime::parse_from_rfc3339("2026-08-01T12:34:56+02:00").expect("valid rfc3339");
+        let d = nu_protocol::DateTime::parse_rfc3339("2026-08-01T12:34:56+02:00")
+            .expect("valid rfc3339");
         Value::test_date(d)
     }
 

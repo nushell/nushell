@@ -2,7 +2,6 @@
 //!
 //! The runtime wraps a single `fff-search` [`FilePicker`] and is stored as a thread-safe singleton shared by every idx subcommand.
 
-use chrono::{Local, TimeZone, Utc};
 use fff_search::{
     FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GitRecencyConfig, GrepConfig,
     GrepMode, GrepSearchOptions, MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker,
@@ -555,9 +554,9 @@ fn build_file_record(
 /// Convert an indexed file timestamp (unix seconds) to a Nushell date value.
 fn modified_to_date_value(modified: u64, span: Span) -> Value {
     let to_fixed = |secs| {
-        Utc.timestamp_opt(secs, 0)
-            .single()
-            .map(|utc| utc.with_timezone(&Local).fixed_offset())
+        jiff::Timestamp::from_second(secs)
+            .ok()
+            .map(nu_protocol::DateTime::from_timestamp_local)
     };
 
     let secs = i64::try_from(modified).unwrap_or(i64::MAX);

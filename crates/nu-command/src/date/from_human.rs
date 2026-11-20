@@ -116,7 +116,7 @@ fn helper(value: Value, head: Span) -> Value {
     };
 
     match parse_gnu_date(&to_gnu_date(&input_val)) {
-        Some(date) => Value::date(date.into(), span),
+        Some(date) => Value::date(date, span),
         None => Value::error(
             ShellError::IncorrectValue {
                 msg: "Cannot parse as humanized date".to_string(),

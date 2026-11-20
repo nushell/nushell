@@ -1,6 +1,6 @@
 use super::trim_cstyle_null;
-use chrono::{DateTime, FixedOffset, Local};
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
 use sysinfo::System;
 
 #[derive(Clone)]
@@ -98,11 +98,11 @@ fn host(span: Span) -> Value {
     Value::record(record, span)
 }
 
-fn boot_time() -> Option<DateTime<FixedOffset>> {
+fn boot_time() -> Option<DateTime> {
     // Broken systems can apparently return really high values.
     // See: https://github.com/nushell/nushell/issues/10155
     // First, try to convert u64 to i64, and then try to create a `DateTime`.
     let secs = System::boot_time().ok()?.try_into().ok()?;
-    let time = DateTime::from_timestamp(secs, 0)?;
-    Some(time.with_timezone(&Local).fixed_offset())
+    let time = jiff::Timestamp::from_second(secs).ok()?;
+    Some(DateTime::from_timestamp_local(time))
 }

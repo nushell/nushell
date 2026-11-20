@@ -1,7 +1,8 @@
-//! Conversions between [`DateTime`] and `chrono::DateTime<FixedOffset>`, for code that still
-//! uses chrono.
+//! Conversions between [`DateTime`] and `chrono::DateTime<FixedOffset>`, for plugins that still
+//! use chrono. Enabled by nu-protocol's `chrono` feature.
 
 use super::{DateParseError, DateTime};
+use crate::{FromValue, IntoValue, ShellError, Span, Type, Value};
 use jiff::{Timestamp, tz::Offset};
 
 /// Fails for dates outside jiff's range (years -9999 to 9999). A leap second becomes the last
@@ -39,3 +40,31 @@ impl From<DateTime> for chrono::DateTime<chrono::FixedOffset> {
 }
 
 use chrono::Offset as _;
+
+impl FromValue for chrono::DateTime<chrono::FixedOffset> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        DateTime::from_value(v).map(Into::into)
+    }
+
+    fn expected_type() -> Type {
+        Type::Date
+    }
+}
+
+/// A date outside jiff's years (-9999 to 9999) becomes an error value.
+impl IntoValue for chrono::DateTime<chrono::FixedOffset> {
+    fn into_value(self, span: Span) -> Value {
+        match DateTime::try_from(self) {
+            Ok(date) => Value::date(date, span),
+            Err(_) => Value::error(
+                ShellError::CantConvert {
+                    to_type: "date".into(),
+                    from_type: "chrono::DateTime<FixedOffset>".into(),
+                    span,
+                    help: Some("nushell dates cover the years -9999 to 9999".into()),
+                },
+                span,
+            ),
+        }
+    }
+}
