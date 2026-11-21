@@ -1553,11 +1553,18 @@ fn invalid_date_literal(#[case] code: &str) -> Result {
 #[case::extension("2023-02-29.log")]
 #[case::dashed_time("2024-01-15T10-30-00.log")]
 #[case::word_after_t("2024-01-15test.txt")]
-#[case::no_seconds("2024-01-15T10:00")]
 fn date_like_file_name(#[case] word: &str) -> Result {
     test()
         .run(format!("[{word}] | first"))
         .expect_value_eq(word)
+}
+
+/// A date and time without seconds is a date, as jiff reads RFC 3339 and ISO 8601.
+#[test]
+fn date_literal_without_seconds() -> Result {
+    test()
+        .run("[2024-01-15T10:00] | first | to nuon")
+        .expect_value_eq("2024-01-15T10:00:00+00:00")
 }
 
 #[test]

@@ -11,7 +11,7 @@ use fancy_regex::Regex;
 use jiff::{
     civil::{self, Weekday},
     fmt::strtime::{BrokenDownTime, Meridiem},
-    tz::{Disambiguation, Offset, TimeZone},
+    tz::Offset,
 };
 use nu_protocol::DateTime;
 use std::{borrow::Cow, cell::LazyCell, sync::LazyLock};
@@ -200,21 +200,12 @@ static RELATIVE: LazyLock<Regex> = LazyLock::new(|| {
 /// Read `input` as a date-time, or `None` if it isn't one.
 pub(crate) fn parse_date_text(input: &str) -> Option<DateTime> {
     let input = input.trim();
-    // jiff reads second 60, a leap second (`23:59:60`), as `:59`; without `--format`, nushell
-    // rejects it. The check runs again after normalize, which writes basic-format seconds
-    // (`T235960`) as `:60`.
-    if input.contains(":60") {
-        return None;
-    }
     if may_be_rfc2822(input)
         && let Ok(zoned) = jiff::fmt::rfc2822::parse(input)
     {
         return Some(DateTime::from_zoned(&zoned));
     }
     let (text, weekday) = normalize(input);
-    if text.contains(":60") {
-        return None;
-    }
     if text.is_empty() {
         return weekday.and_then(|weekday| build(None, None, None, Some(weekday)));
     }
@@ -577,7 +568,7 @@ fn build(
     // time it skips moves forward by the jump (02:30 on the spring-forward day reads as 03:30).
     if let Some(name) = zone.and_then(|z| z.iana_time_zone()) {
         let zone = super::time_zone_named(name)?;
-        return DateTime::from_civil_in(civil, &zone, Disambiguation::Compatible);
+        return DateTime::from_civil_in(civil, &zone);
     }
     match zone.and_then(|z| z.offset()) {
         // an offset of a day or more isn't one nushell reads
@@ -585,7 +576,7 @@ fn build(
             DateTime::from_civil(civil, offset)
         }
         Some(_) => None,
-        None => DateTime::from_civil_in(civil, &TimeZone::system(), Disambiguation::Compatible),
+        None => DateTime::from_civil_local(civil),
     }
 }
 
@@ -817,7 +808,6 @@ pub(crate) fn format_rows() -> Vec<FormatRow> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pure_rust_locales::Locale;
 
     fn today() -> civil::Date {
         jiff::ZonedDateTime::now().date()
@@ -825,7 +815,7 @@ mod tests {
 
     /// The wall-clock reading, without the offset, which depends on the local zone.
     fn wall(input: &str) -> Option<String> {
-        parse_date_text(input).and_then(|d| d.format("%Y-%m-%d %H:%M:%S%.f", Locale::POSIX).ok())
+        parse_date_text(input).and_then(|d| d.format("%Y-%m-%d %H:%M:%S%.f").ok())
     }
 
     /// The reading with its offset, for inputs that carry one.
@@ -984,7 +974,7 @@ mod tests {
         assert_eq!(wall("10:00a.m."), at(10, 0));
         assert_eq!(wall("12am"), at(0, 0));
         let friday = parse_date_text("Friday")
-            .and_then(|d| d.to_civil())
+            .map(|d| d.to_civil())
             .map(|d| d.date());
         assert_eq!(friday.map(|d| d.weekday()), Some(Weekday::Friday));
         let week_later = today.checked_add(jiff::Span::new().days(7)).ok();
@@ -992,7 +982,7 @@ mod tests {
         assert_eq!(wall("4:04PM"), at(16, 4));
         for (input, month, day) in [("April 18", 4, 18), ("18 Apr", 4, 18), ("18 APR", 4, 18)] {
             let date = parse_date_text(input)
-                .and_then(|d| d.to_civil())
+                .map(|d| d.to_civil())
                 .map(|d| d.date());
             assert_eq!(
                 date.map(|d| (d.year(), d.month(), d.day())),
@@ -1002,14 +992,14 @@ mod tests {
         }
         assert_eq!(
             parse_date_text("12 25 10:00")
-                .and_then(|d| d.to_civil())
+                .map(|d| d.to_civil())
                 .map(|d| (d.month(), d.day(), d.hour())),
             Some((12, 25, 10))
         );
         // a year and month
         for (input, month) in [("2025 Dec", 12), ("2025 MAY", 5)] {
             let date = parse_date_text(input)
-                .and_then(|d| d.to_civil())
+                .map(|d| d.to_civil())
                 .map(|d| d.date());
             assert_eq!(
                 date.map(|d| (d.year(), d.month())),
@@ -1029,9 +1019,6 @@ mod tests {
             "-0500",
             "2025-02-30",
             "2025-13-01",
-            "2016-12-31T23:59:60Z",
-            "2016-12-31T235960Z",
-            "20161231T235960",
             // five digits are a timestamp, not a compact date
             "11111",
             "12251",
@@ -1054,6 +1041,19 @@ mod tests {
         }
     }
 
+    /// Second 60, a leap second, reads as second 59, as jiff reads it.
+    #[test]
+    fn leap_second_reads_as_59() {
+        for input in [
+            "2016-12-31T23:59:60Z",
+            "2016-12-31T235960Z",
+            "20161231T235960",
+        ] {
+            let second = parse_date_text(input).map(|date| date.parts().second);
+            assert_eq!(second, Some(59), "{input:?}");
+        }
+    }
+
     #[test]
     fn leap_years_follow_the_gregorian_rule() {
         assert_eq!(wall("2000-02-29").as_deref(), Some("2000-02-29 00:00:00"));
@@ -1062,7 +1062,7 @@ mod tests {
 
     /// `date` as a jiff time at the same offset, to write it through a layout.
     fn to_zoned(date: DateTime) -> Option<jiff::ZonedDateTime> {
-        date.to_zoned()
+        Some(date.to_zoned())
     }
 
     /// Each layout's example reads back as that layout: written through it again, it comes out
@@ -1122,14 +1122,14 @@ mod tests {
         let days = |n| today.checked_add(jiff::Span::new().days(n)).ok();
         let date = |input| {
             parse_date_text(input)
-                .and_then(|d| d.to_civil())
+                .map(|d| d.to_civil())
                 .map(|d| d.date())
         };
         assert_eq!(date("tomorrow"), days(1));
         assert_eq!(date("3 days ago"), days(-3));
         assert_eq!(
             parse_date_text("tomorrow 10am")
-                .and_then(|d| d.to_civil())
+                .map(|d| d.to_civil())
                 .map(|d| (d.date(), d.hour())),
             days(1).map(|d| (d, 10))
         );

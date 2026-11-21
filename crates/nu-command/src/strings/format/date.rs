@@ -179,9 +179,9 @@ fn run(
 }
 
 /// Formats `date_time` with `formatter`. The locale supplies names, `%c %x %X %r` and the
-/// decimal point; see [`nu_protocol::DateTime::format`].
+/// decimal point; see [`nu_protocol::DateTime::format_localized`].
 fn format_from(date_time: DateTime, formatter: &str, span: Span, locale: Locale) -> Value {
-    match date_time.format(formatter, locale) {
+    match date_time.format_localized(formatter, locale) {
         Ok(text) => Value::string(text, span),
         Err(_) => Value::error(
             ShellError::TypeMismatch {

@@ -228,9 +228,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         ),
         Value::Date { val, .. } => {
             // The C locale's `%c`, as `into string` writes it.
-            let text = val
-                .format("%c", pure_rust_locales::Locale::POSIX)
-                .unwrap_or_default();
+            let text = val.format("%c").unwrap_or_default();
             Value::binary(text.into_bytes(), span)
         }
         // Propagate errors by explicitly matching them before the final case.

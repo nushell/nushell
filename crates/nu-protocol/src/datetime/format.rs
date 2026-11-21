@@ -9,11 +9,9 @@
 //! - `%f` is 9 digits, `%.f` the shortest of 0, 3, 6 or 9, `%Z` the offset, `%:::z` whole hours,
 //!   `%+` RFC 3339, and nushell's own `%J` and `%Q` are `%Y%m%d` and `%H%M%S`.
 //!
-//! Anything else goes to jiff unchanged, so jiff-only specifiers such as `%N` and `%q` work too.
+//! - Years print as chrono printed them, `-0044` where jiff prints `-044`.
 //!
-//! jiff's dates stop at years -9999 and 9999. For a year past them, jiff formats a date whole
-//! 400-year cycles closer, which has the same calendar and weekdays, and this module writes the
-//! year itself.
+//! Anything else goes to jiff unchanged, so jiff-only specifiers such as `%N` and `%q` work too.
 
 use super::{DateParts, DateTime, OffsetStyle, SecondsFormat, write_fraction, write_offset};
 use jiff::{civil, fmt::strtime::BrokenDownTime};
@@ -58,24 +56,10 @@ pub(super) fn format(
         format: format.to_string(),
     };
     let parts = date.parts();
-    let proxy_year = if (-9999..=9999).contains(&parts.year) {
-        parts.year
-    } else {
-        2000 + (parts.year - 2000).rem_euclid(400)
-    };
-    let proxy = civil::DateTime::new(
-        proxy_year as i16,
-        parts.month,
-        parts.day,
-        parts.hour,
-        parts.minute,
-        parts.second,
-        parts.nanosecond,
-    )
-    .map_err(|_| error())?;
+    let civil = date.to_civil();
     let expanded = expand_locale_formats(format, locale);
-    let jiff_format = to_jiff_format(date, parts, proxy, &expanded, locale);
-    let mut fields = BrokenDownTime::from(proxy);
+    let jiff_format = to_jiff_format(date, parts, civil, &expanded, locale);
+    let mut fields = BrokenDownTime::from(civil);
     fields.set_offset(Some(date.offset()));
     fields.to_string(&jiff_format).map_err(|_| error())
 }
@@ -221,7 +205,7 @@ fn read_directive(format: &str) -> Directive<'_> {
 fn to_jiff_format(
     date: DateTime,
     parts: DateParts,
-    proxy: civil::DateTime,
+    civil: civil::DateTime,
     format: &str,
     locale: Locale,
 ) -> String {
@@ -247,7 +231,7 @@ fn to_jiff_format(
         // jiff's padding rules.
         let bare = plain && directive.flag.is_none() && directive.width.is_none();
         let year = parts.year;
-        let iso_year = i32::from(proxy.iso_week_date().year()) + (year - i32::from(proxy.year()));
+        let iso_year = i32::from(civil.iso_week_date().year());
         let padded = |value: i32, default_width: usize| pad(value, &directive, default_width);
         match directive.spec {
             Some('Y') if bare => literal(&four_digit_year(year), &mut out),
@@ -354,8 +338,7 @@ fn to_jiff_format(
     out
 }
 
-/// A year as chrono wrote it: at least 4 digits, with `-` before negative years and `+` before
-/// years past 9999.
+/// A year as chrono wrote it: 4 digits, with `-` before negative years.
 fn four_digit_year(year: i32) -> String {
     let mut text = String::new();
     super::write_year(&mut text, year);

@@ -548,7 +548,7 @@ pub fn value_to_sql(
         // The text rusqlite's chrono support wrote, so dates compare and sort as before:
         // `2001-02-03 04:05:06.500+05:30`.
         Value::Date { val, .. } => val
-            .format("%F %T%.f%:z", pure_rust_locales::Locale::POSIX)
+            .format("%F %T%.f%:z")
             .map(|text| Box::new(text) as Box<dyn rusqlite::ToSql>)
             .map_err(|_| ShellError::CantConvert {
                 to_type: "SQLite text".into(),

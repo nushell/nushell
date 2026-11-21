@@ -297,7 +297,7 @@ mod tests {
     #[test]
     fn second_60_and_offsets_with_seconds_round_trip() {
         use crate::formats::from::toml_datetime_to_value;
-        // Second 60, a leap second, is the next minute's second 0.
+        // Second 60, a leap second, reads as second 59.
         let leap = nu_protocol::DateTime::parse_rfc3339("2016-12-31T23:59:60.5Z").unwrap();
         // +00:17:30, Amsterdam's local mean time, rounds to +00:18 and moves the clock with it.
         let lmt = nu_protocol::DateTime::parse_rfc3339("1800-01-01T00:00:00Z")
@@ -305,7 +305,7 @@ mod tests {
             .with_offset(jiff::tz::Offset::from_seconds(1050).unwrap());
         assert_eq!(
             to_toml_datetime(&leap).to_string(),
-            "2017-01-01T00:00:00.5+00:00"
+            "2016-12-31T23:59:59.5+00:00"
         );
         assert_eq!(
             to_toml_datetime(&lmt).to_string(),

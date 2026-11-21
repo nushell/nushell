@@ -1,4 +1,4 @@
-// The RFC 3339 and UTC offset readers in this file follow those of chrono 0.4.45
+// The UTC offset readers in this file follow those of chrono 0.4.45
 // (https://github.com/chronotope/chrono). chrono is dual-licensed under the MIT License and the
 // Apache License 2.0; this file uses it under the MIT License:
 //
@@ -26,101 +26,83 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-//! RFC 3339 readers for [`DateTime`] that accept exactly what nushell accepted with chrono:
-//! the strict form for date literals and the relaxed form for `FromStr` and serde.
+//! Reading dates and UTC offsets from text.
 //!
-//! Second 60, which UTC gives a leap second (`23:59:60`), is read as the next minute's second
-//! 0, where chrono kept it as second 59 with a second's worth of extra nanoseconds.
+//! [`parse_rfc3339`] reads every date nushell takes as text without a format: date literals,
+//! `FromStr` and serde. It is jiff's RFC 3339 and ISO 8601 reader, so `2001-02-03T04:05Z`
+//! (no seconds), `+0530` and `-08` offsets and a `,` before the fraction read too. The text
+//! needs an offset or `Z`. As jiff reads them, second 60 is second 59 and a fraction can have
+//! at most 9 digits.
+//!
+//! The offset readers follow chrono's, as `into datetime` (a record's `timezone`) and
+//! `date to-timezone` read offsets with chrono.
 
 use super::DateTime;
-use jiff::tz::Offset;
+use jiff::{civil, fmt::temporal::Pieces, tz::Offset};
 use std::fmt;
 
-/// Text that isn't a date-time in the form being read.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Text that isn't a date-time or offset in the form being read.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DateParseError {
-    /// The text ends before the date-time does.
+    /// The text ends before the date-time or offset does.
     TooShort,
-    /// The text continues after the date-time.
-    TooLong,
     /// A character doesn't fit the form.
     Invalid,
-    /// A field is out of range, such as month 13 or year 300000.
+    /// A field is out of range, such as minute 61 or a date past year 9999.
     OutOfRange,
-    /// The fields name no date and time, such as a weekday that isn't the date's.
-    Impossible,
     /// The fields are not enough for a date and time, such as a year alone.
     NotEnough,
-    /// The format has a directive that isn't supported.
-    BadFormat,
+    /// jiff's reason the text isn't a date, such as `parsed date is not valid`.
+    Jiff(String),
 }
 
 impl fmt::Display for DateParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::TooShort => "premature end of input",
-            Self::TooLong => "trailing input",
             Self::Invalid => "input contains invalid characters",
             Self::OutOfRange => "input is out of range",
-            Self::Impossible => "no possible date and time matching input",
             Self::NotEnough => "input is not enough for unique date and time",
-            Self::BadFormat => "bad or unsupported format string",
+            Self::Jiff(reason) => reason,
         })
     }
 }
 
 impl std::error::Error for DateParseError {}
 
+impl From<jiff::Error> for DateParseError {
+    fn from(error: jiff::Error) -> Self {
+        Self::Jiff(error.to_string())
+    }
+}
+
 type ParseResult<T> = Result<T, DateParseError>;
 
-/// The fields read from the text, before they are checked as a date.
-struct Fields {
-    year: i64,
-    month: i64,
-    day: i64,
-    hour: i64,
-    minute: i64,
-    second: i64,
-    nanosecond: i64,
-    offset_seconds: i32,
-}
-
-impl Fields {
-    fn into_date_time(self) -> ParseResult<DateTime> {
-        let small = |v: i64| i8::try_from(v).map_err(|_| DateParseError::OutOfRange);
-        let year = i32::try_from(self.year).map_err(|_| DateParseError::OutOfRange)?;
-        // chrono's offsets stop short of a full day.
-        if self.offset_seconds.unsigned_abs() >= 86_400 {
-            return Err(DateParseError::OutOfRange);
+/// Reads RFC 3339 and the ISO 8601 forms jiff reads, with an offset or `Z`, ignoring spaces
+/// around it. A date alone is midnight. A signed year may have 4 or 5 digits, as chrono wrote
+/// them (`-0044-03-15T12:00:00+00:00`); jiff reads 6.
+pub(super) fn parse_rfc3339(text: &str) -> ParseResult<DateTime> {
+    let text = text.trim();
+    let digits = text.get(1..).map_or(0, |rest| {
+        rest.bytes().take_while(u8::is_ascii_digit).count()
+    });
+    let widened;
+    let text = match text.as_bytes() {
+        [sign @ (b'+' | b'-'), ..] if (4..6).contains(&digits) => {
+            widened = format!(
+                "{}{:0>6}{}",
+                char::from(*sign),
+                &text[1..=digits],
+                &text[1 + digits..]
+            );
+            widened.as_str()
         }
-        let offset =
-            Offset::from_seconds(self.offset_seconds).map_err(|_| DateParseError::OutOfRange)?;
-        DateTime::from_parts(
-            year,
-            small(self.month)?,
-            small(self.day)?,
-            small(self.hour)?,
-            small(self.minute)?,
-            small(self.second)?,
-            i32::try_from(self.nanosecond).map_err(|_| DateParseError::OutOfRange)?,
-            offset,
-        )
-        .ok_or(DateParseError::OutOfRange)
-    }
-}
-
-/// Reads 1 to `max` ASCII digits.
-fn number(s: &str, max: usize) -> ParseResult<(&str, i64)> {
-    let len = s.bytes().take(max).take_while(u8::is_ascii_digit).count();
-    if len == 0 {
-        return Err(if s.is_empty() {
-            DateParseError::TooShort
-        } else {
-            DateParseError::Invalid
-        });
-    }
-    let value = s[..len].parse().map_err(|_| DateParseError::OutOfRange)?;
-    Ok((&s[len..], value))
+        _ => text,
+    };
+    let pieces = Pieces::parse(text)?;
+    let offset = pieces.to_numeric_offset().ok_or(DateParseError::TooShort)?;
+    let time = pieces.time().unwrap_or(civil::Time::midnight());
+    DateTime::from_civil(pieces.date().to_datetime(time), offset).ok_or(DateParseError::OutOfRange)
 }
 
 /// Reads exactly two ASCII digits from the start of `bytes` at `at`.
@@ -134,23 +116,15 @@ fn two_digits(bytes: &[u8], at: usize) -> ParseResult<i64> {
     }
 }
 
-/// Reads fraction digits after a `.`: the first 9 count, the rest are skipped.
-fn fraction(s: &str) -> ParseResult<(&str, i64)> {
-    let (rest, value) = number(s, 9)?;
-    let digits = s.len() - rest.len();
-    let scaled = value * 10_i64.pow(9 - digits as u32);
-    Ok((
-        rest.trim_start_matches(|c: char| c.is_ascii_digit()),
-        scaled,
-    ))
-}
-
-/// Reads a signed `HH` + separator + `MM` offset, or `Z`/`z` when `zulu`. `colon` consumes the
-/// separator.
-fn offset(
+/// Reads an offset: a sign (`+`, `-` or `−`), two hour digits, a separator `separator`
+/// consumes, and two minute digits. `zulu` also reads `Z`/`z`, and `missing_minutes` the hours
+/// alone when the separator ends the text. Returns the text left over and the offset in seconds
+/// east of UTC.
+pub(super) fn read_offset(
     mut s: &str,
     zulu: bool,
-    colon: impl Fn(&str) -> ParseResult<&str>,
+    missing_minutes: bool,
+    separator: impl Fn(&str) -> ParseResult<&str>,
 ) -> ParseResult<(&str, i32)> {
     if zulu && let Some(rest) = s.strip_prefix(['Z', 'z']) {
         return Ok((rest, 0));
@@ -163,151 +137,70 @@ fn offset(
     };
     s = &s[s.chars().next().map_or(0, char::len_utf8)..];
     let hours = two_digits(s.as_bytes(), 0)?;
-    s = colon(&s[2..])?;
-    let minutes = match (s.as_bytes().first(), s.as_bytes().get(1)) {
-        (Some(b'0'..=b'5'), Some(b'0'..=b'9')) => two_digits(s.as_bytes(), 0)?,
+    s = separator(&s[2..])?;
+    let (rest, minutes) = match (s.as_bytes().first(), s.as_bytes().get(1)) {
+        (Some(b'0'..=b'5'), Some(b'0'..=b'9')) => (&s[2..], two_digits(s.as_bytes(), 0)?),
         (Some(b'6'..=b'9'), Some(b'0'..=b'9')) => return Err(DateParseError::OutOfRange),
         (Some(_), Some(_)) => return Err(DateParseError::Invalid),
+        (None, _) if missing_minutes => (s, 0),
         _ => return Err(DateParseError::TooShort),
     };
     let seconds = (hours * 3600 + minutes * 60) as i32;
-    Ok((&s[2..], if negative { -seconds } else { seconds }))
+    Ok((rest, if negative { -seconds } else { seconds }))
 }
 
 /// Skips any run of colons and whitespace.
-fn colon_or_space(s: &str) -> ParseResult<&str> {
+pub(super) fn colon_or_space(s: &str) -> ParseResult<&str> {
     Ok(s.trim_start_matches(|c: char| c == ':' || c.is_whitespace()))
 }
 
-/// Reads a UTC offset as chrono's `FixedOffset::from_str` did: `±HH:MM`, `±HHMM` or `±HH MM`,
-/// shorter than a day. Text after the offset is ignored.
-pub fn parse_utc_offset(text: &str) -> ParseResult<Offset> {
-    let (_, seconds) = offset(text, false, colon_or_space)?;
+/// The offset `seconds` east of UTC, which must be shorter than a day, as chrono's offsets were.
+fn within_a_day(seconds: i32) -> ParseResult<Offset> {
     if seconds.unsigned_abs() >= 86_400 {
         return Err(DateParseError::OutOfRange);
     }
     Offset::from_seconds(seconds).map_err(|_| DateParseError::OutOfRange)
 }
 
-/// Strict RFC 3339, as `chrono::DateTime::parse_from_rfc3339` read it.
-pub(super) fn parse_rfc3339(s: &str) -> ParseResult<DateTime> {
-    let bytes = s.as_bytes();
-    if bytes.len() < 19 {
-        return Err(DateParseError::TooShort);
-    }
-    let separator = |at: usize, expected: &[u8]| {
-        if expected.contains(&bytes[at]) {
-            Ok(())
-        } else {
-            Err(DateParseError::Invalid)
-        }
-    };
-    let year = two_digits(bytes, 0)? * 100 + two_digits(bytes, 2)?;
-    separator(4, b"-")?;
-    let month = two_digits(bytes, 5)?;
-    separator(7, b"-")?;
-    let day = two_digits(bytes, 8)?;
-    // The date is checked before the rest is read.
-    if !(1..=12).contains(&month)
-        || !(1..=i64::from(super::days_in_month(year as i32, month as i8))).contains(&day)
-    {
-        return Err(DateParseError::OutOfRange);
-    }
-    separator(10, b"tT ")?;
-    let hour = two_digits(bytes, 11)?;
-    separator(13, b":")?;
-    let minute = two_digits(bytes, 14)?;
-    separator(16, b":")?;
-    let second = two_digits(bytes, 17)?;
-    let mut rest = &s[19..];
-    let mut nanosecond = 0;
-    if let Some(after_dot) = rest.strip_prefix('.') {
-        (rest, nanosecond) = fraction(after_dot)?;
-    }
-    let (rest, offset_seconds) = offset(rest, true, |s| {
-        s.strip_prefix(':').ok_or(if s.is_empty() {
-            DateParseError::TooShort
-        } else {
-            DateParseError::Invalid
-        })
-    })?;
-    if !rest.is_empty() {
-        return Err(DateParseError::TooLong);
-    }
-    Fields {
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second,
-        nanosecond,
-        offset_seconds,
-    }
-    .into_date_time()
+/// Reads a UTC offset as chrono's `FixedOffset::from_str` did: `±HH:MM`, `±HHMM` or `±HH MM`,
+/// shorter than a day. Text after the offset is ignored.
+pub fn parse_utc_offset(text: &str) -> ParseResult<Offset> {
+    let (_, seconds) = read_offset(text, false, false, colon_or_space)?;
+    within_a_day(seconds)
 }
 
-/// Relaxed RFC 3339, as chrono's `FromStr for DateTime<FixedOffset>` read it: fields need no
-/// padding, a year with a sign can have any number of digits, whitespace may sit between
-/// parts, the offset's colon is optional, and `UTC` is an offset.
-pub(super) fn parse_rfc3339_relaxed(s: &str) -> ParseResult<DateTime> {
-    fn literal(s: &str, expected: char) -> ParseResult<&str> {
+/// Reads a time zone offset as `date to-timezone` does: `+HH`, `+HHMM`, `+HH:MM` or `+HH:MM:SS`
+/// with an ASCII `+` or `-`, shorter than a day. Spaces may surround the one colon after the
+/// hours and follow the offset. `Invalid` means the text doesn't start like an offset, so it
+/// may be a time zone name.
+pub fn parse_zone_offset(text: &str) -> ParseResult<Offset> {
+    if text.starts_with('\u{2212}') {
+        return Err(DateParseError::Invalid);
+    }
+    /// At most one colon, with spaces around it.
+    fn one_colon(s: &str) -> ParseResult<&str> {
         let s = s.trim_start();
-        s.strip_prefix(expected).ok_or(if s.is_empty() {
-            DateParseError::TooShort
-        } else {
-            DateParseError::Invalid
-        })
+        match s.strip_prefix(':').map(str::trim_start) {
+            Some("") => Err(DateParseError::Invalid),
+            Some(rest) => Ok(rest),
+            None => Ok(s),
+        }
     }
-    fn field(s: &str, width: usize) -> ParseResult<(&str, i64)> {
-        number(s.trim_start(), width)
+    let (rest, hours_and_minutes) = read_offset(text, false, true, one_colon)?;
+    // Seconds, as `into record` and `format date '%::z'` write them.
+    let (rest, seconds) = match rest.strip_prefix(':').map(str::as_bytes) {
+        Some([a @ b'0'..=b'5', b @ b'0'..=b'9', ..]) => {
+            (&rest[3..], i32::from((a - b'0') * 10 + (b - b'0')))
+        }
+        _ => (rest, 0),
+    };
+    if !rest.trim().is_empty() {
+        return Err(DateParseError::Invalid);
     }
-
-    let s = s.trim_start();
-    let (s, year) = if let Some(digits) = s.strip_prefix('-') {
-        let (s, v) = number(digits, usize::MAX)?;
-        (s, -v)
-    } else if let Some(digits) = s.strip_prefix('+') {
-        number(digits, usize::MAX)?
+    let seconds = if text.starts_with('-') {
+        -seconds
     } else {
-        number(s, 4)?
+        seconds
     };
-    let s = literal(s, '-')?;
-    let (s, month) = field(s, 2)?;
-    let s = literal(s, '-')?;
-    let (s, day) = field(s, 2)?;
-    let s = match s.as_bytes().first() {
-        Some(b't' | b'T' | b' ') => &s[1..],
-        Some(_) => return Err(DateParseError::Invalid),
-        None => return Err(DateParseError::TooShort),
-    };
-    let (s, hour) = field(s, 2)?;
-    let s = literal(s, ':')?;
-    let (s, minute) = field(s, 2)?;
-    let s = literal(s, ':')?;
-    let (mut s, second) = field(s, 2)?;
-    let mut nanosecond = 0;
-    if let Some(after_dot) = s.strip_prefix('.') {
-        (s, nanosecond) = fraction(after_dot)?;
-    }
-    let s = s.trim_start();
-    let (s, offset_seconds) = if s.len() >= 3 && s.as_bytes()[..3].eq_ignore_ascii_case(b"UTC") {
-        (&s[3..], 0)
-    } else {
-        offset(s, true, colon_or_space)?
-    };
-    if !s.trim_start().is_empty() {
-        return Err(DateParseError::TooLong);
-    }
-    Fields {
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second,
-        nanosecond,
-        offset_seconds,
-    }
-    .into_date_time()
+    within_a_day(hours_and_minutes + seconds)
 }

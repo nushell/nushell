@@ -114,7 +114,7 @@ fn convert_array(plist_array: &[PlistValue], span: Span) -> Result<Vec<NuValue>,
         .collect()
 }
 
-/// The plist date at UTC, or `None` outside years -262143 to 262142.
+/// The plist date at UTC, or `None` outside nushell's years, -9999 to 9999.
 pub fn convert_date(plist_date: &PlistDate) -> Option<DateTime> {
     // In the docs the plist date object is listed as a utc timestamp, so this
     // conversion should be fine
@@ -184,16 +184,16 @@ mod test {
         let epoch = SystemTime::UNIX_EPOCH;
         let plist_date = epoch.into();
 
-        let datetime = convert_date(&plist_date).unwrap().to_civil().unwrap();
+        let datetime = convert_date(&plist_date).unwrap().to_civil();
         assert_eq!(1970, datetime.year());
         assert_eq!(1, datetime.month());
         assert_eq!(1, datetime.day());
     }
 
-    // jiff's timestamps stop at 9999-12-30T22:00Z; plist dates reach the end of the year.
+    // jiff's timestamps, and so nushell's dates, stop at 9999-12-30T22:00Z.
     #[test]
-    fn test_convert_date_on_the_last_day_of_9999() {
-        let last: DateTime = "9999-12-31T23:59:59Z".parse().unwrap();
+    fn test_convert_the_last_date() {
+        let last: DateTime = "9999-12-30T22:00:00Z".parse().unwrap();
         let plist_date = last.to_system_time().unwrap().into();
         assert_eq!(convert_date(&plist_date), Some(last));
     }

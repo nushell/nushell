@@ -406,8 +406,14 @@
 ## datetimes
 
 - datetimes: a bare literal, the only one that may contain `:`.
-    - the grammar is a strict `YYYY-MM-DD`, optionally followed by `T` `HH:MM:SS`, an optional
-       fractional second, and an optional `Z`/`z` or `±HH:MM`.
+    - the grammar is jiff's RFC 3339 and ISO 8601 reading: a strict `YYYY-MM-DD`, optionally
+       followed by `T` and `HH:MM`, an optional `:SS`, an optional fractional second of at most 9
+       digits, and an optional `Z`/`z` or offset (`±HH:MM`, `±HHMM` or `±HH`). a token with more
+       fraction digits stays a string.
+        ```nushell
+        "[2000-01-01T12:34, 2000-01-01T12:34:56+0530]" | from nuon | to json -r
+        # => ["2000-01-01T12:34:00+00:00","2000-01-01T12:34:56+05:30"]
+        ```
     - because `:` is otherwise structural, a datetime must be recognised as a **prefix** before
        generic bare-word scanning, which would truncate at `2000-01-01T12`.
     - the fields are **range-checked**, not merely checked for being digits. the day check is
@@ -421,10 +427,9 @@
         - a flat 1-31 day limit would turn roughly thirty ordinary strings a year - every 31st
            of a 30-day month, and most of february - into datetimes no other reader accepts.
         - `2000-1-1` is a string: month and day must be two digits.
-    - `:60` in the seconds field, a leap second, is accepted and read as the next minute's
-       `:00`.
+    - `:60` in the seconds field, a leap second, is accepted and read as `:59`.
         ```nushell
-        "[2000-01-01T23:59:60Z]" | from nuon | to json -r                        # => ["2000-01-02T00:00:00+00:00"]
+        "[2000-01-01T23:59:60Z]" | from nuon | to json -r                        # => ["2000-01-01T23:59:59+00:00"]
         ```
     - the offset is range-checked too; `+99:99` is not an offset and the whole token stays a
        string.
@@ -770,8 +775,6 @@
     - whether a **multi-line** cell's column width is its full byte length including newlines, or
        its widest line. the only multi-line-cell example available was single-column, where no
        padding is emitted, so the two hypotheses are indistinguishable.
-    - whether the fractional-second field of a datetime has a precision limit, and what happens
-       past it.
     - whether a `\r\n` inside a `"..."` string is preserved verbatim or normalised.
     - what, if anything, `to nuon --serialize` guarantees. it is documented as one sentence and
        its output is explicitly not required to read back. the flag gates `closure` and `block`

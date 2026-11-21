@@ -1,10 +1,7 @@
 use std::io::Cursor;
 
 use calamine::*;
-use jiff::{
-    civil,
-    tz::{Disambiguation, TimeZone},
-};
+use jiff::{civil, tz::TimeZone};
 use nu_protocol::DateTime;
 
 use nu_engine::command_prelude::*;
@@ -190,13 +187,7 @@ fn parse_iso_datetime(datetime_str: &str, tz: &TimeZone) -> Option<DateTime> {
             .ok()
             .map(|date| date.to_datetime(civil::Time::midnight()))
     })?;
-    in_time_zone(civil, tz)
-}
-
-/// The wall-clock `civil` in `tz`. A time the clock skips or repeats at a DST change reads as
-/// `into datetime` reads one.
-fn in_time_zone(civil: civil::DateTime, tz: &TimeZone) -> Option<DateTime> {
-    DateTime::from_civil_in(civil, tz, Disambiguation::Compatible)
+    DateTime::from_civil_in(civil, tz)
 }
 
 /// An ISO duration cell written `PT01H02M03.5S`, with hours, minutes and seconds under a day, in
@@ -225,7 +216,7 @@ fn excel_datetime_to_value(excel_datetime: &ExcelDateTime, tz: &TimeZone, span: 
         );
         civil
             .ok()
-            .and_then(|civil| in_time_zone(civil, tz))
+            .and_then(|civil| DateTime::from_civil_in(civil, tz))
             .map_or_else(|| Value::nothing(span), |date| Value::date(date, span))
     } else if excel_datetime.is_duration() {
         // A duration is a number of days, kept to the millisecond.

@@ -49,8 +49,8 @@ pub use collection_columns::*;
 pub use completion::*;
 pub use config::*;
 pub use datetime::{
-    DateFormatError, DateParseError, DateTime, HumanTime, ParsedDate, SecondsFormat, TimeOfDay,
-    parse_utc_offset, time_locale,
+    DateFormatError, DateParseError, DateTime, HumanTime, ParsedDate, SecondsFormat,
+    parse_utc_offset, parse_zone_offset, time_locale,
 };
 pub use deprecation::*;
 pub use did_you_mean::did_you_mean;
@@ -72,7 +72,7 @@ pub use one_of::*;
 pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
-/// The locale tables [`DateTime::format`] takes its `Locale` from, re-exported for plugins.
+/// The locale tables behind [`DateTime::format_localized`], re-exported for plugins.
 pub use pure_rust_locales;
 pub use signature::*;
 pub use span::*;

@@ -1,17 +1,19 @@
 //! Nushell's date value: an instant, and the UTC offset it is shown in.
 //!
-//! [`DateTime`] stores the instant itself, over the years chrono covered (-262143 to 262142),
-//! and uses [`jiff`] for time zones and `strftime`. Its text forms (`Display`, `Debug`, RFC
-//! 3339, RFC 2822, serde and `strftime` output) match what nushell printed when dates were
-//! `chrono::DateTime<FixedOffset>`, so scripts, saved files and plugins see the same text. Two
-//! differences:
+//! [`DateTime`] stores the instant itself and uses [`jiff`] for the calendar, time zones,
+//! parsing and `strftime`. Its text forms (`Display`, `Debug`, RFC 3339, RFC 2822, serde and
+//! `strftime` output) match what nushell printed when dates were `chrono::DateTime<FixedOffset>`,
+//! so scripts, saved files and plugins see the same text. The differences:
 //!
+//! - Dates cover jiff's range, the years -9999 to 9999, where chrono reached 262142. The first
+//!   and last instants, -9999-01-02T01:59:59Z and 9999-12-30T22:00:00.999999999Z, leave room
+//!   for any offset, so every date's wall clock is within those years.
 //! - RFC 3339, RFC 2822 and serde text round an offset with seconds to the minute and move the
 //!   wall clock with it, so the text names the same instant, where chrono left the clock and
 //!   moved the instant by up to 30 seconds.
-//! - Seconds are 0 to 59. Second 60, which UTC gives a leap second (`23:59:60`), is read as
-//!   the next minute's second 0, as POSIX clocks count it, where chrono kept a leap second as
-//!   second 59 with a second's worth of extra nanoseconds.
+//! - Second 60, which UTC gives a leap second (`23:59:60`), reads as second 59, as jiff reads
+//!   it, where chrono kept a leap second as second 59 with a second's worth of extra
+//!   nanoseconds.
 
 #[cfg(feature = "chrono")]
 mod chrono_compat;
@@ -22,12 +24,12 @@ mod strptime;
 
 pub use format::DateFormatError;
 pub use humanize::HumanTime;
-pub use parse::{DateParseError, parse_utc_offset};
-pub use strptime::{ParsedDate, TimeOfDay};
+pub use parse::{DateParseError, parse_utc_offset, parse_zone_offset};
+pub use strptime::ParsedDate;
 
 use jiff::{
     Timestamp, ZonedDateTime, civil,
-    tz::{Disambiguation, Offset, TimeZone},
+    tz::{Offset, TimeZone},
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
@@ -50,11 +52,7 @@ where
         .unwrap_or(pure_rust_locales::Locale::en_US)
 }
 
-/// The first and last years a date can have, as with chrono.
-const MIN_YEAR: i32 = -262_143;
-const MAX_YEAR: i32 = 262_142;
 const NANOS_PER_SECOND: u32 = 1_000_000_000;
-const SECONDS_PER_DAY: i64 = 86_400;
 
 /// An instant in time together with the UTC offset it is displayed in.
 ///
@@ -109,14 +107,11 @@ impl DateTime {
     };
 
     /// The date at `seconds` + `nanos` after the epoch, at `offset`, if `nanos` is under a second
-    /// and the date is within the years -262143 to 262142 both at UTC and at the offset.
+    /// and the instant is one jiff's `Timestamp` holds. Every constructor goes through this or
+    /// [`new`](Self::new), so [`timestamp`](Self::timestamp) always succeeds.
     fn checked(seconds: i64, nanos: u32, offset: Offset) -> Option<Self> {
-        let in_range = |seconds: i64| {
-            let days = seconds.div_euclid(SECONDS_PER_DAY);
-            (days_from_civil(MIN_YEAR, 1, 1)..=days_from_civil(MAX_YEAR, 12, 31)).contains(&days)
-        };
-        let local = seconds.checked_add(offset.seconds().into())?;
-        (in_range(seconds) && in_range(local) && nanos < NANOS_PER_SECOND).then_some(Self {
+        let valid = nanos < NANOS_PER_SECOND && Timestamp::new(seconds, nanos as i32).is_ok();
+        valid.then_some(Self {
             seconds,
             nanos,
             offset,
@@ -138,68 +133,27 @@ impl DateTime {
         Self::new(zoned.timestamp(), zoned.offset())
     }
 
-    /// The wall-clock `datetime` at `offset`.
+    /// The wall-clock `datetime` at `offset`, or `None` past the ends of jiff's range.
     pub fn from_civil(datetime: civil::DateTime, offset: Offset) -> Option<Self> {
-        Self::from_parts(
-            datetime.year().into(),
-            datetime.month(),
-            datetime.day(),
-            datetime.hour(),
-            datetime.minute(),
-            datetime.second(),
-            datetime.subsec_nanosecond(),
-            offset,
-        )
+        let timestamp = offset.to_timestamp(datetime).ok()?;
+        Some(Self::new(timestamp, offset))
     }
 
-    /// The wall-clock `datetime` in `time_zone`, with `disambiguation` picking the instant when
-    /// the zone skips or repeats that time; `None` when it rejects the time. A time the zone
-    /// skips comes out as the instant `disambiguation` picks, so its wall-clock time moves, as
-    /// `02:30` becomes `03:30` when clocks go forward at 02:00. Near the ends of years -9999 and
-    /// 9999, which jiff's timestamps don't reach, the same wall-clock time is read 400 years
-    /// closer, where the calendar and a zone's yearly rules repeat, and moved back.
-    pub fn from_civil_in(
-        datetime: civil::DateTime,
-        time_zone: &TimeZone,
-        disambiguation: Disambiguation,
-    ) -> Option<Self> {
-        let resolve = |datetime: civil::DateTime| {
-            let timestamp = time_zone
-                .to_ambiguous_timestamp(datetime)
-                .disambiguate(disambiguation)
-                .ok()?;
-            Some(Self::new(timestamp, time_zone.to_offset(timestamp)))
-        };
-        if let Some(date) = resolve(datetime) {
-            return Some(date);
-        }
-        if datetime.year().unsigned_abs() < 9998 {
-            return None;
-        }
-        let years = if datetime.year() > 0 { -400 } else { 400 };
-        let closer = datetime.with().year(datetime.year() + years).build().ok()?;
-        resolve(closer)?.add_years(-i32::from(years))
-    }
-
-    /// The same wall-clock time and offset `years` later, or `None` when that day doesn't exist.
-    fn add_years(self, years: i32) -> Option<Self> {
-        let p = self.parts();
-        Self::from_parts(
-            p.year.checked_add(years)?,
-            p.month,
-            p.day,
-            p.hour,
-            p.minute,
-            p.second,
-            p.nanosecond,
-            self.offset,
-        )
+    /// The wall-clock `datetime` in `time_zone`. A time the zone skips moves forward by the
+    /// gap, as `02:30` becomes `03:30` when clocks go forward at 02:00, and a time it repeats
+    /// takes the earlier offset, as jiff's `compatible` rule reads them. `None` past the ends of
+    /// jiff's range.
+    pub fn from_civil_in(datetime: civil::DateTime, time_zone: &TimeZone) -> Option<Self> {
+        let timestamp = time_zone
+            .to_ambiguous_timestamp(datetime)
+            .compatible()
+            .ok()?;
+        Some(Self::new(timestamp, time_zone.to_offset(timestamp)))
     }
 
     /// The wall-clock date and time at `offset`, or `None` when a field is out of range or the
-    /// year is outside -262143 to 262142. Second 60, which UTC gives a leap second
-    /// (`23:59:60`), is the next minute's second 0, so `23:59:60` on December 31 is midnight on
-    /// January 1.
+    /// date is past the ends of jiff's range. Second 60, which UTC gives a leap second
+    /// (`23:59:60`), reads as second 59, as jiff reads it.
     #[allow(clippy::too_many_arguments)]
     pub fn from_parts(
         year: i32,
@@ -211,54 +165,25 @@ impl DateTime {
         nanosecond: i32,
         offset: Offset,
     ) -> Option<Self> {
-        let valid = (MIN_YEAR..=MAX_YEAR).contains(&year)
-            && (1..=12).contains(&month)
-            && (1..=days_in_month(year, month)).contains(&day)
-            && (0..24).contains(&hour)
-            && (0..60).contains(&minute)
-            && (0..=60).contains(&second)
-            && (0..NANOS_PER_SECOND as i32).contains(&nanosecond);
-        if !valid {
-            return None;
-        }
-        let local = days_from_civil(year, month, day) * SECONDS_PER_DAY
-            + i64::from(hour) * 3600
-            + i64::from(minute) * 60
-            + i64::from(second);
-        Self::checked(
-            local - i64::from(offset.seconds()),
-            nanosecond as u32,
-            offset,
-        )
-    }
-
-    /// The instant this date's wall-clock fields name in `time_zone`, with `disambiguation`
-    /// picking the offset when the zone skips or repeats that time; `None` when it rejects the
-    /// time. The offset this date has is ignored. For years outside -9998 to 9998 the zone's
-    /// offset is read 400-year cycles closer, where the calendar and a zone's yearly rules
-    /// repeat.
-    pub fn wall_clock_in(
-        self,
-        time_zone: &TimeZone,
-        disambiguation: Disambiguation,
-    ) -> Option<Self> {
-        let p = self.parts();
-        let held = if (-9998..=9998).contains(&p.year) {
-            p.year
-        } else {
-            2000 + (p.year - 2000).rem_euclid(400)
-        };
-        let civil = civil::DateTime::new(
-            i16::try_from(held).ok()?,
-            p.month,
-            p.day,
-            p.hour,
-            p.minute,
-            p.second,
-            p.nanosecond,
+        let second = if second == 60 { 59 } else { second };
+        let datetime = civil::DateTime::new(
+            i16::try_from(year).ok()?,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            nanosecond,
         )
         .ok()?;
-        Self::from_civil_in(civil, time_zone, disambiguation)?.add_years(p.year - held)
+        Self::from_civil(datetime, offset)
+    }
+
+    /// The instant this date's wall-clock fields name in `time_zone`, read as
+    /// [`from_civil_in`](Self::from_civil_in) reads a time the zone skips or repeats. The offset
+    /// this date has is ignored.
+    pub fn wall_clock_in(self, time_zone: &TimeZone) -> Option<Self> {
+        Self::from_civil_in(self.to_civil(), time_zone)
     }
 
     /// The current time in the system time zone.
@@ -269,6 +194,12 @@ impl DateTime {
     /// The current time at UTC.
     pub fn now_utc() -> Self {
         Self::new(Timestamp::now(), Offset::UTC)
+    }
+
+    /// The wall-clock `datetime` in the system time zone, read as
+    /// [`from_civil_in`](Self::from_civil_in) reads it.
+    pub fn from_civil_local(datetime: civil::DateTime) -> Option<Self> {
+        Self::from_civil_in(datetime, &TimeZone::system())
     }
 
     /// `timestamp`, shown at the system time zone's offset for that instant.
@@ -293,8 +224,9 @@ impl DateTime {
 
     /// Whole seconds since the Unix epoch, rounded down, and the nanoseconds after them, shown at
     /// `offset`, as chrono's `DateTime::from_timestamp` took them. chrono kept a leap second as
-    /// second 59 of a minute with `nanos` of 1,000,000,000 or more, which is the next minute's
-    /// second 0 here; on any other second, such `nanos` are `None`.
+    /// second 59 of a minute with `nanos` of 1,000,000,000 or more, which reads as second 59
+    /// here, as a leap second reads everywhere else; on any other second, such `nanos` are
+    /// `None`.
     pub fn from_unix_timestamp(seconds: i64, nanos: u32, offset: Offset) -> Option<Self> {
         if nanos < NANOS_PER_SECOND {
             return Self::checked(seconds, nanos, offset);
@@ -302,7 +234,7 @@ impl DateTime {
         if seconds.rem_euclid(60) != 59 || nanos >= 2 * NANOS_PER_SECOND {
             return None;
         }
-        Self::checked(seconds.checked_add(1)?, nanos - NANOS_PER_SECOND, offset)
+        Self::checked(seconds, nanos - NANOS_PER_SECOND, offset)
     }
 
     /// Seconds and nanoseconds since the Unix epoch, shown at `offset`. `nanos` may be negative,
@@ -314,8 +246,8 @@ impl DateTime {
         )
     }
 
-    /// A file or clock time, shown in the system time zone, or `None` outside years -262143 to
-    /// 262142. File times past year 9999, which NTFS allows, are kept.
+    /// A file or clock time, shown in the system time zone, or `None` past the ends of jiff's
+    /// range, such as an NTFS file time after year 9999.
     pub fn from_system_time(time: SystemTime) -> Option<Self> {
         let nanos = match time.duration_since(SystemTime::UNIX_EPOCH) {
             Ok(after) => i128::try_from(after.as_nanos()).ok()?,
@@ -324,10 +256,10 @@ impl DateTime {
         Some(Self::from_unix_nanos(nanos, Offset::UTC)?.to_local())
     }
 
-    /// The instant as a jiff timestamp, or `None` near and past the ends of years -9999 and
-    /// 9999, which jiff's timestamps don't reach.
-    pub fn timestamp(self) -> Option<Timestamp> {
-        Timestamp::new(self.seconds, self.nanos as i32).ok()
+    /// The instant as a jiff timestamp.
+    pub fn timestamp(self) -> Timestamp {
+        // Every constructor checks that jiff holds the instant, so the fallback never happens.
+        Timestamp::new(self.seconds, self.nanos as i32).unwrap_or(Timestamp::UNIX_EPOCH)
     }
 
     /// The offset the date is shown at.
@@ -337,19 +269,16 @@ impl DateTime {
 
     /// The wall-clock fields at the offset.
     pub fn parts(self) -> DateParts {
-        let local = self.seconds + i64::from(self.offset.seconds());
-        let days = local.div_euclid(SECONDS_PER_DAY);
-        let of_day = local.rem_euclid(SECONDS_PER_DAY);
-        let (year, month, day) = civil_from_days(days);
+        let civil = self.to_civil();
         DateParts {
-            year,
-            month,
-            day,
-            hour: (of_day / 3600) as i8,
-            minute: (of_day / 60 % 60) as i8,
-            second: (of_day % 60) as i8,
-            nanosecond: self.nanos as i32,
-            weekday: (days + 4).rem_euclid(7) as i8,
+            year: civil.year().into(),
+            month: civil.month(),
+            day: civil.day(),
+            hour: civil.hour(),
+            minute: civil.minute(),
+            second: civil.second(),
+            nanosecond: civil.subsec_nanosecond(),
+            weekday: civil.weekday().to_sunday_zero_offset(),
         }
     }
 
@@ -358,29 +287,15 @@ impl DateTime {
         self.parts().year
     }
 
-    /// The wall-clock date and time at the offset as a jiff civil date-time, or `None` for years
-    /// outside -9999 to 9999.
-    pub fn to_civil(self) -> Option<civil::DateTime> {
-        let parts = self.parts();
-        civil::DateTime::new(
-            i16::try_from(parts.year).ok()?,
-            parts.month,
-            parts.day,
-            parts.hour,
-            parts.minute,
-            parts.second,
-            parts.nanosecond,
-        )
-        .ok()
+    /// The wall-clock date and time at the offset as a jiff civil date-time.
+    pub fn to_civil(self) -> civil::DateTime {
+        self.offset.to_datetime(self.timestamp())
     }
 
-    /// A jiff zoned date-time in a fixed time zone at this offset, or `None` where
-    /// [`timestamp`](Self::timestamp) is.
-    pub fn to_zoned(self) -> Option<ZonedDateTime> {
-        Some(
-            self.timestamp()?
-                .to_zoned_datetime(TimeZone::fixed(self.offset)),
-        )
+    /// A jiff zoned date-time in a fixed time zone at this offset.
+    pub fn to_zoned(self) -> ZonedDateTime {
+        self.timestamp()
+            .to_zoned_datetime(TimeZone::fixed(self.offset))
     }
 
     /// The same instant, shown at `offset`.
@@ -401,26 +316,16 @@ impl DateTime {
         if seconds % 60 == 0 {
             return self;
         }
+        // Rounding up past jiff's widest offset, 25:59:59, rounds toward zero instead.
         let rounded = (seconds + 30 * seconds.signum()) / 60 * 60;
-        Offset::from_seconds(rounded).map_or(self, |offset| self.with_offset(offset))
+        Offset::from_seconds(rounded)
+            .or_else(|_| Offset::from_seconds(seconds / 60 * 60))
+            .map_or(self, |offset| self.with_offset(offset))
     }
 
-    /// The same instant, shown at `time_zone`'s offset for that instant. Past the years jiff's
-    /// timestamps reach, the offset is read whole 400-year cycles closer, where the calendar
-    /// and a zone's yearly rules repeat.
+    /// The same instant, shown at `time_zone`'s offset for that instant.
     pub fn to_time_zone(self, time_zone: &TimeZone) -> Self {
-        const CYCLE: i64 = 146_097 * SECONDS_PER_DAY;
-        let (min, max) = (Timestamp::MIN.as_second(), Timestamp::MAX.as_second());
-        let mut seconds = self.seconds;
-        if seconds > max {
-            seconds -= ((seconds - max) / CYCLE + 1) * CYCLE;
-        } else if seconds < min {
-            seconds += ((min - seconds) / CYCLE + 1) * CYCLE;
-        }
-        let offset = Timestamp::from_second(seconds)
-            .map(|timestamp| time_zone.to_offset(timestamp))
-            .unwrap_or(Offset::UTC);
-        self.with_offset(offset)
+        self.with_offset(time_zone.to_offset(self.timestamp()))
     }
 
     /// The same instant, shown in the system time zone.
@@ -455,13 +360,12 @@ impl DateTime {
         at_second.checked_add(Duration::from_nanos(self.nanos.into()))
     }
 
-    /// The date `nanos` nanoseconds later, at the same offset, or `None` past year 262142.
+    /// The date `nanos` nanoseconds later, at the same offset, or `None` past jiff's range.
     pub fn checked_add_nanos(self, nanos: i64) -> Option<Self> {
         self.checked_add(i128::from(nanos))
     }
 
-    /// The date `seconds` seconds later, at the same offset, or `None` outside years -262143 to
-    /// 262142.
+    /// The date `seconds` seconds later, at the same offset, or `None` outside jiff's range.
     pub fn checked_add_seconds(self, seconds: i64) -> Option<Self> {
         self.checked_add(i128::from(seconds) * i128::from(NANOS_PER_SECOND))
     }
@@ -470,7 +374,7 @@ impl DateTime {
         Self::from_unix_nanos(self.unix_nanos().checked_add(nanos)?, self.offset)
     }
 
-    /// The date `nanos` nanoseconds earlier, at the same offset, or `None` before year -262143.
+    /// The date `nanos` nanoseconds earlier, at the same offset, or `None` before jiff's range.
     pub fn checked_sub_nanos(self, nanos: i64) -> Option<Self> {
         self.checked_add_nanos(nanos.checked_neg()?)
     }
@@ -504,9 +408,9 @@ impl DateTime {
         out
     }
 
-    /// RFC 2822, for example `Sat, 3 Feb 2001 04:05:06 +0530`. Years outside 0 to 9999 keep
-    /// their sign and digits, which RFC 2822 can't express; callers show those dates as RFC 3339
-    /// instead. An offset with seconds is written as
+    /// RFC 2822, for example `Sat, 3 Feb 2001 04:05:06 +0530`. A year before 0 keeps its sign,
+    /// which RFC 2822 can't express; callers show those dates as RFC 3339 instead. An offset
+    /// with seconds is written as
     /// [`to_minute_offset`](Self::to_minute_offset) moves it.
     pub fn to_rfc2822(self) -> String {
         let date = self.to_minute_offset();
@@ -527,9 +431,16 @@ impl DateTime {
         out
     }
 
+    /// Format with a `strftime` string in the POSIX locale: English names, `%c` as
+    /// `%a %b %e %H:%M:%S %Y`, and `.` for the decimal point. See [`format`](self::format) for
+    /// the specifiers.
+    pub fn format(self, format: &str) -> Result<String, DateFormatError> {
+        self.format_localized(format, pure_rust_locales::Locale::POSIX)
+    }
+
     /// Format with a `strftime` string, using `locale` for names, `%c %x %X %r` and the
     /// decimal point. See [`format`](self::format) for the specifiers.
-    pub fn format(
+    pub fn format_localized(
         self,
         format: &str,
         locale: pure_rust_locales::Locale,
@@ -537,9 +448,8 @@ impl DateTime {
         format::format(self, format, locale)
     }
 
-    /// Parse strict RFC 3339 the way nushell's date literals always have: `T`, `t` or a space
-    /// between date and time, any number of fraction digits, `Z`, `z` or `±HH:MM`, and second
-    /// 60, which is the next minute's second 0.
+    /// Parse RFC 3339 and the ISO 8601 forms jiff reads, with an offset or `Z`: date literals,
+    /// [`FromStr`] and serde all read dates this way. See [`parse`](self::parse) for details.
     pub fn parse_rfc3339(text: &str) -> Result<Self, DateParseError> {
         parse::parse_rfc3339(text)
     }
@@ -607,13 +517,12 @@ impl fmt::Debug for DateTime {
     }
 }
 
-/// Reads relaxed RFC 3339: what [`DateTime::parse_rfc3339`] reads, plus unpadded fields, signed
-/// years, spaces between parts, `UTC` and offsets without a colon.
+/// Reads what [`DateTime::parse_rfc3339`] reads.
 impl FromStr for DateTime {
     type Err = DateParseError;
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        parse::parse_rfc3339_relaxed(text)
+        parse::parse_rfc3339(text)
     }
 }
 
@@ -625,8 +534,8 @@ impl Serialize for DateTime {
     }
 }
 
-/// Reads the relaxed RFC 3339 that [`FromStr`] reads, so plugins written in any language can
-/// send their own RFC 3339 text.
+/// Reads what [`FromStr`] reads, so plugins written in any language can send their own RFC 3339
+/// text.
 impl<'de> Deserialize<'de> for DateTime {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct Visitor;
@@ -644,47 +553,6 @@ impl<'de> Deserialize<'de> for DateTime {
         }
 
         deserializer.deserialize_str(Visitor)
-    }
-}
-
-/// Days from 1970-01-01 to the given date in the proleptic Gregorian calendar (Howard Hinnant's
-/// `days_from_civil`).
-fn days_from_civil(year: i32, month: i8, day: i8) -> i64 {
-    let year = i64::from(year) - i64::from(month <= 2);
-    let era = year.div_euclid(400);
-    let year_of_era = year - era * 400;
-    let month = i64::from(month);
-    let day_of_year = (153 * ((month + 9) % 12) + 2) / 5 + i64::from(day) - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
-}
-
-/// The date `days` after 1970-01-01, as year, month and day (Howard Hinnant's
-/// `civil_from_days`).
-fn civil_from_days(days: i64) -> (i32, i8, i8) {
-    let days = days + 719_468;
-    let era = days.div_euclid(146_097);
-    let day_of_era = days - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let shifted_month = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * shifted_month + 2) / 5 + 1;
-    let month = if shifted_month < 10 {
-        shifted_month + 3
-    } else {
-        shifted_month - 9
-    };
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
-    (year as i32, month as i8, day as i8)
-}
-
-fn days_in_month(year: i32, month: i8) -> i8 {
-    match month {
-        4 | 6 | 9 | 11 => 30,
-        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
-        2 => 28,
-        _ => 31,
     }
 }
 
@@ -748,29 +616,12 @@ fn push_digits(out: &mut String, mut value: u32, width: usize) {
     }
 }
 
-/// A year as chrono wrote it: at least 4 digits, with `-` before negative years and `+` before
-/// years past 9999.
+/// A year as chrono wrote it: 4 digits, with `-` before negative years. jiff writes `-044`.
 fn write_year(out: &mut String, year: i32) {
     if year < 0 {
         out.push('-');
-    } else if year > 9999 {
-        out.push('+');
     }
-    let digits = year.unsigned_abs();
-    push_digits(
-        out,
-        digits,
-        if digits > 9999 {
-            decimal_width(digits)
-        } else {
-            4
-        },
-    );
-}
-
-/// The number of decimal digits in `value`.
-fn decimal_width(value: u32) -> usize {
-    value.checked_ilog10().map_or(1, |log| log as usize + 1)
+    push_digits(out, year.unsigned_abs(), 4);
 }
 
 fn write_date(out: &mut String, parts: DateParts, separator: char) {

@@ -202,7 +202,7 @@ fn parse_timestamp(s: &str) -> Result<DateTime, String> {
         }
     }
     // Date-only → midnight UTC
-    if let Ok(date) = ParsedDate::parse(s, "%Y-%m-%d").and_then(|parsed| parsed.to_naive_date()) {
+    if let Ok(date) = ParsedDate::parse(s, "%Y-%m-%d").and_then(|parsed| parsed.to_wall_clock()) {
         return Ok(date);
     }
     Err(format!("could not parse timestamp '{s}'"))

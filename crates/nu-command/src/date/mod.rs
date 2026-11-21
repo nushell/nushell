@@ -1,7 +1,6 @@
 mod date_;
 mod formats;
 mod from_human;
-mod human;
 mod humanize;
 mod list_timezone;
 mod now;

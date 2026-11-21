@@ -603,7 +603,7 @@ fn format_reads_joined_date_and_time(#[case] code: &str, #[case] expected: &str)
     test().run(code).expect_value_eq(expected)
 }
 
-// Minutes left out after an hour are 0; an hour without AM or PM is an error, not midnight.
+// Minutes left out after an hour are 0, and an hour without AM or PM is AM, as jiff reads them.
 #[rstest]
 #[case::hour(
     "'2021-03-04 10' | into datetime --format '%Y-%m-%d %H' -z UTC | to nuon",
@@ -617,8 +617,8 @@ fn format_reads_missing_minutes_as_zero(#[case] code: &str, #[case] expected: &s
     test().run(code).expect_value_eq(expected)
 }
 
-// Second 60, which UTC gives a leap second, is the next minute's second 0 wherever it's read,
-// so seconds are always 0 to 59.
+// Second 60, which UTC gives a leap second, reads as second 59 wherever it's read, as jiff reads
+// it.
 #[rstest]
 #[case::literal("2016-12-31T23:59:60.5Z | to nuon")]
 #[case::format("'2016-12-31 23:59:60.5 +0000' | into datetime --format '%F %T%.f %z' | to nuon")]
@@ -630,26 +630,27 @@ fn format_reads_missing_minutes_as_zero(#[case] code: &str, #[case] expected: &s
 // nanoseconds.
 #[case::msgpack("0x[c70cff59682f00000000005868467f] | from msgpack | to nuon")]
 #[case::toml("'a = 2016-12-31T23:59:60.5Z' | from toml | get a | to nuon")]
-fn second_60_reads_as_the_next_minute(#[case] code: &str) -> Result {
+fn second_60_reads_as_59(#[case] code: &str) -> Result {
     test()
         .run(code)
-        .expect_value_eq("2017-01-01T00:00:00.500+00:00")
+        .expect_value_eq("2016-12-31T23:59:59.500+00:00")
 }
 
 #[test]
-fn second_60_shows_as_the_next_minute() -> Result {
+fn second_60_shows_as_59() -> Result {
     let code = "let date = 2016-12-31T23:59:60Z
         [($date | format date '%F %T %S') ($date | into record | get second)] | to nuon";
     test()
         .run(code)
-        .expect_value_eq(r#"["2017-01-01 00:00:00 00", 0]"#)
+        .expect_value_eq(r#"["2016-12-31 23:59:59 59", 59]"#)
 }
 
 #[test]
-fn format_rejects_an_hour_without_am_or_pm() -> Result {
-    let code = "'2025-04-03 4:04' | into datetime --format '%F %l:%M'";
-    test().run(code).expect_shell_error()?;
-    Ok(())
+fn format_reads_an_hour_without_am_or_pm_as_am() -> Result {
+    let code = "'2025-04-03 4:04' | into datetime --format '%F %l:%M' -z UTC | to nuon";
+    test()
+        .run(code)
+        .expect_value_eq("2025-04-03T04:04:00+00:00")
 }
 
 // `%Z` reads UTC and GMT; an abbreviation such as PST names no single offset.

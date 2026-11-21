@@ -120,14 +120,13 @@ mod test {
         plugin_test.test_command_examples(&cmd)
     }
 
-    // The plist crate panics on a date outside years 0 to 9999, so those are errors.
+    // The plist crate panics on a date before year 0, so those are errors.
     #[test]
-    fn dates_outside_years_0_to_9999_are_errors() {
+    fn dates_before_year_0_are_errors() {
         let date = |text: &str| NuValue::test_date(text.parse().unwrap());
         // Windows' clock starts in 1601, so earlier years can't become a plist date there.
         assert!(convert_nu_value(&date("1601-01-01T00:00:00Z")).is_ok());
-        assert!(convert_nu_value(&date("9999-12-31T23:59:59Z")).is_ok());
-        assert!(convert_nu_value(&date("+10000-01-01T00:00:00Z")).is_err());
+        assert!(convert_nu_value(&date("9999-12-30T22:00:00Z")).is_ok());
         assert!(convert_nu_value(&date("-0001-12-31T23:59:59Z")).is_err());
     }
 }

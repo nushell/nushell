@@ -4,11 +4,11 @@ use crate::{
 };
 use jiff::{
     Timestamp, civil,
-    tz::{Disambiguation, Offset, TimeZone},
+    tz::{Offset, TimeZone},
 };
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{DateParseError, ParsedDate};
+use nu_protocol::{DateParseError, DateTime, ParsedDate};
 use std::{ops::Deref, sync::LazyLock};
 
 const HOUR: i32 = 60 * 60;
@@ -93,11 +93,6 @@ impl Zone {
             Zone::Error => None,
         }
     }
-}
-
-/// `timestamp` shown at `time_zone`'s offset for that instant.
-fn in_time_zone(timestamp: Timestamp, time_zone: &TimeZone) -> nu_protocol::DateTime {
-    nu_protocol::DateTime::new(timestamp, time_zone.to_offset(timestamp))
 }
 
 #[derive(Clone)]
@@ -235,9 +230,8 @@ impl Command for IntoDatetime {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        let example_result_1 = |nanos: i64| {
-            nu_protocol::DateTime::from_unix_nanos(nanos.into(), Offset::UTC).map(Value::test_date)
-        };
+        let example_result_1 =
+            |nanos: i64| DateTime::from_unix_nanos(nanos.into(), Offset::UTC).map(Value::test_date);
         vec![
             Example {
                 description: "Convert timestamp string to datetime with timezone offset.",
@@ -255,14 +249,14 @@ impl Command for IntoDatetime {
                 description: "Convert a date written with a month name, an ordinal and a 12-hour \
                               time.",
                 example: "'April 18th, 2025 4:04 PM +05:30' | into datetime",
-                result: nu_protocol::DateTime::parse_rfc3339("2025-04-18T16:04:00+05:30")
+                result: DateTime::parse_rfc3339("2025-04-18T16:04:00+05:30")
                     .ok()
                     .map(Value::test_date),
             },
             Example {
                 description: "Convert a date-time in an IANA time zone.",
                 example: "'2025-04-18 04:04:32 America/New_York' | into datetime",
-                result: nu_protocol::DateTime::parse_rfc3339("2025-04-18T04:04:32-04:00")
+                result: DateTime::parse_rfc3339("2025-04-18T04:04:32-04:00")
                     .ok()
                     .map(Value::test_date),
             },
@@ -288,17 +282,14 @@ impl Command for IntoDatetime {
                               datetime with custom formatting.",
                 example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
                 #[allow(clippy::inconsistent_digit_grouping)]
-                result: civil::date(1984, 11, 16)
-                    .at(8, 0, 0, 0)
-                    .to_zoned_datetime(TimeZone::system())
-                    .ok()
-                    .map(|date| Value::test_date(nu_protocol::DateTime::from_zoned(&date))),
+                result: DateTime::from_civil_local(civil::date(1984, 11, 16).at(8, 0, 0, 0))
+                    .map(Value::test_date),
             },
             Example {
                 description: "Interpret a formatted datetime in the Europe/Berlin timezone.",
                 example: "'2024-07-01 12:00' | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin",
                 result: Some(Value::date(
-                    nu_protocol::DateTime::parse_rfc3339("2024-07-01T12:00:00+02:00")
+                    DateTime::parse_rfc3339("2024-07-01T12:00:00+02:00")
                         .expect("date calculation should not fail in test"),
                     Span::test_data(),
                 )),
@@ -341,17 +332,17 @@ impl Command for IntoDatetime {
                 result: Some(Value::list(
                     vec![
                         Value::date(
-                            nu_protocol::DateTime::parse_rfc3339("2023-03-30T10:10:07-05:00")
+                            DateTime::parse_rfc3339("2023-03-30T10:10:07-05:00")
                                 .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                         Value::date(
-                            nu_protocol::DateTime::parse_rfc3339("2023-05-05T13:43:49-05:00")
+                            DateTime::parse_rfc3339("2023-05-05T13:43:49-05:00")
                                 .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                         Value::date(
-                            nu_protocol::DateTime::parse_rfc3339("2023-06-05T01:37:42-05:00")
+                            DateTime::parse_rfc3339("2023-06-05T01:37:42-05:00")
                                 .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
@@ -365,12 +356,12 @@ impl Command for IntoDatetime {
                 result: Some(Value::list(
                     vec![
                         Value::date(
-                            nu_protocol::DateTime::parse_rfc3339("2023-03-30T10:10:07-05:00")
+                            DateTime::parse_rfc3339("2023-03-30T10:10:07-05:00")
                                 .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                         Value::date(
-                            nu_protocol::DateTime::parse_rfc3339("2023-05-05T13:43:49-05:00")
+                            DateTime::parse_rfc3339("2023-05-05T13:43:49-05:00")
                                 .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
@@ -485,9 +476,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         };
         return match timezone {
             // default to UTC
-            None => Value::date(nu_protocol::DateTime::new(timestamp, Offset::UTC), head),
+            None => Value::date(DateTime::new(timestamp, Offset::UTC), head),
             Some(Spanned { item, span }) => match item.time_zone() {
-                Some(time_zone) => Value::date(in_time_zone(timestamp, &time_zone), *span),
+                Some(time_zone) => Value::date(
+                    DateTime::new(timestamp, Offset::UTC).to_time_zone(&time_zone),
+                    *span,
+                ),
                 None => invalid_timezone_value(*span),
             },
         };
@@ -573,7 +567,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
     }
     let mut record_column_default = RecordColumnDefault::Now;
 
-    let now = nu_protocol::DateTime::now();
+    let now = DateTime::now();
     let now_parts = now.parts();
     let mut now_nanosecond = now_parts.nanosecond as u32;
     let now_millisecond = now_nanosecond / 1_000_000;
@@ -671,7 +665,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         small(second),
     );
     // The date alone, at UTC midnight, tells a bad date from a bad time.
-    nu_protocol::DateTime::from_parts(year, month, day, 0, 0, 0, 0, Offset::UTC)
+    DateTime::from_parts(year, month, day, 0, 0, 0, 0, Offset::UTC)
         .ok_or_else(|| invalid("date"))?;
     let total_nanoseconds = millisecond
         .checked_mul(1_000_000)
@@ -679,7 +673,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         .and_then(|(millis, micros)| millis.checked_add(micros)?.checked_add(nanosecond))
         .and_then(|nanos| i32::try_from(nanos).ok());
     // As before, a second's worth of extra nanoseconds on second 59 is read, as chrono's leap
-    // second, which is second 60: the next minute's second 0.
+    // second, which is second 60; it reads as second 59, as a leap second reads everywhere.
     let nanos = total_nanoseconds
         .filter(|&nanos| {
             hour < 24
@@ -695,22 +689,11 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
     };
 
     let date = match offset {
-        Some(offset) => {
-            nu_protocol::DateTime::from_parts(year, month, day, hour, minute, second, nanos, offset)
-        }
+        Some(offset) => DateTime::from_parts(year, month, day, hour, minute, second, nanos, offset),
         // Local time, at the offset in effect on that date. A time the clock skips or repeats
         // at a DST change reads as `into datetime` reads one in text.
-        None => nu_protocol::DateTime::from_parts(
-            year,
-            month,
-            day,
-            hour,
-            minute,
-            second,
-            nanos,
-            Offset::UTC,
-        )
-        .and_then(|wall| wall.wall_clock_in(&TimeZone::system(), Disambiguation::Compatible)),
+        None => DateTime::from_parts(year, month, day, hour, minute, second, nanos, Offset::UTC)
+            .and_then(|wall| wall.wall_clock_in(&TimeZone::system())),
     };
     match date {
         Some(date_time) => Ok(Value::date(date_time, span)),
@@ -803,27 +786,26 @@ fn invalid_timezone_value(span: Span) -> Value {
 /// What `into datetime --format` read.
 enum FormatReading {
     /// The text has an offset or a Unix timestamp.
-    Instant(nu_protocol::DateTime),
+    Instant(DateTime),
     /// A wall-clock date and time, held at UTC, for the time zone to place.
-    WallClock(nu_protocol::DateTime),
+    WallClock(DateTime),
 }
 
 /// Reads `val` with `format`: an instant, or else a wall-clock date and time, midnight on a date
-/// with no time of day, or a time of day today. Minutes left out after an hour are 0. Only fields
-/// missing from the text move it to the next of these; a time of day missing a field (`%I`
-/// without `%p`), a field that contradicts another (`%s` and a date, a weekday and a date) or
-/// one out of range (February 30) is an error. An offset in the text places the smaller readings
-/// too, so `2021-03-04 +0530` with `%F %z` is midnight at `+05:30`.
+/// with no time of day, or a time of day today. An offset in the text places the smaller
+/// readings too, so `2021-03-04 +0530` with `%F %z` is midnight at `+05:30`. A date that doesn't
+/// exist (February 30) or a wrong weekday is an error. See `ParsedDate` for how jiff reads the
+/// rest.
 fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseError> {
-    let parsed = ParsedDate::parse(val, format)?.with_missing_minutes_zero();
+    let parsed = ParsedDate::parse(val, format)?;
     match parsed.to_datetime() {
         Err(DateParseError::NotEnough) => {}
         result => return result.map(FormatReading::Instant),
     }
-    let offset = parsed.offset()?;
-    let place = |wall: nu_protocol::DateTime| match offset {
+    let offset = parsed.offset();
+    let place = |wall: DateTime| match offset {
         Some(offset) => wall
-            .wall_clock_in(&TimeZone::fixed(offset), Disambiguation::Compatible)
+            .wall_clock_in(&TimeZone::fixed(offset))
             .map(FormatReading::Instant)
             .ok_or(DateParseError::OutOfRange),
         None => Ok(FormatReading::WallClock(wall)),
@@ -838,9 +820,7 @@ fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseE
             .date(),
         None => jiff::ZonedDateTime::now().date(),
     };
-    let wall = parsed
-        .to_naive_time()?
-        .on(today.year().into(), today.month(), today.day())
+    let wall = DateTime::from_civil(today.to_datetime(parsed.to_time()?), Offset::UTC)
         .ok_or(DateParseError::OutOfRange)?;
     place(wall)
 }
@@ -849,7 +829,7 @@ fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseE
 /// clock skips at a DST change moves forward by the jump, and one it repeats reads as the
 /// earlier, as `into datetime` reads them without `--format`.
 fn interpret_wall_clock_datetime(
-    dt: nu_protocol::DateTime,
+    dt: DateTime,
     timezone: Option<&Spanned<Zone>>,
     head: Span,
     val: &str,
@@ -861,7 +841,7 @@ fn interpret_wall_clock_datetime(
     let Some(time_zone) = time_zone else {
         return invalid_timezone_value(span);
     };
-    match dt.wall_clock_in(&time_zone, Disambiguation::Compatible) {
+    match dt.wall_clock_in(&time_zone) {
         Some(date) => Value::date(date, span),
         None => datetime_parse_error_value(val, span),
     }
@@ -876,7 +856,7 @@ mod tests {
     /// The wall-clock `text` in the system time zone.
     fn local(text: &str) -> DateTime {
         let civil: civil::DateTime = text.parse().unwrap();
-        DateTime::from_zoned(&civil.to_zoned_datetime(TimeZone::system()).unwrap())
+        DateTime::from_civil_local(civil).unwrap()
     }
 
     #[test]
@@ -898,7 +878,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            nu_protocol::DateTime::parse_rfc3339("1984-11-16T08:00:00+00:00").unwrap(),
+            DateTime::parse_rfc3339("1984-11-16T08:00:00+00:00").unwrap(),
             Span::test_data(),
         );
         assert_eq!(actual, expected)
@@ -1014,7 +994,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            nu_protocol::DateTime::parse_rfc3339("2020-08-04T16:39:18+00:00").unwrap(),
+            DateTime::parse_rfc3339("2020-08-04T16:39:18+00:00").unwrap(),
             Span::test_data(),
         );
         assert_eq!(actual, expected)
@@ -1034,7 +1014,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
+            DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1055,7 +1035,7 @@ mod tests {
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::date(
-            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
+            DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1076,7 +1056,7 @@ mod tests {
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::date(
-            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
+            DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1101,7 +1081,7 @@ mod tests {
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::date(
-            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
+            DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1214,9 +1194,8 @@ mod tests {
         };
 
         let actual = action(&input_duration, &args, Span::test_data());
-        let expected = Value::test_date(
-            nu_protocol::DateTime::parse_rfc3339("2021-02-27T14:55:40+01:00").unwrap(),
-        );
+        let expected =
+            Value::test_date(DateTime::parse_rfc3339("2021-02-27T14:55:40+01:00").unwrap());
 
         assert_eq!(actual, expected);
     }
@@ -1236,9 +1215,8 @@ mod tests {
         };
 
         let actual = action(&input_duration, &args, Span::test_data());
-        let expected = Value::test_date(
-            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
-        );
+        let expected =
+            Value::test_date(DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap());
 
         assert_eq!(actual, expected);
 
@@ -1247,9 +1225,8 @@ mod tests {
 
         let actual = action(&input_duration, &args, Span::test_data());
 
-        let expected = Value::test_date(
-            nu_protocol::DateTime::parse_rfc3339("2021-02-27T05:55:40-08:00").unwrap(),
-        );
+        let expected =
+            Value::test_date(DateTime::parse_rfc3339("2021-02-27T05:55:40-08:00").unwrap());
 
         assert_eq!(actual, expected);
     }

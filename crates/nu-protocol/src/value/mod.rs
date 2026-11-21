@@ -1080,7 +1080,7 @@ impl Value {
     fn format_datetime(&self, date_time: &DateTime, formatter: &str) -> String {
         let locale = crate::datetime::time_locale(|name| std::env::var(name).ok());
         date_time
-            .format(formatter, locale)
+            .format_localized(formatter, locale)
             .unwrap_or_else(|_| format!("Invalid format string {formatter}"))
     }
 

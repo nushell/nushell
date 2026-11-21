@@ -47,7 +47,7 @@ impl Command for DateListTimezones {
             .filter_map(move |name| {
                 let time_zone = time_zone_named(name)?;
                 let offset = nu_protocol::DateTime::new(now, time_zone.to_offset(now))
-                    .format("%:z", pure_rust_locales::Locale::POSIX)
+                    .format("%:z")
                     .ok()?;
                 Some(Value::record(
                     record! {

@@ -279,7 +279,7 @@ impl Command for SeqDate {
 /// returned as a date at UTC, which `seq date` steps through without time zones.
 pub fn parse_date_string(s: &str, format: &str) -> Result<DateTime, &'static str> {
     ParsedDate::parse(s, format)
-        .and_then(|parsed| parsed.with_missing_minutes_zero().to_wall_clock())
+        .and_then(|parsed| parsed.to_wall_clock())
         .map_err(|_| "Failed to parse date.")
 }
 
@@ -462,9 +462,7 @@ pub fn run_seq_dates(
     let mut ret = vec![];
     loop {
         // The date has no offset; UTC stands in for one so `%z` has something to print.
-        let formatted = next
-            .format(&out_format, pure_rust_locales::Locale::POSIX)
-            .map_err(|e| e.to_string());
+        let formatted = next.format(&out_format).map_err(|e| e.to_string());
         match formatted {
             Ok(date_string) => ret.push(Value::string(date_string, call_span)),
             Err(e) => {

@@ -1,16 +1,11 @@
 use super::formats::{FormatRow, format_rows, parse_date_text};
 use nu_protocol::DateTime;
 use nu_protocol::{ShellError, Span, Value, record};
-use pure_rust_locales::Locale;
 
 pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime, Value> {
     // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and read
-    // many times faster than trying layouts. Second 60 (`23:59:60`), which the RFC 3339 reader
-    // reads as the next minute's second 0, goes on to the layouts, which reject it.
-    if let Ok(date) = DateTime::parse_rfc3339(input)
-        // RFC 3339 puts the seconds at a fixed position.
-        && input.get(17..19) != Some("60")
-    {
+    // many times faster than trying layouts.
+    if let Ok(date) = DateTime::parse_rfc3339(input) {
         return Ok(date);
     }
     parse_date_text(input).ok_or_else(|| {
@@ -303,8 +298,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
 
     let mut records = specifications
         .iter()
+        // jiff doesn't read the quarter, so `into datetime` doesn't list it.
+        .filter(|s| !(show_parse_only_formats && s.spec == "%q"))
         .map(|s| {
-            let example = now.format(s.spec, Locale::POSIX).unwrap_or_default();
+            let example = now.format(s.spec).unwrap_or_default();
 
             Value::record(
                 record! {
@@ -319,7 +316,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
 
     if show_parse_only_formats {
         // `%#z` reads an offset with or without minutes; show the shortest it reads.
-        let example = now.format("%:::z", Locale::POSIX).unwrap_or_default();
+        let example = now.format("%:::z").unwrap_or_default();
 
         let description = "Parsing only: Same as %z but allows minutes to be missing or present.";
 
@@ -362,7 +359,11 @@ mod test {
     }
 
     #[test]
-    fn leap_second_is_not_read() {
-        assert!(parse_date_from_string("2016-12-31T23:59:60Z", Span::test_data()).is_err());
+    fn leap_second_reads_as_59() {
+        let date = parse_date_from_string("2016-12-31T23:59:60Z", Span::test_data());
+        assert_eq!(
+            date.ok().map(DateTime::to_rfc3339).as_deref(),
+            Some("2016-12-31T23:59:59+00:00")
+        );
     }
 }

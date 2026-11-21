@@ -168,13 +168,8 @@ fn swap_day_month(input: &str) -> String {
 
 /// Midnight local time on the given day, as the examples read their dates.
 fn local_midnight(year: i16, month: i8, day: i8) -> Option<DateTime> {
-    let midnight = jiff::civil::Date::new(year, month, day)
-        .ok()?
-        .to_datetime(jiff::civil::Time::midnight());
-    let zoned = midnight
-        .to_zoned_datetime(jiff::tz::TimeZone::system())
-        .ok()?;
-    Some(DateTime::from_zoned(&zoned))
+    let date = jiff::civil::Date::new(year, month, day).ok()?;
+    DateTime::from_civil_local(date.to_datetime(jiff::civil::Time::midnight()))
 }
 
 /// Parse `input` the way `into datetime` does, reading `01/02/2025` as day-month-year when

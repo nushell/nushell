@@ -202,9 +202,7 @@ fn parse_date_into_record(date: nu_protocol::DateTime, span: Span) -> Value {
     let parts = date.parts();
     let nanosecond = i64::from(parts.nanosecond);
     // `%Z` is the offset as `+05:30`, which `into datetime` reads back.
-    let timezone = date
-        .format("%Z", pure_rust_locales::Locale::POSIX)
-        .unwrap_or_default();
+    let timezone = date.format("%Z").unwrap_or_default();
     Value::record(
         record! {
             "year" => Value::int(parts.year.into(), span),
