@@ -274,12 +274,12 @@ impl Command for SeqDate {
     }
 }
 
-/// Reads `s` with `format` as a wall-clock date and time; a date alone is midnight, and an
-/// offset in the text is ignored. The wall-clock time is returned as a date at UTC, which
-/// `seq date` steps through without time zones.
+/// Reads `s` with `format` as a wall-clock date and time; a date alone is midnight, minutes
+/// left out after an hour are 0, and an offset in the text is ignored. The wall-clock time is
+/// returned as a date at UTC, which `seq date` steps through without time zones.
 pub fn parse_date_string(s: &str, format: &str) -> Result<DateTime, &'static str> {
     ParsedDate::parse(s, format)
-        .and_then(|parsed| parsed.to_wall_clock())
+        .and_then(|parsed| parsed.with_missing_minutes_zero().to_wall_clock())
         .map_err(|_| "Failed to parse date.")
 }
 

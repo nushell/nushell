@@ -943,9 +943,7 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime> {
 // #[cfg(windows)] is just to make Clippy happy, remove if you ever want to use this on other platforms
 #[cfg(windows)]
 fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime> {
-    jiff::Timestamp::from_second(secs)
-        .ok()
-        .map(DateTime::from_timestamp_local)
+    DateTime::from_unix_seconds(secs, 0, jiff::tz::Offset::UTC).map(DateTime::to_local)
 }
 
 #[cfg(windows)]

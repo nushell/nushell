@@ -1,6 +1,9 @@
-use super::{formats::parse_gnu_date, human::Phrase};
+use super::{
+    formats::{parse_gnu_date, parse_relative},
+    human::Phrase,
+};
 use fancy_regex::Regex;
-use jiff::ZonedDateTime;
+use jiff::{ZonedDateTime, civil};
 use nu_engine::command_prelude::*;
 use nu_protocol::DateTime;
 use std::sync::LazyLock;
@@ -134,32 +137,47 @@ fn helper(value: Value, head: Span) -> Value {
 
 /// The date `text` names. Text after one of human-date-parser's phrases is ignored, as
 /// human-date-parser ignored it: the longest start of the text that is a phrase names the date,
-/// unless a longer start that ends before a space reads as GNU syntax, which keeps the time in
-/// `today at 6pm blah`. Text that doesn't start with a phrase is no date.
+/// unless all of the text, or a longer start that ends before a space, reads as GNU syntax,
+/// which keeps the time in `today at 6pm` and `today at 6pm blah`. Text that doesn't start with
+/// a phrase is read as GNU syntax only as [`read_gnu_alone`] allows.
 fn read_start(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
-    if let Some(date) = read(text, now) {
-        return date;
+    if let Some(phrase) = Phrase::parse(text) {
+        return phrase.date(now);
     }
     let starts = Phrase::starts(text);
-    let (at, phrase) = starts
+    let Some((at, phrase)) = starts
         .iter()
         .enumerate()
-        .find_map(|(i, start)| Some((i, Phrase::parse(start)?)))?;
-    starts[..at]
+        .find_map(|(i, start)| Some((i, Phrase::parse(start)?)))
+    else {
+        return read_gnu_alone(text, now);
+    };
+    let longer_starts = starts[..at]
         .iter()
-        .filter(|start| text[start.len()..].starts_with(' '))
-        .find_map(|start| read(start, now))
-        .unwrap_or_else(|| phrase.date(now))
+        .copied()
+        .filter(|start| text[start.len()..].starts_with(' '));
+    std::iter::once(text)
+        .chain(longer_starts)
+        .find_map(|start| read_gnu(start, now))
+        .or_else(|| phrase.date(now))
 }
 
-/// The date `text` names, as one of human-date-parser's phrases or else in GNU `date` syntax.
-/// `Some(None)` is a phrase that names no date, such as `2022-02-30`.
-fn read(text: &str, now: &ZonedDateTime) -> Option<Option<DateTime>> {
-    if let Some(phrase) = Phrase::parse(text) {
-        return Some(phrase.date(now));
-    }
+/// The date `text` names in GNU `date` syntax.
+fn read_gnu(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
     let date = parse_gnu_date(&to_gnu_date(text))?;
-    Some(with_time_of_day(date, text, now))
+    with_time_of_day(date, text, now)
+}
+
+/// The date `text`, which no phrase starts, names in GNU `date` syntax. As in `into datetime`,
+/// it needs a relative word, `@` or `TZ=` (`6pm tomorrow`, `@1744972472`), or here a time of day
+/// (`6pm`, `18:00 est`), so a lone zone letter, zone name or number (`x`, `est`, `12`) is no
+/// date.
+fn read_gnu_alone(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
+    if TIME_OF_DAY.is_match(text).unwrap_or(false) {
+        return read_gnu(text, now);
+    }
+    let date = parse_relative(&to_gnu_date(text))?;
+    with_time_of_day(date, text, now)
 }
 
 /// Matches the parts of a phrase that name a time of day or a span shorter than a day.
@@ -171,13 +189,21 @@ static TIME_OF_DAY: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// A GNU `date` reading of a phrase that names no time of day (`Friday`, `2022-11-07`) is at the
-/// current time of day, as a human-date-parser phrase that names a day is.
+/// current time of day, as a human-date-parser phrase that names a day is. GNU reads such a
+/// phrase as midnight, so a reading at any other time (`today 1430`) keeps its time.
 fn with_time_of_day(date: DateTime, text: &str, now: &ZonedDateTime) -> Option<DateTime> {
     if TIME_OF_DAY.is_match(text).unwrap_or(false) {
         return Some(date);
     }
-    let wall = date.to_civil()?.date().to_datetime(now.time());
-    let zoned = wall.to_zoned_datetime(now.time_zone().clone()).ok()?;
+    let wall = date.to_civil()?;
+    if wall.time() != civil::Time::midnight() {
+        return Some(date);
+    }
+    let zoned = wall
+        .date()
+        .to_datetime(now.time())
+        .to_zoned_datetime(now.time_zone().clone())
+        .ok()?;
     Some(DateTime::from_zoned(&zoned))
 }
 
@@ -291,16 +317,47 @@ mod test {
         for text in ["today at 6pm", "today at 6pm blah", "today at 18:00 blah"] {
             assert_eq!(hour(text), Some(18), "{text}");
         }
-        // Text that doesn't start with a phrase is no date, even when GNU syntax reads a word
-        // of it.
+        // Text that doesn't start with a phrase is no date without a relative word, `@` or a
+        // time of day, even when GNU syntax reads it or a word of it: military zone letters,
+        // zone abbreviations, bare numbers.
         for text in [
             "blah",
             "5 apples",
             "a b c",
             "utc time please",
             "10 apples ago",
+            "x",
+            "a",
+            "z",
+            "est",
+            "12",
+            "2025",
+            "1430",
         ] {
             assert!(read_start(text, &now).is_none(), "{text}");
         }
+    }
+
+    #[cfg(feature = "os")]
+    #[test]
+    fn gnu_syntax_without_a_phrase_needs_a_relative_word_or_a_time() {
+        let now = ZonedDateTime::now();
+        let hour = |text: &str| read_start(text, &now).map(|date| date.parts().hour);
+        for text in ["6pm tomorrow", "6pm", "18:00 tomorrow"] {
+            assert_eq!(hour(text), Some(18), "{text}");
+        }
+        assert_eq!(
+            read_start("@1744972472", &now).map(DateTime::unix_seconds),
+            Some(1_744_972_472)
+        );
+    }
+
+    #[cfg(feature = "os")]
+    #[test]
+    fn gnu_time_without_a_colon_is_kept() {
+        let now = ZonedDateTime::now();
+        let time = |text: &str| read_start(text, &now).map(|date| date.parts());
+        let parts = time("today 1430").expect("today 1430 is a date");
+        assert_eq!((parts.hour, parts.minute, parts.second), (14, 30, 0));
     }
 }

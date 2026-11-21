@@ -76,7 +76,7 @@ pub(crate) fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value
         .then(|| jiff::tz::Offset::from_seconds(offset_seconds).ok())
         .flatten();
 
-    // A date alone is midnight.
+    // A date alone is midnight. Second 60, a leap second, is the next minute's second 0.
     let (hour, minute, second, nanosecond) = match dt.time {
         Some(time) => (
             time.hour,

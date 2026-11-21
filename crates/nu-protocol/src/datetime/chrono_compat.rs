@@ -1,17 +1,25 @@
 //! Conversions between [`DateTime`] and `chrono::DateTime<FixedOffset>`, for plugins that still
 //! use chrono. Enabled by nu-protocol's `chrono` feature.
 
-use super::DateTime;
+use super::{DateTime, NANOS_PER_SECOND};
 use crate::{FromValue, IntoValue, ShellError, Span, Type, Value};
 use jiff::tz::Offset;
 
-/// chrono's range is the same as nushell's, and a leap second stays one.
+/// chrono's range is the same as nushell's. chrono keeps a leap second (`23:59:60`) as a
+/// second's worth of extra nanoseconds, which is the next second here, the next minute's
+/// second 0.
 impl From<chrono::DateTime<chrono::FixedOffset>> for DateTime {
     fn from(value: chrono::DateTime<chrono::FixedOffset>) -> Self {
         let offset = Offset::from_seconds(value.offset().local_minus_utc()).unwrap_or(Offset::UTC);
+        let (seconds, nanos) = (value.timestamp(), value.timestamp_subsec_nanos());
+        let (seconds, nanos) = if nanos >= NANOS_PER_SECOND {
+            (seconds + 1, nanos - NANOS_PER_SECOND)
+        } else {
+            (seconds, nanos)
+        };
         Self {
-            seconds: value.timestamp(),
-            nanos: value.timestamp_subsec_nanos(),
+            seconds,
+            nanos,
             offset,
         }
     }

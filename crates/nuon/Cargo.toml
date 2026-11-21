@@ -17,7 +17,5 @@ nu-engine.workspace = true
 nu-utils.workspace = true
 unicode-width = { workspace = true }
 
-[dev-dependencies]
-
 [lints]
 workspace = true

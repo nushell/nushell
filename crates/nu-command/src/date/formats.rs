@@ -200,8 +200,9 @@ static RELATIVE: LazyLock<Regex> = LazyLock::new(|| {
 /// Read `input` as a date-time, or `None` if it isn't one.
 pub(crate) fn parse_date_text(input: &str) -> Option<DateTime> {
     let input = input.trim();
-    // jiff reads a leap second (`23:59:60`) as `:59`; nushell rejects leap seconds. The check
-    // runs again after normalize, which writes basic-format seconds (`T235960`) as `:60`.
+    // jiff reads second 60, a leap second (`23:59:60`), as `:59`; without `--format`, nushell
+    // rejects it. The check runs again after normalize, which writes basic-format seconds
+    // (`T235960`) as `:60`.
     if input.contains(":60") {
         return None;
     }
@@ -232,8 +233,10 @@ pub(crate) fn parse_date_text(input: &str) -> Option<DateTime> {
     parse_relative(input)
 }
 
+/// Reads `input` with the GNU `date` grammar if it has a relative word, `@` or `TZ=`, so a lone
+/// zone letter or number (`x`, `12`) isn't read as one.
 #[cfg(feature = "os")]
-fn parse_relative(input: &str) -> Option<DateTime> {
+pub(crate) fn parse_relative(input: &str) -> Option<DateTime> {
     if !RELATIVE.is_match(input).unwrap_or(false) {
         return None;
     }
@@ -256,7 +259,7 @@ pub(crate) fn parse_gnu_date(input: &str) -> Option<DateTime> {
 /// Relative dates are read by parse_datetime, which nu-command depends on only with the `os`
 /// feature.
 #[cfg(not(feature = "os"))]
-fn parse_relative(_input: &str) -> Option<DateTime> {
+pub(crate) fn parse_relative(_input: &str) -> Option<DateTime> {
     None
 }
 
@@ -297,7 +300,6 @@ fn is_number(text: &str) -> bool {
         && (unsigned.len() < text.len() || unsigned.len() != whole.len() || whole.len() <= 2)
 }
 
-/// Trim, rewrite spelling variants, and take off a leading weekday name (returned separately).
 /// The weekday a three-letter English abbreviation names, in any case.
 fn weekday_from_abbreviation(abbreviation: &str) -> Option<Weekday> {
     Some(match abbreviation.to_ascii_lowercase().as_str() {
@@ -312,6 +314,7 @@ fn weekday_from_abbreviation(abbreviation: &str) -> Option<Weekday> {
     })
 }
 
+/// Trim, rewrite spelling variants, and take off a leading weekday name (returned separately).
 fn normalize(input: &str) -> (String, Option<Weekday>) {
     let trimmed = input.trim_matches(['\'', '"']);
     let mut text = expand_basic(trimmed).unwrap_or_else(|| trimmed.to_string());
@@ -573,7 +576,7 @@ fn build(
     // In a time zone, a time the clock repeats at a DST change reads as the earlier one, and a
     // time it skips moves forward by the jump (02:30 on the spring-forward day reads as 03:30).
     if let Some(name) = zone.and_then(|z| z.iana_time_zone()) {
-        let zone = TimeZone::get(name).ok()?;
+        let zone = super::time_zone_named(name)?;
         return DateTime::from_civil_in(civil, &zone, Disambiguation::Compatible);
     }
     match zone.and_then(|z| z.offset()) {

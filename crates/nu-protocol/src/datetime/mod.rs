@@ -1,38 +1,17 @@
-// `DateTime::checked_add` and `DateTime::nanos_since` in this file follow the leap-second
-// arithmetic of chrono 0.4.45 (https://github.com/chronotope/chrono). chrono is dual-licensed
-// under the MIT License and the Apache License 2.0; this file uses it under the MIT License:
-//
-// Copyright (c) 2014--2026, Kang Seonghoon and contributors.
-//
-// The MIT License (MIT)
-//
-// Copyright (c) 2014, Kang Seonghoon.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 //! Nushell's date value: an instant, and the UTC offset it is shown in.
 //!
 //! [`DateTime`] stores the instant itself, over the years chrono covered (-262143 to 262142),
-//! with leap seconds as chrono kept them, and uses [`jiff`] for time zones and `strftime`. Its
-//! text forms (`Display`, `Debug`, RFC 3339, RFC 2822, serde and `strftime` output) match what
-//! nushell printed when dates were `chrono::DateTime<FixedOffset>`, so scripts, saved files and
-//! plugins see the same text.
+//! and uses [`jiff`] for time zones and `strftime`. Its text forms (`Display`, `Debug`, RFC
+//! 3339, RFC 2822, serde and `strftime` output) match what nushell printed when dates were
+//! `chrono::DateTime<FixedOffset>`, so scripts, saved files and plugins see the same text. Two
+//! differences:
+//!
+//! - RFC 3339, RFC 2822 and serde text round an offset with seconds to the minute and move the
+//!   wall clock with it, so the text names the same instant, where chrono left the clock and
+//!   moved the instant by up to 30 seconds.
+//! - Seconds are 0 to 59. Second 60, which UTC gives a leap second (`23:59:60`), is read as
+//!   the next minute's second 0, as POSIX clocks count it, where chrono kept a leap second as
+//!   second 59 with a second's worth of extra nanoseconds.
 
 #[cfg(feature = "chrono")]
 mod chrono_compat;
@@ -56,7 +35,7 @@ use std::{
     fmt,
     hash::{Hash, Hasher},
     str::FromStr,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 /// The `LC_TIME` locale named by the environment, read through `env`, or `en_US` when the name
@@ -85,8 +64,7 @@ const SECONDS_PER_DAY: i64 = 86_400;
 pub struct DateTime {
     /// Seconds since the Unix epoch, rounded down.
     seconds: i64,
-    /// Nanoseconds after `seconds`. A leap second, which chrono kept on second 59 of its minute,
-    /// has 1,000,000,000 or more.
+    /// Nanoseconds after `seconds`, 0 to 999,999,999.
     nanos: u32,
     offset: Offset,
 }
@@ -99,18 +77,12 @@ pub struct DateParts {
     pub day: i8,
     pub hour: i8,
     pub minute: i8,
-    /// 0 to 59; a leap second is second 59 with a `nanosecond` of 1,000,000,000 or more.
+    /// 0 to 59.
     pub second: i8,
+    /// 0 to 999,999,999.
     pub nanosecond: i32,
     /// Days since Sunday, 0 to 6.
     pub weekday: i8,
-}
-
-impl DateParts {
-    /// Whether this is a leap second (`23:59:60`).
-    pub fn is_leap_second(self) -> bool {
-        self.nanosecond >= NANOS_PER_SECOND as i32
-    }
 }
 
 /// How many fraction digits [`DateTime::to_rfc3339_opts`] writes.
@@ -136,15 +108,15 @@ impl DateTime {
         offset: Offset::UTC,
     };
 
-    /// The date at `seconds` + `nanos` after the epoch, at `offset`, if it is within the years
-    /// -262143 to 262142 both at UTC and at the offset.
+    /// The date at `seconds` + `nanos` after the epoch, at `offset`, if `nanos` is under a second
+    /// and the date is within the years -262143 to 262142 both at UTC and at the offset.
     fn checked(seconds: i64, nanos: u32, offset: Offset) -> Option<Self> {
         let in_range = |seconds: i64| {
             let days = seconds.div_euclid(SECONDS_PER_DAY);
             (days_from_civil(MIN_YEAR, 1, 1)..=days_from_civil(MAX_YEAR, 12, 31)).contains(&days)
         };
         let local = seconds.checked_add(offset.seconds().into())?;
-        (in_range(seconds) && in_range(local) && nanos < 2 * NANOS_PER_SECOND).then_some(Self {
+        (in_range(seconds) && in_range(local) && nanos < NANOS_PER_SECOND).then_some(Self {
             seconds,
             nanos,
             offset,
@@ -225,8 +197,9 @@ impl DateTime {
     }
 
     /// The wall-clock date and time at `offset`, or `None` when a field is out of range or the
-    /// year is outside -262143 to 262142. A `nanosecond` of 1,000,000,000 or more on second 59
-    /// is a leap second.
+    /// year is outside -262143 to 262142. Second 60, which UTC gives a leap second
+    /// (`23:59:60`), is the next minute's second 0, so `23:59:60` on December 31 is midnight on
+    /// January 1.
     #[allow(clippy::too_many_arguments)]
     pub fn from_parts(
         year: i32,
@@ -238,15 +211,13 @@ impl DateTime {
         nanosecond: i32,
         offset: Offset,
     ) -> Option<Self> {
-        let leap = nanosecond >= NANOS_PER_SECOND as i32;
         let valid = (MIN_YEAR..=MAX_YEAR).contains(&year)
             && (1..=12).contains(&month)
             && (1..=days_in_month(year, month)).contains(&day)
             && (0..24).contains(&hour)
             && (0..60).contains(&minute)
-            && (0..60).contains(&second)
-            && (0..2 * NANOS_PER_SECOND as i32).contains(&nanosecond)
-            && (!leap || second == 59);
+            && (0..=60).contains(&second)
+            && (0..NANOS_PER_SECOND as i32).contains(&nanosecond);
         if !valid {
             return None;
         }
@@ -265,7 +236,7 @@ impl DateTime {
     /// picking the offset when the zone skips or repeats that time; `None` when it rejects the
     /// time. The offset this date has is ignored. For years outside -9998 to 9998 the zone's
     /// offset is read 400-year cycles closer, where the calendar and a zone's yearly rules
-    /// repeat. A leap second stays one.
+    /// repeat.
     pub fn wall_clock_in(
         self,
         time_zone: &TimeZone,
@@ -284,20 +255,10 @@ impl DateTime {
             p.hour,
             p.minute,
             p.second,
-            p.nanosecond % NANOS_PER_SECOND as i32,
+            p.nanosecond,
         )
         .ok()?;
-        let date =
-            Self::from_civil_in(civil, time_zone, disambiguation)?.add_years(p.year - held)?;
-        if !p.is_leap_second() {
-            return Some(date);
-        }
-        // jiff has no leap seconds: put it back, unless the zone's offset moves second 59 off
-        // UTC's.
-        Some(
-            Self::from_unix_timestamp(date.seconds, date.nanos + NANOS_PER_SECOND, date.offset)
-                .unwrap_or(date),
-        )
+        Self::from_civil_in(civil, time_zone, disambiguation)?.add_years(p.year - held)
     }
 
     /// The current time in the system time zone.
@@ -331,13 +292,17 @@ impl DateTime {
     }
 
     /// Whole seconds since the Unix epoch, rounded down, and the nanoseconds after them, shown at
-    /// `offset`, as chrono's `DateTime::from_timestamp` took them: `nanos` of 1,000,000,000 or
-    /// more is a leap second, allowed only on second 59 of a minute.
+    /// `offset`, as chrono's `DateTime::from_timestamp` took them. chrono kept a leap second as
+    /// second 59 of a minute with `nanos` of 1,000,000,000 or more, which is the next minute's
+    /// second 0 here; on any other second, such `nanos` are `None`.
     pub fn from_unix_timestamp(seconds: i64, nanos: u32, offset: Offset) -> Option<Self> {
-        if nanos >= NANOS_PER_SECOND && seconds.rem_euclid(60) != 59 {
+        if nanos < NANOS_PER_SECOND {
+            return Self::checked(seconds, nanos, offset);
+        }
+        if seconds.rem_euclid(60) != 59 || nanos >= 2 * NANOS_PER_SECOND {
             return None;
         }
-        Self::checked(seconds, nanos, offset)
+        Self::checked(seconds.checked_add(1)?, nanos - NANOS_PER_SECOND, offset)
     }
 
     /// Seconds and nanoseconds since the Unix epoch, shown at `offset`. `nanos` may be negative,
@@ -349,19 +314,20 @@ impl DateTime {
         )
     }
 
-    /// A file or clock time, shown in the system time zone.
+    /// A file or clock time, shown in the system time zone, or `None` outside years -262143 to
+    /// 262142. File times past year 9999, which NTFS allows, are kept.
     pub fn from_system_time(time: SystemTime) -> Option<Self> {
-        Timestamp::try_from(time)
-            .ok()
-            .map(Self::from_timestamp_local)
+        let nanos = match time.duration_since(SystemTime::UNIX_EPOCH) {
+            Ok(after) => i128::try_from(after.as_nanos()).ok()?,
+            Err(before) => -i128::try_from(before.duration().as_nanos()).ok()?,
+        };
+        Some(Self::from_unix_nanos(nanos, Offset::UTC)?.to_local())
     }
 
     /// The instant as a jiff timestamp, or `None` near and past the ends of years -9999 and
-    /// 9999, which jiff's timestamps don't reach. A leap second becomes its minute's last
-    /// nanosecond.
+    /// 9999, which jiff's timestamps don't reach.
     pub fn timestamp(self) -> Option<Timestamp> {
-        let nanos = self.nanos.min(NANOS_PER_SECOND - 1);
-        Timestamp::new(self.seconds, nanos as i32).ok()
+        Timestamp::new(self.seconds, self.nanos as i32).ok()
     }
 
     /// The offset the date is shown at.
@@ -393,7 +359,7 @@ impl DateTime {
     }
 
     /// The wall-clock date and time at the offset as a jiff civil date-time, or `None` for years
-    /// outside -9999 to 9999. A leap second becomes its minute's last nanosecond.
+    /// outside -9999 to 9999.
     pub fn to_civil(self) -> Option<civil::DateTime> {
         let parts = self.parts();
         civil::DateTime::new(
@@ -403,7 +369,7 @@ impl DateTime {
             parts.hour,
             parts.minute,
             parts.second,
-            parts.nanosecond.min(NANOS_PER_SECOND as i32 - 1),
+            parts.nanosecond,
         )
         .ok()
     }
@@ -424,6 +390,19 @@ impl DateTime {
             nanos: self.nanos,
             offset,
         }
+    }
+
+    /// The same instant, shown at its offset rounded to the nearest minute, half a minute away
+    /// from zero. RFC 3339, RFC 2822 and TOML write offsets in whole minutes, but local mean
+    /// time has seconds (Amsterdam was `+00:19:32` until 1937); moving the wall clock with the
+    /// offset keeps the instant the text names.
+    pub fn to_minute_offset(self) -> Self {
+        let seconds = self.offset.seconds();
+        if seconds % 60 == 0 {
+            return self;
+        }
+        let rounded = (seconds + 30 * seconds.signum()) / 60 * 60;
+        Offset::from_seconds(rounded).map_or(self, |offset| self.with_offset(offset))
     }
 
     /// The same instant, shown at `time_zone`'s offset for that instant. Past the years jiff's
@@ -449,14 +428,13 @@ impl DateTime {
         self.to_time_zone(&TimeZone::system())
     }
 
-    /// Whole seconds since the Unix epoch, rounded down, as chrono's `timestamp()` gave them. A
-    /// leap second counts as its minute's second 59.
+    /// Whole seconds since the Unix epoch, rounded down, as chrono's `timestamp()` gave them.
     pub const fn unix_seconds(self) -> i64 {
         self.seconds
     }
 
-    /// The nanoseconds after [`unix_seconds`](Self::unix_seconds), as chrono's
-    /// `timestamp_subsec_nanos()` gave them: 1,000,000,000 or more for a leap second.
+    /// The nanoseconds after [`unix_seconds`](Self::unix_seconds), 0 to 999,999,999, as
+    /// chrono's `timestamp_subsec_nanos()` gave them.
     pub const fn subsec_nanos(self) -> u32 {
         self.nanos
     }
@@ -468,48 +446,28 @@ impl DateTime {
 
     /// The instant as a `SystemTime`, or `None` when the platform can't hold it.
     pub fn to_system_time(self) -> Option<SystemTime> {
-        SystemTime::try_from(self.timestamp()?).ok()
+        let whole = Duration::from_secs(self.seconds.unsigned_abs());
+        let at_second = if self.seconds < 0 {
+            SystemTime::UNIX_EPOCH.checked_sub(whole)
+        } else {
+            SystemTime::UNIX_EPOCH.checked_add(whole)
+        }?;
+        at_second.checked_add(Duration::from_nanos(self.nanos.into()))
     }
 
     /// The date `nanos` nanoseconds later, at the same offset, or `None` past year 262142.
-    ///
-    /// As with chrono, a leap second stays one while the result is still inside it; otherwise
-    /// its extra second is dropped, so `23:59:60` plus one second is `00:00:00`.
     pub fn checked_add_nanos(self, nanos: i64) -> Option<Self> {
         self.checked_add(i128::from(nanos))
     }
 
     /// The date `seconds` seconds later, at the same offset, or `None` outside years -262143 to
-    /// 262142. A leap second is left as [`checked_add_nanos`](Self::checked_add_nanos) leaves it.
+    /// 262142.
     pub fn checked_add_seconds(self, seconds: i64) -> Option<Self> {
         self.checked_add(i128::from(seconds) * i128::from(NANOS_PER_SECOND))
     }
 
     fn checked_add(self, nanos: i128) -> Option<Self> {
-        let mut seconds = i128::from(self.seconds);
-        let mut frac = i128::from(self.nanos);
-        let second = i128::from(NANOS_PER_SECOND);
-        // chrono's `NaiveTime::overflowing_add_signed`: whole seconds round toward zero and the
-        // fraction keeps the sign.
-        let whole = nanos / second;
-        let part = nanos % second;
-        if frac >= second {
-            if whole > 0 || (part > 0 && frac >= 2 * second - part) {
-                // Leaving forward: the leap second ends at the next minute.
-                frac -= second;
-            } else if whole < 0 {
-                // Leaving backward: the leap second counts from the next minute.
-                frac -= second;
-                seconds += 1;
-            } else {
-                // Still inside the leap second, or moved back into second 59.
-                return Some(Self {
-                    nanos: (frac + part) as u32,
-                    ..self
-                });
-            }
-        }
-        Self::from_unix_nanos(seconds * second + frac + nanos, self.offset)
+        Self::from_unix_nanos(self.unix_nanos().checked_add(nanos)?, self.offset)
     }
 
     /// The date `nanos` nanoseconds earlier, at the same offset, or `None` before year -262143.
@@ -517,28 +475,9 @@ impl DateTime {
         self.checked_add_nanos(nanos.checked_neg()?)
     }
 
-    /// Nanoseconds from `earlier` to `self`, negative when `self` comes first. As with chrono, a
-    /// leap second between the two adds its second only once.
+    /// Nanoseconds from `earlier` to `self`, negative when `self` comes first.
     pub fn nanos_since(self, earlier: Self) -> i128 {
-        // chrono subtracts the UTC days and the seconds within the day separately, and counts a
-        // leap second by comparing the seconds within the day.
-        let split = |date: Self| {
-            (
-                i128::from(date.seconds.div_euclid(SECONDS_PER_DAY)),
-                i128::from(date.seconds.rem_euclid(SECONDS_PER_DAY)),
-                date.nanos >= NANOS_PER_SECOND,
-            )
-        };
-        let (days, of_day, leap) = split(self);
-        let (earlier_days, earlier_of_day, earlier_leap) = split(earlier);
-        let adjust = match of_day.cmp(&earlier_of_day) {
-            Ordering::Greater => i128::from(earlier_leap),
-            Ordering::Less => -i128::from(leap),
-            Ordering::Equal => 0,
-        };
-        let seconds =
-            (days - earlier_days) * i128::from(SECONDS_PER_DAY) + of_day - earlier_of_day + adjust;
-        seconds * i128::from(NANOS_PER_SECOND) + i128::from(self.nanos) - i128::from(earlier.nanos)
+        self.unix_nanos() - earlier.unix_nanos()
     }
 
     /// RFC 3339 with the shortest of 0, 3, 6 or 9 fraction digits and `+00:00` for UTC,
@@ -547,27 +486,31 @@ impl DateTime {
         self.to_rfc3339_opts(SecondsFormat::AutoSi, false)
     }
 
-    /// RFC 3339 with the fraction digits `seconds` asks for, and `Z` for UTC when `use_z`.
+    /// RFC 3339 with the fraction digits `seconds` asks for, and `Z` for UTC when `use_z`. An
+    /// offset with seconds is written as [`to_minute_offset`](Self::to_minute_offset) moves it.
     pub fn to_rfc3339_opts(self, seconds: SecondsFormat, use_z: bool) -> String {
+        let date = self.to_minute_offset();
         let mut out = String::with_capacity(35);
-        let parts = self.parts();
+        let parts = date.parts();
         write_date(&mut out, parts, '-');
         out.push('T');
         write_time(&mut out, parts);
         write_fraction(&mut out, parts.nanosecond, seconds, ".");
-        if use_z && self.offset.seconds() == 0 {
+        if use_z && date.offset.seconds() == 0 {
             out.push('Z');
         } else {
-            write_offset(&mut out, self.offset, OffsetStyle::Minutes { colon: true });
+            write_offset(&mut out, date.offset, OffsetStyle::Minutes { colon: true });
         }
         out
     }
 
     /// RFC 2822, for example `Sat, 3 Feb 2001 04:05:06 +0530`. Years outside 0 to 9999 keep
     /// their sign and digits, which RFC 2822 can't express; callers show those dates as RFC 3339
-    /// instead.
+    /// instead. An offset with seconds is written as
+    /// [`to_minute_offset`](Self::to_minute_offset) moves it.
     pub fn to_rfc2822(self) -> String {
-        let parts = self.parts();
+        let date = self.to_minute_offset();
+        let parts = date.parts();
         let mut out = String::with_capacity(31);
         out.push_str(format::SHORT_WEEKDAYS[parts.weekday as usize]);
         out.push_str(", ");
@@ -580,7 +523,7 @@ impl DateTime {
         out.push(' ');
         write_time(&mut out, parts);
         out.push(' ');
-        write_offset(&mut out, self.offset, OffsetStyle::Minutes { colon: false });
+        write_offset(&mut out, date.offset, OffsetStyle::Minutes { colon: false });
         out
     }
 
@@ -595,7 +538,8 @@ impl DateTime {
     }
 
     /// Parse strict RFC 3339 the way nushell's date literals always have: `T`, `t` or a space
-    /// between date and time, any number of fraction digits, `Z`, `z` or `±HH:MM`, and `:60`.
+    /// between date and time, any number of fraction digits, `Z`, `z` or `±HH:MM`, and second
+    /// 60, which is the next minute's second 0.
     pub fn parse_rfc3339(text: &str) -> Result<Self, DateParseError> {
         parse::parse_rfc3339(text)
     }
@@ -837,20 +781,17 @@ fn write_date(out: &mut String, parts: DateParts, separator: char) {
     push_digits(out, parts.day as u32, 2);
 }
 
-/// `HH:MM:SS`, with a leap second as `60`.
+/// `HH:MM:SS`.
 fn write_time(out: &mut String, parts: DateParts) {
     push_digits(out, parts.hour as u32, 2);
     out.push(':');
     push_digits(out, parts.minute as u32, 2);
     out.push(':');
-    let second = parts.second as u32 + u32::from(parts.is_leap_second());
-    push_digits(out, second, 2);
+    push_digits(out, parts.second as u32, 2);
 }
 
-/// Writes `nanos` as a fraction after `point`, with the digits `seconds` asks for. A leap
-/// second's extra second is left out, since its seconds field already shows `60`.
+/// Writes `nanos` as a fraction after `point`, with the digits `seconds` asks for.
 fn write_fraction(out: &mut String, nanos: i32, seconds: SecondsFormat, point: &str) {
-    let nanos = nanos % NANOS_PER_SECOND as i32;
     let digits = match seconds {
         SecondsFormat::Secs => return,
         SecondsFormat::Millis => 3,

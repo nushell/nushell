@@ -30,11 +30,11 @@
 //!
 //! This is a port of chrono 0.4.45's format parser (`format/strftime.rs`, `format/parse.rs`,
 //! `format/scan.rs` and `format/parsed.rs`), so `into datetime --format`, `seq date` and
-//! `from kdl` read text as they did when nushell used chrono, except that `%s` takes a sign
-//! and `%Z` reads only `UTC`, `GMT` and offsets. The format splits into items, the items read the text
-//! into the fields of a [`ParsedDate`], and the fields resolve to an instant, a wall-clock date
-//! and time, a date or a time of day, as chrono's `DateTime`, `NaiveDateTime`, `NaiveDate` and
-//! `NaiveTime` did.
+//! `from kdl` read text as they did when nushell used chrono, except that `%s` takes a sign,
+//! `%Z` reads only `UTC`, `GMT` and offsets, and nushell's `%J` and `%Q` read `%Y%m%d` and
+//! `%H%M%S`. The format splits into items, the items read the text into the fields of a
+//! [`ParsedDate`], and the fields resolve to an instant, a wall-clock date and time, a date or
+//! a time of day, as chrono's `DateTime`, `NaiveDateTime`, `NaiveDate` and `NaiveTime` did.
 
 use super::{
     DateParseError, DateTime, MAX_YEAR, MIN_YEAR, NANOS_PER_SECOND, SECONDS_PER_DAY,
@@ -81,13 +81,16 @@ pub struct ParsedDate {
 pub struct TimeOfDay {
     pub hour: i8,
     pub minute: i8,
-    /// 0 to 59; a leap second is second 59 with a `nanosecond` of 1,000,000,000 or more.
+    /// 0 to 60. Second 60, which UTC gives a leap second, is the next minute's second 0 once
+    /// the time is on a day, so `23:59:60` is midnight of the next day.
     pub second: i8,
+    /// 0 to 999,999,999.
     pub nanosecond: i32,
 }
 
 impl TimeOfDay {
-    /// This time on the given day, as a wall-clock reading held at UTC.
+    /// This time on the given day, as a wall-clock reading held at UTC. Second 60 is the next
+    /// minute's second 0.
     pub fn on(self, year: i32, month: i8, day: i8) -> Option<DateTime> {
         DateTime::from_parts(
             year,
@@ -151,15 +154,36 @@ impl ParsedDate {
         }
     }
 
+    /// The fields with minutes of 0 when the text gave the hour but no minutes, so `10` read
+    /// with `%H` or `10 AM` with `%I %p` is 10:00, as seconds left out are 0. chrono's readings
+    /// needed the minutes. An hour from `%I` without `%p` is still no time of day.
+    pub fn with_missing_minutes_zero(mut self) -> Self {
+        if self.minute.is_none() && self.hour_div_12.is_some() && self.hour_mod_12.is_some() {
+            self.minute = Some(0);
+        }
+        self
+    }
+
     /// The wall-clock date and time the fields name, or midnight on their date when they have
-    /// no time of day, held as that reading at UTC. Only missing time fields fall back to the
-    /// date: a contradicting or out-of-range field is an error, where chrono's readings one after
-    /// another would drop it.
+    /// no time of day, held as that reading at UTC. Only a reading with no time field at all
+    /// falls back to the date: a time missing a field (`%I` without `%p`), or a contradicting
+    /// or out-of-range field, is an error, where chrono's readings one after another would drop
+    /// it.
     pub fn to_wall_clock(&self) -> ParseResult<DateTime> {
         match self.to_naive_datetime() {
-            Err(NotEnough) => self.to_naive_date(),
+            Err(NotEnough) if !self.has_time_of_day() => self.to_naive_date(),
             result => result,
         }
+    }
+
+    /// Whether any field of a time of day was read: an hour, AM or PM, minutes, seconds or a
+    /// fraction.
+    fn has_time_of_day(&self) -> bool {
+        self.hour_div_12.is_some()
+            || self.hour_mod_12.is_some()
+            || self.minute.is_some()
+            || self.second.is_some()
+            || self.nanosecond.is_some()
     }
 
     /// Midnight on the date the fields name, held as that reading at UTC, as chrono's
@@ -194,13 +218,13 @@ impl ParsedDate {
             Some(_) => return Err(OutOfRange),
             None => return Err(NotEnough),
         };
-        // Seconds and nanoseconds may be left out; second 60 is a leap second.
-        let (second, mut nanosecond) = match self.second.unwrap_or(0) {
-            v @ 0..=59 => (v, 0),
-            60 => (59, NANOS_PER_SECOND),
+        // Seconds and nanoseconds may be left out; second 60 is a leap second, which a day
+        // carries to the next minute.
+        let second = match self.second.unwrap_or(0) {
+            v @ 0..=60 => v,
             _ => return Err(OutOfRange),
         };
-        nanosecond += match self.nanosecond {
+        let nanosecond = match self.nanosecond {
             Some(v @ 0..=999_999_999) if self.second.is_some() => v,
             Some(0..=999_999_999) => return Err(NotEnough),
             Some(_) => return Err(OutOfRange),
@@ -338,9 +362,10 @@ impl ParsedDate {
         if let (Ok(date), Ok(time)) = (date, time) {
             let timestamp = date.days * SECONDS_PER_DAY + time.seconds_of_day() - i64::from(offset);
             if let Some((given, _)) = self.signed_timestamp() {
-                // A leap second's timestamp may be the next second's.
-                let leap = time.nanosecond >= NANOS_PER_SECOND as i32;
-                if given != timestamp && !(leap && given == timestamp + 1) {
+                // chrono took either timestamp for a leap second: its own, second 59's, or the
+                // next minute's, which second 60 is here.
+                let leap = time.second == 60;
+                if given != timestamp && !(leap && given == timestamp - 1) {
                     return Err(Impossible);
                 }
             }
@@ -365,10 +390,10 @@ impl ParsedDate {
         let mut parsed = self.clone();
         parsed.nanosecond = nanosecond;
         if parsed.second == Some(60) {
+            // Second 60 follows second 59 of the timestamp's minute, or the timestamp is the
+            // next minute's second 0, which second 60 is.
             match local.rem_euclid(60) {
-                // The leap second is this second.
                 59 => {}
-                // The timestamp is the second after the leap second.
                 0 => local -= 1,
                 _ => return Err(Impossible),
             }
@@ -789,6 +814,18 @@ const F_FMT: &[Item<'static>] = &[
     Item::Literal("-"),
     Item::Numeric(Numeric::Day),
 ];
+/// nushell's `%J`, a joined date (`%Y%m%d`).
+const J_FMT: &[Item<'static>] = &[
+    Item::Numeric(Numeric::Year),
+    Item::Numeric(Numeric::Month),
+    Item::Numeric(Numeric::Day),
+];
+/// nushell's `%Q`, a joined time (`%H%M%S`).
+const Q_FMT: &[Item<'static>] = &[
+    Item::Numeric(Numeric::Hour),
+    Item::Numeric(Numeric::Minute),
+    Item::Numeric(Numeric::Second),
+];
 const R_FMT: &[Item<'static>] = &[
     Item::Numeric(Numeric::Hour),
     Item::Literal(":"),
@@ -918,8 +955,10 @@ fn directive(chars: &mut std::str::Chars<'_>) -> Option<Directive> {
         'G' => numeric(Numeric::IsoYear),
         'H' | 'k' => numeric(Numeric::Hour),
         'I' | 'l' => numeric(Numeric::Hour12),
+        'J' => Directive::Many(J_FMT),
         'M' => numeric(Numeric::Minute),
         'P' | 'p' => fixed(Fixed::AmPm),
+        'Q' => Directive::Many(Q_FMT),
         'R' => Directive::Many(R_FMT),
         'S' => numeric(Numeric::Second),
         'T' | 'X' => Directive::Many(T_FMT),

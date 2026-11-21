@@ -1,4 +1,4 @@
-use crate::date::TIME_ZONE_NAMES;
+use crate::date::{TIME_ZONE_NAMES, time_zone_named};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -45,7 +45,7 @@ impl Command for DateListTimezones {
         Ok(TIME_ZONE_NAMES
             .iter()
             .filter_map(move |name| {
-                let time_zone = jiff::tz::db().get(name).ok()?;
+                let time_zone = time_zone_named(name)?;
                 let offset = nu_protocol::DateTime::new(now, time_zone.to_offset(now))
                     .format("%:z", pure_rust_locales::Locale::POSIX)
                     .ok()?;

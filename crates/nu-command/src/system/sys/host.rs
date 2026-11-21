@@ -103,6 +103,5 @@ fn boot_time() -> Option<DateTime> {
     // See: https://github.com/nushell/nushell/issues/10155
     // First, try to convert u64 to i64, and then try to create a `DateTime`.
     let secs = System::boot_time().ok()?.try_into().ok()?;
-    let time = jiff::Timestamp::from_second(secs).ok()?;
-    Some(DateTime::from_timestamp_local(time))
+    DateTime::from_unix_seconds(secs, 0, jiff::tz::Offset::UTC).map(DateTime::to_local)
 }

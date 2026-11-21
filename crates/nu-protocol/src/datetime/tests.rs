@@ -32,9 +32,19 @@ fn text_forms() {
         "\"2001-02-03T04:05:06Z\""
     );
 
+    // RFC 3339 and RFC 2822 round an offset with seconds to the minute, half a minute away from
+    // zero, and move the wall clock with it, so the text names the same instant.
     let odd = date("2020-03-04T05:06:07Z").with_offset(offset(5 * 3600 + 30 * 60 + 15));
     assert_eq!(odd.to_string(), "2020-03-04 10:36:22 +05:30:15");
-    assert_eq!(odd.to_rfc3339(), "2020-03-04T10:36:22+05:30");
+    assert_eq!(odd.to_rfc3339(), "2020-03-04T10:36:07+05:30");
+    assert_eq!(odd.to_rfc2822(), "Wed, 4 Mar 2020 10:36:07 +0530");
+    assert_eq!(date(&odd.to_rfc3339()), odd);
+    let west = date("2020-03-04T05:06:07Z").with_offset(offset(-(5 * 3600 + 30 * 60 + 45)));
+    assert_eq!(west.to_rfc3339(), "2020-03-03T23:35:07-05:31");
+    assert_eq!(
+        serde_json::to_string(&west).expect("serialize"),
+        "\"2020-03-03T23:35:07-05:31\""
+    );
 
     let bc = date("0000-01-01T00:00:00Z")
         .checked_sub_nanos(365 * 86_400 * 1_000_000_000)
@@ -72,15 +82,43 @@ fn equality_is_by_instant() {
 }
 
 #[test]
-fn leap_seconds_are_kept() {
-    let d = date("2016-12-31T23:59:60.5Z");
-    assert_eq!(d.to_rfc3339(), "2016-12-31T23:59:60.500+00:00");
+fn second_60_is_the_next_minute() {
+    // UTC's leap second, and second 60 on any other minute, at any offset, with a fraction.
+    for (text, next) in [
+        ("2016-12-31T23:59:60Z", "2017-01-01T00:00:00+00:00"),
+        ("2016-12-31T23:59:60.5Z", "2017-01-01T00:00:00.500+00:00"),
+        ("2016-12-31T12:00:60Z", "2016-12-31T12:01:00+00:00"),
+        ("2016-12-31T23:59:60+05:30", "2017-01-01T00:00:00+05:30"),
+        ("2016-02-28 23:59:60-08:00", "2016-02-29T00:00:00-08:00"),
+    ] {
+        let d = date(text);
+        assert_eq!(d.to_rfc3339(), next, "{text}");
+        assert_eq!(d, date(next), "{text}");
+        assert_eq!(text.parse::<DateTime>(), Ok(d), "relaxed {text}");
+    }
     assert_eq!(
-        d.format("%T %S%.f", Locale::POSIX).unwrap(),
-        "23:59:60 60.500"
+        date("2016-12-31T23:59:60.5Z")
+            .format("%T %S%.f", Locale::POSIX)
+            .unwrap(),
+        "00:00:00 00.500"
     );
-    assert!(d > date("2016-12-31T23:59:59.999Z"));
-    assert!(d < date("2017-01-01T00:00:01Z"));
+    // Past the last second nushell holds.
+    assert!("+262142-12-31T23:59:60Z".parse::<DateTime>().is_err());
+    assert!(DateTime::parse_rfc3339("2016-12-31T23:59:61Z").is_err());
+    assert_eq!(
+        DateTime::from_parts(2016, 12, 31, 23, 59, 59, 1_000_000_000, Offset::UTC),
+        None
+    );
+    // chrono's leap second, second 59 with a second's worth of extra nanoseconds, as msgpack
+    // timestamps written by nushell before hold it.
+    assert_eq!(
+        DateTime::from_unix_timestamp(1_483_228_799, 1_500_000_000, Offset::UTC),
+        Some(date("2017-01-01T00:00:00.5Z"))
+    );
+    assert_eq!(
+        DateTime::from_unix_timestamp(1_483_228_798, 1_500_000_000, Offset::UTC),
+        None
+    );
 }
 
 #[test]
@@ -323,6 +361,91 @@ fn wall_clock_falls_back_only_for_missing_fields() {
         read("2021-03-04 Mon 10:00", "%F %a %H:%M"),
         Err(DateParseError::Impossible)
     );
+    // A time of day missing a field (an hour without minutes, a 12-hour clock without AM or PM)
+    // is an error, not midnight.
+    assert_eq!(
+        read("2021-03-04 10", "%F %H"),
+        Err(DateParseError::NotEnough)
+    );
+    assert_eq!(
+        read("2025-04-03 4:04", "%F %l:%M"),
+        Err(DateParseError::NotEnough)
+    );
+}
+
+#[test]
+fn missing_minutes_read_as_zero() {
+    let read = |text: &str, format: &str| {
+        ParsedDate::parse(text, format)
+            .and_then(|parsed| parsed.with_missing_minutes_zero().to_wall_clock())
+            .map(DateTime::to_rfc3339)
+    };
+    assert_eq!(
+        read("2021-03-04 10", "%F %H").as_deref(),
+        Ok("2021-03-04T10:00:00+00:00")
+    );
+    assert_eq!(
+        read("2021-03-04 10 PM", "%F %I %p").as_deref(),
+        Ok("2021-03-04T22:00:00+00:00")
+    );
+    // Without AM or PM the hour isn't known.
+    assert_eq!(
+        read("2021-03-04 10", "%F %I"),
+        Err(DateParseError::NotEnough)
+    );
+}
+
+#[test]
+fn second_60_reads_as_the_next_minute_with_a_format() {
+    let read = |text: &str, format: &str| {
+        ParsedDate::parse(text, format)
+            .and_then(|parsed| parsed.to_datetime())
+            .map(DateTime::to_rfc3339)
+    };
+    // chrono took second 59's timestamp or the next minute's for a leap second.
+    for timestamp in [1_483_228_799, 1_483_228_800] {
+        assert_eq!(
+            read(&format!("2016-12-31 23:59:60 {timestamp}"), "%F %T %s").as_deref(),
+            Ok("2017-01-01T00:00:00+00:00"),
+            "{timestamp}"
+        );
+        assert_eq!(
+            read(&format!("{timestamp} 60"), "%s %S").as_deref(),
+            Ok("2017-01-01T00:00:00+00:00"),
+            "{timestamp}"
+        );
+    }
+    assert_eq!(
+        read("2016-12-31 23:59:60 1483228801", "%F %T %s"),
+        Err(DateParseError::Impossible)
+    );
+    assert_eq!(
+        read("2016-12-31 23:59:60.5 +0530", "%F %T%.f %z").as_deref(),
+        Ok("2017-01-01T00:00:00.500+05:30")
+    );
+    // A time alone carries once it is on a day.
+    let time = ParsedDate::parse("23:59:60", "%T")
+        .and_then(|parsed| parsed.to_naive_time())
+        .expect("a time");
+    assert_eq!(
+        time.on(2016, 12, 31).map(DateTime::to_rfc3339).as_deref(),
+        Some("2017-01-01T00:00:00+00:00")
+    );
+}
+
+#[test]
+fn system_times_cover_the_whole_range() {
+    // NTFS file times reach year 30828; jiff's timestamps stop before 9999 ends.
+    for text in [
+        "+10000-01-01T00:00:00.5Z",
+        "9999-12-31T23:59:59Z",
+        "1969-12-31T23:59:59.25Z",
+        "1900-01-01T00:00:00Z",
+    ] {
+        let d: DateTime = text.parse().expect("test date");
+        let time = d.to_system_time().expect("SystemTime holds the date");
+        assert_eq!(DateTime::from_system_time(time), Some(d), "{text}");
+    }
 }
 
 #[test]
@@ -379,6 +502,19 @@ mod chrono_compat {
         999_999_999,
     ];
 
+    /// `date` with chrono's leap second, second 59 with a second's worth of extra nanoseconds,
+    /// moved to the next second, the next minute's second 0, as nushell reads second 60.
+    pub(super) fn without_leap<Tz: TimeZone>(date: chrono::DateTime<Tz>) -> chrono::DateTime<Tz> {
+        use chrono::Timelike;
+        let nanos = date.nanosecond();
+        if nanos < 1_000_000_000 {
+            return date;
+        }
+        date.with_nanosecond(nanos - 1_000_000_000)
+            .and_then(|date| date.checked_add_signed(chrono::Duration::seconds(1)))
+            .expect("the second after a leap second")
+    }
+
     fn pairs() -> impl Iterator<Item = (DateTime, chrono::DateTime<FixedOffset>)> {
         OFFSETS.into_iter().flat_map(|off| {
             YEARS.into_iter().flat_map(move |year| {
@@ -410,6 +546,10 @@ mod chrono_compat {
         for (ours, theirs) in pairs() {
             assert_eq!(ours.to_string(), theirs.to_string());
             assert_eq!(format!("{ours:?}"), format!("{theirs:?}"));
+            // RFC 3339, RFC 2822 and serde text round an offset with seconds to the minute and
+            // move the wall clock with it, where chrono kept the clock and moved the instant.
+            let rounded = ours.to_minute_offset().offset().seconds();
+            let theirs = theirs.with_timezone(&FixedOffset::east_opt(rounded).expect("offset"));
             assert_eq!(ours.to_rfc3339(), theirs.to_rfc3339());
             for (a, b) in formats {
                 for z in [false, true] {
@@ -531,6 +671,14 @@ mod chrono_compat {
                     if *spec == "%C" && !(0..=9999).contains(&chrono::Datelike::year(&theirs)) {
                         continue;
                     }
+                    // `%+` is RFC 3339 text, which moves the wall clock with an offset rounded
+                    // to the minute.
+                    let theirs = if *spec == "%+" {
+                        let rounded = ours.to_minute_offset().offset().seconds();
+                        theirs.with_timezone(&FixedOffset::east_opt(rounded).expect("offset"))
+                    } else {
+                        theirs
+                    };
                     let expected = chrono_format(theirs, spec, locale);
                     let actual = ours.format(spec, locale).ok();
                     if actual != expected {
@@ -589,13 +737,13 @@ mod chrono_compat {
         for text in corpus {
             let strict = DateTime::parse_rfc3339(text).map(|d| d.to_rfc3339()).ok();
             let chrono_strict = chrono::DateTime::parse_from_rfc3339(text)
-                .map(|d| d.to_rfc3339())
+                .map(|d| without_leap(d).to_rfc3339())
                 .ok();
             assert_eq!(strict, chrono_strict, "strict {text:?}");
             let relaxed = text.parse::<DateTime>().map(|d| d.to_rfc3339()).ok();
             let chrono_relaxed = text
                 .parse::<chrono::DateTime<FixedOffset>>()
-                .map(|d| d.to_rfc3339())
+                .map(|d| without_leap(d).to_rfc3339())
                 .ok();
             assert_eq!(relaxed, chrono_relaxed, "relaxed {text:?}");
         }
@@ -609,10 +757,15 @@ mod chrono_compat {
             let back: chrono::DateTime<FixedOffset> = ours.into();
             assert_eq!(back.to_rfc3339(), theirs.to_rfc3339());
         }
+        let leap: chrono::DateTime<FixedOffset> = "2016-12-31T23:59:60.5+05:30".parse().unwrap();
+        assert_eq!(
+            DateTime::from(leap).to_rfc3339(),
+            "2017-01-01T00:00:00.500+05:30"
+        );
     }
 
     #[test]
-    fn leap_second_arithmetic_matches() {
+    fn arithmetic_matches() {
         let texts = [
             "2016-12-31T23:59:60Z",
             "2016-12-31T23:59:60.3Z",
@@ -631,7 +784,7 @@ mod chrono_compat {
         ];
         for text in texts {
             let ours: DateTime = text.parse().unwrap();
-            let theirs: chrono::DateTime<FixedOffset> = text.parse().unwrap();
+            let theirs = without_leap(text.parse::<chrono::DateTime<FixedOffset>>().unwrap());
             for step in steps {
                 assert_eq!(
                     ours.checked_add_nanos(step).map(|d| d.to_rfc3339()),
@@ -653,7 +806,8 @@ mod chrono_compat {
             }
             for other in texts {
                 let other_ours: DateTime = other.parse().unwrap();
-                let other_theirs: chrono::DateTime<FixedOffset> = other.parse().unwrap();
+                let other_theirs =
+                    without_leap(other.parse::<chrono::DateTime<FixedOffset>>().unwrap());
                 assert_eq!(
                     ours.nanos_since(other_ours),
                     i128::from(
@@ -711,10 +865,11 @@ mod chrono_compat {
 /// `ParsedDate` against chrono's four `parse_from_str` functions, which `into datetime
 /// --format`, `seq date` and `from kdl` used before.
 mod strptime_compat {
+    use super::chrono_compat::without_leap;
     use super::*;
     use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 
-    /// Every directive chrono's parser knows, and some it rejects.
+    /// Every directive chrono's parser knows, nushell's `%J` and `%Q`, and some neither reads.
     const DIRECTIVES: &[&str] = &[
         "%Y", "%C", "%y", "%G", "%g", "%q", "%m", "%b", "%B", "%h", "%d", "%e", "%a", "%A", "%w",
         "%u", "%U", "%W", "%V", "%j", "%D", "%x", "%F", "%v", "%H", "%k", "%I", "%l", "%P", "%p",
@@ -847,7 +1002,34 @@ mod strptime_compat {
         ("Moné", "%A"),
         ("2025-04-18Té16:04:05Z", "%+"),
         ("2025-04-18 16:04 +0é", "%F %H:%M %z"),
+        // nushell's joined date and time, and a literal `%J` after `%%`.
+        ("20250418_160432", "%J_%Q"),
+        ("%J 2021", "%%J %Y"),
+        ("%Q 10", "%%Q %H"),
     ];
+
+    /// `format` with nushell's `%J` and `%Q` spelled out as `%Y%m%d` and `%H%M%S`, which chrono
+    /// reads the way ours reads them. A `%%` stays literal, so `%%J` is the text `%J`.
+    fn for_chrono(format: &str) -> String {
+        let mut out = String::with_capacity(format.len());
+        let mut chars = format.chars();
+        while let Some(c) = chars.next() {
+            if c != '%' {
+                out.push(c);
+                continue;
+            }
+            match chars.next() {
+                Some('J') => out.push_str("%Y%m%d"),
+                Some('Q') => out.push_str("%H%M%S"),
+                Some(next) => {
+                    out.push('%');
+                    out.push(next);
+                }
+                None => out.push('%'),
+            }
+        }
+        out
+    }
 
     fn chrono_reads(text: &str, format: &str) -> [String; 4] {
         fn show<T>(result: Result<T, chrono::ParseError>, text: impl Fn(T) -> String) -> String {
@@ -857,16 +1039,16 @@ mod strptime_compat {
         [
             show(
                 chrono::DateTime::<FixedOffset>::parse_from_str(text, format),
-                |d| d.to_rfc3339(),
+                |d| without_leap(d).to_rfc3339(),
             ),
             show(NaiveDateTime::parse_from_str(text, format), |d| {
-                d.and_utc().to_rfc3339()
+                without_leap(d.and_utc()).to_rfc3339()
             }),
             show(NaiveDate::parse_from_str(text, format), |d| {
                 d.and_time(NaiveTime::MIN).and_utc().to_rfc3339()
             }),
             show(NaiveTime::parse_from_str(text, format), |t| {
-                day.and_time(t).and_utc().to_rfc3339()
+                without_leap(day.and_time(t).and_utc()).to_rfc3339()
             }),
         ]
     }
@@ -963,7 +1145,7 @@ mod strptime_compat {
             return;
         }
         let ours = our_reads(text, format);
-        let theirs = chrono_reads(text, format);
+        let theirs = chrono_reads(text, &for_chrono(format));
         // chrono read `%s` unsigned, so a sign where it starts made each of chrono's readings
         // fail on that character; `signed_unix_timestamps` checks ours.
         let signed_timestamp = format.contains("%s")
@@ -991,7 +1173,7 @@ mod strptime_compat {
             .filter_map(|date| {
                 let date: chrono::DateTime<FixedOffset> = date.parse().expect("test date");
                 let mut out = String::new();
-                write!(out, "{}", date.format(format)).ok()?;
+                write!(out, "{}", date.format(&for_chrono(format))).ok()?;
                 Some(out)
             })
             .collect()

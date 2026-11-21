@@ -199,7 +199,6 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
 }
 
 fn parse_date_into_record(date: nu_protocol::DateTime, span: Span) -> Value {
-    // chrono's fields: a leap second is second 59 with 1,000 or more milliseconds.
     let parts = date.parts();
     let nanosecond = i64::from(parts.nanosecond);
     // `%Z` is the offset as `+05:30`, which `into datetime` reads back.

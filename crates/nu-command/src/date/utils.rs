@@ -5,8 +5,8 @@ use pure_rust_locales::Locale;
 
 pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime, Value> {
     // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and read
-    // many times faster than trying layouts. Leap seconds (`23:59:60`), which the RFC 3339
-    // reader accepts, go on to the layouts, which reject them.
+    // many times faster than trying layouts. Second 60 (`23:59:60`), which the RFC 3339 reader
+    // reads as the next minute's second 0, goes on to the layouts, which reject it.
     if let Ok(date) = DateTime::parse_rfc3339(input)
         // RFC 3339 puts the seconds at a fixed position.
         && input.get(17..19) != Some("60")

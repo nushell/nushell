@@ -266,6 +266,22 @@ fn into_datetime_from_record_fails_with_invalid_date_time_values() -> Result {
     }
 }
 
+// A year that doesn't fit is an error, not another year.
+#[test]
+fn into_datetime_from_record_fails_with_a_year_too_large() -> Result {
+    let err = test()
+        .run("{year: 4294969296, month: 1, day: 1} | into datetime")
+        .expect_shell_error()?;
+
+    match err {
+        ShellError::IncorrectValue { msg, .. } => {
+            assert_eq!(msg, "incorrect value for year");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
 #[test]
 fn into_datetime_from_record_fails_with_invalid_timezone() -> Result {
     let err = test()
@@ -571,6 +587,69 @@ fn named_timezone_reads_dst_change_times(#[case] input: &str, #[case] expected: 
 )]
 fn format_keeps_the_offset(#[case] code: &str, #[case] expected: &str) -> Result {
     test().run(code).expect_value_eq(expected)
+}
+
+// `%J` and `%Q` are nushell's joined date and time; `%%J` is the text `%J`.
+#[rstest]
+#[case::joined(
+    "'20250418_160432' | into datetime --format '%J_%Q' -z UTC | to nuon",
+    "2025-04-18T16:04:32+00:00"
+)]
+#[case::literal(
+    "'%J 2021-03-04' | into datetime --format '%%J %F' -z UTC | to nuon",
+    "2021-03-04T00:00:00+00:00"
+)]
+fn format_reads_joined_date_and_time(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+// Minutes left out after an hour are 0; an hour without AM or PM is an error, not midnight.
+#[rstest]
+#[case::hour(
+    "'2021-03-04 10' | into datetime --format '%Y-%m-%d %H' -z UTC | to nuon",
+    "2021-03-04T10:00:00+00:00"
+)]
+#[case::twelve_hour(
+    "'2021-03-04 10 PM' | into datetime --format '%F %I %p' -z UTC | to nuon",
+    "2021-03-04T22:00:00+00:00"
+)]
+fn format_reads_missing_minutes_as_zero(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+// Second 60, which UTC gives a leap second, is the next minute's second 0 wherever it's read,
+// so seconds are always 0 to 59.
+#[rstest]
+#[case::literal("2016-12-31T23:59:60.5Z | to nuon")]
+#[case::format("'2016-12-31 23:59:60.5 +0000' | into datetime --format '%F %T%.f %z' | to nuon")]
+#[case::record(
+    "{year: 2016 month: 12 day: 31 hour: 23 minute: 59 second: 59 millisecond: 1500 timezone: '+00:00'}
+    | into datetime | to nuon"
+)]
+// A timestamp nushell wrote before, with chrono's leap second: second 59 and 1.5 billion
+// nanoseconds.
+#[case::msgpack("0x[c70cff59682f00000000005868467f] | from msgpack | to nuon")]
+#[case::toml("'a = 2016-12-31T23:59:60.5Z' | from toml | get a | to nuon")]
+fn second_60_reads_as_the_next_minute(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_value_eq("2017-01-01T00:00:00.500+00:00")
+}
+
+#[test]
+fn second_60_shows_as_the_next_minute() -> Result {
+    let code = "let date = 2016-12-31T23:59:60Z
+        [($date | format date '%F %T %S') ($date | into record | get second)] | to nuon";
+    test()
+        .run(code)
+        .expect_value_eq(r#"["2017-01-01 00:00:00 00", 0]"#)
+}
+
+#[test]
+fn format_rejects_an_hour_without_am_or_pm() -> Result {
+    let code = "'2025-04-03 4:04' | into datetime --format '%F %l:%M'";
+    test().run(code).expect_shell_error()?;
+    Ok(())
 }
 
 // `%Z` reads UTC and GMT; an abbreviation such as PST names no single offset.

@@ -554,9 +554,8 @@ fn build_file_record(
 /// Convert an indexed file timestamp (unix seconds) to a Nushell date value.
 fn modified_to_date_value(modified: u64, span: Span) -> Value {
     let to_fixed = |secs| {
-        jiff::Timestamp::from_second(secs)
-            .ok()
-            .map(nu_protocol::DateTime::from_timestamp_local)
+        nu_protocol::DateTime::from_unix_seconds(secs, 0, jiff::tz::Offset::UTC)
+            .map(nu_protocol::DateTime::to_local)
     };
 
     let secs = i64::try_from(modified).unwrap_or(i64::MAX);

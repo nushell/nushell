@@ -1,5 +1,6 @@
 use crate::{
     TIME_ZONE_NAMES, generate_date_formats_list, generate_strftime_list, parse_date_from_string,
+    time_zone_named,
 };
 use jiff::{
     Timestamp, civil,
@@ -75,7 +76,7 @@ impl Zone {
         match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
-            tz if let Ok(tz) = jiff::tz::db().get(tz) => Self::Tz(tz),
+            tz if let Some(tz) = time_zone_named(tz) => Self::Tz(tz),
             _ => Self::Error,
         }
     }
@@ -497,42 +498,34 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     let parse_as_string = |val: &str| {
         match dateformat {
-            Some(dt_format) => {
-                // `%J` and `%Q` are nushell's joined date (YYYYMMDD) and time (HHMMSS).
-                let format = dt_format
-                    .item
-                    .0
-                    .replace("%J", "%Y%m%d")
-                    .replace("%Q", "%H%M%S");
-                match read_with_format(val, &format) {
-                    Ok(FormatReading::Instant(date)) => match timezone {
-                        None => Value::date(date, head),
-                        Some(Spanned { item, span }) => match item.time_zone() {
-                            Some(time_zone) => Value::date(date.to_time_zone(&time_zone), *span),
-                            None => invalid_timezone_value(*span),
-                        },
+            Some(dt_format) => match read_with_format(val, &dt_format.item.0) {
+                Ok(FormatReading::Instant(date)) => match timezone {
+                    None => Value::date(date, head),
+                    Some(Spanned { item, span }) => match item.time_zone() {
+                        Some(time_zone) => Value::date(date.to_time_zone(&time_zone), *span),
+                        None => invalid_timezone_value(*span),
                     },
-                    Ok(FormatReading::WallClock(wall)) => {
-                        interpret_wall_clock_datetime(wall, timezone.as_ref(), head, val)
-                    }
-                    Err(reason) => Value::error(
-                        ShellError::CantConvert {
-                            to_type: format!(
-                                "could not parse as datetime using format '{}'",
-                                dt_format.item.0
-                            ),
-                            from_type: reason.to_string(),
-                            span: head,
-                            help: Some(
-                                "you can use `into datetime` without a format string to \
-                                 enable flexible parsing"
-                                    .to_string(),
-                            ),
-                        },
-                        head,
-                    ),
+                },
+                Ok(FormatReading::WallClock(wall)) => {
+                    interpret_wall_clock_datetime(wall, timezone.as_ref(), head, val)
                 }
-            }
+                Err(reason) => Value::error(
+                    ShellError::CantConvert {
+                        to_type: format!(
+                            "could not parse as datetime using format '{}'",
+                            dt_format.item.0
+                        ),
+                        from_type: reason.to_string(),
+                        span: head,
+                        help: Some(
+                            "you can use `into datetime` without a format string to \
+                                 enable flexible parsing"
+                                .to_string(),
+                        ),
+                    },
+                    head,
+                ),
+            },
 
             // Tries to automatically parse the date
             // (i.e. without a format string)
@@ -592,7 +585,13 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         Some(val) => {
             record_column_default = RecordColumnDefault::Zero;
             match val {
-                Value::Int { val, .. } => *val as i32,
+                Value::Int { val, .. } => {
+                    i32::try_from(*val).map_err(|_| ShellError::IncorrectValue {
+                        msg: "incorrect value for year".to_string(),
+                        val_span: head,
+                        call_span: span,
+                    })?
+                }
                 other => {
                     return Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "int".to_string(),
@@ -679,7 +678,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         .zip(microsecond.checked_mul(1_000))
         .and_then(|(millis, micros)| millis.checked_add(micros)?.checked_add(nanosecond))
         .and_then(|nanos| i32::try_from(nanos).ok());
-    // As before, a second's worth of extra nanoseconds on second 59 is a leap second.
+    // As before, a second's worth of extra nanoseconds on second 59 is read, as chrono's leap
+    // second, which is second 60: the next minute's second 0.
     let nanos = total_nanoseconds
         .filter(|&nanos| {
             hour < 24
@@ -688,6 +688,11 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 && (nanos < 1_000_000_000 || (nanos < 2_000_000_000 && second == 59))
         })
         .ok_or_else(|| invalid("time"))?;
+    let (second, nanos) = if nanos >= 1_000_000_000 {
+        (60, nanos - 1_000_000_000)
+    } else {
+        (second, nanos)
+    };
 
     let date = match offset {
         Some(offset) => {
@@ -803,13 +808,14 @@ enum FormatReading {
     WallClock(nu_protocol::DateTime),
 }
 
-/// Reads `val` with `format`: an instant, or else a wall-clock date and time, midnight on a date,
-/// or a time of day today. Only fields missing from the text move it to the next of these; a
-/// field that contradicts another (`%s` and a date, a weekday and a date) or is out of range
-/// (February 30) is an error. An offset in the text places the smaller readings too, so
-/// `2021-03-04 +0530` with `%F %z` is midnight at `+05:30`.
+/// Reads `val` with `format`: an instant, or else a wall-clock date and time, midnight on a date
+/// with no time of day, or a time of day today. Minutes left out after an hour are 0. Only fields
+/// missing from the text move it to the next of these; a time of day missing a field (`%I`
+/// without `%p`), a field that contradicts another (`%s` and a date, a weekday and a date) or
+/// one out of range (February 30) is an error. An offset in the text places the smaller readings
+/// too, so `2021-03-04 +0530` with `%F %z` is midnight at `+05:30`.
 fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseError> {
-    let parsed = ParsedDate::parse(val, format)?;
+    let parsed = ParsedDate::parse(val, format)?.with_missing_minutes_zero();
     match parsed.to_datetime() {
         Err(DateParseError::NotEnough) => {}
         result => return result.map(FormatReading::Instant),

@@ -189,8 +189,7 @@ pub(crate) fn write_value(
             mp::write_sint(out, *val).err_span(span)?;
         }
         Value::Date { val, .. } => {
-            // Whole seconds rounded down and the nanoseconds after them, as the extension holds;
-            // a leap second keeps its 1,000,000,000 or more nanoseconds.
+            // Whole seconds rounded down and the nanoseconds after them, as the extension holds.
             let seconds = val.unix_seconds();
             let subsec = val.subsec_nanos();
             if subsec == 0 && seconds >= 0 && seconds < u32::MAX as i64 {

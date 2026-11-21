@@ -219,8 +219,10 @@ fn to_toml(
 }
 
 /// Convert a nushell date into a toml::Value datetime. The latter uses its own ad-hoc datetime
-/// types, which makes this somewhat convoluted.
+/// types, which makes this somewhat convoluted. TOML offsets are whole minutes, so an offset with
+/// seconds is rounded and the wall clock moves with it.
 fn to_toml_datetime(datetime: &nu_protocol::DateTime) -> toml::value::Datetime {
+    let datetime = datetime.to_minute_offset();
     let civil = datetime.parts();
     let date = toml::value::Date {
         // TODO: figure out what to do with BC dates, because the toml crate doesn't support
@@ -290,6 +292,33 @@ mod tests {
         let result = nu_value_to_toml_value(&engine_state, &test_date, serialize_types);
 
         assert!(result.is_ok_and(|res| res == reference_date));
+    }
+
+    #[test]
+    fn second_60_and_offsets_with_seconds_round_trip() {
+        use crate::formats::from::toml_datetime_to_value;
+        // Second 60, a leap second, is the next minute's second 0.
+        let leap = nu_protocol::DateTime::parse_rfc3339("2016-12-31T23:59:60.5Z").unwrap();
+        // +00:17:30, Amsterdam's local mean time, rounds to +00:18 and moves the clock with it.
+        let lmt = nu_protocol::DateTime::parse_rfc3339("1800-01-01T00:00:00Z")
+            .unwrap()
+            .with_offset(jiff::tz::Offset::from_seconds(1050).unwrap());
+        assert_eq!(
+            to_toml_datetime(&leap).to_string(),
+            "2017-01-01T00:00:00.5+00:00"
+        );
+        assert_eq!(
+            to_toml_datetime(&lmt).to_string(),
+            "1800-01-01T00:18:00.0+00:18"
+        );
+        for date in [leap, lmt] {
+            let back = toml_datetime_to_value(&to_toml_datetime(&date), Span::test_data());
+            assert_eq!(back.as_date().ok(), Some(date));
+        }
+        // TOML text with second 60 reads the same way.
+        let text: toml::value::Datetime = "2016-12-31T23:59:60.5Z".parse().unwrap();
+        let read = toml_datetime_to_value(&text, Span::test_data());
+        assert_eq!(read.as_date().ok(), Some(leap));
     }
 
     #[test]

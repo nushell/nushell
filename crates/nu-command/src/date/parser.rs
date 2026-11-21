@@ -1,6 +1,6 @@
 //! Reading a time zone given as an offset (`+05:30`), `local`, or an IANA name.
 
-use jiff::tz::{Offset, TimeZone};
+use jiff::tz::{Offset, TimeZone, TimeZoneDatabase};
 use nu_protocol::DateTime;
 use std::sync::LazyLock;
 
@@ -16,12 +16,22 @@ pub enum ParseErrorKind {
     TooShort,
 }
 
+/// The time zone an IANA name names, in any case. The system's zoneinfo is used when it has the
+/// name, since it may be newer; otherwise the copy compiled into nushell, so every name in
+/// [`TIME_ZONE_NAMES`] resolves on hosts with older or partial zoneinfo.
+pub(crate) fn time_zone_named(name: &str) -> Option<TimeZone> {
+    jiff::tz::db()
+        .get(name)
+        .or_else(|_| TimeZoneDatabase::bundled().get(name))
+        .ok()
+}
+
 /// The IANA time zone names in jiff's bundled database, sorted, for completions and
 /// `date list-timezone`. Command signatures build this list at startup, so it comes from the
 /// copy compiled into nushell rather than a walk of the system's zoneinfo directory, and every
-/// host lists the same names. Lookups still prefer the system's data.
+/// host lists the same names. Lookups still prefer the system's data; see [`time_zone_named`].
 pub(crate) static TIME_ZONE_NAMES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
-    let mut names: Vec<&'static str> = jiff::tz::TimeZoneDatabase::bundled()
+    let mut names: Vec<&'static str> = TimeZoneDatabase::bundled()
         .available()
         .map(|name| &*name.as_str().to_owned().leak())
         .collect();
@@ -48,9 +58,7 @@ pub fn datetime_in_timezone(date: DateTime, s: &str) -> Result<DateTime, ParseEr
                 Ok(date.to_time_zone(&TimeZone::system()))
             } else {
                 // The name is trimmed for the newline that ends `/etc/timezone`.
-                let time_zone = jiff::tz::db()
-                    .get(s.trim())
-                    .map_err(|_| ParseErrorKind::Invalid)?;
+                let time_zone = time_zone_named(s.trim()).ok_or(ParseErrorKind::Invalid)?;
                 Ok(date.to_time_zone(&time_zone))
             }
         }

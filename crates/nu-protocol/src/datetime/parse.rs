@@ -29,10 +29,10 @@
 //! RFC 3339 readers for [`DateTime`] that accept exactly what nushell accepted with chrono:
 //! the strict form for date literals and the relaxed form for `FromStr` and serde.
 //!
-//! A leap second (`23:59:60`) is kept the way chrono kept it, as second 59 with a second's
-//! worth of extra nanoseconds.
+//! Second 60, which UTC gives a leap second (`23:59:60`), is read as the next minute's second
+//! 0, where chrono kept it as second 59 with a second's worth of extra nanoseconds.
 
-use super::{DateTime, NANOS_PER_SECOND};
+use super::DateTime;
 use jiff::tz::Offset;
 use std::fmt;
 
@@ -89,12 +89,6 @@ impl Fields {
     fn into_date_time(self) -> ParseResult<DateTime> {
         let small = |v: i64| i8::try_from(v).map_err(|_| DateParseError::OutOfRange);
         let year = i32::try_from(self.year).map_err(|_| DateParseError::OutOfRange)?;
-        // A leap second is second 59 with a second's worth of extra nanoseconds.
-        let (second, nanosecond) = if self.second == 60 {
-            (59, self.nanosecond + i64::from(NANOS_PER_SECOND))
-        } else {
-            (self.second, self.nanosecond)
-        };
         // chrono's offsets stop short of a full day.
         if self.offset_seconds.unsigned_abs() >= 86_400 {
             return Err(DateParseError::OutOfRange);
@@ -107,8 +101,8 @@ impl Fields {
             small(self.day)?,
             small(self.hour)?,
             small(self.minute)?,
-            small(second)?,
-            i32::try_from(nanosecond).map_err(|_| DateParseError::OutOfRange)?,
+            small(self.second)?,
+            i32::try_from(self.nanosecond).map_err(|_| DateParseError::OutOfRange)?,
             offset,
         )
         .ok_or(DateParseError::OutOfRange)

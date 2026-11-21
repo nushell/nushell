@@ -13,11 +13,9 @@
 //!
 //! jiff's dates stop at years -9999 and 9999. For a year past them, jiff formats a date whole
 //! 400-year cycles closer, which has the same calendar and weekdays, and this module writes the
-//! year itself. Seconds are written here for a leap second, which jiff has no form for.
+//! year itself.
 
-use super::{
-    DateParts, DateTime, NANOS_PER_SECOND, OffsetStyle, SecondsFormat, write_fraction, write_offset,
-};
+use super::{DateParts, DateTime, OffsetStyle, SecondsFormat, write_fraction, write_offset};
 use jiff::{civil, fmt::strtime::BrokenDownTime};
 use pure_rust_locales::{Locale, locale_match};
 use std::fmt;
@@ -72,7 +70,7 @@ pub(super) fn format(
         parts.hour,
         parts.minute,
         parts.second,
-        parts.nanosecond % NANOS_PER_SECOND as i32,
+        parts.nanosecond,
     )
     .map_err(|_| error())?;
     let expanded = expand_locale_formats(format, locale);
@@ -227,7 +225,6 @@ fn to_jiff_format(
     format: &str,
     locale: Locale,
 ) -> String {
-    let leap = parts.is_leap_second();
     let mut out = String::with_capacity(format.len() * 2);
     let mut rest = format;
     while let Some(start) = rest.find('%') {
@@ -271,9 +268,6 @@ fn to_jiff_format(
                 literal(&four_digit_year(year), &mut out);
                 out.push_str("-%m-%d");
             }
-            // A leap second's seconds field reads 60.
-            Some('S') if plain && leap => literal(&padded(60, 2), &mut out),
-            Some('T') if plain && leap => out.push_str("%H:%M:60"),
             // chrono's Unix seconds round down, so a time before 1970 with a fraction gives the
             // earlier second.
             Some('s') if bare => literal(&date.seconds.to_string(), &mut out),

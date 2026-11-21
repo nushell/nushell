@@ -421,9 +421,10 @@
         - a flat 1-31 day limit would turn roughly thirty ordinary strings a year - every 31st
            of a 30-day month, and most of february - into datetimes no other reader accepts.
         - `2000-1-1` is a string: month and day must be two digits.
-    - `:60` in the seconds field is accepted as a leap second.
+    - `:60` in the seconds field, a leap second, is accepted and read as the next minute's
+       `:00`.
         ```nushell
-        "[2000-01-01T23:59:60Z]" | from nuon | to json -r                        # => ["2000-01-01T23:59:60+00:00"]
+        "[2000-01-01T23:59:60Z]" | from nuon | to json -r                        # => ["2000-01-02T00:00:00+00:00"]
         ```
     - the offset is range-checked too; `+99:99` is not an offset and the whole token stays a
        string.
