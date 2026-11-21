@@ -1218,13 +1218,18 @@ impl PipelineExecutionData {
 impl From<PipelineData> for PipelineExecutionData {
     #[cfg(feature = "os")]
     fn from(value: PipelineData) -> Self {
-        let value_span = value.span().unwrap_or_else(Span::unknown);
-        let exit_status_future = value
-            .clone_exit_status_future()
-            .map(|f| f.with_span(value_span));
+        // Only an external's output has an exit status to track. Everything else leaves `exit`
+        // empty, so the evaluator doesn't allocate on every register write.
+        let exit = match value.clone_exit_status_future() {
+            Some(future) => {
+                let span = value.span().unwrap_or_else(Span::unknown);
+                vec![Some(future.with_span(span))]
+            }
+            None => Vec::new(),
+        };
         Self {
             body: value,
-            exit: vec![exit_status_future],
+            exit,
             early_return: false,
         }
     }

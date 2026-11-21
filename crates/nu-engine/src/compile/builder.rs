@@ -398,6 +398,37 @@ impl BlockBuilder {
         self.push(Instruction::Drain { src }.into_spanned(span))
     }
 
+    /// Drain the result of a statement, the way a semicolon does.
+    ///
+    /// A statement that ends by loading `nothing` or empty into `src`, like every assignment and
+    /// `let`, leaves nothing to drain, so no drain is emitted. That needs every path to the drain
+    /// to run that load: a value that jumps straight to the drain from another branch still has
+    /// to be drained there (an error value fails, an external's stream is waited on). The load
+    /// itself is removed too, unless a jump lands on it.
+    pub(crate) fn drain_statement(&mut self, src: RegId, span: Span) -> Result<(), CompileError> {
+        let len = self.instructions.len();
+        let loads_nothing = matches!(
+            self.instructions.last(),
+            Some(Instruction::LoadLiteral {
+                dst,
+                lit: Literal::Nothing | Literal::Empty,
+            }) if *dst == src
+        );
+        let is_target = |index: usize| self.labels.contains(&Some(index));
+        if !loads_nothing || is_target(len) {
+            return self.drain(src, span);
+        }
+        let load = len - 1;
+        let load_removable = !is_target(load)
+            && self.comments.last().is_none_or(|(index, _)| *index < load)
+            && self.scope_regions.iter().all(|region| region.end <= load);
+        if load_removable {
+            self.instructions.pop();
+            self.spans.pop();
+        }
+        self.free_register(src)
+    }
+
     /// Add data to the `data` array and return a [`DataSlice`] referencing it.
     pub(crate) fn data(&mut self, data: impl AsRef<[u8]>) -> Result<DataSlice, CompileError> {
         let data = data.as_ref();

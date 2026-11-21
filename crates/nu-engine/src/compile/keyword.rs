@@ -855,7 +855,7 @@ pub(crate) fn compile_loop(
     )?;
 
     // Drain the output, just like for a semicolon
-    builder.drain(io_reg, call.head)?;
+    builder.drain_statement(io_reg, call.head)?;
 
     builder.jump(loop_.continue_label, call.head)?;
     builder.add_comment("loop");
@@ -937,7 +937,7 @@ pub(crate) fn compile_while(
     )?;
 
     // Drain the result, just like for a semicolon
-    builder.drain(io_reg, call.head)?;
+    builder.drain_statement(io_reg, call.head)?;
 
     builder.jump(loop_.continue_label, call.head)?;
     builder.add_comment("while");
@@ -1038,7 +1038,7 @@ pub(crate) fn compile_for(
     )?;
 
     // Drain the output, just like for a semicolon
-    builder.drain(io_reg, call.head)?;
+    builder.drain_statement(io_reg, call.head)?;
 
     // Loop back to iterate to get the next value
     builder.jump(loop_.continue_label, call.head)?;

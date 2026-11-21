@@ -90,7 +90,7 @@ fn compile_block(
                 // Explicitly drain the out reg after each non-final pipeline, because that's how
                 // the semicolon functions.
                 if builder.is_allocated(out_reg) {
-                    builder.push(Instruction::Drain { src: out_reg }.into_spanned(span))?;
+                    builder.drain_statement(out_reg, span)?;
                 }
                 builder.load_empty(out_reg)?;
             }

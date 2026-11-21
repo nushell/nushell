@@ -493,7 +493,7 @@ sqlite = [
 ]
 
 [profile.release]
-opt-level = "s"     # Optimize for size
+opt-level = 3       # Optimize for speed: the evaluator loop is hot in every script
 strip = "debuginfo"
 lto = "thin"
 
