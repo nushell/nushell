@@ -150,7 +150,7 @@ impl<'a> ProgramState<'a> {
                 Some(Component::Normal(_)) => {
                     let Some(Component::Normal(name)) = self.next_component::<TRACK, FINITE>()
                     else {
-                        unreachable!()
+                        unreachable!("peek returned a normal component")
                     };
                     self.fresh_string = true;
                     return NextString::Normal(self.current_string.insert(name.as_encoded_bytes()));
@@ -161,7 +161,7 @@ impl<'a> ProgramState<'a> {
         }
         match self.current_string.as_mut() {
             Some(string) => NextString::Normal(string),
-            None => unreachable!(),
+            None => unreachable!("an unset string returns early above"),
         }
     }
 }
