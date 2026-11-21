@@ -80,6 +80,14 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Encode a leading U+FEFF as a byte order mark.",
+                example: r#""\u{FEFF}abc" | encode utf-16le"#,
+                result: Some(Value::binary(
+                    vec![0xff, 0xfe, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00],
+                    Span::test_data(),
+                )),
+            },
         ]
     }
 
