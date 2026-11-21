@@ -824,7 +824,7 @@ pub(crate) fn compile_loop(
     //
     //       drop %io_reg
     // LOOP: %io_reg <- ...<block>...
-    //       drain %io_reg
+    //       drain %io_reg          (skipped when the block ends by loading nothing)
     //       jump %LOOP
     // END:  drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
@@ -886,7 +886,7 @@ pub(crate) fn compile_while(
     //        branch-if %io_reg, TRUE
     //        jump FALSE
     // TRUE:  %io_reg <- ...<block>...
-    //        drain %io_reg
+    //        drain %io_reg          (skipped when the block ends by loading nothing)
     //        jump LOOP
     // FALSE: drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
@@ -968,7 +968,7 @@ pub(crate) fn compile_for(
     // LOOP: iterate %io_reg, %stream_reg, END
     //       store-variable $var, %io_reg
     //       %io_reg <- <...block...>
-    //       drain %io_reg
+    //       drain %io_reg          (skipped when the block ends by loading nothing)
     //       jump LOOP
     // END:  drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {

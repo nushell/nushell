@@ -1793,13 +1793,13 @@ fn eval_call_frame<D: DebugContext>(
         callee_stack.recursion_count += 1;
 
         // The callee keeps the caller as its parent, so `scope variables` can list the caller's
-        // variables. Lend them for the call instead of copying them, and take them back as soon
-        // as the body is done. Nothing between those two steps returns early.
-        caller_stack.lend_vars(&mut callee_stack);
-        let result =
-            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
-                .map(|p| p.body);
-        caller_stack.return_lent_vars(&mut callee_stack);
+        // variables. Lend them for the call instead of copying them; the guard takes them back
+        // when it drops at the end of this block, even if the body panics.
+        let result = {
+            let mut lent = caller_stack.lend_vars(&mut callee_stack);
+            eval_block_with_early_return::<D>(engine_state, lent.callee(), block, input)
+                .map(|p| p.body)
+        };
 
         // Move environment variables back into the caller stack scope if requested to do so
         if block.redirect_env {

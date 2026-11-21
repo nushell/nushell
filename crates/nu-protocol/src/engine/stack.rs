@@ -913,23 +913,15 @@ impl Stack {
     /// copying them.
     ///
     /// The callee only reads them (for `scope variables` and lookups that walk the parents), so
-    /// while it runs, this stack has no variables of its own. Take them back with
-    /// [`Self::return_lent_vars`] before using this stack again.
-    pub fn lend_vars(&mut self, callee: &mut Stack) {
+    /// while it runs, this stack has no variables of its own. Run the callee through
+    /// [`LentVars::callee`]; dropping the guard gives the variables back, also when the callee
+    /// panics and the panic is caught.
+    pub fn lend_vars<'a>(&'a mut self, callee: &'a mut Stack) -> LentVars<'a> {
         let vars = std::mem::take(&mut self.vars);
         callee.parent_stack = Some(self.parent_with_vars(vars));
-    }
-
-    /// Take back the variables lent to `callee` with [`Self::lend_vars`].
-    ///
-    /// Something from the call, such as a stream, may still hold the callee's parent. Then the
-    /// variables are copied instead, and that parent keeps the ones it saw.
-    pub fn return_lent_vars(&mut self, callee: &mut Stack) {
-        if let Some(parent) = callee.parent_stack.take() {
-            self.vars = match Arc::try_unwrap(parent) {
-                Ok(parent) => parent.vars,
-                Err(parent) => parent.vars.clone(),
-            };
+        LentVars {
+            caller: self,
+            callee,
         }
     }
 
@@ -1599,6 +1591,35 @@ impl Stack {
     }
 }
 
+/// A caller stack's variables, lent to a callee with [`Stack::lend_vars`].
+///
+/// Dropping it moves the variables back into the caller. Something from the call, such as a
+/// stream, may still hold the callee's parent; then the variables are copied instead, and that
+/// parent keeps the ones it saw.
+#[must_use = "dropping the guard returns the variables before the callee runs"]
+pub struct LentVars<'a> {
+    caller: &'a mut Stack,
+    callee: &'a mut Stack,
+}
+
+impl LentVars<'_> {
+    /// The stack to run the callee on. Its parent holds the lent variables.
+    pub fn callee(&mut self) -> &mut Stack {
+        self.callee
+    }
+}
+
+impl Drop for LentVars<'_> {
+    fn drop(&mut self) {
+        if let Some(parent) = self.callee.parent_stack.take() {
+            self.caller.vars = match Arc::try_unwrap(parent) {
+                Ok(parent) => parent.vars,
+                Err(parent) => parent.vars.clone(),
+            };
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::sync::Arc;
@@ -1617,6 +1638,28 @@ mod test {
             cloned.get_var(VarId::new(0), Span::test_data()),
             Ok(Value::test_string("hello"))
         );
+    }
+
+    #[test]
+    fn lent_vars_come_back_when_the_callee_panics() {
+        let mut caller = Stack::new();
+        caller.add_var(VarId::new(0), Value::test_string("hello"));
+        let mut callee = Stack::new();
+
+        let mut seen_by_callee = None;
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut lent = caller.lend_vars(&mut callee);
+            seen_by_callee = Some(lent.callee().get_var(VarId::new(0), Span::test_data()));
+            panic!("callee panicked");
+        }));
+
+        assert!(panicked.is_err());
+        assert_eq!(seen_by_callee, Some(Ok(Value::test_string("hello"))));
+        assert_eq!(
+            caller.get_var(VarId::new(0), Span::test_data()),
+            Ok(Value::test_string("hello"))
+        );
+        assert!(callee.parent_stack.is_none());
     }
 
     #[test]
