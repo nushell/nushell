@@ -1,6 +1,6 @@
 use nu_cmd_base::prompt;
 use nu_protocol::{
-    Config,
+    Config, PromptConfig, Value,
     engine::{EngineState, Stack},
 };
 use reedline::PromptHelixMode;
@@ -25,16 +25,28 @@ impl ModeIndicators {
     /// deprecated `$env.PROMPT_*` variables, and outside the REPL the only
     /// copies it could find are the ones a parent shell exported.
     ///
-    /// A closure is evaluated once, here; one that fails reports its error and
-    /// draws nothing.
+    /// Only `multiline` may run a closure, once, here. `input` builds its
+    /// editor with `Reedline::create()`, which never leaves emacs mode, so the
+    /// vi indicators are never drawn: a string there is copied and a closure
+    /// is left alone rather than evaluated for nothing on every call.
+    ///
+    /// A key with no rendering, a closure that fails included, draws the
+    /// built-in indicator, as it does in the REPL.
     pub fn from_config(config: &Config, engine_state: &EngineState, stack: &Stack) -> Self {
         let prompt = &config.prompt;
-        let render = |value| prompt::render(value, config, engine_state, stack).unwrap_or_default();
+        let builtin = PromptConfig::default();
+        let literal = |value: &Value| value.as_str().ok().map(str::to_owned);
+        let or_builtin = |shown: Option<String>, fallback: &Value| {
+            shown.or_else(|| literal(fallback)).unwrap_or_default()
+        };
         Self {
-            vi_normal: render(&prompt.vi_normal),
-            vi_insert: render(&prompt.vi_insert),
-            vi_visual: render(&prompt.vi_visual),
-            multiline: render(&prompt.multiline),
+            vi_normal: or_builtin(literal(&prompt.vi_normal), &builtin.vi_normal),
+            vi_insert: or_builtin(literal(&prompt.vi_insert), &builtin.vi_insert),
+            vi_visual: or_builtin(literal(&prompt.vi_visual), &builtin.vi_visual),
+            multiline: or_builtin(
+                prompt::render(&prompt.multiline, config, engine_state, stack),
+                &builtin.multiline,
+            ),
         }
     }
 }
@@ -109,7 +121,18 @@ impl Prompt for ReedlinePrompt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::Value;
+
+    /// What a closure that fails comes to: the key has no rendering, so the
+    /// slot keeps the built-in indicator instead of going blank.
+    #[test]
+    fn an_indicator_with_no_rendering_falls_back_to_the_builtin() {
+        let mut config = Config::default();
+        config.prompt.vi_normal = Value::test_int(1);
+        config.prompt.multiline = Value::test_int(1);
+
+        let indicators = ModeIndicators::from_config(&config, &EngineState::new(), &Stack::new());
+        assert_eq!([indicators.vi_normal, indicators.multiline], [": ", "::: "]);
+    }
 
     #[test]
     fn indicators_come_from_their_own_config_keys() {
