@@ -73,8 +73,9 @@ impl NushellPrompt {
     }
 }
 
-/// Render `content` for the terminal, or fall back to reedline's default via
-/// `default` when nothing has been set. reedline needs `\r\n` line breaks.
+/// Render `content` for the terminal, or fall back to nushell's built-in
+/// prompt via `default` when nothing has been set. reedline needs `\r\n` line
+/// breaks.
 fn render_or<'a>(content: Option<&str>, default: impl FnOnce() -> Cow<'a, str>) -> Cow<'a, str> {
     const NEWLINE: char = '\n';
     const LINEBREAK: &str = "\r\n";

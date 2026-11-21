@@ -749,7 +749,7 @@ $env.config.ls.clickable_links = true
 # the escape codes in the value, e.g. $"(ansi light_red)> ".
 
 # prompt.left (string|closure|null): The main prompt.
-# null falls back to the line editor's built-in prompt.
+# null falls back to nushell's built-in prompt, the working directory.
 # Default: a closure showing the current directory. Read it with
 # view source $env.config.prompt.left
 # and build on it by keeping a reference:
@@ -758,6 +758,7 @@ $env.config.ls.clickable_links = true
 # $env.config.prompt.left = {|| $"(pwd) " }
 
 # prompt.right (string|closure|null): The right-aligned prompt.
+# null falls back to nushell's built-in right prompt, a clock.
 # Default: a closure showing the time and last exit code.
 # $env.config.prompt.right = {|| date now | format date "%d-%a %r" }
 
