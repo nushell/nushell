@@ -1,7 +1,8 @@
-// Modified from chrono::format::scan
+//! Reading a time zone given as an offset (`+05:30`), `local`, or an IANA name.
 
-use chrono::{DateTime, FixedOffset, Local, Offset, TimeZone};
-use chrono_tz::Tz;
+use jiff::tz::{Offset, TimeZone, TimeZoneDatabase};
+use nu_protocol::DateTime;
+use std::sync::LazyLock;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ParseErrorKind {
@@ -15,32 +16,54 @@ pub enum ParseErrorKind {
     TooShort,
 }
 
-pub fn datetime_in_timezone(
-    dt: &DateTime<FixedOffset>,
-    s: &str,
-) -> Result<DateTime<FixedOffset>, ParseErrorKind> {
+/// The time zone an IANA name names, in any case. The system's zoneinfo is used when it has the
+/// name, since it may be newer; otherwise the copy compiled into nushell, so every name in
+/// [`TIME_ZONE_NAMES`] resolves on hosts with older or partial zoneinfo.
+pub(crate) fn time_zone_named(name: &str) -> Option<TimeZone> {
+    jiff::tz::db()
+        .get(name)
+        .or_else(|_| TimeZoneDatabase::bundled().get(name))
+        .ok()
+}
+
+/// The IANA time zone names in jiff's bundled database, sorted, for completions and
+/// `date list-timezone`. Command signatures build this list at startup, so it comes from the
+/// copy compiled into nushell rather than a walk of the system's zoneinfo directory, and every
+/// host lists the same names. Lookups still prefer the system's data; see [`time_zone_named`].
+pub(crate) static TIME_ZONE_NAMES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    let mut names: Vec<&'static str> = TimeZoneDatabase::bundled()
+        .available()
+        .map(|name| &*name.as_str().to_owned().leak())
+        .collect();
+    // `posixrules` is a rules file and `Factory` a placeholder; neither was listed before.
+    names.retain(|name| !matches!(*name, "posixrules" | "Factory"));
+    names.sort_unstable();
+    names.dedup();
+    names
+});
+
+/// `date` shown in the time zone `s` names: an offset such as `+05:30`, `local`, or an IANA
+/// name in any case.
+///
+/// `local` is the system time zone, at the offset in effect at `date`.
+pub fn datetime_in_timezone(date: DateTime, s: &str) -> Result<DateTime, ParseErrorKind> {
     match timezone_offset_internal(s, true, true) {
-        Ok(offset) => match FixedOffset::east_opt(offset) {
-            Some(offset) => Ok(dt.with_timezone(&offset)),
-            None => Err(ParseErrorKind::OutOfRange),
-        },
+        // chrono's offsets, which nushell used, stop short of a day.
+        Ok(offset) if offset.unsigned_abs() >= 86_400 => Err(ParseErrorKind::OutOfRange),
+        Ok(offset) => Offset::from_seconds(offset)
+            .map(|offset| date.with_offset(offset))
+            .map_err(|_| ParseErrorKind::OutOfRange),
         Err(ParseErrorKind::Invalid) => {
             if s.eq_ignore_ascii_case("local") {
-                Ok(dt.with_timezone(Local::now().offset()))
+                Ok(date.to_time_zone(&TimeZone::system()))
             } else {
-                let tz: Tz = parse_timezone_internal(s)?;
-                let offset = tz.offset_from_utc_datetime(&dt.naive_utc()).fix();
-                Ok(dt.with_timezone(&offset))
+                // The name is trimmed for the newline that ends `/etc/timezone`.
+                let time_zone = time_zone_named(s.trim()).ok_or(ParseErrorKind::Invalid)?;
+                Ok(date.to_time_zone(&time_zone))
             }
         }
         Err(e) => Err(e),
     }
-}
-
-/// Look up an IANA time zone name, ignoring case (`utc`, `america/new_york`) and surrounding
-/// whitespace, such as the newline that ends `/etc/timezone`.
-fn parse_timezone_internal(s: &str) -> Result<Tz, ParseErrorKind> {
-    Tz::from_str_insensitive(s.trim()).map_err(|_| ParseErrorKind::Invalid)
 }
 
 fn timezone_offset_internal(

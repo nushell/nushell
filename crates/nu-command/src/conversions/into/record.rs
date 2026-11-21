@@ -1,5 +1,4 @@
 use crate::semver::value::SemverValue;
-use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
 use nu_protocol::{DurationMaxUnit, format_duration_as_timeperiod};
 
@@ -199,19 +198,25 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
     }
 }
 
-fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
+fn parse_date_into_record(date: nu_protocol::DateTime, span: Span) -> Value {
+    let parts = date.parts();
+    let nanosecond = i64::from(parts.nanosecond);
+    // `%Z` is the offset as `+05:30`, which `into datetime` reads back.
+    let timezone = date
+        .format("%Z", pure_rust_locales::Locale::POSIX)
+        .unwrap_or_default();
     Value::record(
         record! {
-            "year" => Value::int(date.year() as i64, span),
-            "month" => Value::int(date.month() as i64, span),
-            "day" => Value::int(date.day() as i64, span),
-            "hour" => Value::int(date.hour() as i64, span),
-            "minute" => Value::int(date.minute() as i64, span),
-            "second" => Value::int(date.second() as i64, span),
-            "millisecond" => Value::int(date.timestamp_subsec_millis() as i64, span),
-            "microsecond" => Value::int((date.nanosecond() / 1_000 % 1_000) as i64, span),
-            "nanosecond" => Value::int((date.nanosecond() % 1_000) as i64, span),
-            "timezone" => Value::string(date.offset().to_string(), span),
+            "year" => Value::int(parts.year.into(), span),
+            "month" => Value::int(parts.month.into(), span),
+            "day" => Value::int(parts.day.into(), span),
+            "hour" => Value::int(parts.hour.into(), span),
+            "minute" => Value::int(parts.minute.into(), span),
+            "second" => Value::int(parts.second.into(), span),
+            "millisecond" => Value::int(nanosecond / 1_000_000, span),
+            "microsecond" => Value::int(nanosecond / 1_000 % 1_000, span),
+            "nanosecond" => Value::int(nanosecond % 1_000, span),
+            "timezone" => Value::string(timezone, span),
         },
         span,
     )

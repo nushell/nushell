@@ -305,9 +305,12 @@ pub(super) fn compute_series_single_value(
                 let equal_pattern = format!("^{}$", fancy_regex::escape(val));
                 contains_series_pat(&lhs, &equal_pattern, lhs_span)
             }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::equal, lhs_span)
-            }
+            Value::Date { val, .. } => compare_series_i64(
+                &lhs,
+                val.unix_nanos().div_euclid(1_000_000) as i64,
+                ChunkedArray::equal,
+                lhs_span,
+            ),
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator.item,
                 unsupported: right.get_type(),
@@ -329,7 +332,7 @@ pub(super) fn compute_series_single_value(
             }
             Value::Date { val, .. } => compare_series_i64(
                 &lhs,
-                val.timestamp_millis(),
+                val.unix_nanos().div_euclid(1_000_000) as i64,
                 ChunkedArray::not_equal,
                 lhs_span,
             ),
@@ -346,9 +349,12 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_float(&lhs, *val, ChunkedArray::lt, lhs_span)
             }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt, lhs_span)
-            }
+            Value::Date { val, .. } => compare_series_i64(
+                &lhs,
+                val.unix_nanos().div_euclid(1_000_000) as i64,
+                ChunkedArray::lt,
+                lhs_span,
+            ),
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator.item,
                 unsupported: right.get_type(),
@@ -362,9 +368,12 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_float(&lhs, *val, ChunkedArray::lt_eq, lhs_span)
             }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt_eq, lhs_span)
-            }
+            Value::Date { val, .. } => compare_series_i64(
+                &lhs,
+                val.unix_nanos().div_euclid(1_000_000) as i64,
+                ChunkedArray::lt_eq,
+                lhs_span,
+            ),
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator.item,
                 unsupported: right.get_type(),
@@ -378,9 +387,12 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_float(&lhs, *val, ChunkedArray::gt, lhs_span)
             }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt, lhs_span)
-            }
+            Value::Date { val, .. } => compare_series_i64(
+                &lhs,
+                val.unix_nanos().div_euclid(1_000_000) as i64,
+                ChunkedArray::gt,
+                lhs_span,
+            ),
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator.item,
                 unsupported: right.get_type(),
@@ -394,9 +406,12 @@ pub(super) fn compute_series_single_value(
             Value::Float { val, .. } => {
                 compare_series_float(&lhs, *val, ChunkedArray::gt_eq, lhs_span)
             }
-            Value::Date { val, .. } => {
-                compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt_eq, lhs_span)
-            }
+            Value::Date { val, .. } => compare_series_i64(
+                &lhs,
+                val.unix_nanos().div_euclid(1_000_000) as i64,
+                ChunkedArray::gt_eq,
+                lhs_span,
+            ),
             _ => Err(ShellError::OperatorUnsupportedType {
                 op: operator.item,
                 unsupported: right.get_type(),

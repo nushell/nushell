@@ -1,8 +1,9 @@
 use crate::FormatCmdsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Record, Signature, Span, Value as NuValue};
+use nu_protocol::{
+    Category, Example, LabeledError, Record, Signature, Span, Value as NuValue, jiff::tz::Offset,
+};
 use plist::Value as PlistValue;
-use std::time::SystemTime;
 
 pub(crate) struct IntoPlist;
 
@@ -74,7 +75,17 @@ fn convert_nu_value(nu_val: &NuValue) -> Result<PlistValue, LabeledError> {
                 .map(convert_nu_value)
                 .collect::<Result<_, _>>()?,
         )),
-        NuValue::Date { val, .. } => Ok(PlistValue::Date(SystemTime::from(val.to_owned()).into())),
+        // The plist crate writes every date, binary ones too, as RFC 3339, and panics on a
+        // year outside 0 to 9999.
+        NuValue::Date { val, .. } if (0..=9999).contains(&val.with_offset(Offset::UTC).year()) => {
+            val.to_system_time()
+                .map(|time| PlistValue::Date(time.into()))
+                .ok_or_else(|| build_label_error(format!("{val} is out of range"), span))
+        }
+        NuValue::Date { val, .. } => Err(build_label_error(
+            format!("{val} is out of range: plist dates are years 0 to 9999"),
+            span,
+        )),
         NuValue::Filesize { val, .. } => Ok(PlistValue::Integer(val.get().into())),
         _ => Err(build_label_error(
             format!("{nu_val:?} is not convertible"),
@@ -107,5 +118,16 @@ mod test {
 
         let mut plugin_test = PluginTest::new("polars", plugin.into())?;
         plugin_test.test_command_examples(&cmd)
+    }
+
+    // The plist crate panics on a date outside years 0 to 9999, so those are errors.
+    #[test]
+    fn dates_outside_years_0_to_9999_are_errors() {
+        let date = |text: &str| NuValue::test_date(text.parse().unwrap());
+        // Windows' clock starts in 1601, so earlier years can't become a plist date there.
+        assert!(convert_nu_value(&date("1601-01-01T00:00:00Z")).is_ok());
+        assert!(convert_nu_value(&date("9999-12-31T23:59:59Z")).is_ok());
+        assert!(convert_nu_value(&date("+10000-01-01T00:00:00Z")).is_err());
+        assert!(convert_nu_value(&date("-0001-12-31T23:59:59Z")).is_err());
     }
 }

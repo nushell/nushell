@@ -124,7 +124,9 @@ impl ValueExt for Value {
             Value::Glob { val, .. } => Ok(val.to_string()),
             Value::Filesize { val, .. } => Ok(val.get().to_string()),
             Value::Duration { val, .. } => Ok(val.to_string()),
-            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)),
+            Value::Date { val, .. } => {
+                Ok(val.to_rfc3339_opts(nu_protocol::SecondsFormat::Nanos, true))
+            }
             Value::Range { val, .. } => Ok(val.to_string()),
             Value::Record { val, .. } => Ok(format!(
                 "{{{}}}",

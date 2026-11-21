@@ -1,4 +1,4 @@
-use chrono::{Datelike, Local, NaiveDate};
+use jiff::tz::Offset;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::{self, Expr, Expression};
@@ -189,47 +189,52 @@ struct MonthHelper {
 
 impl MonthHelper {
     pub fn new(selected_year: i32, selected_month: u32) -> Result<MonthHelper, ()> {
-        let naive_date = NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
-        let number_of_days_in_month =
-            MonthHelper::calculate_number_of_days_in_month(selected_year, selected_month)?;
+        const MONTH_NAMES: [&str; 12] = [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ];
+        let month = i8::try_from(selected_month).map_err(|_| ())?;
+        let first_of = |year: i32, month: i8| {
+            nu_protocol::DateTime::from_parts(year, month, 1, 0, 0, 0, 0, Offset::UTC).ok_or(())
+        };
+        let first = first_of(selected_year, month)?;
+        let next = if month == 12 {
+            first_of(selected_year + 1, 1)?
+        } else {
+            first_of(selected_year, month + 1)?
+        };
+        let number_of_days_in_month = (next.nanos_since(first) / (86_400 * 1_000_000_000)) as u32;
 
         Ok(MonthHelper {
             selected_year,
             selected_month,
-            day_number_of_week_month_starts_on: naive_date.weekday().num_days_from_sunday(),
+            day_number_of_week_month_starts_on: first.parts().weekday as u32,
             number_of_days_in_month,
             quarter_number: ((selected_month - 1) / 3) + 1,
-            month_name: naive_date.format("%B").to_string().to_ascii_lowercase(),
+            month_name: MONTH_NAMES
+                .get(selected_month as usize - 1)
+                .ok_or(())?
+                .to_string(),
         })
-    }
-
-    fn calculate_number_of_days_in_month(
-        mut selected_year: i32,
-        mut selected_month: u32,
-    ) -> Result<u32, ()> {
-        // Chrono does not provide a method to output the amount of days in a month
-        // This is a workaround taken from the example code from the Chrono docs here:
-        // https://docs.rs/chrono/0.3.0/chrono/naive/date/struct.NaiveDate.html#example-30
-        if selected_month == 12 {
-            selected_year += 1;
-            selected_month = 1;
-        } else {
-            selected_month += 1;
-        };
-
-        let next_month_naive_date =
-            NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
-
-        Ok(next_month_naive_date.pred_opt().unwrap_or_default().day())
     }
 }
 
 fn get_current_date() -> (i32, u32, u32) {
-    let local_now_date = Local::now().date_naive();
+    let today = jiff::ZonedDateTime::now();
 
-    let current_year: i32 = local_now_date.year();
-    let current_month: u32 = local_now_date.month();
-    let current_day: u32 = local_now_date.day();
+    let current_year = i32::from(today.year());
+    let current_month = today.month() as u32;
+    let current_day = today.day() as u32;
 
     (current_year, current_month, current_day)
 }

@@ -54,15 +54,8 @@ bracoxide = { workspace = true }
 brotli = { workspace = true }
 byteorder = { workspace = true }
 bytesize = { workspace = true }
-calamine = { workspace = true, features = ["dates"] }
+calamine = { workspace = true }
 chardetng = { workspace = true }
-chrono = { workspace = true, features = [
-	"std",
-	"unstable-locales",
-	"clock",
-], default-features = false }
-chrono-humanize = { workspace = true }
-chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true, features = ["use-dev-tty"] }
 csv = { workspace = true }
 devicons = { workspace = true }
@@ -74,7 +67,6 @@ filesize = { workspace = true }
 filetime = { workspace = true }
 fluent = { workspace = true }
 http = { workspace = true }
-human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
@@ -111,7 +103,6 @@ roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = [
 	"bundled",
 	"backup",
-	"chrono",
 	"column_decltype",
 ], optional = true }
 rustls = { workspace = true, optional = true, features = ["ring"] }
@@ -235,6 +226,7 @@ js = [
 	"aegis-password-generator",
 	"getrandom",
 	"getrandom/wasm_js",
+	"jiff/js",
 	"rand",
 	"uuid",
 ]

@@ -1,11 +1,14 @@
-use crate::{generate_date_formats_list, generate_strftime_list, parse_date_from_string};
-use chrono::{
-    DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Offset, TimeZone,
-    Timelike, Utc,
+use crate::{
+    TIME_ZONE_NAMES, generate_date_formats_list, generate_strftime_list, parse_date_from_string,
+    time_zone_named,
 };
-use chrono_tz::TZ_VARIANTS;
+use jiff::{
+    Timestamp, civil,
+    tz::{Disambiguation, Offset, TimeZone},
+};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::{DateParseError, ParsedDate};
 use std::{ops::Deref, sync::LazyLock};
 
 const HOUR: i32 = 60 * 60;
@@ -35,22 +38,22 @@ impl CmdArgument for Arguments {
     }
 }
 
-// In case it may be confused with chrono::TimeZone
+/// The time zone `--timezone` or `--offset` names.
 #[derive(Clone, Debug)]
 enum Zone {
     Utc,
     Local,
     East(u8),
     West(u8),
-    Tz(chrono_tz::Tz),
+    Tz(TimeZone),
     Error, // we want Nushell to cast it instead of Rust
 }
 
 static ZONE_OPTIONS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
     let builtin = ["LOCAL", "UTC"].into_iter();
-    let timezones = TZ_VARIANTS
-        .into_iter()
-        .map(|tz| tz.name())
+    let timezones = TIME_ZONE_NAMES
+        .iter()
+        .copied()
         .filter(|tz| !matches!(tz.to_uppercase().as_str(), "LOCAL" | "UTC")); // deduplicate
     Vec::from_iter(builtin.chain(timezones))
 });
@@ -73,10 +76,28 @@ impl Zone {
         match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
-            tz if let Ok(tz) = chrono_tz::Tz::from_str_insensitive(tz) => Self::Tz(tz),
+            tz if let Some(tz) = time_zone_named(tz) => Self::Tz(tz),
             _ => Self::Error,
         }
     }
+
+    /// The jiff time zone, or `None` for [`Zone::Error`].
+    fn time_zone(&self) -> Option<TimeZone> {
+        let fixed = |seconds: i32| Offset::from_seconds(seconds).ok().map(TimeZone::fixed);
+        match self {
+            Zone::Utc => Some(TimeZone::UTC),
+            Zone::Local => Some(TimeZone::system()),
+            Zone::East(hours) => fixed(i32::from(*hours) * HOUR),
+            Zone::West(hours) => fixed(-i32::from(*hours) * HOUR),
+            Zone::Tz(time_zone) => Some(time_zone.clone()),
+            Zone::Error => None,
+        }
+    }
+}
+
+/// `timestamp` shown at `time_zone`'s offset for that instant.
+fn in_time_zone(timestamp: Timestamp, time_zone: &TimeZone) -> nu_protocol::DateTime {
+    nu_protocol::DateTime::new(timestamp, time_zone.to_offset(timestamp))
 }
 
 #[derive(Clone)]
@@ -215,10 +236,7 @@ impl Command for IntoDatetime {
 
     fn examples(&self) -> Vec<Example<'_>> {
         let example_result_1 = |nanos: i64| {
-            Some(Value::date(
-                Utc.timestamp_nanos(nanos).into(),
-                Span::test_data(),
-            ))
+            nu_protocol::DateTime::from_unix_nanos(nanos.into(), Offset::UTC).map(Value::test_date)
         };
         vec![
             Example {
@@ -237,16 +255,16 @@ impl Command for IntoDatetime {
                 description: "Convert a date written with a month name, an ordinal and a 12-hour \
                               time.",
                 example: "'April 18th, 2025 4:04 PM +05:30' | into datetime",
-                result: DateTime::parse_from_rfc3339("2025-04-18T16:04:00+05:30")
+                result: nu_protocol::DateTime::parse_rfc3339("2025-04-18T16:04:00+05:30")
                     .ok()
-                    .map(|date| Value::date(date, Span::test_data())),
+                    .map(Value::test_date),
             },
             Example {
                 description: "Convert a date-time in an IANA time zone.",
                 example: "'2025-04-18 04:04:32 America/New_York' | into datetime",
-                result: DateTime::parse_from_rfc3339("2025-04-18T04:04:32-04:00")
+                result: nu_protocol::DateTime::parse_rfc3339("2025-04-18T04:04:32-04:00")
                     .ok()
-                    .map(|date| Value::date(date, Span::test_data())),
+                    .map(Value::test_date),
             },
             Example {
                 description: "Convert a relative date.",
@@ -270,25 +288,17 @@ impl Command for IntoDatetime {
                               datetime with custom formatting.",
                 example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
                 #[allow(clippy::inconsistent_digit_grouping)]
-                result: Some(Value::date(
-                    Local
-                        .from_local_datetime(
-                            &NaiveDateTime::parse_from_str(
-                                "16.11.1984 8:00 am",
-                                "%d.%m.%Y %H:%M %P",
-                            )
-                            .expect("date calculation should not fail in test"),
-                        )
-                        .unwrap()
-                        .with_timezone(Local::now().offset()),
-                    Span::test_data(),
-                )),
+                result: civil::date(1984, 11, 16)
+                    .at(8, 0, 0, 0)
+                    .to_zoned_datetime(TimeZone::system())
+                    .ok()
+                    .map(|date| Value::test_date(nu_protocol::DateTime::from_zoned(&date))),
             },
             Example {
                 description: "Interpret a formatted datetime in the Europe/Berlin timezone.",
                 example: "'2024-07-01 12:00' | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin",
                 result: Some(Value::date(
-                    DateTime::parse_from_str("2024-07-01 12:00 +02:00", "%Y-%m-%d %H:%M %z")
+                    nu_protocol::DateTime::parse_rfc3339("2024-07-01T12:00:00+02:00")
                         .expect("date calculation should not fail in test"),
                     Span::test_data(),
                 )),
@@ -331,27 +341,18 @@ impl Command for IntoDatetime {
                 result: Some(Value::list(
                     vec![
                         Value::date(
-                            DateTime::parse_from_str(
-                                "2023-03-30 10:10:07 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
+                            nu_protocol::DateTime::parse_rfc3339("2023-03-30T10:10:07-05:00")
+                                .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                         Value::date(
-                            DateTime::parse_from_str(
-                                "2023-05-05 13:43:49 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
+                            nu_protocol::DateTime::parse_rfc3339("2023-05-05T13:43:49-05:00")
+                                .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                         Value::date(
-                            DateTime::parse_from_str(
-                                "2023-06-05 01:37:42 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
+                            nu_protocol::DateTime::parse_rfc3339("2023-06-05T01:37:42-05:00")
+                                .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                     ],
@@ -364,19 +365,13 @@ impl Command for IntoDatetime {
                 result: Some(Value::list(
                     vec![
                         Value::date(
-                            DateTime::parse_from_str(
-                                "2023-03-30 10:10:07 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
+                            nu_protocol::DateTime::parse_rfc3339("2023-03-30T10:10:07-05:00")
+                                .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                         Value::date(
-                            DateTime::parse_from_str(
-                                "2023-05-05 13:43:49 -05:00",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
+                            nu_protocol::DateTime::parse_rfc3339("2023-05-05T13:43:49-05:00")
+                                .expect("date calculation should not fail in test"),
                             Span::test_data(),
                         ),
                     ],
@@ -481,55 +476,19 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     if dateformat.is_none()
         && let Ok(ts) = timestamp
     {
+        // Every i64 of nanoseconds is a valid timestamp (1677 to 2262).
+        let Ok(timestamp) = Timestamp::from_nanosecond(ts.into()) else {
+            return datetime_parse_error_value(
+                &input.to_abbreviated_string(&nu_protocol::Config::default()),
+                head,
+            );
+        };
         return match timezone {
-            // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
-
             // default to UTC
-            None => Value::date(Utc.timestamp_nanos(ts).into(), head),
-            Some(Spanned { item, span }) => match item {
-                Zone::Utc => {
-                    let dt = Utc.timestamp_nanos(ts);
-                    Value::date(dt.into(), *span)
-                }
-                Zone::Local => {
-                    let dt = Local.timestamp_nanos(ts);
-                    Value::date(dt.into(), *span)
-                }
-                Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                    Some(eastoffset) => {
-                        let dt = eastoffset.timestamp_nanos(ts);
-                        Value::date(dt, *span)
-                    }
-                    None => Value::error(
-                        ShellError::DatetimeParseError {
-                            msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
-                            span: *span,
-                        },
-                        *span,
-                    ),
-                },
-                Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                    Some(westoffset) => {
-                        let dt = westoffset.timestamp_nanos(ts);
-                        Value::date(dt, *span)
-                    }
-                    None => Value::error(
-                        ShellError::DatetimeParseError {
-                            msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
-                            span: *span,
-                        },
-                        *span,
-                    ),
-                },
-                Zone::Tz(tz) => Value::date(tz.timestamp_nanos(ts).fixed_offset(), *span),
-                Zone::Error => Value::error(
-                    // This is an argument error, not an input error
-                    ShellError::TypeMismatch {
-                        err_message: "Invalid timezone or offset".to_string(),
-                        span: *span,
-                    },
-                    *span,
-                ),
+            None => Value::date(nu_protocol::DateTime::new(timestamp, Offset::UTC), head),
+            Some(Spanned { item, span }) => match item.time_zone() {
+                Some(time_zone) => Value::date(in_time_zone(timestamp, &time_zone), *span),
+                None => invalid_timezone_value(*span),
             },
         };
     };
@@ -539,81 +498,34 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     let parse_as_string = |val: &str| {
         match dateformat {
-            Some(dt_format) => {
-                // Handle custom format specifiers for compact formats
-                let format_str = dt_format
-                    .item
-                    .0
-                    .replace("%J", "%Y%m%d") // %J for joined date (YYYYMMDD)
-                    .replace("%Q", "%H%M%S"); // %Q for sequential time (HHMMSS)
-                match DateTime::parse_from_str(val, &format_str) {
-                    Ok(dt) => match timezone {
-                        None => Value::date(dt, head),
-                        Some(Spanned { item, span }) => match item {
-                            Zone::Utc => Value::date(dt.with_timezone(&Utc).into(), *span),
-                            Zone::Local => Value::date(dt.with_timezone(&Local).into(), *span),
-                            Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                                Some(eastoffset) => {
-                                    Value::date(dt.with_timezone(&eastoffset), *span)
-                                }
-                                None => Value::error(
-                                    ShellError::DatetimeParseError {
-                                        msg: input
-                                            .to_abbreviated_string(&nu_protocol::Config::default()),
-                                        span: *span,
-                                    },
-                                    *span,
-                                ),
-                            },
-                            Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                                Some(westoffset) => {
-                                    Value::date(dt.with_timezone(&westoffset), *span)
-                                }
-                                None => Value::error(
-                                    ShellError::DatetimeParseError {
-                                        msg: input
-                                            .to_abbreviated_string(&nu_protocol::Config::default()),
-                                        span: *span,
-                                    },
-                                    *span,
-                                ),
-                            },
-                            Zone::Tz(tz) => {
-                                let fixed_offset =
-                                    tz.offset_from_utc_datetime(&dt.naive_utc()).fix();
-                                Value::date(dt.with_timezone(&fixed_offset), *span)
-                            }
-                            Zone::Error => Value::error(
-                                // This is an argument error, not an input error
-                                ShellError::TypeMismatch {
-                                    err_message: "Invalid timezone or offset".to_string(),
-                                    span: *span,
-                                },
-                                *span,
-                            ),
-                        },
+            Some(dt_format) => match read_with_format(val, &dt_format.item.0) {
+                Ok(FormatReading::Instant(date)) => match timezone {
+                    None => Value::date(date, head),
+                    Some(Spanned { item, span }) => match item.time_zone() {
+                        Some(time_zone) => Value::date(date.to_time_zone(&time_zone), *span),
+                        None => invalid_timezone_value(*span),
                     },
-                    Err(reason) => parse_with_format(val, &format_str, head, timezone.as_ref())
-                        .unwrap_or_else(|_| {
-                            Value::error(
-                                ShellError::CantConvert {
-                                    to_type: format!(
-                                        "could not parse as datetime using format '{}'",
-                                        dt_format.item.0
-                                    ),
-                                    from_type: reason.to_string(),
-                                    span: head,
-                                    help: Some(
-                                        "you can use `into datetime` without a format string to \
-                                         enable flexible parsing"
-                                            .to_string(),
-                                    ),
-                                },
-                                head,
-                            )
-                        }),
+                },
+                Ok(FormatReading::WallClock(wall)) => {
+                    interpret_wall_clock_datetime(wall, timezone.as_ref(), head, val)
                 }
-            }
+                Err(reason) => Value::error(
+                    ShellError::CantConvert {
+                        to_type: format!(
+                            "could not parse as datetime using format '{}'",
+                            dt_format.item.0
+                        ),
+                        from_type: reason.to_string(),
+                        span: head,
+                        help: Some(
+                            "you can use `into datetime` without a format string to \
+                                 enable flexible parsing"
+                                .to_string(),
+                        ),
+                    },
+                    head,
+                ),
+            },
 
             // Tries to automatically parse the date
             // (i.e. without a format string)
@@ -661,8 +573,9 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
     }
     let mut record_column_default = RecordColumnDefault::Now;
 
-    let now = Local::now();
-    let mut now_nanosecond = now.nanosecond();
+    let now = nu_protocol::DateTime::now();
+    let now_parts = now.parts();
+    let mut now_nanosecond = now_parts.nanosecond as u32;
     let now_millisecond = now_nanosecond / 1_000_000;
     now_nanosecond %= 1_000_000;
     let now_microsecond = now_nanosecond / 1_000;
@@ -672,7 +585,13 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         Some(val) => {
             record_column_default = RecordColumnDefault::Zero;
             match val {
-                Value::Int { val, .. } => *val as i32,
+                Value::Int { val, .. } => {
+                    i32::try_from(*val).map_err(|_| ShellError::IncorrectValue {
+                        msg: "incorrect value for year".to_string(),
+                        val_span: head,
+                        call_span: span,
+                    })?
+                }
                 other => {
                     return Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "int".to_string(),
@@ -683,58 +602,23 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 }
             }
         }
-        None => now.year(),
+        None => now_parts.year,
     };
-    let month = match record.get("month") {
+    let mut field = |name: &str, now: i8, zero: u32| match record.get(name) {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
-            parse_value_from_record_as_u32("month", col_val, &head, &span)?
+            parse_value_from_record_as_u32(name, col_val, &head, &span)
         }
-        None => match record_column_default {
-            RecordColumnDefault::Now => now.month(),
-            RecordColumnDefault::Zero => 1,
-        },
+        None => Ok(match record_column_default {
+            RecordColumnDefault::Now => now as u32,
+            RecordColumnDefault::Zero => zero,
+        }),
     };
-    let day = match record.get("day") {
-        Some(col_val) => {
-            record_column_default = RecordColumnDefault::Zero;
-            parse_value_from_record_as_u32("day", col_val, &head, &span)?
-        }
-        None => match record_column_default {
-            RecordColumnDefault::Now => now.day(),
-            RecordColumnDefault::Zero => 1,
-        },
-    };
-    let hour = match record.get("hour") {
-        Some(col_val) => {
-            record_column_default = RecordColumnDefault::Zero;
-            parse_value_from_record_as_u32("hour", col_val, &head, &span)?
-        }
-        None => match record_column_default {
-            RecordColumnDefault::Now => now.hour(),
-            RecordColumnDefault::Zero => 0,
-        },
-    };
-    let minute = match record.get("minute") {
-        Some(col_val) => {
-            record_column_default = RecordColumnDefault::Zero;
-            parse_value_from_record_as_u32("minute", col_val, &head, &span)?
-        }
-        None => match record_column_default {
-            RecordColumnDefault::Now => now.minute(),
-            RecordColumnDefault::Zero => 0,
-        },
-    };
-    let second = match record.get("second") {
-        Some(col_val) => {
-            record_column_default = RecordColumnDefault::Zero;
-            parse_value_from_record_as_u32("second", col_val, &head, &span)?
-        }
-        None => match record_column_default {
-            RecordColumnDefault::Now => now.second(),
-            RecordColumnDefault::Zero => 0,
-        },
-    };
+    let month = field("month", now_parts.month, 1)?;
+    let day = field("day", now_parts.day, 1)?;
+    let hour = field("hour", now_parts.hour, 0)?;
+    let minute = field("minute", now_parts.minute, 0)?;
+    let second = field("second", now_parts.second, 0)?;
     let millisecond = match record.get("millisecond") {
         Some(col_val) => {
             record_column_default = RecordColumnDefault::Zero;
@@ -764,46 +648,78 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         },
     };
 
-    let offset: FixedOffset = match record.get("timezone") {
-        Some(timezone) => parse_timezone_from_record(timezone, &head, &timezone.span())?,
-        None => now.offset().to_owned(),
+    let offset = match record.get("timezone") {
+        Some(timezone) => Some(parse_timezone_from_record(
+            timezone,
+            &head,
+            &timezone.span(),
+        )?),
+        None => None,
     };
 
-    let total_nanoseconds = nanosecond + microsecond * 1_000 + millisecond * 1_000_000;
+    let invalid = |what: &str| ShellError::IncorrectValue {
+        msg: format!("one of more values are incorrect and do not represent valid {what}"),
+        val_span: head,
+        call_span: span,
+    };
+    let small = |value: u32| i8::try_from(value).unwrap_or(i8::MAX);
+    let (month, day, hour, minute, second) = (
+        small(month),
+        small(day),
+        small(hour),
+        small(minute),
+        small(second),
+    );
+    // The date alone, at UTC midnight, tells a bad date from a bad time.
+    nu_protocol::DateTime::from_parts(year, month, day, 0, 0, 0, 0, Offset::UTC)
+        .ok_or_else(|| invalid("date"))?;
+    let total_nanoseconds = millisecond
+        .checked_mul(1_000_000)
+        .zip(microsecond.checked_mul(1_000))
+        .and_then(|(millis, micros)| millis.checked_add(micros)?.checked_add(nanosecond))
+        .and_then(|nanos| i32::try_from(nanos).ok());
+    // As before, a second's worth of extra nanoseconds on second 59 is read, as chrono's leap
+    // second, which is second 60: the next minute's second 0.
+    let nanos = total_nanoseconds
+        .filter(|&nanos| {
+            hour < 24
+                && minute < 60
+                && second < 60
+                && (nanos < 1_000_000_000 || (nanos < 2_000_000_000 && second == 59))
+        })
+        .ok_or_else(|| invalid("time"))?;
+    let (second, nanos) = if nanos >= 1_000_000_000 {
+        (60, nanos - 1_000_000_000)
+    } else {
+        (second, nanos)
+    };
 
-    let date = match NaiveDate::from_ymd_opt(year, month, day) {
-        Some(d) => d,
-        None => {
-            return Err(ShellError::IncorrectValue {
-                msg: "one of more values are incorrect and do not represent valid date".to_string(),
-                val_span: head,
-                call_span: span,
-            });
+    let date = match offset {
+        Some(offset) => {
+            nu_protocol::DateTime::from_parts(year, month, day, hour, minute, second, nanos, offset)
         }
+        // Local time, at the offset in effect on that date. A time the clock skips or repeats
+        // at a DST change reads as `into datetime` reads one in text.
+        None => nu_protocol::DateTime::from_parts(
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            nanos,
+            Offset::UTC,
+        )
+        .and_then(|wall| wall.wall_clock_in(&TimeZone::system(), Disambiguation::Compatible)),
     };
-    let time = match NaiveTime::from_hms_nano_opt(hour, minute, second, total_nanoseconds) {
-        Some(t) => t,
-        None => {
-            return Err(ShellError::IncorrectValue {
-                msg: "one of more values are incorrect and do not represent valid time".to_string(),
-                val_span: head,
-                call_span: span,
-            });
-        }
-    };
-    let date_time = NaiveDateTime::new(date, time);
-
-    let date_time_fixed = match offset.from_local_datetime(&date_time).single() {
-        Some(d) => d,
-        None => {
-            return Err(ShellError::IncorrectValue {
-                msg: "Ambiguous or invalid timezone conversion".to_string(),
-                val_span: head,
-                call_span: span,
-            });
-        }
-    };
-    Ok(Value::date(date_time_fixed, span))
+    match date {
+        Some(date_time) => Ok(Value::date(date_time, span)),
+        None => Err(ShellError::IncorrectValue {
+            msg: "Ambiguous or invalid timezone conversion".to_string(),
+            val_span: head,
+            call_span: span,
+        }),
+    }
 }
 
 fn parse_value_from_record_as_u32(
@@ -839,10 +755,10 @@ fn parse_timezone_from_record(
     timezone: &Value,
     head: &Span,
     span: &Span,
-) -> Result<FixedOffset, ShellError> {
+) -> Result<Offset, ShellError> {
     match timezone {
         Value::String { val, .. } => {
-            let offset: FixedOffset = match val.parse() {
+            let offset = match nu_protocol::parse_utc_offset(val) {
                 Ok(offset) => offset,
                 Err(_) => {
                     return Err(ShellError::IncorrectValue {
@@ -884,83 +800,84 @@ fn invalid_timezone_value(span: Span) -> Value {
     )
 }
 
+/// What `into datetime --format` read.
+enum FormatReading {
+    /// The text has an offset or a Unix timestamp.
+    Instant(nu_protocol::DateTime),
+    /// A wall-clock date and time, held at UTC, for the time zone to place.
+    WallClock(nu_protocol::DateTime),
+}
+
+/// Reads `val` with `format`: an instant, or else a wall-clock date and time, midnight on a date
+/// with no time of day, or a time of day today. Minutes left out after an hour are 0. Only fields
+/// missing from the text move it to the next of these; a time of day missing a field (`%I`
+/// without `%p`), a field that contradicts another (`%s` and a date, a weekday and a date) or
+/// one out of range (February 30) is an error. An offset in the text places the smaller readings
+/// too, so `2021-03-04 +0530` with `%F %z` is midnight at `+05:30`.
+fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseError> {
+    let parsed = ParsedDate::parse(val, format)?.with_missing_minutes_zero();
+    match parsed.to_datetime() {
+        Err(DateParseError::NotEnough) => {}
+        result => return result.map(FormatReading::Instant),
+    }
+    let offset = parsed.offset()?;
+    let place = |wall: nu_protocol::DateTime| match offset {
+        Some(offset) => wall
+            .wall_clock_in(&TimeZone::fixed(offset), Disambiguation::Compatible)
+            .map(FormatReading::Instant)
+            .ok_or(DateParseError::OutOfRange),
+        None => Ok(FormatReading::WallClock(wall)),
+    };
+    match parsed.to_wall_clock() {
+        Err(DateParseError::NotEnough) => {}
+        result => return place(result?),
+    }
+    let today = match offset {
+        Some(offset) => Timestamp::now()
+            .to_zoned_datetime(TimeZone::fixed(offset))
+            .date(),
+        None => jiff::ZonedDateTime::now().date(),
+    };
+    let wall = parsed
+        .to_naive_time()?
+        .on(today.year().into(), today.month(), today.day())
+        .ok_or(DateParseError::OutOfRange)?;
+    place(wall)
+}
+
+/// The instant the wall-clock `dt` names in `timezone`, or local time without one. A time the
+/// clock skips at a DST change moves forward by the jump, and one it repeats reads as the
+/// earlier, as `into datetime` reads them without `--format`.
 fn interpret_wall_clock_datetime(
-    dt: NaiveDateTime,
+    dt: nu_protocol::DateTime,
     timezone: Option<&Spanned<Zone>>,
     head: Span,
     val: &str,
 ) -> Value {
-    match timezone {
-        None => match Local.from_local_datetime(&dt).single() {
-            Some(dt_native) => Value::date(dt_native.into(), head),
-            None => datetime_parse_error_value(val, head),
-        },
-        Some(Spanned { item, span }) => match item {
-            Zone::Utc => Value::date(Utc.from_utc_datetime(&dt).into(), *span),
-            Zone::Local => match Local.from_local_datetime(&dt).single() {
-                Some(dt_native) => Value::date(dt_native.into(), *span),
-                None => datetime_parse_error_value(val, *span),
-            },
-            Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                Some(eastoffset) => match eastoffset.from_local_datetime(&dt).single() {
-                    Some(dt_native) => Value::date(dt_native, *span),
-                    None => datetime_parse_error_value(val, *span),
-                },
-                None => datetime_parse_error_value(val, *span),
-            },
-            Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                Some(westoffset) => match westoffset.from_local_datetime(&dt).single() {
-                    Some(dt_native) => Value::date(dt_native, *span),
-                    None => datetime_parse_error_value(val, *span),
-                },
-                None => datetime_parse_error_value(val, *span),
-            },
-            Zone::Tz(tz) => match dt.and_local_timezone(*tz).single() {
-                Some(dt_tz) => Value::date(dt_tz.fixed_offset(), *span),
-                None => datetime_parse_error_value(val, *span),
-            },
-            Zone::Error => invalid_timezone_value(*span),
-        },
+    let (time_zone, span) = match timezone {
+        None => (Some(TimeZone::system()), head),
+        Some(Spanned { item, span }) => (item.time_zone(), *span),
+    };
+    let Some(time_zone) = time_zone else {
+        return invalid_timezone_value(span);
+    };
+    match dt.wall_clock_in(&time_zone, Disambiguation::Compatible) {
+        Some(date) => Value::date(date, span),
+        None => datetime_parse_error_value(val, span),
     }
-}
-
-fn parse_with_format(
-    val: &str,
-    fmt: &str,
-    head: Span,
-    timezone: Option<&Spanned<Zone>>,
-) -> Result<Value, ()> {
-    // try parsing at date + time
-    if let Ok(dt) = NaiveDateTime::parse_from_str(val, fmt) {
-        return Ok(interpret_wall_clock_datetime(dt, timezone, head, val));
-    }
-
-    // try parsing at date only
-    if let Ok(date) = NaiveDate::parse_from_str(val, fmt)
-        && let Some(dt) = date.and_hms_opt(0, 0, 0)
-    {
-        return Ok(interpret_wall_clock_datetime(dt, timezone, head, val));
-    }
-
-    // try parsing at time only
-    if let Ok(time) = NaiveTime::parse_from_str(val, fmt) {
-        let now = Local::now().naive_local().date();
-        return Ok(interpret_wall_clock_datetime(
-            now.and_time(time),
-            timezone,
-            head,
-            val,
-        ));
-    }
-
-    Err(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use super::{DatetimeFormat, IntoDatetime, Zone, action};
-    use nu_protocol::Type::Error;
+    use nu_protocol::{DateTime, Type::Error};
+
+    /// The wall-clock `text` in the system time zone.
+    fn local(text: &str) -> DateTime {
+        let civil: civil::DateTime = text.parse().unwrap();
+        DateTime::from_zoned(&civil.to_zoned_datetime(TimeZone::system()).unwrap())
+    }
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
@@ -981,7 +898,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            DateTime::parse_from_str("16.11.1984 8:00 am +0000", "%d.%m.%Y %H:%M %P %z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("1984-11-16T08:00:00+00:00").unwrap(),
             Span::test_data(),
         );
         assert_eq!(actual, expected)
@@ -1000,16 +917,7 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = Value::date(
-            Local
-                .from_local_datetime(
-                    &NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
-                        .unwrap(),
-                )
-                .unwrap()
-                .with_timezone(Local::now().offset()),
-            Span::test_data(),
-        );
+        let expected = Value::date(local("1984-11-16T08:00:00"), Span::test_data());
 
         assert_eq!(actual, expected)
     }
@@ -1032,10 +940,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            Utc.from_utc_datetime(
-                &NaiveDateTime::parse_from_str("2026-03-21_00:25", "%F_%R").unwrap(),
-            )
-            .into(),
+            DateTime::parse_rfc3339("2026-03-21T00:25:00Z").unwrap(),
             Span::test_data(),
         );
 
@@ -1060,11 +965,8 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
 
-        let dt =
-            NaiveDateTime::parse_from_str("29 Aug 2025 19:30:07", "%d %b %Y %H:%M:%S").unwrap();
-        let eastoffset = FixedOffset::east_opt(3 * HOUR).unwrap();
         let expected = Value::date(
-            eastoffset.from_local_datetime(&dt).single().unwrap(),
+            DateTime::parse_rfc3339("2025-08-29T19:30:07+03:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1112,7 +1014,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            DateTime::parse_from_str("2020-08-04T16:39:18+00:00", "%Y-%m-%dT%H:%M:%S%z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2020-08-04T16:39:18+00:00").unwrap(),
             Span::test_data(),
         );
         assert_eq!(actual, expected)
@@ -1132,7 +1034,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1153,7 +1055,7 @@ mod tests {
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::date(
-            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1174,7 +1076,7 @@ mod tests {
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::date(
-            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1199,7 +1101,7 @@ mod tests {
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::date(
-            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
             Span::test_data(),
         );
 
@@ -1224,7 +1126,7 @@ mod tests {
         };
         let actual = action(&date_int, &args, Span::test_data());
         let expected = Value::date(
-            Utc.timestamp_opt(1_614_434_140, 0).unwrap().into(),
+            DateTime::from_unix_seconds(1_614_434_140, 0, Offset::UTC).unwrap(),
             Span::test_data(),
         );
         assert_eq!(actual, expected)
@@ -1244,7 +1146,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
-            Local.timestamp_opt(1_614_434_140, 0).unwrap().into(),
+            DateTime::from_timestamp_local(Timestamp::from_second(1_614_434_140).unwrap()),
             Span::test_data(),
         );
 
@@ -1263,7 +1165,7 @@ mod tests {
 
         let actual = action(&input_duration, &args, Span::test_data());
         let expected = Value::date(
-            Utc.timestamp_nanos(1_614_434_140_000_000_000).into(),
+            DateTime::from_unix_nanos(1_614_434_140_000_000_000, Offset::UTC).unwrap(),
             Span::test_data(),
         );
 
@@ -1286,7 +1188,7 @@ mod tests {
 
         let actual = action(&input_duration, &args, Span::test_data());
         let expected = Value::date(
-            Local.timestamp_opt(1_614_434_140, 0).unwrap().into(),
+            DateTime::from_timestamp_local(Timestamp::from_second(1_614_434_140).unwrap()),
             Span::test_data(),
         );
 
@@ -1297,7 +1199,11 @@ mod tests {
     fn takes_duration_with_tz() {
         let input_duration = Value::test_duration(1_614_434_140_000_000_000);
         let timezone_option = Some(Spanned {
-            item: Zone::Tz(chrono_tz::Tz::Europe__Berlin),
+            item: Zone::Tz(
+                jiff::tz::db()
+                    .get("Europe/Berlin")
+                    .expect("Europe/Berlin is in the database"),
+            ),
             span: Span::test_data(),
         });
 
@@ -1309,7 +1215,7 @@ mod tests {
 
         let actual = action(&input_duration, &args, Span::test_data());
         let expected = Value::test_date(
-            DateTime::parse_from_str("2021-02-27T14:55:40+01:00", "%Y-%m-%dT%H:%M:%S%z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2021-02-27T14:55:40+01:00").unwrap(),
         );
 
         assert_eq!(actual, expected);
@@ -1331,7 +1237,7 @@ mod tests {
 
         let actual = action(&input_duration, &args, Span::test_data());
         let expected = Value::test_date(
-            DateTime::parse_from_str("2021-02-27T21:55:40+08:00", "%Y-%m-%dT%H:%M:%S%z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2021-02-27T21:55:40+08:00").unwrap(),
         );
 
         assert_eq!(actual, expected);
@@ -1342,7 +1248,7 @@ mod tests {
         let actual = action(&input_duration, &args, Span::test_data());
 
         let expected = Value::test_date(
-            DateTime::parse_from_str("2021-02-27T05:55:40-08:00", "%Y-%m-%dT%H:%M:%S%z").unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("2021-02-27T05:55:40-08:00").unwrap(),
         );
 
         assert_eq!(actual, expected);
@@ -1382,7 +1288,7 @@ mod tests {
             cell_paths: None,
         };
         let expected = Value::date(
-            Local.timestamp_opt(1_614_434_140, 0).unwrap().into(),
+            DateTime::from_timestamp_local(Timestamp::from_second(1_614_434_140).unwrap()),
             Span::test_data(),
         );
         let actual = action(&expected, &args, Span::test_data());
@@ -1401,7 +1307,7 @@ mod tests {
         let actual = action(&date_str, &args, Span::test_data());
 
         let expected = Value::date(
-            Utc.timestamp_opt(1_614_434_140, 0).unwrap().into(),
+            DateTime::from_unix_seconds(1_614_434_140, 0, Offset::UTC).unwrap(),
             Span::test_data(),
         );
 

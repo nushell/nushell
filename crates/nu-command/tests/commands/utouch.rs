@@ -1,8 +1,30 @@
-use chrono::{DateTime, Days, Local, TimeDelta, Utc};
 use filetime::FileTime;
+use jiff::{SignedDuration, Timestamp, civil, tz::TimeZone};
 use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::path::Path;
+
+/// Today in the system time zone.
+fn today() -> civil::Date {
+    jiff::ZonedDateTime::now().date()
+}
+
+/// The day `time` falls on in the system time zone.
+fn local_day(time: std::time::SystemTime) -> civil::Date {
+    Timestamp::try_from(time)
+        .unwrap()
+        .to_zoned_datetime(TimeZone::system())
+        .date()
+}
+
+fn timestamp(time: FileTime) -> Timestamp {
+    Timestamp::new(time.unix_seconds(), time.nanoseconds() as i32).unwrap()
+}
+
+/// A time after 1970, so its seconds and nanoseconds are both non-negative.
+fn file_time(time: Timestamp) -> FileTime {
+    FileTime::from_unix_time(time.as_second(), time.subsec_nanosecond() as u32)
+}
 
 // Use 1 instead of 0 because 0 has a special meaning in Windows
 const TIME_ONE: FileTime = FileTime::from_unix_time(1, 0);
@@ -144,8 +166,8 @@ fn change_modified_time_of_file_to_today(playground: Playground) -> Result {
     let metadata = path.metadata().unwrap();
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
+    let today = today();
+    let mtime_day = local_day(metadata.modified().unwrap());
 
     assert_eq!(today, mtime_day);
 
@@ -170,8 +192,8 @@ fn change_access_time_of_file_to_today(playground: Playground) -> Result {
     let metadata = path.metadata().unwrap();
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+    let today = today();
+    let atime_day = local_day(metadata.accessed().unwrap());
 
     assert_eq!(today, atime_day);
 
@@ -195,9 +217,9 @@ fn change_modified_and_access_time_of_file_to_today(playground: Playground) -> R
     let metadata = path.metadata().unwrap();
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-    let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+    let today = today();
+    let mtime_day = local_day(metadata.modified().unwrap());
+    let atime_day = local_day(metadata.accessed().unwrap());
 
     assert_eq!(today, mtime_day);
     assert_eq!(today, atime_day);
@@ -218,9 +240,9 @@ fn change_modified_and_access_time_of_files_matching_glob_to_today(
     let metadata = path.metadata().unwrap();
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-    let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+    let today = today();
+    let mtime_day = local_day(metadata.modified().unwrap());
+    let atime_day = local_day(metadata.accessed().unwrap());
 
     assert_eq!(today, mtime_day);
     assert_eq!(today, atime_day);
@@ -249,9 +271,9 @@ fn change_file_times_if_exists_with_no_create(playground: Playground) -> Result 
     let metadata = path.metadata().unwrap();
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-    let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+    let today = today();
+    let mtime_day = local_day(metadata.modified().unwrap());
+    let atime_day = local_day(metadata.accessed().unwrap());
 
     assert_eq!(today, mtime_day);
     assert_eq!(today, atime_day);
@@ -368,35 +390,22 @@ fn change_file_times_to_reference_file_with_date(playground: Playground) -> Resu
     let reference = playground.path().join("reference_file");
     let target = playground.path().join("target_file");
 
-    let now = Utc::now();
+    let now = Timestamp::now();
+    let days = |n: i64| now.checked_sub(SignedDuration::from_hours(24 * n)).unwrap();
 
     let ref_atime = now;
-    let ref_mtime = now.checked_sub_days(Days::new(5)).unwrap();
+    let ref_mtime = days(5);
 
     // Change the times for reference
-    filetime::set_file_times(
-        reference,
-        FileTime::from_unix_time(ref_atime.timestamp(), ref_atime.timestamp_subsec_nanos()),
-        FileTime::from_unix_time(ref_mtime.timestamp(), ref_mtime.timestamp_subsec_nanos()),
-    )
-    .unwrap();
+    filetime::set_file_times(reference, file_time(ref_atime), file_time(ref_mtime)).unwrap();
 
     let () = test()
         .cwd(playground.path())
         .run(r#"touch -r reference_file -d "yesterday" target_file"#)?;
 
     let (got_atime, got_mtime) = file_times(target);
-    let got = (
-        DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap(),
-        DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap(),
-    );
-    assert_eq!(
-        (
-            now.checked_sub_days(Days::new(1)).unwrap(),
-            now.checked_sub_days(Days::new(6)).unwrap()
-        ),
-        got
-    );
+    let got = (timestamp(got_atime), timestamp(got_mtime));
+    assert_eq!((days(1), days(6)), got);
     Ok(())
 }
 
@@ -405,9 +414,7 @@ fn change_file_times_to_timestamp(playground: Playground) -> Result {
     playground.empty_file("target_file")?;
 
     let target = playground.path().join("target_file");
-    let timestamp = DateTime::from_timestamp(TIME_ONE.unix_seconds(), TIME_ONE.nanoseconds())
-        .unwrap()
-        .to_rfc3339();
+    let timestamp = timestamp(TIME_ONE).to_string();
 
     let () = test()
         .cwd(playground.path())
@@ -427,9 +434,8 @@ fn change_modified_time_of_dir_to_today(playground: Playground) -> Result {
     let () = test().cwd(playground.path()).run("touch -m test_dir")?;
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let mtime_day =
-        DateTime::<Local>::from(path.metadata().unwrap().modified().unwrap()).date_naive();
+    let today = today();
+    let mtime_day = local_day(path.metadata().unwrap().modified().unwrap());
 
     assert_eq!(today, mtime_day);
     Ok(())
@@ -445,9 +451,8 @@ fn change_access_time_of_dir_to_today(playground: Playground) -> Result {
     let () = test().cwd(playground.path()).run("touch -a test_dir")?;
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let atime_day =
-        DateTime::<Local>::from(path.metadata().unwrap().accessed().unwrap()).date_naive();
+    let today = today();
+    let atime_day = local_day(path.metadata().unwrap().accessed().unwrap());
 
     assert_eq!(today, atime_day);
     Ok(())
@@ -465,9 +470,9 @@ fn change_modified_and_access_time_of_dir_to_today(playground: Playground) -> Re
     let metadata = path.metadata().unwrap();
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-    let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+    let today = today();
+    let mtime_day = local_day(metadata.modified().unwrap());
+    let atime_day = local_day(metadata.accessed().unwrap());
 
     assert_eq!(today, mtime_day);
     assert_eq!(today, atime_day);
@@ -481,21 +486,23 @@ fn change_modified_and_access_time_of_dir_to_today(playground: Playground) -> Re
 fn change_file_times_to_date(playground: Playground) -> Result {
     playground.empty_file("target_file")?;
 
-    let expected = Utc::now().checked_sub_signed(TimeDelta::hours(2)).unwrap();
+    let expected = Timestamp::now()
+        .checked_sub(SignedDuration::from_hours(2))
+        .unwrap();
     let () = test()
         .cwd(playground.path())
         .run("touch -d '-2 hours' target_file")?;
 
     let (got_atime, got_mtime) = file_times(playground.path().join("target_file"));
-    let got_atime = DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap();
-    let got_mtime = DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap();
-    let threshold = TimeDelta::minutes(1);
+    let got_atime = timestamp(got_atime);
+    let got_mtime = timestamp(got_mtime);
+    let threshold = SignedDuration::from_mins(1);
     assert!(
-        got_atime.signed_duration_since(expected).lt(&threshold)
-            && got_mtime.signed_duration_since(expected).lt(&threshold),
+        got_atime.duration_since(expected) < threshold
+            && got_mtime.duration_since(expected) < threshold,
         "Expected: {expected}. Got: atime={got_atime}, mtime={got_mtime}"
     );
-    assert!(got_mtime.signed_duration_since(expected).lt(&threshold));
+    assert!(got_mtime.duration_since(expected) < threshold);
     Ok(())
 }
 
@@ -511,9 +518,9 @@ fn change_dir_three_dots_times(playground: Playground) -> Result {
     let metadata = path.metadata().unwrap();
 
     // Check only the date since the time may not match exactly
-    let today = Local::now().date_naive();
-    let mtime_day = DateTime::<Local>::from(metadata.modified().unwrap()).date_naive();
-    let atime_day = DateTime::<Local>::from(metadata.accessed().unwrap()).date_naive();
+    let today = today();
+    let mtime_day = local_day(metadata.modified().unwrap());
+    let atime_day = local_day(metadata.accessed().unwrap());
 
     assert_eq!(today, mtime_day);
     assert_eq!(today, atime_day);

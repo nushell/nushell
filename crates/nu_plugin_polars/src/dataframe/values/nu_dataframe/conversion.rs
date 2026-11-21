@@ -456,7 +456,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 .iter()
                 .map(|v| match &v {
                     Value::Date { val, .. } => {
-                        Ok(Some(val.timestamp_nanos_opt().unwrap_or_default()))
+                        Ok(Some(i64::try_from(val.unix_nanos()).unwrap_or_default()))
                     }
 
                     Value::String { val, .. } => {
@@ -502,7 +502,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                             // If there is a timezone specified, make sure
                             // the value is converted to it
                             tz.parse::<Tz>()
-                                .map(|tz| val.with_timezone(&tz))
+                                .map(|tz| DateTime::<FixedOffset>::from(*val).with_timezone(&tz))
                                 .map_err(|e| {
                                     ShellError::Generic(
                                         GenericError::new_internal("Error parsing timezone", "")
@@ -513,8 +513,8 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                                 .map(|nanos| nanos_to_timeunit(nanos, *tu))
                                 .transpose()
                         }
-                        (None, Value::Date { val, .. }) => val
-                            .timestamp_nanos_opt()
+                        (None, Value::Date { val, .. }) => i64::try_from(val.unix_nanos())
+                            .ok()
                             .map(|nanos| nanos_to_timeunit(nanos, *tu))
                             .transpose(),
 
@@ -768,7 +768,7 @@ fn input_type_list_to_series(
 
                 let it = v.as_list()?.iter().map(|v| {
                     if let Value::Date { val, .. } = &v {
-                        Some(val.timestamp_nanos_opt().unwrap_or_default())
+                        Some(i64::try_from(val.unix_nanos()).unwrap_or_default())
                     } else {
                         None
                     }
@@ -1208,7 +1208,7 @@ fn series_to_values(
                 Some(a) => {
                     let nanos = nanos_per_day(a);
                     let datetime = datetime_from_epoch_nanos(nanos, None, span)?;
-                    Ok(Value::date(datetime, span))
+                    Ok(nu_protocol::IntoValue::into_value(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
             })
@@ -1238,7 +1238,7 @@ fn series_to_values(
                     // elapsed time in nano/micro/milliseconds since 1970-01-01
                     let nanos = nanos_from_timeunit(a, *time_unit)?;
                     let datetime = datetime_from_epoch_nanos(nanos, tz.as_ref(), span)?;
-                    Ok(Value::date(datetime, span))
+                    Ok(nu_protocol::IntoValue::into_value(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
             })
@@ -1364,17 +1364,18 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::Float64(f) => Ok(Value::float(*f, span)),
         AnyValue::Date(d) => {
             let nanos = nanos_per_day(*d);
-            datetime_from_epoch_nanos(nanos, None, span).map(|datetime| Value::date(datetime, span))
+            datetime_from_epoch_nanos(nanos, None, span)
+                .map(|datetime| nu_protocol::IntoValue::into_value(datetime, span))
         }
         AnyValue::Datetime(a, time_unit, tz) => {
             let nanos = nanos_from_timeunit(*a, *time_unit)?;
             datetime_from_epoch_nanos(nanos, tz.cloned().as_ref(), span)
-                .map(|datetime| Value::date(datetime, span))
+                .map(|datetime| nu_protocol::IntoValue::into_value(datetime, span))
         }
         AnyValue::DatetimeOwned(a, time_unit, tz) => {
             let nanos = nanos_from_timeunit(*a, *time_unit)?;
             datetime_from_epoch_nanos(nanos, tz.as_ref().map(|tz| tz.as_ref()), span)
-                .map(|datetime| Value::date(datetime, span))
+                .map(|datetime| nu_protocol::IntoValue::into_value(datetime, span))
         }
         AnyValue::Duration(a, time_unit) => {
             let nanos = match time_unit {
@@ -1508,7 +1509,7 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
                     DateTime::<FixedOffset>::from_naive_utc_and_offset(datetime, offset)
                 })
         })
-        .map(|datetime| Value::date(datetime, span)) // current date and time
+        .map(|datetime| nu_protocol::IntoValue::into_value(datetime, span)) // current date and time
         .ok_or(ShellError::CantConvert {
             to_type: "datetime".to_string(),
             from_type: "polars time".to_string(),
@@ -1685,7 +1686,7 @@ mod tests {
             .fixed_offset();
         assert_eq!(
             any_value_to_value(&AnyValue::Date(test_days), span)?,
-            Value::date(comparison_date, span)
+            nu_protocol::IntoValue::into_value(comparison_date, span)
         );
 
         let test_millis = 946_684_800_000;
@@ -1694,7 +1695,7 @@ mod tests {
                 &AnyValue::Datetime(test_millis, TimeUnit::Milliseconds, None),
                 span
             )?,
-            Value::date(comparison_date, span)
+            nu_protocol::IntoValue::into_value(comparison_date, span)
         );
 
         let test_duration_millis = 99_999;
@@ -1741,7 +1742,7 @@ mod tests {
         );
         assert_eq!(
             any_value_to_value(&AnyValue::Time(test_time_nanos), span)?,
-            Value::date(test_time, span)
+            nu_protocol::IntoValue::into_value(test_time, span)
         );
 
         let test_list_series = Series::new("int series".into(), &[1, 2, 3]);

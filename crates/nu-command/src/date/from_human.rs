@@ -1,6 +1,12 @@
-use chrono::{Local, TimeZone};
-use human_date_parser::{ParseResult, from_human_time};
+use super::{
+    formats::{parse_gnu_date, parse_relative},
+    human::Phrase,
+};
+use fancy_regex::Regex;
+use jiff::{ZonedDateTime, civil};
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct DateFromHuman;
@@ -116,103 +122,9 @@ fn helper(value: Value, head: Span) -> Value {
         }
     };
 
-    let now = Local::now();
-
-    if let Ok(date) = from_human_time(&input_val, now.naive_local()) {
-        match date {
-            ParseResult::Date(date) => {
-                let time = now.time();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                return Value::date(dt_fixed, span);
-            }
-            ParseResult::DateTime(date) => {
-                let local_offset = *now.offset();
-                let dt_fixed = match local_offset.from_local_datetime(&date) {
-                    chrono::LocalResult::Single(dt) => dt,
-                    chrono::LocalResult::Ambiguous(_, _) => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Ambiguous datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                    chrono::LocalResult::None => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Invalid datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                };
-                return Value::date(dt_fixed, span);
-            }
-            ParseResult::Time(time) => {
-                let date = now.date_naive();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                return Value::date(dt_fixed, span);
-            }
-        }
-    }
-
-    match from_human_time(&input_val, now.naive_local()) {
-        Ok(date) => match date {
-            ParseResult::Date(date) => {
-                let time = now.time();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                Value::date(dt_fixed, span)
-            }
-            ParseResult::DateTime(date) => {
-                let local_offset = *now.offset();
-                let dt_fixed = match local_offset.from_local_datetime(&date) {
-                    chrono::LocalResult::Single(dt) => dt,
-                    chrono::LocalResult::Ambiguous(_, _) => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Ambiguous datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                    chrono::LocalResult::None => {
-                        return Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: "Invalid datetime".to_string(),
-                                span,
-                            },
-                            span,
-                        );
-                    }
-                };
-                Value::date(dt_fixed, span)
-            }
-            ParseResult::Time(time) => {
-                let date = now.date_naive();
-                let combined = date.and_time(time);
-                let local_offset = *now.offset();
-                let dt_fixed = TimeZone::from_local_datetime(&local_offset, &combined)
-                    .single()
-                    .unwrap_or_default();
-                Value::date(dt_fixed, span)
-            }
-        },
-        Err(_) => Value::error(
+    match read_start(&input_val, &ZonedDateTime::now()) {
+        Some(date) => Value::date(date, span),
+        None => Value::error(
             ShellError::IncorrectValue {
                 msg: "Cannot parse as humanized date".to_string(),
                 val_span: head,
@@ -221,6 +133,132 @@ fn helper(value: Value, head: Span) -> Value {
             span,
         ),
     }
+}
+
+/// The date `text` names. Text after one of human-date-parser's phrases is ignored, as
+/// human-date-parser ignored it: the longest start of the text that is a phrase names the date,
+/// unless all of the text, or a longer start that ends before a space, reads as GNU syntax,
+/// which keeps the time in `today at 6pm` and `today at 6pm blah`. Text that doesn't start with
+/// a phrase is read as GNU syntax only as [`read_gnu_alone`] allows.
+fn read_start(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
+    if let Some(phrase) = Phrase::parse(text) {
+        return phrase.date(now);
+    }
+    let starts = Phrase::starts(text);
+    let Some((at, phrase)) = starts
+        .iter()
+        .enumerate()
+        .find_map(|(i, start)| Some((i, Phrase::parse(start)?)))
+    else {
+        return read_gnu_alone(text, now);
+    };
+    let longer_starts = starts[..at]
+        .iter()
+        .copied()
+        .filter(|start| text[start.len()..].starts_with(' '));
+    std::iter::once(text)
+        .chain(longer_starts)
+        .find_map(|start| read_gnu(start, now))
+        .or_else(|| phrase.date(now))
+}
+
+/// The date `text` names in GNU `date` syntax.
+fn read_gnu(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
+    let date = parse_gnu_date(&to_gnu_date(text))?;
+    with_time_of_day(date, text, now)
+}
+
+/// The date `text`, which no phrase starts, names in GNU `date` syntax. As in `into datetime`,
+/// it needs a relative word, `@` or `TZ=` (`6pm tomorrow`, `@1744972472`), or here a time of day
+/// (`6pm`, `18:00 est`), so a lone zone letter, zone name or number (`x`, `est`, `12`) is no
+/// date.
+fn read_gnu_alone(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
+    if TIME_OF_DAY.is_match(text).unwrap_or(false) {
+        return read_gnu(text, now);
+    }
+    let date = parse_relative(&to_gnu_date(text))?;
+    with_time_of_day(date, text, now)
+}
+
+/// Matches the parts of a phrase that name a time of day or a span shorter than a day.
+static TIME_OF_DAY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)\d:\d|\d\s*[ap]\.?m\b|\b(noon|midnight|now|hours?|hrs?|minutes?|mins?|seconds?|secs?)\b",
+    )
+    .expect("time of day pattern should be valid")
+});
+
+/// A GNU `date` reading of a phrase that names no time of day (`Friday`, `2022-11-07`) is at the
+/// current time of day, as a human-date-parser phrase that names a day is. GNU reads such a
+/// phrase as midnight, so a reading at any other time (`today 1430`) keeps its time.
+fn with_time_of_day(date: DateTime, text: &str, now: &ZonedDateTime) -> Option<DateTime> {
+    if TIME_OF_DAY.is_match(text).unwrap_or(false) {
+        return Some(date);
+    }
+    let wall = date.to_civil()?;
+    if wall.time() != civil::Time::midnight() {
+        return Some(date);
+    }
+    let zoned = wall
+        .date()
+        .to_datetime(now.time())
+        .to_zoned_datetime(now.time_zone().clone())
+        .ok()?;
+    Some(DateTime::from_zoned(&zoned))
+}
+
+/// Rewrites the English the GNU `date` grammar doesn't read: `at` and `and` go, `in 2 hours`
+/// becomes `2 hours`, `a day ago` becomes `1 day ago`, and a final `ago` applies to every unit
+/// before it (GNU's applies to one), so `10 hours and 5 minutes ago` is `10 hours ago 5 minutes
+/// ago`.
+fn to_gnu_date(text: &str) -> String {
+    let lower = text.to_lowercase().replace(',', " ");
+    let mut words: Vec<&str> = lower.split_whitespace().collect();
+    let all_ago = words.last() == Some(&"ago");
+    if all_ago {
+        words.pop();
+    }
+    let is_count = |word: Option<&&str>| {
+        word.is_some_and(|word| matches!(*word, "a" | "an") || word.parse::<u64>().is_ok())
+    };
+    let mut out = Vec::with_capacity(words.len());
+    for (i, word) in words.iter().enumerate() {
+        match *word {
+            "at" | "and" => {}
+            "in" if is_count(words.get(i + 1)) => {}
+            "a" | "an"
+                if words
+                    .get(i + 1)
+                    .is_some_and(|next| next.ends_with(|c: char| c.is_alphabetic())) =>
+            {
+                out.push("1");
+            }
+            word => {
+                out.push(word);
+                if all_ago && is_unit(word) {
+                    out.push("ago");
+                }
+            }
+        }
+    }
+    out.join(" ")
+}
+
+/// Whether `word` is a GNU `date` relative unit, such as `hours` or `min`.
+fn is_unit(word: &str) -> bool {
+    matches!(
+        word.trim_end_matches('s'),
+        "year"
+            | "month"
+            | "fortnight"
+            | "week"
+            | "day"
+            | "hour"
+            | "minute"
+            | "min"
+            | "second"
+            | "sec"
+    )
 }
 
 fn list_human_readable_examples(span: Span) -> Value {
@@ -268,5 +306,58 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(DateFromHuman)
+    }
+
+    #[cfg(feature = "os")]
+    #[test]
+    fn text_after_a_phrase_keeps_its_time() {
+        let now = ZonedDateTime::now();
+        let hour = |text: &str| read_start(text, &now).map(|date| date.parts().hour);
+        // `6pm` is GNU syntax; human-date-parser's grammar reads `18:00`.
+        for text in ["today at 6pm", "today at 6pm blah", "today at 18:00 blah"] {
+            assert_eq!(hour(text), Some(18), "{text}");
+        }
+        // Text that doesn't start with a phrase is no date without a relative word, `@` or a
+        // time of day, even when GNU syntax reads it or a word of it: military zone letters,
+        // zone abbreviations, bare numbers.
+        for text in [
+            "blah",
+            "5 apples",
+            "a b c",
+            "utc time please",
+            "10 apples ago",
+            "x",
+            "a",
+            "z",
+            "est",
+            "12",
+            "2025",
+            "1430",
+        ] {
+            assert!(read_start(text, &now).is_none(), "{text}");
+        }
+    }
+
+    #[cfg(feature = "os")]
+    #[test]
+    fn gnu_syntax_without_a_phrase_needs_a_relative_word_or_a_time() {
+        let now = ZonedDateTime::now();
+        let hour = |text: &str| read_start(text, &now).map(|date| date.parts().hour);
+        for text in ["6pm tomorrow", "6pm", "18:00 tomorrow"] {
+            assert_eq!(hour(text), Some(18), "{text}");
+        }
+        assert_eq!(
+            read_start("@1744972472", &now).map(DateTime::unix_seconds),
+            Some(1_744_972_472)
+        );
+    }
+
+    #[cfg(feature = "os")]
+    #[test]
+    fn gnu_time_without_a_colon_is_kept() {
+        let now = ZonedDateTime::now();
+        let time = |text: &str| read_start(text, &now).map(|date| date.parts());
+        let parts = time("today 1430").expect("today 1430 is a date");
+        assert_eq!((parts.hour, parts.minute, parts.second), (14, 30, 0));
     }
 }

@@ -1,14 +1,10 @@
-use chrono::DateTime;
 use nu_protocol::casing::Casing;
 use nu_protocol::{ast::PathMember, record};
 
 use nu_test_support::prelude::*;
-use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 // Tests happy paths
-
-const TEST_DATETIME_FMT: &str = "%Y-%m-%dT%H:%M:%S%z";
 
 #[rstest]
 #[case::string(
@@ -128,7 +124,10 @@ fn into_datetime_cell_path(
             &[PathMember::test_string(col, false, Casing::Sensitive)],
             Box::new(|val| {
                 Value::test_date(
-                    DateTime::parse_from_str(val.as_str().unwrap(), TEST_DATETIME_FMT).unwrap(),
+                    val.as_str()
+                        .unwrap()
+                        .parse::<nu_protocol::DateTime>()
+                        .unwrap(),
                 )
             }),
         )?;
@@ -149,7 +148,6 @@ fn into_datetime_cell_path(
         let actual_date = actual.get_data_by_key(col).unwrap().as_date()?;
         let expected_date = expected.get_data_by_key(col).unwrap().as_date()?;
 
-        assert_eq!(expected_date.timezone(), actual_date.timezone());
         assert_eq!(expected_date.offset(), actual_date.offset());
     }
 
@@ -262,6 +260,22 @@ fn into_datetime_from_record_fails_with_invalid_date_time_values() -> Result {
                 msg,
                 "one of more values are incorrect and do not represent valid date"
             );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+// A year that doesn't fit is an error, not another year.
+#[test]
+fn into_datetime_from_record_fails_with_a_year_too_large() -> Result {
+    let err = test()
+        .run("{year: 4294969296, month: 1, day: 1} | into datetime")
+        .expect_shell_error()?;
+
+    match err {
+        ShellError::IncorrectValue { msg, .. } => {
+            assert_eq!(msg, "incorrect value for year");
             Ok(())
         }
         err => Err(err.into()),
@@ -543,13 +557,106 @@ fn named_timezone_interprets_formatted_time_only() -> Result {
     test().run(code).expect_value_eq("12:30 +05:30")
 }
 
+// A time the clock skips moves forward by the jump; a repeated one reads as the earlier, as
+// `into datetime` reads them without `--format`.
 #[rstest]
-#[case::nonexistent("2024-03-31 02:30")]
-#[case::ambiguous("2024-10-27 02:30")]
-fn named_timezone_rejects_invalid_wall_clock(#[case] input: &str) -> Result {
-    let code = "$in | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin";
-    let err = test().run_with_data(code, input).expect_shell_error()?;
-    assert_matches!(err, ShellError::DatetimeParseError { .. });
+#[case::skipped("2024-03-31 02:30", "2024-03-31T03:30:00+02:00")]
+#[case::repeated("2024-10-27 02:30", "2024-10-27T02:30:00+02:00")]
+fn named_timezone_reads_dst_change_times(#[case] input: &str, #[case] expected: &str) -> Result {
+    let code = "$in | into datetime --format '%Y-%m-%d %H:%M' --timezone Europe/Berlin | to nuon";
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+// An offset in the text places a date without a time, or a time without a date.
+#[rstest]
+#[case::date(
+    "'2021-03-04 +0530' | into datetime --format '%F %z' | to nuon",
+    "2021-03-04T00:00:00+05:30"
+)]
+#[case::time(
+    "'10:30 +0530' | into datetime --format '%H:%M %z' | format date '%H:%M %:z'",
+    "10:30 +05:30"
+)]
+#[case::utc(
+    "'2021-03-04 10:00 utc' | into datetime --format '%F %H:%M %Z' | to nuon",
+    "2021-03-04T10:00:00+00:00"
+)]
+#[case::zone_round_trip(
+    "2021-03-04T10:00:00+05:30 | format date '%F %T %Z' | into datetime --format '%F %T %Z' | to nuon",
+    "2021-03-04T10:00:00+05:30"
+)]
+fn format_keeps_the_offset(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+// `%J` and `%Q` are nushell's joined date and time; `%%J` is the text `%J`.
+#[rstest]
+#[case::joined(
+    "'20250418_160432' | into datetime --format '%J_%Q' -z UTC | to nuon",
+    "2025-04-18T16:04:32+00:00"
+)]
+#[case::literal(
+    "'%J 2021-03-04' | into datetime --format '%%J %F' -z UTC | to nuon",
+    "2021-03-04T00:00:00+00:00"
+)]
+fn format_reads_joined_date_and_time(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+// Minutes left out after an hour are 0; an hour without AM or PM is an error, not midnight.
+#[rstest]
+#[case::hour(
+    "'2021-03-04 10' | into datetime --format '%Y-%m-%d %H' -z UTC | to nuon",
+    "2021-03-04T10:00:00+00:00"
+)]
+#[case::twelve_hour(
+    "'2021-03-04 10 PM' | into datetime --format '%F %I %p' -z UTC | to nuon",
+    "2021-03-04T22:00:00+00:00"
+)]
+fn format_reads_missing_minutes_as_zero(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+// Second 60, which UTC gives a leap second, is the next minute's second 0 wherever it's read,
+// so seconds are always 0 to 59.
+#[rstest]
+#[case::literal("2016-12-31T23:59:60.5Z | to nuon")]
+#[case::format("'2016-12-31 23:59:60.5 +0000' | into datetime --format '%F %T%.f %z' | to nuon")]
+#[case::record(
+    "{year: 2016 month: 12 day: 31 hour: 23 minute: 59 second: 59 millisecond: 1500 timezone: '+00:00'}
+    | into datetime | to nuon"
+)]
+// A timestamp nushell wrote before, with chrono's leap second: second 59 and 1.5 billion
+// nanoseconds.
+#[case::msgpack("0x[c70cff59682f00000000005868467f] | from msgpack | to nuon")]
+#[case::toml("'a = 2016-12-31T23:59:60.5Z' | from toml | get a | to nuon")]
+fn second_60_reads_as_the_next_minute(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_value_eq("2017-01-01T00:00:00.500+00:00")
+}
+
+#[test]
+fn second_60_shows_as_the_next_minute() -> Result {
+    let code = "let date = 2016-12-31T23:59:60Z
+        [($date | format date '%F %T %S') ($date | into record | get second)] | to nuon";
+    test()
+        .run(code)
+        .expect_value_eq(r#"["2017-01-01 00:00:00 00", 0]"#)
+}
+
+#[test]
+fn format_rejects_an_hour_without_am_or_pm() -> Result {
+    let code = "'2025-04-03 4:04' | into datetime --format '%F %l:%M'";
+    test().run(code).expect_shell_error()?;
+    Ok(())
+}
+
+// `%Z` reads UTC and GMT; an abbreviation such as PST names no single offset.
+#[test]
+fn format_rejects_other_zone_names() -> Result {
+    let code = "'2021-03-04 10:00 PST' | into datetime --format '%F %H:%M %Z'";
+    test().run(code).expect_shell_error()?;
     Ok(())
 }
 
