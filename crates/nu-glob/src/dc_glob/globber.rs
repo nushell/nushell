@@ -1,6 +1,8 @@
 use super::DcPattern;
 use super::compiler::{Instruction, Program};
-use super::matcher::{MatchResult, is_hidden, path_matches};
+use super::matcher::{
+    Continuations, MatchResult, continuation_positions, is_hidden, path_matches, path_matches_from,
+};
 use crate::MatchOptions;
 use crate::ancestors::Ancestors;
 use std::cell::OnceCell;
@@ -112,7 +114,7 @@ pub fn glob_with_options(
         if literal_pattern {
             maybe_emit_start(&current_dir, &state);
         } else {
-            glob_to(&current_dir, 0, state, None, None)
+            glob_to(&current_dir, 0, state, None, None, None)
         }
     });
     rx.into_iter()
@@ -335,6 +337,7 @@ fn glob_to(
     state: WalkState<'_>,
     ancestors: Option<&Ancestors>,
     symlink_target: Option<&fs::Metadata>,
+    mut resume: Option<Arc<WalkResume>>,
 ) {
     let ancestors = if let Some(ancestors) = ancestors {
         let directory_metadata;
@@ -347,9 +350,31 @@ fn glob_to(
         };
         match metadata {
             Some(metadata) => {
-                let Some(branch) = ancestors.enter(target, metadata) else {
+                let walk_depth = depth - state.literal_prefix_depth;
+                let mut remaining = None;
+                let Some(branch) = ancestors.enter_with(target, metadata, walk_depth, |previous| {
+                    // A recursive basename fast path has the same continuation at every depth.
+                    if state.fast_path.is_some() && !state.program.case_insensitive {
+                        return true;
+                    }
+                    let Some(parent) = target.ancestors().nth(walk_depth - previous) else {
+                        return false;
+                    };
+                    let positions = remaining
+                        .get_or_insert_with(|| state.continuations(target, resume.as_deref()));
+                    positions.subtract(&state.continuations(parent, resume.as_deref()));
+                    positions.is_empty()
+                }) else {
                     return;
                 };
+                if let Some(remaining) = remaining {
+                    resume = Some(Arc::new(WalkResume {
+                        root: target.to_owned(),
+                        depth: state.match_path(target).components().count(),
+                        remaining,
+                        parent: resume,
+                    }));
+                }
                 Some(branch)
             }
             None => Some(ancestors.clone()),
@@ -363,6 +388,7 @@ fn glob_to(
             let branch = WalkBranch {
                 ancestors,
                 before_link: OnceCell::new(),
+                resume,
             };
             // Parent-path probing is only needed for patterns containing `..`.
             if depth > 0 && state.needs_parent_probe {
@@ -433,6 +459,7 @@ fn glob_to(
 struct WalkBranch {
     ancestors: Option<Ancestors>,
     before_link: OnceCell<Option<Ancestors>>,
+    resume: Option<Arc<WalkResume>>,
 }
 
 impl WalkBranch {
@@ -445,6 +472,29 @@ impl WalkBranch {
         self.before_link
             .get_or_init(|| Ancestors::from_parents(link, parent_count))
             .as_ref()
+    }
+}
+
+/// Matching below a repeated directory resumes from the continuations that
+/// its ancestors have yet to explore.
+struct WalkResume {
+    root: PathBuf,
+    // Number of consumed components in the match path at this checkpoint.
+    depth: usize,
+    remaining: Continuations,
+    parent: Option<Arc<Self>>,
+}
+
+impl WalkResume {
+    fn input<'p>(&self, path: &'p Path) -> Option<(&'p Path, &Self)> {
+        let mut resume = Some(self);
+        while let Some(current) = resume {
+            if let Ok(suffix) = path.strip_prefix(&current.root) {
+                return Some((suffix, current));
+            }
+            resume = current.parent.as_deref();
+        }
+        None
     }
 }
 
@@ -462,6 +512,20 @@ struct WalkState<'a> {
     literal_prefix_depth: usize,
     program: &'a Program,
     fast_path: Option<&'a RecursiveFastPath>,
+}
+
+impl WalkState<'_> {
+    fn match_path<'p>(&self, path: &'p Path) -> &'p Path {
+        path.strip_prefix(self.match_relative_to).unwrap_or(path)
+    }
+
+    fn continuations(&self, path: &Path, resume: Option<&WalkResume>) -> Continuations {
+        let (suffix, start) = resume.and_then(|resume| resume.input(path)).map_or_else(
+            || (self.match_path(path), None),
+            |(path, start)| (path, Some((&start.remaining, start.depth))),
+        );
+        continuation_positions(suffix, self.program, start)
+    }
 }
 
 #[inline]
@@ -562,14 +626,13 @@ fn handle_path_candidate<'a>(
     branch: &WalkBranch,
     scope: &rayon::Scope<'a>,
 ) -> Result<(), SendError<anyhow::Result<PathBuf>>> {
-    let match_relative_to = state.match_relative_to;
     let options = state.options;
     let exclude_patterns = state.exclude_patterns;
     let has_excludes = state.has_excludes;
     let program = state.program;
     let fast_path = state.fast_path.filter(|_| !program.case_insensitive);
 
-    let match_path_candidate = path.strip_prefix(match_relative_to).unwrap_or(path);
+    let match_path_candidate = state.match_path(path);
     let candidate_depth = if is_parent {
         depth.saturating_sub(1)
     } else {
@@ -608,6 +671,12 @@ fn handle_path_candidate<'a>(
             is_dir,
             program.skip_hidden_in_recursion,
         )
+    } else if let Some((suffix, start)) = branch
+        .resume
+        .as_deref()
+        .and_then(|resume| resume.input(path))
+    {
+        path_matches_from(suffix, is_dir, program, &start.remaining)
     } else {
         path_matches(match_path_candidate, is_dir, program)
     };
@@ -645,6 +714,7 @@ fn handle_path_candidate<'a>(
             };
         // A repeated directory blocks descent. The link can still match below.
         if let Some(ancestors) = ancestors {
+            let resume = branch.resume.clone();
             if candidate_depth <= PARALLEL_DEPTH_CUTOFF {
                 let path = path.to_owned();
                 let ancestors = ancestors.cloned();
@@ -655,6 +725,7 @@ fn handle_path_candidate<'a>(
                         state,
                         ancestors.as_ref(),
                         symlink_target.as_ref(),
+                        resume,
                     )
                 });
             } else {
@@ -664,6 +735,7 @@ fn handle_path_candidate<'a>(
                     state,
                     ancestors,
                     symlink_target.as_ref(),
+                    resume,
                 );
             }
         }

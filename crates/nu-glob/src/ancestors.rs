@@ -10,6 +10,7 @@ pub(crate) struct Ancestors(Option<Arc<Ancestor>>);
 #[derive(Debug)]
 struct Ancestor {
     id: DirectoryId,
+    depth: usize,
     parent: Ancestors,
 }
 
@@ -40,10 +41,9 @@ fn directory_id(path: &Path, _: &Metadata) -> Option<DirectoryId> {
 impl Ancestors {
     /// Resolve the directories between a followed link and the branch's walk root.
     pub(crate) fn from_parents(link: &Path, count: usize) -> Option<Self> {
-        link.ancestors()
-            .skip(1)
-            .take(count)
-            .try_fold(Self::default(), |ancestors, path| {
+        link.ancestors().skip(1).take(count).enumerate().try_fold(
+            Self::default(),
+            |ancestors, (offset, path)| {
                 // A bare relative child has an empty lexical parent, meaning the cwd.
                 let path = if path.as_os_str().is_empty() {
                     Path::new(".")
@@ -51,27 +51,43 @@ impl Ancestors {
                     path
                 };
                 match fs::metadata(path) {
-                    Ok(metadata) => ancestors.enter(path, &metadata),
+                    Ok(metadata) => {
+                        ancestors.enter_with(path, &metadata, count - offset - 1, |_| true)
+                    }
                     Err(_) => Some(ancestors),
                 }
-            })
+            },
+        )
     }
 
     /// Return the extended branch, or `None` if entering would revisit an ancestor.
     /// The walker still handles any I/O errors from opening the directory.
     pub(crate) fn enter(&self, path: &Path, metadata: &Metadata) -> Option<Self> {
+        self.enter_with(path, metadata, 0, |_| true)
+    }
+
+    /// For each repeated identity, let the caller decide whether to prune
+    /// using the depth at which the ancestor was visited.
+    pub(crate) fn enter_with(
+        &self,
+        path: &Path,
+        metadata: &Metadata,
+        depth: usize,
+        mut prune_revisit: impl FnMut(usize) -> bool,
+    ) -> Option<Self> {
         let Some(id) = directory_id(path, metadata) else {
             return Some(self.clone());
         };
         let mut ancestor = self.0.as_deref();
         while let Some(current) = ancestor {
-            if current.id == id {
+            if current.id == id && prune_revisit(current.depth) {
                 return None;
             }
             ancestor = current.parent.0.as_deref();
         }
         Some(Self(Some(Arc::new(Ancestor {
             id,
+            depth,
             parent: self.clone(),
         }))))
     }

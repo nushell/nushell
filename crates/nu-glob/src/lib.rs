@@ -142,10 +142,9 @@ struct PendingPath {
 
 #[derive(Clone, Debug)]
 enum WalkAncestors {
-    FixedDepth,
-    LiteralPrefix,
+    Untracked,
     BeforeLink {
-        // Number of directories already entered since wildcard discovery started.
+        // Number of directories already entered within this `**` component.
         parent_count: usize,
         sibling_seed: Option<Arc<OnceLock<Option<Ancestors>>>>,
     },
@@ -162,7 +161,7 @@ impl Paths<Uninterruptible> {
             todo: vec![Ok(PendingPath {
                 path: path.to_path_buf(),
                 idx: 0,
-                ancestors: WalkAncestors::FixedDepth,
+                ancestors: WalkAncestors::Untracked,
             })],
             scope: Some(relative_to.into()),
             interrupt: Uninterruptible,
@@ -500,11 +499,6 @@ impl<I: Interruptible> Iterator for Paths<I> {
 
             // if there's one prefilled result, take it, otherwise fill the todo buffer
             if self.todo.len() != 1 {
-                let ancestors = if self.dir_patterns.iter().any(|pattern| pattern.is_recursive) {
-                    WalkAncestors::LiteralPrefix
-                } else {
-                    WalkAncestors::FixedDepth
-                };
                 fill_todo(
                     &mut self.todo,
                     &self.dir_patterns,
@@ -512,7 +506,7 @@ impl<I: Interruptible> Iterator for Paths<I> {
                     &scope,
                     self.options,
                     &self.interrupt,
-                    &ancestors,
+                    &WalkAncestors::Untracked,
                 );
             }
         }
@@ -627,7 +621,8 @@ impl<I: Interruptible> Iterator for Paths<I> {
                         &path,
                         self.options,
                         &self.interrupt,
-                        &ancestors,
+                        // A finite match can reach a directory from a new `**`.
+                        &WalkAncestors::Untracked,
                     );
                 }
             }
@@ -1079,8 +1074,8 @@ fn fill_todo(
             };
             WalkAncestors::FollowingLink(branch)
         }
-        // The literal prefix may name a symlink. Its target is the root of this walk.
-        (WalkAncestors::LiteralPrefix, Some(_)) if literal.is_none() => WalkAncestors::BeforeLink {
+        // The components before this `**` select the root of its recursive walk.
+        (WalkAncestors::Untracked, Some(_)) if pattern.is_recursive => WalkAncestors::BeforeLink {
             parent_count: 1,
             sibling_seed: None,
         },
@@ -1091,7 +1086,7 @@ fn fill_todo(
         _ => ancestors.clone(),
     };
 
-    let add = |todo: &mut Vec<_>, next_path: PathBuf, component: Option<&str>| {
+    let add = |todo: &mut Vec<_>, next_path: PathBuf| {
         if idx + 1 == patterns.len() {
             // We know it's good, so don't make the iterator match this path
             // against the pattern again. In particular, it can't match
@@ -1099,19 +1094,9 @@ fn fill_todo(
             todo.push(Ok(PendingPath {
                 path: next_path,
                 idx: !0,
-                ancestors: WalkAncestors::FixedDepth,
+                ancestors: WalkAncestors::Untracked,
             }));
         } else {
-            let branch = match component {
-                // `.` opens the same directory again, so keep its parents and
-                // let the next call add the directory back to the branch.
-                Some(".") => ancestors,
-                // An explicit parent component starts discovery from that parent.
-                Some("..") if !matches!(ancestors, WalkAncestors::FixedDepth) => {
-                    &WalkAncestors::LiteralPrefix
-                }
-                _ => &branch,
-            };
             fill_todo(
                 todo,
                 patterns,
@@ -1119,7 +1104,7 @@ fn fill_todo(
                 &next_path,
                 options,
                 interrupt,
-                branch,
+                &WalkAncestors::Untracked,
             );
         }
     };
@@ -1142,7 +1127,7 @@ fn fill_todo(
                     && (fs::metadata(&next_path).is_ok()
                         || fs::symlink_metadata(&next_path).is_ok()))
             {
-                add(todo, next_path, special.then_some(s.as_str()));
+                add(todo, next_path);
             }
         }
         None if is_dir => {
@@ -1209,7 +1194,7 @@ fn fill_todo(
                     if !pattern.tokens.is_empty() && pattern.tokens[0] == Char('.') {
                         for &special in &[".", ".."] {
                             if pattern.matches_with(special, options) {
-                                add(todo, path.join(special), Some(special));
+                                add(todo, path.join(special));
                             }
                         }
                     }

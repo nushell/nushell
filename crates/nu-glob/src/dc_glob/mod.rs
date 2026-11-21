@@ -426,6 +426,245 @@ mod tests {
     }
 
     #[test]
+    fn wildcard_walk_can_follow_links_to_reach_recursive_components() {
+        let root = unique_test_dir("recursive_after_link");
+        write_file(&root.join("target/marker.txt"));
+        write_file(&root.join("target/deep/marker.txt"));
+        symlink_dir(root.join("target"), root.join("target/up")).expect("create self link");
+
+        assert_walk_paths(
+            &root,
+            "*/up/**/marker.txt",
+            &["target/up/deep/marker.txt", "target/up/marker.txt"],
+        );
+        assert_walk_paths(&root, "*/up/**", &["target/up/deep", "target/up/up"]);
+        assert_walk_paths(&root, "**/up/marker.txt", &["target/up/marker.txt"]);
+        assert_walk_paths(
+            &root,
+            "*/up/**/up/**/marker.txt",
+            &["target/up/up/deep/marker.txt", "target/up/up/marker.txt"],
+        );
+
+        let dc = glob_with(
+            &root,
+            "*/{up/**/marker.txt,deep/marker.txt}",
+            &GlobWalkOptions::nu_glob(crate::MatchOptions::default()),
+        )
+        .expect("dc-glob should compile");
+        assert_eq!(
+            collect_ok_paths(dc.take(4)).expect("dc-glob should walk"),
+            [
+                expected_path(&["target", "deep", "marker.txt"]),
+                expected_path(&["target", "up", "deep", "marker.txt"]),
+                expected_path(&["target", "up", "marker.txt"]),
+            ],
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn recursive_walk_prunes_overlapping_pattern_progress() {
+        let root = unique_test_dir("overlapping_recursion");
+        write_file(&root.join("target/marker.txt"));
+        for name in ["one", "two"] {
+            symlink_dir(root.join("target"), root.join("target").join(name))
+                .expect("create self link");
+        }
+
+        assert_walk_paths(
+            &root,
+            "**/one/two/**/marker.txt",
+            &["target/one/two/marker.txt"],
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn recursive_alternatives_prune_their_own_cycles() {
+        let root = unique_test_dir("alternate_recursion");
+        let target = root.join("target");
+        write_file(&target.join("marker.txt"));
+        write_file(&target.join("needle.txt"));
+        symlink_dir(&target, target.join("up")).expect("create self link");
+
+        let matches = glob_with(
+            &root,
+            "{./**/marker.txt,target/up/**/needle.txt}",
+            &GlobWalkOptions::nu_glob(crate::MatchOptions::default()),
+        )
+        .expect("dc-glob should compile");
+        assert_eq!(
+            collect_ok_paths(matches.take(3)).expect("dc-glob should walk"),
+            [
+                expected_path(&["target", "marker.txt"]),
+                expected_path(&["target", "up", "needle.txt"]),
+            ],
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn consecutive_recursive_components_keep_the_closing_link() {
+        let root = unique_test_dir("consecutive_recursive_components");
+        let mut directories = Vec::new();
+        let mut parent = root.clone();
+        for depth in 1..=12 {
+            parent = parent.join("a");
+            directories.push(expected_path(&vec!["a"; depth]));
+        }
+        fs::create_dir_all(&parent).expect("create nested directories");
+        symlink_dir(&parent, parent.join("up")).expect("create self link");
+        let mut closing_link = vec!["a"; 12];
+        closing_link.push("up");
+        directories.push(expected_path(&closing_link));
+
+        let pattern = ["**"; 12].join("/");
+        let matches = glob_with(
+            &root,
+            &pattern,
+            &GlobWalkOptions {
+                max_depth: Some(14),
+                follow_symlinks: true,
+                ..Default::default()
+            },
+        )
+        .expect("dc-glob should compile");
+        assert_eq!(
+            collect_ok_paths(matches.take(14)).expect("dc-glob should walk"),
+            directories,
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn overlapping_recursive_components_keep_the_closing_link() {
+        const DEPTH: usize = 96;
+
+        let root = unique_test_dir("overlapping_components");
+        let mut relative = PathBuf::new();
+        let mut expected = Vec::with_capacity(DEPTH + 1);
+        for _ in 0..DEPTH {
+            relative.push("a");
+            expected.push(relative.to_string_lossy().into_owned());
+        }
+        let leaf = root.join(&relative);
+        fs::create_dir_all(&leaf).expect("create nested directories");
+        let target = leaf.canonicalize().expect("resolve nested directory");
+        symlink_dir(target, leaf.join("up")).expect("create self link");
+        expected.push(relative.join("up").to_string_lossy().into_owned());
+
+        // Both alternatives can reach deep directories through many overlapping
+        // recursive splits. The link closes the walk and must still be emitted.
+        let pattern = format!("{{./**/,./{}/**/}}", ["**/a"; 48].join("/"));
+        let matches = glob_with(
+            &root,
+            &pattern,
+            &GlobWalkOptions {
+                max_depth: Some(DEPTH + 2),
+                follow_symlinks: true,
+                ..Default::default()
+            },
+        )
+        .expect("dc-glob should compile");
+        let paths = collect_ok_paths(matches.take(expected.len() + 1));
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(paths.expect("dc-glob should walk"), expected);
+    }
+
+    #[test]
+    fn finite_match_can_restart_recursion_at_a_repeated_directory() {
+        let root = unique_test_dir("recursive_restart");
+        let back = root.join("back");
+        write_file(&back.join("marker.txt"));
+        symlink_dir(&back, back.join("back")).expect("create self link");
+
+        assert_walk_paths(
+            &root,
+            "**/back/**/marker.txt",
+            &["back/back/marker.txt", "back/marker.txt"],
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn recursive_alternatives_can_share_a_suffix() {
+        let root = unique_test_dir("shared_recursive_suffix");
+        let tree = root.join("tree");
+        write_file(&tree.join("marker.txt"));
+        write_file(&tree.join("sub/marker.txt"));
+        symlink_dir(&tree, tree.join("up")).expect("create self link");
+        let options = GlobWalkOptions::nu_glob(crate::MatchOptions::default());
+        for (pattern, expected) in [
+            (
+                "{tree,tree/up}/**/marker.txt",
+                vec![
+                    expected_path(&["tree", "marker.txt"]),
+                    expected_path(&["tree", "sub", "marker.txt"]),
+                    expected_path(&["tree", "up", "marker.txt"]),
+                    expected_path(&["tree", "up", "sub", "marker.txt"]),
+                ],
+            ),
+            (
+                "{tree,tree/up}/sub/**/marker.txt",
+                vec![
+                    expected_path(&["tree", "sub", "marker.txt"]),
+                    expected_path(&["tree", "up", "sub", "marker.txt"]),
+                ],
+            ),
+        ] {
+            let paths = glob_with(&root, pattern, &options).expect("dc-glob should compile");
+            assert_eq!(
+                collect_ok_paths(paths.take(expected.len() + 1)).expect("dc-glob should walk"),
+                expected,
+                "{pattern}",
+            );
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn recursive_alternative_preserves_explicit_hidden_path_through_link() {
+        let root = unique_test_dir("hidden_after_link");
+        write_file(&root.join(".hidden/marker.txt"));
+        write_file(&root.join("visible/marker.txt"));
+        symlink_dir(&root, root.join("up")).expect("create self link");
+
+        let paths = glob_with(
+            &root,
+            "{./**/{,nomatch},up/}.hidden/marker.txt",
+            &GlobWalkOptions {
+                follow_symlinks: true,
+                skip_hidden_in_recursion: true,
+                ..Default::default()
+            },
+        )
+        .expect("dc-glob should compile");
+        assert_eq!(
+            collect_ok_paths(paths.take(2)).expect("dc-glob should walk"),
+            [expected_path(&["up", ".hidden", "marker.txt"])],
+        );
+        let paths = glob_with(
+            &root,
+            "{./**/{,nomatch},up/}*/marker.txt",
+            &GlobWalkOptions {
+                follow_symlinks: true,
+                skip_hidden_in_recursion: true,
+                ..Default::default()
+            },
+        )
+        .expect("dc-glob should compile");
+        assert_eq!(
+            collect_ok_paths(paths.take(4)).expect("dc-glob should walk"),
+            [
+                expected_path(&["up", ".hidden", "marker.txt"]),
+                expected_path(&["up", "visible", "marker.txt"]),
+                expected_path(&["visible", "marker.txt"]),
+            ],
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn wildcard_walk_prunes_ancestor_reentered_via_ordinary_directory() {
         let parent = unique_test_dir("ancestor_reentry");
         let root = parent.join("tree");
@@ -450,7 +689,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_walk_preserves_ancestors_through_dot_components() {
+    fn legacy_walk_prunes_cycles_after_dot_components() {
         let parent = unique_test_dir("dot_ancestor_cycle");
         let root = parent.join("tree");
         write_file(&root.join("marker.txt"));
@@ -473,10 +712,12 @@ mod tests {
             .expect("legacy glob should walk");
             let from_dot = expected_path(&["a", ".", "inner.txt"]);
             let via_parent = expected_path(&["a", "..", "marker.txt"]);
-            let through_link = expected_path(&["a", ".", "up", ""]);
+            let through_link = expected_path(&["a", ".", "up", "marker.txt"]);
+            let reentry = expected_path(&["a", ".", "up", "a", ""]);
             assert!(paths.contains(&from_dot), "{pattern}: {paths:?}");
+            assert!(paths.contains(&through_link), "{pattern}: {paths:?}");
             assert!(
-                !paths.iter().any(|path| path.starts_with(&through_link)),
+                !paths.iter().any(|path| path.starts_with(&reentry)),
                 "{pattern}: {paths:?}",
             );
             if pattern.contains(".*") {
