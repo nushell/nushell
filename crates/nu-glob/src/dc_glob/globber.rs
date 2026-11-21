@@ -1,7 +1,10 @@
 use super::DcPattern;
 use super::compiler::{Instruction, Program};
-use super::matcher::{MatchResult, is_hidden, path_matches};
+use super::matcher::{
+    Continuations, MatchResult, continuation_positions, is_hidden, path_matches, path_matches_from,
+};
 use crate::MatchOptions;
+use crate::ancestors::{LazyAncestors, WalkAncestors};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -80,17 +83,12 @@ pub fn glob_with_options(
         if interrupt.is_set() {
             return;
         }
-        // For relative programs we can start traversal at a static prefix, but we
-        // still emit and match paths relative to the original base directory.
-        let output_relative_to = if program.absolute_prefix.is_some() {
-            &current_dir
-        } else {
-            base_dir.as_path()
-        };
+        // A relative pattern still matches against the original base directory,
+        // even when traversal starts at a deeper literal prefix.
         let match_relative_to = if program.absolute_prefix.is_some() {
             Path::new("")
         } else {
-            output_relative_to
+            &base_dir
         };
         let needs_parent_probe = program
             .instructions
@@ -100,12 +98,12 @@ pub fn glob_with_options(
         let state = WalkState {
             tx: &tx,
             interrupt: &interrupt,
-            output_relative_to,
             match_relative_to,
             options,
             exclude_patterns: &exclude_patterns,
             has_excludes: !exclude_patterns.is_empty(),
             needs_parent_probe,
+            literal_prefix_depth: left_to_matcher,
             program: &program,
             fast_path: fast_path.as_ref(),
         };
@@ -115,7 +113,7 @@ pub fn glob_with_options(
         if literal_pattern {
             maybe_emit_start(&current_dir, &state);
         } else {
-            glob_to(&current_dir, 0, state)
+            glob_to(&current_dir, 0, state, WalkAncestors::Untracked, None, None)
         }
     });
     rx.into_iter()
@@ -332,9 +330,75 @@ fn component_is_purely_literal(instructions: &[Instruction], start: usize) -> bo
     true
 }
 
-fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
+fn glob_to(
+    target: &Path,
+    depth: usize,
+    state: WalkState<'_>,
+    ancestors: WalkAncestors,
+    symlink_target: Option<&fs::Metadata>,
+    mut resume: Option<Arc<WalkResume>>,
+) {
+    let ancestors = match ancestors {
+        // Only a recursive walk that follows links can cycle, so only it tracks directories.
+        WalkAncestors::Untracked
+            if state.program.is_recursive
+                && state.options.follow_symlinks
+                && depth >= state.literal_prefix_depth =>
+        {
+            WalkAncestors::BeforeLink(LazyAncestors::root())
+        }
+        WalkAncestors::Untracked => WalkAncestors::Untracked,
+        WalkAncestors::BeforeLink(parent) => WalkAncestors::BeforeLink(parent.child()),
+        WalkAncestors::FollowingLink(ancestors) => {
+            let directory_metadata;
+            let metadata = match symlink_target {
+                Some(metadata) => Some(metadata),
+                None => {
+                    directory_metadata = fs::metadata(target).ok();
+                    directory_metadata.as_ref()
+                }
+            };
+            match metadata {
+                Some(metadata) => {
+                    let walk_depth = depth - state.literal_prefix_depth;
+                    let mut remaining = None;
+                    let Some(branch) =
+                        ancestors.enter_with(target, metadata, walk_depth, |previous| {
+                            // A recursive basename fast path has the same continuation
+                            // at every depth.
+                            if state.fast_path.is_some() && !state.program.case_insensitive {
+                                return true;
+                            }
+                            let Some(parent) = target.ancestors().nth(walk_depth - previous) else {
+                                return false;
+                            };
+                            let positions = remaining.get_or_insert_with(|| {
+                                state.continuations(target, resume.as_deref())
+                            });
+                            positions.subtract(&state.continuations(parent, resume.as_deref()));
+                            positions.is_empty()
+                        })
+                    else {
+                        return;
+                    };
+                    if let Some(remaining) = remaining {
+                        resume = Some(Arc::new(WalkResume {
+                            root: target.to_owned(),
+                            depth: state.match_path(target).components().count(),
+                            remaining,
+                            parent: resume,
+                        }));
+                    }
+                    WalkAncestors::FollowingLink(branch)
+                }
+                None => WalkAncestors::FollowingLink(ancestors),
+            }
+        }
+    };
+
     match fs::read_dir(target) {
         Ok(results) => rayon::scope(|scope| -> Result<(), SendError<_>> {
+            let branch = WalkBranch { ancestors, resume };
             // Parent-path probing is only needed for patterns containing `..`.
             if depth > 0 && state.needs_parent_probe {
                 if state.interrupt.is_set() {
@@ -342,7 +406,7 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
                 }
                 let parent_path = target.join("..");
 
-                handle_path_candidate(&parent_path, None, depth, true, state, scope)?;
+                handle_path_candidate(&parent_path, None, depth, true, state, &branch, scope)?;
             }
 
             // All of the real results from the directory listing, streamed in the order the
@@ -369,6 +433,7 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
                             depth,
                             false,
                             state,
+                            &branch,
                             scope,
                         )?;
                     }
@@ -400,18 +465,62 @@ fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {
     }
 }
 
+struct WalkBranch {
+    ancestors: WalkAncestors,
+    resume: Option<Arc<WalkResume>>,
+}
+
+/// Matching below a repeated directory resumes from the continuations that
+/// its ancestors have yet to explore.
+struct WalkResume {
+    root: PathBuf,
+    // Number of consumed components in the match path at this checkpoint.
+    depth: usize,
+    remaining: Continuations,
+    parent: Option<Arc<Self>>,
+}
+
+impl WalkResume {
+    fn input<'p>(&self, path: &'p Path) -> Option<(&'p Path, &Self)> {
+        let mut resume = Some(self);
+        while let Some(current) = resume {
+            if let Ok(suffix) = path.strip_prefix(&current.root) {
+                return Some((suffix, current));
+            }
+            resume = current.parent.as_deref();
+        }
+        None
+    }
+}
+
 #[derive(Clone, Copy)]
 struct WalkState<'a> {
     tx: &'a SyncSender<anyhow::Result<PathBuf>>,
     interrupt: &'a InterruptFlag,
-    output_relative_to: &'a Path,
     match_relative_to: &'a Path,
     options: TraversalOptions,
     exclude_patterns: &'a [DcPattern],
     has_excludes: bool,
     needs_parent_probe: bool,
+    // Case-insensitive literal components are discovered by the matcher. Each
+    // matching directory at this depth is the root of its own wildcard walk.
+    literal_prefix_depth: usize,
     program: &'a Program,
     fast_path: Option<&'a RecursiveFastPath>,
+}
+
+impl WalkState<'_> {
+    fn match_path<'p>(&self, path: &'p Path) -> &'p Path {
+        path.strip_prefix(self.match_relative_to).unwrap_or(path)
+    }
+
+    fn continuations(&self, path: &Path, resume: Option<&WalkResume>) -> Continuations {
+        let (suffix, start) = resume.and_then(|resume| resume.input(path)).map_or_else(
+            || (self.match_path(path), None),
+            |(path, start)| (path, Some((&start.remaining, start.depth))),
+        );
+        continuation_positions(suffix, self.program, start)
+    }
 }
 
 #[inline]
@@ -509,24 +618,16 @@ fn handle_path_candidate<'a>(
     depth: usize,
     is_parent: bool,
     state: WalkState<'a>,
+    branch: &WalkBranch,
     scope: &rayon::Scope<'a>,
 ) -> Result<(), SendError<anyhow::Result<PathBuf>>> {
-    let output_relative_to = state.output_relative_to;
-    let match_relative_to = state.match_relative_to;
     let options = state.options;
     let exclude_patterns = state.exclude_patterns;
     let has_excludes = state.has_excludes;
     let program = state.program;
-    let fast_path = state.fast_path;
+    let fast_path = state.fast_path.filter(|_| !program.case_insensitive);
 
-    let output_path_candidate = if program.absolute_prefix.is_some() {
-        path.to_path_buf()
-    } else {
-        path.strip_prefix(output_relative_to)
-            .unwrap_or(path)
-            .to_path_buf()
-    };
-    let match_path_candidate = path.strip_prefix(match_relative_to).unwrap_or(path);
+    let match_path_candidate = state.match_path(path);
     let candidate_depth = if is_parent {
         depth.saturating_sub(1)
     } else {
@@ -546,15 +647,18 @@ fn handle_path_candidate<'a>(
     };
 
     let is_symlink = file_type.is_symlink();
+    let symlink_target = if is_symlink && options.follow_symlinks {
+        fs::metadata(path).ok()
+    } else {
+        None
+    };
     let is_dir = if is_symlink {
-        options.follow_symlinks && fs::metadata(path).map(|m| m.is_dir()).unwrap_or(false)
+        symlink_target.as_ref().is_some_and(fs::Metadata::is_dir)
     } else {
         file_type.is_dir()
     };
 
-    let result = if program.case_insensitive {
-        path_matches(match_path_candidate, is_dir, program)
-    } else if let Some(fast_path) = fast_path {
+    let result = if let Some(fast_path) = fast_path {
         recursive_fast_path_match(
             match_path_candidate,
             fast_path,
@@ -562,6 +666,12 @@ fn handle_path_candidate<'a>(
             is_dir,
             program.skip_hidden_in_recursion,
         )
+    } else if let Some((suffix, start)) = branch
+        .resume
+        .as_deref()
+        .and_then(|resume| resume.input(path))
+    {
+        path_matches_from(suffix, is_dir, program, &start.remaining)
     } else {
         path_matches(match_path_candidate, is_dir, program)
     };
@@ -589,11 +699,37 @@ fn handle_path_candidate<'a>(
         && result.valid_as_prefix
         && options.max_depth.is_none_or(|max| candidate_depth < max)
     {
-        let recurse_path = path.to_owned();
-        if candidate_depth <= PARALLEL_DEPTH_CUTOFF {
-            scope.spawn(move |_| glob_to(&recurse_path, candidate_depth, state));
-        } else {
-            glob_to(&recurse_path, candidate_depth, state);
+        let ancestors = match &branch.ancestors {
+            WalkAncestors::BeforeLink(parent) if is_symlink => {
+                parent.for_link(path).map(WalkAncestors::FollowingLink)
+            }
+            ancestors => Some(ancestors.clone()),
+        };
+        // A repeated directory blocks descent. The link can still match below.
+        if let Some(ancestors) = ancestors {
+            let resume = branch.resume.clone();
+            if candidate_depth <= PARALLEL_DEPTH_CUTOFF {
+                let path = path.to_owned();
+                scope.spawn(move |_| {
+                    glob_to(
+                        &path,
+                        candidate_depth,
+                        state,
+                        ancestors,
+                        symlink_target.as_ref(),
+                        resume,
+                    )
+                });
+            } else {
+                glob_to(
+                    path,
+                    candidate_depth,
+                    state,
+                    ancestors,
+                    symlink_target.as_ref(),
+                    resume,
+                );
+            }
         }
     }
 
@@ -604,7 +740,12 @@ fn handle_path_candidate<'a>(
         && options.max_depth.is_none_or(|max| candidate_depth <= max)
         && (!program.dirs_only || is_dir)
     {
-        state.tx.send(Ok(output_path_candidate.to_owned()))?;
+        let output_path = if program.absolute_prefix.is_some() {
+            path
+        } else {
+            match_path_candidate
+        };
+        state.tx.send(Ok(output_path.to_owned()))?;
     }
 
     Ok(())
