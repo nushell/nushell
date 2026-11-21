@@ -379,6 +379,8 @@ mod tests {
             $env.config.prompt.vi_visual = {|| "visual> " }
             $env.config.prompt.multiline = {|| "closure::: " }
             $env.config.prompt.transient.indicator = {|| "transient> " }
+            $env.config.prompt.vi_insert = {|| error make {msg: "boom"} }
+            $env.config.prompt.transient.vi_visual = {|| "tvisual> " }
             "#,
         )?;
         tester.engine_state.merge_env(&mut tester.stack)?;
@@ -395,11 +397,23 @@ mod tests {
             "visual> "
         );
         assert_eq!(prompt.render_prompt_multiline_indicator(), "closure::: ");
+        // A closure that fails reports its error and leaves the built-in
+        // indicator in place, rather than blanking the slot.
+        assert_eq!(
+            prompt.render_prompt_indicator(PromptEditMode::Vi(PromptViMode::Insert)),
+            "> "
+        );
 
         let transient = make_transient_prompt(&config, &tester.engine_state, &tester.stack);
         assert_eq!(
             transient.render_prompt_indicator(PromptEditMode::Emacs),
             "transient> "
+        );
+        // `vi_visual` has no environment variable, so it renders on its own
+        // path instead of through `resolve_prompt_source`.
+        assert_eq!(
+            transient.render_prompt_indicator(PromptEditMode::Vi(PromptViMode::Visual)),
+            "tvisual> "
         );
         Ok(())
     }
