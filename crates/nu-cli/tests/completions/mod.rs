@@ -4119,6 +4119,26 @@ fn alias_of_basic_command() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
+/// An alias that ends with a flag that takes a value completes that flag's values, as typing
+/// its expansion would.
+#[rstest]
+#[case::nothing_typed("a ", vec!["cat", "dog", "eel"])]
+#[case::partial("a d", vec!["dog"])]
+fn alias_ending_with_flag_completes_flag_value(#[case] input: &str, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let code = "
+        def animals [] { [cat dog eel] }
+        def fruits [] { [apple banana] }
+        def cmd [--opt: string@animals, ...rest: string@fruits] {}
+        alias a = cmd --opt
+    ";
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn alias_of_another_alias() {
     let (_, _, mut engine, mut stack) = new_engine();
