@@ -26,6 +26,9 @@ fn assert_ls_prunes_directory_cycle(playground: Playground) -> Result {
         .expect_value_eq(["a/first.txt", "z/last.txt"])?;
     tester
         .run("ls */up/*/*.txt | get name | each { path split | str join '/' } | sort")
+        .expect_value_eq(["a/up/a/first.txt", "a/up/z/last.txt"])?;
+    tester
+        .run("ls */up/**/*.txt | get name | each { path split | str join '/' } | sort")
         .expect_value_eq(["a/up/a/first.txt", "a/up/z/last.txt"])
 }
 
