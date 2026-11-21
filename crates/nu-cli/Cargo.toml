@@ -50,6 +50,7 @@ chrono = { default-features = false, features = ["std"], workspace = true }
 crossterm = { workspace = true }
 fancy-regex = { workspace = true }
 is_executable = { workspace = true }
+jiff = { workspace = true }
 log = { workspace = true }
 lru = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }

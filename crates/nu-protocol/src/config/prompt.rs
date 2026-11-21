@@ -8,9 +8,11 @@ use crate as nu_protocol;
 #[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]
 pub struct PromptConfig {
     /// The main prompt: a string used verbatim, or a closure evaluated once
-    /// per cycle. `None` falls back to the line editor's built-in prompt.
+    /// per cycle. `None` falls back to nushell's built-in prompt, the working
+    /// directory.
     pub left: Option<Value>,
-    /// The right-aligned prompt, same shape as [`PromptConfig::left`].
+    /// The right-aligned prompt, same shape as [`PromptConfig::left`]. Its
+    /// built-in fallback is a clock.
     pub right: Option<Value>,
     /// Shown in emacs mode and whenever no edit mode applies.
     pub indicator: String,
