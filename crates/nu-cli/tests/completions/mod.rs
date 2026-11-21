@@ -861,6 +861,30 @@ fn list_completions_extern() {
 }
 
 #[test]
+fn external_flag_completions_ignore_standalone_comments() {
+    let (_, _, mut engine, mut stack) = new_dotnu_engine();
+    let code = r#"
+        export extern "comp-me" [
+          --opt # opt docs
+          # --comment-out # commented-out docs
+          --arg # arg docs
+        ]
+    "#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "comp-me --";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    match_suggestions(&vec!["--arg", "--opt"], &suggestions);
+
+    let opt = suggestions
+        .iter()
+        .find(|suggestion| suggestion.value == "--opt")
+        .unwrap();
+    assert_eq!(opt.description, Some("opt docs".into()));
+}
+
+#[test]
 fn list_completions_from_constant_and_allows_record() {
     let (_, _, engine, stack) = new_engine();
 
