@@ -177,6 +177,15 @@ mod tests {
         );
     }
 
+    /// Times without the colon or the minutes, which ISO 8601 allows, stay strings.
+    #[test]
+    fn compact_times_are_strings() {
+        for text in ["2024-01-15T10", "2024-01-15T1030", "2024-01-15T103000"] {
+            let value = from_nuon(&format!("[{text}]"), None).expect("nuon parses");
+            assert_eq!(value, Value::test_list(vec![Value::test_string(text)]));
+        }
+    }
+
     #[test]
     #[ignore]
     fn to_nuon_errs_on_closure() {

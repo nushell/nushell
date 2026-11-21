@@ -224,7 +224,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%N",
-            description: "Nanoseconds, always 9 digits. Same as %9f. Formatting only.",
+            description: "Nanoseconds, always 9 digits. Same as %9f.",
         },
         FormatSpecification {
             spec: "%R",
@@ -244,7 +244,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%Z",
-            description: "The offset, such as +05:30, since dates keep an offset rather than a zone name. When parsing, reads UTC or GMT as offset zero, or an offset such as +05:30; other names are an error.",
+            description: "The offset, such as +05:30, since dates keep an offset rather than a zone name. When parsing, reads UTC or GMT in any case as offset zero, or an offset such as +05:30. Other names are an error, unless %z reads the offset: then %Z skips the name, so %z %Z reads +0900 JST.",
         },
         FormatSpecification {
             spec: "%z",
@@ -256,11 +256,11 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%::z",
-            description: "Same as %:z but with seconds, such as +05:30:00. Formatting only.",
+            description: "Same as %:z but with seconds, such as +05:30:00. When parsing, reads an offset as %z does.",
         },
         FormatSpecification {
             spec: "%:::z",
-            description: "The offset in whole hours, such as +05. Formatting only; %#z reads it.",
+            description: "The offset in whole hours, such as +05. When parsing, reads an offset as %z does.",
         },
         FormatSpecification {
             spec: "%c",

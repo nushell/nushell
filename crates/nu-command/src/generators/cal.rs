@@ -1,4 +1,3 @@
-use jiff::tz::Offset;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::{self, Expr, Expression};
@@ -203,23 +202,19 @@ impl MonthHelper {
             "november",
             "december",
         ];
-        let month = i8::try_from(selected_month).map_err(|_| ())?;
-        let first_of = |year: i32, month: i8| {
-            nu_protocol::DateTime::from_parts(year, month, 1, 0, 0, 0, 0, Offset::UTC).ok_or(())
-        };
-        let first = first_of(selected_year, month)?;
-        let next = if month == 12 {
-            first_of(selected_year + 1, 1)?
-        } else {
-            first_of(selected_year, month + 1)?
-        };
-        let number_of_days_in_month = (next.nanos_since(first) / (86_400 * 1_000_000_000)) as u32;
+        // A calendar date, not an instant, so years -9999 and 9999 have every month.
+        let first = jiff::civil::Date::new(
+            i16::try_from(selected_year).map_err(|_| ())?,
+            i8::try_from(selected_month).map_err(|_| ())?,
+            1,
+        )
+        .map_err(|_| ())?;
 
         Ok(MonthHelper {
             selected_year,
             selected_month,
-            day_number_of_week_month_starts_on: first.parts().weekday as u32,
-            number_of_days_in_month,
+            day_number_of_week_month_starts_on: first.weekday().to_sunday_zero_offset() as u32,
+            number_of_days_in_month: first.days_in_month() as u32,
             quarter_number: ((selected_month - 1) / 3) + 1,
             month_name: MONTH_NAMES
                 .get(selected_month as usize - 1)

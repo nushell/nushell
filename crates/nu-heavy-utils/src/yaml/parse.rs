@@ -997,7 +997,7 @@ mod v1_x {
             .as_str()
             .parse()
             .expect("valid minute, only 1 or two digits");
-        let second = second
+        let second: i8 = second
             .as_str()
             .parse()
             .expect("valid second, only 1 or 2 digits");
@@ -1010,6 +1010,8 @@ mod v1_x {
                 Duration::from_secs_f64(fraction).subsec_nanos() as i32
             }
         };
+        // A leap second, second 60, reads as second 59, as nushell's other date readers do.
+        let second = if second == 60 { 59 } else { second };
         let time = civil::Time::new(hour, minute, second, nano)
             .map_err(|_| issue(TimestampIssue::InvalidTime))?;
 
@@ -1810,6 +1812,19 @@ mod tests {
             "2002-12-14T00:00:00Z".parse::<DateTime>().unwrap()
         );
 
+        Ok(())
+    }
+
+    /// A leap second reads as second 59, as nushell's other date readers do; second 61 is no
+    /// time.
+    #[test]
+    fn timestamp_second_60() -> Result {
+        let record: Record = parse_yaml_v1_1("leap: 2016-12-31T23:59:60.5Z")?;
+        assert_eq!(
+            record["leap"].as_date()?,
+            "2016-12-31T23:59:59.5Z".parse::<DateTime>().unwrap()
+        );
+        assert!(parse_yaml_v1_1::<Record>("late: 2016-12-31T23:59:61Z").is_err());
         Ok(())
     }
 }

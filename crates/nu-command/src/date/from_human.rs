@@ -147,7 +147,11 @@ fn read(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
     };
     #[cfg(not(feature = "os"))]
     let date = date.or_else(|| super::formats::parse_date_text(text));
-    with_time_of_day(date?, text, now)
+    // A date alone takes the time of day in its `TZ="..."` zone.
+    match split_zone(text).0 {
+        Some(zone) => with_time_of_day(date?, text, &now.in_tz(zone).ok()?),
+        None => with_time_of_day(date?, text, now),
+    }
 }
 
 /// Matches a whole date with its year (`2022-11-07`, `2022/11/07`, `11/07/2022`) or a month
@@ -191,8 +195,32 @@ fn with_time_of_day(date: DateTime, text: &str, now: &ZonedDateTime) -> Option<D
 /// becomes `2 hours`, `a day ago` becomes `1 day ago`, `overmorrow` is `2 days`, `upcoming` is
 /// `next`, `3d`, `2h`, `5m` and `30s` spell out their units, and a final `ago` applies to every
 /// unit before it (GNU's applies to one), so `10 hours and 5 minutes ago` is `10 hours ago 5
-/// minutes ago`.
+/// minutes ago`. A leading `TZ="..."` stays as written, since GNU reads only an upper-case `TZ`
+/// and zone names have case (`Europe/Paris`).
 fn to_gnu_date(text: &str) -> String {
+    let (zone, text) = split_zone(text);
+    let rest = to_gnu_words(text);
+    match zone {
+        Some(zone) => format!("TZ=\"{zone}\" {rest}"),
+        None => rest,
+    }
+}
+
+/// The zone name of a leading `TZ="..."` (in any case) and the text after it.
+fn split_zone(text: &str) -> (Option<&str>, &str) {
+    let text = text.trim_start();
+    let quote = text
+        .get(..4)
+        .filter(|start| start.eq_ignore_ascii_case("tz=\""))
+        .and_then(|_| text[4..].find('"'));
+    match quote {
+        Some(quote) => (Some(&text[4..4 + quote]), &text[5 + quote..]),
+        None => (None, text),
+    }
+}
+
+/// [`to_gnu_date`]'s rewrites of the words.
+fn to_gnu_words(text: &str) -> String {
     let lower = text.to_lowercase().replace(',', " ");
     let mut words: Vec<&str> = lower.split_whitespace().flat_map(expand_word).collect();
     let all_ago = words.last() == Some(&"ago");
@@ -386,5 +414,25 @@ mod test {
         let time = |text: &str| read(text, &now).map(|date| date.parts());
         let parts = time("today 1430").expect("today 1430 is a date");
         assert_eq!((parts.hour, parts.minute, parts.second), (14, 30, 0));
+    }
+
+    /// A leading `TZ="..."` keeps its case, in any case of `TZ`, and a date alone takes the
+    /// current time of day in that zone.
+    #[cfg(feature = "os")]
+    #[test]
+    fn zone_prefix() {
+        let now = ZonedDateTime::now();
+        let read = |text: &str| read(text, &now).map(DateTime::to_rfc3339);
+        assert_eq!(
+            read(r#"TZ="Europe/Paris" 2025-04-18 04:04"#).as_deref(),
+            Some("2025-04-18T04:04:00+02:00")
+        );
+        assert_eq!(
+            read(r#"tz="Asia/Tokyo" 2025-04-18 04:04"#).as_deref(),
+            Some("2025-04-18T04:04:00+09:00")
+        );
+        let date = super::read(r#"TZ="Asia/Tokyo" 2025-04-18"#, &now).expect("a date");
+        assert_eq!(date.offset().seconds(), 9 * 3600);
+        assert_eq!(date.to_civil().date(), jiff::civil::date(2025, 4, 18));
     }
 }

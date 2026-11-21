@@ -218,6 +218,33 @@ fn into_datetime_from_record_round_trip() -> Result {
         .expect_value_eq(true)
 }
 
+// An offset with seconds, as old local mean times have, reads back from the record.
+#[test]
+fn into_datetime_from_record_keeps_offset_seconds() -> Result {
+    test()
+        .run(
+            "let d = (1900-01-01T00:00:00Z | date to-timezone '+00:19:32')
+            ($d | into record | into datetime) - $d | into int",
+        )
+        .expect_value_eq(0)
+}
+
+// Text with a zone in brackets reads in that zone, and an offset that contradicts it is an
+// error; an offset past a day is out of range.
+#[test]
+fn into_datetime_reads_bracketed_zones() -> Result {
+    test()
+        .run("'2025-04-18T04:04:32Z[America/Chicago]' | into datetime | to nuon")
+        .expect_value_eq("2025-04-17T23:04:32-05:00")?;
+    test()
+        .run("'2025-04-18T04:04:32-07:00[America/Chicago]' | into datetime")
+        .expect_shell_error()?;
+    test()
+        .run("'2024-01-15T10:00:00+25:00' | into datetime")
+        .expect_shell_error()?;
+    Ok(())
+}
+
 #[test]
 fn into_datetime_table_column() -> Result {
     let dt: String =
@@ -585,6 +612,18 @@ fn named_timezone_reads_dst_change_times(#[case] input: &str, #[case] expected: 
     "2021-03-04T10:00:00+05:30 | format date '%F %T %Z' | into datetime --format '%F %T %Z' | to nuon",
     "2021-03-04T10:00:00+05:30"
 )]
+#[case::zone_name_after_offset(
+    "'2021-03-04 10:00:00 +0900 JST' | into datetime --format '%F %T %z %Z' | to nuon",
+    "2021-03-04T10:00:00+09:00"
+)]
+#[case::utc_any_case(
+    "'2021-03-04 10:00 Utc' | into datetime --format '%F %H:%M %Z' | to nuon",
+    "2021-03-04T10:00:00+00:00"
+)]
+#[case::negative_timestamp_under_a_second(
+    "'-0.5' | into datetime --format '%s%.f' | to nuon",
+    "1969-12-31T23:59:59.500+00:00"
+)]
 fn format_keeps_the_offset(#[case] code: &str, #[case] expected: &str) -> Result {
     test().run(code).expect_value_eq(expected)
 }
@@ -653,10 +692,13 @@ fn format_reads_an_hour_without_am_or_pm_as_am() -> Result {
         .expect_value_eq("2025-04-03T04:04:00+00:00")
 }
 
-// `%Z` reads UTC and GMT; an abbreviation such as PST names no single offset.
-#[test]
-fn format_rejects_other_zone_names() -> Result {
-    let code = "'2021-03-04 10:00 PST' | into datetime --format '%F %H:%M %Z'";
+// `%Z` reads UTC and GMT; an abbreviation such as PST names no single offset. UTC beside
+// another offset contradicts it, and offsets stop at a day.
+#[rstest]
+#[case::abbreviation("'2021-03-04 10:00 PST' | into datetime --format '%F %H:%M %Z'")]
+#[case::utc_beside_offset("'2021-03-04 10:00:00 -0800 GMT' | into datetime --format '%F %T %z %Z'")]
+#[case::offset_past_a_day("'2024-01-15 10:00 +2500' | into datetime --format '%F %H:%M %z'")]
+fn format_rejects_zones_it_cannot_place(#[case] code: &str) -> Result {
     test().run(code).expect_shell_error()?;
     Ok(())
 }

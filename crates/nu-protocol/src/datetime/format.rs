@@ -232,7 +232,8 @@ fn to_jiff_format(
         let bare = plain && directive.flag.is_none() && directive.width.is_none();
         let year = parts.year;
         let iso_year = i32::from(civil.iso_week_date().year());
-        let padded = |value: i32, default_width: usize| pad(value, &directive, default_width);
+        let padded =
+            |value: i32, default_width: usize| pad(value.into(), &directive, default_width);
         match directive.spec {
             Some('Y') if bare => literal(&four_digit_year(year), &mut out),
             Some('G') if bare => literal(&four_digit_year(iso_year), &mut out),
@@ -253,8 +254,16 @@ fn to_jiff_format(
                 out.push_str("-%m-%d");
             }
             // chrono's Unix seconds round down, so a time before 1970 with a fraction gives the
-            // earlier second.
-            Some('s') if bare => literal(&date.seconds.to_string(), &mut out),
+            // earlier second; jiff's round toward zero. jiff pads `%s` with spaces unless the
+            // flag asks for zeros or no padding.
+            Some('s') if plain => {
+                let flag = directive.flag.filter(|flag| matches!(flag, '-' | '0'));
+                let directive = Directive {
+                    flag: flag.or(Some('_')),
+                    ..directive
+                };
+                literal(&pad(date.seconds, &directive, 1), &mut out);
+            }
             Some('%') if plain => out.push_str("%%"),
             Some('a') if plain => literal(
                 &upper(locale_match!(locale => LC_TIME::ABDAY)[weekday]),
@@ -282,7 +291,10 @@ fn to_jiff_format(
                 out.push('-');
                 literal(&four_digit_year(year), &mut out);
             }
-            Some('J') if plain => out.push_str("%Y%m%d"),
+            Some('J') if plain => {
+                literal(&four_digit_year(year), &mut out);
+                out.push_str("%m%d");
+            }
             Some('Q') if plain => out.push_str("%H%M%S"),
             Some('Z') if plain => {
                 let mut text = String::new();
@@ -347,7 +359,7 @@ fn four_digit_year(year: i32) -> String {
 
 /// `value` padded the way the directive's flag and width ask: `-` for none, `_` for spaces, and
 /// zeros otherwise, to the width or `default_width`.
-fn pad(value: i32, directive: &Directive<'_>, default_width: usize) -> String {
+fn pad(value: i64, directive: &Directive<'_>, default_width: usize) -> String {
     let width = directive
         .width
         .map_or(default_width, |width| width.min(20) as usize);

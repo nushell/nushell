@@ -52,6 +52,8 @@ pub enum DateParseError {
     OutOfRange,
     /// The fields are not enough for a date and time, such as a year alone.
     NotEnough,
+    /// The fields contradict each other, such as the offset `-0800` with the zone `UTC`.
+    Impossible,
     /// jiff's reason the text isn't a date, such as `parsed date is not valid`.
     Jiff(String),
 }
@@ -63,6 +65,7 @@ impl fmt::Display for DateParseError {
             Self::Invalid => "input contains invalid characters",
             Self::OutOfRange => "input is out of range",
             Self::NotEnough => "input is not enough for unique date and time",
+            Self::Impossible => "no possible date and time matching input",
             Self::Jiff(reason) => reason,
         })
     }
@@ -80,7 +83,9 @@ type ParseResult<T> = Result<T, DateParseError>;
 
 /// Reads RFC 3339 and the ISO 8601 forms jiff reads, with an offset or `Z`, ignoring spaces
 /// around it. A date alone is midnight. A signed year may have 4 or 5 digits, as chrono wrote
-/// them (`-0044-03-15T12:00:00+00:00`); jiff reads 6.
+/// them (`-0044-03-15T12:00:00+00:00`); jiff reads 6. A time zone in brackets
+/// (`...Z[America/Chicago]`) is an error, since this reader would drop it; `into datetime`
+/// reads such text with the zone.
 pub(super) fn parse_rfc3339(text: &str) -> ParseResult<DateTime> {
     let text = text.trim();
     let digits = text.get(1..).map_or(0, |rest| {
@@ -100,7 +105,11 @@ pub(super) fn parse_rfc3339(text: &str) -> ParseResult<DateTime> {
         _ => text,
     };
     let pieces = Pieces::parse(text)?;
+    if pieces.time_zone_annotation().is_some() {
+        return Err(DateParseError::Invalid);
+    }
     let offset = pieces.to_numeric_offset().ok_or(DateParseError::TooShort)?;
+    let offset = at_most_a_day(offset)?;
     let time = pieces.time().unwrap_or(civil::Time::midnight());
     DateTime::from_civil(pieces.date().to_datetime(time), offset).ok_or(DateParseError::OutOfRange)
 }
@@ -162,11 +171,37 @@ fn within_a_day(seconds: i32) -> ParseResult<Offset> {
     Offset::from_seconds(seconds).map_err(|_| DateParseError::OutOfRange)
 }
 
+/// `offset` if it is at most a day from UTC. jiff reads offsets up to ±25:59:59, which the other
+/// readers (records, YAML, TOML, `date to-timezone`) refuse. A whole day stays, since `to nuon`
+/// writes `+23:59:59` rounded to the minute as `+24:00`.
+pub(super) fn at_most_a_day(offset: Offset) -> ParseResult<Offset> {
+    if offset.seconds().unsigned_abs() > 86_400 {
+        return Err(DateParseError::OutOfRange);
+    }
+    Ok(offset)
+}
+
+/// Reads the `:SS` that may follow an offset's minutes, as `into record` and
+/// `format date '%::z'` write it, with the sign of the offset `text` starts with. Returns the
+/// text left over and the seconds.
+fn offset_seconds<'a>(text: &str, rest: &'a str) -> (&'a str, i32) {
+    match rest.strip_prefix(':').map(str::as_bytes) {
+        Some([a @ b'0'..=b'5', b @ b'0'..=b'9', ..]) => {
+            let seconds = i32::from((a - b'0') * 10 + (b - b'0'));
+            let negative = text.starts_with(['-', '\u{2212}']);
+            (&rest[3..], if negative { -seconds } else { seconds })
+        }
+        _ => (rest, 0),
+    }
+}
+
 /// Reads a UTC offset as chrono's `FixedOffset::from_str` did: `±HH:MM`, `±HHMM` or `±HH MM`,
-/// shorter than a day. Text after the offset is ignored.
+/// shorter than a day, and also the `:SS` seconds `into record` writes (`+00:19:32`). Text
+/// after the offset is ignored.
 pub fn parse_utc_offset(text: &str) -> ParseResult<Offset> {
-    let (_, seconds) = read_offset(text, false, false, colon_or_space)?;
-    within_a_day(seconds)
+    let (rest, hours_and_minutes) = read_offset(text, false, false, colon_or_space)?;
+    let (_, seconds) = offset_seconds(text, rest);
+    within_a_day(hours_and_minutes + seconds)
 }
 
 /// Reads a time zone offset as `date to-timezone` does: `+HH`, `+HHMM`, `+HH:MM` or `+HH:MM:SS`
@@ -187,20 +222,9 @@ pub fn parse_zone_offset(text: &str) -> ParseResult<Offset> {
         }
     }
     let (rest, hours_and_minutes) = read_offset(text, false, true, one_colon)?;
-    // Seconds, as `into record` and `format date '%::z'` write them.
-    let (rest, seconds) = match rest.strip_prefix(':').map(str::as_bytes) {
-        Some([a @ b'0'..=b'5', b @ b'0'..=b'9', ..]) => {
-            (&rest[3..], i32::from((a - b'0') * 10 + (b - b'0')))
-        }
-        _ => (rest, 0),
-    };
+    let (rest, seconds) = offset_seconds(text, rest);
     if !rest.trim().is_empty() {
         return Err(DateParseError::Invalid);
     }
-    let seconds = if text.starts_with('-') {
-        -seconds
-    } else {
-        seconds
-    };
     within_a_day(hours_and_minutes + seconds)
 }

@@ -455,9 +455,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 .values
                 .iter()
                 .map(|v| match &v {
-                    Value::Date { val, .. } => {
-                        Ok(Some(i64::try_from(val.unix_nanos()).unwrap_or_default()))
-                    }
+                    Value::Date { val, .. } => date_nanos(val, v.span()).map(Some),
 
                     Value::String { val, .. } => {
                         let expected_format = "%Y-%m-%d";
@@ -499,24 +497,18 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 .map(|v| {
                     match (maybe_tz, &v) {
                         (Some(tz), Value::Date { val, .. }) => {
-                            // If there is a timezone specified, make sure
-                            // the value is converted to it
-                            tz.parse::<Tz>()
-                                .map(|tz| DateTime::<FixedOffset>::from(*val).with_timezone(&tz))
-                                .map_err(|e| {
-                                    ShellError::Generic(
-                                        GenericError::new_internal("Error parsing timezone", "")
-                                            .with_help(e.to_string()),
-                                    )
-                                })?
-                                .timestamp_nanos_opt()
-                                .map(|nanos| nanos_to_timeunit(nanos, *tu))
-                                .transpose()
+                            // The instant is the same in every zone, but the zone must exist.
+                            tz.parse::<Tz>().map_err(|e| {
+                                ShellError::Generic(
+                                    GenericError::new_internal("Error parsing timezone", "")
+                                        .with_help(e.to_string()),
+                                )
+                            })?;
+                            nanos_to_timeunit(date_nanos(val, v.span())?, *tu).map(Some)
                         }
-                        (None, Value::Date { val, .. }) => i64::try_from(val.unix_nanos())
-                            .ok()
-                            .map(|nanos| nanos_to_timeunit(nanos, *tu))
-                            .transpose(),
+                        (None, Value::Date { val, .. }) => {
+                            nanos_to_timeunit(date_nanos(val, v.span())?, *tu).map(Some)
+                        }
 
                         (Some(_), Value::String { val, .. }) => {
                             // because we're converting to the number of nano seconds since epoch, the timezone is irrelevant
@@ -766,15 +758,17 @@ fn input_type_list_to_series(
             for (i, v) in values.iter().enumerate() {
                 let list_name = i.to_string();
 
-                let it = v.as_list()?.iter().map(|v| {
-                    if let Value::Date { val, .. } = &v {
-                        Some(i64::try_from(val.unix_nanos()).unwrap_or_default())
-                    } else {
-                        None
-                    }
-                });
-                let dt_chunked = ChunkedArray::<Int64Type>::from_iter_options(list_name.into(), it)
-                    .into_datetime(TimeUnit::Nanoseconds, None);
+                let it = v
+                    .as_list()?
+                    .iter()
+                    .map(|v| match v {
+                        Value::Date { val, .. } => date_nanos(val, v.span()).map(Some),
+                        _ => Ok(None),
+                    })
+                    .collect::<Result<Vec<_>, ShellError>>()?;
+                let dt_chunked =
+                    ChunkedArray::<Int64Type>::from_iter_options(list_name.into(), it.into_iter())
+                        .into_datetime(TimeUnit::Nanoseconds, None);
 
                 builder
                     .append_series(&dt_chunked.into_series())
@@ -794,6 +788,18 @@ fn input_type_list_to_series(
         // treat everything else as an object
         _ => Ok(value_to_series(name.clone(), values)?),
     }
+}
+
+/// The nanoseconds since 1970 that polars stores for `date`, or an error for a date it can't
+/// hold, before 1677-09-21 or after 2262-04-11.
+fn date_nanos(date: &nu_protocol::DateTime, span: Span) -> Result<i64, ShellError> {
+    i64::try_from(date.unix_nanos()).map_err(|_| {
+        ShellError::Generic(GenericError::new(
+            format!("{date} is out of range"),
+            "polars dates are from 1677-09-21 to 2262-04-11",
+            span,
+        ))
+    })
 }
 
 fn series_to_values(
@@ -1795,6 +1801,26 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    /// A date polars can't hold, outside 1677 to 2262, is an error, not 1970 or null.
+    #[test]
+    fn test_typed_column_to_series_date_out_of_range() {
+        let old: nu_protocol::DateTime = "1500-01-01T00:00:00Z".parse().unwrap();
+        for column_type in [
+            DataType::Date,
+            DataType::Datetime(TimeUnit::Nanoseconds, None),
+            DataType::Datetime(TimeUnit::Milliseconds, Some(timezone_utc())),
+        ] {
+            let column = TypedColumn {
+                column: Column::new("foo", vec![Value::test_date(old)]),
+                column_type: Some(column_type.clone()),
+            };
+            assert!(
+                typed_column_to_series("foo".into(), column).is_err(),
+                "{column_type:?}"
+            );
+        }
     }
 
     #[test]

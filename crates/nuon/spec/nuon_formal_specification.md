@@ -409,7 +409,8 @@
     - the grammar is jiff's RFC 3339 and ISO 8601 reading: a strict `YYYY-MM-DD`, optionally
        followed by `T` and `HH:MM`, an optional `:SS`, an optional fractional second of at most 9
        digits, and an optional `Z`/`z` or offset (`±HH:MM`, `±HHMM` or `±HH`). a token with more
-       fraction digits stays a string.
+       fraction digits stays a string, and so does a time without the colon or the minutes
+       (`T1234`, `T12`), which ISO 8601 allows.
         ```nushell
         "[2000-01-01T12:34, 2000-01-01T12:34:56+0530]" | from nuon | to json -r
         # => ["2000-01-01T12:34:00+00:00","2000-01-01T12:34:56+05:30"]

@@ -1429,12 +1429,12 @@ pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     parse_path_like(working_set, span, PathLikeKind::Filepath)
 }
 
-/// Whether `bytes` is written like a date literal but names a day that doesn't exist
-/// (`2023-02-29`, `2023-13-01`). A date literal is `YYYY-MM-DD`, alone or followed by `T` or `t`
+/// Whether `bytes` is written like a date literal: `YYYY-MM-DD`, alone or followed by `T` or `t`
 /// and a time that starts `HH:MM`. Any other text after the date (`2023-02-29.log`,
-/// `2024-01-15T10-30-00.log`) makes the word a bare string, and so does a real day with a time
-/// that isn't a valid one (`2024-01-15T10:00`).
-fn is_invalid_date_literal(bytes: &[u8]) -> bool {
+/// `2024-01-15T10-30-00.log`) makes the word a bare string. jiff also reads times without the
+/// colon or the minutes (`2024-01-15T1030`, `2024-01-15T10`), which name files more often than
+/// dates, so those stay strings too.
+fn has_date_literal_shape(bytes: &[u8]) -> bool {
     let digits = |range: std::ops::Range<usize>| {
         bytes
             .get(range)
@@ -1450,8 +1450,14 @@ fn is_invalid_date_literal(bytes: &[u8]) -> bool {
         Some(b'T' | b't') => digits(11..13) && bytes.get(13) == Some(&b':') && digits(14..16),
         Some(_) => false,
     };
-    date_shape
-        && time_follows
+    date_shape && time_follows
+}
+
+/// Whether `bytes` is written like a date literal (see [`has_date_literal_shape`]) but names a
+/// day that doesn't exist (`2023-02-29`, `2023-13-01`). A real day with a time that isn't a
+/// valid one (`2024-01-15T25:00`) is a bare string.
+fn is_invalid_date_literal(bytes: &[u8]) -> bool {
+    has_date_literal_shape(bytes)
         && str::from_utf8(&bytes[..10])
             .ok()
             .and_then(|date| jiff::civil::Date::strptime("%Y-%m-%d", date).ok())
@@ -1463,13 +1469,7 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    if bytes.len() < 6
-        || !bytes[0].is_ascii_digit()
-        || !bytes[1].is_ascii_digit()
-        || !bytes[2].is_ascii_digit()
-        || !bytes[3].is_ascii_digit()
-        || bytes[4] != b'-'
-    {
+    if !has_date_literal_shape(bytes) {
         working_set.error(ParseError::Expected("datetime", span));
         return garbage(working_set, span);
     }

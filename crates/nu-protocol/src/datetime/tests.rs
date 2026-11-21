@@ -81,7 +81,8 @@ fn text_forms_read_back_over_the_whole_range() {
         (-1, 500_000_000),
         (0, 0),
     ]);
-    let offsets = [0, 19_800, -28_800, 19_815, -1_845, 93_599, -93_599];
+    // The text readers stop at a day, past the largest offset nushell makes (`+23:59:59`).
+    let offsets = [0, 19_800, -28_800, 19_815, -1_845, 86_399, -86_399];
     for (seconds, nanos) in instants {
         for seconds_east in offsets {
             let d = DateTime::from_unix_seconds(seconds, nanos, offset(seconds_east))
@@ -123,9 +124,20 @@ fn reads_jiffs_forms() {
         "2001-2-3T04:05:06Z",
         "2001-02-29T04:05:06Z",
         "",
+        // A zone in brackets would be dropped, so `into datetime` reads it instead.
+        "2025-04-18T04:04:32Z[America/Chicago]",
+        "2025-04-18T04:04:32-07:00[America/Chicago]",
+        // jiff reads offsets up to 25:59:59; nushell's other readers stop at a day.
+        "2024-01-15T10:00:00+25:00",
+        "2024-01-15T10:00:00-24:00:01",
     ] {
         assert!(DateTime::parse_rfc3339(text).is_err(), "{text}");
     }
+    // A whole day stays: `+23:59:59` rounded to the minute is written `+24:00`.
+    let day = date("2024-01-15T00:00:00Z").with_offset(offset(86_399));
+    assert_eq!(day.to_rfc3339(), "2024-01-16T00:00:00+24:00");
+    assert_eq!(date(&day.to_rfc3339()), day);
+    assert_eq!(date("2024-01-15T10:00:00-24:00").offset(), offset(-86_400));
 }
 
 #[test]
@@ -200,6 +212,25 @@ fn format_specifiers() {
     assert_eq!(f("%J_%Q"), "20250418_160432");
     assert_eq!(f("100%% %Y"), "100% 2025");
     assert_eq!(f("%N %q"), "026490000 2");
+    // `%s` rounds down before 1970 with any flag or width, and pads with spaces like jiff.
+    let before_1970 = date("1969-12-31T23:59:59.5Z");
+    assert_eq!(
+        before_1970.format("%s|%-s|%5s|%05s|%_5s").expect("formats"),
+        "-1|-1|   -1|-0001|   -1"
+    );
+    let after_1970 = date("1970-01-01T00:01:40Z");
+    assert_eq!(
+        after_1970
+            .format("%s|%-s|%5s|%05s|%_5s|%^5s")
+            .expect("formats"),
+        "100|100|  100|00100|  100|  100"
+    );
+    // `%J` writes the year as `%Y` does.
+    let bc = date("-0045-10-30T00:00:00Z");
+    assert_eq!(
+        bc.format("%J|%Y%m%d").expect("formats"),
+        "-00451030|-00451030"
+    );
     assert!(d.format_localized("%K", Locale::en_US).is_err());
     assert!(d.format_localized("%", Locale::en_US).is_err());
 
@@ -322,6 +353,19 @@ fn signed_unix_timestamps() {
         instant("1.5", "%s%.f").as_deref(),
         Ok("1970-01-01T00:00:01.500+00:00")
     );
+    // jiff reads `-0` as 0, so the sign of a timestamp under a second comes from the text.
+    assert_eq!(
+        instant("-0.5", "%s%.f").as_deref(),
+        Ok("1969-12-31T23:59:59.500+00:00")
+    );
+    assert_eq!(
+        instant("at -0.000000001", "at %s%.f").as_deref(),
+        Ok("1969-12-31T23:59:59.999999999+00:00")
+    );
+    assert_eq!(
+        instant("0.5", "%s%.f").as_deref(),
+        Ok("1970-01-01T00:00:00.500+00:00")
+    );
     // `%s` wins over a date and time given too.
     assert_eq!(
         instant("2025-04-19 1744972472", "%F %s").as_deref(),
@@ -331,7 +375,7 @@ fn signed_unix_timestamps() {
 
 #[test]
 fn zone_names() {
-    for name in ["UTC", "GMT", "utc", "gmt"] {
+    for name in ["UTC", "GMT", "utc", "gmt", "Utc", "gMt"] {
         assert_eq!(
             instant(&format!("2025-04-18 16:04 {name}"), "%F %H:%M %Z").as_deref(),
             Ok("2025-04-18T16:04:00+00:00"),
@@ -350,6 +394,40 @@ fn zone_names() {
     ] {
         assert!(instant(text, "%F %H:%M %Z").is_err(), "{text}");
     }
+    // With an offset specifier, `%Z` skips any zone name, as in `date '+%F %T %z %Z'`
+    // output, but `UTC` or `GMT` must agree with the offset.
+    for (text, read) in [
+        (
+            "2021-03-04 10:00:00 +0900 JST",
+            Ok("2021-03-04T10:00:00+09:00".to_string()),
+        ),
+        (
+            "2021-03-04 10:00:00 +0200 CEST",
+            Ok("2021-03-04T10:00:00+02:00".to_string()),
+        ),
+        (
+            "2021-03-04 10:00:00 -0600 America/Chicago",
+            Ok("2021-03-04T10:00:00-06:00".to_string()),
+        ),
+        (
+            "2021-03-04 10:00:00 +0000 GMT",
+            Ok("2021-03-04T10:00:00+00:00".to_string()),
+        ),
+        (
+            "2021-03-04 10:00:00 -0800 GMT",
+            Err(DateParseError::Impossible),
+        ),
+        (
+            "2021-03-04 10:00:00 +0530 utc",
+            Err(DateParseError::Impossible),
+        ),
+    ] {
+        assert_eq!(instant(text, "%F %T %z %Z"), read, "{text}");
+    }
+    assert_eq!(
+        instant("2021-03-04 10:00:00 +09:00 JST", "%F %T %:z %Z").as_deref(),
+        Ok("2021-03-04T10:00:00+09:00")
+    );
     let read_offset =
         |text: &str, format: &str| ParsedDate::parse(text, format).map(|parsed| parsed.offset());
     assert_eq!(
@@ -358,6 +436,15 @@ fn zone_names() {
     );
     assert_eq!(read_offset("2025-04-18", "%F"), Ok(None));
     assert!(read_offset("2025-04-18 +9900", "%F %z").is_err());
+    // Offsets past a day are out of range, as in RFC 3339 text; a whole day stays.
+    assert_eq!(
+        read_offset("2025-04-18 +2500", "%F %z"),
+        Err(DateParseError::OutOfRange)
+    );
+    assert_eq!(
+        read_offset("2025-04-18 -24:00", "%F %:z"),
+        Ok(Some(offset(-86_400)))
+    );
     // A `Z` that ends the text is `+00:00`, and `%+` reads RFC 3339.
     assert_eq!(
         instant("2025-04-18T16:04:32Z", "%Y-%m-%dT%H:%M:%S%:z").as_deref(),
@@ -443,15 +530,24 @@ fn second_60_reads_as_59_with_a_format() {
 
 #[test]
 fn system_times_round_trip() {
+    let round_trip = |text: &str| {
+        let d = date(text);
+        let time = d.to_system_time().expect("SystemTime holds the date");
+        assert_eq!(DateTime::from_system_time(time), Some(d), "{text}");
+    };
     for text in [
         "9999-12-30T22:00:00Z",
         "1969-12-31T23:59:59.25Z",
         "1900-01-01T00:00:00Z",
-        "-0001-06-01T00:00:00Z",
     ] {
-        let d = date(text);
-        let time = d.to_system_time().expect("SystemTime holds the date");
-        assert_eq!(DateTime::from_system_time(time), Some(d), "{text}");
+        round_trip(text);
+    }
+    // Windows' SystemTime counts 100 ns ticks from 1601, so it holds no earlier date.
+    let before_1601 = "-0001-06-01T00:00:00Z";
+    if cfg!(windows) {
+        assert_eq!(date(before_1601).to_system_time(), None);
+    } else {
+        round_trip(before_1601);
     }
     // NTFS file times reach year 30828, past jiff's range.
     let year_10000 = std::time::SystemTime::UNIX_EPOCH + Duration::from_secs(253_402_300_800);
@@ -517,6 +613,23 @@ fn zone_offsets() {
     ] {
         let read = parse_zone_offset(text).map(|offset| offset.seconds());
         assert_eq!(read, expected, "{text:?}");
+    }
+}
+
+/// A record's `timezone` keeps the seconds `into record` writes (`+00:19:32`), so the record
+/// reads back as the same instant.
+#[test]
+fn utc_offsets_keep_seconds() {
+    for (text, expected) in [
+        ("+00:19:32", 1_172),
+        ("-00:00:30", -30),
+        ("\u{2212}05:30:45", -19_845),
+        ("+0530:45", 19_845),
+        ("+05:30 trailing", 19_800),
+        ("+05:30:60", 19_800),
+    ] {
+        let read = parse_utc_offset(text).map(|offset| offset.seconds());
+        assert_eq!(read, Ok(expected), "{text:?}");
     }
 }
 
