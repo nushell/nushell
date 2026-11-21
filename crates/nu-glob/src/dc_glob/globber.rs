@@ -4,8 +4,7 @@ use super::matcher::{
     Continuations, MatchResult, continuation_positions, is_hidden, path_matches, path_matches_from,
 };
 use crate::MatchOptions;
-use crate::ancestors::Ancestors;
-use std::cell::OnceCell;
+use crate::ancestors::{LazyAncestors, WalkAncestors};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -114,7 +113,7 @@ pub fn glob_with_options(
         if literal_pattern {
             maybe_emit_start(&current_dir, &state);
         } else {
-            glob_to(&current_dir, 0, state, None, None, None)
+            glob_to(&current_dir, 0, state, WalkAncestors::Untracked, None, None)
         }
     });
     rx.into_iter()
@@ -335,61 +334,71 @@ fn glob_to(
     target: &Path,
     depth: usize,
     state: WalkState<'_>,
-    ancestors: Option<&Ancestors>,
+    ancestors: WalkAncestors,
     symlink_target: Option<&fs::Metadata>,
     mut resume: Option<Arc<WalkResume>>,
 ) {
-    let ancestors = if let Some(ancestors) = ancestors {
-        let directory_metadata;
-        let metadata = match symlink_target {
-            Some(metadata) => Some(metadata),
-            None => {
-                directory_metadata = fs::metadata(target).ok();
-                directory_metadata.as_ref()
-            }
-        };
-        match metadata {
-            Some(metadata) => {
-                let walk_depth = depth - state.literal_prefix_depth;
-                let mut remaining = None;
-                let Some(branch) = ancestors.enter_with(target, metadata, walk_depth, |previous| {
-                    // A recursive basename fast path has the same continuation at every depth.
-                    if state.fast_path.is_some() && !state.program.case_insensitive {
-                        return true;
-                    }
-                    let Some(parent) = target.ancestors().nth(walk_depth - previous) else {
-                        return false;
-                    };
-                    let positions = remaining
-                        .get_or_insert_with(|| state.continuations(target, resume.as_deref()));
-                    positions.subtract(&state.continuations(parent, resume.as_deref()));
-                    positions.is_empty()
-                }) else {
-                    return;
-                };
-                if let Some(remaining) = remaining {
-                    resume = Some(Arc::new(WalkResume {
-                        root: target.to_owned(),
-                        depth: state.match_path(target).components().count(),
-                        remaining,
-                        parent: resume,
-                    }));
-                }
-                Some(branch)
-            }
-            None => Some(ancestors.clone()),
+    let ancestors = match ancestors {
+        // Only a recursive walk that follows links can cycle, so only it tracks directories.
+        WalkAncestors::Untracked
+            if state.program.is_recursive
+                && state.options.follow_symlinks
+                && depth >= state.literal_prefix_depth =>
+        {
+            WalkAncestors::BeforeLink(LazyAncestors::root())
         }
-    } else {
-        None
+        WalkAncestors::Untracked => WalkAncestors::Untracked,
+        WalkAncestors::BeforeLink(parent) => WalkAncestors::BeforeLink(parent.child()),
+        WalkAncestors::FollowingLink(ancestors) => {
+            let directory_metadata;
+            let metadata = match symlink_target {
+                Some(metadata) => Some(metadata),
+                None => {
+                    directory_metadata = fs::metadata(target).ok();
+                    directory_metadata.as_ref()
+                }
+            };
+            match metadata {
+                Some(metadata) => {
+                    let walk_depth = depth - state.literal_prefix_depth;
+                    let mut remaining = None;
+                    let Some(branch) =
+                        ancestors.enter_with(target, metadata, walk_depth, |previous| {
+                            // A recursive basename fast path has the same continuation
+                            // at every depth.
+                            if state.fast_path.is_some() && !state.program.case_insensitive {
+                                return true;
+                            }
+                            let Some(parent) = target.ancestors().nth(walk_depth - previous) else {
+                                return false;
+                            };
+                            let positions = remaining.get_or_insert_with(|| {
+                                state.continuations(target, resume.as_deref())
+                            });
+                            positions.subtract(&state.continuations(parent, resume.as_deref()));
+                            positions.is_empty()
+                        })
+                    else {
+                        return;
+                    };
+                    if let Some(remaining) = remaining {
+                        resume = Some(Arc::new(WalkResume {
+                            root: target.to_owned(),
+                            depth: state.match_path(target).components().count(),
+                            remaining,
+                            parent: resume,
+                        }));
+                    }
+                    WalkAncestors::FollowingLink(branch)
+                }
+                None => WalkAncestors::FollowingLink(ancestors),
+            }
+        }
     };
 
     match fs::read_dir(target) {
         Ok(results) => rayon::scope(|scope| -> Result<(), SendError<_>> {
-            let branch = WalkBranch {
-                ancestors,
-                before_link: OnceCell::new(),
-                resume,
-            };
+            let branch = WalkBranch { ancestors, resume };
             // Parent-path probing is only needed for patterns containing `..`.
             if depth > 0 && state.needs_parent_probe {
                 if state.interrupt.is_set() {
@@ -457,22 +466,8 @@ fn glob_to(
 }
 
 struct WalkBranch {
-    ancestors: Option<Ancestors>,
-    before_link: OnceCell<Option<Ancestors>>,
+    ancestors: WalkAncestors,
     resume: Option<Arc<WalkResume>>,
-}
-
-impl WalkBranch {
-    fn ancestors_for_link(&self, link: &Path, parent_count: usize) -> Option<&Ancestors> {
-        if let Some(ancestors) = &self.ancestors {
-            return Some(ancestors);
-        }
-        // Each step since the resolved walk root appended one real directory component.
-        // Resolve their identities on the first symlink descent and reuse them for sibling links.
-        self.before_link
-            .get_or_init(|| Ancestors::from_parents(link, parent_count))
-            .as_ref()
-    }
 }
 
 /// Matching below a repeated directory resumes from the continuations that
@@ -704,26 +699,23 @@ fn handle_path_candidate<'a>(
         && result.valid_as_prefix
         && options.max_depth.is_none_or(|max| candidate_depth < max)
     {
-        let ancestors =
-            if is_symlink && program.is_recursive && candidate_depth > state.literal_prefix_depth {
-                branch
-                    .ancestors_for_link(path, candidate_depth - state.literal_prefix_depth)
-                    .map(Some)
-            } else {
-                Some(branch.ancestors.as_ref())
-            };
+        let ancestors = match &branch.ancestors {
+            WalkAncestors::BeforeLink(parent) if is_symlink => {
+                parent.for_link(path).map(WalkAncestors::FollowingLink)
+            }
+            ancestors => Some(ancestors.clone()),
+        };
         // A repeated directory blocks descent. The link can still match below.
         if let Some(ancestors) = ancestors {
             let resume = branch.resume.clone();
             if candidate_depth <= PARALLEL_DEPTH_CUTOFF {
                 let path = path.to_owned();
-                let ancestors = ancestors.cloned();
                 scope.spawn(move |_| {
                     glob_to(
                         &path,
                         candidate_depth,
                         state,
-                        ancestors.as_ref(),
+                        ancestors,
                         symlink_target.as_ref(),
                         resume,
                     )

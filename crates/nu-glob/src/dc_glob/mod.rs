@@ -392,6 +392,10 @@ mod tests {
             symlink_dir(&root, branch.join(link)).expect("create ancestor link");
             assert_walk_paths(&root, "**/*.txt", &["a/marker.txt", "z/marker.txt"]);
         }
+        // Links under different parents each prune against their own branch.
+        let other = root.join("p/2");
+        fs::create_dir_all(&other).expect("create second loop parent");
+        symlink_dir(&other, other.join("self")).expect("create self link");
         assert_walk_paths(
             &root,
             "**/*",
@@ -402,6 +406,8 @@ mod tests {
                 "p/1",
                 "p/1/again",
                 "p/1/up",
+                "p/2",
+                "p/2/self",
                 "z",
                 "z/marker.txt",
             ],

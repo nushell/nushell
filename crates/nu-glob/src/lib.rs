@@ -82,9 +82,8 @@ use std::fs;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
 use std::str::FromStr;
-use std::sync::{Arc, OnceLock};
 
-use ancestors::Ancestors;
+use ancestors::{LazyAncestors, WalkAncestors};
 
 use CharSpecifier::{CharRange, SingleChar};
 use MatchResult::{EntirePatternDoesntMatch, Match, SubPatternDoesntMatch};
@@ -138,17 +137,6 @@ struct PendingPath {
     path: PathBuf,
     idx: usize,
     ancestors: WalkAncestors,
-}
-
-#[derive(Clone, Debug)]
-enum WalkAncestors {
-    Untracked,
-    BeforeLink {
-        // Number of directories already entered within this `**` component.
-        parent_count: usize,
-        sibling_seed: Option<Arc<OnceLock<Option<Ancestors>>>>,
-    },
-    FollowingLink(Ancestors),
 }
 
 impl Paths<Uninterruptible> {
@@ -1033,7 +1021,7 @@ fn fill_todo(
     // Before the first followed link, inspect the directory entry itself. For a real
     // directory this is the only lookup needed. Follow the path if it is a link or
     // its type could not be read.
-    let (metadata, may_be_symlink) = if matches!(ancestors, WalkAncestors::BeforeLink { .. }) {
+    let (metadata, may_be_symlink) = if matches!(ancestors, WalkAncestors::BeforeLink(_)) {
         match fs::symlink_metadata(path) {
             Ok(metadata) if !metadata.is_symlink() => (Some(metadata), false),
             _ => (fs::metadata(path).ok(), true),
@@ -1045,21 +1033,11 @@ fn fill_todo(
     let is_dir = metadata.is_some();
     let curdir = path == Path::new(".");
     let seed;
-    let ancestors = if let WalkAncestors::BeforeLink {
-        parent_count,
-        sibling_seed,
-    } = ancestors
+    let ancestors = if let WalkAncestors::BeforeLink(parent) = ancestors
         && may_be_symlink
         && is_dir
     {
-        let parents = if let Some(sibling_seed) = sibling_seed {
-            sibling_seed
-                .get_or_init(|| Ancestors::from_parents(path, *parent_count))
-                .clone()
-        } else {
-            Ancestors::from_parents(path, *parent_count)
-        };
-        let Some(ancestors) = parents else {
+        let Some(ancestors) = parent.for_link(path) else {
             return;
         };
         seed = WalkAncestors::FollowingLink(ancestors);
@@ -1075,14 +1053,10 @@ fn fill_todo(
             WalkAncestors::FollowingLink(branch)
         }
         // The components before this `**` select the root of its recursive walk.
-        (WalkAncestors::Untracked, Some(_)) if pattern.is_recursive => WalkAncestors::BeforeLink {
-            parent_count: 1,
-            sibling_seed: None,
-        },
-        (WalkAncestors::BeforeLink { parent_count, .. }, Some(_)) => WalkAncestors::BeforeLink {
-            parent_count: parent_count + 1,
-            sibling_seed: None,
-        },
+        (WalkAncestors::Untracked, Some(_)) if pattern.is_recursive => {
+            WalkAncestors::BeforeLink(LazyAncestors::root())
+        }
+        (WalkAncestors::BeforeLink(parent), Some(_)) => WalkAncestors::BeforeLink(parent.child()),
         _ => ancestors.clone(),
     };
 
@@ -1131,9 +1105,6 @@ fn fill_todo(
             }
         }
         None if is_dir => {
-            // Only queued links need to share the lazy seed. The first one we follow
-            // resolves the parents, and each sibling extends that chain independently.
-            let mut sibling_seed = None;
             let dirs = fs::read_dir(path).and_then(|d| {
                 d.map(|e| {
                     if interrupt.interrupted() {
@@ -1149,23 +1120,10 @@ fn fill_todo(
                         } else {
                             e.path()
                         };
-                        let ancestors = match &branch {
-                            WalkAncestors::BeforeLink { parent_count, .. }
-                                if e.file_type().map_or(true, |kind| kind.is_symlink()) =>
-                            {
-                                WalkAncestors::BeforeLink {
-                                    parent_count: *parent_count,
-                                    sibling_seed: Some(Arc::clone(
-                                        sibling_seed.get_or_insert_with(Arc::default),
-                                    )),
-                                }
-                            }
-                            _ => branch.clone(),
-                        };
                         PendingPath {
                             path,
                             idx,
-                            ancestors,
+                            ancestors: branch.clone(),
                         }
                     })
                 })

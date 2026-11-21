@@ -1,6 +1,6 @@
 use std::fs::{self, Metadata};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// Resolved directory identities on one walk branch. Siblings share the prefix
 /// but never mark a directory as visited on each other's branch.
@@ -38,26 +38,90 @@ fn directory_id(path: &Path, _: &Metadata) -> Option<DirectoryId> {
     path.canonicalize().ok()
 }
 
+/// How a walk tracks the directories above a path, to prune directory cycles.
+#[derive(Clone, Debug)]
+pub(crate) enum WalkAncestors {
+    /// Not inside a recursive walk that follows links, so the walk cannot cycle.
+    Untracked,
+    /// A recursive walk that has not followed a link yet. Holds the directory
+    /// that listed the path.
+    BeforeLink(Arc<LazyAncestors>),
+    /// Below a followed link. Every directory on the branch has been resolved.
+    FollowingLink(Ancestors),
+}
+
+/// One directory walked by a `**` component before any link was followed. Its
+/// identity is looked up only when a link below it is followed, and at most once
+/// per walk, so links under different parents share the lookups they have in common.
+#[derive(Debug)]
+pub(crate) struct LazyAncestors {
+    parent: Option<Arc<Self>>,
+    // Directories entered since the walk root.
+    depth: usize,
+    resolved: OnceLock<Option<Ancestors>>,
+}
+
+impl LazyAncestors {
+    /// The directory where a `**` walk starts.
+    pub(crate) fn root() -> Arc<Self> {
+        Arc::new(Self {
+            parent: None,
+            depth: 0,
+            resolved: OnceLock::new(),
+        })
+    }
+
+    /// A real directory entered from this one.
+    pub(crate) fn child(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self {
+            parent: Some(Arc::clone(self)),
+            depth: self.depth + 1,
+            resolved: OnceLock::new(),
+        })
+    }
+
+    /// Resolve the directories between `link` and the walk root, where `self` is
+    /// the directory that contains `link`. Returns `None` if they already repeat.
+    pub(crate) fn for_link(&self, link: &Path) -> Option<Ancestors> {
+        // Climb to the nearest resolved level, then resolve the ones below it in
+        // order. A loop rather than recursion keeps deep trees off the stack.
+        let mut unresolved = Vec::new();
+        let mut ancestors = Some(Ancestors::default());
+        let mut level = link.parent().map(|directory| (self, directory));
+        while let Some((current, directory)) = level {
+            if let Some(resolved) = current.resolved.get() {
+                ancestors = resolved.clone();
+                break;
+            }
+            unresolved.push((current, directory));
+            level = current.parent.as_deref().zip(directory.parent());
+        }
+        for (current, directory) in unresolved.into_iter().rev() {
+            ancestors = current
+                .resolved
+                .get_or_init(|| {
+                    ancestors.and_then(|ancestors| ancestors.enter_real(directory, current.depth))
+                })
+                .clone();
+        }
+        ancestors
+    }
+}
+
 impl Ancestors {
-    /// Resolve the directories between a followed link and the branch's walk root.
-    pub(crate) fn from_parents(link: &Path, count: usize) -> Option<Self> {
-        link.ancestors().skip(1).take(count).enumerate().try_fold(
-            Self::default(),
-            |ancestors, (offset, path)| {
-                // A bare relative child has an empty lexical parent, meaning the cwd.
-                let path = if path.as_os_str().is_empty() {
-                    Path::new(".")
-                } else {
-                    path
-                };
-                match fs::metadata(path) {
-                    Ok(metadata) => {
-                        ancestors.enter_with(path, &metadata, count - offset - 1, |_| true)
-                    }
-                    Err(_) => Some(ancestors),
-                }
-            },
-        )
+    /// Enter a directory reached without following a link. One that cannot be
+    /// read is skipped; the walker reports its own I/O errors.
+    fn enter_real(&self, directory: &Path, depth: usize) -> Option<Self> {
+        // A bare relative child has an empty lexical parent, meaning the cwd.
+        let directory = if directory.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            directory
+        };
+        match fs::metadata(directory) {
+            Ok(metadata) => self.enter_with(directory, &metadata, depth, |_| true),
+            Err(_) => Some(self.clone()),
+        }
     }
 
     /// Return the extended branch, or `None` if entering would revisit an ancestor.
