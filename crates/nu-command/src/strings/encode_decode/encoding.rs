@@ -44,9 +44,18 @@ pub fn encode(
         parse_encoding(encoding_name.span, &encoding_name.item)
     }?;
 
-    // Since the Encoding Standard doesn't specify encoders for "UTF-16BE" and "UTF-16LE"
-    // Check if the encoding is one of them and return an error
-    if ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
+    // encoding_rs follows the WHATWG Encoding Standard, which does not specify
+    // encoders for UTF-16LE or UTF-16BE. Encode those two labels directly as
+    // raw UTF-16 code units, without a byte order mark. The label is checked
+    // before consulting encoding_rs, because encoding_rs maps several bare
+    // labels (such as utf-16, utf16, unicode and ucs-2) to UTF-16LE or
+    // UTF-16BE. decode strips a leading byte order mark, so a leading U+FEFF
+    // in the input is written out as a byte order mark and is stripped again
+    // on decode.
+    let is_utf16le = encoding_name.item.eq_ignore_ascii_case("utf-16le");
+    let is_utf16be = encoding_name.item.eq_ignore_ascii_case("utf-16be");
+
+    if !is_utf16le && !is_utf16be && ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
         return Err(ShellError::Generic(
             GenericError::new(
                 format!("{} encoding is not supported", encoding_name.item),
@@ -55,6 +64,18 @@ pub fn encode(
             )
             .with_help("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings"),
         ));
+    }
+
+    let to_bytes: Option<fn(u16) -> [u8; 2]> = if is_utf16le {
+        Some(u16::to_le_bytes)
+    } else if is_utf16be {
+        Some(u16::to_be_bytes)
+    } else {
+        None
+    };
+    if let Some(to_bytes) = to_bytes {
+        let bytes: Vec<u8> = s.encode_utf16().flat_map(to_bytes).collect();
+        return Ok(Value::binary(bytes, head));
     }
 
     let (result, _actual_encoding, replacements) = encoding.encode(s);
@@ -97,6 +118,95 @@ mod test {
     use super::*;
     use rstest::rstest;
 
+    #[test]
+    fn utf16le_encodes_without_bom() {
+        let span = Span::test_data();
+        let encoding = Spanned {
+            item: "utf-16le".to_owned(),
+            span,
+        };
+        let encoded = encode(span, encoding, "a😀b", span, true)
+            .unwrap()
+            .coerce_into_binary()
+            .unwrap();
+        assert_eq!(
+            encoded,
+            vec![0x61, 0x00, 0x3d, 0xd8, 0x00, 0xde, 0x62, 0x00]
+        );
+    }
+
+    #[test]
+    fn utf16be_encodes_without_bom() {
+        let span = Span::test_data();
+        let encoding = Spanned {
+            item: "utf-16be".to_owned(),
+            span,
+        };
+        let encoded = encode(span, encoding, "a😀b", span, true)
+            .unwrap()
+            .coerce_into_binary()
+            .unwrap();
+        assert_eq!(
+            encoded,
+            vec![0x00, 0x61, 0xd8, 0x3d, 0xde, 0x00, 0x00, 0x62]
+        );
+    }
+
+    #[test]
+    fn utf16_empty_encodes_to_empty() {
+        let span = Span::test_data();
+        for encoding_name in ["utf-16le", "utf-16be"] {
+            let encoding = Spanned {
+                item: encoding_name.to_owned(),
+                span,
+            };
+            let encoded = encode(span, encoding, "", span, true)
+                .unwrap()
+                .coerce_into_binary()
+                .unwrap();
+            assert!(encoded.is_empty());
+        }
+    }
+
+    #[test]
+    fn utf16_bom_is_encoded_from_leading_feff() {
+        let span = Span::test_data();
+        let encoding = Spanned {
+            item: "utf-16le".to_owned(),
+            span,
+        };
+        let encoded = encode(span, encoding, "\u{FEFF}abc", span, true)
+            .unwrap()
+            .coerce_into_binary()
+            .unwrap();
+        assert_eq!(
+            encoded,
+            vec![0xff, 0xfe, 0x61, 0x00, 0x62, 0x00, 0x63, 0x00]
+        );
+    }
+
+    #[test]
+    fn bare_utf16_labels_still_error() {
+        let span = Span::test_data();
+        for label in ["utf-16", "utf16", "unicode", "ucs-2", "unicodefffe"] {
+            let encoding = Spanned {
+                item: label.to_owned(),
+                span,
+            };
+            assert!(encode(span, encoding, "abc", span, true).is_err());
+        }
+    }
+
+    #[test]
+    fn invalid_encoding_still_errors() {
+        let span = Span::test_data();
+        let encoding = Spanned {
+            item: "not-an-encoding".to_owned(),
+            span,
+        };
+        assert!(encode(span, encoding, "abc", span, true).is_err());
+    }
+
     #[rstest]
     #[case::big5("big5", "簡体字")]
     #[case::shift_jis("shift-jis", "何だと？……無駄な努力だ？……百も承知だ！")]
@@ -106,6 +216,8 @@ mod test {
     #[case::iso_8859_1("iso-8859-1", "Some ¼½¿ Data µ¶·¸¹º")]
     #[case::cp1252("cp1252", "Some ¼½¿ Data")]
     #[case::latin5("latin5", "Some ¼½¿ Data µ¶·¸¹º")]
+    #[case::utf16le("utf-16le", "a😀b")]
+    #[case::utf16be("utf-16be", "a😀b")]
     // Tests for specific renditions of UTF-8 labels
     #[case::utf8("utf8", "")]
     #[case::utf_hyphen_8("utf-8", "")]
