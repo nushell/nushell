@@ -824,9 +824,14 @@ mod test {
     /// unit (like the next REPL line) still has it, though the block ran on the same stack.
     #[test]
     fn unlet_constant_in_nested_block_keeps_it_for_later_source() -> Result<(), ShellError> {
-        let mut engine_state =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         let mut stack = Stack::new();
+        let mut engine_state = {
+            let default_context = nu_cmd_lang::create_default_context();
+            let mut state = nu_command::add_shell_command_context(default_context);
+            state.add_env_var("PWD".into(), Value::test_string("/"));
+            state
+        };
+
         for source in ["const x = 1", "if true { unlet $x }"] {
             let failed = evaluate_source(
                 &mut engine_state,
