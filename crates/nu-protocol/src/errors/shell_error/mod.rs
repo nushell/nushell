@@ -1547,14 +1547,16 @@ impl ShellError {
         Value::record(record, span)
     }
 
-    // TODO: Implement as From trait
+    /// Convert this error from parse-time evaluation to a [`ParseError::ParseTimeEval`] at
+    /// `span`. Its message is this error rendered as a full report against `working_set`, and it
+    /// keeps this error for places that show errors on one line.
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
-        let msg = format_cli_error(None, working_set, &self, None);
-        ParseError::LabeledError(
-            msg,
-            "Encountered error during parse-time evaluation".into(),
+        let report = format_cli_error(None, working_set, &self, None);
+        ParseError::ParseTimeEval {
+            report,
+            error: Box::new(self),
             span,
-        )
+        }
     }
 
     /// Convert self error to a [`ShellError::ChainedError`] variant.

@@ -154,7 +154,7 @@ fn const_last_strict_on_empty_list_errors() -> Result {
         .run("const x = [] | last --strict")
         .expect_parse_error()?;
 
-    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    assert_matches!(err, ParseError::ParseTimeEval { report: msg, .. } if msg.contains("Cannot access empty content"));
     Ok(())
 }
 
@@ -176,7 +176,7 @@ fn last_errors_on_unbounded_range() -> Result {
 fn const_last_errors_on_unbounded_range() -> Result {
     let err = test().run("const x = 1.. | last 2").expect_parse_error()?;
 
-    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Range must be bounded"));
+    assert_matches!(err, ParseError::ParseTimeEval { report: msg, .. } if msg.contains("Range must be bounded"));
     Ok(())
 }
 

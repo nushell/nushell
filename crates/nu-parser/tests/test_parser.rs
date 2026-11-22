@@ -878,13 +878,15 @@ pub fn parse_attributes_external_alias() {
 
     assert!(!working_set.parse_errors.is_empty());
 
-    let ParseError::LabeledError(shell_error, parse_error, _span) = &working_set.parse_errors[0]
-    else {
-        panic!("Expected LabeledError");
+    let ParseError::ParseTimeEval { report, error, .. } = &working_set.parse_errors[0] else {
+        panic!("Expected ParseTimeEval");
     };
 
-    assert!(shell_error.contains("nu::shell::not_a_const_command"));
-    assert!(parse_error.contains("Encountered error during parse-time evaluation"));
+    assert!(report.contains("nu::shell::not_a_const_command"));
+    assert!(matches!(
+        **error,
+        nu_protocol::ShellError::NotAConstCommand { .. }
+    ));
 }
 
 #[rstest]
