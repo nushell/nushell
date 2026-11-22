@@ -1236,6 +1236,22 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// A destructuring pattern, as in `let {$name} = $record`, doesn't fit its value.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the shape of the value against the pattern. Add `..` to a list pattern to ignore
+    /// extra items, or use `match` for a value that can have more than one shape.
+    #[error("Pattern doesn't fit the value")]
+    #[diagnostic(code(nu::shell::pattern_mismatch))]
+    PatternMismatch {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+        #[help]
+        help: Option<String>,
+    },
+
     /// An attempt to run a command marked for constant evaluation lacking the const. eval.
     /// implementation.
     ///

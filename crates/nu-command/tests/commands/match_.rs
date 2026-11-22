@@ -44,6 +44,26 @@ fn record_shorthand() -> Result {
         .expect_value_eq(12)
 }
 
+#[rstest]
+#[case::double_quotes(r#"match {"a b": 1} { {"a b": $x} => $x }"#)]
+#[case::single_quotes("match {'a b': 1} { {'a b': $x} => $x }")]
+#[case::backticks("match {`a b`: 1} { {`a b`: $x} => $x }")]
+#[case::escape(r#"match {"a\tb": 1} { {"a\tb": $x} => $x }"#)]
+#[case::quoted_bare_word(r#"match {a: 1} { {"a": $x} => $x }"#)]
+fn record_quoted_key(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn or_pattern_binds_null_for_unmatched_side() -> Result {
+    let code = "
+        match [1] {
+            [$a, $b] | [$a] => { [$a, $b] }
+        }
+    ";
+    test().run(code).expect_value_eq(test_value!([1, ()]))
+}
+
 #[test]
 fn list() -> Result {
     test()

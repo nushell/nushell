@@ -5,7 +5,7 @@ use crate::{
     lex_once::lex_span,
     lite_parse,
     parse_helpers::is_variable,
-    parser::{ensure_not_reserved_variable_name, parse_value},
+    parser::{ensure_not_reserved_variable_name, parse_value, unescape_unquote_string},
 };
 use nu_protocol::{
     ParseError, Span, SyntaxShape, Type, VarId,
@@ -246,7 +246,11 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
 
             (field, pattern)
         } else {
-            let field = String::from_utf8_lossy(bytes).to_string();
+            // A quoted key names the field without its quotes, as in a record literal.
+            let (field, err) = unescape_unquote_string(bytes, tokens[idx].span);
+            if let Some(err) = err {
+                working_set.error(err);
+            }
 
             idx += 1;
             if idx == tokens.len() {

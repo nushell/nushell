@@ -11,8 +11,8 @@ use nu_protocol::{
     combined_type_string,
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{
-        Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
-        StateWorkingSet, TryHandler, env_var_eq,
+        Argument, Closure, EngineState, EnvName, ErrorHandler, Redirection, Stack, StateWorkingSet,
+        TryHandler, env_var_eq,
     },
     ir::{Call, CallBuilder, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     shell_error::{
@@ -1316,7 +1316,7 @@ fn eval_instruction<D: DebugContext>(
         } => {
             let value = ctx.clone_reg_value(*src, *span)?;
             ctx.matches.clear();
-            if pattern.match_value(&value, &mut ctx.matches) {
+            if pattern.check(*span, &value, &mut ctx.matches).is_ok() {
                 // Match succeeded: set variables and branch
                 for (var_id, match_value) in ctx.matches.drain(..) {
                     ctx.stack.add_var(var_id, match_value);
