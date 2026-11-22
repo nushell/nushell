@@ -656,8 +656,8 @@ pub fn command_not_found(
         stack.add_env_var(CANARY.into(), Value::bool(true, Span::unknown()));
 
         let output = eval_hook(
-            &mut engine_state.clone(),
-            &mut stack,
+            &mut engine_state.clone(), // we only have immutable access to state so we have to clone it
+            &mut stack.clone(), // state is also coupled with the stack, cannot let `eval_hook` push stuff onto it
             None,
             &[("cmd_name".into(), Value::string(name, span))],
             hook,
