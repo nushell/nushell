@@ -301,6 +301,7 @@ uuid = "1.26.0"
 v_htmlescape = "1.0.0"
 memchr = "2.8.0"
 wax = "0.7.0"
+same-file = "1.0.6"
 web-time = "1.1.0"
 webpki-roots = "1.0.10"
 which = "8.0.6"
@@ -371,7 +372,7 @@ multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3.55"
-same-file = "1.0.6"
+same-file = { workspace = true }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
