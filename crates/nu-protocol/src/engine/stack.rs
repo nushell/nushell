@@ -775,8 +775,7 @@ impl Stack {
     /// Every closure call builds its stack here, so this is where a closure call adds one to
     /// [`Self::recursion_count`].
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        let mut env_vars = self.env_vars.clone();
-        env_vars.push(Arc::new(HashMap::new()));
+        let env_vars = self.env_vars_for_callee();
 
         Stack {
             vars: captures,
@@ -791,7 +790,7 @@ impl Stack {
             recursion_count: self.recursion_count + 1,
             // Keep the caller as parent so global/outer locals stay nameable for `scope`
             // (values are still resolved via the parent chain when not captured).
-            parent_stack: Some(Arc::new(self.clone())),
+            parent_stack: Some(self.parent_snapshot()),
             parent_deletions: vec![],
             deletions: vec![],
             config: self.config.clone(),
@@ -807,7 +806,66 @@ impl Stack {
         }
     }
 
+    /// This stack's environment scopes plus a new, empty one for a callee to write into.
+    fn env_vars_for_callee(&self) -> Vec<Arc<EnvVars>> {
+        // Sized up front: cloning and then pushing would allocate twice on every call.
+        let mut env_vars = Vec::with_capacity(self.env_vars.len() + 1);
+        env_vars.extend_from_slice(&self.env_vars);
+        env_vars.push(Arc::new(HashMap::new()));
+        env_vars
+    }
+
+    /// A copy of this stack to keep as a callee's [`Self::parent_stack`].
+    fn parent_snapshot(&self) -> Arc<Stack> {
+        self.parent_with_vars(self.vars.clone())
+    }
+
+    /// This stack as a callee's [`Self::parent_stack`], holding `vars` as its variables.
+    ///
+    /// The parent chain is only read for variables: [`Self::lookup_var`] (including `$ans`),
+    /// [`Self::get_var_mut`], and `scope variables`, which also checks the deletions. So the
+    /// parent keeps the variables, the deletions, the chain above it and the shared `$ans` slot,
+    /// and leaves out the environment, overlays, arguments and output destinations that a full
+    /// clone would copy on every custom command and closure call.
+    fn parent_with_vars(&self, vars: Vec<(VarId, Value)>) -> Arc<Stack> {
+        Arc::new(Stack {
+            vars,
+            env_vars: Vec::new(),
+            env_hidden: self.env_hidden.clone(),
+            env_hide_history: self.env_hide_history.clone(),
+            active_overlays: Vec::new(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
+            recursion_count: self.recursion_count,
+            parent_stack: self.parent_stack.clone(),
+            parent_deletions: self.parent_deletions.clone(),
+            deletions: self.deletions.clone(),
+            config: None,
+            out_dest: StackOutDest::new(),
+            suppress_stdin: self.suppress_stdin,
+            last_exit_code_written: false,
+            active_scope_bindings: Vec::new(),
+            ir_scope_regions: Vec::new(),
+            ir_instruction_index: None,
+            last_result: self.last_result.clone(),
+        })
+    }
+
     pub fn gather_captures(&self, engine_state: &EngineState, captures: &[(VarId, Span)]) -> Stack {
+        let mut callee = self.gather_captures_without_parent(engine_state, captures);
+        callee.parent_stack = Some(self.parent_snapshot());
+        callee
+    }
+
+    /// Like [`Self::gather_captures`], but the callee gets no [`Self::parent_stack`].
+    ///
+    /// For a call that finishes before this stack is used again: [`Self::lend_vars`] then makes
+    /// this stack the parent without copying its variables.
+    pub fn gather_captures_without_parent(
+        &self,
+        engine_state: &EngineState,
+        captures: &[(VarId, Span)],
+    ) -> Stack {
         let mut vars = Vec::with_capacity(captures.len());
 
         let fake_span = Span::new(0, 0);
@@ -824,8 +882,7 @@ impl Stack {
             }
         }
 
-        let mut env_vars = self.env_vars.clone();
-        env_vars.push(Arc::new(HashMap::new()));
+        let env_vars = self.env_vars_for_callee();
 
         Stack {
             vars,
@@ -836,7 +893,7 @@ impl Stack {
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
-            parent_stack: Some(Arc::new(self.clone())),
+            parent_stack: None,
             parent_deletions: vec![],
             deletions: vec![],
             config: self.config.clone(),
@@ -849,6 +906,22 @@ impl Stack {
             ir_instruction_index: None,
             // Share last-result so closures can still read `$ans`.
             last_result: self.last_result.clone(),
+        }
+    }
+
+    /// Make this stack `callee`'s [`Self::parent_stack`] by moving its variables there instead of
+    /// copying them.
+    ///
+    /// The callee only reads them (for `scope variables` and lookups that walk the parents), so
+    /// while it runs, this stack has no variables of its own. Run the callee through
+    /// [`LentVars::callee`]; dropping the guard gives the variables back, also when the callee
+    /// panics and the panic is caught.
+    pub fn lend_vars<'a>(&'a mut self, callee: &'a mut Stack) -> LentVars<'a> {
+        let vars = std::mem::take(&mut self.vars);
+        callee.parent_stack = Some(self.parent_with_vars(vars));
+        LentVars {
+            caller: self,
+            callee,
         }
     }
 
@@ -1518,6 +1591,35 @@ impl Stack {
     }
 }
 
+/// A caller stack's variables, lent to a callee with [`Stack::lend_vars`].
+///
+/// Dropping it moves the variables back into the caller. Something from the call, such as a
+/// stream, may still hold the callee's parent; then the variables are copied instead, and that
+/// parent keeps the ones it saw.
+#[must_use = "dropping the guard returns the variables before the callee runs"]
+pub struct LentVars<'a> {
+    caller: &'a mut Stack,
+    callee: &'a mut Stack,
+}
+
+impl LentVars<'_> {
+    /// The stack to run the callee on. Its parent holds the lent variables.
+    pub fn callee(&mut self) -> &mut Stack {
+        self.callee
+    }
+}
+
+impl Drop for LentVars<'_> {
+    fn drop(&mut self) {
+        if let Some(parent) = self.callee.parent_stack.take() {
+            self.caller.vars = match Arc::try_unwrap(parent) {
+                Ok(parent) => parent.vars,
+                Err(parent) => parent.vars.clone(),
+            };
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::sync::Arc;
@@ -1536,6 +1638,28 @@ mod test {
             cloned.get_var(VarId::new(0), Span::test_data()),
             Ok(Value::test_string("hello"))
         );
+    }
+
+    #[test]
+    fn lent_vars_come_back_when_the_callee_panics() {
+        let mut caller = Stack::new();
+        caller.add_var(VarId::new(0), Value::test_string("hello"));
+        let mut callee = Stack::new();
+
+        let mut seen_by_callee = None;
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut lent = caller.lend_vars(&mut callee);
+            seen_by_callee = Some(lent.callee().get_var(VarId::new(0), Span::test_data()));
+            panic!("callee panicked");
+        }));
+
+        assert!(panicked.is_err());
+        assert_eq!(seen_by_callee, Some(Ok(Value::test_string("hello"))));
+        assert_eq!(
+            caller.get_var(VarId::new(0), Span::test_data()),
+            Ok(Value::test_string("hello"))
+        );
+        assert!(callee.parent_stack.is_none());
     }
 
     #[test]

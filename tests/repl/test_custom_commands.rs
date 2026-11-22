@@ -521,3 +521,33 @@ fn glob_literal_string_interpolation_with_metachars() -> Result {
         .run("def spam [foo: glob] { $foo }; spam $\"/path/[foo]*.txt\"")
         .expect_value_eq("/path/[foo]*.txt")
 }
+
+// A custom command call lends the caller's variables to the callee's parent stack and takes them
+// back afterwards. These check that the caller always gets them back.
+
+#[test]
+fn caller_variables_survive_a_failing_call() -> Result {
+    test()
+        .run("def bad [] { error make {msg: boom} }; let a = 1; try { bad } catch { }; $a")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn caller_variables_survive_a_call_returning_a_stream() -> Result {
+    // The returned stream still holds the callee's parent when the call ends.
+    test()
+        .run("def f [] { 1..3 | each {|x| $x } }; let a = 5; f | each {|x| $x + $a } | to nuon")
+        .expect_value_eq("[6, 7, 8]")
+}
+
+#[test]
+fn caller_variables_survive_recursive_calls() -> Result {
+    test()
+        .run(
+            "def r [n] { if $n == 0 { 0 } else { let v = $n; (r ($n - 1)) + $v } }
+            mut total = 0
+            for i in 1..3 { $total += (r $i) }
+            $total",
+        )
+        .expect_value_eq(10)
+}

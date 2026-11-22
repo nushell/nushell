@@ -401,6 +401,23 @@ fn scope_variables_shows_def_params() -> Result {
 }
 
 #[test]
+fn scope_variables_in_command_sees_current_caller_values() -> Result {
+    let code = "
+        def g [] {
+            scope variables | where name == '$x' | get 0.value
+        }
+        def caller [] {
+            mut x = 5
+            $x = 6
+            g
+        }
+        caller
+    ";
+
+    test().run(code).expect_value_eq(6)
+}
+
+#[test]
 fn scope_variables_shadowed_let_shows_current_value() -> Result {
     // Related to #17414: name maps keep the final VarId, but the live value is earlier.
     let code = "
