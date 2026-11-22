@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DeclId, FromValue, ShellError, Span, Spanned, Value, ast::Expression, engine::StateWorkingSet,
+    DeclId, ShellError, Span, Spanned, Value, ast::Expression, engine::StateWorkingSet,
     eval_const::eval_constant,
 };
 
@@ -289,80 +289,6 @@ impl Call {
         }
 
         Ok(false)
-    }
-
-    pub fn get_flag_const<T: FromValue>(
-        &self,
-        working_set: &StateWorkingSet,
-        name: &str,
-    ) -> Result<Option<T>, ShellError> {
-        if let Some(expr) = self.get_flag_expr(name) {
-            let result = eval_constant(working_set, expr)?;
-            FromValue::from_value(result).map(Some)
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn rest_const<T: FromValue>(
-        &self,
-        working_set: &StateWorkingSet,
-        starting_pos: usize,
-    ) -> Result<Vec<T>, ShellError> {
-        let mut output = vec![];
-
-        for result in
-            self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
-        {
-            output.push(FromValue::from_value(result)?);
-        }
-
-        Ok(output)
-    }
-
-    pub fn rest_iter_flattened<F>(
-        &self,
-        start: usize,
-        mut eval: F,
-    ) -> Result<Vec<Value>, ShellError>
-    where
-        F: FnMut(&Expression) -> Result<Value, ShellError>,
-    {
-        let mut output = Vec::new();
-
-        for (expr, spread) in self.rest_iter(start) {
-            let result = eval(expr)?;
-            if spread {
-                match result {
-                    Value::List { vals, .. } => output.extend(vals),
-                    Value::Nothing { .. } => (),
-                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
-                }
-            } else {
-                output.push(result);
-            }
-        }
-
-        Ok(output)
-    }
-
-    pub fn req_const<T: FromValue>(
-        &self,
-        working_set: &StateWorkingSet,
-        pos: usize,
-    ) -> Result<T, ShellError> {
-        let expr = self.positional_iter().nth(pos).ok_or_else(|| {
-            match self.positional_iter().count().checked_sub(1) {
-                None => ShellError::AccessEmptyContent { span: self.head },
-                Some(n) => ShellError::AccessBeyondEnd {
-                    max_idx: n,
-                    span: self.head,
-                },
-            }
-        })?;
-
-        let result = eval_constant(working_set, expr)?;
-        FromValue::from_value(result)
     }
 
     pub fn span(&self) -> Span {

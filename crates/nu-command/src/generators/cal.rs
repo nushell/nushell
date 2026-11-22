@@ -1,7 +1,7 @@
 use chrono::{Datelike, Local, NaiveDate};
 use nu_color_config::StyleComputer;
-use nu_engine::command_prelude::*;
-use nu_protocol::ast::{self, Expr, Expression};
+use nu_engine::{command_prelude::*, eval_ir_call};
+use nu_protocol::ir;
 
 use std::collections::VecDeque;
 
@@ -147,27 +147,17 @@ pub fn cal(
         style_computer,
     )?;
 
-    let mut table_no_index = ast::Call::new(tag);
-    table_no_index.add_named((
-        Spanned {
-            item: "index".to_string(),
-            span: tag,
-        },
-        None,
-        Some(Expression::new_unknown(Expr::Bool(false), tag, Type::Bool)),
-    ));
-
     let cal_table_output =
         Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data();
-    if !arguments.as_table {
-        crate::Table.run(
-            engine_state,
-            stack,
-            &(&table_no_index).into(),
-            cal_table_output,
-        )
-    } else {
-        Ok(cal_table_output)
+    match engine_state.table_decl_id {
+        // Render the calendar as `table --index false` would.
+        Some(table_decl_id) if !arguments.as_table => {
+            let mut table_no_index = ir::Call::build(table_decl_id, tag);
+            table_no_index.add_named(stack, "index", "", tag, Value::bool(false, tag));
+            eval_ir_call(engine_state, stack, table_no_index, cal_table_output)
+        }
+        // `--as-table`, or an engine without `table`, gets the rows as they are.
+        _ => Ok(cal_table_output),
     }
 }
 

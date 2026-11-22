@@ -843,8 +843,6 @@ fn process_pipeline(
 mod tests {
     use super::*;
     #[cfg(unix)]
-    use nu_engine::eval_expression;
-    #[cfg(unix)]
     use nu_protocol::engine::StateWorkingSet;
     #[cfg(unix)]
     use nu_protocol::{
@@ -899,13 +897,12 @@ mod tests {
 
         fn run(
             &self,
-            engine_state: &EngineState,
+            _engine_state: &EngineState,
             stack: &mut Stack,
             call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
-            let args: Vec<Value> =
-                call.rest_iter_flattened(engine_state, stack, eval_expression::<WithoutDebug>, 0)?;
+            let args: Vec<Value> = call.rest_iter_flattened(stack, 0)?;
             let args = args
                 .into_iter()
                 .map(|value| value.coerce_into_string())
