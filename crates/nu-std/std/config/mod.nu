@@ -164,15 +164,20 @@ export def env-conversions [] {
 # Returns the color as "#rrggbb", or nothing when there is no terminal to ask or
 # it does not report its colors.
 def terminal-color [osc: int]: [nothing -> oneof<string, nothing>] {
+    # The query is written to stdout and its answer read from stdin.
+    if not ((is-terminal --stdin) and (is-terminal --stdout)) {
+        return null
+    }
     # The cursor position, which terminals do report, is asked for after the
     # color and read up to its ending "R": a terminal that does not report its
-    # colors still answers, instead of keeping this waiting.
+    # colors still answers, instead of keeping this waiting. `term query` has no
+    # timeout, so one that answers neither keeps it waiting until Ctrl+C.
     let reply = try {
         term query $"(ansi osc)($osc);?(ansi st)(ansi cursor_position)" --terminator R | decode
     } catch {
         return null
     }
-    let channels = $reply | parse --regex 'rgb:(?<r>[[:xdigit:]]+)/(?<g>[[:xdigit:]]+)/(?<b>[[:xdigit:]]+)'
+    let channels = $reply | parse --regex 'rgba?:(?<r>[[:xdigit:]]+)/(?<g>[[:xdigit:]]+)/(?<b>[[:xdigit:]]+)'
     if ($channels | is-empty) {
         return null
     }
@@ -187,8 +192,13 @@ def terminal-color [osc: int]: [nothing -> oneof<string, nothing>] {
 # The terminal is asked, and its answer is read from the same input as what is
 # typed: keys typed before the answer comes are lost. Ask once, when nushell
 # starts.
-@example "Stripe tables with a color made from the background of the terminal, or from one of your own when it does not report it" {
-    $env.config.color_config.row_stripe_bg = (terminal-background | default "#282c34")
+#
+# Nothing is also what comes back over ssh to Windows, where the answer of the
+# terminal does not get through. Where nothing answers at all, as in a pty with
+# no terminal behind it, this waits until Ctrl+C.
+@example "Stripe tables with a color made from the background of the terminal, when it reports it" {
+    let background = terminal-background
+    if $background != null { $env.config.color_config.row_stripe_bg = $background }
 }
 export def terminal-background []: [nothing -> oneof<string, nothing>] {
     terminal-color 11
@@ -200,6 +210,10 @@ export def terminal-background []: [nothing -> oneof<string, nothing>] {
 # The terminal is asked, and its answer is read from the same input as what is
 # typed: keys typed before the answer comes are lost. Ask once, when nushell
 # starts.
+#
+# Nothing is also what comes back over ssh to Windows, where the answer of the
+# terminal does not get through. Where nothing answers at all, as in a pty with
+# no terminal behind it, this waits until Ctrl+C.
 @example "Get the color of the text of the terminal, or white when it does not report it" {
     terminal-foreground | default "#ffffff"
 }

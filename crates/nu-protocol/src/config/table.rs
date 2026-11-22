@@ -395,8 +395,8 @@ pub struct TableConfig {
     pub header_on_separator: bool,
     /// Whether every other data row is drawn on a background of its own.
     pub striped: bool,
-    /// How much white or black is blended into the terminal background to make
-    /// the background of a striped row: from 0.0, none, to 1.0, all of it.
+    /// How much white or black is blended into a "#rrggbb" `row_stripe_bg` to
+    /// make the background of the rows between: from 0.0, none, to 1.0, all of it.
     pub stripe_blend: f64,
     pub abbreviated_row_count: Option<usize>,
     pub footer_inheritance: bool,

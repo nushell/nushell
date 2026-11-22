@@ -645,13 +645,16 @@ $env.config.table.header_on_separator = false
 # Default: false
 $env.config.table.striped = false
 
-# Nushell does not ask the terminal for its background. To have stripes follow
-# it, ask when nushell starts, with `terminal-background` of the standard
-# library. Keys typed before the terminal answers are lost. It returns nothing
-# from a terminal that does not tell, which `default` replaces with a color:
+# To have stripes follow the background of the terminal, ask for it when nushell
+# starts, with `terminal-background` of the standard library. It returns nothing
+# from a terminal that does not tell (or over ssh to Windows), which leaves
+# tables without stripes. Keys typed before the terminal answers are lost, and
+# where nothing answers at all, as in a pty with no terminal behind it, startup
+# waits until Ctrl+C.
 # use std/config terminal-background
 # if $nu.is-interactive and $env.config.table.striped {
-#     $env.config.color_config.row_stripe_bg = (terminal-background | default "#282c34")
+#     let background = terminal-background
+#     if $background != null { $env.config.color_config.row_stripe_bg = $background }
 # }
 
 # table.stripe_blend (float): Strength of the stripes made from `color_config.row_stripe_bg`.
