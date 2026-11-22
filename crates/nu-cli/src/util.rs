@@ -766,9 +766,12 @@ fn tee_byte_stream(
 mod test {
     use super::*;
     use nu_protocol::LAST_VARIABLE_ID;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+    use std::{
+        env,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
     };
 
     #[test]
@@ -828,7 +831,8 @@ mod test {
         let mut engine_state = {
             let default_context = nu_cmd_lang::create_default_context();
             let mut state = nu_command::add_shell_command_context(default_context);
-            state.add_env_var("PWD".into(), Value::test_string("/"));
+            let cwd = env::current_dir().unwrap().into_string().unwrap();
+            state.add_env_var("PWD".into(), Value::test_string(cwd));
             state
         };
 
