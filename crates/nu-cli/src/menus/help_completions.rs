@@ -80,7 +80,7 @@ impl NuHelpCompleter {
                 {
                     long_desc.push_str("\nParameters:\n");
                     for positional in &sig.required_positional {
-                        let _ = write!(long_desc, "  {}: {}\n", positional.name, positional.desc);
+                        let _ = writeln!(long_desc, "  {}: {}", positional.name, positional.desc);
                     }
                     for positional in &sig.optional_positional {
                         let _ = write!(
@@ -95,13 +95,13 @@ impl NuHelpCompleter {
                                 value.to_parsable_string(", ", &self.config),
                             );
                         }
-                        let _ = write!(long_desc, ")\n");
+                        let _ = writeln!(long_desc, ")");
                     }
 
                     if let Some(rest_positional) = &sig.rest_positional {
-                        let _ = write!(
+                        let _ = writeln!(
                             long_desc,
-                            "  ...{}: {}\n",
+                            "  ...{}: {}",
                             rest_positional.name, rest_positional.desc
                         );
                     }
