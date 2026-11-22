@@ -2014,6 +2014,41 @@ fn let_assign_table_cell_path_to_wrong_type(
     Ok(())
 }
 
+#[rstest]
+#[case::int("5?", "oneof<record<a: record<b: list<int>>>, nothing>")]
+#[case::int_string("0?.a", "oneof<record<b: list<int>>, nothing>")]
+#[case::last_member("0.a.b.5?", "oneof<int, nothing>")]
+#[nu_test_support::test]
+#[exp(CELL_PATH_TYPES)]
+fn optional_cell_path_type_includes_nothing(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> Result {
+    let mut tester = test();
+    let () = tester.run("let foo = [{a: {b: [1]}}]")?;
+    let err = tester
+        .run(format!("let bar: string = $foo.{cell_path}"))
+        .expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == inferred_type
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::let_nothing("let l = [1]; let x: nothing = $l.5?; $x", ())]
+#[case::nothing_param("def f [x: nothing] { 'ok' }; let l = [1]; f $l.5?", "ok")]
+#[case::let_element_type("let l = [1]; let x: int = $l.0?; $x", 1)]
+#[nu_test_support::test]
+#[exp(CELL_PATH_TYPES)]
+fn optional_cell_path_fits_nothing_or_element_type(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
 #[test]
 fn let_variable_disallows_completer() -> Result {
     let err = test()

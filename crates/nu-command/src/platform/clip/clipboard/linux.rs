@@ -20,12 +20,19 @@ struct ClipboardResidentThread {
 }
 
 impl ClipboardResidentThread {
-    fn global() -> &'static ClipboardResidentThread {
+    /// Returns the shared holder thread, starting it on first use.
+    fn global() -> Result<&'static ClipboardResidentThread, ShellError> {
         static CLIPBOARD_THREAD: OnceLock<ClipboardResidentThread> = OnceLock::new();
-        CLIPBOARD_THREAD.get_or_init(Self::start)
+        if let Some(thread) = CLIPBOARD_THREAD.get() {
+            return Ok(thread);
+        }
+        // `OnceLock::get_or_try_init` is unstable, so start the thread before storing it. If
+        // another caller stores theirs first, ours is dropped, its channel closes and it exits.
+        let started = Self::start()?;
+        Ok(CLIPBOARD_THREAD.get_or_init(|| started))
     }
 
-    fn start() -> ClipboardResidentThread {
+    fn start() -> Result<ClipboardResidentThread, ShellError> {
         let (tx, rx) = mpsc::channel::<ResidentThreadMessage>();
 
         thread::Builder::new()
@@ -50,9 +57,14 @@ impl ClipboardResidentThread {
                     let _ = ack_tx.send(result);
                 }
             })
-            .expect("clipboard background thread failed to start");
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Clipboard thread failed to start.",
+                    err.to_string(),
+                ))
+            })?;
 
-        ClipboardResidentThread { tx }
+        Ok(ClipboardResidentThread { tx })
     }
 
     fn copy_text(&self, text: &str) -> Result<(), ShellError> {
@@ -92,7 +104,7 @@ impl ClipBoardLinux {
 impl Clipboard for ClipBoardLinux {
     fn copy_text(&self, text: &str) -> Result<(), ShellError> {
         if self.use_resident_thread {
-            ClipboardResidentThread::global().copy_text(text)
+            ClipboardResidentThread::global()?.copy_text(text)
         } else {
             with_clipboard_instance(|clip: &mut arboard::Clipboard| clip.set_text(text))
         }
@@ -108,25 +120,16 @@ fn should_use_resident_thread(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> bool {
-    // new config
-    if config.clip.resident_mode {
-        return true;
-    }
-
-    // legacy config
-    // Backward-compatible override from old plugin config style:
-    // `$env.config.plugins.clip.NO_RESIDENT = true`
-    if let Some(no_resident) = read_no_resident_legacy(
+    // The old plugin config style, `$env.config.plugins.clip.NO_RESIDENT`, overrides
+    // `$env.config.clip.resident_mode` when it is set.
+    read_no_resident_legacy(
         crate::platform::clip::get_config::get_clip_config_with_plugin_fallback(
             engine_state,
             stack,
         )
         .as_ref(),
-    ) {
-        return !no_resident;
-    }
-
-    true
+    )
+    .map_or(config.clip.resident_mode, |no_resident| !no_resident)
 }
 
 fn read_no_resident_legacy(value: Option<&Value>) -> Option<bool> {
@@ -151,5 +154,41 @@ fn read_no_resident_legacy(value: Option<&Value>) -> Option<bool> {
         },
         Some(Value::Int { val, .. }) => Some(*val == 1),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::record;
+
+    /// Runs `should_use_resident_thread` with `clip.resident_mode` and an optional
+    /// `plugins.clip` value.
+    fn uses_resident_thread(resident_mode: bool, plugins_clip: Option<Value>) -> bool {
+        let mut config = Config::default();
+        config.clip.resident_mode = resident_mode;
+        if let Some(value) = plugins_clip {
+            config.plugins.insert("clip".into(), value);
+        }
+        let mut engine_state = EngineState::new();
+        engine_state.set_config(config);
+        let config = engine_state.get_config().clone();
+        should_use_resident_thread(&config, &engine_state, &mut Stack::new())
+    }
+
+    fn no_resident(val: bool) -> Value {
+        Value::test_record(record! { "NO_RESIDENT" => Value::test_bool(val) })
+    }
+
+    #[test]
+    fn resident_mode_decides_without_legacy_key() {
+        assert!(uses_resident_thread(true, None));
+        assert!(!uses_resident_thread(false, None));
+    }
+
+    #[test]
+    fn legacy_no_resident_overrides_resident_mode() {
+        assert!(!uses_resident_thread(true, Some(no_resident(true))));
+        assert!(uses_resident_thread(false, Some(no_resident(false))));
     }
 }
