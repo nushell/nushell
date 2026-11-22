@@ -145,7 +145,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
                     if let Some(contents) = path.read(working_set) {
-                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                        if let Err(e) = working_set.files.push_parser_path(&path, spans[1]) {
                             working_set.error(e);
                             return garbage_pipeline(working_set, spans);
                         }
@@ -375,7 +375,7 @@ fn parse_run_expr_internal(
                         }
                     };
 
-                    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
+                    if let Err(e) = working_set.files.push_parser_path(&path, path_span) {
                         working_set.error(e);
                         return garbage(working_set, Span::concat(spans));
                     }

@@ -232,6 +232,58 @@ fn source_circular() -> Result {
         .expect_error_code_eq("nu::parser::circular_import")
 }
 
+#[test]
+fn source_circular_through_parent_dir(playground: Playground) -> Result {
+    playground.file("a.nu", "source sub/b.nu")?;
+    playground.file("sub/b.nu", "source ../a.nu")?;
+
+    test()
+        .cwd(playground.path())
+        .run("source a.nu")
+        .expect_error_code_eq("nu::parser::circular_import")
+}
+
+/// The script nu runs is the first file on the stack, so the cycle is caught where it closes.
+#[test]
+#[deps(NU)]
+fn source_circular_through_parent_dir_from_script(playground: Playground) -> Result {
+    playground.file("a.nu", "source sub/b.nu")?;
+    playground.file("sub/b.nu", "source ../a.nu")?;
+
+    let result: CompleteResult = test().cwd(playground.path()).run("nu -n a.nu | complete")?;
+    assert_contains("nu::parser::circular_import", &result.stderr);
+    assert_contains("source ../a.nu", &result.stderr);
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn source_circular_through_symlink(playground: Playground) -> Result {
+    playground.file("a.nu", "source link/a.nu")?;
+    playground.symlink("./", "link")?;
+
+    test()
+        .cwd(playground.path())
+        .run("source a.nu")
+        .expect_error_code_eq("nu::parser::circular_import")
+}
+
+/// A file sources others relative to the directory it was reached in, so one file reached
+/// through a symlink in another directory sources different files and isn't circular.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn source_symlinked_file_from_two_dirs_is_not_circular(playground: Playground) -> Result {
+    playground.file("d2/f.nu", "source sib.nu")?;
+    playground.file("d1/sib.nu", "source ../d2/f.nu")?;
+    playground.file("d2/sib.nu", "'d2 sib'")?;
+    playground.symlink("d2/f.nu", "d1/f.nu")?;
+
+    test()
+        .cwd(playground.path())
+        .run("source d1/f.nu")
+        .expect_value_eq("d2 sib")
+}
+
 /// A UTF-8 byte-order mark at the start of a file, as Windows editors can write, is skipped by
 /// every command that reads a script.
 #[rstest]

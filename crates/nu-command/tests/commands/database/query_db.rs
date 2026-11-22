@@ -290,3 +290,29 @@ fn open_reports_which_table_failed(
         err => Err(err.into()),
     }
 }
+
+#[test]
+fn first_strict_empty_query_plan_errors(playground: Playground) -> Result {
+    let db = playground.path().join("test.db");
+    let conn = Connection::open(&db).expect("failed to open db");
+    conn.execute_batch("CREATE TABLE t (a INT);")
+        .expect("failed to create tables");
+    drop(conn);
+    let mut tester = test().cwd(playground.path());
+
+    match tester
+        .run_with_data::<Value>("open $in | get t | first -s 1", db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::AccessEmptyContent { .. } => {}
+        err => panic!("expected AccessEmptyContent, got {err:?}"),
+    }
+
+    match tester
+        .run_with_data::<Value>("open $in | get t | first -s 0", db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::AccessEmptyContent { .. } => Ok(()),
+        err => panic!("expected AccessEmptyContent, got {err:?}"),
+    }
+}

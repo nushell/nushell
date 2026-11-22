@@ -64,6 +64,7 @@
 )]
 #![deny(missing_docs)]
 
+mod ancestors;
 pub mod dc_glob;
 
 #[cfg(test)]
@@ -81,6 +82,8 @@ use std::fs;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
 use std::str::FromStr;
+
+use ancestors::{LazyAncestors, WalkAncestors};
 
 use CharSpecifier::{CharRange, SingleChar};
 use MatchResult::{EntirePatternDoesntMatch, Match, SubPatternDoesntMatch};
@@ -124,9 +127,16 @@ pub struct Paths<I = Uninterruptible> {
     dir_patterns: Vec<Pattern>,
     require_dir: bool,
     options: MatchOptions,
-    todo: Vec<Result<(PathBuf, usize), GlobError>>,
+    todo: Vec<Result<PendingPath, GlobError>>,
     scope: Option<PathBuf>,
     interrupt: I,
+}
+
+#[derive(Debug)]
+struct PendingPath {
+    path: PathBuf,
+    idx: usize,
+    ancestors: WalkAncestors,
 }
 
 impl Paths<Uninterruptible> {
@@ -136,7 +146,11 @@ impl Paths<Uninterruptible> {
             dir_patterns: vec![Pattern::new("*").expect("hard coded pattern")],
             require_dir: false,
             options: MatchOptions::default(),
-            todo: vec![Ok((path.to_path_buf(), 0))],
+            todo: vec![Ok(PendingPath {
+                path: path.to_path_buf(),
+                idx: 0,
+                ancestors: WalkAncestors::Untracked,
+            })],
             scope: Some(relative_to.into()),
             interrupt: Uninterruptible,
         }
@@ -480,6 +494,7 @@ impl<I: Interruptible> Iterator for Paths<I> {
                     &scope,
                     self.options,
                     &self.interrupt,
+                    &WalkAncestors::Untracked,
                 );
             }
         }
@@ -489,7 +504,11 @@ impl<I: Interruptible> Iterator for Paths<I> {
                 return None;
             }
 
-            let (path, mut idx) = match self
+            let PendingPath {
+                path,
+                mut idx,
+                ancestors,
+            } = match self
                 .todo
                 .pop()
                 .expect("internal error: already checked for non-empty")
@@ -537,6 +556,7 @@ impl<I: Interruptible> Iterator for Paths<I> {
                         &path,
                         self.options,
                         &self.interrupt,
+                        &ancestors,
                     );
 
                     if next == self.dir_patterns.len() - 1 {
@@ -589,6 +609,8 @@ impl<I: Interruptible> Iterator for Paths<I> {
                         &path,
                         self.options,
                         &self.interrupt,
+                        // A finite match can reach a directory from a new `**`.
+                        &WalkAncestors::Untracked,
                     );
                 }
             }
@@ -973,12 +995,13 @@ impl Pattern {
 // special-casing patterns to match `.` and `..`, and avoiding `readdir()`
 // calls when there are no metacharacters in the pattern.
 fn fill_todo(
-    todo: &mut Vec<Result<(PathBuf, usize), GlobError>>,
+    todo: &mut Vec<Result<PendingPath, GlobError>>,
     patterns: &[Pattern],
     idx: usize,
     path: &Path,
     options: MatchOptions,
     interrupt: &impl Interruptible,
+    ancestors: &WalkAncestors,
 ) {
     // convert a pattern that's just many Char(_) to a string
     fn pattern_as_str(pattern: &Pattern) -> Option<String> {
@@ -993,21 +1016,74 @@ fn fill_todo(
         Some(s)
     }
 
+    let pattern = &patterns[idx];
+    let literal = pattern_as_str(pattern);
+    // Before the first followed link, inspect the directory entry itself. For a real
+    // directory this is the only lookup needed. Follow the path if it is a link or
+    // its type could not be read.
+    let (metadata, may_be_symlink) = if matches!(ancestors, WalkAncestors::BeforeLink(_)) {
+        match fs::symlink_metadata(path) {
+            Ok(metadata) if !metadata.is_symlink() => (Some(metadata), false),
+            _ => (fs::metadata(path).ok(), true),
+        }
+    } else {
+        (fs::metadata(path).ok(), false)
+    };
+    let metadata = metadata.filter(fs::Metadata::is_dir);
+    let is_dir = metadata.is_some();
+    let curdir = path == Path::new(".");
+    let seed;
+    let ancestors = if let WalkAncestors::BeforeLink(parent) = ancestors
+        && may_be_symlink
+        && is_dir
+    {
+        let Some(ancestors) = parent.for_link(path) else {
+            return;
+        };
+        seed = WalkAncestors::FollowingLink(ancestors);
+        &seed
+    } else {
+        ancestors
+    };
+    let branch = match (ancestors, metadata.as_ref()) {
+        (WalkAncestors::FollowingLink(ancestors), Some(metadata)) => {
+            let Some(branch) = ancestors.enter(path, metadata) else {
+                return;
+            };
+            WalkAncestors::FollowingLink(branch)
+        }
+        // The components before this `**` select the root of its recursive walk.
+        (WalkAncestors::Untracked, Some(_)) if pattern.is_recursive => {
+            WalkAncestors::BeforeLink(LazyAncestors::root())
+        }
+        (WalkAncestors::BeforeLink(parent), Some(_)) => WalkAncestors::BeforeLink(parent.child()),
+        _ => ancestors.clone(),
+    };
+
     let add = |todo: &mut Vec<_>, next_path: PathBuf| {
         if idx + 1 == patterns.len() {
             // We know it's good, so don't make the iterator match this path
             // against the pattern again. In particular, it can't match
             // . or .. globs since these never show up as path components.
-            todo.push(Ok((next_path, !0)));
+            todo.push(Ok(PendingPath {
+                path: next_path,
+                idx: !0,
+                ancestors: WalkAncestors::Untracked,
+            }));
         } else {
-            fill_todo(todo, patterns, idx + 1, &next_path, options, interrupt);
+            fill_todo(
+                todo,
+                patterns,
+                idx + 1,
+                &next_path,
+                options,
+                interrupt,
+                &WalkAncestors::Untracked,
+            );
         }
     };
 
-    let pattern = &patterns[idx];
-    let is_dir = is_dir(path);
-    let curdir = path == Path::new(".");
-    match pattern_as_str(pattern) {
+    match literal {
         Some(s) => {
             // This pattern component doesn't have any metacharacters, so we
             // don't need to read the current directory to know where to
@@ -1016,7 +1092,7 @@ fn fill_todo(
             // right away.
             let special = "." == s || ".." == s;
             let next_path = if curdir {
-                PathBuf::from(s)
+                PathBuf::from(&s)
             } else {
                 path.join(&s)
             };
@@ -1035,7 +1111,7 @@ fn fill_todo(
                         return Err(io::Error::from(io::ErrorKind::Interrupted));
                     }
                     e.map(|e| {
-                        if curdir {
+                        let path = if curdir {
                             PathBuf::from(
                                 e.path()
                                     .file_name()
@@ -1043,6 +1119,11 @@ fn fill_todo(
                             )
                         } else {
                             e.path()
+                        };
+                        PendingPath {
+                            path,
+                            idx,
+                            ancestors: branch.clone(),
                         }
                     })
                 })
@@ -1060,8 +1141,8 @@ fn fill_todo(
                     //             .starts_with('.')
                     //     });
                     // }
-                    children.sort_by(|p1, p2| p2.file_name().cmp(&p1.file_name()));
-                    todo.extend(children.into_iter().map(|x| Ok((x, idx))));
+                    children.sort_by(|p1, p2| p2.path.file_name().cmp(&p1.path.file_name()));
+                    todo.extend(children.into_iter().map(Ok));
 
                     // Matching the special directory entries . and .. that
                     // refer to the current and parent directory respectively

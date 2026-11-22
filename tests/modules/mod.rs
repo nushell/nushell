@@ -489,6 +489,33 @@ fn module_dir_missing_mod_nu() -> Result {
 }
 
 #[test]
+fn module_dir_circular_import_through_parent_dir(playground: Playground) -> Result {
+    playground.file("spam/mod.nu", "export module spam2")?;
+    playground.file("spam/spam2/mod.nu", "use ../mod.nu")?;
+
+    test()
+        .cwd(playground.path())
+        .run("use spam")
+        .expect_error_code_eq("nu::parser::circular_import")
+}
+
+/// Standard library paths like `std/log/mod.nu` are virtual, so a real file at the same
+/// relative path under the directory nu was started in is a different file.
+#[test]
+#[deps(NU)]
+fn module_wrapping_std_module_of_same_path_is_not_circular(playground: Playground) -> Result {
+    playground.file("std/log/mod.nu", "export use std/log *")?;
+
+    // The child nu is started in the playground, where `std/log/mod.nu` is a real file.
+    let result: CompleteResult = test()
+        .cwd(playground.path())
+        .run(r#"nu -n -c "use ./std/log; 'imported'" | complete"#)?;
+
+    assert_eq!(result.stdout.trim(), "imported", "{result:?}");
+    Ok(())
+}
+
+#[test]
 fn module_dir_name_keeps_dots(playground: Playground) -> Result {
     playground.dir("spam.eggs")?;
     playground.file("spam.eggs/mod.nu", r#"export def foo [] { "foo" }"#)?;

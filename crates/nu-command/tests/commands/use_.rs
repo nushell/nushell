@@ -517,3 +517,25 @@ fn use_keyword_named_module_file_with_main_errors(playground: Playground) -> Res
         err => Err(err.into()),
     }
 }
+
+#[rstest]
+#[case::const_list("const names = [f]; use spam ...$names")]
+#[case::let_list("let names = [f]; use spam ...$names")]
+#[case::list_literal("use spam ...[f]")]
+#[case::after_member("use spam f ...[g]")]
+#[case::std("const names = [log]; use std ...$names")]
+#[case::export_use("module eggs { export use spam ...[f] }")]
+#[case::export_use_top("export use spam ...[f]")]
+fn use_spread_members_errors(#[case] code: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run("module spam { export def f [] { 'f' } }")?;
+
+    let err = tester.run(code).expect_parse_error()?;
+    match err {
+        ParseError::WrongImportPattern(msg, ..) => {
+            assert_contains("cannot spread in an import pattern", msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
