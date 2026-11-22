@@ -575,3 +575,22 @@ fn hook_does_not_collect_external_output(#[case] hook: &str) -> Result {
     );
     Ok(())
 }
+
+#[rstest::rstest]
+#[case::string("'error make {msg: boom}'")]
+#[case::record_string("{code: 'error make {msg: boom}'}")]
+fn failing_string_command_not_found_hook_gives_its_inner_error(#[case] hook: &str) -> Result {
+    let code = format!("$env.config.hooks.command_not_found = ({hook}); ferris_is_not_here");
+    let err = test().run(code).expect_shell_error()?;
+    pretty_assertions::assert_matches!(err.to_string().as_str(), "boom");
+    Ok(())
+}
+
+#[test]
+fn failing_closure_command_not_found_hook_gives_its_own_error() -> Result {
+    let code = "
+        $env.config.hooks.command_not_found = {|cmd| error make {msg: boom} }
+        try { ferris_is_not_here } catch {|e| $e.msg }
+    ";
+    test().run(code).expect_value_eq("boom")
+}

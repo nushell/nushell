@@ -5,7 +5,10 @@ use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
     ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
     process::{ChildProcess, PostWaitCallback},
-    shell_error::io::{ErrorKind, IoError},
+    shell_error::{
+        generic::GenericError,
+        io::{ErrorKind, IoError},
+    },
 };
 use nu_system::ForegroundChild;
 #[cfg(unix)]
@@ -635,21 +638,22 @@ pub fn command_not_found(
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
     if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
-        let mut stack = stack.start_collect_value();
         // Set a special environment variable to avoid infinite loops when the
         // `command_not_found` hook triggers itself.
-        let canary = "ENTERED_COMMAND_NOT_FOUND";
-        if stack.has_env_var(engine_state, canary) {
+        const CANARY: &str = "ENTERED_COMMAND_NOT_FOUND";
+        const HOOK_NAME: &str = "command_not_found";
+
+        let mut stack = stack.start_collect_value();
+        if stack.has_env_var(engine_state, CANARY) {
             return ShellError::ExternalCommand {
-                label: format!(
-                    "Command {name} not found while running the `command_not_found` hook"
+                label: format!("Command {name} not found while running the `{HOOK_NAME}` hook"),
+                help: format!(
+                    "Make sure the `{HOOK_NAME}` hook itself does not use unknown commands"
                 ),
-                help: "Make sure the `command_not_found` hook itself does not use unknown commands"
-                    .into(),
                 span,
             };
         }
-        stack.add_env_var(canary.into(), Value::bool(true, Span::unknown()));
+        stack.add_env_var(CANARY.into(), Value::bool(true, Span::unknown()));
 
         let output = eval_hook(
             &mut engine_state.clone(),
@@ -657,11 +661,11 @@ pub fn command_not_found(
             None,
             &[("cmd_name".into(), Value::string(name, span))],
             hook,
-            "command_not_found",
+            HOOK_NAME,
         );
 
         // Remove the special environment variable that we just set.
-        stack.remove_env_var(engine_state, canary);
+        stack.remove_env_var(engine_state, CANARY);
 
         match output {
             Ok(PipelineData::Value(Value::String { val, .. }, ..)) => {
@@ -672,11 +676,16 @@ pub fn command_not_found(
                 };
             }
             Err(err) => {
-                return err;
+                // We cannot return err directly, because its span is pointing at the parsed hook source,
+                // which in case of a string hook was only parsed into its own cloned engine state.
+                return GenericError::new(
+                    err.to_string(),
+                    format!("`{HOOK_NAME}` hook was erroneous"),
+                    hook.span(),
+                )
+                .into();
             }
-            _ => {
-                // The hook did not return a string, so ignore it.
-            }
+            _ => (), // The hook did not return a string, so ignore it.
         }
     }
 
