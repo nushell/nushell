@@ -11,7 +11,6 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     report_shell_error,
 };
-use std::borrow::Cow;
 
 /// The deprecated variables, in the order their config keys are declared.
 pub const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
@@ -43,7 +42,11 @@ pub const FORMERLY_SEEDED_PROMPT_VARIABLES: [&str; 8] = [
 
 /// A string is used verbatim, a closure is evaluated once. Anything else has
 /// no rendering.
-fn render(
+///
+/// The building block of [`resolve_prompt_source`], for keys with no
+/// deprecated variable to honor. Once the variables are gone, this is all
+/// that resolving a segment takes.
+pub fn render(
     value: &Value,
     config: &Config,
     engine_state: &EngineState,
@@ -92,7 +95,10 @@ fn from_env(
     )
 }
 
-/// The prompt itself. `None` from both sources leaves the line editor's own.
+/// Any prompt segment: the deprecated variable when it renders, otherwise the
+/// configured value. `None` from both leaves the segment to the caller's
+/// fallback: the line editor's own prompt, the built-in indicator, or for a
+/// transient segment whatever the live prompt showed.
 pub fn resolve_prompt_source(
     env_var: &str,
     configured: Option<&Value>,
@@ -102,33 +108,4 @@ pub fn resolve_prompt_source(
 ) -> Option<String> {
     from_env(env_var, config, engine_state, stack)
         .or_else(|| render(configured?, config, engine_state, stack))
-}
-
-/// A mode indicator, which unlike the prompt always has a configured string
-/// to fall back on. Borrowed when nothing overrode it, the usual case.
-pub fn resolve_indicator<'a>(
-    env_var: &str,
-    configured: &'a str,
-    config: &Config,
-    engine_state: &EngineState,
-    stack: &Stack,
-) -> Cow<'a, str> {
-    match from_env(env_var, config, engine_state, stack) {
-        Some(rendered) => Cow::Owned(rendered),
-        None => Cow::Borrowed(configured),
-    }
-}
-
-/// A transient indicator, where `None` from both sources means "keep whatever
-/// the live prompt showed" rather than "use a default".
-pub fn resolve_transient_indicator<'a>(
-    env_var: &str,
-    configured: Option<&'a str>,
-    config: &Config,
-    engine_state: &EngineState,
-    stack: &Stack,
-) -> Option<Cow<'a, str>> {
-    from_env(env_var, config, engine_state, stack)
-        .map(Cow::Owned)
-        .or_else(|| configured.map(Cow::Borrowed))
 }
