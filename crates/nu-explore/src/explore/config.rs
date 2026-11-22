@@ -4,6 +4,7 @@ use crate::explore::nu_common::create_map;
 use nu_ansi_term::{Color, Style};
 use nu_color_config::get_color_map;
 use nu_protocol::Config;
+use nu_table::common::RowStripes;
 
 #[derive(Debug, Clone)]
 pub struct ExploreConfig {
@@ -58,8 +59,9 @@ impl ExploreConfig {
     ///
     /// Related values taken from elsewhere (not `$env.config.explore`):
     /// - [`Config::table`] `.padding` → column padding
-    /// - header/index flags and separator style are set by the `explore` command
-    ///   after this call (`--head`, `--index`, `color_config.separator`)
+    /// - header/index flags, separator style and row stripe are set by the
+    ///   `explore` command after this call (`--head`, `--index`,
+    ///   `color_config.separator`, `table.striped`)
     ///
     /// Unsupported (commonly seen but not applied): `explore.config.*`,
     /// `explore.table.*` (including `table.selected_cell` / `table.show_cursor`).
@@ -138,6 +140,8 @@ impl ExploreConfig {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TableConfig {
     pub separator_style: Style,
+    /// The backgrounds of the rows, when tables are striped.
+    pub stripes: RowStripes,
     pub show_index: bool,
     pub show_header: bool,
     pub column_padding_left: usize,

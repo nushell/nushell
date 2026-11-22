@@ -1182,3 +1182,112 @@ fn table_empty_placeholder_too_narrow(#[case] command: &str, #[case] expected: &
     // text instead of panicking (#15328)
     test().run(command).expect_value_eq(expected)
 }
+
+/// Whether each line of `table`, a table of three rows drawn with `setup`, is
+/// on the background of a striped row.
+fn striped_lines(setup: &str, table: &str) -> Result<String> {
+    test().run(format!(
+        "
+            $env.config.use_ansi_coloring = true
+            $env.config.color_config.row_stripe_alt = '#303030'
+            {setup}
+            [[a]; [1] [2] [3]] | {table} | lines
+            | each {{ str contains (ansi --escape '48;2;48;48;48m') }} | str join ' '
+        "
+    ))
+}
+
+#[test]
+fn table_striped_rows() -> Result {
+    let on = "$env.config.table.striped = true";
+    // The second data row is striped: not the header, not the borders.
+    assert_eq!(
+        striped_lines(on, "table")?,
+        "false false false false true false false"
+    );
+    assert_eq!(
+        striped_lines(on, "table --expand")?,
+        "false false false false true false false"
+    );
+    Ok(())
+}
+
+/// The backgrounds of the lines of a table of three rows drawn with `colors`
+/// merged into `color_config`: `b` for 0;0;1, `a` for 0;0;2, `d` for 26;26;26,
+/// the second blended into black at 0.1, and `-` for none.
+fn row_backgrounds(colors: &str) -> Result<String> {
+    test().run(format!(
+        "
+            $env.config.use_ansi_coloring = true
+            $env.config.table.striped = true
+            $env.config.table.stripe_blend = 0.1
+            $env.config.color_config = $env.config.color_config | merge {colors}
+            [[a]; [1] [2] [3]] | table | lines | each {{|line|
+                [[code name]; ['0;0;1' b] ['0;0;2' a] ['26;26;26' d]]
+                | where {{|color| $line | str contains (ansi --escape $'48;2;($color.code)m') }}
+                | get 0?.name | default '-'
+            }} | str join
+        "
+    ))
+}
+
+#[test]
+fn table_row_stripe_colors() -> Result {
+    // Both set, `row_stripe_alt` made from `row_stripe_bg`, and it alone.
+    assert_eq!(
+        row_backgrounds("{row_stripe_bg: '#000001', row_stripe_alt: '#000002'}")?,
+        "---bab-"
+    );
+    assert_eq!(row_backgrounds("{row_stripe_bg: '#000000'}")?, "----d--");
+    assert_eq!(row_backgrounds("{row_stripe_alt: '#000002'}")?, "----a--");
+    Ok(())
+}
+
+#[test]
+fn table_striped_rows_of_the_outer_table_only() -> Result {
+    // A nested table has no stripes of its own: its lines are on the stripe of
+    // the row it is in, the second one here.
+    let lines = striped_lines(
+        "$env.config.table.striped = true",
+        "each {|row| {a: $row.a, b: [[x]; [1] [2] [3]]} } | first 2 | table --expand",
+    )?;
+    let expected = [vec!["false"; 10], vec!["true"; 7], vec!["false"]].concat();
+    assert_eq!(lines, expected.join(" "));
+    Ok(())
+}
+
+#[test]
+fn table_stripe_starts_before_an_unpadded_first_cell() -> Result {
+    // The background of the first cell is set after the stripe, so it stays.
+    let stripe_first: bool = test().run(
+        "
+            $env.config.use_ansi_coloring = true
+            $env.config.table.striped = true
+            $env.config.table.padding.left = 0
+            $env.config.color_config.row_stripe_alt = '#303030'
+            $env.config.color_config.row_index = {fg: green, bg: blue}
+            let line = [[a]; [1] [2]] | table | lines | get 4
+            let stripe = $line | str index-of (ansi --escape '48;2;48;48;48m')
+            $stripe >= 0 and $stripe < ($line | str index-of (ansi --escape '44;32m'))
+        ",
+    )?;
+    assert!(stripe_first);
+    Ok(())
+}
+
+#[test]
+fn table_not_striped() -> Result {
+    let on = "$env.config.table.striped = true";
+    let none = |lines: usize| vec!["false"; lines].join(" ");
+    // Off by default, and no stripes in markup or without colors.
+    assert_eq!(striped_lines("", "table")?, none(7));
+    assert_eq!(striped_lines(on, "table --theme markdown")?, none(5));
+    assert_eq!(
+        striped_lines(
+            &format!("{on}; $env.config.use_ansi_coloring = false"),
+            "table"
+        )?,
+        none(7)
+    );
+    Ok(())
+}
