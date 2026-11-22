@@ -440,15 +440,16 @@ impl fmt::Display for FmtPattern<'_> {
                     if index > 0 {
                         f.write_str(", ")?;
                     }
-                    write!(
-                        f,
-                        "{}: {}",
-                        name,
-                        FmtPattern {
-                            engine_state: self.engine_state,
-                            pattern: &pattern.pattern,
-                        }
-                    )?;
+                    let pattern = FmtPattern {
+                        engine_state: self.engine_state,
+                        pattern: &pattern.pattern,
+                    };
+                    // A `..$rest` entry has no field name.
+                    if matches!(pattern.pattern, Pattern::Rest(_)) {
+                        write!(f, "{pattern}")?;
+                    } else {
+                        write!(f, "{name}: {pattern}")?;
+                    }
                 }
                 f.write_str("}")
             }
@@ -496,6 +497,14 @@ impl fmt::Display for FmtPattern<'_> {
                 let variable = FmtVar::new(self.engine_state, *var_id);
                 write!(f, "..{variable}")
             }
+            Pattern::Optional(pattern) => write!(
+                f,
+                "{}?",
+                FmtPattern {
+                    engine_state: self.engine_state,
+                    pattern: &pattern.pattern
+                }
+            ),
             Pattern::IgnoreRest => f.write_str(".."),
             Pattern::IgnoreValue => f.write_str("_"),
             Pattern::Garbage => f.write_str("<garbage>"),

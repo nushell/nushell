@@ -304,12 +304,12 @@ fn let_destructure_shadows(#[case] code: &str) -> Result {
 #[case::missing_field(
     "let {$name, $mtime} = {name: a, size: 1}",
     "record has no field `mtime`",
-    Some("The record has name, size.")
+    Some("The record has name, size. Add `?` after the pattern if the field can be missing.")
 )]
 #[case::empty_record(
     "let {$a} = {}",
     "record has no field `a`",
-    Some("The record is empty.")
+    Some("The record is empty. Add `?` after the pattern if the field can be missing.")
 )]
 #[case::too_many_items(
     "let [$a, $b] = [1 2 3]",
@@ -366,6 +366,68 @@ fn let_destructure_value_type_mismatch() -> Result {
     "A destructuring pattern can't have a type annotation"
 )]
 fn let_destructure_invalid_pattern(#[case] code: &str, #[case] expected: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(err, ParseError::LabeledErrorWithHelp { error, .. } if error == expected);
+    Ok(())
+}
+
+#[rstest]
+#[case::missing_field("let {$a, $b?} = {a: 1}; [$a $b]", test_value!([1, ()]))]
+#[case::null_field("let {$a?} = {a: null}; $a", test_value!(()))]
+#[case::present_field("let {a: $x?} = {a: 1}; $x", test_value!(1))]
+#[case::nested_missing("let {foo: {$bar, $baz}?} = {}; [$bar $baz]", test_value!([(), ()]))]
+#[case::missing_item("let [$x, $y?] = [1]; [$x $y]", test_value!([1, ()]))]
+#[case::present_item("let [$x, $y?] = [1 2]; [$x $y]", test_value!([1, 2]))]
+#[case::wildcard("let {a: _?, $b} = {b: 2}; $b", test_value!(2))]
+#[case::record_rest(
+    "let {$a, ..$rest} = {a: 1, b: 2, c: 3}; $rest",
+    test_value!({b: 2, c: 3})
+)]
+#[case::record_rest_empty("let {$a, ..$rest} = {a: 1}; $rest", test_value!({}))]
+#[case::record_rest_only("let {..$all} = {a: 1}; $all", test_value!({a: 1}))]
+fn let_destructure_optional_and_rest(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::optional_wrong_type("let {foo: {$bar}?} = {foo: 5}", "expected a record, got int", None)]
+#[case::optional_too_long(
+    "let [$x, $y?] = [1 2 3]",
+    "list has 3 items, the pattern takes 1 to 2",
+    None
+)]
+fn let_destructure_optional_mismatch(
+    #[case] code: &str,
+    #[case] expected_msg: &str,
+    #[case] expected_help: Option<&str>,
+) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::PatternMismatch { msg, help, .. }
+            if msg == expected_msg && help.as_deref() == expected_help
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::required_after_optional(
+    "let [$a?, $b] = [1]",
+    "A required item can't follow an optional one"
+)]
+#[case::optional_with_rest(
+    "let [$a, $b?, ..] = [1]",
+    "A list pattern can't have both `..` and optional items"
+)]
+#[case::record_ignore_rest(
+    "let {$a, ..} = {a: 1}",
+    "A record pattern already ignores the fields it doesn't name"
+)]
+#[case::record_rest_twice(
+    "let {..$a, ..$b} = {a: 1}",
+    "`..$name` can only be used once per record pattern"
+)]
+fn let_destructure_invalid_optional_or_rest(#[case] code: &str, #[case] expected: &str) -> Result {
     let err = test().run(code).expect_parse_error()?;
     assert_matches!(err, ParseError::LabeledErrorWithHelp { error, .. } if error == expected);
     Ok(())

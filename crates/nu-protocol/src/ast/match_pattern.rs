@@ -23,7 +23,8 @@ impl MatchPattern {
 /// AST Node for pattern matching rules
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Pattern {
-    /// Destructuring of records
+    /// Destructuring of records. A `..$rest` entry is a [`Pattern::Rest`] with an empty field
+    /// name; it binds a record of the fields the other entries don't name.
     Record(Vec<(String, MatchPattern)>),
     /// List destructuring
     List(Vec<MatchPattern>),
@@ -38,6 +39,9 @@ pub enum Pattern {
     Rest(VarId),
     /// the `..` pattern
     IgnoreRest,
+    /// the `pattern?` pattern: a record field or list item that may be missing. A missing or
+    /// `null` value binds every variable inside it to `null`.
+    Optional(Box<MatchPattern>),
     /// the `_` pattern
     IgnoreValue,
     /// Failed parsing of a pattern
@@ -65,6 +69,7 @@ impl Pattern {
                 }
             }
             Pattern::Rest(var_id) => output.push(*var_id),
+            Pattern::Optional(pattern) => output.append(&mut pattern.variables()),
             Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage | Pattern::IgnoreRest => {}
         }
 
@@ -75,6 +80,7 @@ impl Pattern {
         match self {
             Self::Variable(_) | Self::IgnoreValue => true,
             Self::Or(match_patterns) => match_patterns.iter().any(|x| x.is_wildcard()),
+            Self::Optional(pattern) => pattern.is_wildcard(),
             _ => false,
         }
     }

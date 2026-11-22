@@ -41,8 +41,9 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
 /// Parse the pattern of a destructuring `let`, `mut`, `const` or `for`, as in
 /// `let {$name, $size} = $file`.
 ///
-/// It may hold `$name`, `_`, and list and record patterns, but no literals: a literal would test
-/// the value rather than bind it, which is what `match` is for. Each variable may appear once.
+/// It may hold `$name`, `_`, `?`, and list and record patterns with their rests, but no literals:
+/// a literal would test the value rather than bind it, which is what `match` is for. Each variable
+/// may appear once.
 pub fn parse_binding_pattern(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -101,6 +102,7 @@ fn check_binding_pattern(
             working_set.error(error);
             return;
         }
+        Pattern::Optional(inner) => return check_binding_pattern(working_set, inner, bound),
         // Or-patterns only come from `match` arms.
         Pattern::Or(_) | Pattern::IgnoreValue | Pattern::IgnoreRest | Pattern::Garbage => return,
     };
@@ -182,6 +184,20 @@ fn parse_pattern_in(
     ctx: PatternContext,
 ) -> MatchPattern {
     let bytes = working_set.get_span_contents(span);
+
+    // `$x?`, `{...}?`, `[...]?` and `_?`: a field or item that may be missing. A bare word like
+    // `foo?` stays a string.
+    if bytes.len() > 1
+        && bytes.ends_with(b"?")
+        && (matches!(bytes[0], b'$' | b'{' | b'[') || bytes == b"_?")
+    {
+        let inner = parse_pattern_in(working_set, Span::new(span.start, span.end - 1), ctx);
+        return MatchPattern {
+            pattern: Pattern::Optional(Box::new(inner)),
+            guard: None,
+            span,
+        };
+    }
 
     if bytes.starts_with(b"$") {
         // Variable pattern
@@ -272,6 +288,25 @@ fn parse_variable_pattern(
     }
 }
 
+/// Parse `..$name`, the rest of a list or record pattern.
+fn parse_rest_pattern(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    ctx: PatternContext,
+) -> MatchPattern {
+    let name_span = Span::new(span.start + 2, span.end);
+    if let Some(var_id) = parse_variable_pattern_helper(working_set, name_span, ctx) {
+        MatchPattern {
+            pattern: Pattern::Rest(var_id),
+            guard: None,
+            span,
+        }
+    } else {
+        working_set.error(ParseError::Expected("valid variable name", span));
+        garbage(span)
+    }
+}
+
 fn parse_list_pattern(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -331,20 +366,7 @@ fn parse_list_pattern(
                         span: part,
                     }
                 } else if contents.starts_with(b"..$") {
-                    if let Some(var_id) = parse_variable_pattern_helper(
-                        working_set,
-                        Span::new(part.start + 2, part.end),
-                        ctx,
-                    ) {
-                        MatchPattern {
-                            pattern: Pattern::Rest(var_id),
-                            guard: None,
-                            span: part,
-                        }
-                    } else {
-                        working_set.error(ParseError::Expected("valid variable name", part));
-                        garbage(part)
-                    }
+                    parse_rest_pattern(working_set, part, ctx)
                 } else {
                     parse_pattern_in(working_set, part, ctx)
                 };
@@ -365,6 +387,30 @@ fn parse_list_pattern(
                     args.push(arg);
                 }
             }
+        }
+    }
+
+    // Optional items come last, and not with a rest: in `[$a?, $b]` nothing says which item
+    // `[1]` fills, and in `[$a?, ..]` both would take up a short list.
+    let is_optional = |item: &MatchPattern| matches!(item.pattern, Pattern::Optional(_));
+    if let Some(first_optional) = args.iter().position(is_optional) {
+        if has_rest {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "A list pattern can't have both `..` and optional items".into(),
+                label: "optional item".into(),
+                help: "Remove the `?`, or remove the `..` so the list has a fixed length.".into(),
+                span: args[first_optional].span,
+            });
+        } else if let Some(required) = args[first_optional..]
+            .iter()
+            .find(|item| !is_optional(item))
+        {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "A required item can't follow an optional one".into(),
+                label: "required item after an optional one".into(),
+                help: "Move the optional items to the end of the list pattern.".into(),
+                span: required.span,
+            });
         }
     }
 
@@ -413,14 +459,39 @@ fn parse_record_pattern(
 
     let mut output = vec![];
     let mut idx = 0;
+    let mut has_rest = false;
 
     while idx < tokens.len() {
         let bytes = working_set.get_span_contents(tokens[idx].span);
-        let (field, pattern) = if !bytes.is_empty() && bytes[0] == b'$' {
-            // If this is a variable, treat it as both the name of the field and the pattern
-            let field = String::from_utf8_lossy(&bytes[1..]).to_string();
+        let (field, pattern) = if bytes == b".." {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "A record pattern already ignores the fields it doesn't name".into(),
+                label: "not needed".into(),
+                help: "Remove the `..`, or write `..$rest` to bind the other fields.".into(),
+                span: tokens[idx].span,
+            });
+            idx += 1;
+            continue;
+        } else if bytes.starts_with(b"..$") {
+            // `..$rest` binds the other fields. It has no field name of its own.
+            let pattern = parse_rest_pattern(working_set, tokens[idx].span, ctx);
+            if has_rest {
+                working_set.error(ParseError::LabeledErrorWithHelp {
+                    error: "`..$name` can only be used once per record pattern".into(),
+                    label: "extra rest pattern".into(),
+                    help: "Keep one `..$name` and remove the others.".into(),
+                    span: tokens[idx].span,
+                });
+            }
+            has_rest = true;
+            (String::new(), pattern)
+        } else if bytes.starts_with(b"$") {
+            // `{$a}` is short for `{a: $a}`, and `{$a?}` for `{a: $a?}`.
+            let name = &bytes[1..];
+            let name = name.strip_suffix(b"?").unwrap_or(name);
+            let field = String::from_utf8_lossy(name).to_string();
 
-            let pattern = parse_variable_pattern(working_set, tokens[idx].span, ctx);
+            let pattern = parse_pattern_in(working_set, tokens[idx].span, ctx);
 
             (field, pattern)
         } else {

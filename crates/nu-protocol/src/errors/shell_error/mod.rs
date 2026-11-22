@@ -1240,8 +1240,9 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the shape of the value against the pattern. Add `..` to a list pattern to ignore
-    /// extra items, or use `match` for a value that can have more than one shape.
+    /// Check the shape of the value against the pattern. Add `?` after a part that may be missing,
+    /// add `..` to a list pattern to ignore extra items, or use `match` for a value that can have
+    /// more than one shape.
     #[error("Pattern doesn't fit the value")]
     #[diagnostic(code(nu::shell::pattern_mismatch))]
     PatternMismatch {

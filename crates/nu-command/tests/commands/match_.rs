@@ -383,3 +383,18 @@ fn match_paren_expression_non_const_errors() -> Result {
     assert_contains("not a parse-time constant", err.to_string());
     Ok(())
 }
+
+#[rstest]
+#[case::missing_field("match {a: 1} { {$a, $b?} => [$a $b] }", test_value!([1, ()]))]
+#[case::variable_with_question_mark("match {a: 1} { {a: $x?} => $x }", test_value!(1))]
+#[case::missing_item("match [1] { [$x, $y?] => [$x $y] }", test_value!([1, ()]))]
+#[case::top_level_null("match null { {a: $x}? => [$x], _ => 'no' }", test_value!([()]))]
+#[case::bare_word_is_string("match 'foo?' { foo? => 'yes', _ => 'no' }", test_value!("yes"))]
+#[case::record_rest("match {a: 1, b: 2} { {$a, ..$r} => $r }", test_value!({b: 2}))]
+#[case::optional_wrong_shape_falls_through(
+    "match {a: 5} { {a: {$b}?} => 'first', _ => 'second' }",
+    test_value!("second")
+)]
+fn match_optional_and_record_rest(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}

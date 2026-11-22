@@ -92,6 +92,14 @@ impl Command for Let {
                 ])),
             },
             Example {
+                description: "Bind null for a field that may be missing, and keep the other fields.",
+                example: "let {$a, $b?, ..$rest} = {a: 1, c: 3}; {b: $b, rest: $rest}",
+                result: Some(Value::test_record(record! {
+                    "b" => Value::test_nothing(),
+                    "rest" => Value::test_record(record! { "c" => Value::test_int(3) }),
+                })),
+            },
+            Example {
                 description: "Set a variable to the output of a pipeline.",
                 example: "ls | let files",
                 result: None,

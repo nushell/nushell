@@ -37,8 +37,8 @@ pub enum MismatchReason<'a> {
     },
     /// A record pattern names a field the record doesn't have.
     MissingField { field: &'a str, record: &'a Record },
-    /// A list pattern takes a different number of items. `max` is `None` when the pattern has a
-    /// rest (`..` or `..$name`).
+    /// A list pattern takes a different number of items. `min` leaves out the optional items, and
+    /// `max` is `None` when the pattern has a rest (`..` or `..$name`).
     ListLength {
         min: usize,
         max: Option<usize>,
@@ -61,6 +61,17 @@ impl MatchPattern {
     ) -> Result<(), PatternMismatch<'a>> {
         self.pattern.check(self.span, value, matches)
     }
+
+    /// Bind every variable in the pattern to `null`, for an optional field or item that is
+    /// missing.
+    fn bind_nulls(&self, matches: &mut Vec<(VarId, Value)>) {
+        let nothing = Value::nothing(self.span);
+        matches.extend(
+            self.variables()
+                .into_iter()
+                .map(|var_id| (var_id, nothing.clone())),
+        );
+    }
 }
 
 impl Pattern {
@@ -77,7 +88,7 @@ impl Pattern {
         match self {
             Pattern::Garbage => mismatch(MismatchReason::Unmatched),
             Pattern::IgnoreValue => Ok(()),
-            // `..` and `..$foo` only match inside a list pattern, which handles them itself.
+            // `..` and `..$foo` only match inside a list or record pattern, which handles them.
             Pattern::IgnoreRest | Pattern::Rest(_) => mismatch(MismatchReason::Unmatched),
             Pattern::Record(field_patterns) => {
                 let Value::Record { val: record, .. } = value else {
@@ -86,14 +97,38 @@ impl Pattern {
                         value,
                     });
                 };
+                let mut rest = None;
                 for (field, pattern) in field_patterns {
-                    let Some(field_value) = record.get(field) else {
-                        return Err(PatternMismatch {
-                            span: pattern.span,
-                            reason: MismatchReason::MissingField { field, record },
-                        });
+                    if let Pattern::Rest(var_id) = pattern.pattern {
+                        rest = Some((var_id, pattern.span));
+                        continue;
+                    }
+                    match record.get(field) {
+                        Some(field_value) => pattern.check(field_value, matches)?,
+                        None if matches!(pattern.pattern, Pattern::Optional(_)) => {
+                            pattern.bind_nulls(matches)
+                        }
+                        None => {
+                            return Err(PatternMismatch {
+                                span: pattern.span,
+                                reason: MismatchReason::MissingField { field, record },
+                            });
+                        }
+                    }
+                }
+                // `..$rest` gets the fields no other entry names, in the record's order.
+                if let Some((var_id, rest_span)) = rest {
+                    let named = |col: &str| {
+                        field_patterns.iter().any(|(field, pattern)| {
+                            field == col && !matches!(pattern.pattern, Pattern::Rest(_))
+                        })
                     };
-                    pattern.check(field_value, matches)?;
+                    let others = record
+                        .iter()
+                        .filter(|(col, _)| !named(col))
+                        .map(|(col, val)| (col.clone(), val.clone()))
+                        .collect();
+                    matches.push((var_id, Value::record(others, rest_span)));
                 }
                 Ok(())
             }
@@ -110,7 +145,8 @@ impl Pattern {
                 };
                 // The parser allows at most one `..` or `..$name` per list pattern, at any
                 // position. Items before it match the start of the list, items after it match
-                // the end, and the rest pattern takes whatever is left in between.
+                // the end, and the rest pattern takes whatever is left in between. Optional items
+                // come last, in a pattern without a rest, and may be missing from the list.
                 let rest_idx = items.iter().position(|item| {
                     matches!(item.pattern, Pattern::IgnoreRest | Pattern::Rest(_))
                 });
@@ -119,20 +155,29 @@ impl Pattern {
                     None => (&items[..], None, &[][..]),
                 };
 
-                // Without a rest pattern the lengths must be equal; with one the list may be longer.
-                let fixed_len = before.len() + after.len();
-                if vals.len() < fixed_len || (rest.is_none() && vals.len() > fixed_len) {
+                // Without a rest pattern the list may only leave out optional items; with one it may
+                // be longer.
+                let optional = before
+                    .iter()
+                    .filter(|item| matches!(item.pattern, Pattern::Optional(_)))
+                    .count();
+                let min = before.len() + after.len() - optional;
+                let max = rest.is_none().then_some(before.len() + after.len());
+                if vals.len() < min || max.is_some_and(|max| vals.len() > max) {
                     return mismatch(MismatchReason::ListLength {
-                        min: fixed_len,
-                        max: rest.is_none().then_some(fixed_len),
+                        min,
+                        max,
                         len: vals.len(),
                     });
                 }
                 let after_start = vals.len() - after.len();
 
                 // Bind left to right, so a variable used twice keeps its rightmost value.
-                for (pattern, val) in before.iter().zip(vals) {
-                    pattern.check(val, matches)?;
+                for (idx, pattern) in before.iter().enumerate() {
+                    match vals.get(idx) {
+                        Some(val) => pattern.check(val, matches)?,
+                        None => pattern.bind_nulls(matches),
+                    }
                 }
                 if let Some(MatchPattern {
                     pattern: Pattern::Rest(var_id),
@@ -160,6 +205,13 @@ impl Pattern {
                     mismatch(MismatchReason::Unmatched)
                 }
             }
+            Pattern::Optional(pattern) => match value {
+                Value::Nothing { .. } => {
+                    pattern.bind_nulls(matches);
+                    Ok(())
+                }
+                _ => pattern.check(value, matches),
+            },
             Pattern::Or(patterns) => {
                 // The first side that fits binds its variables. Each variable of the other sides
                 // that isn't bound yet is set to null, so the arm can still use it.
@@ -232,20 +284,20 @@ impl PatternMismatch<'_> {
                         _ => format!("The record has {names}."),
                     }
                 };
+                let help = format!("{help} Add `?` after the pattern if the field can be missing.");
                 (format!("record has no field `{field}`"), Some(help))
             }
             MismatchReason::ListLength { min, max, len } => {
                 let items = if len == 1 { "item" } else { "items" };
-                match max {
-                    Some(max) => (
-                        format!("list has {len} {items}, the pattern takes {max}"),
-                        (len > max).then(|| "Add `..` to ignore the rest.".to_string()),
-                    ),
-                    None => (
-                        format!("list has {len} {items}, the pattern needs at least {min}"),
-                        None,
-                    ),
-                }
+                let takes = match max {
+                    Some(max) if max == min => format!("takes {max}"),
+                    Some(max) => format!("takes {min} to {max}"),
+                    None => format!("needs at least {min}"),
+                };
+                // `..` can't join optional items, so it's only a fix for an exact length.
+                let help = (max == Some(min) && len > min)
+                    .then(|| "Add `..` to ignore the rest.".to_string());
+                (format!("list has {len} {items}, the pattern {takes}"), help)
             }
             MismatchReason::Unmatched => ("the value doesn't fit this pattern".into(), None),
         };
