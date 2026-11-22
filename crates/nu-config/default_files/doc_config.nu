@@ -638,8 +638,9 @@ $env.config.table.header_on_separator = false
 # true: The second row of a table, then every other one, gets a background of its
 #   own. Its color is `color_config.row_stripe_alt`, or one made from a "#rrggbb"
 #   `color_config.row_stripe_bg`: a little lighter than a dark one, a little
-#   darker than a light one (see `table.stripe_blend`). There are no stripes
-#   when neither is set.
+#   darker than a light one (see `table.stripe_blend`). If you use a named
+#   color, like "blue", for `row_stripe_bg`, you must set `row_stripe_alt` also.
+#   There are no stripes when neither is set.
 # false: Every row has the same background.
 # Applies to `table` and `explore`, not to `table --collapse` or the markup modes.
 # Default: false
@@ -1529,7 +1530,8 @@ $env.config.color_config.header = "green_bold"
 $env.config.color_config.separator = "default"
 
 # color_config.row_stripe_bg: Background of the first row and every other one,
-# when `table.striped` is on. A color: a name or "#rrggbb".
+# when `table.striped` is on. A color: a name or "#rrggbb". Give it as "#rrggbb"
+# to have the color of the rows between made from it.
 # Default: not set, which is the terminal's own background
 # $env.config.color_config.row_stripe_bg = "#282c34"
 
