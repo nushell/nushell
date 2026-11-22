@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, Signals, shell_error::generic::GenericError};
 use wax::{
@@ -448,21 +446,20 @@ fn run_dc_glob(
             ))
         })?;
 
+    // Only make output relative if the pattern itself was relative.
+    let relative_paths = relative_paths && !std::path::Path::new(&glob_pattern).has_root();
+
     let matches = matches.map(move |item| {
         item.map(|path| {
-            if relative_paths && path.as_os_str().is_empty() {
-                // dc-glob represents the start dir itself (first match of '**') as
-                // an empty path; turn it into '.' instead
-                ".".into()
-            } else if relative_paths || path.is_absolute() {
-                path
+            if path.is_absolute() {
+                (path, None)
             } else if path.as_os_str().is_empty() {
                 // The globber emits an empty relative path when the pattern
                 // names the base directory itself, as `glob .` does. Joining
                 // it would append a trailing separator to the directory.
-                cwd_for_matches.clone()
+                (cwd_for_matches.clone(), relative_paths.then(|| ".".into()))
             } else {
-                cwd_for_matches.join(path)
+                (cwd_for_matches.join(&path), relative_paths.then_some(path))
             }
         })
         .map_err(|err| {
@@ -534,9 +531,15 @@ fn run_legacy_glob(
         }
     };
 
-    // only make output relative if the pattern itself was relative
-    let relative_to_cwd =
-        (relative_paths && !nu_path::expand_tilde(prefix).is_absolute()).then_some(cwd);
+    let relative_to = if relative_paths
+        // only make output relative if the pattern itself was relative
+        && !(prefix.starts_with("~") || prefix.has_root())
+        && let Some(diff) = pathdiff::diff_paths(&path, &cwd)
+    {
+        Some((diff, path.clone()))
+    } else {
+        None
+    };
 
     let link_behavior = match follow_symlinks {
         true => LinkBehavior::ReadTarget,
@@ -590,7 +593,7 @@ fn run_legacy_glob(
             no_dirs,
             no_files,
             no_symlinks,
-            relative_to_cwd,
+            relative_to,
             span,
         )
     } else {
@@ -603,7 +606,7 @@ fn run_legacy_glob(
             no_dirs,
             no_files,
             no_symlinks,
-            relative_to_cwd,
+            relative_to,
             span,
         )
     };
@@ -677,7 +680,7 @@ fn glob_to_value(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
-    relative_to_cwd: Option<impl AsRef<Path> + Send + 'static>,
+    relative_to: Option<(std::path::PathBuf, std::path::PathBuf)>,
     span: Span,
 ) -> ListStream {
     let map_signals = signals.clone();
@@ -691,17 +694,26 @@ fn glob_to_value(
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            let path = entry.into_path();
-            let path = match &relative_to_cwd {
-                Some(cwd) if path == cwd.as_ref() => {
-                    // path == cwd happens for pattern '.' or the first match of '**';
-                    // strip_prefix would give an empty string, so return '.' instead
-                    Path::new(".")
+            let path = entry.path();
+            let path = if let Some((prefix, walk_root)) = relative_to.as_ref() {
+                let stripped = path.strip_prefix(walk_root).unwrap_or(path);
+                match (prefix.is_empty(), stripped.is_empty()) {
+                    // Bare patterns like '*', or '**' after the first match.
+                    (true, false) => std::borrow::Cow::Borrowed(stripped),
+                    // Patterns like '../*', 'files/*', or 'files/**' after the first match.
+                    (false, false) => std::borrow::Cow::Owned(prefix.join(stripped)),
+                    // Patterns that return the prefix as a match, like 'files/**' or bare file paths.
+                    (false, true) => std::borrow::Cow::Borrowed(prefix.as_path()),
+                    // Bare patterns that match cwd, like '.' or '**' on its first match.
+                    (true, true) => std::borrow::Cow::Borrowed(std::path::Path::new(".")),
                 }
-                Some(cwd) => path.strip_prefix(cwd).unwrap_or(&path),
-                None => &path,
+                .to_string_lossy()
+                .into_owned()
+            } else {
+                path.to_string_lossy().into_owned()
             };
-            Some(Value::string(path.to_string_lossy().into_owned(), span))
+
+            Some(Value::string(path, span))
         } else {
             None
         }
@@ -710,14 +722,19 @@ fn glob_to_value(
     ListStream::new(result, span, signals.clone())
 }
 
-fn glob_paths_to_value(
+fn glob_paths_to_value<I>(
     signals: &Signals,
-    glob_results: impl Iterator<Item = Result<std::path::PathBuf, ShellError>> + Send + 'static,
+    glob_results: I,
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
     span: Span,
-) -> ListStream {
+) -> ListStream
+where
+    I: Iterator<Item = Result<(std::path::PathBuf, Option<std::path::PathBuf>), ShellError>>
+        + Send
+        + 'static,
+{
     let map_signals = signals.clone();
     let needs_file_type = no_dirs || no_files || no_symlinks;
     let result = glob_results.filter_map(move |entry| {
@@ -725,19 +742,32 @@ fn glob_paths_to_value(
             return Some(Value::error(err, span));
         }
 
-        let path = match entry {
-            Ok(path) => path,
+        let (abs_path, rel_path) = match entry {
+            Ok(entry) => entry,
             Err(err) => return Some(Value::error(err, span)),
         };
 
+        let make_value = || {
+            Value::string(
+                if let Some(rel_path) = rel_path.as_ref() {
+                    rel_path
+                } else {
+                    &abs_path
+                }
+                .to_string_lossy()
+                .into_owned(),
+                span,
+            )
+        };
+
         if !needs_file_type {
-            return Some(Value::string(path.to_string_lossy().into_owned(), span));
+            return Some(make_value());
         }
 
-        let file_type = match std::fs::symlink_metadata(&path) {
+        let file_type = match std::fs::symlink_metadata(&abs_path) {
             Ok(meta) => meta.file_type(),
             Err(_) => {
-                return Some(Value::string(path.to_string_lossy().into_owned(), span));
+                return Some(make_value());
             }
         };
 
@@ -745,7 +775,7 @@ fn glob_paths_to_value(
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            Some(Value::string(path.to_string_lossy().into_owned(), span))
+            Some(make_value())
         } else {
             None
         }
