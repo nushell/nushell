@@ -673,7 +673,12 @@ pub fn command_not_found(
                     span,
                 };
             }
-            Err(err) => report_shell_error(Some(&stack), &hook_state, &err),
+            // A string hook's code was parsed into `hook_state`, so only it can show the
+            // error's span. Report the error here, then give the usual not-found error.
+            Err(err) if hook_state.num_files() > engine_state.num_files() => {
+                report_shell_error(Some(&stack), &hook_state, &err)
+            }
+            Err(err) => return err,
             _ => (), // The hook did not return a string, so ignore it.
         }
     }
