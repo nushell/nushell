@@ -11,8 +11,8 @@ use nu_protocol::{
     combined_type_string,
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{
-        Argument, Closure, EngineState, EnvName, ErrorHandler, Redirection, Stack, StateWorkingSet,
-        TryHandler, env_var_eq,
+        Argument, Closure, EngineState, EnvName, ErrorHandler, PatternMismatch, Redirection, Stack,
+        StateWorkingSet, TryHandler, env_var_eq,
     },
     ir::{Call, CallBuilder, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     shell_error::{
@@ -1327,6 +1327,32 @@ fn eval_instruction<D: DebugContext>(
                 ctx.matches.clear();
                 Ok(Continue)
             }
+        }
+        Instruction::Destructure { pattern, src } => {
+            // Match against a borrow of the register, so the value stays in `src` for the
+            // pass-through form (`$value | let {$a}`) and only the bound parts are cloned.
+            let nothing;
+            let value = match ctx.borrow_reg(*src) {
+                PipelineData::Value(value, _) => value,
+                PipelineData::Empty => {
+                    nothing = Value::nothing(*span);
+                    &nothing
+                }
+                _ => {
+                    return Err(ShellError::IrEvalError {
+                        msg: "Must collect to value before destructuring".into(),
+                        span: Some(*span),
+                    });
+                }
+            };
+            let mut matches = vec![];
+            pattern
+                .check(*span, value, &mut matches)
+                .map_err(PatternMismatch::into_shell_error)?;
+            for (var_id, value) in matches {
+                ctx.stack.add_var(var_id, value);
+            }
+            Ok(Continue)
         }
         Instruction::CheckMatchGuard { src } => {
             if matches!(

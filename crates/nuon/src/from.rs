@@ -461,7 +461,7 @@ fn convert_to_value(
             expr.span,
             "variables not supported in nuon",
         )),
-        Expr::VarDecl(..) => Err(truncated_nuon_error(
+        Expr::VarDecl(..) | Expr::Pattern(..) => Err(truncated_nuon_error(
             original_text,
             expr.span,
             "variable declarations not supported in nuon",

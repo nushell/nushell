@@ -263,6 +263,13 @@ impl fmt::Display for FmtInstruction<'_> {
                 };
                 write!(f, "{:WIDTH$} ({pattern}), {src}, {index}", "match")
             }
+            Instruction::Destructure { pattern, src } => {
+                let pattern = FmtPattern {
+                    engine_state: self.engine_state,
+                    pattern,
+                };
+                write!(f, "{:WIDTH$} ({pattern}), {src}", "destructure")
+            }
             Instruction::CheckMatchGuard { src } => {
                 write!(f, "{:WIDTH$} {src}", "check-match-guard")
             }

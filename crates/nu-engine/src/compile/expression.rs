@@ -164,6 +164,7 @@ pub(crate) fn compile_expression(
             Ok(())
         }
         Expr::VarDecl(_) => Err(unexpected("VarDecl")),
+        Expr::Pattern(_) => Err(unexpected("Pattern")), // only for `let`, `mut` and `for`
         Expr::Call(call) => {
             move_in_reg_to_out_reg(builder)?;
 

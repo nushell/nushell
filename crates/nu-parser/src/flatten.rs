@@ -655,6 +655,7 @@ fn flatten_expression_into(
         }
         Expr::Var(var_id) => output.push((expr.span, FlatShape::Variable(*var_id))),
         Expr::VarDecl(var_id) => output.push((expr.span, FlatShape::VarDecl(*var_id))),
+        Expr::Pattern(pattern) => flatten_pattern_into(pattern, output),
     }
 }
 

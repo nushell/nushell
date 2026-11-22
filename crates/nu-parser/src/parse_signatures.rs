@@ -3,6 +3,7 @@
 use crate::parse_captures_compile::compile_block;
 use crate::parse_expressions::{parse_closure_expression, parse_math_expression, parse_value};
 use crate::parse_literals::parse_full_cell_path;
+use crate::parse_patterns::parse_binding_pattern;
 use crate::{
     Token, TokenContents,
     lex::lex_signature,
@@ -177,6 +178,28 @@ pub fn parse_var_with_opt_type(
 ) -> (Expression, Option<Type>) {
     let name_span = spans[*spans_idx];
     let bytes = working_set.get_span_contents(name_span);
+
+    // `let {$a, $b} = ...` and `let [$a, $b] = ...` destructure the value.
+    if matches!(bytes.first(), Some(b'{' | b'[')) {
+        if bytes.ends_with(b":") {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "A destructuring pattern can't have a type annotation".into(),
+                label: "type annotation".into(),
+                help: "Remove the annotation, and convert the value first if needed.".into(),
+                span: Span::concat(&spans[*spans_idx..]),
+            });
+            *spans_idx = spans.len() - 1;
+            return (garbage(working_set, name_span), None);
+        }
+        let pattern = parse_binding_pattern(working_set, name_span, mutable);
+        let expr = Expression::new(
+            working_set,
+            Expr::Pattern(Box::new(pattern)),
+            name_span,
+            Type::Any,
+        );
+        return (expr, None);
+    }
 
     if bytes.contains(&b' ')
         || bytes.contains(&b'"')

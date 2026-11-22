@@ -712,6 +712,18 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::literal_too_large))]
     LiteralTooLarge(String, #[label("{0} too large")] Span),
 
+    /// The pattern of a destructuring `const` doesn't fit its value. This is the parse-time
+    /// form of [`ShellError::PatternMismatch`](crate::ShellError::PatternMismatch).
+    #[error("Pattern doesn't fit the value")]
+    #[diagnostic(code(nu::parser::pattern_mismatch))]
+    PatternMismatch {
+        msg: String,
+        #[label = "{msg}"]
+        span: Span,
+        #[help]
+        help: Option<String>,
+    },
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
@@ -902,6 +914,7 @@ impl ParseError {
             ParseError::FileNotFound(_, s) => *s,
             ParseError::PluginNotFound { name_span, .. } => *name_span,
             ParseError::LabeledError(_, _, s) => *s,
+            ParseError::PatternMismatch { span, .. } => *span,
             ParseError::ShellAndAnd(s) => *s,
             ParseError::ShellOrOr(s) => *s,
             ParseError::ShellErrRedirect(s) => *s,

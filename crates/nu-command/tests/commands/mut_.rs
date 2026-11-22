@@ -198,3 +198,24 @@ fn assign_to_non_variable_raises_parse_error() -> Result {
         .run("mut x = 3; x = 5")
         .expect_error_code_eq("nu::parser::assignment_requires_variable")
 }
+
+#[test]
+fn mut_destructure() -> Result {
+    test()
+        .run("mut [$lo, {$hi}] = [0 {hi: 10}]; $lo += 5; $hi -= 1; [$lo $hi]")
+        .expect_value_eq(test_value!([5, 9]))
+}
+
+#[test]
+fn mut_destructure_shadows_let() -> Result {
+    test()
+        .run("let x = 1; mut {$x} = {x: 2}; $x += 1; $x")
+        .expect_value_eq(3)
+}
+
+#[test]
+fn let_destructure_is_immutable() -> Result {
+    test()
+        .run("let [$a] = [1]; $a = 2")
+        .expect_error_code_eq("nu::parser::assignment_requires_mutable_variable")
+}

@@ -331,6 +331,12 @@ pub(crate) fn compile_let(
     //   move %io_reg, %input_reg (if different)
     //   store-variable $var, %io_reg
     //   load-variable %io_reg, $var
+    //
+    // With a pattern, as in `let {$a, $b} = expr` or `input | let [$a, $b]`, the value is
+    // collected and the pattern binds its variables from it in place:
+    //   collect %io_reg
+    //   destructure (pattern), %io_reg
+    //   load-empty %io_reg (only for `let pattern = expr`; the pass-through form keeps the value)
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "let".into(),
         span: call.head,
@@ -339,8 +345,6 @@ pub(crate) fn compile_let(
     let (var_decl_arg, block_arg) = Some(call.positional_iter())
         .and_then(|mut iter| Some((iter.next()?, iter.next())))
         .ok_or_else(invalid)?;
-
-    let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
 
     // Handle the two syntax forms:
     // 1. `let var = expr`: compile expr and store result
@@ -379,6 +383,27 @@ pub(crate) fn compile_let(
             // If no initial_value and no input_reg, io_reg should already be empty (this shouldn't normally occur)
         }
     }
+
+    if let Expr::Pattern(pattern) = &var_decl_arg.expr {
+        // The pass-through form collected its input above.
+        if block_arg.is_some() {
+            builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(call.head))?;
+        }
+        builder.push(
+            Instruction::Destructure {
+                pattern: Box::new(pattern.pattern.clone()),
+                src: io_reg,
+            }
+            .into_spanned(pattern.span),
+        )?;
+        builder.add_comment("let");
+        if block_arg.is_some() {
+            builder.load_empty(io_reg)?;
+        }
+        return Ok(());
+    }
+
+    let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
 
     // If the variable is annotated with type `glob`, convert the value to
     // a `Glob` (expandable) *before* storing.  We use `GlobFrom { no_expand: false }`
@@ -966,7 +991,7 @@ pub(crate) fn compile_for(
     //
     //       %stream_reg <- <in_expr>
     // LOOP: iterate %io_reg, %stream_reg, END
-    //       store-variable $var, %io_reg
+    //       store-variable $var, %io_reg    (`destructure (pattern), %io_reg` for a pattern)
     //       %io_reg <- <...block...>
     //       drain %io_reg          (skipped when the block ends by loading nothing)
     //       jump LOOP
@@ -980,7 +1005,18 @@ pub(crate) fn compile_for(
         .and_then(|mut iter| Some((iter.next()?, iter.next()?, iter.next()?)))
         .ok_or_else(invalid)?;
 
-    let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
+    // Each value goes into the loop variable, or a pattern, as in `for {$name, $size} in (ls)`,
+    // binds its variables from it.
+    let bind = match &var_decl_arg.expr {
+        Expr::Pattern(pattern) => Instruction::Destructure {
+            pattern: Box::new(pattern.pattern.clone()),
+            src: io_reg,
+        },
+        _ => Instruction::StoreVariable {
+            var_id: var_decl_arg.as_var().ok_or_else(invalid)?,
+            src: io_reg,
+        },
+    };
     let in_expr = in_arg.as_keyword().ok_or_else(invalid)?;
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
@@ -1015,14 +1051,7 @@ pub(crate) fn compile_for(
     )?;
     builder.add_comment("for");
 
-    // Put the received value in the variable
-    builder.push(
-        Instruction::StoreVariable {
-            var_id,
-            src: io_reg,
-        }
-        .into_spanned(var_decl_arg.span),
-    )?;
+    builder.push(bind.into_spanned(var_decl_arg.span))?;
 
     builder.load_empty(io_reg)?;
 

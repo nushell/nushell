@@ -180,8 +180,10 @@ fn see_sourced_variables(
             continue;
         };
         for arg in call.positional_iter() {
-            if let Expr::VarDecl(var_id) = arg.expr {
-                seen.push(var_id);
+            match &arg.expr {
+                Expr::VarDecl(var_id) => seen.push(*var_id),
+                Expr::Pattern(pattern) => discover_captures_in_pattern(pattern, seen),
+                _ => {}
             }
         }
         if let Some(nested) = parser_info_block_id(call) {
@@ -601,6 +603,7 @@ pub fn discover_captures_in_expr(
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
         }
+        Expr::Pattern(pattern) => discover_captures_in_pattern(pattern, seen),
     }
     Ok(())
 }

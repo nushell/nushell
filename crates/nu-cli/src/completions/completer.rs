@@ -260,6 +260,7 @@ fn is_operator_lhs(expr: &Expr) -> bool {
         | Expr::UnaryMinus(_) => true,
         Expr::AttributeBlock(_)
         | Expr::VarDecl(_)
+        | Expr::Pattern(_)
         | Expr::Call(_)
         | Expr::ExternalCall(_, _)
         | Expr::Operator(_)

@@ -79,6 +79,19 @@ impl Command for Let {
                 result: None,
             },
             Example {
+                description: "Take a record apart into variables, renaming one field.",
+                example: "let {$name, size: $bytes} = {name: 'a.txt', size: 10}; $bytes",
+                result: Some(Value::test_int(10)),
+            },
+            Example {
+                description: "Take the first item of a list and keep the rest.",
+                example: "let [$first, ..$rest] = [1 2 3]; $rest",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
+            },
+            Example {
                 description: "Set a variable to the output of a pipeline.",
                 example: "ls | let files",
                 result: None,

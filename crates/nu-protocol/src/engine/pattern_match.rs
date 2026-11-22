@@ -1,5 +1,5 @@
 use crate::{
-    Record, ShellError, Span, Value, VarId,
+    ParseError, Record, ShellError, Span, Value, VarId,
     ast::{MatchPattern, Pattern},
 };
 
@@ -195,6 +195,18 @@ const LISTED_FIELDS: usize = 10;
 impl PatternMismatch<'_> {
     /// The error for a destructuring binding that doesn't fit its value.
     pub fn into_shell_error(self) -> ShellError {
+        let (msg, span, help) = self.describe();
+        ShellError::PatternMismatch { msg, span, help }
+    }
+
+    /// The error for a destructuring `const` that doesn't fit its value.
+    pub fn into_parse_error(self) -> ParseError {
+        let (msg, span, help) = self.describe();
+        ParseError::PatternMismatch { msg, span, help }
+    }
+
+    /// The error's label, its span, and its help.
+    fn describe(self) -> (String, Span, Option<String>) {
         let (msg, help) = match self.reason {
             MismatchReason::WrongType { expected, value } => (
                 format!(
@@ -237,10 +249,6 @@ impl PatternMismatch<'_> {
             }
             MismatchReason::Unmatched => ("the value doesn't fit this pattern".into(), None),
         };
-        ShellError::PatternMismatch {
-            msg,
-            span: self.span,
-            help,
-        }
+        (msg, self.span, help)
     }
 }
