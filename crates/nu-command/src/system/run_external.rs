@@ -112,7 +112,7 @@ If you create a custom command with this name, that will be used instead."
         // can run those files directly. PS1 files are also ignored and that
         // extension is handled in a separate block below.
         let pathext_script_in_windows = if cfg!(windows) {
-            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
+            which(&expanded_name, &paths, cwd.as_ref()).filter(|executable| {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
@@ -122,11 +122,9 @@ If you create a custom command with this name, that will be used instead."
                 !["COM", "EXE", "BAT", "CMD", "PS1"]
                     .iter()
                     .any(|c| *c == ext)
-            } else {
-                false
-            }
+            })
         } else {
-            false
+            None
         };
 
         // let's make sure it's a .ps1 script, but only on Windows
@@ -149,7 +147,7 @@ If you create a custom command with this name, that will be used instead."
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
         let executable = if cfg!(windows)
-            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows)
+            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows.is_some())
         {
             PathBuf::from("cmd.exe")
         } else if cfg!(windows) && potential_powershell_script && path_to_ps1_executable.is_some() {
@@ -186,11 +184,18 @@ If you create a custom command with this name, that will be used instead."
         // Configure args.
         let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
+        if is_cmd_internal_command(&name_str) || pathext_script_in_windows.is_some() {
+            // For a script run through its file association, hand CMD the path
+            // `which` resolved instead of the name as typed, so that `./script.nu`
+            // isn't parsed as the command `.` (#19584).
+            let cmd_target = match &pathext_script_in_windows {
+                Some(script) if !is_cmd_internal_command(&name_str) => cmd_script_path(script),
+                _ => expanded_name.clone(),
+            };
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
-            command.args(["/D", "/C", &expanded_name.to_string_lossy()]);
+            command.args(["/D", "/C", &cmd_target.to_string_lossy()]);
             for arg in &args {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
@@ -805,6 +810,16 @@ fn is_cmd_internal_command(name: &str) -> bool {
     COMMANDS.iter().any(|cmd| cmd.eq_ignore_ascii_case(name))
 }
 
+/// Normalize a resolved script path before handing it to `cmd.exe /C`.
+///
+/// CMD treats `/` as a switch character, so a path such as `.\dir/./script.nu`
+/// would be split at the first `/`. Collecting the components rewrites every
+/// separator as `\` and drops redundant `.` components (#19584).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn cmd_script_path(script: &Path) -> PathBuf {
+    script.components().collect()
+}
+
 /// Returns true if a string contains CMD special characters.
 fn has_cmd_special_character(s: impl AsRef<[u8]>) -> bool {
     s.as_ref()
@@ -938,6 +953,30 @@ mod test {
         );
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn cmd_script_path_uses_backslashes() {
+        // `which` joins the name as typed onto the cwd, so `./hello.nu` comes back
+        // with a forward slash and a `.` component (#19584).
+        assert_eq!(
+            cmd_script_path(Path::new(r"C:\scripts\./hello.nu")),
+            PathBuf::from(r"C:\scripts\hello.nu")
+        );
+        assert_eq!(
+            cmd_script_path(Path::new("C:/scripts/sub dir/hello.nu")),
+            PathBuf::from(r"C:\scripts\sub dir\hello.nu")
+        );
+        assert_eq!(
+            cmd_script_path(Path::new(r"C:\scripts\.\sub/./hello.nu")),
+            PathBuf::from(r"C:\scripts\sub\hello.nu")
+        );
+        assert!(
+            !cmd_script_path(Path::new(r"C:\a/b/./c.nu"))
+                .to_string_lossy()
+                .contains('/')
+        );
     }
 }
 
