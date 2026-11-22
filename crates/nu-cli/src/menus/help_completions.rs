@@ -110,7 +110,7 @@ impl NuHelpCompleter {
                 let extra: Vec<String> = decl
                     .examples()
                     .iter()
-                    .map(|example| example.example.to_string())
+                    .map(|example| example.example.replace("\r\n", "\n"))
                     .collect();
 
                 Suggestion {
@@ -186,6 +186,23 @@ mod test {
                         "help example must not contain carriage returns: {ex:?}"
                     );
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn help_menu_text_has_no_carriage_returns() {
+        let engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let config = engine_state.get_config().clone();
+        let mut completer = NuHelpCompleter::new(engine_state.into(), config);
+        // An empty query matches every command.
+        let completion = completer.complete("", 0);
+        for s in completion.suggestions() {
+            let desc = s.description.as_deref().unwrap_or_default();
+            assert!(!desc.contains('\r'), "{}: {desc:?}", s.value);
+            for ex in s.extra.iter().flatten() {
+                assert!(!ex.contains('\r'), "{}: {ex:?}", s.value);
             }
         }
     }
