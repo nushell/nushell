@@ -5,6 +5,7 @@ use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
     ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
     process::{ChildProcess, PostWaitCallback},
+    report_shell_error,
     shell_error::io::{ErrorKind, IoError},
 };
 use nu_system::ForegroundChild;
@@ -651,8 +652,9 @@ pub fn command_not_found(
         }
         stack.add_env_var(canary.into(), Value::bool(true, Span::unknown()));
 
+        let mut hook_state = engine_state.clone();
         let output = eval_hook(
-            &mut engine_state.clone(),
+            &mut hook_state,
             &mut stack,
             None,
             &[("cmd_name".into(), Value::string(name, span))],
@@ -671,12 +673,8 @@ pub fn command_not_found(
                     span,
                 };
             }
-            Err(err) => {
-                return err;
-            }
-            _ => {
-                // The hook did not return a string, so ignore it.
-            }
+            Err(err) => report_shell_error(Some(&stack), &hook_state, &err),
+            _ => (), // The hook did not return a string, so ignore it.
         }
     }
 
