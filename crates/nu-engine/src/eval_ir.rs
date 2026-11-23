@@ -389,6 +389,10 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::UnwindJump { index, handlers }) => {
                 Unwind::Jump { index, handlers }
             }
+            Ok(InstructionResult::RaiseErrorValue { error, reg }) => Unwind::ErrorValue {
+                error: (*error).into_spanned(*span),
+                reg,
+            },
             Ok(InstructionResult::EndFinally) => {
                 match ctx.stack.error_handlers.pop(ctx.error_handler_base) {
                     Some(TryHandler::RunningFinally) => {}
@@ -404,6 +408,18 @@ fn eval_ir_block_impl<D: DebugContext>(
                 match ctx.finally_resumes.pop() {
                     // Entered from `try`/`catch` normally: carry on after the block.
                     Some(None) => {
+                        pc += 1;
+                        continue;
+                    }
+                    // An error that reached the end of the `try` as a value goes on as that value
+                    // now that `finally` has seen it, as it would without `finally`.
+                    Some(Some(Unwind::ErrorValue { error, reg })) => {
+                        ctx.put_reg(
+                            reg,
+                            PipelineExecutionData::from(
+                                Value::error(error.item, error.span).into_pipeline_data(),
+                            ),
+                        );
                         pc += 1;
                         continue;
                     }
@@ -448,6 +464,13 @@ enum Unwind {
     /// An error propagating outward, with the span of the instruction that raised it. This
     /// includes `exit`, which only `finally` handlers get to see.
     Error(Spanned<ShellError>),
+    /// An error that reached the end of a `try` body or `catch` block as a value (see
+    /// [`raise_error_value`]). Handlers take it like any error, but once a `finally` block is done
+    /// with it, `end-finally` puts it back in `reg` as a value instead of unwinding further.
+    ErrorValue {
+        error: Spanned<ShellError>,
+        reg: RegId,
+    },
     /// A `return`, carrying its (early-return flagged) value.
     Return(PipelineExecutionData),
     /// A `break` or `continue`: jump to `index` once `handlers` more entries have been unwound.
@@ -478,10 +501,12 @@ fn unwind_through_handlers(ctx: &mut EvalContext<'_>, mut unwind: Unwind, span: 
 
         let Some(handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) else {
             return Unwound::Return(Box::new(match unwind {
-                Unwind::Error(err) if need_backtrace(ctx.engine_state) => {
+                Unwind::Error(err) | Unwind::ErrorValue { error: err, .. }
+                    if need_backtrace(ctx.engine_state) =>
+                {
                     Err(ShellError::into_chained(err.item, err.span))
                 }
-                Unwind::Error(err) => Err(err.item),
+                Unwind::Error(err) | Unwind::ErrorValue { error: err, .. } => Err(err.item),
                 Unwind::Return(data) => Ok(data),
                 Unwind::Jump { .. } => Err(ShellError::IrEvalError {
                     msg: "unwind-jump ran out of handlers before reaching its target".into(),
@@ -497,7 +522,9 @@ fn unwind_through_handlers(ctx: &mut EvalContext<'_>, mut unwind: Unwind, span: 
         match handler {
             TryHandler::Catch(handler) => match unwind {
                 // `exit` is not something `catch` can handle; only `finally` runs for it.
-                Unwind::Error(err) if !matches!(err.item, ShellError::Exit { .. }) => {
+                Unwind::Error(err) | Unwind::ErrorValue { error: err, .. }
+                    if !matches!(err.item, ShellError::Exit { .. }) =>
+                {
                     reset_signals_if_interrupted(ctx, &err.item);
                     prepare_error_handler(ctx, handler, Some(err));
                     return Unwound::Branch(handler.handler_index);
@@ -523,7 +550,9 @@ fn unwind_through_handlers(ctx: &mut EvalContext<'_>, mut unwind: Unwind, span: 
                 // The block gets to see the error that led to it (but not `exit`), otherwise
                 // its register is set to empty.
                 let error = match &unwind {
-                    Unwind::Error(err) if !matches!(err.item, ShellError::Exit { .. }) => {
+                    Unwind::Error(err) | Unwind::ErrorValue { error: err, .. }
+                        if !matches!(err.item, ShellError::Exit { .. }) =>
+                    {
                         reset_signals_if_interrupted(ctx, &err.item);
                         Some(err.clone())
                     }
@@ -607,6 +636,12 @@ enum InstructionResult {
     },
     /// Leave a `finally` block, resuming whatever control flow led into it.
     EndFinally,
+    /// Raise an error that reached the end of a `try` body or `catch` block as a value, from
+    /// `reg` (see [`raise_error_value`]).
+    RaiseErrorValue {
+        error: Box<ShellError>,
+        reg: RegId,
+    },
 }
 
 /// Whether `$env.NU_BACKTRACE` is set, so errors and streams should record their callers.
@@ -682,8 +717,7 @@ fn eval_instruction<D: DebugContext>(
             let value = try_collect(data, *span, ctx.stack.stderr())?;
             #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
-            ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
-            Ok(Continue)
+            raise_error_value(ctx, *src_dst, value)
         }
         Instruction::Span { src_dst } => {
             let body = &mut ctx.registers[src_dst.get() as usize].body;
@@ -705,8 +739,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::DrainIfEnd { src } => {
             let data = ctx.take_reg(*src);
             let res = drain_if_end(ctx, data)?;
-            ctx.put_reg(*src, PipelineExecutionData::from(res));
-            Ok(Continue)
+            raise_error_value(ctx, *src, res)
         }
         Instruction::LoadVariable {
             dst,
@@ -1645,7 +1678,8 @@ fn eval_call<D: DebugContext>(
 
     let args_len = caller_stack.arguments.get_len(*args_base);
     // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
-    // whether to suppress or rethrow.
+    // whether to suppress or rethrow. A `try` that ends in such a call raises the error value
+    // first, so that its handlers still run (see `raise_error_value`).
     let stderr_pipe_separate = matches!(
         redirect_err.as_ref(),
         Some(Redirection::Pipe(OutDest::PipeSeparate))
@@ -2363,6 +2397,36 @@ fn show_failed_stderr(data: PipelineData, stderr: &OutDest) {
         // The error is what reaches `catch`, so a failure to show stderr isn't reported.
         if std::io::Read::read_to_end(&mut pipe, &mut bytes).is_ok() {
             let _ = nu_protocol::write_to_out_dest(&bytes, stderr, child.span(), false, &signals);
+        }
+    }
+}
+
+/// Put the data at the end of a `try` body or `catch` block back in `reg`, unless it is an error
+/// value: raise that instead, so that `catch` and `finally` handle it.
+///
+/// The error value usually comes from the last call there, which runs with the stderr mode of the
+/// command after the `try`. When that command is `complete`, `ignore`, `save` or `tee`, a failing
+/// call returns its error as a value for it to handle, and the error would otherwise pass through
+/// the `try` without reaching the handlers. If only `finally` handles it, `end-finally` puts it
+/// back in `reg` as a value, so the next command still gets it as it would without `finally`.
+///
+/// `break`, `continue` and `exit` are raised as plain errors: they leave the `try` as usual and
+/// never come back as a value.
+fn raise_error_value(
+    ctx: &mut EvalContext<'_>,
+    reg: RegId,
+    data: PipelineData,
+) -> Result<InstructionResult, ShellError> {
+    match data {
+        PipelineData::Value(Value::Error { error, .. }, _) => match *error {
+            error @ (ShellError::Break { .. }
+            | ShellError::Continue { .. }
+            | ShellError::Exit { .. }) => Err(error),
+            _ => Ok(InstructionResult::RaiseErrorValue { error, reg }),
+        },
+        data => {
+            ctx.put_reg(reg, PipelineExecutionData::from(data));
+            Ok(InstructionResult::Continue)
         }
     }
 }
