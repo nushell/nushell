@@ -100,6 +100,53 @@ fn strict_extern_forwards_counts_and_run_time_flags(
     Ok(())
 }
 
+// A short flag with its value attached (`cargo -Zscript`, `make -j8`) reaches the program as
+// written, from `extern --strict` and through an alias too.
+#[rstest]
+#[case::value_flag("extern cococo [-Z: string, ...rest]; cococo -Zscript x", "-Z")]
+#[case::after_a_switch(
+    "extern cococo [-Z: string, --verbose(-v), ...rest]; cococo -vZscript x",
+    "-v"
+)]
+#[case::strict_extern(
+    "extern --strict cococo [-Z: string, --verbose(-v), ...rest]; cococo -vZscript x",
+    "-v"
+)]
+#[case::alias(
+    "extern cococo [-Z: string, --verbose(-v), ...rest]; alias c = cococo; c -vZscript x",
+    "-v"
+)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO)]
+fn extern_forwards_a_short_flag_with_an_attached_value(
+    #[case] code: &str,
+    #[case] option: &str,
+) -> Result {
+    // cococo rejects every option, so its error names the one that reached it: `-v` as written,
+    // not the `--verbose` that a parsed `-v` is passed on as.
+    let stderr: String = test().run(format!("{code} | complete | get stderr"))?;
+    assert_contains(format!("'{option}'"), stderr);
+    Ok(())
+}
+
+#[test]
+fn strict_extern_checks_the_type_of_an_attached_value() -> Result {
+    let err = test()
+        .run("extern --strict foo [-j: int, ...rest]; foo -jabc")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::Expected(expected, _) if expected == "int");
+    Ok(())
+}
+
+#[test]
+fn strict_extern_rejects_an_unknown_flag_before_an_attached_value() -> Result {
+    let err = test()
+        .run("extern --strict foo [-Z: string]; foo -xZscript")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::UnknownFlag(_, flag, _, _) if flag == "-x");
+    Ok(())
+}
+
 #[rstest]
 #[case::extern_("extern foo [--x: string]; foo --x (ls --bogus) hello")]
 #[case::strict_extern("extern --strict foo [--x: string]; foo --x (ls --bogus) hello")]
