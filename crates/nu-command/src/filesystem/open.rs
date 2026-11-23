@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, eval_ir_call};
 use nu_path::is_windows_device_path;
 use nu_protocol::{
-    DataSource, NuGlob, PipelineMetadata, ir,
+    DataSource, NuGlob, PipelineMetadata, Reader, ir,
     shell_error::{self, generic::GenericError, io::IoError},
 };
 use std::{
@@ -305,22 +305,29 @@ impl Command for Open {
         {
             // Chain the files into one byte stream like `cat`, as flattening a byte stream
             // would split it into read-buffer chunks (#10027).
-            let reader = output
+            let mut types = output.iter().filter_map(|pipeline| match pipeline {
+                PipelineData::ByteStream(stream, ..) => Some(stream.type_()),
+                _ => None,
+            });
+            let first = types.next().unwrap_or_default();
+            let type_ = if types.all(|type_| type_ == first) {
+                first
+            } else {
+                ByteStreamType::Unknown
+            };
+            let readers = output
                 .into_iter()
                 .filter_map(|pipeline| match pipeline {
                     PipelineData::ByteStream(stream, ..) => stream.reader(),
                     _ => None,
                 })
-                .fold(
-                    Box::new(std::io::empty()) as Box<dyn Read + Send>,
-                    |chained, reader| Box::new(chained.chain(reader)),
-                );
+                .collect();
             Ok(PipelineData::byte_stream(
                 ByteStream::read(
-                    reader,
+                    ChainedReaders::new(readers),
                     call_span,
                     engine_state.signals().clone(),
-                    ByteStreamType::Unknown,
+                    type_,
                 ),
                 None,
             ))
@@ -342,6 +349,11 @@ impl Command for Open {
             Example {
                 description: "Open a file, as raw bytes.",
                 example: "open myfile.json --raw",
+                result: None,
+            },
+            Example {
+                description: "Open several files as one byte stream, like `cat`.",
+                example: "open --raw first.txt second.txt",
                 result: None,
             },
             Example {
@@ -370,6 +382,34 @@ impl Command for Open {
                 result: None,
             },
         ]
+    }
+}
+
+/// Reads several readers one after another, like nested [`Read::chain`] calls but without
+/// nesting, so the cost per read stays flat no matter how many files are opened.
+struct ChainedReaders {
+    readers: std::vec::IntoIter<Reader>,
+    current: Option<Reader>,
+}
+
+impl ChainedReaders {
+    fn new(readers: Vec<Reader>) -> Self {
+        let mut readers = readers.into_iter();
+        let current = readers.next();
+        Self { readers, current }
+    }
+}
+
+impl Read for ChainedReaders {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        while let Some(reader) = &mut self.current {
+            let read = reader.read(buf)?;
+            if read > 0 || buf.is_empty() {
+                return Ok(read);
+            }
+            self.current = self.readers.next();
+        }
+        Ok(0)
     }
 }
 

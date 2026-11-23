@@ -432,6 +432,18 @@ fn open_multiple_files_chains_byte_streams(playground: Playground) -> Result {
         .expect_value_eq(0)
 }
 
+/// A typed byte stream from a `from` converter keeps its type when the files are chained.
+#[test]
+fn open_multiple_files_keeps_converter_stream_type(playground: Playground) -> Result {
+    playground.file("h1.foo", "hello")?;
+    playground.file("h2.foo", "world")?;
+
+    test()
+        .cwd(playground.path())
+        .run(r#"def "from foo" [] { into binary }; open h1.foo h2.foo | collect | to nuon"#)
+        .expect_value_eq("0x[68656C6C6F776F726C64]")
+}
+
 #[test]
 fn test_open_block_command() -> Result {
     let code = r#"
