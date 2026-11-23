@@ -11,7 +11,7 @@ use crate::{
 
 use log::trace;
 use nu_protocol::{
-    ParseError, Span, Type, VarId,
+    ParseError, Span, Type, Value, VarId,
     ast::{Argument, Call, Expr, Expression, MatchPattern, Pipeline},
     engine::StateWorkingSet,
     eval_const::eval_constant,
@@ -83,7 +83,9 @@ pub fn parse_let(
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
-                    if let Expr::Pattern(pattern) = &lvalue.expr {
+                    if let Expr::Pattern(pattern) = &lvalue.expr
+                        && explicit_type.is_none()
+                    {
                         check_binding_type(working_set, pattern, &rhs_type, rvalue_span);
                     }
 
@@ -195,7 +197,9 @@ pub fn parse_const(
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
-                    if let Expr::Pattern(pattern) = &lvalue.expr {
+                    if let Expr::Pattern(pattern) = &lvalue.expr
+                        && explicit_type.is_none()
+                    {
                         check_binding_type(working_set, pattern, &rhs_type, rvalue_span);
                     }
 
@@ -249,7 +253,7 @@ pub fn parse_const(
 
                     let constants = match &lvalue.expr {
                         Expr::Pattern(pattern) => {
-                            bind_const_pattern(working_set, pattern, &rvalue);
+                            bind_const_pattern(working_set, pattern, &rvalue, &explicit_type);
                             pattern
                                 .variables()
                                 .into_iter()
@@ -325,21 +329,40 @@ pub fn parse_const(
 }
 
 /// Evaluate the value of a destructuring `const` and give each variable of its pattern a
-/// constant value.
+/// constant value. `annotation` is the type written on the pattern, if any.
 fn bind_const_pattern(
     working_set: &mut StateWorkingSet,
     pattern: &MatchPattern,
     rvalue: &Expression,
+    annotation: &Option<Type>,
 ) {
     let value = match eval_constant(working_set, rvalue) {
         Ok(value) => value,
         Err(err) => return working_set.error(err.wrap(working_set, rvalue.span)),
     };
+    if let Some(annotation) = annotation
+        && !type_compatible(annotation, &value.get_type())
+    {
+        return working_set.error(ParseError::TypeMismatch(
+            annotation.clone(),
+            value.get_type(),
+            rvalue.span,
+        ));
+    }
     let mut matches = vec![];
     if let Err(mismatch) = pattern.check(&value, &mut matches) {
         return working_set.error(mismatch.into_parse_error());
     }
     for (var_id, value) in matches {
+        // A string bound to a variable annotated `glob` becomes a glob, as in `const g: glob`.
+        let value = match value {
+            Value::String {
+                val, internal_span, ..
+            } if working_set.get_variable(var_id).ty == Type::Glob => {
+                Value::glob(val, false, internal_span)
+            }
+            value => value,
+        };
         working_set.set_variable_type(var_id, value.get_type());
         working_set.set_variable_const_val(var_id, value);
     }
@@ -395,7 +418,9 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
-                    if let Expr::Pattern(pattern) = &lvalue.expr {
+                    if let Expr::Pattern(pattern) = &lvalue.expr
+                        && explicit_type.is_none()
+                    {
                         check_binding_type(working_set, pattern, &rhs_type, rvalue_span);
                     }
 

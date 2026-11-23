@@ -899,7 +899,7 @@ pub fn parse_multispan_value(
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
 
-            let (expr, _) = crate::parser::parse_var_with_opt_type(
+            let (expr, annotation) = crate::parser::parse_var_with_opt_type(
                 working_set,
                 spans,
                 spans_idx,
@@ -908,12 +908,21 @@ pub fn parse_multispan_value(
             );
             // `$value | let {$a}` destructures the pipeline input, which only `let` gets here.
             if let (Expr::Pattern(pattern), Some(input_type)) = (&expr.expr, input_type) {
-                crate::parse_patterns::check_binding_type(
-                    working_set,
-                    pattern,
-                    input_type,
-                    expr.span,
-                );
+                match annotation {
+                    Some(annotation) if !type_compatible(&annotation, input_type) => working_set
+                        .error(ParseError::TypeMismatch(
+                            annotation,
+                            input_type.clone(),
+                            expr.span,
+                        )),
+                    Some(_) => {}
+                    None => crate::parse_patterns::check_binding_type(
+                        working_set,
+                        pattern,
+                        input_type,
+                        expr.span,
+                    ),
+                }
             }
             expr
         }

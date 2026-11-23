@@ -361,10 +361,6 @@ fn let_destructure_value_type_mismatch() -> Result {
 )]
 #[case::bound_twice("let [$a, {$a}] = [1 {a: 2}]", "`$a` is bound twice in this pattern")]
 #[case::bound_twice_rest("let [$a, ..$a] = [1 2]", "`$a` is bound twice in this pattern")]
-#[case::annotation(
-    "let {$a}: record<a: int> = {a: 1}",
-    "A destructuring pattern can't have a type annotation"
-)]
 fn let_destructure_invalid_pattern(#[case] code: &str, #[case] expected: &str) -> Result {
     let err = test().run(code).expect_parse_error()?;
     assert_matches!(err, ParseError::LabeledErrorWithHelp { error, .. } if error == expected);
@@ -503,4 +499,51 @@ fn let_destructure_raises_error_values(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
     assert_contains("boom", err.to_string());
     Ok(())
+}
+
+#[rstest]
+#[case::record("let {$a, $b}: record<a: int, b: string> = {a: 1, b: x}; [$a $b]", test_value!([1, "x"]))]
+#[case::extra_fields("let {$a}: record<a: int> = {a: 1, c: 2}; $a", test_value!(1))]
+#[case::list("let [$x, ..$rest]: list<int> = [1 2 3]; $rest", test_value!([2, 3]))]
+#[case::pass_through("{a: 1} | let {$a}: record<a: int> | $a", test_value!(1))]
+#[case::mut_("mut {$a}: record<a: int> = {a: 1}; $a += 1; $a", test_value!(2))]
+#[case::const_("const {$a}: record<a: int> = {a: 1}; $a", test_value!(1))]
+fn let_destructure_annotated(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn let_destructure_annotation_types_variables() -> Result {
+    let err = test()
+        .run("let {$a}: record<a: int> = {a: 1}; $a | str length")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::InputMismatch { .. });
+    Ok(())
+}
+
+#[rstest]
+#[case::value("let {$a}: record<a: int> = 5")]
+#[case::field("let r = {a: s}; let {$a}: record<a: int> = $r")]
+#[case::shape("let {$a}: int = {a: 1}")]
+#[case::pass_through("5 | let {$a}: record<a: int>")]
+#[case::const_("const {$a}: record<a: int> = {a: s}")]
+fn let_destructure_annotation_mismatch(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::type_mismatch")
+}
+
+#[rstest]
+#[case::let_("let {$p}: record<p: glob> = {p: '*.md'}; $p | describe")]
+#[case::const_("const {$p}: record<p: glob> = {p: '*.md'}; $p | describe")]
+fn let_destructure_annotated_glob(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("glob")
+}
+
+#[test]
+#[exp(nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS)]
+fn let_destructure_annotation_checked_at_run_time() -> Result {
+    test()
+        .run("def f [] { {a: s} }; let {$a}: record<a: int> = (f)")
+        .expect_error_code_eq("nu::shell::type_mismatch")
 }

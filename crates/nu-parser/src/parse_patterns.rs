@@ -138,17 +138,45 @@ pub fn check_binding_type(
     ty: &Type,
     value_span: Span,
 ) {
+    if check_pattern_shape(working_set, pattern, ty, value_span)
+        && nu_experimental::CELL_PATH_TYPES.get()
+    {
+        set_pattern_types(working_set, pattern, ty);
+    }
+}
+
+/// Check a destructuring pattern against the type annotation on it, as in
+/// `let {$a}: record<a: int> = $r`, and give its variables the annotated types.
+pub fn annotate_binding(
+    working_set: &mut StateWorkingSet,
+    pattern: &MatchPattern,
+    ty: &Type,
+    span: Span,
+) {
+    if check_pattern_shape(working_set, pattern, ty, span) {
+        set_pattern_types(working_set, pattern, ty);
+    }
+}
+
+/// Report a type that can't be a record, for a record pattern, or a list, for a list pattern.
+/// Returns whether `ty` fits.
+fn check_pattern_shape(
+    working_set: &mut StateWorkingSet,
+    pattern: &MatchPattern,
+    ty: &Type,
+    span: Span,
+) -> bool {
     let expected = match &pattern.pattern {
         Pattern::Record(_) => Type::record(),
         Pattern::List(_) => Type::list(Type::Any),
-        _ => return,
+        _ => return true,
     };
     // An expression of type `error`, like `error make`, raises before anything is bound.
-    if !matches!(ty, Type::Error) && !type_compatible(&expected, ty) {
-        working_set.error(ParseError::TypeMismatch(expected, ty.clone(), value_span));
-    } else if nu_experimental::CELL_PATH_TYPES.get() {
-        set_pattern_types(working_set, pattern, ty);
+    let fits = matches!(ty, Type::Error) || type_compatible(&expected, ty);
+    if !fits {
+        working_set.error(ParseError::TypeMismatch(expected, ty.clone(), span));
     }
+    fits
 }
 
 /// Give each variable in `pattern` the type of the part of a `ty` value it binds.
