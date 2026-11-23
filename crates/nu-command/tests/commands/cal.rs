@@ -249,3 +249,14 @@ fn cal_week_start_string() -> Result {
         .run("cal --week-start fr | lines | get 1 | split row '│' | get 2 | ansi strip | str trim")
         .expect_value_eq("sa")
 }
+
+/// The first and last years a date can have still print every month.
+#[test]
+fn cal_at_the_ends_of_the_year_range() -> Result {
+    test()
+        .run("cal --as-table --full-year 9999 | last | values")
+        .expect_value_eq((26, 27, 28, 29, 30, 31, ()))?;
+    test()
+        .run("cal --as-table --full-year -9999 | first | values")
+        .expect_value_eq(((), 1, 2, 3, 4, 5, 6))
+}

@@ -438,10 +438,12 @@ fn insert_cell<'v>(
             table.insert_style(pos, style);
         }
         Cell::Table {
-            layout,
+            mut layout,
             value,
             kind,
         } => {
+            // Stripes of its own would look like rows of the table it is in.
+            layout.out.table.set_stripes([None; 2]);
             let natural = layout.out.table.total_width();
             table.reserve_width(pos.1, natural, layout.out.table.min_widths());
             table.insert_style(pos, TextStyle::default());

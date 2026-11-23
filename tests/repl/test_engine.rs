@@ -1,5 +1,7 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
+use nu_protocol::{ParseError, ShellError};
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
@@ -187,6 +189,45 @@ fn missing_flags_are_nothing4() -> TestResult {
         "def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 3 -b 10000",
         "10003",
     )
+}
+
+// A builtin reads a switch with `has_flag`, which checks a value the parser couldn't, such as one
+// typed `any`.
+#[rstest]
+#[case::true_(true, [3, 2, 1])]
+#[case::false_(false, [1, 2, 3])]
+#[case::null((), [1, 2, 3])]
+fn builtin_switch_value_typed_any(
+    #[case] value: impl IntoValue,
+    #[case] expected: [i64; 3],
+) -> Result {
+    test()
+        .run_with_data("let x: any = $in; [1 3 2] | sort --reverse=$x", value)
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn builtin_switch_rejects_a_value_that_is_not_a_bool() -> Result {
+    let err = test()
+        .run("let x: any = 5; [1 3 2] | sort --reverse=$x")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. } if to_type == "bool" && from_type == "int"
+    );
+    Ok(())
+}
+
+#[test]
+fn const_switch_rejects_a_value_that_is_not_a_bool() -> Result {
+    // The parser has no type for a field of a const record to check against the switch.
+    let code = "const r = {a: 5}; const n = ('abc' | str length --chars=$r.a)";
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::LabeledError(shell_error, ..) if shell_error.contains("`--chars` is a switch")
+    );
+    Ok(())
 }
 
 #[test]

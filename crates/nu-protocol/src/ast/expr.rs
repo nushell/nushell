@@ -1,4 +1,3 @@
-use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -43,7 +42,7 @@ pub enum Expr {
     Record(Vec<RecordItem>),
     Keyword(Box<Keyword>),
     ValueWithUnit(Box<ValueWithUnit>),
-    DateTime(chrono::DateTime<FixedOffset>),
+    DateTime(crate::DateTime),
     /// The boolean is `true` if the string is quoted.
     Filepath(String, bool),
     /// The boolean is `true` if the string is quoted.

@@ -221,6 +221,17 @@ fn parse_string_as_script() -> Result {
     Ok(())
 }
 
+/// A parse-time evaluation error's label is its one-line message, not the full
+/// rendered report, which `--debug` has already printed.
+#[test]
+fn parse_time_eval_error_label_is_one_line() -> Result {
+    let err = test()
+        .run_with_data("nu-check --debug", "const x = (1 / 0)")
+        .expect_shell_error()?;
+    assert_eq!(err.generic_msg()?, "Found : Division by zero");
+    Ok(())
+}
+
 #[test]
 fn parse_module_success_with_internal_stream() -> Result {
     let code = r#"

@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use nu_protocol::DateTime;
 use nu_protocol::{
     Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
     Range, Signals, Span, Value, ast::RangeInclusion,
@@ -86,7 +86,7 @@ fn const_first_strict_on_empty_list_errors() -> Result {
         .run("const x = [] | first --strict")
         .expect_parse_error()?;
 
-    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    assert_matches!(err, ParseError::ParseTimeEval { report: msg, .. } if msg.contains("Cannot access empty content"));
     Ok(())
 }
 
@@ -104,10 +104,10 @@ fn gets_first_rows_by_amount() -> Result {
             "$in | first 3 | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(3)
@@ -120,10 +120,10 @@ fn gets_all_rows_if_amount_higher_than_all_rows() -> Result {
             "$in | first 99 | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(4)
@@ -137,8 +137,8 @@ fn gets_first_row_when_no_amount_given() -> Result {
             "$in | first | values | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(4)
@@ -235,7 +235,7 @@ fn error_on_empty_inputs_when_rows_given_in_strict_mode() -> Result {
         .expect_parse_error()?;
     assert_matches!(
         const_err,
-        nu_protocol::ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content")
+        nu_protocol::ParseError::ParseTimeEval { report: msg, .. } if msg.contains("Cannot access empty content")
     );
 
     let empty_stream = PipelineData::byte_stream(

@@ -3,7 +3,7 @@ use nu_test_support::prelude::*;
 #[test]
 fn formatter_not_valid() -> Result {
     let code = "
-        date now | format date '%N'
+        date now | format date '%K'
         ";
 
     let err = test().run(code).expect_shell_error()?;

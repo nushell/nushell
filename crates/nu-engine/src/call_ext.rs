@@ -1,15 +1,14 @@
 use crate::eval_expression;
-use crate::named_flags::flag_type_accepts_nothing;
 use nu_protocol::{
-    FromValue, ShellError, Span, Value, ast,
+    FromValue, ShellError, Span,
     debugger::WithoutDebug,
-    engine::{self, EngineState, Stack, StateWorkingSet},
-    eval_const::eval_constant,
+    engine::{self, EngineState, Stack, StateWorkingSet, named_flags::call_has_flag},
     ir,
 };
 
 pub trait CallExt {
-    /// Check if a boolean flag is set (i.e. `--bool` or `--bool=true`)
+    /// Check if a boolean flag is set (i.e. `--bool` or `--bool=true`). A switch given a value that
+    /// isn't a bool is an error.
     fn has_flag(
         &self,
         engine_state: &EngineState,
@@ -66,182 +65,14 @@ pub trait CallExt {
     fn has_positional_args(&self, stack: &Stack, starting_pos: usize) -> bool;
 }
 
-impl CallExt for ast::Call {
-    fn has_flag(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        flag_name: &str,
-    ) -> Result<bool, ShellError> {
-        for name in self.named_iter() {
-            if flag_name == name.0.item {
-                return if let Some(expr) = &name.2 {
-                    // Check --flag=false
-                    let stack = &mut stack.use_call_arg_out_dest();
-                    let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-                    match result {
-                        Value::Bool { val, .. } => Ok(val),
-                        _ => Err(ShellError::CantConvert {
-                            to_type: "bool".into(),
-                            from_type: result.get_type().to_string(),
-                            span: result.span(),
-                            help: Some("".into()),
-                        }),
-                    }
-                } else {
-                    Ok(true)
-                };
-            }
-        }
-
-        Ok(false)
-    }
-
-    fn get_flag<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        name: &str,
-    ) -> Result<Option<T>, ShellError> {
-        if let Some(expr) = self.get_flag_expr(name) {
-            let stack = &mut stack.use_call_arg_out_dest();
-            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            // Signature-aware null: omit when the flag type does not accept nothing
-            // (IR path does this in normalize_call_arguments before get_flag runs).
-            if result.is_nothing() {
-                let accepts = engine_state
-                    .get_decl(self.decl_id)
-                    .signature()
-                    .get_long_flag(name)
-                    .is_some_and(|flag| flag_type_accepts_nothing(&flag));
-                if !accepts {
-                    return Ok(None);
-                }
-            }
-            FromValue::from_value(result).map(Some)
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn get_flag_span(&self, _stack: &Stack, name: &str) -> Option<Span> {
-        self.get_named_arg(name).map(|arg| arg.span)
-    }
-
-    fn rest<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        starting_pos: usize,
-    ) -> Result<Vec<T>, ShellError> {
-        let stack = &mut stack.use_call_arg_out_dest();
-        self.rest_iter_flattened(starting_pos, |expr| {
-            eval_expression::<WithoutDebug>(engine_state, stack, expr)
-        })?
-        .into_iter()
-        .map(FromValue::from_value)
-        .collect()
-    }
-
-    fn opt<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        pos: usize,
-    ) -> Result<Option<T>, ShellError> {
-        if let Some(expr) = self.positional_iter().nth(pos) {
-            let stack = &mut stack.use_call_arg_out_dest();
-            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            if result.is_nothing() {
-                Ok(None)
-            } else {
-                FromValue::from_value(result).map(Some)
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn opt_const<T: FromValue>(
-        &self,
-        working_set: &StateWorkingSet,
-        _stack: &Stack,
-        pos: usize,
-    ) -> Result<Option<T>, ShellError> {
-        if let Some(expr) = self.positional_iter().nth(pos) {
-            let result = eval_constant(working_set, expr)?;
-            if result.is_nothing() {
-                Ok(None)
-            } else {
-                FromValue::from_value(result).map(Some)
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn req<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        pos: usize,
-    ) -> Result<T, ShellError> {
-        let maybe_expr = self.positional_iter().nth(pos);
-        let expr = maybe_expr.ok_or_else(|| {
-            let max_idx = self.positional_iter().count().checked_sub(1);
-            match max_idx {
-                None => ShellError::AccessEmptyContent { span: self.head },
-                Some(max_idx) => ShellError::AccessBeyondEnd {
-                    max_idx,
-                    span: self.head,
-                },
-            }
-        })?;
-
-        let stack = &mut stack.use_call_arg_out_dest();
-        let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-        FromValue::from_value(result)
-    }
-
-    fn req_parser_info<T: FromValue>(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        name: &str,
-    ) -> Result<T, ShellError> {
-        if let Some(expr) = self.get_parser_info(name) {
-            let stack = &mut stack.use_call_arg_out_dest();
-            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result)
-        } else if self.parser_info.is_empty() {
-            Err(ShellError::AccessEmptyContent { span: self.head })
-        } else {
-            Err(ShellError::AccessBeyondEnd {
-                max_idx: self.parser_info.len() - 1,
-                span: self.head,
-            })
-        }
-    }
-
-    fn has_positional_args(&self, _stack: &Stack, starting_pos: usize) -> bool {
-        self.rest_iter(starting_pos).next().is_some()
-    }
-}
-
 impl CallExt for ir::Call {
     fn has_flag(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         stack: &mut Stack,
         flag_name: &str,
     ) -> Result<bool, ShellError> {
-        Ok(self
-            .named_iter(stack)
-            .find(|(name, _)| name.item == flag_name)
-            .is_some_and(|(_, value)| {
-                // Handle --flag=false
-                !matches!(value, Some(Value::Bool { val: false, .. }))
-            }))
+        call_has_flag(self, stack, engine_state.get_decl(self.decl_id), flag_name)
     }
 
     fn get_flag<T: FromValue>(
@@ -355,8 +186,6 @@ impl CallExt for ir::Call {
 
 macro_rules! proxy {
     ($self:ident . $method:ident ($($param:expr),*)) => (match &$self.inner {
-        engine::CallImpl::AstRef(call) => call.$method($($param),*),
-        engine::CallImpl::AstBox(call) => call.$method($($param),*),
         engine::CallImpl::IrRef(call) => call.$method($($param),*),
         engine::CallImpl::IrBox(call) => call.$method($($param),*),
     })

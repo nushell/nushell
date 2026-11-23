@@ -579,11 +579,7 @@ mod tests {
         // Binary primitives can hold multiple values, not just one, so shouldn't be compared to single values
         // Datetimes don't have a single obvious numeric representation, and if we chose one it would be ambiguous to the user
 
-        let year_three = chrono::NaiveDate::from_ymd_opt(3, 1, 1)
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_utc();
+        let year_three = nu_protocol::DateTime::parse_rfc3339("0003-01-01T00:00:00Z").unwrap();
 
         let mut list = vec![
             Value::test_int(10),
@@ -591,12 +587,12 @@ mod tests {
             Value::test_int(1),
             Value::test_binary([3]),
             Value::test_string("2"),
-            Value::test_date(year_three.into()),
+            Value::test_date(year_three),
             Value::test_int(4),
             Value::test_binary([52]),
             Value::test_float(9.0),
             Value::test_string("5"),
-            Value::test_date(chrono::DateTime::UNIX_EPOCH.into()),
+            Value::test_date(nu_protocol::DateTime::UNIX_EPOCH),
             Value::test_int(7),
             Value::test_string("8"),
             Value::test_float(3.0),
@@ -619,8 +615,8 @@ mod tests {
                 Value::test_string("foobar"),
                 // the ordering of date and binary here may change if the PartialOrd order is changed,
                 // but they should not be intermixed with the above
-                Value::test_date(year_three.into()),
-                Value::test_date(chrono::DateTime::UNIX_EPOCH.into()),
+                Value::test_date(year_three),
+                Value::test_date(nu_protocol::DateTime::UNIX_EPOCH),
                 Value::test_binary([3]),
                 Value::test_binary([52]),
             ]

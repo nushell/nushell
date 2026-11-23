@@ -1,6 +1,6 @@
 #![allow(unused_assignments)]
-use crate::{Span, Type, ast::RedirectionSource, did_you_mean};
-use miette::Diagnostic;
+use crate::{ShellError, Span, Type, ast::RedirectionSource, did_you_mean};
+use miette::{Diagnostic, LabeledSpan};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -728,6 +728,22 @@ pub enum ParseError {
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
 
+    /// Evaluating an expression at parse time failed, as for a `const` value or the name given
+    /// to `use`, `hide` or `source`. Made by [`ShellError::wrap`].
+    ///
+    /// - `report`: `error` rendered as a full report, with its own source snippet; this error's
+    ///   message
+    /// - `error`: the evaluation error itself, for places that show an error on one line, as the
+    ///   REPL's status line does
+    #[error("{report}")]
+    #[diagnostic()]
+    ParseTimeEval {
+        report: String,
+        error: Box<ShellError>,
+        #[label("Encountered error during parse-time evaluation")]
+        span: Span,
+    },
+
     #[error("{error}")]
     #[diagnostic(help("{help}"))]
     LabeledErrorWithHelp {
@@ -827,6 +843,61 @@ impl ParseError {
         )
     }
 
+    /// The error to show where an error gets one line, as in the REPL status line or an editor
+    /// diagnostic. It's this error, except for a [`ParseTimeEval`](ParseError::ParseTimeEval),
+    /// whose message is a full multi-line report: that gives the evaluation error inside it.
+    pub fn one_line_diagnostic(&self) -> &dyn Diagnostic {
+        match self {
+            ParseError::ParseTimeEval { error, .. } => error.as_ref(),
+            error => error,
+        }
+    }
+
+    /// [`one_line_diagnostic`](Self::one_line_diagnostic)'s headline and its first label on one
+    /// line, as `Type mismatch: expected int, found string`. A label that only restates the
+    /// headline, as `command doesn't support string input` does, is left out.
+    pub fn headline_and_label(&self) -> String {
+        let error = self.one_line_diagnostic();
+        let headline = error.to_string();
+        let headline = headline.trim_end_matches('.');
+        let label = first_text_label(error)
+            .and_then(|label| label.label().map(str::to_owned))
+            .filter(|label| !restates(label, headline));
+        match label {
+            Some(label) => format!("{headline}: {label}"),
+            None => headline.to_string(),
+        }
+    }
+
+    /// The message for a tool that shows an error as one line of text, as an editor or a
+    /// debugger does. It's this error's message, except for a
+    /// [`ParseTimeEval`](ParseError::ParseTimeEval), whose message is a full report: that gives
+    /// the [`headline_and_label`](Self::headline_and_label) of the evaluation error inside it, as
+    /// `Incorrect value: Range must be bounded`.
+    pub fn one_line_message(&self) -> String {
+        match self {
+            ParseError::ParseTimeEval { .. } => self.headline_and_label(),
+            error => error.to_string(),
+        }
+    }
+
+    /// Where a tool points [`one_line_message`](Self::one_line_message). It's this error's span,
+    /// except for a [`ParseTimeEval`](ParseError::ParseTimeEval): there it's the span of the label
+    /// the message shows, as `into int` in `const d = ('abc' | into int)`, if that lies inside
+    /// this error's span.
+    pub fn one_line_span(&self) -> Span {
+        let span = self.span();
+        if let ParseError::ParseTimeEval { error, .. } = self
+            && let Some(label) = first_text_label(error.as_ref())
+        {
+            let inner = Span::new(label.offset(), label.offset() + label.len());
+            if !inner.is_empty() && span.contains_span(inner) {
+                return inner;
+            }
+        }
+        span
+    }
+
     pub fn span(&self) -> Span {
         match self {
             ParseError::ExtraTokens(s) => *s,
@@ -915,6 +986,7 @@ impl ParseError {
             ParseError::PluginNotFound { name_span, .. } => *name_span,
             ParseError::LabeledError(_, _, s) => *s,
             ParseError::PatternMismatch { span, .. } => *span,
+            ParseError::ParseTimeEval { span, .. } => *span,
             ParseError::ShellAndAnd(s) => *s,
             ParseError::ShellOrOr(s) => *s,
             ParseError::ShellErrRedirect(s) => *s,
@@ -945,6 +1017,28 @@ fn default_unclosed_help(delimiter: &str, structure_hint: Option<&str>) -> Strin
             "Add a matching `{delimiter}` to close this delimiter, or check that an earlier closer closed the wrong block."
         ),
     }
+}
+
+/// The first label of `error` that has text: the one a one-line message shows.
+fn first_text_label(error: &dyn Diagnostic) -> Option<LabeledSpan> {
+    error.labels()?.find(|label| label.label().is_some())
+}
+
+/// Whether most of the words of `label` are already in `headline`.
+fn restates(label: &str, headline: &str) -> bool {
+    let words = |text: &str| -> Vec<String> {
+        text.split_whitespace()
+            .map(|word| {
+                word.trim_matches(|c: char| c.is_ascii_punctuation())
+                    .to_lowercase()
+            })
+            .filter(|word| !word.is_empty())
+            .collect()
+    };
+    let headline = words(headline);
+    let label = words(label);
+    let shared = label.iter().filter(|word| headline.contains(word)).count();
+    label.is_empty() || shared * 4 >= label.len() * 3
 }
 
 fn default_unbalanced_help(open: &str, close: &str) -> String {
@@ -984,5 +1078,23 @@ impl Display for DidYouMean {
         } else {
             write!(f, "")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::restates;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(
+        "command doesn't support string input",
+        "Command does not support string input",
+        true
+    )]
+    #[case("expected int, found string", "Type mismatch", false)]
+    #[case("missing range", "Missing required positional argument", false)]
+    fn restated_labels(#[case] label: &str, #[case] headline: &str, #[case] expected: bool) {
+        assert_eq!(restates(label, headline), expected);
     }
 }

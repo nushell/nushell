@@ -634,6 +634,38 @@ $env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true
 # Default: false
 $env.config.table.header_on_separator = false
 
+# table.striped (bool): Draw every other row on a background of its own.
+# true: The second row of a table, then every other one, gets a background of its
+#   own. Its color is `color_config.row_stripe_alt`, or one made from a "#rrggbb"
+#   `color_config.row_stripe_bg`: a little lighter than a dark one, a little
+#   darker than a light one (see `table.stripe_blend`). If you use a named
+#   color, like "blue", for `row_stripe_bg`, you must set `row_stripe_alt` also.
+#   There are no stripes when neither is set.
+# false: Every row has the same background.
+# Applies to `table` and `explore`, not to `table --collapse` or the markup modes.
+# Default: false
+$env.config.table.striped = false
+
+# To have stripes follow the background of the terminal, ask for it when nushell
+# starts, with `terminal-background` of the standard library. It returns nothing
+# from a terminal that does not tell (or over ssh to Windows), which leaves
+# tables without stripes. Keys typed before the terminal answers are lost, and
+# where nothing answers at all, as in a pty with no terminal behind it, startup
+# waits until Ctrl+C.
+# use std/config terminal-background
+# if $nu.is-interactive and $env.config.table.striped {
+#     let background = terminal-background
+#     if $background != null { $env.config.color_config.row_stripe_bg = $background }
+# }
+
+# table.stripe_blend (float): Strength of the stripes made from `color_config.row_stripe_bg`.
+# How much white (into a dark color) or black (into a light one) is blended into a
+# "#rrggbb" `color_config.row_stripe_bg`, from 0.0 to 1.0: 0.0 is no stripe, 1.0
+# is plain white or black.
+# Not used when `color_config.row_stripe_alt` is set.
+# Default: 0.08
+$env.config.table.stripe_blend = 0.08
+
 # table.abbreviated_row_count (int|null): Abbreviate large tables.
 # (int): Show first N and last N rows with ellipsis.
 # null: Show all rows.
@@ -1505,6 +1537,18 @@ $env.config.color_config.header = "green_bold"
 # color_config.separator: Style for table/list/record borders.
 # Default: default
 $env.config.color_config.separator = "default"
+
+# color_config.row_stripe_bg: Background of the first row and every other one,
+# when `table.striped` is on. A color: a name or "#rrggbb". Give it as "#rrggbb"
+# to have the color of the rows between made from it.
+# Default: not set, which is the terminal's own background
+# $env.config.color_config.row_stripe_bg = "#282c34"
+
+# color_config.row_stripe_alt: Background of the rows between them, when
+# `table.striped` is on. A color: a name or "#rrggbb".
+# Default: not set, which is a color made with `table.stripe_blend` from
+# `row_stripe_bg` when that is "#rrggbb", else the terminal's own background
+# $env.config.color_config.row_stripe_alt = "#393d44"
 
 # color_config.row_index: Style for the index (#) column in tables and lists.
 # Default: green_bold

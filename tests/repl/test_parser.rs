@@ -1201,7 +1201,7 @@ fn point_in_time_duration_is_not_a_constant(#[case] code: &str) -> Result {
     let err = test().run(code).expect_parse_error()?;
     assert_matches!(
         err,
-        ParseError::LabeledError(msg, ..) if msg.contains("not_a_constant")
+        ParseError::ParseTimeEval { report: msg, .. } if msg.contains("not_a_constant")
     );
     Ok(())
 }
@@ -1553,11 +1553,30 @@ fn invalid_date_literal(#[case] code: &str) -> Result {
 #[case::extension("2023-02-29.log")]
 #[case::dashed_time("2024-01-15T10-30-00.log")]
 #[case::word_after_t("2024-01-15test.txt")]
-#[case::no_seconds("2024-01-15T10:00")]
+#[case::hour_only("2024-01-15T10")]
+#[case::compact_minutes("2024-01-15T1030")]
+#[case::compact_seconds("2024-01-15T103000")]
+#[case::bad_hour("2024-01-15T25:00")]
 fn date_like_file_name(#[case] word: &str) -> Result {
     test()
         .run(format!("[{word}] | first"))
         .expect_value_eq(word)
+}
+
+/// A date and time without seconds is a date, as jiff reads RFC 3339 and ISO 8601.
+#[test]
+fn date_literal_without_seconds() -> Result {
+    test()
+        .run("[2024-01-15T10:00] | first | to nuon")
+        .expect_value_eq("2024-01-15T10:00:00+00:00")
+}
+
+/// A zone in brackets isn't part of a date literal, which would drop it.
+#[test]
+fn date_literal_with_zone_name_is_a_string() -> Result {
+    test()
+        .run("[2024-01-15T10:30:00Z[UTC]] | first | describe")
+        .expect_value_eq("string")
 }
 
 #[test]
@@ -1661,11 +1680,7 @@ mod plugin_tests {
             plugin use $file
         ";
         let err = test().run(input).expect_parse_error()?;
-        assert_matches!(
-            err,
-            ParseError::LabeledError(_, label, _)
-                if label == "Encountered error during parse-time evaluation"
-        );
+        assert_matches!(err, ParseError::ParseTimeEval { .. });
         Ok(())
     }
 
@@ -2012,6 +2027,41 @@ fn let_assign_table_cell_path_to_wrong_type(
         ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == inferred_type
     );
     Ok(())
+}
+
+#[rstest]
+#[case::int("5?", "oneof<record<a: record<b: list<int>>>, nothing>")]
+#[case::int_string("0?.a", "oneof<record<b: list<int>>, nothing>")]
+#[case::last_member("0.a.b.5?", "oneof<int, nothing>")]
+#[nu_test_support::test]
+#[exp(CELL_PATH_TYPES)]
+fn optional_cell_path_type_includes_nothing(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> Result {
+    let mut tester = test();
+    let () = tester.run("let foo = [{a: {b: [1]}}]")?;
+    let err = tester
+        .run(format!("let bar: string = $foo.{cell_path}"))
+        .expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::TypeMismatch(Type::String, found, _) if found.to_string() == inferred_type
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::let_nothing("let l = [1]; let x: nothing = $l.5?; $x", ())]
+#[case::nothing_param("def f [x: nothing] { 'ok' }; let l = [1]; f $l.5?", "ok")]
+#[case::let_element_type("let l = [1]; let x: int = $l.0?; $x", 1)]
+#[nu_test_support::test]
+#[exp(CELL_PATH_TYPES)]
+fn optional_cell_path_fits_nothing_or_element_type(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
 }
 
 #[test]

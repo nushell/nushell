@@ -1,17 +1,11 @@
 use super::formats::{FormatRow, format_rows, parse_date_text};
-use chrono::{DateTime, FixedOffset, Local, Timelike};
+use nu_protocol::DateTime;
 use nu_protocol::{ShellError, Span, Value, record};
 
-pub(crate) fn parse_date_from_string(
-    input: &str,
-    span: Span,
-) -> Result<DateTime<FixedOffset>, Value> {
-    // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and chrono
-    // reads them many times faster than trying layouts. Leap seconds (`23:59:60`), which chrono
-    // accepts, go on to the layouts, which reject them.
-    if let Ok(date) = DateTime::parse_from_rfc3339(input)
-        && date.nanosecond() < 1_000_000_000
-    {
+pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime, Value> {
+    // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and read
+    // many times faster than trying layouts.
+    if let Ok(date) = DateTime::parse_rfc3339(input) {
         return Ok(date);
     }
     parse_date_text(input).ok_or_else(|| {
@@ -60,7 +54,7 @@ pub(crate) fn generate_date_formats_list(head: Span) -> Value {
 /// * `head` - use the call's head
 /// * `show_parse_only_formats` - whether parse-only format specifiers (that can't be outputted) should be shown. Should only be used for `into datetime`, not `format date`
 pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> Value {
-    let now = Local::now();
+    let now = nu_protocol::DateTime::now();
 
     struct FormatSpecification<'a> {
         spec: &'a str,
@@ -141,6 +135,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "Same as %U but uses the week number in ISO 8601 week date (01--53).",
         },
         FormatSpecification {
+            spec: "%q",
+            description: "Quarter of the year (1--4).",
+        },
+        FormatSpecification {
             spec: "%j",
             description: "Day of the year (001--366), zero-padded to 3 digits.",
         },
@@ -190,7 +188,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%S",
-            description: "Second number (00--60), zero-padded to 2 digits.",
+            description: "Second number (00--59), zero-padded to 2 digits.",
         },
         FormatSpecification {
             spec: "%f",
@@ -225,6 +223,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "Similar to %.9f but without the leading dot.",
         },
         FormatSpecification {
+            spec: "%N",
+            description: "Nanoseconds, always 9 digits. Same as %9f.",
+        },
+        FormatSpecification {
             spec: "%R",
             description: "Hour-minute format. Same as %H:%M.",
         },
@@ -242,7 +244,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%Z",
-            description: "Local time zone name. Skips all non-whitespace characters during parsing.",
+            description: "The offset, such as +05:30, since dates keep an offset rather than a zone name. When parsing, reads UTC or GMT in any case as offset zero, or an offset such as +05:30. Other names are an error, unless %z reads the offset: then %Z skips the name, so %z %Z reads +0900 JST.",
         },
         FormatSpecification {
             spec: "%z",
@@ -251,6 +253,14 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         FormatSpecification {
             spec: "%:z",
             description: "Same as %z but with a colon.",
+        },
+        FormatSpecification {
+            spec: "%::z",
+            description: "Same as %:z but with seconds, such as +05:30:00. When parsing, reads an offset as %z does.",
+        },
+        FormatSpecification {
+            spec: "%:::z",
+            description: "The offset in whole hours, such as +05. When parsing, reads an offset as %z does.",
         },
         FormatSpecification {
             spec: "%c",
@@ -262,7 +272,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%s",
-            description: "UNIX timestamp, the number of seconds since 1970-01-01",
+            description: "UNIX timestamp, the number of seconds since 1970-01-01, negative before it.",
         },
         FormatSpecification {
             spec: "%J",
@@ -288,13 +298,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
 
     let mut records = specifications
         .iter()
+        // jiff doesn't read the quarter, so `into datetime` doesn't list it.
+        .filter(|s| !(show_parse_only_formats && s.spec == "%q"))
         .map(|s| {
-            // Handle custom format specifiers that aren't supported by chrono
-            let example = match s.spec {
-                "%J" => now.format("%Y%m%d").to_string(),
-                "%Q" => now.format("%H%M%S").to_string(),
-                _ => now.format(s.spec).to_string(),
-            };
+            let example = now.format(s.spec).unwrap_or_default();
 
             Value::record(
                 record! {
@@ -308,14 +315,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         .collect::<Vec<Value>>();
 
     if show_parse_only_formats {
-        // now.format("%#z") will panic since it is parse-only
-        // so here we emulate how it will look:
-        let example = now
-            .format("%:z") // e.g. +09:30
-            .to_string()
-            .get(0..3) // +09:30 -> +09
-            .unwrap_or("")
-            .to_string();
+        // `%#z` reads an offset with or without minutes; show the shortest it reads.
+        let example = now.format("%:::z").unwrap_or_default();
 
         let description = "Parsing only: Same as %z but allows minutes to be missing or present.";
 
@@ -341,9 +342,9 @@ mod test {
         let parse = |input| {
             parse_date_from_string(input, Span::test_data())
                 .ok()
-                .map(|date| (date, *date.offset()))
+                .map(|date| (date, date.offset()))
         };
-        let parse_with_layouts = |input| parse_date_text(input).map(|date| (date, *date.offset()));
+        let parse_with_layouts = |input| parse_date_text(input).map(|date| (date, date.offset()));
         for input in [
             "2025-04-18T04:04:32-07:00",
             "2026-05-14T03:37:00Z",
@@ -358,7 +359,11 @@ mod test {
     }
 
     #[test]
-    fn leap_second_is_not_read() {
-        assert!(parse_date_from_string("2016-12-31T23:59:60Z", Span::test_data()).is_err());
+    fn leap_second_reads_as_59() {
+        let date = parse_date_from_string("2016-12-31T23:59:60Z", Span::test_data());
+        assert_eq!(
+            date.ok().map(DateTime::to_rfc3339).as_deref(),
+            Some("2016-12-31T23:59:59+00:00")
+        );
     }
 }

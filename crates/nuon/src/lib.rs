@@ -9,9 +9,8 @@ pub use to::to_nuon;
 
 #[cfg(test)]
 mod tests {
-    use chrono::DateTime;
     use nu_protocol::{
-        BlockId, IntRange, Range, Span, Value,
+        BlockId, DateTime, IntRange, Range, Span, Value,
         ast::{CellPath, PathMember, RangeInclusion},
         casing::Casing,
         engine::{Closure, EngineState},
@@ -174,8 +173,17 @@ mod tests {
     fn to_nuon_datetime() {
         nuon_end_to_end(
             "1970-01-01T00:00:00+00:00",
-            Some(Value::test_date(DateTime::UNIX_EPOCH.into())),
+            Some(Value::test_date(DateTime::UNIX_EPOCH)),
         );
+    }
+
+    /// Times without the colon or the minutes, which ISO 8601 allows, stay strings.
+    #[test]
+    fn compact_times_are_strings() {
+        for text in ["2024-01-15T10", "2024-01-15T1030", "2024-01-15T103000"] {
+            let value = from_nuon(&format!("[{text}]"), None).expect("nuon parses");
+            assert_eq!(value, Value::test_list(vec![Value::test_string(text)]));
+        }
     }
 
     #[test]

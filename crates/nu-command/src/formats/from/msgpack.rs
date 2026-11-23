@@ -8,8 +8,8 @@ use std::{
 };
 
 use byteorder::{BigEndian, ReadBytesExt};
-use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
 use nu_protocol::{
     Signals,
     shell_error::{bridge::ShellErrorBridge, generic::GenericError},
@@ -78,25 +78,17 @@ MessagePack: https://msgpack.org/
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "event_name" => Value::test_string("Apollo 11 Landing"),
-                        "time" => Value::test_date(Utc.with_ymd_and_hms(
-                            1969,
-                            7,
-                            24,
-                            16,
-                            50,
-                            35,
-                        ).unwrap().into())
+                        "time" => Value::test_date(
+                            DateTime::parse_rfc3339("1969-07-24T16:50:35Z")
+                                .expect("example date is valid")
+                        )
                     }),
                     Value::test_record(record! {
                         "event_name" => Value::test_string("Nushell first commit"),
-                        "time" => Value::test_date(Utc.with_ymd_and_hms(
-                            2019,
-                            5,
-                            10,
-                            16,
-                            59,
-                            12,
-                        ).unwrap().into())
+                        "time" => Value::test_date(
+                            DateTime::parse_rfc3339("2019-05-10T16:59:12Z")
+                                .expect("example date is valid")
+                        )
                     }),
                 ])),
             },
@@ -472,9 +464,9 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
 }
 
 fn make_date(secs: i64, nanos: u32, span: Span) -> Result<Value, ReadError> {
-    match Utc.timestamp_opt(secs, nanos) {
-        chrono::offset::LocalResult::Single(dt) => Ok(Value::date(dt.into(), span)),
-        _ => Err(ShellError::Generic(
+    match DateTime::from_unix_timestamp(secs, nanos, jiff::tz::Offset::UTC) {
+        Some(dt) => Ok(Value::date(dt, span)),
+        None => Err(ShellError::Generic(
             GenericError::new(
                 "Invalid MessagePack timestamp",
                 "datetime is out of supported range",

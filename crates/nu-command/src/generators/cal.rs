@@ -1,7 +1,6 @@
-use chrono::{Datelike, Local, NaiveDate};
 use nu_color_config::StyleComputer;
-use nu_engine::command_prelude::*;
-use nu_protocol::ast::{self, Expr, Expression};
+use nu_engine::{command_prelude::*, eval_ir_call};
+use nu_protocol::ir;
 
 use std::collections::VecDeque;
 
@@ -147,27 +146,17 @@ pub fn cal(
         style_computer,
     )?;
 
-    let mut table_no_index = ast::Call::new(tag);
-    table_no_index.add_named((
-        Spanned {
-            item: "index".to_string(),
-            span: tag,
-        },
-        None,
-        Some(Expression::new_unknown(Expr::Bool(false), tag, Type::Bool)),
-    ));
-
     let cal_table_output =
         Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data();
-    if !arguments.as_table {
-        crate::Table.run(
-            engine_state,
-            stack,
-            &(&table_no_index).into(),
-            cal_table_output,
-        )
-    } else {
-        Ok(cal_table_output)
+    match engine_state.table_decl_id {
+        // Render the calendar as `table --index false` would.
+        Some(table_decl_id) if !arguments.as_table => {
+            let mut table_no_index = ir::Call::build(table_decl_id, tag);
+            table_no_index.add_named(stack, "index", "", tag, Value::bool(false, tag));
+            eval_ir_call(engine_state, stack, table_no_index, cal_table_output)
+        }
+        // `--as-table`, or an engine without `table`, gets the rows as they are.
+        _ => Ok(cal_table_output),
     }
 }
 
@@ -189,47 +178,48 @@ struct MonthHelper {
 
 impl MonthHelper {
     pub fn new(selected_year: i32, selected_month: u32) -> Result<MonthHelper, ()> {
-        let naive_date = NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
-        let number_of_days_in_month =
-            MonthHelper::calculate_number_of_days_in_month(selected_year, selected_month)?;
+        const MONTH_NAMES: [&str; 12] = [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ];
+        // A calendar date, not an instant, so years -9999 and 9999 have every month.
+        let first = jiff::civil::Date::new(
+            i16::try_from(selected_year).map_err(|_| ())?,
+            i8::try_from(selected_month).map_err(|_| ())?,
+            1,
+        )
+        .map_err(|_| ())?;
 
         Ok(MonthHelper {
             selected_year,
             selected_month,
-            day_number_of_week_month_starts_on: naive_date.weekday().num_days_from_sunday(),
-            number_of_days_in_month,
+            day_number_of_week_month_starts_on: first.weekday().to_sunday_zero_offset() as u32,
+            number_of_days_in_month: first.days_in_month() as u32,
             quarter_number: ((selected_month - 1) / 3) + 1,
-            month_name: naive_date.format("%B").to_string().to_ascii_lowercase(),
+            month_name: MONTH_NAMES
+                .get(selected_month as usize - 1)
+                .ok_or(())?
+                .to_string(),
         })
-    }
-
-    fn calculate_number_of_days_in_month(
-        mut selected_year: i32,
-        mut selected_month: u32,
-    ) -> Result<u32, ()> {
-        // Chrono does not provide a method to output the amount of days in a month
-        // This is a workaround taken from the example code from the Chrono docs here:
-        // https://docs.rs/chrono/0.3.0/chrono/naive/date/struct.NaiveDate.html#example-30
-        if selected_month == 12 {
-            selected_year += 1;
-            selected_month = 1;
-        } else {
-            selected_month += 1;
-        };
-
-        let next_month_naive_date =
-            NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
-
-        Ok(next_month_naive_date.pred_opt().unwrap_or_default().day())
     }
 }
 
 fn get_current_date() -> (i32, u32, u32) {
-    let local_now_date = Local::now().date_naive();
+    let today = jiff::ZonedDateTime::now();
 
-    let current_year: i32 = local_now_date.year();
-    let current_month: u32 = local_now_date.month();
-    let current_day: u32 = local_now_date.day();
+    let current_year = i32::from(today.year());
+    let current_month = today.month() as u32;
+    let current_day = today.day() as u32;
 
     (current_year, current_month, current_day)
 }

@@ -20,7 +20,7 @@ nu-protocol = { workspace = true, features = ["os"] }
 nuon.workspace = true
 
 bytes = { workspace = true }
-chrono = { workspace = true }
+jiff = { workspace = true }
 futures = "0.3.31"
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
 indoc = "2.0.7"

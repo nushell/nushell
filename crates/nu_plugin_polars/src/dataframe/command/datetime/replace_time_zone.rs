@@ -80,7 +80,7 @@ impl PluginCommand for ReplaceTimeZone {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-30 00:00:00 -0500",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -88,7 +88,7 @@ impl PluginCommand for ReplaceTimeZone {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-31 00:00:00 -0500",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -125,7 +125,7 @@ impl PluginCommand for ReplaceTimeZone {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-11-02 00:00:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -134,7 +134,7 @@ impl PluginCommand for ReplaceTimeZone {
                                     Span::test_data(),
                                 ),
                                 Value::nothing(Span::test_data()),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-11-02 02:00:00 -0500",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -142,7 +142,7 @@ impl PluginCommand for ReplaceTimeZone {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-11-02 03:00:00 -0500",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -179,7 +179,7 @@ impl PluginCommand for ReplaceTimeZone {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-03-09 01:00:00 -0500",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -188,7 +188,7 @@ impl PluginCommand for ReplaceTimeZone {
                                     Span::test_data(),
                                 ),
                                 Value::nothing(Span::test_data()),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-03-09 03:00:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -196,7 +196,7 @@ impl PluginCommand for ReplaceTimeZone {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-03-09 04:00:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",

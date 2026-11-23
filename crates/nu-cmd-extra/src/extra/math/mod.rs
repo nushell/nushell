@@ -1,3 +1,5 @@
+use nu_protocol::{PipelineData, ShellError, Span, Value};
+
 mod cos;
 mod cosh;
 mod sin;
@@ -31,3 +33,17 @@ pub use arcsin::MathArcSin;
 pub use arcsinh::MathArcSinH;
 pub use arctan::MathArcTan;
 pub use arctanh::MathArcTanH;
+
+/// Reject an unbounded range, matching the element-wise math commands in nu-command.
+pub(crate) fn ensure_bounded_range(input: &PipelineData, head: Span) -> Result<(), ShellError> {
+    if let PipelineData::Value(v @ Value::Range { val, .. }, ..) = input
+        && !val.is_bounded()
+    {
+        return Err(ShellError::IncorrectValue {
+            msg: "Range must be bounded".into(),
+            val_span: v.span(),
+            call_span: head,
+        });
+    }
+    Ok(())
+}

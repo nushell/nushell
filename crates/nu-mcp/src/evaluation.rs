@@ -631,7 +631,14 @@ fn eval_on_state(
 
         if let Some(err) = working_set.parse_errors.first() {
             let span = block.span.unwrap_or(Span::unknown());
-            return Err(user_input_error(&working_set, err, None, span));
+            // A parse-time evaluation error's message is a full report; its code, help and
+            // labels come from the evaluation error inside it.
+            return Err(user_input_error(
+                &working_set,
+                err.one_line_diagnostic(),
+                None,
+                span,
+            ));
         }
 
         if let Some(err) = working_set.compile_errors.first() {
@@ -669,7 +676,9 @@ fn eval_on_state(
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos() as i64)
         .unwrap_or(0);
-    let timestamp_value = chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
+    let timestamp_value =
+        nu_protocol::DateTime::from_unix_nanos(timestamp.into(), jiff::tz::Offset::UTC)
+            .unwrap_or(nu_protocol::DateTime::UNIX_EPOCH);
 
     // Store in history
     let history_index = history.push(output_value.clone(), engine_state, stack);
@@ -843,8 +852,6 @@ fn process_pipeline(
 mod tests {
     use super::*;
     #[cfg(unix)]
-    use nu_engine::eval_expression;
-    #[cfg(unix)]
     use nu_protocol::engine::StateWorkingSet;
     #[cfg(unix)]
     use nu_protocol::{
@@ -899,13 +906,12 @@ mod tests {
 
         fn run(
             &self,
-            engine_state: &EngineState,
+            _engine_state: &EngineState,
             stack: &mut Stack,
             call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
-            let args: Vec<Value> =
-                call.rest_iter_flattened(engine_state, stack, eval_expression::<WithoutDebug>, 0)?;
+            let args: Vec<Value> = call.rest_iter_flattened(stack, 0)?;
             let args = args
                 .into_iter()
                 .map(|value| value.coerce_into_string())
@@ -1201,6 +1207,23 @@ mod tests {
             !err_msg.contains("Span {"),
             "Error message should not contain raw Debug formatting, but got: {err_msg}"
         );
+    }
+
+    /// A parse-time evaluation error is reported with the evaluation error's own fields, not a
+    /// rendered report in `msg`.
+    #[test]
+    fn test_evaluator_parse_time_eval_error_fields() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        let err = evaluator
+            .eval("const x = (1 / 0)")
+            .expect_err("dividing by zero in a const should fail");
+        let data = err.data.expect("error data");
+
+        assert_eq!(data["code"], "nu::shell::division_by_zero");
+        assert_eq!(data["msg"], "Division by zero.");
+        assert_eq!(data["labels"][0]["text"], "division by zero");
     }
 
     #[test]

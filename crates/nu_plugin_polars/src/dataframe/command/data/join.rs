@@ -256,7 +256,7 @@ impl PluginCommand for LazyJoin {
                             Column::new(
                                 "a".to_string(),
                                 vec![
-                                    Value::date(
+                                    nu_protocol::IntoValue::into_value(
                                         DateTime::parse_from_str(
                                             "2025-01-01 01:00:00+0000",
                                             "%Y-%m-%d %H:%M:%S%z",
@@ -264,7 +264,7 @@ impl PluginCommand for LazyJoin {
                                         .expect("DateTime parsing should not fail in test."),
                                         Span::test_data(),
                                     ),
-                                    Value::date(
+                                    nu_protocol::IntoValue::into_value(
                                         DateTime::parse_from_str(
                                             "2025-01-02 05:36:42+0000",
                                             "%Y-%m-%d %H:%M:%S%z",
@@ -281,7 +281,7 @@ impl PluginCommand for LazyJoin {
                             Column::new(
                                 "a_x".to_string(),
                                 vec![
-                                    Value::date(
+                                    nu_protocol::IntoValue::into_value(
                                         DateTime::parse_from_str(
                                             "2025-01-01 00:00:00+0000",
                                             "%Y-%m-%d %H:%M:%S%z",
@@ -289,7 +289,7 @@ impl PluginCommand for LazyJoin {
                                         .expect("DateTime parsing should not fail in test."),
                                         Span::test_data(),
                                     ),
-                                    Value::date(
+                                    nu_protocol::IntoValue::into_value(
                                         DateTime::parse_from_str(
                                             "2025-01-02 00:00:00+0000",
                                             "%Y-%m-%d %H:%M:%S%z",

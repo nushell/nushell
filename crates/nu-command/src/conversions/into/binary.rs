@@ -227,7 +227,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span,
         ),
         Value::Date { val, .. } => {
-            Value::binary(val.format("%c").to_string().as_bytes().to_vec(), span)
+            // The C locale's `%c`, as `into string` writes it.
+            let text = val.format("%c").unwrap_or_default();
+            Value::binary(text.into_bytes(), span)
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),

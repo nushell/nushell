@@ -1,4 +1,3 @@
-use chrono::Datelike;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, shell_error::io::IoError};
 

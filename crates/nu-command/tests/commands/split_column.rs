@@ -145,10 +145,10 @@ fn split_column_duplicate_column_const_error() -> Result {
     let code = "const c = ('a-b' | split column '-' col col)";
     let err = test().run(code).expect_parse_error()?;
     match err {
-        ParseError::LabeledError(msg, ..) => {
-            assert!(msg.contains("column_defined_twice"));
+        ParseError::ParseTimeEval { report, .. } => {
+            assert!(report.contains("column_defined_twice"));
         }
-        err => panic!("expected LabeledError, got {err:?}"),
+        err => panic!("expected ParseTimeEval, got {err:?}"),
     }
     Ok(())
 }
