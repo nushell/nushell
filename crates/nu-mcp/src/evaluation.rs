@@ -631,7 +631,14 @@ fn eval_on_state(
 
         if let Some(err) = working_set.parse_errors.first() {
             let span = block.span.unwrap_or(Span::unknown());
-            return Err(user_input_error(&working_set, err, None, span));
+            // A parse-time evaluation error's message is a full report; its code, help and
+            // labels come from the evaluation error inside it.
+            return Err(user_input_error(
+                &working_set,
+                err.one_line_diagnostic(),
+                None,
+                span,
+            ));
         }
 
         if let Some(err) = working_set.compile_errors.first() {
@@ -1203,6 +1210,23 @@ mod tests {
             !err_msg.contains("Span {"),
             "Error message should not contain raw Debug formatting, but got: {err_msg}"
         );
+    }
+
+    /// A parse-time evaluation error is reported with the evaluation error's own fields, not a
+    /// rendered report in `msg`.
+    #[test]
+    fn test_evaluator_parse_time_eval_error_fields() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        let err = evaluator
+            .eval("const x = (1 / 0)")
+            .expect_err("dividing by zero in a const should fail");
+        let data = err.data.expect("error data");
+
+        assert_eq!(data["code"], "nu::shell::division_by_zero");
+        assert_eq!(data["msg"], "Division by zero.");
+        assert_eq!(data["labels"][0]["text"], "division by zero");
     }
 
     #[test]

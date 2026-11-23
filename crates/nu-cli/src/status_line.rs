@@ -8,7 +8,6 @@ use crate::{
     syntax_highlight::{LineParseCache, ParsedHighlight},
     validation::is_incomplete,
 };
-use miette::Diagnostic;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_parser::{TokenContents, lex};
@@ -142,7 +141,10 @@ impl NuStatusLine {
             && imports_known
             && let Some(error) = first_error(&parsed, offset + typed, cursor)
         {
-            return vec![(self.styles.error, format!("✗ {}", error_message(error)))];
+            return vec![(
+                self.styles.error,
+                format!("✗ {}", error.headline_and_label()),
+            )];
         }
 
         let working_set = parsed.working_set(&self.engine_state);
@@ -255,39 +257,6 @@ fn awaits_input(error: &ParseError) -> bool {
             | ParseError::ExpectedWithStringMsg(..)
             | ParseError::ExpectedKeyword(..)
     )
-}
-
-/// The error's headline and its first label on one line, as `Type mismatch:
-/// expected int, found string`. A label that only restates the headline, as
-/// `command doesn't support string input` does, is left out.
-fn error_message(error: &ParseError) -> String {
-    let headline = error.to_string();
-    let headline = headline.trim_end_matches('.');
-    let label = error
-        .labels()
-        .and_then(|mut labels| labels.find_map(|label| label.label().map(str::to_owned)))
-        .filter(|label| !restates(label, headline));
-    match label {
-        Some(label) => format!("{headline}: {label}"),
-        None => headline.to_string(),
-    }
-}
-
-/// Whether most of the words of `label` are already in `headline`.
-fn restates(label: &str, headline: &str) -> bool {
-    let words = |text: &str| -> Vec<String> {
-        text.split_whitespace()
-            .map(|word| {
-                word.trim_matches(|c: char| c.is_ascii_punctuation())
-                    .to_lowercase()
-            })
-            .filter(|word| !word.is_empty())
-            .collect()
-    };
-    let headline = words(headline);
-    let label = words(label);
-    let shared = label.iter().filter(|word| headline.contains(word)).count();
-    label.is_empty() || shared * 4 >= label.len() * 3
 }
 
 /// The type of the pipeline element at `pos` (or the last one before it) in
@@ -733,6 +702,18 @@ mod tests {
         "✗ Command does not support list<int> input"
     )]
     #[case::unfinished_block("if true {", "")]
+    #[case::parse_time_eval(
+        "hide $env.bar ",
+        "✗ Not a constant: Value is not a parse-time constant"
+    )]
+    #[case::parse_time_eval_cause_in_the_label(
+        "const y = 1.. | last 2 ",
+        "✗ Incorrect value: Range must be bounded"
+    )]
+    #[case::first_label_names_the_duplicate(
+        "const c = ('a-b' | split column '-' col col) ",
+        "✗ Record field or table column used twice: col: field redefined here"
+    )]
     fn errors_wait_for_the_text_being_typed(#[case] line: &str, #[case] expected: &str) {
         assert_eq!(status(only("errors"), line), expected);
     }
@@ -1101,17 +1082,5 @@ mod tests {
             Style::new().fg(Color::Cyan).bold().underline()
         );
         assert_eq!(styles.error, Style::new().fg(Color::Red));
-    }
-
-    #[rstest]
-    #[case(
-        "command doesn't support string input",
-        "Command does not support string input",
-        true
-    )]
-    #[case("expected int, found string", "Type mismatch", false)]
-    #[case("missing range", "Missing required positional argument", false)]
-    fn restated_labels(#[case] label: &str, #[case] headline: &str, #[case] expected: bool) {
-        assert_eq!(restates(label, headline), expected);
     }
 }

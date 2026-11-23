@@ -28,10 +28,10 @@ impl LanguageServer {
             .get_document(&uri)
             .ok_or_else(|| miette!("\nFailed to get document"))?;
         for err in working_set.parse_errors.iter() {
-            let message = err.to_string();
+            let message = err.one_line_message();
 
             diagnostics.diagnostics.push(Diagnostic {
-                range: span_to_range(&err.span(), file, span.start),
+                range: span_to_range(&err.one_line_span(), file, span.start),
                 severity: Some(DiagnosticSeverity::ERROR),
                 message,
                 ..Default::default()
@@ -78,6 +78,28 @@ mod tests {
             "end": { "line": 0, "character": 30 }
         },
         "message": "Variable not found.",
+        "severity": 1
+    }]))]
+    #[case::parse_time_eval_errors("parse_time_eval.nu", None, serde_json::json!([{
+        "range": {
+            "start": { "line": 1, "character": 7 },
+            "end": { "line": 1, "character": 12 }
+        },
+        "message": "Not a constant: Value is not a parse-time constant",
+        "severity": 1
+    }, {
+        "range": {
+            "start": { "line": 2, "character": 19 },
+            "end": { "line": 2, "character": 27 }
+        },
+        "message": "Not a const command: This command cannot run at parse time.",
+        "severity": 1
+    }, {
+        "range": {
+            "start": { "line": 3, "character": 10 },
+            "end": { "line": 3, "character": 13 }
+        },
+        "message": "Incorrect value: Range must be bounded",
         "severity": 1
     }]))]
     fn publish_diagnostics(

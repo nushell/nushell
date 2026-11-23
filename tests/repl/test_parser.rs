@@ -1201,7 +1201,7 @@ fn point_in_time_duration_is_not_a_constant(#[case] code: &str) -> Result {
     let err = test().run(code).expect_parse_error()?;
     assert_matches!(
         err,
-        ParseError::LabeledError(msg, ..) if msg.contains("not_a_constant")
+        ParseError::ParseTimeEval { report: msg, .. } if msg.contains("not_a_constant")
     );
     Ok(())
 }
@@ -1680,11 +1680,7 @@ mod plugin_tests {
             plugin use $file
         ";
         let err = test().run(input).expect_parse_error()?;
-        assert_matches!(
-            err,
-            ParseError::LabeledError(_, label, _)
-                if label == "Encountered error during parse-time evaluation"
-        );
+        assert_matches!(err, ParseError::ParseTimeEval { .. });
         Ok(())
     }
 
