@@ -1,5 +1,3 @@
-use chrono::Datelike;
-use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
 use nu_utils::{ObviousFloat, consts::LINE_SEPARATOR_STR};
@@ -194,7 +192,7 @@ fn local_into_string(
                         val.to_rfc3339()
                     }
                 },
-                HumanTime::from(val)
+                nu_protocol::HumanTime::since_now(val)
             )
         }
         Value::Range { val, .. } => val.to_string(),

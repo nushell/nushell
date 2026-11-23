@@ -4,9 +4,9 @@
 //! JiK also uses structural annotations: array, object.
 
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
-use chrono::{DateTime, FixedOffset};
 use kdl::{KdlEntry, KdlValue};
 use nu_engine::command_prelude::*;
+use nu_protocol::{DateTime, ParsedDate};
 use nu_protocol::{Range, ast::CellPath, engine::EngineState};
 use num_traits::ToPrimitive;
 use std::str::FromStr;
@@ -192,24 +192,18 @@ fn type_payload_error(ty: &str, base: &Value, _span: Span) -> ShellError {
     }
 }
 
-fn parse_timestamp(s: &str) -> Result<DateTime<FixedOffset>, String> {
-    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+fn parse_timestamp(s: &str) -> Result<DateTime, String> {
+    if let Ok(dt) = DateTime::parse_rfc3339(s) {
         return Ok(dt);
     }
-    if let Ok(dt) = DateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f%z") {
-        return Ok(dt);
-    }
-    if let Ok(dt) = DateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f %z") {
-        return Ok(dt);
+    for format in ["%Y-%m-%dT%H:%M:%S%.f%z", "%Y-%m-%d %H:%M:%S%.f %z"] {
+        if let Ok(dt) = ParsedDate::parse(s, format).and_then(|parsed| parsed.to_datetime()) {
+            return Ok(dt);
+        }
     }
     // Date-only → midnight UTC
-    if let Ok(date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-        let naive = date
-            .and_hms_opt(0, 0, 0)
-            .ok_or_else(|| format!("invalid date '{s}'"))?;
-        return Ok(
-            DateTime::<chrono::Utc>::from_naive_utc_and_offset(naive, chrono::Utc).fixed_offset(),
-        );
+    if let Ok(date) = ParsedDate::parse(s, "%Y-%m-%d").and_then(|parsed| parsed.to_wall_clock()) {
+        return Ok(date);
     }
     Err(format!("could not parse timestamp '{s}'"))
 }

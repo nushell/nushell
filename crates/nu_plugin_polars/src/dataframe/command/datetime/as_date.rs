@@ -74,7 +74,7 @@ impl PluginCommand for AsDate {
                             vec![
                                 // Nushell's Value::date only maps to DataType::Datetime and not DataType::Date
                                 // We therefore force the type to be DataType::Date in the schema
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-30 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -82,7 +82,7 @@ impl PluginCommand for AsDate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-31 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -111,7 +111,7 @@ impl PluginCommand for AsDate {
                             vec![
                                 // Nushell's Value::date only maps to DataType::Datetime and not DataType::Date
                                 // We therefore force the type to be DataType::Date in the schema
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-30 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -119,7 +119,7 @@ impl PluginCommand for AsDate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-31 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -148,7 +148,7 @@ impl PluginCommand for AsDate {
                             vec![
                                 // Nushell's Value::date only maps to DataType::Datetime and not DataType::Date
                                 // We therefore force the type to be DataType::Date in the schema
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-30 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -156,7 +156,7 @@ impl PluginCommand for AsDate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2021-12-31 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",

@@ -18,7 +18,8 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol.workspace = true
+# `chrono` converts nushell dates for the polars API, which uses chrono.
+nu-protocol = { workspace = true, features = ["chrono"] }
 nu-plugin.workspace = true
 nu-path.workspace = true
 nu-utils.workspace = true

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf, sync::LazyLock};
 
-use chrono::DateTime;
+use nu_protocol::DateTime;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use rstest::{Context, rstest};
@@ -95,17 +95,15 @@ fn sample(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
     )?;
     assert_next(
         values,
-        DateTime::parse_from_rfc3339("1970-01-01T00:00:01+00:00").expect("valid datetime format"),
+        DateTime::parse_rfc3339("1970-01-01T00:00:01+00:00").expect("valid datetime format"),
     )?;
     assert_next(
         values,
-        DateTime::parse_from_rfc3339("1970-01-01T00:00:01.100+00:00")
-            .expect("valid datetime format"),
+        DateTime::parse_rfc3339("1970-01-01T00:00:01.100+00:00").expect("valid datetime format"),
     )?;
     assert_next(
         values,
-        DateTime::parse_from_rfc3339("1970-01-01T00:00:01.100+00:00")
-            .expect("valid datetime format"),
+        DateTime::parse_rfc3339("1970-01-01T00:00:01.100+00:00").expect("valid datetime format"),
     )?;
     assert!(values.next().is_none());
 

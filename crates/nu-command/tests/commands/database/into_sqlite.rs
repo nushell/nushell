@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset};
+use nu_protocol::DateTime;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::prelude::*;
 use rand::{
@@ -66,7 +66,7 @@ fn into_sqlite_values(playground: Playground) -> Result {
                 2.0,
                 1000,
                 1000000000,
-                DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
                 "foo".into(),
                 b"binary".to_vec(),
                 rusqlite::types::Value::Integer(1),
@@ -77,7 +77,7 @@ fn into_sqlite_values(playground: Playground) -> Result {
                 3.0,
                 2000000,
                 2419200000000000,
-                DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
                 "bar".into(),
                 b"wut".to_vec(),
                 rusqlite::types::Value::Null,
@@ -98,7 +98,7 @@ fn into_sqlite_values_first_column_null(playground: Playground) -> Result {
             3.0,
             2000000,
             2419200000000000,
-            DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+            DateTime::parse_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
             "bar".into(),
             b"wut".to_vec(),
             rusqlite::types::Value::Null,
@@ -109,7 +109,7 @@ fn into_sqlite_values_first_column_null(playground: Playground) -> Result {
             2.0,
             1000,
             1000000000,
-            DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+            DateTime::parse_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
             "foo".into(),
             b"binary".to_vec(),
             rusqlite::types::Value::Text("1".into()),
@@ -156,7 +156,7 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
                 2.0,
                 1000,
                 1000000000,
-                DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
                 "foo".into(),
                 b"binary".to_vec(),
                 rusqlite::types::Value::Integer(1),
@@ -167,7 +167,7 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
                 3.0,
                 2000000,
                 2419200000000000,
-                DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
                 "bar".into(),
                 b"wut".to_vec(),
                 rusqlite::types::Value::Null,
@@ -190,7 +190,7 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
                 2.0,
                 1000,
                 1000000000,
-                DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
                 "foo".into(),
                 b"binary".to_vec(),
                 rusqlite::types::Value::Integer(1),
@@ -201,7 +201,7 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
                 3.0,
                 2000000,
                 2419200000000000,
-                DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
                 "bar".into(),
                 b"wut".to_vec(),
                 rusqlite::types::Value::Null,
@@ -212,7 +212,7 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
                 5.0,
                 3100000,
                 604800000000000,
-                DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
                 "baz".into(),
                 b"huh".to_vec(),
                 rusqlite::types::Value::Null,
@@ -223,7 +223,7 @@ fn into_sqlite_values_first_column_null_preexisting_db(playground: Playground) -
                 5.0,
                 3100000,
                 604800000000000,
-                DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                DateTime::parse_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
                 "baz".into(),
                 b"huh".to_vec(),
                 rusqlite::types::Value::Integer(3),
@@ -253,7 +253,7 @@ fn into_sqlite_existing_db_append(playground: Playground) -> Result {
         2.0,
         1000,
         1000000000,
-        DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+        DateTime::parse_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
         "foo".into(),
         b"binary".to_vec(),
         rusqlite::types::Value::Null,
@@ -283,7 +283,7 @@ fn into_sqlite_existing_db_append(playground: Playground) -> Result {
             2.0,
             1000,
             1000000000,
-            DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+            DateTime::parse_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
             "foo".into(),
             b"binary".to_vec(),
             rusqlite::types::Value::Null,
@@ -294,7 +294,7 @@ fn into_sqlite_existing_db_append(playground: Playground) -> Result {
             3.0,
             2000000,
             2419200000000000,
-            DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+            DateTime::parse_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
             "bar".into(),
             b"wut".to_vec(),
             rusqlite::types::Value::Null,
@@ -397,7 +397,7 @@ struct TestRow(
     f64,
     i64,
     i64,
-    chrono::DateTime<chrono::FixedOffset>,
+    DateTime,
     std::string::String,
     std::vec::Vec<u8>,
     rusqlite::types::Value,
@@ -439,7 +439,9 @@ impl TryFrom<&rusqlite::Row<'_>> for TestRow {
         let somefloat: f64 = row.get("somefloat").unwrap();
         let somefilesize: i64 = row.get("somefilesize").unwrap();
         let someduration: i64 = row.get("someduration").unwrap();
-        let somedate: DateTime<FixedOffset> = row.get("somedate").unwrap();
+        // Dates are stored as the text `2023-09-10 11:30:00.5+00:00`.
+        let somedate_text: String = row.get("somedate").unwrap();
+        let somedate = somedate_text.parse::<DateTime>().unwrap();
         let somestring: String = row.get("somestring").unwrap();
         let somebinary: Vec<u8> = row.get("somebinary").unwrap();
         let somenull: rusqlite::types::Value = row.get("somenull").unwrap();
@@ -463,9 +465,8 @@ impl Distribution<TestRow> for StandardUniform {
     where
         R: rand::RngExt + ?Sized,
     {
-        let dt = DateTime::from_timestamp_millis(random_range(0..2324252554000))
-            .unwrap()
-            .fixed_offset();
+        let dt = DateTime::from_unix_millis(random_range(0..2324252554000), jiff::tz::Offset::UTC)
+            .unwrap();
 
         let rand_string = Alphanumeric.sample_string(rng, 10);
 

@@ -1,5 +1,5 @@
-use chrono::{DateTime, Local};
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
 
 use nu_protocol::PipelineMetadata;
 use std::time::Duration;
@@ -128,7 +128,7 @@ fn run_ps(
                 record.push(
                     "start_time",
                     proc.start_time()
-                        .map(|time| DateTime::<Local>::from(time).fixed_offset())
+                        .and_then(DateTime::from_system_time)
                         .into_value(span),
                 );
                 // A uid on unix, a SID string such as "S-1-5-18" on Windows.

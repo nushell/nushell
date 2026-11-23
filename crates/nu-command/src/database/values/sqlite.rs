@@ -221,8 +221,6 @@ impl SQLiteDatabase {
             let table_name: String = row?;
             tables.push(DbTable {
                 name: table_name,
-                create_time: None,
-                update_time: None,
                 engine: None,
                 schema: None,
             })
@@ -547,7 +545,17 @@ pub fn value_to_sql(
         Value::Float { val, .. } => Ok(Box::new(val)),
         Value::Filesize { val, .. } => Ok(Box::new(val.get())),
         Value::Duration { val, .. } => Ok(Box::new(val)),
-        Value::Date { val, .. } => Ok(Box::new(val)),
+        // The text rusqlite's chrono support wrote, so dates compare and sort as before:
+        // `2001-02-03 04:05:06.500+05:30`.
+        Value::Date { val, .. } => val
+            .format("%F %T%.f%:z")
+            .map(|text| Box::new(text) as Box<dyn rusqlite::ToSql>)
+            .map_err(|_| ShellError::CantConvert {
+                to_type: "SQLite text".into(),
+                from_type: "date".into(),
+                span: call_span,
+                help: None,
+            }),
         Value::String { val, .. } => Ok(Box::new(val)),
         Value::Binary { val, .. } => Ok(Box::new(val.into_owned())),
         Value::Nothing { .. } => Ok(Box::new(rusqlite::types::Null)),
@@ -833,9 +841,11 @@ fn convert_sqlite_value_to_nu_value_with_adapter(
 ) -> Value {
     match adapter {
         Some(SQLiteColumnAdapter::UnixMillisToDate) => match value {
-            ValueRef::Integer(i) => chrono::DateTime::from_timestamp_millis(i)
-                .map(|datetime| Value::date(datetime.into(), span))
-                .unwrap_or_else(|| Value::int(i, span)),
+            ValueRef::Integer(i) => {
+                nu_protocol::DateTime::from_unix_millis(i, jiff::tz::Offset::UTC)
+                    .map(|datetime| Value::date(datetime, span))
+                    .unwrap_or_else(|| Value::int(i, span))
+            }
             _ => convert_sqlite_value_to_nu_value(value, decl_type, span),
         },
         Some(SQLiteColumnAdapter::MillisToDuration) => match value {

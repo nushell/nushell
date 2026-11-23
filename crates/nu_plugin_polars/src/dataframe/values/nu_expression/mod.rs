@@ -548,9 +548,8 @@ impl CustomValueSupport for NuExpression {
             Value::Int { val, .. } => Ok(val.to_owned().lit().into()),
             Value::Bool { val, .. } => Ok(val.to_owned().lit().into()),
             Value::Float { val, .. } => Ok(val.to_owned().lit().into()),
-            Value::Date { val, .. } => val
-                .to_owned()
-                .timestamp_nanos_opt()
+            Value::Date { val, .. } => i64::try_from(val.unix_nanos())
+                .ok()
                 .ok_or_else(|| {
                     ShellError::Generic(GenericError::new(
                         "Integer overflow",

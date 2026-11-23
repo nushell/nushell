@@ -669,7 +669,9 @@ fn eval_on_state(
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos() as i64)
         .unwrap_or(0);
-    let timestamp_value = chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
+    let timestamp_value =
+        nu_protocol::DateTime::from_unix_nanos(timestamp.into(), jiff::tz::Offset::UTC)
+            .unwrap_or(nu_protocol::DateTime::UNIX_EPOCH);
 
     // Store in history
     let history_index = history.push(output_value.clone(), engine_state, stack);

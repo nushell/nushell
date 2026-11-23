@@ -1553,11 +1553,30 @@ fn invalid_date_literal(#[case] code: &str) -> Result {
 #[case::extension("2023-02-29.log")]
 #[case::dashed_time("2024-01-15T10-30-00.log")]
 #[case::word_after_t("2024-01-15test.txt")]
-#[case::no_seconds("2024-01-15T10:00")]
+#[case::hour_only("2024-01-15T10")]
+#[case::compact_minutes("2024-01-15T1030")]
+#[case::compact_seconds("2024-01-15T103000")]
+#[case::bad_hour("2024-01-15T25:00")]
 fn date_like_file_name(#[case] word: &str) -> Result {
     test()
         .run(format!("[{word}] | first"))
         .expect_value_eq(word)
+}
+
+/// A date and time without seconds is a date, as jiff reads RFC 3339 and ISO 8601.
+#[test]
+fn date_literal_without_seconds() -> Result {
+    test()
+        .run("[2024-01-15T10:00] | first | to nuon")
+        .expect_value_eq("2024-01-15T10:00:00+00:00")
+}
+
+/// A zone in brackets isn't part of a date literal, which would drop it.
+#[test]
+fn date_literal_with_zone_name_is_a_string() -> Result {
+    test()
+        .run("[2024-01-15T10:30:00Z[UTC]] | first | describe")
+        .expect_value_eq("string")
 }
 
 #[test]

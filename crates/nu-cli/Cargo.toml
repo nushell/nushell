@@ -46,7 +46,6 @@ nu-experimental.workspace = true
 nu-ansi-term.workspace = true
 reedline = { workspace = true, features = ["bashisms"] }
 
-chrono = { default-features = false, features = ["std"], workspace = true }
 crossterm = { workspace = true }
 fancy-regex = { workspace = true }
 is_executable = { workspace = true }
