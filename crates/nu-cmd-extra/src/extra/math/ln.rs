@@ -12,6 +12,7 @@ impl Command for MathLn {
         Signature::build("math ln")
             .input_output_types(vec![
                 (Type::Number, Type::Float),
+                (Type::Range, Type::List(Box::new(Type::Float))),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
@@ -41,15 +42,27 @@ impl Command for MathLn {
         if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        super::ensure_bounded_range(&input, head)?;
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Get the natural logarithm of e",
-            example: "2.7182818 | math ln | math round --precision 4",
-            result: Some(Value::test_float(1.0f64)),
-        }]
+        vec![
+            Example {
+                description: "Apply the natural logarithm to a range",
+                example: "1..3..5 | math ln | math round --precision 4",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(0f64),
+                    Value::test_float(1.0986f64),
+                    Value::test_float(1.6094f64),
+                ])),
+            },
+            Example {
+                description: "Get the natural logarithm of e",
+                example: "2.7182818 | math ln | math round --precision 4",
+                result: Some(Value::test_float(1.0f64)),
+            },
+        ]
     }
 }
 
@@ -95,6 +108,14 @@ fn operate(value: Value, head: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::TestResultExt;
+
+    #[test]
+    fn test_range_input() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("1..10 | math ln | length")
+            .expect_value_eq(10)
+    }
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
