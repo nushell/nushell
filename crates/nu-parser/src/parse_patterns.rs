@@ -180,8 +180,11 @@ fn check_pattern_shape(
         Pattern::List(_) => Type::list(Type::Any),
         _ => return true,
     };
-    // An expression of type `error`, like `error make`, raises before anything is bound.
-    let fits = matches!(ty, Type::Error) || type_compatible(&expected, ty);
+    // An expression of type `error`, like `error make`, raises before anything is bound. A list
+    // pattern also takes the items of an int range.
+    let fits = matches!(ty, Type::Error)
+        || (matches!(pattern.pattern, Pattern::List(_)) && matches!(ty, Type::Range))
+        || type_compatible(&expected, ty);
     if !fits {
         working_set.error(ParseError::TypeMismatch(expected, ty.clone(), span));
     }
@@ -205,6 +208,8 @@ fn set_pattern_types(working_set: &mut StateWorkingSet, pattern: &MatchPattern, 
             let (item_ty, rest_ty) = match ty {
                 Type::List(item) => (item.as_ref().clone(), ty.clone()),
                 Type::Table(columns) => (Type::Record(columns.clone()), ty.clone()),
+                // The rest of a range is a range.
+                Type::Range => (Type::Any, Type::Range),
                 _ => (Type::Any, Type::list(Type::Any)),
             };
             for item in items {
