@@ -419,8 +419,12 @@ fn parse_list_pattern(
                     parse_rest_pattern(working_set, part, ctx)
                 } else {
                     let item = parse_pattern_in(working_set, part, ctx);
-                    // `pattern = default`
-                    match parts.next_if(|next| working_set.get_span_contents(*next) == b"=") {
+                    // `pattern = default`, only in bindings: in a `match` arm a bare `=` item is
+                    // the string "=", as in `[$key, =, $value]`.
+                    let is_equals = |next: &Span| working_set.get_span_contents(*next) == b"=";
+                    match parts.next_if(|next| {
+                        matches!(ctx, PatternContext::Binding { .. }) && is_equals(next)
+                    }) {
                         Some(equals) => parse_default(working_set, item, equals, parts.next()),
                         None => item,
                     }

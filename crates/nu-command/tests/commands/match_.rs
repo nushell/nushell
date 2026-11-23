@@ -405,3 +405,10 @@ fn match_record_default() -> Result {
         .run("match {a: 1} { {$a, $b = 9} => [$a $b] }")
         .expect_value_eq(test_value!([1, 9]))
 }
+
+#[rstest]
+#[case::bare_equals("match [a '=' b] { [$k, =, $v] => [$k $v] }", test_value!(["a", "b"]))]
+#[case::quoted_equals("match [a '=' b] { [$k, '=', $v] => [$k $v] }", test_value!(["a", "b"]))]
+fn match_list_equals_is_a_string(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
