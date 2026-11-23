@@ -315,16 +315,16 @@ impl Command for Open {
             } else {
                 ByteStreamType::Unknown
             };
-            let readers = output
+            let streams = output
                 .into_iter()
                 .filter_map(|pipeline| match pipeline {
-                    PipelineData::ByteStream(stream, ..) => stream.reader(),
+                    PipelineData::ByteStream(stream, ..) => Some(stream),
                     _ => None,
                 })
                 .collect();
             Ok(PipelineData::byte_stream(
                 ByteStream::read(
-                    ChainedReaders::new(readers),
+                    ChainedReaders::new(streams),
                     call_span,
                     engine_state.signals().clone(),
                     type_,
@@ -385,31 +385,39 @@ impl Command for Open {
     }
 }
 
-/// Reads several readers one after another, like nested [`Read::chain`] calls but without
-/// nesting, so the cost per read stays flat no matter how many files are opened.
+/// Reads several byte streams one after another, like nested [`Read::chain`] calls but without
+/// nesting. Each stream's reader (and its buffer) is created only when the stream before it ends.
 struct ChainedReaders {
-    readers: std::vec::IntoIter<Reader>,
+    streams: std::vec::IntoIter<ByteStream>,
     current: Option<Reader>,
 }
 
 impl ChainedReaders {
-    fn new(readers: Vec<Reader>) -> Self {
-        let mut readers = readers.into_iter();
-        let current = readers.next();
-        Self { readers, current }
+    fn new(streams: Vec<ByteStream>) -> Self {
+        Self {
+            streams: streams.into_iter(),
+            current: None,
+        }
     }
 }
 
 impl Read for ChainedReaders {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        while let Some(reader) = &mut self.current {
-            let read = reader.read(buf)?;
-            if read > 0 || buf.is_empty() {
-                return Ok(read);
+        loop {
+            if let Some(reader) = &mut self.current {
+                let read = reader.read(buf)?;
+                if read > 0 || buf.is_empty() {
+                    return Ok(read);
+                }
             }
-            self.current = self.readers.next();
+            match self.streams.next() {
+                Some(stream) => self.current = stream.reader(),
+                None => {
+                    self.current = None;
+                    return Ok(0);
+                }
+            }
         }
-        Ok(0)
     }
 }
 
