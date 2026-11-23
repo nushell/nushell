@@ -308,7 +308,7 @@ mod hover_tests {
     #[case::module_first("workspace/foo.nu", (15, 15), "cmt", false)]
     #[case::module_second("workspace/foo.nu", (17, 27), "sub cmt", false)]
     #[case::module_third("workspace/foo.nu", (21, 33), "sub sub cmt\n\nextra", false)]
-    #[case::pattern_variable("patterns/destructure.nu", (0, 7), "```\nany\n``` \n---\nimmutable", false)]
+    #[case::pattern_variable("patterns/destructure.nu", (0, 7), "```\nstring\n``` \n---\nimmutable", false)]
     fn hover_on_exportable(
         #[case] filename: &str,
         #[case] cursor: (u32, u32),

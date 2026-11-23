@@ -172,9 +172,8 @@ fn check_binding_pattern(
 ///
 /// A value that can't be a record, for a record pattern, or a list, for a list pattern, is an
 /// error at `value_span`, as in `let {$a} = 5`. A field the type doesn't name may still be there
-/// at run time, so that is left to the matcher. Fields and items take their types from `ty` only
-/// with the `cell-path-types` experimental option, as `$value.field` does; they are `any`
-/// otherwise.
+/// at run time, so that is left to the matcher. Fields and items take their types from `ty`, as
+/// `$value.field` does; they are `any` when the `cell-path-types` experimental option is off.
 pub fn check_binding_type(
     working_set: &mut StateWorkingSet,
     pattern: &MatchPattern,
