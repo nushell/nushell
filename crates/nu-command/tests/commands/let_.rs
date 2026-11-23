@@ -432,3 +432,45 @@ fn let_destructure_invalid_optional_or_rest(#[case] code: &str, #[case] expected
     assert_matches!(err, ParseError::LabeledErrorWithHelp { error, .. } if error == expected);
     Ok(())
 }
+
+#[rstest]
+#[case::missing_field("let {$host, $port = 8080} = {host: h}; [$host $port]", test_value!(["h", 8080]))]
+#[case::null_field("let {$port = 8080} = {port: null}; $port", test_value!(8080))]
+#[case::present_field("let {$port = 8080} = {port: 1}; $port", test_value!(1))]
+#[case::renamed("let {port: $p = 8080} = {}; $p", test_value!(8080))]
+#[case::missing_items("let [$a, $b = 0, $c = 5] = [1 2]; [$a $b $c]", test_value!([1, 2, 5]))]
+#[case::nested("let {cfg: {$x, $y} = {x: 1, y: 2}} = {}; [$x $y]", test_value!([1, 2]))]
+#[case::const_default("const n = 3; let {$a = $n} = {}; $a", test_value!(3))]
+#[case::closure_parameter("do {|{$x = 5}| $x } {}", test_value!(5))]
+fn let_destructure_default(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn let_destructure_default_must_fit() -> Result {
+    let err = test()
+        .run("let {cfg: {$x} = {y: 2}} = {}")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::PatternMismatch { msg, .. } if msg == "record has no field `x`");
+    Ok(())
+}
+
+#[test]
+fn let_destructure_default_must_be_const() -> Result {
+    let err = test()
+        .run("let {$a = $env.HOME} = {}")
+        .expect_parse_error()?;
+    assert_contains("not a parse-time constant", err.to_string());
+    Ok(())
+}
+
+#[test]
+fn let_destructure_default_and_optional() -> Result {
+    let err = test().run("let {$a? = 1} = {}").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::LabeledErrorWithHelp { error, .. }
+            if error == "A pattern can have `?` or a default, not both"
+    );
+    Ok(())
+}

@@ -100,6 +100,11 @@ impl Command for Let {
                 })),
             },
             Example {
+                description: "Give a field that may be missing or null a default.",
+                example: "let {$host, $port = 8080} = {host: 'localhost'}; $port",
+                result: Some(Value::test_int(8080)),
+            },
+            Example {
                 description: "Set a variable to the output of a pipeline.",
                 example: "ls | let files",
                 result: None,

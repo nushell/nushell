@@ -105,8 +105,8 @@ impl Pattern {
                     }
                     match record.get(field) {
                         Some(field_value) => pattern.check(field_value, matches)?,
-                        None if matches!(pattern.pattern, Pattern::Optional(_)) => {
-                            pattern.bind_nulls(matches)
+                        None if matches!(pattern.pattern, Pattern::Optional { .. }) => {
+                            pattern.pattern.bind_missing(pattern.span, matches)?
                         }
                         None => {
                             return Err(PatternMismatch {
@@ -159,7 +159,7 @@ impl Pattern {
                 // be longer.
                 let optional = before
                     .iter()
-                    .filter(|item| matches!(item.pattern, Pattern::Optional(_)))
+                    .filter(|item| matches!(item.pattern, Pattern::Optional { .. }))
                     .count();
                 let min = before.len() + after.len() - optional;
                 let max = rest.is_none().then_some(before.len() + after.len());
@@ -176,7 +176,7 @@ impl Pattern {
                 for (idx, pattern) in before.iter().enumerate() {
                     match vals.get(idx) {
                         Some(val) => pattern.check(val, matches)?,
-                        None => pattern.bind_nulls(matches),
+                        None => pattern.pattern.bind_missing(pattern.span, matches)?,
                     }
                 }
                 if let Some(MatchPattern {
@@ -205,11 +205,8 @@ impl Pattern {
                     mismatch(MismatchReason::Unmatched)
                 }
             }
-            Pattern::Optional(pattern) => match value {
-                Value::Nothing { .. } => {
-                    pattern.bind_nulls(matches);
-                    Ok(())
-                }
+            Pattern::Optional { pattern, .. } => match value {
+                Value::Nothing { .. } => self.bind_missing(span, matches),
                 _ => pattern.check(value, matches),
             },
             Pattern::Or(patterns) => {
@@ -236,6 +233,32 @@ impl Pattern {
                 } else {
                     mismatch(MismatchReason::Unmatched)
                 }
+            }
+        }
+    }
+}
+
+impl Pattern {
+    /// Bind an optional field or item that is missing or `null`: match its default, or bind each
+    /// variable to `null`. Only optional parts can be missing, so other patterns bind `null` too.
+    fn bind_missing<'a>(
+        &'a self,
+        span: Span,
+        matches: &mut Vec<(VarId, Value)>,
+    ) -> Result<(), PatternMismatch<'a>> {
+        match self {
+            Pattern::Optional {
+                pattern,
+                default: Some(default),
+            } => pattern.check(default, matches),
+            Pattern::Optional { pattern, .. } => {
+                pattern.bind_nulls(matches);
+                Ok(())
+            }
+            _ => {
+                let nothing = Value::nothing(span);
+                matches.extend(self.variables().into_iter().map(|id| (id, nothing.clone())));
+                Ok(())
             }
         }
     }

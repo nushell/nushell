@@ -398,3 +398,10 @@ fn match_paren_expression_non_const_errors() -> Result {
 fn match_optional_and_record_rest(#[case] code: &str, #[case] expected: Value) -> Result {
     test().run(code).expect_value_eq(expected)
 }
+
+#[test]
+fn match_record_default() -> Result {
+    test()
+        .run("match {a: 1} { {$a, $b = 9} => [$a $b] }")
+        .expect_value_eq(test_value!([1, 9]))
+}

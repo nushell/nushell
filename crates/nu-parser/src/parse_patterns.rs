@@ -102,7 +102,9 @@ fn check_binding_pattern(
             working_set.error(error);
             return;
         }
-        Pattern::Optional(inner) => return check_binding_pattern(working_set, inner, bound),
+        Pattern::Optional { pattern, .. } => {
+            return check_binding_pattern(working_set, pattern, bound);
+        }
         // Or-patterns only come from `match` arms.
         Pattern::Or(_) | Pattern::IgnoreValue | Pattern::IgnoreRest | Pattern::Garbage => return,
     };
@@ -193,7 +195,10 @@ fn parse_pattern_in(
     {
         let inner = parse_pattern_in(working_set, Span::new(span.start, span.end - 1), ctx);
         return MatchPattern {
-            pattern: Pattern::Optional(Box::new(inner)),
+            pattern: Pattern::Optional {
+                pattern: Box::new(inner),
+                default: None,
+            },
             guard: None,
             span,
         };
@@ -288,6 +293,49 @@ fn parse_variable_pattern(
     }
 }
 
+/// Give `pattern` the default in `default`, from `pattern = default`, which makes it optional.
+///
+/// The default must be a constant, like a parameter default, and fit `pattern`.
+fn parse_default(
+    working_set: &mut StateWorkingSet,
+    pattern: MatchPattern,
+    equals: Span,
+    default: Option<Span>,
+) -> MatchPattern {
+    let Some(default_span) = default else {
+        working_set.error(ParseError::Expected(
+            "default value",
+            Span::new(equals.end, equals.end),
+        ));
+        return pattern;
+    };
+    if matches!(pattern.pattern, Pattern::Optional { .. }) {
+        working_set.error(ParseError::LabeledErrorWithHelp {
+            error: "A pattern can have `?` or a default, not both".into(),
+            label: "already optional".into(),
+            help: "Remove the `?`. A default already covers a missing value.".into(),
+            span: pattern.span,
+        });
+        return pattern;
+    }
+    let Pattern::Value(default) = parse_value_pattern(working_set, default_span).pattern else {
+        // `parse_value_pattern` reported why it isn't a constant.
+        return pattern;
+    };
+    if let Err(mismatch) = pattern.check(&default, &mut vec![]) {
+        let error = mismatch.into_parse_error();
+        working_set.error(error);
+    }
+    MatchPattern {
+        span: Span::new(pattern.span.start, default_span.end),
+        pattern: Pattern::Optional {
+            pattern: Box::new(pattern),
+            default: Some(Box::new(default)),
+        },
+        guard: None,
+    }
+}
+
 /// Parse `..$name`, the rest of a list or record pattern.
 fn parse_rest_pattern(
     working_set: &mut StateWorkingSet,
@@ -356,7 +404,8 @@ fn parse_list_pattern(
 
     if !output.block.is_empty() {
         for command in &output.block[0].commands {
-            for &part in &command.parts {
+            let mut parts = command.parts.iter().copied().peekable();
+            while let Some(part) = parts.next() {
                 let contents = working_set.get_span_contents(part);
 
                 let arg = if contents == b".." {
@@ -368,7 +417,12 @@ fn parse_list_pattern(
                 } else if contents.starts_with(b"..$") {
                     parse_rest_pattern(working_set, part, ctx)
                 } else {
-                    parse_pattern_in(working_set, part, ctx)
+                    let item = parse_pattern_in(working_set, part, ctx);
+                    // `pattern = default`
+                    match parts.next_if(|next| working_set.get_span_contents(*next) == b"=") {
+                        Some(equals) => parse_default(working_set, item, equals, parts.next()),
+                        None => item,
+                    }
                 };
 
                 let is_rest = matches!(arg.pattern, Pattern::IgnoreRest | Pattern::Rest(_));
@@ -392,7 +446,7 @@ fn parse_list_pattern(
 
     // Optional items come last, and not with a rest: in `[$a?, $b]` nothing says which item
     // `[1]` fills, and in `[$a?, ..]` both would take up a short list.
-    let is_optional = |item: &MatchPattern| matches!(item.pattern, Pattern::Optional(_));
+    let is_optional = |item: &MatchPattern| matches!(item.pattern, Pattern::Optional { .. });
     if let Some(first_optional) = args.iter().position(is_optional) {
         if has_rest {
             working_set.error(ParseError::LabeledErrorWithHelp {
@@ -518,6 +572,16 @@ fn parse_record_pattern(
             (field, pattern)
         };
         idx += 1;
+
+        // `field: pattern = default` and `$field = default`
+        let pattern = match tokens.get(idx) {
+            Some(equals) if working_set.get_span_contents(equals.span) == b"=" => {
+                let default = tokens.get(idx + 1).map(|token| token.span);
+                idx += 2;
+                parse_default(working_set, pattern, equals.span, default)
+            }
+            _ => pattern,
+        };
 
         output.push((field, pattern));
     }

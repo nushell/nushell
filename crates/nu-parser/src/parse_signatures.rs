@@ -993,7 +993,8 @@ fn parse_signature_inner(
                                         Type::Any,
                                         false,
                                     );
-                                    let required = !matches!(pattern.pattern, Pattern::Optional(_));
+                                    let required =
+                                        !matches!(pattern.pattern, Pattern::Optional { .. });
                                     patterns.push((var_id, pattern));
                                     args.push(Arg::Positional {
                                         arg: PositionalArg {

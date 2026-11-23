@@ -497,14 +497,20 @@ impl fmt::Display for FmtPattern<'_> {
                 let variable = FmtVar::new(self.engine_state, *var_id);
                 write!(f, "..{variable}")
             }
-            Pattern::Optional(pattern) => write!(
-                f,
-                "{}?",
-                FmtPattern {
+            Pattern::Optional { pattern, default } => {
+                let pattern = FmtPattern {
                     engine_state: self.engine_state,
-                    pattern: &pattern.pattern
+                    pattern: &pattern.pattern,
+                };
+                match default {
+                    Some(default) => write!(
+                        f,
+                        "{pattern} = {}",
+                        default.to_parsable_string(", ", &self.engine_state.config)
+                    ),
+                    None => write!(f, "{pattern}?"),
                 }
-            ),
+            }
             Pattern::IgnoreRest => f.write_str(".."),
             Pattern::IgnoreValue => f.write_str("_"),
             Pattern::Garbage => f.write_str("<garbage>"),

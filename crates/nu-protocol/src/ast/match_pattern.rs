@@ -39,9 +39,13 @@ pub enum Pattern {
     Rest(VarId),
     /// the `..` pattern
     IgnoreRest,
-    /// the `pattern?` pattern: a record field or list item that may be missing. A missing or
-    /// `null` value binds every variable inside it to `null`.
-    Optional(Box<MatchPattern>),
+    /// the `pattern?` and `pattern = default` patterns: a record field or list item that may be
+    /// missing. A missing or `null` value matches `pattern` against the constant `default`, or
+    /// without one binds every variable inside it to `null`.
+    Optional {
+        pattern: Box<MatchPattern>,
+        default: Option<Box<Value>>,
+    },
     /// the `_` pattern
     IgnoreValue,
     /// Failed parsing of a pattern
@@ -69,7 +73,7 @@ impl Pattern {
                 }
             }
             Pattern::Rest(var_id) => output.push(*var_id),
-            Pattern::Optional(pattern) => output.append(&mut pattern.variables()),
+            Pattern::Optional { pattern, .. } => output.append(&mut pattern.variables()),
             Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage | Pattern::IgnoreRest => {}
         }
 
@@ -80,7 +84,7 @@ impl Pattern {
         match self {
             Self::Variable(_) | Self::IgnoreValue => true,
             Self::Or(match_patterns) => match_patterns.iter().any(|x| x.is_wildcard()),
-            Self::Optional(pattern) => pattern.is_wildcard(),
+            Self::Optional { pattern, .. } => pattern.is_wildcard(),
             _ => false,
         }
     }
