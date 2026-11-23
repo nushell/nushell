@@ -18,7 +18,7 @@ use crate::{
     },
     parse_literals::{has_range_operator, is_unmatched_paren},
     parse_patterns::{
-        check_assignment_types, check_binding_type, parse_assignment_pattern, parse_pattern,
+        annotate_binding, check_assignment_types, parse_assignment_pattern, parse_pattern,
     },
     parse_pipelines::{parse_block, parse_pipeline_element, redirecting_builtin_error},
     parse_signatures::parse_closure_signature,
@@ -871,10 +871,11 @@ pub fn parse_closure_expression(
 
             let signature_span = Span::new(start_point, end_point);
             let (signature, patterns) = parse_closure_signature(working_set, signature_span);
-            // A pattern parameter's type, when annotated, is the type of the value it takes apart.
+            // A pattern parameter's annotation is the type of the value it takes apart, and its
+            // variables take their types from it, as in `let`.
             for (var_id, pattern) in &patterns {
                 let ty = working_set.get_variable(*var_id).ty.clone();
-                check_binding_type(working_set, pattern, &ty, pattern.span);
+                annotate_binding(working_set, pattern, &ty, pattern.span);
             }
             parameter_patterns = patterns;
 

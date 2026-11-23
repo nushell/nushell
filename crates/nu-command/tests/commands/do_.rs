@@ -97,6 +97,10 @@ fn optional_argument_type_checked() -> Result {
 #[case::zip_pairs("[1 2] | zip [3 4] | each {|[$x, $y]| $x * $y }", test_value!([3, 8]))]
 #[case::reduce("[[a]; [1] [2]] | reduce --fold 0 {|{$a}, acc| $acc + $a }", test_value!(3))]
 #[case::annotated("do {|{$a}: record<a: int>| $a } {a: 1, b: 2}", test_value!(1))]
+#[case::annotated_glob(
+    "do {|{$p}: record<p: glob>| $p | describe } {p: '*.md'}",
+    test_value!("glob")
+)]
 #[case::default_value("do {|{$a} = {a: 3}| $a }", test_value!(3))]
 #[case::optional_param("do {|{$a}?| $a }", test_value!(()))]
 #[case::captured("let c = 10; do {|{$a}| $a + $c } {a: 1}", test_value!(11))]

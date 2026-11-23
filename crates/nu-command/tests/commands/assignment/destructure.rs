@@ -10,6 +10,10 @@ use rstest::rstest;
 #[case::record_rest("mut x = 0; mut r = {}; {$x, ..$r} = {x: 3, z: 9}; [$x $r]", test_value!([3, {z: 9}]))]
 #[case::default_value("mut a = 0; mut b = 0; [$a, $b = 7] = [5]; [$a $b]", test_value!([5, 7]))]
 #[case::range("mut a = 0; [$a, ..] = 1..5; $a", test_value!(1))]
+#[case::range_rest_of_unknown_type(
+    "def f [] { 5..9 }; mut a = 0; mut r = 1..2; [$a, ..$r] = (f); $r | each { $in }",
+    test_value!([6, 7, 8, 9])
+)]
 #[case::in_blocks(
     "def f [] {
         mut a = 0

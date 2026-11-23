@@ -259,7 +259,8 @@ fn visit_binding_types(pattern: &MatchPattern, ty: &Type, f: &mut impl FnMut(Var
                 Type::Table(columns) => (Type::Record(columns.clone()), ty.clone()),
                 // The rest of a range is a range.
                 Type::Range => (Type::Any, Type::Range),
-                _ => (Type::Any, Type::list(Type::Any)),
+                // Without a known type, the rest may be a list or a range.
+                _ => (Type::Any, Type::Any),
             };
             for item in items {
                 match item.pattern {
