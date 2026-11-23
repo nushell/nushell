@@ -1,5 +1,6 @@
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
+use rstest::rstest;
 
 #[test]
 fn capture_errors_works() -> Result {
@@ -86,4 +87,34 @@ fn optional_argument_type_checked() -> Result {
     test()
         .run("do {|x?: string| $x} 4")
         .expect_error_code_eq("nu::shell::cant_convert")
+}
+
+#[rstest]
+#[case::record("do {|{$a, b: $c}| [$a $c] } {a: 1, b: 2}", test_value!([1, 2]))]
+#[case::list("do {|[$x, ..$rest]| [$x $rest] } [1 2 3]", test_value!([1, [2, 3]]))]
+#[case::after_plain_param("do {|n, {$a}| $n + $a } 1 {a: 2}", test_value!(3))]
+#[case::each_row("[[a]; [1] [2]] | each {|{$a}| $a * 10 }", test_value!([10, 20]))]
+#[case::zip_pairs("[1 2] | zip [3 4] | each {|[$x, $y]| $x * $y }", test_value!([3, 8]))]
+#[case::reduce("[[a]; [1] [2]] | reduce --fold 0 {|{$a}, acc| $acc + $a }", test_value!(3))]
+#[case::annotated("do {|{$a}: record<a: int>| $a } {a: 1, b: 2}", test_value!(1))]
+#[case::default_value("do {|{$a} = {a: 3}| $a }", test_value!(3))]
+#[case::optional_param("do {|{$a}?| $a }", test_value!(()))]
+#[case::captured("let c = 10; do {|{$a}| $a + $c } {a: 1}", test_value!(11))]
+#[case::nested_closure("do (do {|[$p, $q]| {|| $p + $q } } [1 2])", test_value!(3))]
+fn closure_pattern_parameter(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn closure_pattern_parameter_mismatch() -> Result {
+    let err = test().run("do {|{$a}| $a } 5").expect_shell_error()?;
+    assert_matches!(err, ShellError::PatternMismatch { msg, .. } if msg == "expected a record, got int");
+    Ok(())
+}
+
+#[test]
+fn closure_pattern_parameter_annotation_mismatch() -> Result {
+    test()
+        .run("do {|{$a}: int| $a } 5")
+        .expect_error_code_eq("nu::parser::type_mismatch")
 }

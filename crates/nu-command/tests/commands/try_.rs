@@ -1114,3 +1114,12 @@ fn failing_external_stderr_follows_stderr_redirection(playground: Playground) ->
     );
     Ok(())
 }
+
+#[rstest]
+#[case::inline("try { error make {msg: boom} } catch {|{$msg}| $msg }")]
+#[case::closure_value(
+    "let handler = {|{$msg}| $msg }; try { error make {msg: boom} } catch $handler"
+)]
+fn catch_destructures_error(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("boom")
+}

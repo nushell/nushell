@@ -99,6 +99,9 @@ pub fn discover_captures_in_closure(
             seen.push(var_id);
         }
     }
+    for (_, pattern) in &block.parameter_patterns {
+        discover_captures_in_pattern(pattern, seen);
+    }
 
     for positional in &block.signature.required_positional {
         if let Some(var_id) = positional.var_id {

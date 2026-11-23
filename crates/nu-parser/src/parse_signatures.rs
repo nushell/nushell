@@ -606,6 +606,32 @@ pub fn parse_signature_helper(
     span: Span,
     is_external: bool,
 ) -> Box<Signature> {
+    parse_signature_inner(working_set, span, is_external, None)
+}
+
+/// Parse the parameters of a closure, between its `|`s.
+///
+/// A closure parameter may be a destructuring pattern, as in `{|acc, {$name, $size}| ...}`. It
+/// becomes a positional parameter with a hidden variable, returned with its pattern for the body
+/// to destructure. The parameter is optional when the whole pattern is (`{$a}?`), and a type
+/// annotation or default value applies to the whole value.
+pub fn parse_closure_signature(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Box<Signature>, Vec<(VarId, MatchPattern)>) {
+    let mut patterns = vec![];
+    let signature = parse_signature_inner(working_set, span, false, Some(&mut patterns));
+    (signature, patterns)
+}
+
+/// [`parse_signature_helper`], with `patterns` collecting the pattern parameters where a
+/// signature can have them (see [`parse_closure_signature`]).
+fn parse_signature_inner(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    is_external: bool,
+    mut patterns: Option<&mut Vec<(VarId, MatchPattern)>>,
+) -> Box<Signature> {
     enum ParseMode {
         Arg,
         AfterCommaArg,
@@ -955,6 +981,43 @@ pub fn parse_signature_helper(
                                     }
                                 } else {
                                     working_set.error(ParseError::Expected("short flag", span));
+                                }
+                            }
+                            // A destructuring pattern, as in `{|{$name}| ...}`
+                            else if matches!(contents.first(), Some(b'{' | b'[')) && !is_external
+                            {
+                                if let Some(patterns) = patterns.as_deref_mut() {
+                                    let pattern = parse_binding_pattern(working_set, span, false);
+                                    let var_id = working_set.add_variable_without_scope(
+                                        span,
+                                        Type::Any,
+                                        false,
+                                    );
+                                    let required = !matches!(pattern.pattern, Pattern::Optional(_));
+                                    patterns.push((var_id, pattern));
+                                    args.push(Arg::Positional {
+                                        arg: PositionalArg {
+                                            desc: String::new(),
+                                            name: String::from_utf8_lossy(&contents).to_string(),
+                                            shape: SyntaxShape::Any,
+                                            var_id: Some(var_id),
+                                            default_value: None,
+                                            completion: None,
+                                        },
+                                        required,
+                                        type_annotated: false,
+                                    });
+                                    parse_mode = ParseMode::Arg;
+                                } else {
+                                    working_set.error(ParseError::LabeledErrorWithHelp {
+                                        error: "A command's parameter can't be a pattern".into(),
+                                        label: "destructuring pattern".into(),
+                                        help: "Name the parameter, then destructure it in the \
+                                            body: `let {$a, $b} = $param`."
+                                            .into(),
+                                        span,
+                                    });
+                                    parse_mode = ParseMode::AfterError;
                                 }
                             }
                             // Positional arg, optional
