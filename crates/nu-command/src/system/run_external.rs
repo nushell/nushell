@@ -112,7 +112,7 @@ If you create a custom command with this name, that will be used instead."
         // can run those files directly. PS1 files are also ignored and that
         // extension is handled in a separate block below.
         let pathext_script_in_windows = if cfg!(windows) {
-            which(&expanded_name, &paths, cwd.as_ref()).filter(|executable| {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
@@ -122,9 +122,11 @@ If you create a custom command with this name, that will be used instead."
                 !["COM", "EXE", "BAT", "CMD", "PS1"]
                     .iter()
                     .any(|c| *c == ext)
-            })
+            } else {
+                false
+            }
         } else {
-            None
+            false
         };
 
         // let's make sure it's a .ps1 script, but only on Windows
@@ -147,7 +149,7 @@ If you create a custom command with this name, that will be used instead."
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
         let executable = if cfg!(windows)
-            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows.is_some())
+            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows)
         {
             PathBuf::from("cmd.exe")
         } else if cfg!(windows) && potential_powershell_script && path_to_ps1_executable.is_some() {
@@ -184,13 +186,16 @@ If you create a custom command with this name, that will be used instead."
         // Configure args.
         let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name_str) || pathext_script_in_windows.is_some() {
-            // For a script run through its file association, hand CMD the path
-            // `which` resolved instead of the name as typed, so that `./script.nu`
-            // isn't parsed as the command `.` (#19584).
-            let cmd_target = match &pathext_script_in_windows {
-                Some(script) if !is_cmd_internal_command(&name_str) => cmd_script_path(script),
-                _ => expanded_name.clone(),
+        if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
+            // For a script run through its file association, normalize the name as
+            // typed so that `./script.nu` isn't parsed as the command `.` (#19584).
+            // Only the typed name is handed to CMD, never the cwd or a PATH dir, so
+            // characters such as spaces or `&` in those directories can't reach
+            // CMD's parser.
+            let cmd_target = if pathext_script_in_windows && !is_cmd_internal_command(&name_str) {
+                cmd_script_path(&expanded_name)
+            } else {
+                expanded_name.clone()
             };
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
@@ -810,11 +815,13 @@ fn is_cmd_internal_command(name: &str) -> bool {
     COMMANDS.iter().any(|cmd| cmd.eq_ignore_ascii_case(name))
 }
 
-/// Normalize a resolved script path before handing it to `cmd.exe /C`.
+/// Normalize a script name, as typed by the user, before handing it to `cmd.exe /C`.
 ///
-/// CMD treats `/` as a switch character, so a path such as `.\dir/./script.nu`
+/// CMD treats `/` as a switch character, so a name such as `./sub/script.nu`
 /// would be split at the first `/`. Collecting the components rewrites every
-/// separator as `\` and drops redundant `.` components (#19584).
+/// separator as `\` and drops redundant `.` components, while keeping a leading
+/// `.` so the name stays relative: `./sub/./script.nu` becomes `.\sub\script.nu`
+/// (#19584).
 #[cfg_attr(not(windows), allow(dead_code))]
 fn cmd_script_path(script: &Path) -> PathBuf {
     script.components().collect()
@@ -958,25 +965,23 @@ mod test {
     #[cfg(windows)]
     #[test]
     fn cmd_script_path_uses_backslashes() {
-        // `which` joins the name as typed onto the cwd, so `./hello.nu` comes back
-        // with a forward slash and a `.` component (#19584).
-        assert_eq!(
-            cmd_script_path(Path::new(r"C:\scripts\./hello.nu")),
-            PathBuf::from(r"C:\scripts\hello.nu")
-        );
-        assert_eq!(
-            cmd_script_path(Path::new("C:/scripts/sub dir/hello.nu")),
-            PathBuf::from(r"C:\scripts\sub dir\hello.nu")
-        );
-        assert_eq!(
-            cmd_script_path(Path::new(r"C:\scripts\.\sub/./hello.nu")),
-            PathBuf::from(r"C:\scripts\sub\hello.nu")
-        );
-        assert!(
-            !cmd_script_path(Path::new(r"C:\a/b/./c.nu"))
-                .to_string_lossy()
-                .contains('/')
-        );
+        // Names as typed by the user (#19584): forward slashes become `\`, a
+        // leading `.` is kept and inner `.` components are dropped.
+        for (typed, expected) in [
+            ("./hello.nu", r".\hello.nu"),
+            ("./hello", r".\hello"),
+            ("sub/hello.nu", r"sub\hello.nu"),
+            ("./sub/./hello.nu", r".\sub\hello.nu"),
+            ("../up/hello.nu", r"..\up\hello.nu"),
+            (r".\hello.nu", r".\hello.nu"),
+            ("hello.nu", "hello.nu"),
+        ] {
+            assert_eq!(
+                cmd_script_path(Path::new(typed)),
+                PathBuf::from(expected),
+                "typed name: {typed}"
+            );
+        }
     }
 }
 

@@ -504,6 +504,91 @@ fn can_run_ps1_files_with_space_in_path(prefix: &str, #[ignore] playground: Play
     Ok(())
 }
 
+// A `.vbs` script is run through its file association: Windows associates
+// `.vbs` with WScript by default and `.VBS` is in the default PATHEXT, so no
+// registry change is needed. The script writes `ran.txt` next to itself.
+#[cfg(windows)]
+const MARKER_VBS: &str = r#"Set fso = CreateObject("Scripting.FileSystemObject")
+fso.CreateTextFile(fso.GetParentFolderName(WScript.ScriptFullName) & "\ran.txt", True).Close
+"#;
+
+/// Runs `code` in `cwd` and reports whether the `.vbs` script wrote its marker
+/// file into `marker_dir`. The marker is removed afterwards.
+#[cfg(windows)]
+fn run_marker_script(
+    cwd: &std::path::Path,
+    marker_dir: &std::path::Path,
+    code: &str,
+) -> Result<bool> {
+    let marker = marker_dir.join("ran.txt");
+    let _: Value = test()
+        .inherit_path()
+        .inherit_env_if_set("SystemRoot")
+        .cwd(cwd)
+        .run(code)?;
+    // `cmd /C` normally waits for WScript, but give it a moment just in case.
+    let ran = (0..50).any(|_| {
+        marker.exists() || {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            marker.exists()
+        }
+    });
+    let _ = fs::remove_file(&marker);
+    Ok(ran)
+}
+
+// Regression test for #19584: `./script.vbs` used to reach cmd.exe as typed,
+// and cmd.exe parsed `./script.vbs` as the command `.`.
+#[cfg(windows)]
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+fn can_run_file_associated_scripts_with_forward_slashes(
+    prefix: &str,
+    #[ignore] playground: Playground,
+) -> Result {
+    playground.dir("sub")?;
+    playground.file("hello.vbs", MARKER_VBS)?;
+    playground.file("sub/hello.vbs", MARKER_VBS)?;
+
+    for (name, dir) in [
+        ("./hello.vbs", "."),
+        ("./hello", "."),
+        ("./sub/hello.vbs", "sub"),
+        ("./sub/./hello.vbs", "sub"),
+        (r".\sub\hello.vbs", "sub"),
+    ] {
+        let ran = run_marker_script(
+            playground.path(),
+            &playground.path().join(dir),
+            &format!("{prefix}{name}"),
+        )?;
+        assert!(ran, "{prefix}{name} did not run the script");
+    }
+    Ok(())
+}
+
+// Only the name as typed may reach cmd.exe's parser, not the cwd: spaces or `&`
+// in the directory name must not break running a file-associated script.
+#[cfg(windows)]
+#[apply(run_external_prefixes)]
+#[nu_test_support::test]
+fn can_run_file_associated_scripts_in_dirs_with_cmd_special_chars(
+    prefix: &str,
+    #[ignore] playground: Playground,
+) -> Result {
+    for dir in ["John Doe", "R&D"] {
+        playground.dir(dir)?;
+        playground.file(format!("{dir}/hello.vbs"), MARKER_VBS)?;
+        let cwd = playground.path().join(dir);
+
+        for name in [r".\hello.vbs", "./hello.vbs", r#".\hello.vbs "a b""#] {
+            let ran = run_marker_script(&cwd, &cwd, &format!("{prefix}{name}"))?;
+            assert!(ran, "{prefix}{name} did not run the script in {dir:?}");
+        }
+    }
+    Ok(())
+}
+
 #[rstest]
 #[case::caret("^")]
 #[case::run_external("run-external ")]
