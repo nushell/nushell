@@ -3,17 +3,57 @@ use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
-    NuGlob,
+    NuGlob, Signals,
     shell_error::{self, generic::GenericError, io::IoError},
 };
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
-use std::{collections::HashMap, io::Error, path::PathBuf};
+use std::{
+    collections::HashMap,
+    io::{Error, ErrorKind},
+    path::PathBuf,
+};
 
 const TRASH_SUPPORTED: bool = cfg!(all(
     feature = "trash-support",
     not(any(target_os = "android", target_os = "ios"))
 ));
+
+/// How many times `rm -r` tries to remove one directory tree before it reports
+/// "Directory not empty".
+const REMOVE_DIR_ATTEMPTS: usize = 3;
+
+/// Calls `remove` again while it fails with [`ErrorKind::DirectoryNotEmpty`], up to
+/// [`REMOVE_DIR_ATTEMPTS`] calls in all.
+///
+/// [`std::fs::remove_dir_all`] deletes each directory's entries while it reads them and
+/// stops at the first error. On macOS one pass can end with "Directory not empty" and leave
+/// part of the tree behind, while a second call removes the rest (#19599). Each call opens
+/// every directory again. A retry that finds the tree already gone counts as success, since
+/// an earlier call removed part of it.
+///
+/// Each retry walks the whole tree again, so `signals` is checked before every retry. On an
+/// interrupt the outer `Err` is [`ShellError::Interrupted`] at `span`, and no further call is
+/// made. The first call's result is returned as-is, because the caller checks `signals`
+/// before it.
+fn retry_on_not_empty(
+    signals: &Signals,
+    span: Span,
+    mut remove: impl FnMut() -> std::io::Result<()>,
+) -> Result<std::io::Result<()>, ShellError> {
+    let mut result = remove();
+    for _ in 1..REMOVE_DIR_ATTEMPTS {
+        if !matches!(&result, Err(e) if e.kind() == ErrorKind::DirectoryNotEmpty) {
+            break;
+        }
+        signals.check(&span)?;
+        result = match remove() {
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+            other => other,
+        };
+    }
+    Ok(result)
+}
 
 #[derive(Clone)]
 pub struct Rm;
@@ -487,7 +527,9 @@ fn rm(
                 } else if metadata.is_file() || is_socket || is_fifo {
                     std::fs::remove_file(&f)
                 } else {
-                    std::fs::remove_dir_all(&f)
+                    retry_on_not_empty(engine_state.signals(), call.head, || {
+                        std::fs::remove_dir_all(&f)
+                    })?
                 };
 
                 if let Err(e) = result {
@@ -549,5 +591,83 @@ fn rm(
         Err(err)
     } else {
         Ok(PipelineData::empty())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use ErrorKind::{DirectoryNotEmpty, NotFound, PermissionDenied};
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    /// Runs [`retry_on_not_empty`] with a fake removal that returns `results` in order,
+    /// one per call. Returns the outcome and how many calls were made.
+    fn run_with(
+        signals: &Signals,
+        results: &[Result<(), ErrorKind>],
+    ) -> (Result<std::io::Result<()>, ShellError>, usize) {
+        let mut calls = 0;
+        let result = retry_on_not_empty(signals, Span::test_data(), || {
+            calls += 1;
+            results[calls - 1].map_err(Error::from)
+        });
+        (result, calls)
+    }
+
+    /// [`run_with`] without an interrupt. Returns the error kind and how many calls were made.
+    fn run(results: &[Result<(), ErrorKind>]) -> (Result<(), ErrorKind>, usize) {
+        let (result, calls) = run_with(&Signals::empty(), results);
+        let result = result.expect("not interrupted");
+        (result.map_err(|e| e.kind()), calls)
+    }
+
+    /// Signals with Ctrl-C already pressed.
+    fn interrupted() -> Signals {
+        Signals::new(Arc::new(AtomicBool::new(true)))
+    }
+
+    #[test]
+    fn interrupt_stops_the_retry() {
+        let (result, calls) = run_with(&interrupted(), &[Err(DirectoryNotEmpty)]);
+        assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+        assert_eq!(calls, 1);
+    }
+
+    #[test]
+    fn interrupt_keeps_a_first_call_result_that_needs_no_retry() {
+        for first in [Ok(()), Err(PermissionDenied)] {
+            let (result, calls) = run_with(&interrupted(), &[first]);
+            let result = result.expect("no retry, so no interrupt check");
+            assert_eq!((result.map_err(|e| e.kind()), calls), (first, 1));
+        }
+    }
+
+    #[test]
+    fn retries_after_directory_not_empty() {
+        assert_eq!(run(&[Err(DirectoryNotEmpty), Ok(())]), (Ok(()), 2));
+    }
+
+    #[test]
+    fn gives_up_after_the_last_attempt() {
+        assert_eq!(
+            run(&[Err(DirectoryNotEmpty); REMOVE_DIR_ATTEMPTS]),
+            (Err(DirectoryNotEmpty), REMOVE_DIR_ATTEMPTS)
+        );
+    }
+
+    #[test]
+    fn other_errors_are_not_retried() {
+        assert_eq!(run(&[Err(PermissionDenied)]), (Err(PermissionDenied), 1));
+    }
+
+    #[test]
+    fn tree_gone_on_retry_is_success() {
+        assert_eq!(run(&[Err(DirectoryNotEmpty), Err(NotFound)]), (Ok(()), 2));
+    }
+
+    #[test]
+    fn not_found_on_first_call_is_an_error() {
+        assert_eq!(run(&[Err(NotFound)]), (Err(NotFound), 1));
     }
 }
