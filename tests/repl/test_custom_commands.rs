@@ -152,6 +152,27 @@ fn custom_switch6() -> Result {
         .expect_value_eq(true)
 }
 
+// The parser can't check a switch's value typed `any`, so the call checks it.
+#[rstest]
+#[case::true_(true, true)]
+#[case::false_(false, false)]
+#[case::null((), false)]
+fn custom_switch_value_typed_any(#[case] value: impl IntoValue, #[case] expected: bool) -> Result {
+    let code = "def florb [ --dry-run ] { $dry_run }; let x: any = $in; florb --dry-run=$x";
+    test().run_with_data(code, value).expect_value_eq(expected)
+}
+
+#[test]
+fn custom_switch_rejects_a_value_that_is_not_a_bool() -> Result {
+    let code = "def florb [ --dry-run ] { $dry_run }; let x: any = 5; florb --dry-run=$x";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. } if to_type == "bool" && from_type == "int"
+    );
+    Ok(())
+}
+
 #[test]
 fn custom_flag1() -> Result {
     let code = r#"

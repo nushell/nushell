@@ -77,7 +77,7 @@ impl Command for Run {
         // We intentionally execute that precompiled block instead of reparsing at runtime.
         //
         let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
-        let args = run_arguments(engine_state, stack, call)?;
+        let args = run_arguments(stack, call)?;
         let full_reparse =
             call.get_parser_info(stack, "full_reparse").is_some() || args.full_reparse;
 
@@ -376,12 +376,8 @@ struct RunArguments {
 }
 
 /// Evaluate the arguments of a `run` call.
-fn run_arguments(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-) -> Result<RunArguments, ShellError> {
-    let mut args = call_arguments(engine_state, stack, call, &Run)?;
+fn run_arguments(stack: &Stack, call: &Call) -> Result<RunArguments, ShellError> {
+    let mut args = call_arguments(stack, call);
     let main = deferred_arguments(split_off_callee_arguments(&mut args))?;
     Ok(RunArguments {
         full_reparse: spread_full_reparse(&args)?,

@@ -22,7 +22,8 @@ use nu_protocol::{
 
 use crate::env::{is_automatic_env_var, var};
 use crate::{
-    convert_env_vars, eval_block_with_early_return, named_flags::normalize_engine_arguments,
+    convert_env_vars, eval_block_with_early_return,
+    named_flags::{check_switch_value, normalize_engine_arguments},
 };
 
 /// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
@@ -1853,12 +1854,13 @@ fn eval_call_frame<D: DebugContext>(
     }
 }
 
-fn find_named_var_id(
-    sig: &Signature,
+/// Find the flag of a custom command's signature that a named argument sets.
+fn find_named_flag<'a>(
+    sig: &'a Signature,
     name: &[u8],
     short: &[u8],
     span: Span,
-) -> Result<VarId, ShellError> {
+) -> Result<&'a Flag, ShellError> {
     sig.named
         .iter()
         .find(|n| match (n.long_name(), n.short) {
@@ -1874,7 +1876,6 @@ fn find_named_var_id(
             ),
             span: Some(span),
         })
-        .and_then(|flag| expect_named_var_id(flag, span))
 }
 
 pub(crate) fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
@@ -2045,8 +2046,8 @@ fn gather_arguments(
                 short,
                 span,
             } => {
-                let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
-                callee_stack.add_var(var_id, Value::bool(true, span))
+                let flag = find_named_flag(&block.signature, &data[name], &data[short], span)?;
+                callee_stack.add_var(expect_named_var_id(flag, span)?, Value::bool(true, span))
             }
             Argument::Named {
                 data,
@@ -2058,8 +2059,9 @@ fn gather_arguments(
             } => {
                 // Null should already have been dropped in `normalize_call_arguments`
                 // when the flag type does not accept nothing. If still present, bind it.
-                let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
-                callee_stack.add_var(var_id, val)
+                let flag = find_named_flag(&block.signature, &data[name], &data[short], span)?;
+                check_switch_value(flag, &val, span)?;
+                callee_stack.add_var(expect_named_var_id(flag, span)?, val)
             }
             Argument::ParserInfo { .. } => (),
         }

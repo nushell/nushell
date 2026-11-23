@@ -1,9 +1,8 @@
 use crate::env::is_automatic_env_var;
 use crate::env::var;
-use crate::get_full_help;
 use crate::named_flags::{
-    can_rest_spread, expand_flag_record, find_signature_flag, flag_type_accepts_nothing,
-    list_spread_before_required_error, list_spread_without_rest_error,
+    can_rest_spread, expand_flag_record, find_signature_flag, list_spread_before_required_error,
+    list_spread_without_rest_error,
 };
 use crate::{
     EvalBlockWithEarlyReturnFn,
@@ -12,15 +11,13 @@ use crate::{
 use nu_protocol::{
     BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
     PipelineExecutionData, ShellError, Signature, Span, Value, VarId,
-    ast::{
-        Argument as AstArgument, Assignment, Block, Call, Expr, Expression, ExternalArgument,
-        PathMember,
-    },
+    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{
         Argument as EngineArgument, Closure, EngineState, EnvName, EnvVars, Stack, env_var_eq,
     },
     eval_base::Eval,
+    shell_error::generic::GenericError,
 };
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -31,7 +28,7 @@ use std::sync::Arc;
 /// It is intended as an internal interface in the engine, to make sure
 /// command and closure calls behave the same.
 /// If you want to evaluate a closure in a command, use [`ClosureEval`] or
-/// [`ClosureEvalOnce`]. If you want to call a command, use [`eval_call`].
+/// [`ClosureEvalOnce`]. If you want to call a command, use [`eval_ir_call`](crate::eval_ir_call).
 ///
 /// [`CallEval`] has a builder API.
 /// It is first created vial [`CallEval::new`],
@@ -346,7 +343,7 @@ impl CallEval {
             .named
             .iter()
             // Ignore named arguments without var_id.
-            // There is some code in nu_cli::completions that relies on this behavior of `eval_call`.
+            // There is some code in nu_cli::completions that relies on this behavior.
             .filter_map(|flag| Some((flag.var_id?, flag)))
             // Skip provided flags
             .filter(|(var_id, _)| !self.named_args.contains(var_id));
@@ -365,111 +362,6 @@ impl CallEval {
         }
 
         Ok(())
-    }
-}
-
-/// Evaluate a call to a command (builtin, custom or external)
-pub fn eval_call<D: DebugContext>(
-    engine_state: &EngineState,
-    caller_stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    engine_state.signals().check(&call.head)?;
-    let decl = engine_state.get_decl(call.decl_id);
-
-    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
-        let help = get_full_help(decl, engine_state, caller_stack, call.head);
-        Ok(Value::string(help, call.head).into_pipeline_data())
-    } else if let Some(block_id) = decl.block_id() {
-        // call is a custom command
-        let block = engine_state.get_block(block_id);
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
-
-        // Rust does not check recursion limits outside of const evaluation.
-        // But nu programs run in the same process as the shell.
-        // To prevent a stack overflow in user code from crashing the shell,
-        // we limit the recursion depth of function calls.
-        // Picked 50 arbitrarily, should work on all architectures.
-        let config = caller_stack
-            .config
-            .as_deref()
-            .unwrap_or(&engine_state.config);
-        let maximum_call_stack_depth: u64 = config.recursion_limit as u64;
-        callee_stack.recursion_count += 1;
-        if callee_stack.recursion_count > maximum_call_stack_depth {
-            callee_stack.recursion_count = 0;
-            return Err(ShellError::RecursionLimitReached {
-                recursion_limit: maximum_call_stack_depth,
-                span: block.span,
-            });
-        }
-
-        let mut call_eval = CallEval::new(
-            callee_stack,
-            call.head,
-            block.span.unwrap_or(Span::unknown()),
-            eval_block_with_early_return::<D>,
-        );
-        let signature = decl.signature();
-        // Walk all arguments in order so record/list spreads interleave with positionals/flags
-        // the same way the IR path does after normalize_call_arguments.
-        for arg in &call.arguments {
-            match arg {
-                AstArgument::Positional(expr) | AstArgument::Unknown(expr) => {
-                    let result = eval_expression::<D>(engine_state, caller_stack, expr)?;
-                    call_eval.add_positional(&signature, Cow::Owned(result))?;
-                }
-                AstArgument::Named((long, short, maybe_expr)) => {
-                    let result: Option<Cow<Value>> = if let Some(expr) = maybe_expr {
-                        let value = eval_expression::<D>(engine_state, caller_stack, expr)?;
-                        if value.is_nothing() {
-                            let accepts_nothing = signature
-                                .get_long_flag(&long.item)
-                                .or_else(|| {
-                                    short
-                                        .as_ref()
-                                        .and_then(|s| s.item.chars().next())
-                                        .and_then(|c| signature.get_short_flag(c))
-                                })
-                                .is_some_and(|flag| flag_type_accepts_nothing(&flag));
-                            if !accepts_nothing {
-                                continue;
-                            }
-                        }
-                        Some(Cow::Owned(value))
-                    } else {
-                        None
-                    };
-                    call_eval.add_named(
-                        &signature,
-                        &long.item,
-                        short.as_ref().map(|s| s.item.clone()),
-                        result,
-                    )?;
-                }
-                // Light AST path: keep custom-command spreads aligned with IR gather/normalize
-                // semantics. Normal scripts use IR (`eval_block` → IR); this path still matters
-                // for residual AST `eval_call` consumers.
-                AstArgument::Spread(expr) => {
-                    let val = eval_expression::<D>(engine_state, caller_stack, expr)?;
-                    call_eval.add_spread(&signature, val, expr.span)?;
-                }
-            }
-        }
-
-        let result = call_eval.run(engine_state, block, input);
-
-        if block.redirect_env {
-            call_eval.redirect_env(engine_state, caller_stack);
-        }
-
-        result
-    } else {
-        // Builtin/plugin/external: normal scripts evaluate via IR, which runs
-        // `normalize_engine_arguments` for null omit and record flag spreads. This AST
-        // `eval_call` branch does not re-implement that path (IR-first).
-        decl.run(engine_state, caller_stack, &call.into(), input)
     }
 }
 
@@ -496,35 +388,6 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     caller_stack.config.clone_from(&callee_stack.config);
 }
 
-fn eval_external(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    head: &Expression,
-    args: &[ExternalArgument],
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let decl_id = engine_state
-        .find_decl("run-external".as_bytes(), &[])
-        .ok_or(ShellError::ExternalNotSupported {
-            span: head.span(&engine_state),
-        })?;
-
-    let command = engine_state.get_decl(decl_id);
-
-    let mut call = Call::new(head.span(&engine_state));
-
-    call.add_positional(head.clone());
-
-    for arg in args {
-        match arg {
-            ExternalArgument::Regular(expr) => call.add_positional(expr.clone()),
-            ExternalArgument::Spread(expr) => call.add_spread(expr.clone()),
-        }
-    }
-
-    command.run(engine_state, stack, &(&call).into(), input)
-}
-
 pub fn eval_expression<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -534,12 +397,9 @@ pub fn eval_expression<D: DebugContext>(
     <EvalRuntime as Eval>::eval::<D>(engine_state, stack, expr)
 }
 
-/// Checks the expression to see if it's a internal or external call. If so, passes the input
-/// into the call and gets out the result
-/// Otherwise, invokes the expression
-///
-/// It returns PipelineData with a boolean flag, indicating if the external failed to run.
-/// The boolean flag **may only be true** for external calls, for internal calls, it always to be false.
+/// Evaluates `expr` with `input`. A collect or a subexpression gets `input` as its pipeline input,
+/// and any other expression sees it as `$in`. A command call is an error, because commands only
+/// run from compiled code.
 pub fn eval_expression_with_input<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -547,12 +407,9 @@ pub fn eval_expression_with_input<D: DebugContext>(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     match &expr.expr {
-        Expr::Call(call) => {
-            input = eval_call::<D>(engine_state, stack, call, input)?;
-        }
-        Expr::ExternalCall(head, args) => {
-            input = eval_external(engine_state, stack, head, args, input)?;
-        }
+        // Fail before the catch-all arm below reads `input`, which could be an endless stream.
+        Expr::Call(call) => return Err(call_outside_ir_error(call.head)),
+        Expr::ExternalCall(..) => return Err(call_outside_ir_error(expr.span(&engine_state))),
 
         Expr::Collect(var_id, expr) => {
             input = eval_collect::<D>(engine_state, stack, *var_id, expr, input)?;
@@ -748,26 +605,25 @@ impl Eval for EvalRuntime {
         eval_variable(engine_state, stack, var_id, span)
     }
 
+    // Commands run only from compiled code. `explain` reaches these for a call that is a keyword's
+    // argument, as in `else if` or `alias x = cmd`, and shows the error as that argument's value.
     fn eval_call<D: DebugContext>(
-        engine_state: &EngineState,
-        stack: &mut Stack,
+        _: &EngineState,
+        _: &mut Stack,
         call: &Call,
         _: Span,
     ) -> Result<Value, ShellError> {
-        // FIXME: protect this collect with ctrl-c
-        eval_call::<D>(engine_state, stack, call, PipelineData::empty())?.into_value(call.head)
+        Err(call_outside_ir_error(call.head))
     }
 
     fn eval_external_call(
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        head: &Expression,
-        args: &[ExternalArgument],
-        _: Span,
+        _: &EngineState,
+        _: &mut Stack,
+        _: &Expression,
+        _: &[ExternalArgument],
+        span: Span,
     ) -> Result<Value, ShellError> {
-        let span = head.span(&engine_state);
-        // FIXME: protect this collect with ctrl-c
-        eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
+        Err(call_outside_ir_error(span))
     }
 
     fn eval_collect<D: DebugContext>(
@@ -979,4 +835,13 @@ impl Eval for EvalRuntime {
     fn unreachable(engine_state: &EngineState, expr: &Expression) -> Result<Value, ShellError> {
         Ok(Value::nothing(expr.span(&engine_state)))
     }
+}
+
+/// The error for a call that reached the AST evaluator. Commands only run from compiled code.
+fn call_outside_ir_error(span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new(
+        "Can't run a command outside compiled code",
+        "this call wasn't compiled on its own",
+        span,
+    ))
 }

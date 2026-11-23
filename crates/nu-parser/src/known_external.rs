@@ -1,8 +1,7 @@
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
     CustomExample, OutDest,
-    ast::{self, Expr, Expression},
-    engine::{self, CallImpl, Closure, CommandType, Redirection, UNKNOWN_SPAN_ID},
+    engine::{self, CallImpl, Closure, CommandType, Redirection},
     ir::{self, DataSlice},
     shell_error::eval_block_with_input::EvalBlockWithInputError,
 };
@@ -139,14 +138,6 @@ impl Command for KnownExternal {
                 stack
             };
             match &call.inner {
-                CallImpl::AstRef(call) => {
-                    let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
-                    command.run(engine_state, stack, &(&extern_call).into(), input)
-                }
-                CallImpl::AstBox(call) => {
-                    let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
-                    command.run(engine_state, stack, &(&extern_call).into(), input)
-                }
                 CallImpl::IrRef(call) => {
                     let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
                     command.run(engine_state, stack, &(&extern_call).into(), input)
@@ -192,68 +183,6 @@ impl Command for KnownExternal {
             .map(CustomExample::to_example)
             .collect()
     }
-}
-
-/// Transform the args from an `ast::Call` onto a `run-external` call
-fn ast_call_to_extern_call(
-    engine_state: &EngineState,
-    call: &ast::Call,
-    extern_name: &[&str],
-) -> Result<ast::Call, ShellError> {
-    let head_span = call.head;
-
-    let mut extern_call = ast::Call::new(head_span);
-
-    let call_head_id = engine_state
-        .find_span_id(call.head)
-        .unwrap_or(UNKNOWN_SPAN_ID);
-
-    let arg_extern_name = Expression::new_existing(
-        Expr::String(extern_name[0].to_string()),
-        call.head,
-        call_head_id,
-        Type::String,
-    );
-
-    extern_call.add_positional(arg_extern_name);
-
-    for subcommand in extern_name.iter().skip(1) {
-        extern_call.add_positional(Expression::new_existing(
-            Expr::String(subcommand.to_string()),
-            call.head,
-            call_head_id,
-            Type::String,
-        ));
-    }
-
-    for arg in &call.arguments {
-        match arg {
-            ast::Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
-            ast::Argument::Named(named) => {
-                let named_span_id = engine_state
-                    .find_span_id(named.0.span)
-                    .unwrap_or(UNKNOWN_SPAN_ID);
-                // Prefer the short form the AST preserved; otherwise forward `--<long>`.
-                let flag = match named.1.as_ref().filter(|short| !short.item.is_empty()) {
-                    Some(short) => format!("-{}", short.item),
-                    None => format!("--{}", named.0.item),
-                };
-                extern_call.add_positional(Expression::new_existing(
-                    Expr::String(flag),
-                    named.0.span,
-                    named_span_id,
-                    Type::String,
-                ));
-                if let Some(arg) = &named.2 {
-                    extern_call.add_positional(arg.clone());
-                }
-            }
-            ast::Argument::Unknown(unknown) => extern_call.add_unknown(unknown.clone()),
-            ast::Argument::Spread(args) => extern_call.add_spread(args.clone()),
-        }
-    }
-
-    Ok(extern_call)
 }
 
 /// Transform the args from an `ir::Call` onto a `run-external` call
