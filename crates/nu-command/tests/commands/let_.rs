@@ -474,3 +474,33 @@ fn let_destructure_default_and_optional() -> Result {
     );
     Ok(())
 }
+
+#[test]
+fn let_destructure_across_source_units() -> Result {
+    let mut tester = test();
+    let () = tester.run("let {$a, ..$rest} = {a: 1, b: 2}")?;
+    tester
+        .run("[$a $rest.b]")
+        .expect_value_eq(test_value!([1, 2]))
+}
+
+#[test]
+fn let_destructure_in_sourced_file(playground: Playground) -> Result {
+    playground.file(
+        "vars.nu",
+        "let {$a, ..$rest} = {a: 1, b: 2}\nconst [$k] = [7]\n",
+    )?;
+    test()
+        .cwd(playground.path())
+        .run("source vars.nu; [1] | each {|x| [$x $a $rest.b $k] } | first")
+        .expect_value_eq(test_value!([1, 1, 2, 7]))
+}
+
+#[rstest]
+#[case::let_value("let {$a} = (error make {msg: boom})")]
+#[case::for_item("for {$a} in ([1] | each { error make {msg: boom} }) { }")]
+fn let_destructure_raises_error_values(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("boom", err.to_string());
+    Ok(())
+}

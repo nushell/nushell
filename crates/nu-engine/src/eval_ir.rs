@@ -1333,6 +1333,8 @@ fn eval_instruction<D: DebugContext>(
             // pass-through form (`$value | let {$a}`) and only the bound parts are cloned.
             let nothing;
             let value = match ctx.borrow_reg(*src) {
+                // An error value raises its error, as storing it in a variable does.
+                PipelineData::Value(Value::Error { error, .. }, _) => return Err(*error.clone()),
                 PipelineData::Value(value, _) => value,
                 PipelineData::Empty => {
                     nothing = Value::nothing(*span);

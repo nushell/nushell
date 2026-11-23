@@ -143,7 +143,8 @@ pub fn check_binding_type(
         Pattern::List(_) => Type::list(Type::Any),
         _ => return,
     };
-    if !type_compatible(&expected, ty) {
+    // An expression of type `error`, like `error make`, raises before anything is bound.
+    if !matches!(ty, Type::Error) && !type_compatible(&expected, ty) {
         working_set.error(ParseError::TypeMismatch(expected, ty.clone(), value_span));
     } else if nu_experimental::CELL_PATH_TYPES.get() {
         set_pattern_types(working_set, pattern, ty);
