@@ -223,7 +223,7 @@ impl TuiWidget for LogWidget {
     }
 
     fn selection(&self, _id: &str, _state: &WidgetState, session: &Session) -> Value {
-        session.current_row()
+        session.current_selection()
     }
 
     fn debug(&self, id: &str, _state: &WidgetState, session: &Session, rec: &mut Record) {

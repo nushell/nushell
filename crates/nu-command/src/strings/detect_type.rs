@@ -1,7 +1,7 @@
 use crate::{conversions::into::compound_to_duration, parse_date_from_string};
-use chrono::{Local, TimeZone, Utc};
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
 use nu_protocol::PipelineMetadata;
 use std::sync::LazyLock;
 
@@ -88,40 +88,29 @@ impl Command for DetectType {
             Example {
                 description: "Date Y-M-D",
                 example: "'2022-01-01' | detect type",
-                result: Some(Value::test_date(
-                    Local.with_ymd_and_hms(2022, 1, 1, 0, 0, 0).unwrap().into(),
-                )),
+                result: local_midnight(2022, 1, 1).map(Value::test_date),
             },
             Example {
                 description: "Date with time and offset",
                 example: "'2022-01-01T00:00:00Z' | detect type",
-                result: Some(Value::test_date(
-                    Utc.with_ymd_and_hms(2022, 1, 1, 0, 0, 0).unwrap().into(),
-                )),
+                result: DateTime::parse_rfc3339("2022-01-01T00:00:00Z")
+                    .ok()
+                    .map(Value::test_date),
             },
             Example {
                 description: "Date D-M-Y",
                 example: "'31-12-2021' | detect type",
-                result: Some(Value::test_date(
-                    Local
-                        .with_ymd_and_hms(2021, 12, 31, 0, 0, 0)
-                        .unwrap()
-                        .into(),
-                )),
+                result: local_midnight(2021, 12, 31).map(Value::test_date),
             },
             Example {
                 description: "Date M-D-Y (default for ambiguous)",
                 example: "'01/02/2025' | detect type",
-                result: Some(Value::test_date(
-                    Local.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap().into(),
-                )),
+                result: local_midnight(2025, 1, 2).map(Value::test_date),
             },
             Example {
                 description: "Prefer DMY for ambiguous dates",
                 example: "'01/02/2025' | detect type --prefer-dmy",
-                result: Some(Value::test_date(
-                    Local.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap().into(),
-                )),
+                result: local_midnight(2025, 2, 1).map(Value::test_date),
             },
             Example {
                 description: "Composite durations",
@@ -177,13 +166,19 @@ fn swap_day_month(input: &str) -> String {
     DASH_RE.replace_all(&swapped_slash, "$2-$1-$3").to_string()
 }
 
+/// Midnight local time on the given day, as the examples read their dates.
+fn local_midnight(year: i16, month: i8, day: i8) -> Option<DateTime> {
+    let date = jiff::civil::Date::new(year, month, day).ok()?;
+    DateTime::from_civil_local(date.to_datetime(jiff::civil::Time::midnight()))
+}
+
 /// Parse `input` the way `into datetime` does, reading `01/02/2025` as day-month-year when
 /// `dayfirst` is set.
 fn parse_date_from_string_with_dayfirst(
     input: &str,
     span: Span,
     dayfirst: bool,
-) -> Result<chrono::DateTime<chrono::FixedOffset>, Value> {
+) -> Result<DateTime, Value> {
     if dayfirst {
         parse_date_from_string(&swap_day_month(input), span)
     } else {
@@ -619,11 +614,10 @@ mod test {
     #[case("02/13/2025", 2025, 2, 13)]
     fn test_ambiguous_date_default(
         #[case] input: &str,
-        #[case] year: i32,
-        #[case] month: u32,
-        #[case] day: u32,
+        #[case] year: i16,
+        #[case] month: i8,
+        #[case] day: i8,
     ) {
-        use chrono::{DateTime, FixedOffset, Local, TimeZone};
         let span = Span::test_data();
         let result = process(Value::string(input, span), None, false, false, span)
             .unwrap()
@@ -631,12 +625,7 @@ mod test {
             .unwrap();
 
         if let Value::Date { val, .. } = result {
-            assert_eq!(
-                val,
-                DateTime::<FixedOffset>::from(
-                    Local.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
-                )
-            );
+            assert_eq!(Some(val), local_midnight(year, month, day));
         } else {
             panic!("Expected date");
         }
@@ -651,11 +640,10 @@ mod test {
     #[case("02/13/2025", 2025, 2, 13)]
     fn test_ambiguous_date_prefer_dmy(
         #[case] input: &str,
-        #[case] year: i32,
-        #[case] month: u32,
-        #[case] day: u32,
+        #[case] year: i16,
+        #[case] month: i8,
+        #[case] day: i8,
     ) {
-        use chrono::{DateTime, FixedOffset, Local, TimeZone};
         let span = Span::test_data();
         let result = process(Value::string(input, span), None, false, true, span)
             .unwrap()
@@ -663,12 +651,7 @@ mod test {
             .unwrap();
 
         if let Value::Date { val, .. } = result {
-            assert_eq!(
-                val,
-                DateTime::<FixedOffset>::from(
-                    Local.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
-                )
-            );
+            assert_eq!(Some(val), local_midnight(year, month, day));
         } else {
             panic!("Expected date");
         }

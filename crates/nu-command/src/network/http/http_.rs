@@ -36,11 +36,16 @@ impl Command for Http {
                 .desc("Select GET, HEAD, OPTIONS, DELETE, POST, PUT, or PATCH (case-insensitive). POST, PUT, and PATCH require a body; DELETE accepts one. GET, HEAD, and OPTIONS ignore piped input and reject a positional body. Piped `null` counts as no body; a piped body without --method is ignored for legacy GET selection.")
                     .completion(Completion::new_list(METHODS)),
             )
-            .named(
-                "content-type",
-                SyntaxShape::Any,
-                "The MIME type of the request body.",
-                Some('t'),
+            .param(
+                Flag::new("content-type")
+                    .short('t')
+                    .arg(SyntaxShape::Any)
+                    .desc("The MIME type of the request body.")
+                    .completion(Completion::new_list(&[
+                        "application/json",
+                        "application/x-www-form-urlencoded",
+                        "multipart/form-data",
+                    ])),
             )
             // common
             .named(
@@ -91,7 +96,7 @@ impl Command for Http {
             )
             .switch(
                 "allow-errors",
-                "Do not fail if the server returns an error code.",
+                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or under --full a record with an error field; status is null when no response arrived).",
                 Some('e'),
             )
             .switch("pool", "Using a global pool as a client.", None)

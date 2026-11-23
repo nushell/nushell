@@ -27,14 +27,13 @@ fn database_init(dir: impl AsRef<Path>) -> PathBuf {
 }
 
 #[test]
-fn data_types() -> Result {
-    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
-        let db = database_init(dirs.test());
-        let mut tester = test().cwd(dirs.test());
+fn data_types(playground: Playground) -> Result {
+    let db = database_init(playground.path());
+    let mut tester = test().cwd(playground.path());
 
-        // Add row with our data types
-        let []: [(); 0] = tester.run_with_data(
-            r#"
+    // Add row with our data types
+    let []: [(); 0] = tester.run_with_data(
+        r#"
                 open $in | query db "INSERT INTO test_db VALUES (
                     'nimurod',
                     20,
@@ -47,43 +46,67 @@ fn data_types() -> Result {
                     x'68656c6c6f'
                 )"
             "#,
-            db.as_path(),
-        )?;
+        db.as_path(),
+    )?;
 
-        // Query our table with the row we just added to get its nushell types
-        tester
-            .run_with_data(
-                "
+    // Query our table with the row we just added to get its nushell types
+    tester
+        .run_with_data(
+            "
                     open $in
                     | query db 'SELECT * FROM test_db'
                     | first
                     | values
                     | each { describe }
                 ",
-                db.as_path(),
-            )
-            .expect_value_eq(
-                // Assert data types match.
-                // Booleans are mapped to "numeric" due to internal SQLite representations:
-                // https://www.sqlite.org/datatype3.html
-                // They are simply 1 or 0 in practice,
-                // but the column could contain any valid SQLite value
-                [
-                    "string", "int", "float", "int", "string", "int", "int", "nothing", "binary",
-                ],
-            )
-    })
+            db.as_path(),
+        )
+        .expect_value_eq(
+            // Assert data types match.
+            // Booleans are mapped to "numeric" due to internal SQLite representations:
+            // https://www.sqlite.org/datatype3.html
+            // They are simply 1 or 0 in practice,
+            // but the column could contain any valid SQLite value
+            [
+                "string", "int", "float", "int", "string", "int", "int", "nothing", "binary",
+            ],
+        )
 }
 
 #[test]
-fn ordered_params() -> Result {
-    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
-        let db = database_init(dirs.test());
-        let mut tester = test().cwd(dirs.test());
+fn last_strict_empty_query_plan_errors(playground: Playground) -> Result {
+    let db = playground.path().join("test.db");
+    let conn = Connection::open(&db).expect("failed to open db");
+    conn.execute_batch("CREATE TABLE t (a INT);")
+        .expect("failed to create tables");
+    drop(conn);
+    let mut tester = test().cwd(playground.path());
 
-        // Add row with our data types
-        let []: [(); 0] = tester.run_with_data(
-            r#"
+    match tester
+        .run_with_data::<Value>("open $in | get t | last -s 1", db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::AccessEmptyContent { .. } => {}
+        err => panic!("expected AccessEmptyContent, got {err:?}"),
+    }
+
+    match tester
+        .run_with_data::<Value>("open $in | get t | last -s 0", db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::AccessEmptyContent { .. } => Ok(()),
+        err => panic!("expected AccessEmptyContent, got {err:?}"),
+    }
+}
+
+#[test]
+fn ordered_params(playground: Playground) -> Result {
+    let db = database_init(playground.path());
+    let mut tester = test().cwd(playground.path());
+
+    // Add row with our data types
+    let []: [(); 0] = tester.run_with_data(
+        r#"
                 open $in | query db "INSERT INTO test_db VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)" -p [
                     'nimurod',
                     20,
@@ -96,11 +119,11 @@ fn ordered_params() -> Result {
                     ("hello" | into binary)
                 ]
             "#,
-            db.as_path(),
-        )?;
+        db.as_path(),
+    )?;
 
-        // Query our nu values and types
-        tester
+    // Query our nu values and types
+    tester
             .run_with_data(
                 r#"
                     open $in
@@ -127,21 +150,19 @@ fn ordered_params() -> Result {
                     types: ["string", "int", "float", "int", "string", "int", "int", "nothing", "binary"],
                 }
             })
-    })
 }
 
 #[test]
-fn named_params() -> Result {
-    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
-        let db = database_init(dirs.test());
-        let mut tester = test().cwd(dirs.test());
+fn named_params(playground: Playground) -> Result {
+    let db = database_init(playground.path());
+    let mut tester = test().cwd(playground.path());
 
-        // Add row with our data types. query db should support all possible named parameters
-        // @-prefixed, $-prefixed, and :-prefixed
-        // But :prefix is the "blessed" way to do it, and as such, the only one that's
-        // promoted to from a bare word `key: value` property in the record
-        // In practice, users should not use @param or $param
-        let []: [(); 0] = tester.run_with_data(
+    // Add row with our data types. query db should support all possible named parameters
+    // @-prefixed, $-prefixed, and :-prefixed
+    // But :prefix is the "blessed" way to do it, and as such, the only one that's
+    // promoted to from a bare word `key: value` property in the record
+    // In practice, users should not use @param or $param
+    let []: [(); 0] = tester.run_with_data(
             r#"
                 open $in | query db "INSERT INTO test_db VALUES (:name, :age, @height, $serious, :created_at, :largest_file, :time_slept, :null_field, :data)" -p {
                     name: 'nimurod',
@@ -158,8 +179,8 @@ fn named_params() -> Result {
             db.as_path(),
         )?;
 
-        // Query our nu values and types
-        tester
+    // Query our nu values and types
+    tester
             .run_with_data(
                 r#"
                     open $in
@@ -186,7 +207,6 @@ fn named_params() -> Result {
                     types: ["string", "int", "float", "int", "string", "int", "int", "nothing", "binary"],
                 }
             })
-    })
 }
 
 // SQLite reports a statement's errors as its rows are read. A failing INSERT reports on the first
@@ -204,26 +224,28 @@ fn named_params() -> Result {
     r#"open $in | query db "SELECT json(column1) FROM (VALUES ('1'), ('2'), ('x'))""#,
     "malformed JSON"
 )]
-fn reports_statement_errors(#[case] code: &str, #[case] expected: &str) -> Result {
-    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
-        let db = dirs.test().join("test.db");
-        Connection::open(&db)
-            .expect("failed to open db")
-            .execute_batch("CREATE TABLE crew (name TEXT NOT NULL, role TEXT)")
-            .expect("failed to create table");
-        let mut tester = test().cwd(dirs.test());
+fn reports_statement_errors(
+    #[case] code: &str,
+    #[case] expected: &str,
+    #[ignore] playground: Playground,
+) -> Result {
+    let db = playground.path().join("test.db");
+    Connection::open(&db)
+        .expect("failed to open db")
+        .execute_batch("CREATE TABLE crew (name TEXT NOT NULL, role TEXT)")
+        .expect("failed to create table");
+    let mut tester = test().cwd(playground.path());
 
-        match tester
-            .run_with_data::<Value>(code, db.as_path())
-            .expect_shell_error()?
-        {
-            ShellError::Generic(generic) => {
-                assert_contains(expected, generic.msg.as_ref());
-                Ok(())
-            }
-            err => Err(err.into()),
+    match tester
+        .run_with_data::<Value>(code, db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::Generic(generic) => {
+            assert_contains(expected, generic.msg.as_ref());
+            Ok(())
         }
-    })
+        err => Err(err.into()),
+    }
 }
 
 // `open` reads every table, so its error names the table that failed, whether SQLite fails while
@@ -242,27 +264,55 @@ fn reports_statement_errors(#[case] code: &str, #[case] expected: &str) -> Resul
      VALUES ('table', 'broken', 'broken', 0, 'CREATE VIRTUAL TABLE broken USING no_such_module');",
     "no such module: no_such_module"
 )]
-fn open_reports_which_table_failed(#[case] setup: &str, #[case] expected: &str) -> Result {
-    Playground::setup(&module_path!().replace("::", "_"), |dirs, _| {
-        let db = dirs.test().join("test.db");
-        let conn = Connection::open(&db).expect("failed to open db");
-        conn.execute_batch("CREATE TABLE fine (a TEXT); CREATE TABLE broken (a TEXT);")
-            .expect("failed to create tables");
-        conn.execute_batch(setup)
-            .expect("failed to set up the broken table");
-        drop(conn);
-        let mut tester = test().cwd(dirs.test());
+fn open_reports_which_table_failed(
+    #[case] setup: &str,
+    #[case] expected: &str,
+    #[ignore] playground: Playground,
+) -> Result {
+    let db = playground.path().join("test.db");
+    let conn = Connection::open(&db).expect("failed to open db");
+    conn.execute_batch("CREATE TABLE fine (a TEXT); CREATE TABLE broken (a TEXT);")
+        .expect("failed to create tables");
+    conn.execute_batch(setup)
+        .expect("failed to set up the broken table");
+    drop(conn);
+    let mut tester = test().cwd(playground.path());
 
-        match tester
-            .run_with_data::<Value>("open $in | values | length", db.as_path())
-            .expect_shell_error()?
-        {
-            ShellError::Generic(generic) => {
-                assert_eq!(generic.error, "Failed to read table `broken`");
-                assert_contains(expected, generic.msg.as_ref());
-                Ok(())
-            }
-            err => Err(err.into()),
+    match tester
+        .run_with_data::<Value>("open $in | values | length", db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::Generic(generic) => {
+            assert_eq!(generic.error, "Failed to read table `broken`");
+            assert_contains(expected, generic.msg.as_ref());
+            Ok(())
         }
-    })
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn first_strict_empty_query_plan_errors(playground: Playground) -> Result {
+    let db = playground.path().join("test.db");
+    let conn = Connection::open(&db).expect("failed to open db");
+    conn.execute_batch("CREATE TABLE t (a INT);")
+        .expect("failed to create tables");
+    drop(conn);
+    let mut tester = test().cwd(playground.path());
+
+    match tester
+        .run_with_data::<Value>("open $in | get t | first -s 1", db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::AccessEmptyContent { .. } => {}
+        err => panic!("expected AccessEmptyContent, got {err:?}"),
+    }
+
+    match tester
+        .run_with_data::<Value>("open $in | get t | first -s 0", db.as_path())
+        .expect_shell_error()?
+    {
+        ShellError::AccessEmptyContent { .. } => Ok(()),
+        err => panic!("expected AccessEmptyContent, got {err:?}"),
+    }
 }

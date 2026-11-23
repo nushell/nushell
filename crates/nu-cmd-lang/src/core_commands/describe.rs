@@ -161,7 +161,7 @@ impl Command for Describe {
                         "first_commit" => Value::test_record(record!(
                             "type" => Value::test_string("datetime"),
                             "detailed_type" => Value::test_string("datetime"),
-                            "rust_type" => Value::test_string("chrono::datetime::DateTime<chrono::offset::fixed::FixedOffset>"),
+                            "rust_type" => Value::test_string("nu_protocol::datetime::DateTime"),
                             "value" => Value::test_date("2019-05-10 00:00:00Z".parse().unwrap_or_default()),
                         )),
                         "my_duration" => Value::test_record(record!(

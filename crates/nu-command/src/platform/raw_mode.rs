@@ -130,11 +130,18 @@ mod tests {
         slave
             .write_all(b"a\nb")
             .expect("writing to the pseudo-terminal");
-        let mut out = [0; 16];
-        let read = File::from(pty.master)
-            .read(&mut out)
-            .expect("reading the pseudo-terminal");
-        out[..read].to_vec()
+        // The terminal may hand the output over in pieces, such as `a\r\n` and then `b`, so one
+        // read is not enough. Read until the last byte written arrives; it ends the output with
+        // or without output processing, so a wrong result fails the assert instead of hanging.
+        let mut master = File::from(pty.master);
+        let mut out = Vec::new();
+        let mut buf = [0; 16];
+        while out.last() != Some(&b'b') {
+            let read = master.read(&mut buf).expect("reading the pseudo-terminal");
+            assert_ne!(read, 0, "pseudo-terminal closed before `b` arrived");
+            out.extend_from_slice(&buf[..read]);
+        }
+        out
     }
 
     #[test]

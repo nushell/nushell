@@ -1,8 +1,9 @@
 use super::{
-    WidgetKind, builder_io_types, children_from_values, common_flags, push_widget, with_app,
+    WidgetKind, builder_io_types, children_from_values, common_flags, flag_sizes, push_widget,
+    with_app,
 };
 use crate::widget::Size;
-use crate::widgets::split::{SplitDir, SplitWidget, parse_size};
+use crate::widgets::split::{SplitDir, SplitWidget};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -82,13 +83,7 @@ impl Command for TuiSplit {
         } else {
             SplitDir::Horizontal
         };
-        let mut sizes: Vec<Size> = match call.get_flag::<Value>(engine_state, stack, "sizes")? {
-            Some(Value::List { vals, .. }) => {
-                vals.iter().map(parse_size).collect::<Result<_, _>>()?
-            }
-            Some(other) => vec![parse_size(&other)?],
-            None => Vec::new(),
-        };
+        let mut sizes = flag_sizes(engine_state, stack, call, "sizes")?;
         if let Some(ratio) = call.get_flag::<i64>(engine_state, stack, "ratio")? {
             if !sizes.is_empty() {
                 return Err(ShellError::IncompatibleParametersSingle {

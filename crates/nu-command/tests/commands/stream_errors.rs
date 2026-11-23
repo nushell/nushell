@@ -1,6 +1,7 @@
 //! An item that holds an error (or an `exit`) must not disappear once something has read it, even
 //! when the consumer doesn't return that item. See <https://github.com/nushell/nushell/issues/19463>.
 
+use nu_protocol::{PipelineData, Signals, Span, Value};
 use nu_test_support::prelude::*;
 use nu_utils::consts::LINE_SEPARATOR_STR;
 use pretty_assertions::assert_matches;
@@ -118,11 +119,15 @@ const RECOVER: &str = "each {|c| try { $c | ignore; $c } catch { 'caught' } }";
 #[case::to_text_binary_chunks("failing 2 | to text | into binary | each { $in }")]
 #[case::to_text_bytes_split("failing 2 | to text | into binary | bytes split 0x[0a]")]
 #[case::to_text_binary_first("failing 1 | to text | into binary | first")]
+#[case::first_strict_binary("failing 1 | to text | into binary | first -s 2")]
+#[case::first_strict_zero("failing 1 | first -s 0")]
 #[case::to_text_binary_last("failing 2 | to text | into binary | last 1")]
 #[case::to_text_binary_length("failing 2 | to text | into binary | length")]
 #[case::to_text_binary_chunks_n("failing 2 | to text | into binary | chunks 2")]
 #[case::to_text_binary_starts_with("failing 1 | to text | into binary | bytes starts-with 0x[31]")]
 #[case::to_text_binary_ends_with("failing 2 | to text | into binary | bytes ends-with 0x[31]")]
+#[case::last_strict_binary("failing 1 | to text | into binary | last -s 2")]
+#[case::last_strict_zero("failing 1 | last -s 0")]
 #[case::to_text_binary_format_bits("failing 2 | to text | into binary | format bits")]
 #[case::to_text_binary_msgpack_objects(
     "failing 2 | to text | into binary | from msgpack --objects"
@@ -156,6 +161,7 @@ fn catch_sees_the_error(#[case] pipeline: &str) -> Result {
 #[case::take("failing 3 | take 2", test_value!([1, 2]))]
 #[case::take_while("failing 3 | take while {|x| $x < 2 }", test_value!([1]))]
 #[case::last_zero("failing 1 | last 0", test_value!([]))]
+#[case::last_strict_zero("failing 2 | last -s 0", test_value!([]))]
 #[case::skip_then_first("failing 3 | skip 1 | first", test_value!(2))]
 #[case::select_row("failing 3 | select 0", test_value!([1]))]
 #[case::drop_nth_open_range("failing 3 | drop nth 1..", test_value!([1]))]
@@ -289,6 +295,7 @@ fn describe_still_shows_an_error_item() -> Result {
 #[case::to_text_from_json_objects("exiting 2 | to text | from json --objects")]
 #[case::to_text_binary_length("exiting 2 | to text | into binary | length")]
 #[case::to_text_binary_last("exiting 2 | to text | into binary | last 1")]
+#[case::last_strict_binary("exiting 1 | to text | into binary | last -s 2")]
 #[case::to_text_binary_msgpack("exiting 1 | to text | into binary | from msgpack")]
 // An ordinary error earlier in the group doesn't hide it.
 #[case::chunks_after_error(
@@ -303,6 +310,7 @@ fn describe_still_shows_an_error_item() -> Result {
 #[case::window_gap_tail_after_error(
     "[1 2] | each {|x| if $x == 1 { error make {msg: boom} } else { exit 7 } } | window 3 --stride 4"
 )]
+#[case::first_strict_binary("exiting 1 | to text | into binary | first -s 2")]
 fn exit_is_not_lost(#[case] pipeline: &str) -> Result {
     let err = test()
         .run(format!("{STREAMS}\n{pipeline}"))
@@ -434,5 +442,52 @@ fn exit_in_the_input_of_an_external_ends_the_process() -> Result {
         test().run_with_data("let code; nu -n -c $code | complete", code)?;
     assert_contains_not("continued", &result.stdout);
     assert_eq!(result.exit_code, 7);
+    Ok(())
+}
+
+#[rstest]
+#[case::strict_rows("last -s 2")]
+#[case::strict_zero("last -s 0")]
+#[case::strict("last -s")]
+#[case::single("last")]
+#[nu_test_support::test]
+#[deps(TESTBIN_FAIL)]
+fn failed_external_with_no_output_keeps_exit_code(#[case] last: &str) -> Result {
+    test()
+        .run(format!(
+            "try {{ fail 42 | {last} }} catch {{|e| $e.exit_code }}"
+        ))
+        .expect_value_eq(42)
+}
+
+/// Gives one byte, then fails if read again.
+struct OneByteThenError(bool);
+
+impl std::io::Read for OneByteThenError {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if std::mem::replace(&mut self.0, true) {
+            return Err(std::io::Error::other("read past the first byte"));
+        }
+        buf[0] = b'x';
+        Ok(1)
+    }
+}
+
+#[test]
+fn strict_zero_stops_after_one_byte() -> Result {
+    let stream = PipelineData::byte_stream(
+        nu_protocol::ByteStream::read(
+            OneByteThenError(false),
+            Span::test_data(),
+            Signals::empty(),
+            nu_protocol::ByteStreamType::Binary,
+        ),
+        None,
+    );
+    let out = test()
+        .run_raw_with_data("last -s 0", stream)?
+        .body
+        .into_value(Span::test_data())?;
+    assert_eq!(out, Value::binary(Vec::<u8>::new(), Span::test_data()));
     Ok(())
 }

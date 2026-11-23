@@ -20,6 +20,11 @@ pub(crate) struct BlockBuilder {
     /// less error prone as during `finish()` we check to make sure all of the used labels have had
     /// an index actually set.
     pub(crate) labels: Vec<Option<usize>>,
+    /// The highest instruction index any label targets. Labels are only ever pointed at
+    /// [`here()`](Self::here), so no label targets past the end, and comparing against this tells
+    /// [`drain_statement()`](Self::drain_statement) whether a jump can land at the end without
+    /// scanning `labels`.
+    pub(crate) max_label_target: Option<usize>,
     pub(crate) data: Vec<u8>,
     /// The comments of the instructions that have one, as (instruction index, comment) pairs.
     /// Only the last instruction pushed ever gets one, so the indices increase. Few instructions
@@ -42,6 +47,7 @@ impl BlockBuilder {
             instructions: vec![],
             spans: vec![],
             labels: vec![],
+            max_label_target: None,
             data: vec![],
             comments: vec![],
             register_allocation_state: vec![true],
@@ -125,6 +131,7 @@ impl BlockBuilder {
     pub(crate) fn label(&mut self, target_index: Option<usize>) -> LabelId {
         let label_id = self.labels.len();
         self.labels.push(target_index);
+        self.max_label_target = self.max_label_target.max(target_index);
         LabelId(label_id)
     }
 
@@ -141,6 +148,7 @@ impl BlockBuilder {
                 label_id: label_id.0,
                 span: None,
             })? = Some(target_index);
+        self.max_label_target = self.max_label_target.max(Some(target_index));
         Ok(())
     }
 
@@ -396,6 +404,40 @@ impl BlockBuilder {
     /// Drain the stream in a register (fully consuming it)
     pub(crate) fn drain(&mut self, src: RegId, span: Span) -> Result<(), CompileError> {
         self.push(Instruction::Drain { src }.into_spanned(span))
+    }
+
+    /// Drain the result of a statement, the way a semicolon does.
+    ///
+    /// A statement that ends by loading `nothing` or empty into `src`, like every assignment and
+    /// `let`, leaves nothing to drain, so no drain is emitted. That needs every path to the drain
+    /// to run that load: a value that jumps straight to the drain from another branch still has
+    /// to be drained there (an error value fails, an external's stream is waited on). The load
+    /// itself is removed too, unless a jump lands on it, it has a comment, or a scope region ends
+    /// on it.
+    pub(crate) fn drain_statement(&mut self, src: RegId, span: Span) -> Result<(), CompileError> {
+        let len = self.instructions.len();
+        let loads_nothing = matches!(
+            self.instructions.last(),
+            Some(Instruction::LoadLiteral {
+                dst,
+                lit: Literal::Nothing | Literal::Empty,
+            }) if *dst == src
+        );
+        // No label targets past `len` (see `max_label_target`), so this is exact for `len`, and
+        // for `len - 1` once `len` is known not to be a target. Erring high only keeps a drain.
+        let is_target = |index: usize| self.max_label_target.is_some_and(|max| max >= index);
+        if !loads_nothing || is_target(len) {
+            return self.drain(src, span);
+        }
+        let load = len - 1;
+        let load_removable = !is_target(load)
+            && self.comments.last().is_none_or(|(index, _)| *index < load)
+            && self.scope_regions.iter().all(|region| region.end <= load);
+        if load_removable {
+            self.instructions.pop();
+            self.spans.pop();
+        }
+        self.free_register(src)
     }
 
     /// Add data to the `data` array and return a [`DataSlice`] referencing it.

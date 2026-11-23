@@ -49,6 +49,8 @@ pub struct TableOpts<'a> {
     pub index_offset: usize,
     pub index_remove: bool,
     pub index_explicit: bool,
+    /// Omit column headers and their repeated footers, including in nested tables.
+    pub header_remove: bool,
     pub width_priority_columns: Vec<String>,
 }
 
@@ -78,6 +80,7 @@ impl<'a> TableOpts<'a> {
             index_offset,
             index_remove,
             index_explicit,
+            header_remove: false,
             width_priority_columns,
         }
     }

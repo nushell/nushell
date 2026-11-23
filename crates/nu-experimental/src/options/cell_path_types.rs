@@ -13,7 +13,7 @@ impl ExperimentalOptionMarker for CellPathTypes {
     const DESCRIPTION: &'static str = "\
         Enforce type inferencing of cell paths at parse time. \
         It might result in degraded performance.";
-    const STATUS: Status = Status::OptIn;
+    const STATUS: Status = Status::OptOut;
     const SINCE: Version = (0, 111, 1);
     const ISSUE: u32 = 17683;
 }

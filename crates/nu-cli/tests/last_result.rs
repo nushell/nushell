@@ -130,6 +130,11 @@ impl Interactive {
             other => panic!("expected $ans record or nothing, got {other:?}"),
         }
     }
+
+    /// `$env.LAST_EXIT_CODE` after the lines run so far.
+    fn last_exit_code(&self) -> Option<&Value> {
+        self.stack.get_env_var(&self.engine_state, "LAST_EXIT_CODE")
+    }
 }
 
 fn seed_env(engine_state: &mut EngineState) {
@@ -923,6 +928,7 @@ fn byte_stream_is_not_drained_ahead_of_display() -> Result {
 }
 
 #[test]
+#[serial]
 fn truncation_warning_blames_the_limit_for_an_oversized_result() -> Result {
     let budget = Value::test_list(vec![]).memory_size() + Value::test_int(0).memory_size() * 2;
     let mut session = Interactive::new().with_max_last_result_size(Filesize::new(budget as i64));
@@ -1117,5 +1123,63 @@ fn command_updates_when_transforming_last() -> Result {
     session.snapshot_metadata(Duration::from_millis(1));
     assert_eq!(session.last_payload()?, Value::test_int(10));
     assert_eq!(session.last_command()?, transform);
+    Ok(())
+}
+
+// After a line, `$env.LAST_EXIT_CODE` is the code the line set (an external, a failure `try`
+// handled, an assignment), or 0 when it set none. A `def --env` command that sets no code still
+// hands the old code back with the rest of its environment, which must not count as setting it.
+// A handled failure doesn't change the line's own exit status.
+#[rstest::rstest]
+#[case::try_without_catch(&["try { error make {msg: x} }"], 1)]
+#[case::try_twice(&["try { error make {msg: x} }", "try { error make {msg: x} }"], 1)]
+#[case::catch_keeps_it(&["try { error make {msg: x} } catch { }"], 1)]
+#[case::catch_resets_it(&["try { error make {msg: x} } catch { $env.LAST_EXIT_CODE = 0 }"], 0)]
+#[case::assignment(&["$env.LAST_EXIT_CODE = 4"], 4)]
+#[case::load_env(&["load-env {LAST_EXIT_CODE: 4}"], 4)]
+#[case::next_line_sets_none(&["try { error make {msg: x} }", "'fine'"], 0)]
+#[case::env_command_sets_none(
+    &["def --env setx [] { $env.X = 1 }", "try { error make {msg: x} }", "setx"],
+    0
+)]
+#[case::env_command_sets_one(&["def --env fails [] { try { error make {msg: x} } }", "fails"], 1)]
+#[case::do_env(&["do --env { try { error make {msg: x} } }"], 1)]
+#[case::display_output_hook(
+    &["$env.config.hooks.display_output = {|| try { error make {msg: x} }; table }", "1"],
+    1
+)]
+fn line_keeps_the_exit_code_it_set(#[case] lines: &[&str], #[case] expected: i64) -> Result {
+    let mut session = Interactive::new();
+    for line in lines {
+        assert_eq!(session.run(line), 0, "exit status of `{line}`");
+    }
+    assert_eq!(session.last_exit_code(), Some(&Value::test_int(expected)));
+    Ok(())
+}
+
+#[rstest::rstest]
+#[case::handled_external(&["try { fail 42 }"], 42)]
+#[case::external_after_handled_failure(&["try { fail 42 }; cococo x"], 0)]
+#[case::with_display_output_hook(&["$env.config.hooks.display_output = 'table'", "try { fail 42 }"], 42)]
+#[nu_test_support::test]
+#[deps(TESTBIN_FAIL, TESTBIN_COCOCO)]
+fn line_exit_code_from_externals(#[case] lines: &[&str], #[case] expected: i64) -> Result {
+    let mut session = Interactive::new();
+    for line in lines {
+        session.run(line);
+    }
+    assert_eq!(session.last_exit_code(), Some(&Value::test_int(expected)));
+    Ok(())
+}
+
+#[test]
+fn line_reads_the_previous_lines_exit_code() -> Result {
+    let mut session = Interactive::new();
+    session.run("try { error make {msg: x} }");
+    session.run("$env.SEEN = $env.LAST_EXIT_CODE");
+    assert_eq!(
+        session.stack.get_env_var(&session.engine_state, "SEEN"),
+        Some(&Value::test_int(1))
+    );
     Ok(())
 }

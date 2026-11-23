@@ -120,12 +120,16 @@ impl Fetched {
     }
 
     /// [`Fetched::merge`], but without the suggestions whose value this outcome already has.
+    ///
+    /// Trailing whitespace doesn't make a value new: carapace returns `--limit ` so that a
+    /// space follows the flag, and that is still the declared `--limit`.
     pub(crate) fn merge_new(&mut self, mut other: Fetched) {
         other.suggestions.retain(|new| {
+            let value = new.suggestion.value.trim_end();
             !self
                 .suggestions
                 .iter()
-                .any(|known| known.suggestion.value == new.suggestion.value)
+                .any(|known| known.suggestion.value.trim_end() == value)
         });
         self.merge(other);
     }

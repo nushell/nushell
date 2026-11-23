@@ -328,7 +328,32 @@ fn spread_null() -> Result {
 
 #[test]
 fn named_flag_null_is_omitted() -> Result {
-    // Null named value uses signature default
+    // Bare null named values use the signature default in every supported flag syntax
+    let code = "
+        def f [--x (-x): int = 5] { $x }
+        f --x=null
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    let code = "
+        def f [--x (-x): int = 5] { $x }
+        f --x null
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    let code = "
+        def f [--x (-x): int = 5] { $x }
+        f -x null
+    ";
+    test().run(code).expect_value_eq(5)?;
+
+    let code = "
+        def f [--switch] { $switch }
+        f --switch=null
+    ";
+    test().run(code).expect_value_eq(false)?;
+
+    // A parenthesized null named value also uses the signature default
     let code = "
         def f [--x: int = 5] { $x }
         f --x=(null)
@@ -376,15 +401,54 @@ fn named_flag_null_is_omitted() -> Result {
     Ok(())
 }
 
+#[rstest]
+#[case::short("-x null")]
+#[case::long("--x null")]
+#[case::equals("--x=null")]
+fn custom_command_alias_omits_bare_null_flag_value(#[case] flag: &str) -> Result {
+    test()
+        .run(format!(
+            "def f [--x (-x): int = 5] {{ $x }}; alias a = f; a {flag}"
+        ))
+        .expect_value_eq(5)
+}
+
+#[rstest]
+#[case::custom("def f [--x: int] { $x }; f --x abc", "int")]
+#[case::builtin(r#""10" | into int --radix abc"#, "number")]
+fn invalid_flag_value_keeps_shape_error(#[case] code: &str, #[case] expected: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::Expected(actual, _) if actual == expected
+    );
+    Ok(())
+}
+
+#[test]
+fn bare_null_keeps_flag_shape_behavior() -> Result {
+    test()
+        .run("def f [--c: cell-path] { $c | describe }; f --c null")
+        .expect_value_eq("cell-path")
+}
+
 #[test]
 fn named_flag_null_passed_when_type_allows_nothing() -> Result {
-    // oneof with nothing: explicit null is bound; omit still uses default
+    // oneof with nothing: a bare explicit null is bound
+    let code = "
+        def f [--x: oneof<int, nothing> = 5] { $x }
+        f --x=null
+    ";
+    test().run(code).expect_value_eq(())?;
+
+    // A parenthesized explicit null is also bound
     let code = "
         def f [--x: oneof<int, nothing> = 5] { $x }
         f --x=(null)
     ";
     test().run(code).expect_value_eq(())?;
 
+    // Omitting the flag still uses its default
     let code = "
         def f [--x: oneof<int, nothing> = 5] { $x }
         f

@@ -65,7 +65,10 @@ impl PluginCommand for ExprDatePart {
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
-                            Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
+                            Column::new(
+                                "datetime".to_string(),
+                                vec![nu_protocol::IntoValue::into_value(dt, Span::test_data())],
+                            ),
                             Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
                         ],
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![

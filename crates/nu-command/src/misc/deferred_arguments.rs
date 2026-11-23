@@ -5,15 +5,12 @@
 //! those arguments as `any` instead (`add_script_arguments` in `nu-parser`), and `run` and
 //! `run-internal` bind them to the callee's signature here, when they execute.
 
-use nu_engine::{command_prelude::*, get_eval_expression};
+use nu_engine::command_prelude::*;
 use nu_protocol::{
-    Flag, ParseError, ast, did_you_mean,
+    Flag, ParseError, did_you_mean,
     engine::{
         self, CallImpl,
-        named_flags::{
-            can_rest_spread, data_from_name_and_short, find_signature_flag,
-            list_spread_before_required_error, normalize_engine_arguments,
-        },
+        named_flags::{can_rest_spread, find_signature_flag, list_spread_before_required_error},
     },
 };
 use std::cell::Cell;
@@ -73,73 +70,12 @@ pub(crate) trait ArgumentTarget {
     ) -> Result<(), ShellError>;
 }
 
-/// The arguments of `call` to `command`, as the IR evaluator passes them to it.
-///
-/// A call that wasn't compiled has its arguments evaluated here and checked against `command`'s
-/// signature, as the IR evaluator would: record spreads expand into its flags, and a `null` value
-/// leaves out a flag whose type doesn't take it.
-pub(crate) fn call_arguments(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    command: &dyn Command,
-) -> Result<Vec<engine::Argument>, ShellError> {
+/// The arguments of `call`, as the IR evaluator passed them to the command.
+pub(crate) fn call_arguments(stack: &Stack, call: &Call) -> Vec<engine::Argument> {
     match &call.inner {
-        CallImpl::IrRef(call) => Ok(call.arguments(stack).to_vec()),
-        CallImpl::IrBox(call) => Ok(call.arguments(stack).to_vec()),
-        CallImpl::AstRef(call) => ast_call_arguments(engine_state, stack, call, command),
-        CallImpl::AstBox(call) => ast_call_arguments(engine_state, stack, call, command),
+        CallImpl::IrRef(call) => call.arguments(stack).to_vec(),
+        CallImpl::IrBox(call) => call.arguments(stack).to_vec(),
     }
-}
-
-/// Evaluate the arguments of a call that wasn't compiled, as the IR evaluator would pass them.
-fn ast_call_arguments(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &ast::Call,
-    command: &dyn Command,
-) -> Result<Vec<engine::Argument>, ShellError> {
-    let stack = &mut stack.use_call_arg_out_dest();
-    let eval_expression = get_eval_expression(engine_state);
-    let args = call
-        .arguments
-        .iter()
-        .map(|arg| {
-            let span = arg.span();
-            Ok(match arg {
-                ast::Argument::Positional(expr) | ast::Argument::Unknown(expr) => {
-                    engine::Argument::Positional {
-                        span,
-                        val: eval_expression(engine_state, stack, expr)?,
-                    }
-                }
-                ast::Argument::Spread(expr) => engine::Argument::Spread {
-                    span,
-                    vals: eval_expression(engine_state, stack, expr)?,
-                },
-                ast::Argument::Named((long, short, expr)) => {
-                    let short = short.as_ref().map_or("", |short| short.item.as_str());
-                    let (data, name, short) = data_from_name_and_short(&long.item, short);
-                    match expr {
-                        Some(expr) => engine::Argument::Named {
-                            data,
-                            name,
-                            short,
-                            span,
-                            val: eval_expression(engine_state, stack, expr)?,
-                        },
-                        None => engine::Argument::Flag {
-                            data,
-                            name,
-                            short,
-                            span,
-                        },
-                    }
-                }
-            })
-        })
-        .collect::<Result<_, ShellError>>()?;
-    normalize_engine_arguments(&command.signature(), args)
 }
 
 /// Split off the callee's arguments: the ones after the first positional argument, which is the

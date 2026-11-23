@@ -53,17 +53,17 @@ impl NuHelpCompleter {
                 let description = decl.description();
                 if !description.is_empty() {
                     long_desc.push_str(description);
-                    long_desc.push_str("\r\n\r\n");
+                    long_desc.push_str("\n\n");
                 }
 
                 let extra_desc = decl.extra_description();
                 if !extra_desc.is_empty() {
                     long_desc.push_str(extra_desc);
-                    long_desc.push_str("\r\n\r\n");
+                    long_desc.push_str("\n\n");
                 }
 
                 let sig = decl.signature();
-                let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
+                let _ = write!(long_desc, "Usage:\n  > {}\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
                     long_desc.push_str(&get_flags_section(&sig, &help_style, |v| match v {
@@ -78,9 +78,9 @@ impl NuHelpCompleter {
                     || !sig.optional_positional.is_empty()
                     || sig.rest_positional.is_some()
                 {
-                    long_desc.push_str("\r\nParameters:\r\n");
+                    long_desc.push_str("\nParameters:\n");
                     for positional in &sig.required_positional {
-                        let _ = write!(long_desc, "  {}: {}\r\n", positional.name, positional.desc);
+                        let _ = writeln!(long_desc, "  {}: {}", positional.name, positional.desc);
                     }
                     for positional in &sig.optional_positional {
                         let _ = write!(
@@ -95,13 +95,13 @@ impl NuHelpCompleter {
                                 value.to_parsable_string(", ", &self.config),
                             );
                         }
-                        let _ = write!(long_desc, ")\r\n");
+                        let _ = writeln!(long_desc, ")");
                     }
 
                     if let Some(rest_positional) = &sig.rest_positional {
-                        let _ = write!(
+                        let _ = writeln!(
                             long_desc,
-                            "  ...{}: {}\r\n",
+                            "  ...{}: {}",
                             rest_positional.name, rest_positional.desc
                         );
                     }
@@ -110,7 +110,7 @@ impl NuHelpCompleter {
                 let extra: Vec<String> = decl
                     .examples()
                     .iter()
-                    .map(|example| example.example.replace('\n', "\r\n"))
+                    .map(|example| example.example.replace("\r\n", "\n"))
                     .collect();
 
                 Suggestion {
@@ -173,6 +173,37 @@ mod test {
         for (exp, actual) in expected.iter().zip(suggestions) {
             assert_eq!(exp, &actual.value);
             assert_eq!(reedline::Span::new(start, end), actual.span);
+            if let Some(desc) = &actual.description {
+                assert!(
+                    !desc.contains('\r'),
+                    "help description must not contain carriage returns: {desc:?}"
+                );
+            }
+            if let Some(extra) = &actual.extra {
+                for ex in extra {
+                    assert!(
+                        !ex.contains('\r'),
+                        "help example must not contain carriage returns: {ex:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn help_menu_text_has_no_carriage_returns() {
+        let engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let config = engine_state.get_config().clone();
+        let mut completer = NuHelpCompleter::new(engine_state.into(), config);
+        // An empty query matches every command.
+        let completion = completer.complete("", 0);
+        for s in completion.suggestions() {
+            let desc = s.description.as_deref().unwrap_or_default();
+            assert!(!desc.contains('\r'), "{}: {desc:?}", s.value);
+            for ex in s.extra.iter().flatten() {
+                assert!(!ex.contains('\r'), "{}: {ex:?}", s.value);
+            }
         }
     }
 }

@@ -111,11 +111,11 @@ pub fn check(
             // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
             break;
         }
-        let mut span = err.span();
+        let mut span = err.one_line_span();
         span.start -= offset;
         span.end -= offset;
 
-        let msg = err.to_string();
+        let msg = err.one_line_message();
 
         println!(
             "{}",

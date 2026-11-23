@@ -1,8 +1,9 @@
 use crate::network::http::client::{
     HttpBody, RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
-    expand_unix_socket_path, http_client, http_client_pool, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_host_header, request_set_timeout, send_request,
+    expand_unix_socket_path, handle_transport_error, http_client, http_client_pool,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_host_header,
+    request_set_timeout, send_request, transport_error_response,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -37,11 +38,16 @@ impl Command for HttpPut {
                 "The password when authenticating.",
                 Some('p'),
             )
-            .named(
-                "content-type",
-                SyntaxShape::Any,
-                "The MIME type of content to post.",
-                Some('t'),
+            .param(
+                Flag::new("content-type")
+                    .short('t')
+                    .arg(SyntaxShape::Any)
+                    .desc("The MIME type of content to put.")
+                    .completion(Completion::new_list(&[
+                        "application/json",
+                        "application/x-www-form-urlencoded",
+                        "multipart/form-data",
+                    ])),
             )
             .named(
                 "max-time",
@@ -72,7 +78,7 @@ impl Command for HttpPut {
             )
             .switch(
                 "allow-errors",
-                "Do not fail if the server returns an error code.",
+                "Do not fail on transport errors (timeout, DNS failure, refused connection) or server error codes; returns nothing (or under --full a record with an error field; status is null when no response arrived).",
                 Some('e'),
             )
             .switch("pool", "Using a global pool as a client.", None)
@@ -269,7 +275,10 @@ fn helper(
         full: args.full,
         allow_errors: args.allow_errors,
     };
-    let response = response?;
+    let response = handle_transport_error(response, args.allow_errors)?;
+    let Some(response) = response else {
+        return Ok(transport_error_response(args.full, span));
+    };
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(

@@ -1,40 +1,40 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf, sync::LazyLock};
 
-use chrono::DateTime;
+use nu_protocol::DateTime;
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
+use rstest::{Context, rstest};
 
 static GENERATE: LazyLock<PathBuf> =
     LazyLock::new(|| FIXTURES.join("formats").join("msgpack").join("generate.nu"));
 
-fn msgpack_test<T: FromValue>(fixture_name: impl AsRef<str>) -> Result<T> {
-    msgpack_test_with_opts(fixture_name, "")
+fn msgpack_test<T: FromValue>(playground: Playground, fixture_name: impl AsRef<str>) -> Result<T> {
+    msgpack_test_with_opts(playground, fixture_name, "")
 }
 
 fn msgpack_test_with_opts<T: FromValue>(
+    playground: Playground,
     fixture_name: impl AsRef<str>,
     opts: impl AsRef<str>,
 ) -> Result<T> {
-    let fixture_name = fixture_name.as_ref();
+    let fixture_name = fixture_name.as_ref().replace('_', "-");
     let opts = opts.as_ref();
 
-    let topic = format!("msgpack test {fixture_name}");
-    Playground::setup(&topic, |dirs, _| {
-        let mut tester = test().cwd(dirs.test());
+    let mut tester = test().cwd(playground.path());
 
-        let generate = format!("use {}; generate main {fixture_name}", GENERATE.display());
-        let _: Value = tester
-            .run(&generate)
-            .expect("could not generate msgpack fixture");
+    let generate = format!("use {}; generate main {fixture_name}", GENERATE.display());
+    let _: Value = tester
+        .run(generate)
+        .expect("could not generate msgpack fixture");
 
-        let open = format!("open {fixture_name}.msgpack --raw | from msgpack {opts}");
-        tester.run(&open)
-    })
+    let open = format!("open {fixture_name}.msgpack --raw | from msgpack {opts}");
+    tester.run(open)
 }
 
-#[test]
-fn sample() -> Result {
-    let values: Vec<Value> = msgpack_test("sample")?;
+#[rstest]
+#[nu_test_support::test]
+fn sample(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let values: Vec<Value> = msgpack_test(playground, ctx.name)?;
     let mut values = values.into_iter();
     let values = &mut values;
 
@@ -95,17 +95,15 @@ fn sample() -> Result {
     )?;
     assert_next(
         values,
-        DateTime::parse_from_rfc3339("1970-01-01T00:00:01+00:00").expect("valid datetime format"),
+        DateTime::parse_rfc3339("1970-01-01T00:00:01+00:00").expect("valid datetime format"),
     )?;
     assert_next(
         values,
-        DateTime::parse_from_rfc3339("1970-01-01T00:00:01.100+00:00")
-            .expect("valid datetime format"),
+        DateTime::parse_rfc3339("1970-01-01T00:00:01.100+00:00").expect("valid datetime format"),
     )?;
     assert_next(
         values,
-        DateTime::parse_from_rfc3339("1970-01-01T00:00:01.100+00:00")
-            .expect("valid datetime format"),
+        DateTime::parse_rfc3339("1970-01-01T00:00:01.100+00:00").expect("valid datetime format"),
     )?;
     assert!(values.next().is_none());
 
@@ -127,89 +125,101 @@ fn sample_roundtrip() -> Result {
     Ok(())
 }
 
-#[test]
-fn objects() -> Result {
-    let value: (HashMap<String, String>, String) = msgpack_test_with_opts("objects", "--objects")?;
+#[rstest]
+#[nu_test_support::test]
+fn objects(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let value: (HashMap<String, String>, String) =
+        msgpack_test_with_opts(playground, ctx.name, "--objects")?;
     assert_eq!(value.0["nushell"], "rocks");
     assert_eq!(value.0.len(), 1);
     assert_eq!(value.1, "seriously");
     Ok(())
 }
 
-#[test]
-fn max_depth() -> Result {
-    let shell_error = msgpack_test("max-depth").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn max_depth(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_contains("exceeded depth limit", msg);
     Ok(())
 }
 
-#[test]
-fn non_utf8() -> Result {
-    let shell_error = msgpack_test("non-utf8").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn non_utf8(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     assert!(matches!(shell_error, ShellError::NonUtf8Custom { .. }));
     Ok(())
 }
 
-#[test]
-fn empty() -> Result {
-    let shell_error = msgpack_test("empty").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn empty(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_eq!(msg, "failed to fill whole buffer");
     Ok(())
 }
 
-#[test]
-fn eof() -> Result {
-    let shell_error = msgpack_test("eof").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn eof(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_eq!(msg, "failed to fill whole buffer");
     Ok(())
 }
 
-#[test]
-fn after_eof() -> Result {
-    let shell_error = msgpack_test("after-eof").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn after_eof(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Additional data after end of MessagePack object");
     Ok(())
 }
 
-#[test]
-fn reserved() -> Result {
-    let shell_error = msgpack_test("reserved").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn reserved(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_contains("Reserved", msg);
     Ok(())
 }
 
-#[test]
-fn u64_too_large() -> Result {
-    let shell_error = msgpack_test("u64-too-large").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn u64_too_large(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "MessagePack integer too big for Nushell");
     Ok(())
 }
 
-#[test]
-fn non_string_map_key() -> Result {
-    let shell_error = msgpack_test("non-string-map-key").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn non_string_map_key(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let msg = shell_error.generic_msg()?;
     assert_contains("string key", msg);
     Ok(())
 }
 
-#[test]
-fn timestamp_wrong_length() -> Result {
-    let shell_error = msgpack_test("timestamp-wrong-length").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn timestamp_wrong_length(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())
 }
 
-#[test]
-fn other_extension_type() -> Result {
-    let shell_error = msgpack_test("other-extension-type").expect_error()?;
+#[rstest]
+#[nu_test_support::test]
+fn other_extension_type(#[context] ctx: Context, #[ignore] playground: Playground) -> Result {
+    let shell_error = msgpack_test(playground, ctx.name).expect_error()?;
     let error = shell_error.generic_error()?;
     assert_eq!(error, "Unknown MessagePack extension");
     Ok(())

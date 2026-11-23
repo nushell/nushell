@@ -136,3 +136,13 @@ fn matrix_to_records(array: &ndarray::ArrayD<f64>, span: Span) -> Result<Pipelin
 
     Ok(Value::list(rows, span).into_pipeline_data())
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(MatrixIntoNu)
+    }
+}

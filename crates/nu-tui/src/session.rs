@@ -23,7 +23,7 @@ use nu_utils::get_ls_colors;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -45,7 +45,51 @@ pub struct Outcome {
 /// copy shared through the session's cache.
 pub enum Rows<'a> {
     Borrowed(&'a [Value]),
-    Shared(Rc<Vec<Value>>),
+    Shared(Rc<SharedRows>),
+}
+
+/// Rows computed once and cached: a filter's matches, or a tree's visible
+/// nodes.
+#[derive(Debug)]
+pub struct SharedRows {
+    rows: Vec<Value>,
+    /// Where each row sits in the unfiltered list. `None` when the rows do
+    /// not come from filtering a list (a tree's nodes).
+    sources: Option<Vec<usize>>,
+}
+
+impl Rows<'_> {
+    /// Where each shown row sits in the unfiltered list, ascending. `None`
+    /// when shown row `i` is row `i` of that list.
+    fn sources(&self) -> Option<&[usize]> {
+        match self {
+            Rows::Shared(shared) => shared.sources.as_deref(),
+            Rows::Borrowed(_) => None,
+        }
+    }
+
+    /// Where shown row `i` sits in the unfiltered list. The highlight, check
+    /// marks, and `--index` count rows of that list, so a filter cannot move
+    /// them to another row.
+    pub fn source(&self, i: usize) -> Option<usize> {
+        match self.sources() {
+            Some(sources) => sources.get(i).copied(),
+            None => (i < self.len()).then_some(i),
+        }
+    }
+
+    /// The shown position closest to row `source` of the unfiltered list:
+    /// that row, else the first shown row after it, else the last shown
+    /// row. `None` when nothing is shown. This is where a highlight on a
+    /// row the filter hides is drawn.
+    pub fn nearest(&self, source: usize) -> Option<usize> {
+        let last = self.len().checked_sub(1)?;
+        let pos = match self.sources() {
+            Some(sources) => sources.partition_point(|&s| s < source),
+            None => source,
+        };
+        Some(pos.min(last))
+    }
 }
 
 impl Deref for Rows<'_> {
@@ -54,7 +98,7 @@ impl Deref for Rows<'_> {
     fn deref(&self) -> &[Value] {
         match self {
             Rows::Borrowed(rows) => rows,
-            Rows::Shared(rows) => rows,
+            Rows::Shared(shared) => &shared.rows,
         }
     }
 }
@@ -178,7 +222,7 @@ pub struct Session {
     /// Filtered rows per widget, kept until data, a filter, or a selection
     /// changes. A frame asks for rows several times; a 100k-row list must
     /// not be filtered and cloned each time.
-    rows_cache: RefCell<HashMap<String, Rc<Vec<Value>>>>,
+    rows_cache: RefCell<HashMap<String, Rc<SharedRows>>>,
     /// Flattened tree rows per tree widget, kept on the same terms.
     tree_cache: RefCell<HashMap<String, Rc<Vec<TreeRow>>>>,
 }
@@ -424,17 +468,26 @@ impl Session {
         if let Some(rows) = self.rows_cache.borrow().get(id) {
             return Rows::Shared(Rc::clone(rows));
         }
-        let rows = match self.kind(id) {
-            Some(WidgetKind::Tree(_)) => {
-                self.tree_rows(id).iter().map(|r| r.value.clone()).collect()
-            }
-            Some(WidgetKind::Select(select)) => {
-                return self.filtered(id, select.items_or_data(id, self));
-            }
-            Some(_) => return self.filtered(id, as_list(self.data_for(id))),
-            None => Vec::new(),
-        };
-        self.share_rows(id, rows)
+        match self.kind(id) {
+            Some(WidgetKind::Tree(_)) => self.share_rows(
+                id,
+                SharedRows {
+                    rows: self.tree_rows(id).iter().map(|r| r.value.clone()).collect(),
+                    sources: None,
+                },
+            ),
+            Some(_) => self.filtered(id, self.source_rows(id)),
+            None => Rows::Borrowed(&[]),
+        }
+    }
+
+    /// The unfiltered rows of a table or select: its items, else its data.
+    /// Check marks and `--index` count rows of this list.
+    pub fn source_rows(&self, id: &str) -> &[Value] {
+        match self.kind(id) {
+            Some(WidgetKind::Select(select)) => select.items_or_data(id, self),
+            _ => as_list(self.data_for(id)),
+        }
     }
 
     /// `rows` through the filter on widget `id`: borrowed as they are when
@@ -444,10 +497,18 @@ impl Session {
         if filter.is_empty() {
             return Rows::Borrowed(rows);
         }
-        self.share_rows(id, filter.apply(rows))
+        let sources = filter.matching(rows);
+        let shared = SharedRows {
+            rows: sources
+                .iter()
+                .filter_map(|&i| rows.get(i).cloned())
+                .collect(),
+            sources: Some(sources),
+        };
+        self.share_rows(id, shared)
     }
 
-    fn share_rows(&self, id: &str, rows: Vec<Value>) -> Rows<'_> {
+    fn share_rows(&self, id: &str, rows: SharedRows) -> Rows<'_> {
         let rows = Rc::new(rows);
         self.rows_cache
             .borrow_mut()
@@ -616,35 +677,78 @@ impl Session {
         widget.kind.current_row(id, state, self)
     }
 
-    /// The row highlighted in the focused row source, else in the first
-    /// visible one.
+    /// The row highlighted in the row source [`Session::current_source`]
+    /// picks.
     pub fn current_row(&self) -> Value {
-        if let Some(id) = &self.focused
-            && self.kind(id).is_some_and(|k| k.is_row_source())
-            && let Some(row) = self.row_of(id)
-        {
-            return row;
-        }
-        self.visible_widgets()
-            .filter(|w| w.kind.is_row_source())
-            .find_map(|w| self.row_of(&w.id))
+        self.current_source()
+            .and_then(|id| self.row_of(&id))
             .unwrap_or_else(|| Value::nothing(Span::unknown()))
     }
 
+    /// The selection of the row source [`Session::current_source`] picks:
+    /// what Enter in a search box or a log submits. A `--multi` list gives
+    /// its checked rows, even those its filter hides.
+    pub fn current_selection(&self) -> Value {
+        self.current_source()
+            .and_then(|id| {
+                let widget = self.widget(&id)?;
+                Some(widget.kind.selection(&id, self.state(&id)?, self))
+            })
+            .unwrap_or_else(|| Value::nothing(Span::unknown()))
+    }
+
+    /// The row source the focused widget acts on: the focused one when it
+    /// is a row source with a highlighted row. Otherwise a focused search
+    /// box picks among the visible lists it filters, and anything else
+    /// among every visible list: the first with a highlighted row, else the
+    /// first (a filter may hide every row of a list that still has checks).
+    fn current_source(&self) -> Option<String> {
+        if let Some(id) = &self.focused
+            && self.kind(id).is_some_and(|k| k.is_row_source())
+            && self.row_of(id).is_some()
+        {
+            return Some(id.clone());
+        }
+        let sources: Vec<&Widget> = self
+            .visible_widgets()
+            .filter(|w| w.kind.is_row_source())
+            .collect();
+        let scoped: Vec<&Widget> = sources
+            .iter()
+            .copied()
+            .filter(|w| {
+                self.focused.is_some()
+                    && self.scoping_search(&w.id).as_ref() == self.focused.as_ref()
+            })
+            .collect();
+        let pool = if scoped.is_empty() { sources } else { scoped };
+        pool.iter()
+            .find(|w| self.row_of(&w.id).is_some())
+            .or(pool.first())
+            .map(|w| w.id.clone())
+    }
+
     /// What `selected` holds on submit: the focused widget's selection, or
-    /// the current row when nothing is focused.
+    /// the selection of the first visible list when nothing is focused.
     pub fn selected_value(&self) -> Value {
         if let Some(id) = &self.focused
             && let (Some(widget), Some(state)) = (self.widget(id), self.state(id))
         {
             return widget.kind.selection(id, state, self);
         }
-        self.current_row()
+        self.current_selection()
     }
 
     /// Recompute every widget that follows a source whose highlighted row
     /// changed. Runs a few passes so chains (tree → table → preview) settle.
     pub fn refresh_derived(&mut self) {
+        self.rederive(false);
+    }
+
+    /// [`Session::refresh_derived`], where `force` re-runs every closure on
+    /// the first pass even when its row is unchanged (the data under it was
+    /// replaced).
+    fn rederive(&mut self, force: bool) {
         let ids: Vec<String> = self
             .app
             .iter()
@@ -652,10 +756,11 @@ impl Session {
             .map(|w| w.id.clone())
             .collect();
         let sources = self.sources();
-        for _ in 0..3 {
+        for pass in 0..3 {
             let mut changed = false;
             for id in &ids {
-                changed |= self.refresh_one(id, sources.get(id).map(String::as_str));
+                changed |=
+                    self.refresh_one(id, sources.get(id).map(String::as_str), force && pass == 0);
             }
             if !changed {
                 break;
@@ -690,8 +795,11 @@ impl Session {
         Some(stack)
     }
 
-    /// Recompute what `id` shows from the highlighted row of `source`.
-    fn refresh_one(&mut self, id: &str, source: Option<&str>) -> bool {
+    /// Recompute what `id` shows from the highlighted row of `source`, if
+    /// that row or the pane size changed, or when `force` is set. Checks on
+    /// `id` count rows of the data it showed, so they are cleared when it
+    /// now shows another row's data; a resize keeps them.
+    fn refresh_one(&mut self, id: &str, source: Option<&str>, force: bool) -> bool {
         let row = source.and_then(|src| self.row_of(src));
         let key = (
             source.unwrap_or_default().to_string(),
@@ -699,8 +807,20 @@ impl Session {
                 .unwrap_or_else(|| Value::nothing(Span::unknown())),
             self.inner_size(id),
         );
-        if self.derived_key.get(id) == Some(&key) {
+        let old = self.derived_key.get(id);
+        if !force && old == Some(&key) {
             return false;
+        }
+        if old.is_some_and(|(src, row, _)| (src, row) != (&key.0, &key.1)) {
+            match self.states.get_mut(id) {
+                Some(WidgetState::Tree(tree)) => tree.checked.clear(),
+                Some(state) => {
+                    if let Some(list) = state.as_list_mut() {
+                        list.checked.clear();
+                    }
+                }
+                None => {}
+            }
         }
         self.derived_key.insert(id.to_string(), key);
         let Some(widget) = self.widget(id).cloned() else {
@@ -737,10 +857,17 @@ impl Session {
         true
     }
 
+    /// Put the highlight of list `id` back on a shown row and drop checks
+    /// past the end of its data (see [`crate::widget::ListState::clamp`]). The state is
+    /// clamped as a copy: the rows are read through the session, which
+    /// needs the original (its captured chord is a filter).
     fn clamp_list(&mut self, id: &str) {
-        let len = self.rows(id).len();
-        if let Some(list) = self.states.get_mut(id).and_then(WidgetState::as_list_mut) {
-            list.clamp(len);
+        let Some(mut list) = self.state(id).and_then(WidgetState::as_list).cloned() else {
+            return;
+        };
+        list.clamp(&self.rows(id), self.source_rows(id).len());
+        if let Some(slot) = self.states.get_mut(id).and_then(WidgetState::as_list_mut) {
+            *slot = list;
         }
     }
 
@@ -847,10 +974,28 @@ impl Session {
                 tree.cache.clear();
             }
         }
-        self.derived_key.clear();
+        // Tree checks inside folders the walk opened went with the cache;
+        // the rest stay while their nodes are still in the data, as table
+        // checks stay while their rows are.
+        let kept: Vec<(String, HashSet<String>)> = self
+            .app
+            .iter()
+            .filter_map(|w| {
+                let WidgetKind::Tree(tree) = &w.kind else {
+                    return None;
+                };
+                let state = self.state(&w.id)?.as_tree()?;
+                Some((w.id.clone(), tree.existing_checks(&w.id, state, self)))
+            })
+            .collect();
+        for (id, checked) in kept {
+            if let Some(tree) = self.states.get_mut(&id).and_then(WidgetState::as_tree_mut) {
+                tree.checked = checked;
+            }
+        }
         self.invalidate_rows();
         self.clamp_all_lists();
-        self.refresh_derived();
+        self.rederive(true);
     }
 
     /// Run a hook closure with the state record and apply what it returns.
@@ -1110,7 +1255,7 @@ impl Session {
                 Effect::SubmitCurrent => {
                     self.outcome = Some(Outcome {
                         action: Action::Submit,
-                        selected: self.current_row(),
+                        selected: self.current_selection(),
                     })
                 }
                 Effect::Quit => self.quit(),
@@ -1769,6 +1914,7 @@ mod tests {
             id,
             WidgetKind::Table(TableWidget {
                 columns: columns.iter().map(|s| s.to_string()).collect(),
+                column_sizes: Vec::new(),
                 capture_keys: false,
                 multi: false,
                 index: false,
@@ -1883,7 +2029,7 @@ mod tests {
         session
             .state(id)
             .and_then(WidgetState::as_list)
-            .map(|l| l.selected)
+            .map(|l| l.highlight)
             .unwrap_or(usize::MAX)
     }
 
@@ -2026,6 +2172,7 @@ mod tests {
             "table-0",
             WidgetKind::Table(TableWidget {
                 columns: vec!["name".into()],
+                column_sizes: Vec::new(),
                 capture_keys: true,
                 multi: false,
                 index: false,
@@ -2627,6 +2774,7 @@ mod tests {
         let mut capturing = table("table-0", &["a"]);
         capturing.kind = WidgetKind::Table(TableWidget {
             columns: vec!["a".into()],
+            column_sizes: Vec::new(),
             capture_keys: true,
             multi: false,
             index: false,
@@ -2857,7 +3005,7 @@ mod tests {
         }
         assert_eq!(session.rows("select-0").len(), 1);
         let after = list(&session).expect("list");
-        assert_eq!((after.selected, after.scroll), (0, 0));
+        assert_eq!((after.highlight, after.scroll), (0, 0));
     }
 
     #[test]
@@ -2867,6 +3015,7 @@ mod tests {
                 "table-0",
                 WidgetKind::Table(TableWidget {
                     columns: vec!["item".into()],
+                    column_sizes: Vec::new(),
                     capture_keys: false,
                     multi: true,
                     index: false,
@@ -2917,7 +3066,7 @@ mod tests {
                 .get_mut(id)
                 .and_then(WidgetState::as_list_mut)
             {
-                list.selected = cap - 1;
+                list.highlight = cap - 1;
             }
         }
         session.append_values(&owners, ints(cap, cap + cap / 8));
@@ -3034,5 +3183,156 @@ mod tests {
             .filter_map(|v| v.as_str().ok().map(str::to_string))
             .collect();
         assert_eq!(names, vec!["small".to_string(), "medium".to_string()]);
+    }
+
+    #[test]
+    fn trimming_a_filtered_stream_keeps_the_highlight_on_its_row() {
+        let mut session = Session::new(app(
+            vec![search("search-0", Some("/")), table("table-0", &["item"])],
+            Value::test_nothing(),
+        ));
+        let cap = session.app.stream_row_cap();
+        session.append_values(&[], ints(0, cap));
+        // Show only rows with a 9, then highlight one near the end.
+        key(&mut session, '/');
+        key(&mut session, '9');
+        press(&mut session, KeyCode::Tab, KeyModifiers::NONE);
+        press(&mut session, KeyCode::End, KeyModifiers::NONE);
+        press(&mut session, KeyCode::Up, KeyModifiers::NONE);
+        let highlighted = session.row_of("table-0");
+        assert!(highlighted.is_some());
+        // The oldest batch goes, most of it hidden by the filter; the
+        // highlight stays on its value.
+        session.append_values(&[], ints(cap, cap + cap / 8));
+        assert_eq!(session.row_of("table-0"), highlighted);
+    }
+
+    #[test]
+    fn a_select_click_toggles_only_the_item_under_it() {
+        let mut session = Session::new(app(
+            vec![Widget::new(
+                "select-0",
+                WidgetKind::Select(SelectWidget {
+                    items: vec![
+                        Value::test_string("small"),
+                        Value::test_string("medium"),
+                        Value::test_string("large"),
+                    ],
+                    multi: true,
+                    index: false,
+                    display: None,
+                }),
+            )],
+            Value::test_nothing(),
+        ));
+        session.layout(Rect::new(0, 0, 30, 12));
+        let area = *session.areas.get("select-0").expect("select is laid out");
+        let checked = |s: &Session| {
+            s.state("select-0")
+                .and_then(WidgetState::as_list)
+                .map(|l| l.checked.iter().copied().collect::<Vec<_>>())
+                .unwrap_or_default()
+        };
+        // The top border, and the empty space below the last item.
+        click(&mut session, area.x + 2, area.y);
+        click(&mut session, area.x + 2, area.y + 6);
+        assert_eq!(checked(&session), Vec::<usize>::new());
+        // The second item.
+        click(&mut session, area.x + 2, area.y + 2);
+        assert_eq!(checked(&session), vec![1]);
+    }
+
+    #[test]
+    fn replaced_data_keeps_the_tree_checks_still_in_it() {
+        let mut fields = Record::new();
+        fields.insert("a", Value::test_int(1));
+        fields.insert("b", Value::test_int(2));
+        let mut session = Session::new(app(
+            vec![Widget::new(
+                "tree-0",
+                WidgetKind::Tree(TreeWidget {
+                    walk: false,
+                    column: "name".into(),
+                    multi: true,
+                }),
+            )],
+            Value::test_list(vec![Value::test_record(fields), Value::test_string("c")]),
+        ));
+        let checked = |s: &Session| {
+            let mut paths: Vec<String> = s
+                .state("tree-0")
+                .and_then(WidgetState::as_tree)
+                .map(|t| t.checked.iter().cloned().collect())
+                .unwrap_or_default();
+            paths.sort();
+            paths
+        };
+        // Check field `a` of item 0, and item 1.
+        press(&mut session, KeyCode::Right, KeyModifiers::NONE);
+        press(&mut session, KeyCode::Down, KeyModifiers::NONE);
+        key(&mut session, ' ');
+        press(&mut session, KeyCode::Down, KeyModifiers::NONE);
+        press(&mut session, KeyCode::Down, KeyModifiers::NONE);
+        key(&mut session, ' ');
+        assert_eq!(checked(&session), ["0/a", "1"]);
+        // Item 0 loses field `a`; item 1 is still there.
+        let mut fields = Record::new();
+        fields.insert("b", Value::test_int(2));
+        session.replace_data(Value::test_list(vec![
+            Value::test_record(fields),
+            Value::test_string("c"),
+        ]));
+        assert_eq!(checked(&session), ["1"]);
+        // Neither is left: Enter submits the highlighted node.
+        session.replace_data(Value::test_list(vec![Value::test_string("only")]));
+        assert_eq!(checked(&session), Vec::<String>::new());
+        press(&mut session, KeyCode::Enter, KeyModifiers::NONE);
+        let selected = session.outcome.clone().expect("outcome").selected;
+        assert_eq!(selected, Value::test_list(vec![Value::test_string("only")]));
+    }
+
+    #[test]
+    fn follower_checks_clear_only_when_the_followed_row_changes() {
+        let mut follower = Widget::new(
+            "table-1",
+            WidgetKind::Table(TableWidget {
+                columns: vec!["name".into()],
+                column_sizes: Vec::new(),
+                capture_keys: false,
+                multi: true,
+                index: false,
+            }),
+        );
+        follower.source = Some(Source {
+            from: Some("table-0".into()),
+            closure: None,
+            ..Source::default()
+        });
+        let mut session = Session::new(app(
+            vec![split(
+                "split-0",
+                SplitDir::Horizontal,
+                vec![table("table-0", &["name"]), follower],
+            )],
+            rows(&["first", "second"]),
+        ));
+        session.layout(frame());
+        let checks = |s: &Session| {
+            s.state("table-1")
+                .and_then(WidgetState::as_list)
+                .map_or(0, |l| l.checked.len())
+        };
+        press(&mut session, KeyCode::Tab, KeyModifiers::NONE);
+        key(&mut session, ' ');
+        assert_eq!(checks(&session), 1);
+        // A hook returning the same rows re-runs the source, but the
+        // followed row is the same: the check stays. So it does on a resize.
+        session.replace_data(rows(&["first", "second"]));
+        assert_eq!(checks(&session), 1);
+        session.layout(Rect::new(0, 0, 60, 24));
+        assert_eq!(checks(&session), 1);
+        // New data under the source's highlight is another row.
+        session.replace_data(rows(&["other", "second"]));
+        assert_eq!(checks(&session), 0);
     }
 }

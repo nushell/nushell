@@ -31,62 +31,53 @@ impl NuTesterHistoryExt for NuTester {
 }
 
 #[test]
-fn sqlite_history_last_returns_date_for_start_timestamp() -> Result {
-    Playground::setup("sqlite_history_last_returns_date", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
+fn sqlite_history_last_returns_date_for_start_timestamp(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell");
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-        tester
-            .run("history | last | get start_timestamp | describe")
-            .expect_value_eq("datetime")
-    })
+    tester
+        .run("history | last | get start_timestamp | describe")
+        .expect_value_eq("datetime")
 }
 
 #[test]
-fn sqlite_history_last_returns_duration_for_duration_column() -> Result {
-    Playground::setup("sqlite_history_last_returns_duration", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
+fn sqlite_history_last_returns_duration_for_duration_column(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell");
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-        tester
-            .run("history | last | get duration | describe")
-            .expect_value_eq("duration")
-    })
+    tester
+        .run("history | last | get duration | describe")
+        .expect_value_eq("duration")
 }
 
 #[test]
-fn sqlite_history_select_command_works() -> Result {
-    Playground::setup("sqlite_history_select_command_works", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
+fn sqlite_history_select_command_works(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell");
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_SINGLE_HISTORY_RECORD)?;
 
-        tester
-            .run("history | select command | columns | first")
-            .expect_value_eq("command")
-    })
+    tester
+        .run("history | select command | columns | first")
+        .expect_value_eq("command")
 }
 
 #[test]
-fn sqlite_history_select_projection_preserves_order() -> Result {
-    Playground::setup("sqlite_history_select_projection_order", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(config_home);
-        let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
+fn sqlite_history_select_projection_preserves_order(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell");
+    let mut tester = test().with_sqlite_history(config_home);
+    let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
 
-        let command_only: Vec<String> = tester.run(
-            "history | where command =~ 'echo (one|two|three)' | select command | get command",
-        )?;
+    let command_only: Vec<String> = tester
+        .run("history | where command =~ 'echo (one|two|three)' | select command | get command")?;
 
-        let with_timestamp: Vec<String> = tester.run(
+    let with_timestamp: Vec<String> = tester.run(
             "history | where command =~ 'echo (one|two|three)' | select start_timestamp command | get command",
         )?;
 
-        assert_eq!(command_only, with_timestamp);
-        Ok(())
-    })
+    assert_eq!(command_only, with_timestamp);
+    Ok(())
 }
 
 fn sqlite_history_path(config_home: &Path) -> std::path::PathBuf {
@@ -94,46 +85,42 @@ fn sqlite_history_path(config_home: &Path) -> std::path::PathBuf {
 }
 
 #[test]
-fn sqlite_history_clear_removes_all_entries() -> Result {
-    Playground::setup("sqlite_history_clear_removes_all_entries", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let mut tester = test().with_sqlite_history(&config_home);
-        let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
+fn sqlite_history_clear_removes_all_entries(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell");
+    let mut tester = test().with_sqlite_history(&config_home);
+    let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
 
-        let () = tester.run("history --clear")?;
+    let () = tester.run("history --clear")?;
 
-        tester.run("history | length").expect_value_eq(0)
-    })
+    tester.run("history | length").expect_value_eq(0)
 }
 
 #[test]
-fn sqlite_history_clear_keeps_database_usable() -> Result {
-    Playground::setup("sqlite_history_clear_keeps_database_usable", |dirs, _| {
-        let config_home = dirs.test().join("nushell").to_std_path_buf();
-        let history_path = sqlite_history_path(&config_home);
-        let mut tester = test().with_sqlite_history(&config_home);
-        let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
+fn sqlite_history_clear_keeps_database_usable(playground: Playground) -> Result {
+    let config_home = playground.path().join("nushell");
+    let history_path = sqlite_history_path(&config_home);
+    let mut tester = test().with_sqlite_history(&config_home);
+    let () = tester.run(IMPORT_THREE_HISTORY_RECORDS)?;
 
-        // Stands in for the REPL, which keeps its own connection to the history
-        // database open while `history --clear` runs.
-        let mut live = SqliteBackedHistory::with_file(history_path.clone(), None, None)
-            .expect("open live history connection");
+    // Stands in for the REPL, which keeps its own connection to the history
+    // database open while `history --clear` runs.
+    let mut live = SqliteBackedHistory::with_file(history_path.clone(), None, None)
+        .expect("open live history connection");
 
-        let () = tester.run("history --clear")?;
+    let () = tester.run("history --clear")?;
 
-        // The live connection must still write to the same database.
-        live.save(HistoryItem::from_command_line("echo after clear"))
-            .expect("save through live connection");
+    // The live connection must still write to the same database.
+    live.save(HistoryItem::from_command_line("echo after clear"))
+        .expect("save through live connection");
 
-        // A new session must be able to open the database and add entries.
-        let mut fresh = SqliteBackedHistory::with_file(history_path, None, None)
-            .expect("reopen history after clear");
-        fresh
-            .save(HistoryItem::from_command_line("echo fresh session"))
-            .expect("save through fresh connection");
+    // A new session must be able to open the database and add entries.
+    let mut fresh = SqliteBackedHistory::with_file(history_path, None, None)
+        .expect("reopen history after clear");
+    fresh
+        .save(HistoryItem::from_command_line("echo fresh session"))
+        .expect("save through fresh connection");
 
-        tester
-            .run("history | get command")
-            .expect_value_eq(["echo after clear", "echo fresh session"])
-    })
+    tester
+        .run("history | get command")
+        .expect_value_eq(["echo after clear", "echo fresh session"])
 }

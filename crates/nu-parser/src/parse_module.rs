@@ -782,7 +782,7 @@ fn parse_module_file(
     {
         module_id
     } else {
-        if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
+        if let Err(e) = working_set.files.push_parser_path(&path, path_span) {
             working_set.error(e);
             return None;
         }
@@ -1377,6 +1377,31 @@ pub fn parse_use(
             return (garbage_pipeline(working_set, spans), vec![]);
         }
     };
+
+    // The `members` rest parameter accepts a spread (`use m ...$names`), but import patterns are
+    // resolved at parse time and `positional_iter` stops at the first spread, so its names would
+    // be dropped without an error. Reject it like a spread inside a member list (`use m [...$x]`).
+    let mut has_spread = false;
+    for arg in &call.arguments {
+        if let Argument::Spread(expr) = arg {
+            working_set.error(ParseError::WrongImportPattern(
+                "cannot spread in an import pattern".into(),
+                expr.span,
+            ));
+            has_spread = true;
+        }
+    }
+    if has_spread {
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]),
+            vec![],
+        );
+    }
 
     let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
 

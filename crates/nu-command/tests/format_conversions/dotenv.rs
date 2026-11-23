@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContent, playground::Playground, prelude::*};
+use nu_test_support::prelude::*;
 use std::fs;
 
 #[test]
@@ -43,60 +43,55 @@ fn values_without_text_are_errors() -> Result {
 }
 
 #[test]
-fn open_reads_dotenv_file_names() -> Result {
-    Playground::setup("dotenv_open", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent(".env", "A=1\n"),
-            FileWithContent(".env.local", "A=2\n"),
-            FileWithContent("prod.env", "A=3\n"),
-            FileWithContent(".env.json", r#"{"A": 4}"#),
-        ]);
+fn open_reads_dotenv_file_names(playground: Playground) -> Result {
+    playground.file(".env", "A=1\n")?;
+    playground.file(".env.local", "A=2\n")?;
+    playground.file("prod.env", "A=3\n")?;
+    playground.file(".env.json", r#"{"A": 4}"#)?;
 
-        test()
-            .cwd(dirs.test())
-            .run("[.env .env.local prod.env .env.json] | each { open $in | get A }")
-            .expect_value_eq(test_value!(["1", "2", "3", 4]))?;
-        test()
-            .cwd(dirs.test())
-            .run("open --raw .env")
-            .expect_value_eq("A=1\n")
-    })
+    test()
+        .cwd(playground.path())
+        .run("[.env .env.local prod.env .env.json] | each { open $in | get A }")
+        .expect_value_eq(test_value!(["1", "2", "3", 4]))?;
+    test()
+        .cwd(playground.path())
+        .run("open --raw .env")
+        .expect_value_eq("A=1\n")
 }
 
 #[test]
-fn save_writes_dotenv_file_names() -> Result {
-    Playground::setup("dotenv_save", |dirs, sandbox| {
-        sandbox.with_files(&[]);
-
-        let () = test()
-            .cwd(dirs.test())
-            .run("[.env .env.local prod.env] | each {|file| {A: 'x y'} | save $file } | ignore")?;
-        for file in [".env", ".env.local", "prod.env"] {
-            assert_eq!(fs::read_to_string(dirs.test().join(file))?, "A='x y'\n");
-        }
-
-        // A real extension keeps its own format.
-        let () = test().cwd(dirs.test()).run("{A: 1} | save .env.json")?;
-        assert_contains(
-            r#""A": 1"#,
-            fs::read_to_string(dirs.test().join(".env.json"))?,
+fn save_writes_dotenv_file_names(playground: Playground) -> Result {
+    let () = test()
+        .cwd(playground.path())
+        .run("[.env .env.local prod.env] | each {|file| {A: 'x y'} | save $file } | ignore")?;
+    for file in [".env", ".env.local", "prod.env"] {
+        assert_eq!(
+            fs::read_to_string(playground.path().join(file))?,
+            "A='x y'\n"
         );
-        Ok(())
-    })
+    }
+
+    // A real extension keeps its own format.
+    let () = test()
+        .cwd(playground.path())
+        .run("{A: 1} | save .env.json")?;
+    assert_contains(
+        r#""A": 1"#,
+        fs::read_to_string(playground.path().join(".env.json"))?,
+    );
+    Ok(())
 }
 
 #[test]
-fn open_and_load_env_leave_path_a_list() -> Result {
-    Playground::setup("dotenv_load_env", |dirs, sandbox| {
-        let separator = if cfg!(windows) { ";" } else { ":" };
-        let text = format!("PATH=/a{separator}/b\nNAME='my app'\n");
-        sandbox.with_files(&[FileWithContent(".env", &text)]);
+fn open_and_load_env_leave_path_a_list(playground: Playground) -> Result {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let text = format!("PATH=/a{separator}/b\nNAME='my app'\n");
+    playground.file(".env", &text)?;
 
-        test()
-            .cwd(dirs.test())
-            .run("open .env | load-env; [$env.PATH $env.NAME]")
-            .expect_value_eq(test_value!([["/a", "/b"], "my app"]))
-    })
+    test()
+        .cwd(playground.path())
+        .run("open .env | load-env; [$env.PATH $env.NAME]")
+        .expect_value_eq(test_value!([["/a", "/b"], "my app"]))
 }
 
 #[test]
@@ -114,39 +109,31 @@ fn keys_ignore_case_and_keep_their_first_spelling() -> Result {
 }
 
 #[test]
-fn save_writes_other_values_to_dotenv_file_names_as_before() -> Result {
-    Playground::setup("dotenv_save_list", |dirs, sandbox| {
-        sandbox.with_files(&[]);
-
-        let () = test().cwd(dirs.test()).run("[a b] | save .env")?;
-        assert_eq!(fs::read_to_string(dirs.test().join(".env"))?, "a\nb\n");
-        Ok(())
-    })
+fn save_writes_other_values_to_dotenv_file_names_as_before(playground: Playground) -> Result {
+    let () = test().cwd(playground.path()).run("[a b] | save .env")?;
+    assert_eq!(
+        fs::read_to_string(playground.path().join(".env"))?,
+        "a\nb\n"
+    );
+    Ok(())
 }
 
 #[test]
-fn save_and_open_agree_on_extension_case() -> Result {
-    Playground::setup("dotenv_save_case", |dirs, sandbox| {
-        sandbox.with_files(&[]);
-
-        test()
-            .cwd(dirs.test())
-            .run("{A: 1} | save .env.JSON; open .env.JSON | get A")
-            .expect_value_eq(1)
-    })
+fn save_and_open_agree_on_extension_case(playground: Playground) -> Result {
+    test()
+        .cwd(playground.path())
+        .run("{A: 1} | save .env.JSON; open .env.JSON | get A")
+        .expect_value_eq(1)
 }
 
 #[test]
-fn open_reads_a_dotenv_file_name_that_isnt_text_as_raw_data() -> Result {
-    Playground::setup("dotenv_open_binary", |dirs, sandbox| {
-        sandbox.with_files(&[]);
-        fs::write(dirs.test().join(".env.gpg"), [0xff, 0xfe, 0x00])?;
+fn open_reads_a_dotenv_file_name_that_isnt_text_as_raw_data(playground: Playground) -> Result {
+    fs::write(playground.path().join(".env.gpg"), [0xff, 0xfe, 0x00])?;
 
-        test()
-            .cwd(dirs.test())
-            .run("open .env.gpg | into binary")
-            .expect_value_eq(Value::test_binary([0xff, 0xfe, 0x00]))
-    })
+    test()
+        .cwd(playground.path())
+        .run("open .env.gpg | into binary")
+        .expect_value_eq(Value::test_binary([0xff, 0xfe, 0x00]))
 }
 
 #[test]

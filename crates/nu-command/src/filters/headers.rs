@@ -1,3 +1,4 @@
+use crate::formats::dedupe_headers;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, shell_error::generic::GenericError};
 
@@ -45,6 +46,15 @@ impl Command for Headers {
                         "c" => Value::test_string("3"),
                     }),
                 ])),
+            },
+            Example {
+                description: "Repeated names are renamed with a numeric suffix",
+                example: "[[a b c]; [x x x] [1 2 3]] | headers",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "x" => Value::test_int(1),
+                    "x_1" => Value::test_int(2),
+                    "x_2" => Value::test_int(3),
+                })])),
             },
         ]
     }
@@ -96,6 +106,9 @@ fn extract_headers(
         .enumerate()
         .map(|(idx, value)| make_header_string(config, idx, value))
         .collect::<Result<Vec<_>, _>>()?;
+    // Repeated names would make a record with duplicate columns, so give them
+    // a `_N` suffix. This runs once for the header row, not per row.
+    let new_headers = dedupe_headers(new_headers);
 
     let old_headers = record.columns().cloned().collect();
 

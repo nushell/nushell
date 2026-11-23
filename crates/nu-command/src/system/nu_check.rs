@@ -229,7 +229,7 @@ fn check_parse(
             // Print the real miette diagnostic (with file contents / labels) first.
             report_parse_error(None, working_set, parse_err);
 
-            let msg = format!("Found : {parse_err}");
+            let msg = format!("Found : {}", parse_err.one_line_message());
             let mut err = GenericError::new("Failed to parse content", msg, call_head);
             if let Some(help) = help {
                 err = err.with_help(help);
@@ -281,7 +281,7 @@ fn parse_file_or_dir_module(
                 .first()
                 .expect("Missing parser error");
             report_parse_error(None, working_set, parse_err);
-            let msg = format!("Found : {parse_err}");
+            let msg = format!("Found : {}", parse_err.one_line_message());
             Err(ShellError::Generic(
                 GenericError::new("Failed to parse content", msg, path_span).with_help(
                     "If the content is intended to be a script, please try to remove `--as-module` flag ",

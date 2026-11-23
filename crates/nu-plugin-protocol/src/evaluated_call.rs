@@ -1,7 +1,6 @@
 use nu_protocol::{
     FromValue, ShellError, Span, Spanned, Value,
-    ast::{self, Expression},
-    engine::{Call, CallImpl, EngineState, Stack},
+    engine::{Call, CallImpl, Stack},
     ir,
 };
 use serde::{Deserialize, Serialize};
@@ -105,48 +104,11 @@ impl EvaluatedCall {
     }
 
     /// Try to create an [`EvaluatedCall`] from a command `Call`.
-    pub fn try_from_call(
-        call: &Call,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
-    ) -> Result<Self, ShellError> {
+    pub fn try_from_call(call: &Call, stack: &Stack) -> Result<Self, ShellError> {
         match &call.inner {
-            CallImpl::AstRef(call) => {
-                Self::try_from_ast_call(call, engine_state, stack, eval_expression_fn)
-            }
-            CallImpl::AstBox(call) => {
-                Self::try_from_ast_call(call, engine_state, stack, eval_expression_fn)
-            }
             CallImpl::IrRef(call) => Self::try_from_ir_call(call, stack),
             CallImpl::IrBox(call) => Self::try_from_ir_call(call, stack),
         }
-    }
-
-    fn try_from_ast_call(
-        call: &ast::Call,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
-    ) -> Result<Self, ShellError> {
-        let positional =
-            call.rest_iter_flattened(0, |expr| eval_expression_fn(engine_state, stack, expr))?;
-
-        let mut named = Vec::with_capacity(call.named_len());
-        for (string, _, expr) in call.named_iter() {
-            let value = match expr {
-                None => None,
-                Some(expr) => Some(eval_expression_fn(engine_state, stack, expr)?),
-            };
-
-            named.push((string.clone(), value))
-        }
-
-        Ok(Self {
-            head: call.head,
-            positional,
-            named,
-        })
     }
 
     fn try_from_ir_call(call: &ir::Call, stack: &Stack) -> Result<Self, ShellError> {

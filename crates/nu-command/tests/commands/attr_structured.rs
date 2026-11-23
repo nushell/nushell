@@ -56,45 +56,41 @@ fn structured_extern_from_module() -> Result {
 
 #[test]
 #[deps(TESTBIN_COCOCO)]
-fn structured_extern_to_file_runs_as_written() -> Result {
-    Playground::setup("structured_extern_to_file", |dirs, _sandbox| {
-        let code = format!("{STRUCTURED_COCOCO}\ncococo o> out.txt; cococo | save saved.txt");
-        let () = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(
-            fs::read_to_string(dirs.test().join("out.txt"))?.trim(),
-            "cococo"
-        );
-        assert_eq!(
-            fs::read_to_string(dirs.test().join("saved.txt"))?.trim(),
-            "cococo"
-        );
-        Ok(())
-    })
+fn structured_extern_to_file_runs_as_written(playground: Playground) -> Result {
+    let code = format!("{STRUCTURED_COCOCO}\ncococo o> out.txt; cococo | save saved.txt");
+    let () = test().cwd(playground.path()).run(code)?;
+    assert_eq!(
+        fs::read_to_string(playground.path().join("out.txt"))?.trim(),
+        "cococo"
+    );
+    assert_eq!(
+        fs::read_to_string(playground.path().join("saved.txt"))?.trim(),
+        "cococo"
+    );
+    Ok(())
 }
 
 /// A string hook runs a structured extern as written, like a closure hook. The decode block
 /// writes a file, so the test can tell whether it ran.
 #[test]
 #[deps(TESTBIN_COCOCO)]
-fn string_hook_runs_as_written() -> Result {
-    Playground::setup("structured_string_hook", |dirs, _sandbox| {
-        let decoded = dirs.test().join("decoded.txt");
-        let mut tester = test().cwd(dirs.test());
-        let () = tester.run_with_hooks(
-            "
-                @structured [] { save -f decoded.txt }
-                extern cococo []
-                $env.config.hooks.pre_execution = ['cococo']
-            ",
-        )?;
-        let () = tester.run_with_hooks("null")?;
-        assert!(!decoded.exists(), "the hook decoded the output");
+fn string_hook_runs_as_written(playground: Playground) -> Result {
+    let decoded = playground.path().join("decoded.txt");
+    let mut tester = test().cwd(playground.path());
+    let () = tester.run_with_hooks(
+        "
+            @structured [] { save -f decoded.txt }
+            extern cococo []
+            $env.config.hooks.pre_execution = ['cococo']
+        ",
+    )?;
+    let () = tester.run_with_hooks("null")?;
+    assert!(!decoded.exists(), "the hook decoded the output");
 
-        // The same extern does decode when its output is used.
-        let () = tester.run("let x = cococo")?;
-        assert!(decoded.exists());
-        Ok(())
-    })
+    // The same extern does decode when its output is used.
+    let () = tester.run("let x = cococo")?;
+    assert!(decoded.exists());
+    Ok(())
 }
 
 /// Runs `code` in a fresh `nu` and returns what it printed and its exit code.

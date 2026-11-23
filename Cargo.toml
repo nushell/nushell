@@ -152,9 +152,10 @@ bytesize = "2.3.1"
 byteyarn = "0.5"
 calamine = "0.38.0"
 chardetng = "1.0.0"
+# Only for nu-protocol's optional `chrono` feature and its comparison tests, and for
+# nu_plugin_polars, whose polars API uses chrono.
 chrono = { default-features = false, version = "0.4.45" }
 chrono-humanize = "0.2.3"
-chrono-tz = { version = "0.10", features = ["case-insensitive"] }
 crossbeam-channel = "0.5.15"
 crossterm = "0.29.0"
 csv = "1.4"
@@ -175,7 +176,6 @@ fluent = "0.17.0"
 gatekeeper = "3.0.0"
 heck = "0.5.0"
 http = "1.5.0"
-human-date-parser = "0.3.1"
 humantime = "2.3.0"
 indexmap = "2.14.1"
 indicatif = "0.18.6"
@@ -183,7 +183,7 @@ indoc = "2"
 interprocess = "2.4.3"
 is_executable = "1.0.6"
 itertools = "0.15"
-jiff = "1.0.0"
+jiff = { version = "1.0.0", features = ["tzdb-bundle-always"] }
 kitest = "0.6.0"
 lean_string = { version = "0.8.0", features = ["serde"] }
 lexopt = "0.3.2"
@@ -206,6 +206,11 @@ mockito = { version = "1.7.2", default-features = false }
 multipart-rs = "0.2.3"
 native-tls = "0.2.18"
 nix = { version = "0.32.0", default-features = false }
+# Not used directly. fff-search 0.11.0 pulls in fff-notify-debouncer-full 0.9.4, whose
+# `notify = "9.0.0-rc.4"` also matches later release candidates, and it fails to compile
+# against rc.9. This exact pin keeps builds without `--locked` on rc.4. Drop it once
+# fff pins notify or supports a newer release.
+notify = { version = "=9.0.0-rc.4", default-features = false }
 notify-debouncer-full = { version = "0.7.0", default-features = false }
 nu-ansi-term = "0.50.3"
 nucleo-matcher = "0.3"
@@ -284,18 +289,19 @@ unicode-segmentation = "1.13"
 unicode-width = "0.2"
 ureq = { version = "~3.5.2", default-features = false, features = ["socks-proxy"] }
 url = "2.5"
-uu_cp = "0.12.0"
-uu_mkdir = "0.12.0"
-uu_mktemp = "0.12.0"
-uu_mv = "0.12.0"
-uu_touch = "0.12.0"
-uu_whoami = "0.12.0"
-uu_uname = "0.12.0"
-uucore = "0.12.0"
+uu_cp = "0.13.0"
+uu_mkdir = "0.13.0"
+uu_mktemp = "0.13.0"
+uu_mv = "0.13.0"
+uu_touch = "0.13.0"
+uu_whoami = "0.13.0"
+uu_uname = "0.13.0"
+uucore = "0.13.0"
 uuid = "1.26.0"
 v_htmlescape = "1.0.0"
 memchr = "2.8.0"
 wax = "0.7.0"
+same-file = "1.0.6"
 web-time = "1.1.0"
 webpki-roots = "1.0.10"
 which = "8.0.6"
@@ -366,7 +372,7 @@ multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3.55"
-same-file = "1.0.6"
+same-file = { workspace = true }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
@@ -392,6 +398,7 @@ windows-sys = { workspace = true, features = ["Win32_System_Environment"] }
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [dev-dependencies]
+nu-glob = { path = "./crates/nu-glob", version   = "0.117.1" }
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.117.1" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.117.1" }
 nu-table = { path = "./crates/nu-table", version = "0.117.1" }
@@ -400,6 +407,7 @@ nu-test-support = { path = "./crates/nu-test-support", features = ["os", "plugin
 assert_cmd = "2.2.2"
 dirs = { workspace = true }
 fancy-regex = { workspace = true }
+indoc = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
@@ -486,7 +494,7 @@ sqlite = [
 ]
 
 [profile.release]
-opt-level = "s"     # Optimize for size
+opt-level = 3       # Optimize for speed: the evaluator loop is hot in every script
 strip = "debuginfo"
 lto = "thin"
 

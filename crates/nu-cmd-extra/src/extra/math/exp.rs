@@ -12,6 +12,7 @@ impl Command for MathExp {
         Signature::build("math exp")
             .input_output_types(vec![
                 (Type::Number, Type::Float),
+                (Type::Range, Type::List(Box::new(Type::Float))),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
@@ -41,11 +42,21 @@ impl Command for MathExp {
         if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        super::ensure_bounded_range(&input, head)?;
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
+            Example {
+                description: "Apply the exponential to a range",
+                example: "0..2..4 | math exp | math round --precision 4",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(1f64),
+                    Value::test_float(7.3891f64),
+                    Value::test_float(54.5982f64),
+                ])),
+            },
             Example {
                 description: "Get e raised to the power of zero",
                 example: "0 | math exp",
@@ -88,6 +99,14 @@ fn operate(value: Value, head: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::TestResultExt;
+
+    #[test]
+    fn test_range_input() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("0..10 | math exp | length")
+            .expect_value_eq(11)
+    }
 
     #[test]
     fn test_examples() -> nu_test_support::Result {

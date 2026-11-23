@@ -22,7 +22,8 @@ use nu_protocol::{
 
 use crate::env::{is_automatic_env_var, var};
 use crate::{
-    convert_env_vars, eval_block_with_early_return, named_flags::normalize_engine_arguments,
+    convert_env_vars, eval_block_with_early_return,
+    named_flags::{check_switch_value, normalize_engine_arguments},
 };
 
 /// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
@@ -115,7 +116,8 @@ fn eval_ir_block_inner<D: DebugContext>(
         // Initialize file storage.
         let mut files = vec![None; ir_block.file_count as usize];
 
-        let mut record_items = vec![Vec::new(); ir_block.register_count as usize];
+        // Filled in by the first record literal, so blocks without one don't allocate it.
+        let mut record_items = Vec::new();
 
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
@@ -131,7 +133,7 @@ fn eval_ir_block_inner<D: DebugContext>(
                 matches: vec![],
                 registers: &mut registers[..],
                 files: &mut files[..],
-                record_items: &mut record_items[..],
+                record_items: &mut record_items,
             },
             ir_block,
             input,
@@ -195,8 +197,9 @@ struct EvalContext<'a> {
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
     /// The items added so far to the record literal being built in each register. Used to point
-    /// duplicate-key errors at the item that brought the key in.
-    record_items: &'a mut [Vec<RecordLiteralItem>],
+    /// duplicate-key errors at the item that brought the key in. Empty until the first record
+    /// literal, then one entry per register.
+    record_items: &'a mut Vec<Vec<RecordLiteralItem>>,
 }
 
 /// One item of a record literal under construction: a `key: value` pair or a spread.
@@ -221,7 +224,7 @@ impl<'a> EvalContext<'a> {
         key: &str,
     ) -> Option<RecordLiteralItem> {
         let index = record.index_of(key)?;
-        let items = &self.record_items[reg.get() as usize];
+        let items = self.record_items.get(reg.get() as usize)?;
         items
             .get(items.partition_point(|item| item.end <= index))
             .copied()
@@ -229,6 +232,10 @@ impl<'a> EvalContext<'a> {
 
     /// Remember the item that was just added to the record literal being built in `reg`.
     fn push_record_item(&mut self, reg: RegId, end: usize, span: Span, is_spread: bool) {
+        if self.record_items.is_empty() {
+            self.record_items
+                .resize_with(self.registers.len(), Vec::new);
+        }
         self.record_items[reg.get() as usize].push(RecordLiteralItem {
             end,
             span,
@@ -241,6 +248,19 @@ impl<'a> EvalContext<'a> {
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineExecutionData) {
         // log::trace!("{reg_id} <- {new_value:?}");
         self.registers[reg_id.get() as usize] = new_value;
+    }
+
+    /// Replace the contents of a register with a value.
+    ///
+    /// This is the most common register write, so it updates the register in place instead of
+    /// building a new [`PipelineExecutionData`] and dropping the old one.
+    #[inline]
+    fn put_value(&mut self, reg_id: RegId, value: Value) {
+        let reg = &mut self.registers[reg_id.get() as usize];
+        reg.body = PipelineData::value(value, None);
+        #[cfg(feature = "os")]
+        reg.exit.clear();
+        reg.early_return = false;
     }
 
     /// Borrow the contents of a register.
@@ -296,14 +316,13 @@ impl<'a> EvalContext<'a> {
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
         // NOTE: collect_reg is used to collect the reg to a variable.
         // So it's good to pick the inner PipelineData directly, and drop the ExitStatus queue.
+        // The register is emptied in place rather than replaced, since this runs for most
+        // instructions.
+        let reg = &mut self.registers[reg_id.get() as usize];
         #[cfg(feature = "os")]
-        let body = {
-            let mut data = self.take_reg(reg_id);
-            data.exit.clear();
-            data.body
-        };
-        #[cfg(not(feature = "os"))]
-        let body = self.take_reg(reg_id).body;
+        reg.exit.clear();
+        reg.early_return = false;
+        let body = std::mem::replace(&mut reg.body, PipelineData::empty());
         let span = body.span().unwrap_or(fallback_span);
         body.into_value(span)
     }
@@ -329,7 +348,6 @@ fn eval_ir_block_impl<D: DebugContext>(
 
     // Program counter, starts at zero.
     let mut pc = 0;
-    let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -340,7 +358,7 @@ fn eval_ir_block_impl<D: DebugContext>(
 
         D::enter_instruction(ctx.engine_state, ctx.stack, ir_block, pc, ctx.registers);
 
-        let result = eval_instruction::<D>(ctx, instruction, span, need_backtrace);
+        let result = eval_instruction::<D>(ctx, instruction, span);
 
         D::leave_instruction(
             ctx.engine_state,
@@ -408,7 +426,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             Err(err) => Unwind::Error(err.into_spanned(*span)),
         };
 
-        match unwind_through_handlers(ctx, unwind, *span, need_backtrace) {
+        match unwind_through_handlers(ctx, unwind, *span) {
             Unwound::Branch(next_pc) => pc = next_pc,
             Unwound::Return(result) => return *result,
         }
@@ -452,12 +470,7 @@ enum Unwound {
 /// by `end-finally`. Unwinding out of a `finally` block that is itself running abandons what
 /// that block was going to resume, so e.g. `return` inside `finally` wins over the error that
 /// led there.
-fn unwind_through_handlers(
-    ctx: &mut EvalContext<'_>,
-    mut unwind: Unwind,
-    span: Span,
-    need_backtrace: bool,
-) -> Unwound {
+fn unwind_through_handlers(ctx: &mut EvalContext<'_>, mut unwind: Unwind, span: Span) -> Unwound {
     loop {
         if let Unwind::Jump { index, handlers: 0 } = unwind {
             return Unwound::Branch(index);
@@ -465,7 +478,7 @@ fn unwind_through_handlers(
 
         let Some(handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) else {
             return Unwound::Return(Box::new(match unwind {
-                Unwind::Error(err) if need_backtrace => {
+                Unwind::Error(err) if need_backtrace(ctx.engine_state) => {
                     Err(ShellError::into_chained(err.item, err.span))
                 }
                 Unwind::Error(err) => Err(err.item),
@@ -544,10 +557,13 @@ fn prepare_error_handler(
     error_handler: ErrorHandler,
     error: Option<Spanned<ShellError>>,
 ) {
+    // A handled failure still sets $env.LAST_EXIT_CODE, also for a `try` without `catch`, which
+    // has no register to put the error in.
+    if let Some(error) = &error {
+        ctx.stack.set_last_error(&error.item);
+    }
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
-            // Stack state has to be updated for stuff like LAST_EXIT_CODE
-            ctx.stack.set_last_error(&error.item);
             // Create the error value and put it in the register
             ctx.put_reg(
                 reg_id,
@@ -593,11 +609,18 @@ enum InstructionResult {
     EndFinally,
 }
 
+/// Whether `$env.NU_BACKTRACE` is set, so errors and streams should record their callers.
+///
+/// It's an environment lookup, so it's only done where the answer is used: every custom command
+/// call runs a block, and looking it up per block was a visible part of the call's cost.
+fn need_backtrace(engine_state: &EngineState) -> bool {
+    engine_state.get_env_var("NU_BACKTRACE").is_some()
+}
+
 fn eval_instruction<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
     span: &Span,
-    need_backtrace: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
@@ -663,9 +686,12 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Span { src_dst } => {
-            let mut data = ctx.take_reg(*src_dst);
-            data.body = data.body.with_span(*span);
-            ctx.put_reg(*src_dst, data);
+            let body = &mut ctx.registers[src_dst.get() as usize].body;
+            if let PipelineData::Value(value, _) = body {
+                value.set_span(*span);
+            } else {
+                *body = std::mem::replace(body, PipelineData::empty()).with_span(*span);
+            }
             Ok(Continue)
         }
         Instruction::Drop { src } => {
@@ -689,18 +715,18 @@ fn eval_instruction<D: DebugContext>(
         } => {
             // Restore pipeline metadata for `$ans` (e.g. ls path_columns / colors on `.last`).
             // Truncation warning is deferred until after print so data is visible first.
-            let data = if *var_id == nu_protocol::LAST_VARIABLE_ID {
+            if *var_id == nu_protocol::LAST_VARIABLE_ID {
                 ctx.stack.defer_last_result_truncation_warning();
-                ctx.stack.last_result_pipeline_data(*span)
+                let data = ctx.stack.last_result_pipeline_data(*span);
+                ctx.put_reg(*dst, PipelineExecutionData::from(data));
             } else if *preserve_origin {
                 // Keep definition span (e.g. `metadata $x`).
                 let value = get_var_with_origin(ctx, *var_id, *span)?;
-                value.into_pipeline_data()
+                ctx.put_value(*dst, value);
             } else {
                 let value = get_var(ctx, *var_id, *span)?;
-                value.into_pipeline_data()
-            };
-            ctx.put_reg(*dst, PipelineExecutionData::from(data));
+                ctx.put_value(*dst, value);
+            }
             Ok(Continue)
         }
         Instruction::StoreVariable { var_id, src } => {
@@ -766,6 +792,9 @@ fn eval_instruction<D: DebugContext>(
             if !is_automatic_env_var(&key) {
                 let is_config = env_var_eq(&key, var::CONFIG);
                 let update_conversions = env_var_eq(&key, var::ENV_CONVERSIONS);
+                if env_var_eq(&key, var::LAST_EXIT_CODE) {
+                    ctx.stack.last_exit_code_written = true;
+                }
 
                 ctx.stack.add_env_var(key.into_owned(), value.clone());
 
@@ -938,12 +967,14 @@ fn eval_instruction<D: DebugContext>(
             // take out exit status future first.
             let input_data = input.body;
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input_data)?;
-            if need_backtrace {
-                match &mut result {
-                    PipelineData::ByteStream(s, ..) => s.push_caller_span(*span),
-                    PipelineData::ListStream(s, ..) => s.push_caller_span(*span),
-                    _ => (),
-                };
+            match &mut result {
+                PipelineData::ByteStream(s, ..) if need_backtrace(ctx.engine_state) => {
+                    s.push_caller_span(*span)
+                }
+                PipelineData::ListStream(s, ..) if need_backtrace(ctx.engine_state) => {
+                    s.push_caller_span(*span)
+                }
+                _ => (),
             }
             // After eval_call, attach result's exit_status_future
             // to `original_exit`, so all exit_status_future are tracked
@@ -954,13 +985,16 @@ fn eval_instruction<D: DebugContext>(
                 // `complete` converts external process status into data (`exit_code`).
                 // Drop inherited exit futures so downstream collect/print/assignment
                 // does not re-raise the same non-zero status via `pipefail`.
-                if ctx.engine_state.get_decl(*decl_id).name() == "complete" {
+                if !original_exit.is_empty()
+                    && ctx.engine_state.get_decl(*decl_id).name() == "complete"
+                {
                     original_exit.clear();
                 }
-                let result_exit_status_future = result
-                    .clone_exit_status_future()
-                    .map(|f| f.with_span(*span));
-                original_exit.push(result_exit_status_future);
+                // Only an external's output has an exit status. Skipping the rest keeps `exit`
+                // from allocating on every internal command call.
+                if let Some(future) = result.clone_exit_status_future() {
+                    original_exit.push(Some(future.with_span(*span)));
+                }
                 ctx.put_reg(
                     *src_dst,
                     PipelineExecutionData {
@@ -1384,17 +1418,16 @@ fn load_literal(
     // Some commands (like `metadata`) distinguish between these when deciding
     // whether positional args are allowed.
     // A new record literal starts here: forget the items of an earlier one.
-    if matches!(lit, Literal::Record { .. }) {
-        ctx.record_items[dst.get() as usize].clear();
+    if matches!(lit, Literal::Record { .. })
+        && let Some(items) = ctx.record_items.get_mut(dst.get() as usize)
+    {
+        items.clear();
     }
     if matches!(lit, Literal::Empty) {
         ctx.put_reg(dst, PipelineExecutionData::empty());
     } else {
         let value = literal_value(ctx, lit, span)?;
-        ctx.put_reg(
-            dst,
-            PipelineExecutionData::from(PipelineData::value(value, None)),
-        );
+        ctx.put_value(dst, value);
     }
     Ok(InstructionResult::Continue)
 }
@@ -1490,67 +1523,98 @@ fn binary_op(
     rhs: RegId,
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
-    let lhs_val = ctx.collect_reg(lhs_dst, span)?;
-    let rhs_val = ctx.collect_reg(rhs, span)?;
+    // The operands are almost always values already, so compute from them where they are instead
+    // of moving them out of their registers first. An error value has to be moved out to be
+    // returned, so that takes the slow path.
+    let is_error = |val: &Value| matches!(val, Value::Error { .. });
+    let in_place = match (ctx.borrow_reg(lhs_dst), ctx.borrow_reg(rhs)) {
+        (PipelineData::Value(lhs_val, _), PipelineData::Value(rhs_val, _))
+            if !is_error(lhs_val) && !is_error(rhs_val) =>
+        {
+            Some(eval_binary_op(ctx.engine_state, lhs_val, op, rhs_val, span))
+        }
+        _ => None,
+    };
+    let result = if let Some(result) = in_place {
+        ctx.take_reg(rhs);
+        result?
+    } else {
+        let lhs_val = ctx.collect_reg(lhs_dst, span)?;
+        let rhs_val = ctx.collect_reg(rhs, span)?;
 
-    // Handle binary op errors early
-    if let Value::Error { error, .. } = lhs_val {
-        return Err(*error);
-    }
-    if let Value::Error { error, .. } = rhs_val {
-        return Err(*error);
-    }
+        // Handle binary op errors early
+        if let Value::Error { error, .. } = lhs_val {
+            return Err(*error);
+        }
+        if let Value::Error { error, .. } = rhs_val {
+            return Err(*error);
+        }
+        eval_binary_op(ctx.engine_state, &lhs_val, op, &rhs_val, span)?
+    };
 
+    ctx.put_value(lhs_dst, result);
+
+    Ok(InstructionResult::Continue)
+}
+
+/// Apply a binary operator to two values.
+fn eval_binary_op(
+    engine_state: &EngineState,
+    lhs_val: &Value,
+    op: &Operator,
+    rhs_val: &Value,
+    span: Span,
+) -> Result<Value, ShellError> {
     // We only have access to one span here, but the generated code usually adds a `span`
     // instruction to set the output span to the right span.
     let op_span = span;
 
     let result = match op {
         Operator::Comparison(cmp) => match cmp {
-            Comparison::Equal => lhs_val.eq(op_span, &rhs_val, span)?,
-            Comparison::NotEqual => lhs_val.ne(op_span, &rhs_val, span)?,
-            Comparison::LessThan => lhs_val.lt(op_span, &rhs_val, span)?,
-            Comparison::GreaterThan => lhs_val.gt(op_span, &rhs_val, span)?,
-            Comparison::LessThanOrEqual => lhs_val.lte(op_span, &rhs_val, span)?,
-            Comparison::GreaterThanOrEqual => lhs_val.gte(op_span, &rhs_val, span)?,
+            Comparison::Equal => lhs_val.eq(op_span, rhs_val, span)?,
+            Comparison::NotEqual => lhs_val.ne(op_span, rhs_val, span)?,
+            Comparison::LessThan => lhs_val.lt(op_span, rhs_val, span)?,
+            Comparison::GreaterThan => lhs_val.gt(op_span, rhs_val, span)?,
+            Comparison::LessThanOrEqual => lhs_val.lte(op_span, rhs_val, span)?,
+            Comparison::GreaterThanOrEqual => lhs_val.gte(op_span, rhs_val, span)?,
             Comparison::RegexMatch => {
-                lhs_val.regex_match(ctx.engine_state, op_span, &rhs_val, false, span)?
+                lhs_val.regex_match(engine_state, op_span, rhs_val, false, span)?
             }
             Comparison::NotRegexMatch => {
-                lhs_val.regex_match(ctx.engine_state, op_span, &rhs_val, true, span)?
+                lhs_val.regex_match(engine_state, op_span, rhs_val, true, span)?
             }
-            Comparison::In => lhs_val.r#in(op_span, &rhs_val, span)?,
-            Comparison::NotIn => lhs_val.not_in(op_span, &rhs_val, span)?,
-            Comparison::Has => lhs_val.has(op_span, &rhs_val, span)?,
-            Comparison::NotHas => lhs_val.not_has(op_span, &rhs_val, span)?,
-            Comparison::StartsWith => lhs_val.starts_with(op_span, &rhs_val, span)?,
-            Comparison::NotStartsWith => lhs_val.not_starts_with(op_span, &rhs_val, span)?,
-            Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
-            Comparison::NotEndsWith => lhs_val.not_ends_with(op_span, &rhs_val, span)?,
-            Comparison::OlderThan => lhs_val.older_than(op_span, &rhs_val, span)?,
-            Comparison::NewerThan => lhs_val.newer_than(op_span, &rhs_val, span)?,
+            Comparison::In => lhs_val.r#in(op_span, rhs_val, span)?,
+            Comparison::NotIn => lhs_val.not_in(op_span, rhs_val, span)?,
+            Comparison::Has => lhs_val.has(op_span, rhs_val, span)?,
+            Comparison::NotHas => lhs_val.not_has(op_span, rhs_val, span)?,
+            Comparison::StartsWith => lhs_val.starts_with(op_span, rhs_val, span)?,
+            Comparison::NotStartsWith => lhs_val.not_starts_with(op_span, rhs_val, span)?,
+            Comparison::EndsWith => lhs_val.ends_with(op_span, rhs_val, span)?,
+            Comparison::NotEndsWith => lhs_val.not_ends_with(op_span, rhs_val, span)?,
+            Comparison::OlderThan => lhs_val.older_than(op_span, rhs_val, span)?,
+            Comparison::NewerThan => lhs_val.newer_than(op_span, rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
-            Math::Add => lhs_val.add(op_span, &rhs_val, span)?,
-            Math::Subtract => lhs_val.sub(op_span, &rhs_val, span)?,
-            Math::Multiply => lhs_val.mul(op_span, &rhs_val, span)?,
-            Math::Divide => lhs_val.div(op_span, &rhs_val, span)?,
-            Math::FloorDivide => lhs_val.floor_div(op_span, &rhs_val, span)?,
-            Math::Modulo => lhs_val.modulo(op_span, &rhs_val, span)?,
-            Math::Pow => lhs_val.pow(op_span, &rhs_val, span)?,
-            Math::Concatenate => lhs_val.concat(op_span, &rhs_val, span)?,
+            Math::Add => lhs_val.add(op_span, rhs_val, span)?,
+            Math::Subtract => lhs_val.sub(op_span, rhs_val, span)?,
+            Math::Multiply => lhs_val.mul(op_span, rhs_val, span)?,
+            Math::Divide => lhs_val.div(op_span, rhs_val, span)?,
+            Math::FloorDivide => lhs_val.floor_div(op_span, rhs_val, span)?,
+            Math::Modulo => lhs_val.modulo(op_span, rhs_val, span)?,
+            Math::Pow => lhs_val.pow(op_span, rhs_val, span)?,
+            Math::Concatenate => lhs_val.concat(op_span, rhs_val, span)?,
         },
         Operator::Boolean(bl) => match bl {
-            Boolean::Or => lhs_val.or(op_span, &rhs_val, span)?,
-            Boolean::Xor => lhs_val.xor(op_span, &rhs_val, span)?,
-            Boolean::And => lhs_val.and(op_span, &rhs_val, span)?,
+            Boolean::Or => lhs_val.or(op_span, rhs_val, span)?,
+            Boolean::Xor => lhs_val.xor(op_span, rhs_val, span)?,
+            Boolean::And => lhs_val.and(op_span, rhs_val, span)?,
         },
         Operator::Bits(bit) => match bit {
-            Bits::BitOr => lhs_val.bit_or(op_span, &rhs_val, span)?,
-            Bits::BitXor => lhs_val.bit_xor(op_span, &rhs_val, span)?,
-            Bits::BitAnd => lhs_val.bit_and(op_span, &rhs_val, span)?,
-            Bits::ShiftLeft => lhs_val.bit_shl(op_span, &rhs_val, span)?,
-            Bits::ShiftRight => lhs_val.bit_shr(op_span, &rhs_val, span)?,
+            Bits::BitOr => lhs_val.bit_or(op_span, rhs_val, span)?,
+            Bits::BitXor => lhs_val.bit_xor(op_span, rhs_val, span)?,
+            Bits::BitAnd => lhs_val.bit_and(op_span, rhs_val, span)?,
+            Bits::ShiftLeft => lhs_val.bit_shl(op_span, rhs_val, span)?,
+            Bits::ShiftRight => lhs_val.bit_shr(op_span, rhs_val, span)?,
         },
         Operator::Assignment(_asg) => {
             return Err(ShellError::IrEvalError {
@@ -1560,12 +1624,7 @@ fn binary_op(
         }
     };
 
-    ctx.put_reg(
-        lhs_dst,
-        PipelineExecutionData::from(PipelineData::value(result, None)),
-    );
-
-    Ok(InstructionResult::Continue)
+    Ok(result)
 }
 
 /// Evaluate a call
@@ -1711,7 +1770,8 @@ fn eval_call_frame<D: DebugContext>(
             normalize_call_arguments(&block.signature, caller_stack, args_base, args_len)?;
 
         // Set up a callee stack with the captures and move arguments from the stack into variables
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+        let mut callee_stack =
+            caller_stack.gather_captures_without_parent(engine_state, &block.captures);
 
         gather_arguments(
             engine_state,
@@ -1733,9 +1793,14 @@ fn eval_call_frame<D: DebugContext>(
         // recoverable in Rust.
         callee_stack.recursion_count += 1;
 
-        let result =
-            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
-                .map(|p| p.body);
+        // The callee keeps the caller as its parent, so `scope variables` can list the caller's
+        // variables. Lend them for the call instead of copying them; the guard takes them back
+        // when it drops at the end of this block, even if the body panics.
+        let result = {
+            let mut lent = caller_stack.lend_vars(&mut callee_stack);
+            eval_block_with_early_return::<D>(engine_state, lent.callee(), block, input)
+                .map(|p| p.body)
+        };
 
         // Move environment variables back into the caller stack scope if requested to do so
         if block.redirect_env {
@@ -1789,12 +1854,13 @@ fn eval_call_frame<D: DebugContext>(
     }
 }
 
-fn find_named_var_id(
-    sig: &Signature,
+/// Find the flag of a custom command's signature that a named argument sets.
+fn find_named_flag<'a>(
+    sig: &'a Signature,
     name: &[u8],
     short: &[u8],
     span: Span,
-) -> Result<VarId, ShellError> {
+) -> Result<&'a Flag, ShellError> {
     sig.named
         .iter()
         .find(|n| match (n.long_name(), n.short) {
@@ -1810,7 +1876,6 @@ fn find_named_var_id(
             ),
             span: Some(span),
         })
-        .and_then(|flag| expect_named_var_id(flag, span))
 }
 
 pub(crate) fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
@@ -1843,6 +1908,25 @@ fn normalize_call_arguments(
     args_base: usize,
     args_len: usize,
 ) -> Result<usize, ShellError> {
+    // Only spreads and null named values are rewritten. Most calls have neither, so leave
+    // their arguments in place instead of moving them out and back.
+    let needs_rewrite = stack
+        .arguments
+        .get_args(args_base, args_len)
+        .iter()
+        .any(|arg| {
+            matches!(
+                arg,
+                Argument::Spread { .. }
+                    | Argument::Named {
+                        val: Value::Nothing { .. },
+                        ..
+                    }
+            )
+        });
+    if !needs_rewrite {
+        return Ok(args_len);
+    }
     let raw: Vec<Argument> = stack.arguments.drain_args(args_base, args_len).collect();
     let expanded = normalize_engine_arguments(signature, raw)?;
     let new_len = expanded.len();
@@ -1962,8 +2046,8 @@ fn gather_arguments(
                 short,
                 span,
             } => {
-                let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
-                callee_stack.add_var(var_id, Value::bool(true, span))
+                let flag = find_named_flag(&block.signature, &data[name], &data[short], span)?;
+                callee_stack.add_var(expect_named_var_id(flag, span)?, Value::bool(true, span))
             }
             Argument::Named {
                 data,
@@ -1975,8 +2059,9 @@ fn gather_arguments(
             } => {
                 // Null should already have been dropped in `normalize_call_arguments`
                 // when the flag type does not accept nothing. If still present, bind it.
-                let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
-                callee_stack.add_var(var_id, val)
+                let flag = find_named_flag(&block.signature, &data[name], &data[short], span)?;
+                check_switch_value(flag, &val, span)?;
+                callee_stack.add_var(expect_named_var_id(flag, span)?, val)
             }
             Argument::ParserInfo { .. } => (),
         }
@@ -2521,6 +2606,7 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+    caller_stack.last_exit_code_written |= callee_stack.last_exit_code_written;
 
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);

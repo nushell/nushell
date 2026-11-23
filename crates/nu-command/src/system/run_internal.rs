@@ -6,7 +6,11 @@ use nu_engine::{
     DEFERRED_ARGUMENTS_PARSER_INFO, command_prelude::*, eval_ir_call, find_builtin_decl,
     get_full_help,
 };
-use nu_protocol::{Flag, FromValue, ParseError, engine, ir};
+use nu_protocol::{
+    Flag, FromValue, ParseError,
+    engine::{self, named_flags::check_switch_value},
+    ir,
+};
 
 /// Internal command used by the `%($cmd)`/`%$cmd` dynamic builtin dispatch syntax.
 ///
@@ -54,13 +58,13 @@ impl Command for RunInternal {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        // Only the compiler makes `run-internal` of `%$cmd`, so a call that wasn't compiled is a
-        // direct one.
+        // Only the compiler's lowering of `%$cmd` adds this parser info, so a call without it is a
+        // direct `run-internal`.
         let dynamic_dispatch = call
             .get_parser_info(stack, DEFERRED_ARGUMENTS_PARSER_INFO)
             .is_some();
 
-        let mut args = call_arguments(engine_state, stack, call, self)?;
+        let mut args = call_arguments(stack, call);
         let builtin_args = split_off_callee_arguments(&mut args);
         // The split leaves the builtin's name last.
         let name = match args.pop() {
@@ -186,16 +190,8 @@ impl ArgumentTarget for BuiltinArguments<'_> {
         span: Span,
         value: Option<(Value, Span)>,
     ) -> Result<(), ShellError> {
-        if flag.arg.is_none()
-            && let Some((value, value_span)) = &value
-            && !matches!(value, Value::Bool { .. })
-        {
-            return Err(ShellError::CantConvert {
-                to_type: Type::Bool.to_string(),
-                from_type: value.get_type().to_string(),
-                span: *value_span,
-                help: Some(format!("`--{}` is a switch; use true or false", flag.long)),
-            });
+        if let Some((value, value_span)) = &value {
+            check_switch_value(flag, value, *value_span)?;
         }
         let short = flag.short.map(String::from).unwrap_or_default();
         match value {

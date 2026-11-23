@@ -109,6 +109,7 @@ pub struct Program {
     pub instructions: Vec<Instruction>,
     pub absolute_prefix: Option<PathBuf>,
     pub case_insensitive: bool,
+    pub is_recursive: bool,
     /// True when only directories match, as with nu-glob: the pattern ends with a bare
     /// recursive `**`, or with a separator, as in `*/`.
     pub dirs_only: bool,
@@ -256,6 +257,7 @@ fn append_wildcard_gadget(out: &mut Program) -> anyhow::Result<()> {
 /// Each round starts with `NotHiddenDir`, ahead of both the take and the stop branch, so a
 /// hidden directory that `**` reaches is neither taken nor matched by the rest of the pattern.
 fn append_nonterminal_recurse_gadget(out: &mut Program) -> anyhow::Result<()> {
+    out.is_recursive = true;
     // (NotHiddenDir AnyString Separator)* NotHiddenDir
     let start = out.here();
     out.instructions.push(Instruction::NotHiddenDir);
@@ -287,6 +289,7 @@ fn append_nonterminal_recurse_gadget(out: &mut Program) -> anyhow::Result<()> {
 /// The stop branch can only succeed at the end of the path, where there is no component left
 /// to be hidden, so `NotHiddenDir` guards just the take branch.
 fn append_terminal_recurse_gadget(out: &mut Program) -> anyhow::Result<()> {
+    out.is_recursive = true;
     out.instructions.push(Instruction::ComponentBoundary);
     // Skip the stop branch the first time round, so at least one component is taken.
     let here = out.here();

@@ -5,7 +5,10 @@ use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
     ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
     process::{ChildProcess, PostWaitCallback},
-    shell_error::io::{ErrorKind, IoError},
+    shell_error::{
+        generic::GenericError,
+        io::{ErrorKind, IoError},
+    },
 };
 use nu_system::ForegroundChild;
 #[cfg(unix)]
@@ -187,10 +190,20 @@ If you create a custom command with this name, that will be used instead."
         let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
+            // For a script run through its file association, normalize the name as
+            // typed so that `./script.nu` isn't parsed as the command `.` (#19584).
+            // Only the typed name is handed to CMD, never the cwd or a PATH dir, so
+            // characters such as spaces or `&` in those directories can't reach
+            // CMD's parser.
+            let cmd_target = if pathext_script_in_windows && !is_cmd_internal_command(&name_str) {
+                cmd_script_path(&expanded_name)
+            } else {
+                expanded_name.clone()
+            };
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
-            command.args(["/D", "/C", &expanded_name.to_string_lossy()]);
+            command.args(["/D", "/C", &cmd_target.to_string_lossy()]);
             for arg in &args {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
@@ -635,33 +648,35 @@ pub fn command_not_found(
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
     if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
-        let mut stack = stack.start_collect_value();
         // Set a special environment variable to avoid infinite loops when the
         // `command_not_found` hook triggers itself.
-        let canary = "ENTERED_COMMAND_NOT_FOUND";
-        if stack.has_env_var(engine_state, canary) {
+        const CANARY: &str = "ENTERED_COMMAND_NOT_FOUND";
+        const HOOK_NAME: &str = "command_not_found";
+
+        let mut stack = stack.start_collect_value();
+        if stack.has_env_var(engine_state, CANARY) {
             return ShellError::ExternalCommand {
-                label: format!(
-                    "Command {name} not found while running the `command_not_found` hook"
+                label: format!("Command {name} not found while running the `{HOOK_NAME}` hook"),
+                help: format!(
+                    "Make sure the `{HOOK_NAME}` hook itself does not use unknown commands"
                 ),
-                help: "Make sure the `command_not_found` hook itself does not use unknown commands"
-                    .into(),
                 span,
             };
         }
-        stack.add_env_var(canary.into(), Value::bool(true, Span::unknown()));
+        stack.add_env_var(CANARY.into(), Value::bool(true, Span::unknown()));
 
+        let mut hook_state = engine_state.clone(); // we only have immutable access to state so we have to clone it
         let output = eval_hook(
-            &mut engine_state.clone(),
-            &mut stack,
+            &mut hook_state,
+            &mut stack.clone(), // state is also coupled with the stack, cannot let `eval_hook` push stuff onto it
             None,
-            vec![("cmd_name".into(), Value::string(name, span))],
+            &[("cmd_name".into(), Value::string(name, span))],
             hook,
-            "command_not_found",
+            HOOK_NAME,
         );
 
         // Remove the special environment variable that we just set.
-        stack.remove_env_var(engine_state, canary);
+        stack.remove_env_var(engine_state, CANARY);
 
         match output {
             Ok(PipelineData::Value(Value::String { val, .. }, ..)) => {
@@ -671,12 +686,23 @@ pub fn command_not_found(
                     span,
                 };
             }
-            Err(err) => {
+            // We generally cannot return err directly, because its span is pointing at the parsed hook source,
+            // which in case of a string hook was only parsed into its own cloned engine state.
+            // However, exiting error has no span, so it's safe to return directly,
+            // and we can tell closure hooks apart by the cloned state not having any extra files.
+            Err(err) if err.is_exit() || hook_state.num_files() == engine_state.num_files() => {
                 return err;
             }
-            _ => {
-                // The hook did not return a string, so ignore it.
+            Err(err) => {
+                // stringly typed hook
+                return GenericError::new(
+                    err.to_string(),
+                    format!("`{HOOK_NAME}` hook was erroneous"),
+                    hook.span(),
+                )
+                .into();
             }
+            _ => (), // The hook did not return a string, so ignore it.
         }
     }
 
@@ -805,6 +831,18 @@ fn is_cmd_internal_command(name: &str) -> bool {
     COMMANDS.iter().any(|cmd| cmd.eq_ignore_ascii_case(name))
 }
 
+/// Normalize a script name, as typed by the user, before handing it to `cmd.exe /C`.
+///
+/// CMD treats `/` as a switch character, so a name such as `./sub/script.nu`
+/// would be split at the first `/`. Collecting the components rewrites every
+/// separator as `\` and drops redundant `.` components, while keeping a leading
+/// `.` so the name stays relative: `./sub/./script.nu` becomes `.\sub\script.nu`
+/// (#19584).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn cmd_script_path(script: &Path) -> PathBuf {
+    script.components().collect()
+}
+
 /// Returns true if a string contains CMD special characters.
 fn has_cmd_special_character(s: impl AsRef<[u8]>) -> bool {
     s.as_ref()
@@ -858,44 +896,44 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::{fs::Stub, playground::Playground};
+    use nu_test_support::{Result, prelude::*};
 
     #[test]
-    fn test_expand_glob() {
-        Playground::setup("test_expand_glob", |dirs, play| {
-            play.with_files(&[Stub::EmptyFile("a.txt"), Stub::EmptyFile("b.txt")]);
+    fn test_expand_glob(playground: Playground) -> Result {
+        playground.empty_file("a.txt")?;
+        playground.empty_file("b.txt")?;
 
-            let cwd = dirs.test().as_std_path();
+        let cwd = playground.path();
 
-            let actual = expand_glob("*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["a.txt", "b.txt"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["a.txt", "b.txt"];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("./*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            assert_eq!(actual, expected);
+        let actual = expand_glob("./*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("'*.txt'", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["'*.txt'"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("'*.txt'", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["'*.txt'"];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob(".", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["."];
-            assert_eq!(actual, expected);
+        let actual = expand_glob(".", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["."];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("./a.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["./a.txt"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("./a.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["./a.txt"];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("[*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["[*.txt"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("[*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["[*.txt"];
+        assert_eq!(actual, expected);
 
-            let actual =
-                expand_glob("~/foo.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let home = dirs::home_dir().expect("failed to get home dir");
-            let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
-            assert_eq!(actual, expected);
-        })
+        let actual = expand_glob("~/foo.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let home = dirs::home_dir().expect("failed to get home dir");
+        let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
+        assert_eq!(actual, expected);
+
+        Ok(())
     }
 
     #[test]
@@ -938,6 +976,21 @@ mod test {
         );
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
+    }
+
+    // Names as typed by the user (#19584): forward slashes become `\`, a
+    // leading `.` is kept and inner `.` components are dropped.
+    #[cfg(windows)]
+    #[rstest::rstest]
+    #[case("./hello.nu", r".\hello.nu")]
+    #[case("./hello", r".\hello")]
+    #[case("sub/hello.nu", r"sub\hello.nu")]
+    #[case("./sub/./hello.nu", r".\sub\hello.nu")]
+    #[case("../up/hello.nu", r"..\up\hello.nu")]
+    #[case(r".\hello.nu", r".\hello.nu")]
+    #[case("hello.nu", "hello.nu")]
+    fn cmd_script_path_uses_backslashes(#[case] typed: &str, #[case] expected: &str) {
+        assert_eq!(cmd_script_path(Path::new(typed)), PathBuf::from(expected));
     }
 }
 

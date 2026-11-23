@@ -278,3 +278,42 @@ fn http_post_timeout() -> Result {
     ));
     Ok(())
 }
+
+/// Test that http post -e with invalid body type (closure) still errors.
+#[test]
+fn http_post_allow_errors_invalid_body_type_still_errors() -> Result {
+    let mut server = Server::new();
+    let _mock = server.mock("POST", "/").with_status(200).create();
+
+    let code = format!(
+        "http post -e -t application/json {url} {{|| 1}}",
+        url = server.url()
+    );
+
+    let err = test().run(code).expect_error()?;
+    // Should be a type mismatch error, not swallowed by --allow-errors
+    assert!(
+        format!("{err:?}").contains("TypeMismatch") || format!("{err:?}").contains("type_mismatch")
+    );
+    Ok(())
+}
+
+/// Test that http post -e with header timeout returns nothing.
+#[test]
+fn http_post_header_timeout_with_allow_errors_returns_nothing() -> Result {
+    let listener =
+        std::net::TcpListener::bind("127.0.0.1:0").expect("could not bind test listener");
+    let addr = listener
+        .local_addr()
+        .expect("could not get test listener address");
+    std::thread::spawn(move || {
+        if let Ok((stream, _)) = listener.accept() {
+            std::thread::sleep(Duration::from_secs(10));
+            drop(stream);
+        }
+    });
+
+    let code = format!("http post --allow-errors --max-time 100ms http://{addr} 'body' | describe");
+
+    test().run(code).expect_value_eq("nothing")
+}
