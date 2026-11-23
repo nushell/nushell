@@ -4,7 +4,10 @@ use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, ir,
     shell_error::{self, generic::GenericError, io::IoError},
 };
-use std::path::{Path, PathBuf};
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -296,21 +299,35 @@ impl Command for Open {
             Ok(PipelineData::empty())
         } else if output.len() == 1 {
             Ok(output.remove(0))
+        } else if output
+            .iter()
+            .all(|pipeline| matches!(pipeline, PipelineData::ByteStream(..)))
+        {
+            // Chain the files into one byte stream like `cat`, as flattening a byte stream
+            // would split it into read-buffer chunks (#10027).
+            let reader = output
+                .into_iter()
+                .filter_map(|pipeline| match pipeline {
+                    PipelineData::ByteStream(stream, ..) => stream.reader(),
+                    _ => None,
+                })
+                .fold(
+                    Box::new(std::io::empty()) as Box<dyn Read + Send>,
+                    |chained, reader| Box::new(chained.chain(reader)),
+                );
+            Ok(PipelineData::byte_stream(
+                ByteStream::read(
+                    reader,
+                    call_span,
+                    engine_state.signals().clone(),
+                    ByteStreamType::Unknown,
+                ),
+                None,
+            ))
         } else {
-            // Collect each file left as a byte stream into one value, as flattening a byte stream
-            // would split it into chunks (#10027). Converted tables are still flattened together.
             Ok(output
                 .into_iter()
-                .flat_map(|pipeline| match pipeline {
-                    PipelineData::ByteStream(stream, ..) => {
-                        let span = stream.span();
-                        stream
-                            .into_value()
-                            .unwrap_or_else(|err| Value::error(err, span))
-                            .into_pipeline_data()
-                    }
-                    pipeline => pipeline,
-                })
+                .flatten()
                 .into_pipeline_data(call_span, engine_state.signals().clone()))
         }
     }

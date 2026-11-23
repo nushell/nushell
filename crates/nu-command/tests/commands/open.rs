@@ -401,11 +401,15 @@ fn open_multiple_files() -> Result {
         .expect_value_eq(58309279992i64)
 }
 
-/// Each file without a converter stays one value instead of being split into 8 KiB chunks (#10027).
+/// Files without a converter are chained into one byte stream instead of 8 KiB chunks (#10027).
 #[test]
-fn open_multiple_files_keeps_each_file_whole(playground: Playground) -> Result {
+fn open_multiple_files_chains_byte_streams(playground: Playground) -> Result {
     playground.file("first.txt", "a".repeat(10000))?;
     playground.file("second.txt", "b".repeat(20000))?;
+    let lines = (1..=2000)
+        .map(|i| format!("line {i}\n"))
+        .collect::<String>();
+    playground.file("lines.txt", lines)?;
 
     for open in [
         "open --raw first.txt second.txt",
@@ -414,15 +418,18 @@ fn open_multiple_files_keeps_each_file_whole(playground: Playground) -> Result {
         test()
             .cwd(playground.path())
             .run(format!("{open} | str length"))
-            .expect_value_eq(vec![10000, 20000])?;
-
-        test()
-            .cwd(playground.path())
-            .run(format!("{open} | each {{ str length }}"))
-            .expect_value_eq(vec![10000, 20000])?;
+            .expect_value_eq(30000)?;
     }
 
-    Ok(())
+    test()
+        .cwd(playground.path())
+        .run("open lines.txt lines.txt | lines | length")
+        .expect_value_eq(4000)?;
+
+    test()
+        .cwd(playground.path())
+        .run(r#"open lines.txt lines.txt | lines | where $it !~ '^line \d+$' | length"#)
+        .expect_value_eq(0)
 }
 
 #[test]
