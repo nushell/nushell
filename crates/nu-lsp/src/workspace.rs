@@ -1216,6 +1216,14 @@ mod tests {
         ]
     )]
     #[case::match_arm((2, 33), vec![make_text_edit(2, 16, 2, 17), make_text_edit(2, 33, 2, 34)])]
+    #[case::assignment(
+        (8, 2),
+        vec![
+            make_text_edit(6, 4, 6, 5),
+            serde_json::json!({"range": make_range(7, 1, 7, 3), "newText": "m: $new"}),
+            make_text_edit(8, 2, 8, 3),
+        ]
+    )]
     fn rename_pattern_variable(
         #[case] position: (u32, u32),
         #[case] expected_changes: Vec<serde_json::Value>,

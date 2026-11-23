@@ -97,20 +97,27 @@ fn pattern_bindings(
             }
         }
         Pattern::Optional { pattern, .. } => pattern_bindings(working_set, pattern, out),
-        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::IgnoreRest | Pattern::Garbage => {}
+        Pattern::Value(_)
+        | Pattern::Interval { .. }
+        | Pattern::IgnoreValue
+        | Pattern::IgnoreRest
+        | Pattern::Garbage => {}
     }
 }
 
 /// The variables the patterns directly in `expr` bind: a destructuring `let`, `mut`, `const` or
-/// `for`, the arms of a `match`, or a closure's pattern parameters. Nested expressions are left
-/// to the traversal.
+/// `for`, the arms of a `match`, or a closure's pattern parameters. The variables a destructuring
+/// assignment like `[$a, $b] = ...` assigns count too, as uses. Nested expressions are left to
+/// the traversal.
 pub(crate) fn expr_pattern_bindings(
     expr: &Expression,
     working_set: &StateWorkingSet,
 ) -> Vec<PatternBinding> {
     let mut out = vec![];
     match &expr.expr {
-        Expr::Pattern(pattern) => pattern_bindings(working_set, pattern, &mut out),
+        Expr::Pattern(pattern) | Expr::AssignmentPattern(pattern) => {
+            pattern_bindings(working_set, pattern, &mut out)
+        }
         Expr::MatchBlock(arms) => {
             for (pattern, _) in arms {
                 pattern_bindings(working_set, pattern, &mut out);
