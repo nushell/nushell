@@ -33,7 +33,7 @@ fn run_pipeline(code: &str, keys: &[u8]) -> io::Result<Vec<String>> {
     unsafe {
         nu.pre_exec(|| {
             setsid()?;
-            Errno::result(libc::ioctl(libc::STDIN_FILENO, libc::TIOCSCTTY, 0))?;
+            Errno::result(libc::ioctl(libc::STDIN_FILENO, libc::TIOCSCTTY as _, 0))?;
             Ok(())
         });
     }
@@ -47,7 +47,19 @@ fn run_pipeline(code: &str, keys: &[u8]) -> io::Result<Vec<String>> {
             return Err(io::Error::other(format!("expected ready, got {ready:?}")));
         }
         terminal.write_all(keys)?;
-        lines.collect::<io::Result<Vec<_>>>()
+        let mut read = Vec::new();
+        for line in lines {
+            match line {
+                Ok(line) => read.push(line),
+                Err(err) => {
+                    return Err(io::Error::new(
+                        err.kind(),
+                        format!("{err}, read so far: {read:?}"),
+                    ));
+                }
+            }
+        }
+        Ok(read)
     })();
     drop(terminal);
     if result.is_err() {
@@ -69,7 +81,9 @@ fn ctrl_c_interrupts_both_external_commands() -> Result {
         print resumed
     "#;
     let mut lines = run_pipeline(code, b"\x03")?;
-    lines.sort_unstable(); // The kernel can deliver the two signals in either order.
-    assert_eq!(lines, ["consumer", "producer", "resumed"]);
+    // Nu moves on only after both commands exit, but they can print in either order.
+    assert_eq!(lines.pop().as_deref(), Some("resumed"), "{lines:?}");
+    lines.sort_unstable();
+    assert_eq!(lines, ["consumer", "producer"]);
     Ok(())
 }
