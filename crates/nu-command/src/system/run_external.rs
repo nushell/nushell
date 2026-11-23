@@ -962,26 +962,19 @@ mod test {
         assert_eq!(buf, b"foo");
     }
 
+    // Names as typed by the user (#19584): forward slashes become `\`, a
+    // leading `.` is kept and inner `.` components are dropped.
     #[cfg(windows)]
-    #[test]
-    fn cmd_script_path_uses_backslashes() {
-        // Names as typed by the user (#19584): forward slashes become `\`, a
-        // leading `.` is kept and inner `.` components are dropped.
-        for (typed, expected) in [
-            ("./hello.nu", r".\hello.nu"),
-            ("./hello", r".\hello"),
-            ("sub/hello.nu", r"sub\hello.nu"),
-            ("./sub/./hello.nu", r".\sub\hello.nu"),
-            ("../up/hello.nu", r"..\up\hello.nu"),
-            (r".\hello.nu", r".\hello.nu"),
-            ("hello.nu", "hello.nu"),
-        ] {
-            assert_eq!(
-                cmd_script_path(Path::new(typed)),
-                PathBuf::from(expected),
-                "typed name: {typed}"
-            );
-        }
+    #[rstest::rstest]
+    #[case("./hello.nu", r".\hello.nu")]
+    #[case("./hello", r".\hello")]
+    #[case("sub/hello.nu", r"sub\hello.nu")]
+    #[case("./sub/./hello.nu", r".\sub\hello.nu")]
+    #[case("../up/hello.nu", r"..\up\hello.nu")]
+    #[case(r".\hello.nu", r".\hello.nu")]
+    #[case("hello.nu", "hello.nu")]
+    fn cmd_script_path_uses_backslashes(#[case] typed: &str, #[case] expected: &str) {
+        assert_eq!(cmd_script_path(Path::new(typed)), PathBuf::from(expected));
     }
 }
 
