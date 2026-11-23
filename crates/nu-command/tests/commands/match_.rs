@@ -412,3 +412,25 @@ fn match_record_default() -> Result {
 fn match_list_equals_is_a_string(#[case] code: &str, #[case] expected: Value) -> Result {
     test().run(code).expect_value_eq(expected)
 }
+
+#[rstest]
+#[case::float_in_int_range("match 3.5 { 1..5 => true, _ => false }", true)]
+#[case::float_range("match 1.5 { 1.0..2.0 => true, _ => false }", true)]
+#[case::stepped("match 2 { 1..3..9 => true, _ => false }", true)]
+#[case::stepped_float("match 2.5 { 1.0..1.5..3.0 => true, _ => false }", true)]
+#[case::open_start("match (-3) { ..0 => true, _ => false }", true)]
+#[case::open_start_above("match 1 { ..0 => true, _ => false }", false)]
+#[case::open_end("match 100 { 1.. => true, _ => false }", true)]
+#[case::descending("match 3 { 5..1 => true, _ => false }", true)]
+#[case::descending_exclusive_end("match 1 { 5..<1 => true, _ => false }", false)]
+#[case::exclusive_end("match 5 { 1..<5 => true, _ => false }", false)]
+#[case::not_a_number("match '3' { 1..5 => true, _ => false }", false)]
+#[case::large_ints(
+    "match 9007199254740993 { 9007199254740992..9007199254740992 => true, _ => false }",
+    false
+)]
+#[case::parenthesized("match 3.5 { (1..5) => true, _ => false }", true)]
+#[case::nested("match [3.5] { [1..5] => true, _ => false }", true)]
+fn range_is_interval(#[case] code: &str, #[case] expected: bool) -> Result {
+    test().run(code).expect_value_eq(expected)
+}

@@ -782,6 +782,7 @@ fn find_matching_block_end_in_expr<'a>(
             Expr::Var(_) => None,
             Expr::VarDecl(_) => None,
             Expr::Pattern(_) => None,
+            Expr::AssignmentPattern(_) => None,
             Expr::ExternalCall(..) => None,
             Expr::Operator(_) => None,
             Expr::Keyword(..) => None,

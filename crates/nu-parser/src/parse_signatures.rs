@@ -3,7 +3,7 @@
 use crate::parse_captures_compile::compile_block;
 use crate::parse_expressions::{parse_closure_expression, parse_math_expression, parse_value};
 use crate::parse_literals::parse_full_cell_path;
-use crate::parse_patterns::parse_binding_pattern;
+use crate::parse_patterns::{annotate_binding, parse_binding_pattern};
 use crate::{
     Token, TokenContents,
     lex::lex_signature,
@@ -169,6 +169,30 @@ pub fn parse_import_pattern<'a>(
     )
 }
 
+/// Parse the type annotation that starts at `spans[*spans_idx]` and runs to the end of `spans`,
+/// leaving `spans_idx` at the last span.
+fn parse_annotation(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    spans_idx: &mut usize,
+) -> Type {
+    // signature like record<a: int b: int> is broken into multiple spans due to
+    // whitespaces. Collect the rest into one span and work on it
+    let full_span = Span::concat(&spans[*spans_idx..]);
+    let type_bytes = working_set.get_span_contents(full_span).to_vec();
+
+    let (tokens, parse_error) = lex_signature(&type_bytes, full_span.start, &[], &[b','], true);
+
+    if let Some(parse_error) = parse_error {
+        working_set.error(parse_error);
+    }
+
+    let type_span = tokens.first().map_or(full_span, |token| token.span);
+    let ty = parse_type(working_set, &type_bytes, type_span);
+    *spans_idx = spans.len() - 1;
+    ty
+}
+
 pub fn parse_var_with_opt_type(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -181,24 +205,34 @@ pub fn parse_var_with_opt_type(
 
     // `let {$a, $b} = ...` and `let [$a, $b] = ...` destructure the value.
     if matches!(bytes.first(), Some(b'{' | b'[')) {
-        if bytes.ends_with(b":") {
-            working_set.error(ParseError::LabeledErrorWithHelp {
-                error: "A destructuring pattern can't have a type annotation".into(),
-                label: "type annotation".into(),
-                help: "Remove the annotation, and convert the value first if needed.".into(),
-                span: Span::concat(&spans[*spans_idx..]),
-            });
-            *spans_idx = spans.len() - 1;
-            return (garbage(working_set, name_span), None);
+        // `let {$a}: record<a: int> = ...` annotates the whole value, and the variables take
+        // their types from the annotation.
+        let (pattern_span, annotation) = if bytes.ends_with(b":") {
+            let pattern_span = Span::new(name_span.start, name_span.end - 1);
+            if *spans_idx + 1 < spans.len() {
+                *spans_idx += 1;
+                (
+                    pattern_span,
+                    Some(parse_annotation(working_set, spans, spans_idx)),
+                )
+            } else {
+                working_set.error(ParseError::MissingType(name_span));
+                (pattern_span, None)
+            }
+        } else {
+            (name_span, None)
+        };
+        let pattern = parse_binding_pattern(working_set, pattern_span, mutable);
+        if let Some(ty) = &annotation {
+            annotate_binding(working_set, &pattern, ty, pattern_span);
         }
-        let pattern = parse_binding_pattern(working_set, name_span, mutable);
         let expr = Expression::new(
             working_set,
             Expr::Pattern(Box::new(pattern)),
-            name_span,
+            pattern_span,
             Type::Any,
         );
-        return (expr, None);
+        return (expr, annotation);
     }
 
     if bytes.contains(&b' ')
@@ -217,20 +251,7 @@ pub fn parse_var_with_opt_type(
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
             *spans_idx += 1;
-            // signature like record<a: int b: int> is broken into multiple spans due to
-            // whitespaces. Collect the rest into one span and work on it
-            let full_span = Span::concat(&spans[*spans_idx..]);
-            let type_bytes = working_set.get_span_contents(full_span).to_vec();
-
-            let (tokens, parse_error) =
-                lex_signature(&type_bytes, full_span.start, &[], &[b','], true);
-
-            if let Some(parse_error) = parse_error {
-                working_set.error(parse_error);
-            }
-
-            let ty = parse_type(working_set, &type_bytes, tokens[0].span);
-            *spans_idx = spans.len() - 1;
+            let ty = parse_annotation(working_set, spans, spans_idx);
 
             if !is_variable(&var_name) {
                 working_set.error(ParseError::Expected(

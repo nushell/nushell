@@ -361,10 +361,6 @@ fn let_destructure_value_type_mismatch() -> Result {
 )]
 #[case::bound_twice("let [$a, {$a}] = [1 {a: 2}]", "`$a` is bound twice in this pattern")]
 #[case::bound_twice_rest("let [$a, ..$a] = [1 2]", "`$a` is bound twice in this pattern")]
-#[case::annotation(
-    "let {$a}: record<a: int> = {a: 1}",
-    "A destructuring pattern can't have a type annotation"
-)]
 fn let_destructure_invalid_pattern(#[case] code: &str, #[case] expected: &str) -> Result {
     let err = test().run(code).expect_parse_error()?;
     assert_matches!(err, ParseError::LabeledErrorWithHelp { error, .. } if error == expected);
@@ -502,5 +498,109 @@ fn let_destructure_in_sourced_file(playground: Playground) -> Result {
 fn let_destructure_raises_error_values(#[case] code: &str) -> Result {
     let err = test().run(code).expect_shell_error()?;
     assert_contains("boom", err.to_string());
+    Ok(())
+}
+
+#[rstest]
+#[case::record("let {$a, $b}: record<a: int, b: string> = {a: 1, b: x}; [$a $b]", test_value!([1, "x"]))]
+#[case::extra_fields("let {$a}: record<a: int> = {a: 1, c: 2}; $a", test_value!(1))]
+#[case::list("let [$x, ..$rest]: list<int> = [1 2 3]; $rest", test_value!([2, 3]))]
+#[case::pass_through("{a: 1} | let {$a}: record<a: int> | $a", test_value!(1))]
+#[case::mut_("mut {$a}: record<a: int> = {a: 1}; $a += 1; $a", test_value!(2))]
+#[case::const_("const {$a}: record<a: int> = {a: 1}; $a", test_value!(1))]
+fn let_destructure_annotated(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn let_destructure_annotation_types_variables() -> Result {
+    let err = test()
+        .run("let {$a}: record<a: int> = {a: 1}; $a | str length")
+        .expect_parse_error()?;
+    assert_matches!(err, ParseError::InputMismatch { .. });
+    Ok(())
+}
+
+#[rstest]
+#[case::value("let {$a}: record<a: int> = 5")]
+#[case::field("let r = {a: s}; let {$a}: record<a: int> = $r")]
+#[case::shape("let {$a}: int = {a: 1}")]
+#[case::pass_through("5 | let {$a}: record<a: int>")]
+#[case::const_("const {$a}: record<a: int> = {a: s}")]
+fn let_destructure_annotation_mismatch(#[case] code: &str) -> Result {
+    test()
+        .run(code)
+        .expect_error_code_eq("nu::parser::type_mismatch")
+}
+
+#[rstest]
+#[case::let_("let {$p}: record<p: glob> = {p: '*.md'}; $p | describe")]
+#[case::const_("const {$p}: record<p: glob> = {p: '*.md'}; $p | describe")]
+fn let_destructure_annotated_glob(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("glob")
+}
+
+#[test]
+#[exp(nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS)]
+fn let_destructure_annotation_checked_at_run_time() -> Result {
+    test()
+        .run("def f [] { {a: s} }; let {$a}: record<a: int> = (f)")
+        .expect_error_code_eq("nu::shell::type_mismatch")
+}
+
+#[rstest]
+#[case::rest_is_range(
+    "let [$a, $b, ..$rest] = 1..5; {a: $a, b: $b, rest: ($rest | each { $in }), type: ($rest | describe)}",
+    test_value!({a: 1, b: 2, rest: [3, 4, 5], type: "range"})
+)]
+#[case::descending("let [$a, ..$rest, $z] = 5..1; [$a ($rest | each { $in }) $z]", test_value!([5, [4, 3, 2], 1]))]
+#[case::stepped_exclusive("let [$a, $b] = 1..3..<5; [$a $b]", test_value!([1, 3]))]
+#[case::unbounded("let [$a, ..$rest] = 5..; [$a ($rest | first 2)]", test_value!([5, [6, 7]]))]
+#[case::empty_rest("let [$a, $b, ..$rest] = 1..2; $rest | each { $in }", test_value!([]))]
+#[case::optional_item("let [$a, $b?] = 1..1; [$a $b]", test_value!([1, ()]))]
+#[case::for_items("mut s = []; for [$a, $b] in [1..2 3..4] { $s ++= [($a + $b)] }; $s", test_value!([3, 7]))]
+#[case::match_arm("match 1..3 { [1, ..$r] => ($r | each { $in }) }", test_value!([2, 3]))]
+fn let_destructure_int_range(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn let_destructure_int_range_matches_its_items() -> Result {
+    // Each bound item and rest must equal the same slice of the range made into a list.
+    let code = "
+        mut failures = []
+        for r in [(1..10) (1..<10) (10..1) (10..<1) (1..3..20) (20..17..1) (1..3..<9) (5..5) (1..2) (-5..5) (0..<0)] {
+            let l = ($r | each { $in })
+            let n = ($l | length)
+            if $n >= 3 {
+                let [$a, $b, ..$rest, $z] = $r
+                if [$a $b ($rest | each { $in }) $z] != [$l.0 $l.1 ($l | slice 2..($n - 2)) ($l | last)] {
+                    $failures ++= [($r | to nuon)]
+                }
+            }
+            if $n >= 1 {
+                let [..$init, $z] = $r
+                if [($init | each { $in }) $z] != [($l | drop 1) ($l | last)] {
+                    $failures ++= [($r | to nuon)]
+                }
+            }
+        }
+        $failures
+    ";
+    test().run(code).expect_value_eq(test_value!([]))
+}
+
+#[rstest]
+#[case::length("let [$a, $b] = 1..5", "range has 5 items, the pattern takes 2")]
+#[case::unbounded_exact("let [$a, $b] = 1..", "the range has no end")]
+#[case::unbounded_last("let [.., $z] = 1..", "the range has no end")]
+#[case::float_range(
+    "let [$a, ..] = 1.0..3.0",
+    "expected a list or int range, got float range"
+)]
+#[case::item_shape("let [{$a}] = 1..1", "expected a record, got int")]
+fn let_destructure_int_range_mismatch(#[case] code: &str, #[case] expected: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(err, ShellError::PatternMismatch { msg, .. } if msg == expected);
     Ok(())
 }

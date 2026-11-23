@@ -374,6 +374,24 @@ pub(crate) fn compile_assignment(
                 compile_assignment(working_set, builder, &path.head, assignment_span, head_reg)
             }
         },
+        // `[$a, $b] = [$b, $a]`: bind the pattern's variables from the collected value.
+        Expr::AssignmentPattern(ref pattern) => {
+            for var_id in pattern.variables() {
+                if !working_set.get_variable(var_id).mutable {
+                    return Err(CompileError::AssignmentRequiresMutableVar { span: lhs.span });
+                }
+            }
+            builder
+                .push(Instruction::Collect { src_dst: rhs_reg }.into_spanned(assignment_span))?;
+            builder.push(
+                Instruction::Destructure {
+                    pattern: Box::new(pattern.pattern.clone()),
+                    src: rhs_reg,
+                }
+                .into_spanned(pattern.span),
+            )?;
+            Ok(())
+        }
         Expr::Garbage => Err(CompileError::Garbage { span: lhs.span }),
         _ => Err(CompileError::AssignmentRequiresVar { span: lhs.span }),
     }

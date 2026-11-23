@@ -1,7 +1,8 @@
 use crate::{
-    ParseError, Record, ShellError, Span, Value, VarId,
+    IntRange, ParseError, Range, Record, ShellError, Span, Value, VarId,
     ast::{MatchPattern, Pattern},
 };
+use std::{cmp::Ordering, ops::Bound};
 
 pub trait Matcher {
     fn match_value(&self, value: &Value, matches: &mut Vec<(VarId, Value)>) -> bool;
@@ -33,7 +34,7 @@ pub enum MismatchReason<'a> {
     /// A record or list pattern met a value of another type.
     WrongType {
         expected: &'static str,
-        value: &'a Value,
+        actual: &'static str,
     },
     /// A record pattern names a field the record doesn't have.
     MissingField { field: &'a str, record: &'a Record },
@@ -43,7 +44,11 @@ pub enum MismatchReason<'a> {
         min: usize,
         max: Option<usize>,
         len: usize,
+        /// What has the items: "list" or "range".
+        of: &'static str,
     },
+    /// A list pattern without a rest, or with items after it, met a range that never ends.
+    UnboundedRange,
     /// The value doesn't equal a literal, isn't in a range, or fits no side of an or-pattern.
     /// Only `match` arms have these patterns.
     Unmatched,
@@ -94,7 +99,7 @@ impl Pattern {
                 let Value::Record { val: record, .. } = value else {
                     return mismatch(MismatchReason::WrongType {
                         expected: "record",
-                        value,
+                        actual: type_name(value),
                     });
                 };
                 let mut rest = None;
@@ -137,69 +142,50 @@ impl Pattern {
                 Ok(())
             }
             Pattern::List(items) => {
-                let Value::List { vals, .. } = value else {
-                    return mismatch(MismatchReason::WrongType {
+                let shape = ListShape::new(items);
+                match value {
+                    Value::List { vals, .. } => shape.check_list(span, vals, matches),
+                    Value::Range { val, .. } => match **val {
+                        Range::IntRange(range) => {
+                            shape.check_int_range(span, range, value.span(), matches)
+                        }
+                        // Float items aren't exact enough to count, so only int ranges qualify.
+                        Range::FloatRange(_) => mismatch(MismatchReason::WrongType {
+                            expected: "list or int range",
+                            actual: "float range",
+                        }),
+                    },
+                    _ => mismatch(MismatchReason::WrongType {
                         expected: "list",
-                        value,
-                    });
-                };
-                // The parser allows at most one `..` or `..$name` per list pattern, at any
-                // position. Items before it match the start of the list, items after it match
-                // the end, and the rest pattern takes whatever is left in between. Optional items
-                // come last, in a pattern without a rest, and may be missing from the list.
-                let rest_idx = items.iter().position(|item| {
-                    matches!(item.pattern, Pattern::IgnoreRest | Pattern::Rest(_))
-                });
-                let (before, rest, after) = match rest_idx {
-                    Some(idx) => (&items[..idx], Some(&items[idx]), &items[idx + 1..]),
-                    None => (&items[..], None, &[][..]),
-                };
-
-                // Without a rest pattern the list may only leave out optional items; with one it may
-                // be longer.
-                let optional = before
-                    .iter()
-                    .filter(|item| matches!(item.pattern, Pattern::Optional { .. }))
-                    .count();
-                let min = before.len() + after.len() - optional;
-                let max = rest.is_none().then_some(before.len() + after.len());
-                if vals.len() < min || max.is_some_and(|max| vals.len() > max) {
-                    return mismatch(MismatchReason::ListLength {
-                        min,
-                        max,
-                        len: vals.len(),
-                    });
+                        actual: type_name(value),
+                    }),
                 }
-                let after_start = vals.len() - after.len();
-
-                // Bind left to right, so a variable used twice keeps its rightmost value.
-                for (idx, pattern) in before.iter().enumerate() {
-                    match vals.get(idx) {
-                        Some(val) => pattern.check(val, matches)?,
-                        None => pattern.pattern.bind_missing(pattern.span, matches)?,
-                    }
-                }
-                if let Some(MatchPattern {
-                    pattern: Pattern::Rest(var_id),
-                    span,
-                    ..
-                }) = rest
-                {
-                    let rest_vals = vals[before.len()..after_start].to_vec();
-                    matches.push((*var_id, Value::list(rest_vals, *span)));
-                }
-                for (pattern, val) in after.iter().zip(&vals[after_start..]) {
-                    pattern.check(val, matches)?;
-                }
-                Ok(())
             }
             Pattern::Value(pattern_value) => {
-                let fits = match pattern_value {
-                    // Ranges match by containment.
-                    Value::Range { val, .. } => val.contains(value),
-                    _ => value == pattern_value,
+                if value == pattern_value {
+                    Ok(())
+                } else {
+                    mismatch(MismatchReason::Unmatched)
+                }
+            }
+            Pattern::Interval { low, high } => {
+                let above = match low {
+                    Bound::Included(low) => matches!(
+                        compare_numbers(value, low),
+                        Some(Ordering::Greater | Ordering::Equal)
+                    ),
+                    Bound::Excluded(low) => compare_numbers(value, low) == Some(Ordering::Greater),
+                    Bound::Unbounded => matches!(value, Value::Int { .. } | Value::Float { .. }),
                 };
-                if fits {
+                let below = match high {
+                    Bound::Included(high) => matches!(
+                        compare_numbers(value, high),
+                        Some(Ordering::Less | Ordering::Equal)
+                    ),
+                    Bound::Excluded(high) => compare_numbers(value, high) == Some(Ordering::Less),
+                    Bound::Unbounded => true,
+                };
+                if above && below {
                     Ok(())
                 } else {
                     mismatch(MismatchReason::Unmatched)
@@ -264,6 +250,247 @@ impl Pattern {
     }
 }
 
+/// A list pattern split around its rest, with the numbers of items it takes.
+///
+/// The parser allows at most one `..` or `..$name` per list pattern, at any position. Items
+/// before it match the start of the list, items after it match the end, and the rest takes
+/// whatever is left in between. Optional items come last, in a pattern without a rest, and may be
+/// missing.
+struct ListShape<'a> {
+    before: &'a [MatchPattern],
+    rest: Option<&'a MatchPattern>,
+    after: &'a [MatchPattern],
+    /// The fewest items, leaving out the optional ones.
+    min: usize,
+    /// The most items, or `None` with a rest.
+    max: Option<usize>,
+}
+
+impl<'a> ListShape<'a> {
+    fn new(items: &'a [MatchPattern]) -> Self {
+        let rest_idx = items
+            .iter()
+            .position(|item| matches!(item.pattern, Pattern::IgnoreRest | Pattern::Rest(_)));
+        let (before, rest, after) = match rest_idx {
+            Some(idx) => (&items[..idx], Some(&items[idx]), &items[idx + 1..]),
+            None => (items, None, &[][..]),
+        };
+        let optional = before
+            .iter()
+            .filter(|item| matches!(item.pattern, Pattern::Optional { .. }))
+            .count();
+        let fixed = before.len() + after.len();
+        Self {
+            before,
+            rest,
+            after,
+            min: fixed - optional,
+            max: rest.is_none().then_some(fixed),
+        }
+    }
+
+    /// Check that `len` items fit, for the list or range `of`.
+    fn check_len(
+        &self,
+        span: Span,
+        len: usize,
+        of: &'static str,
+    ) -> Result<(), PatternMismatch<'a>> {
+        if len < self.min || self.max.is_some_and(|max| len > max) {
+            Err(PatternMismatch {
+                span,
+                reason: MismatchReason::ListLength {
+                    min: self.min,
+                    max: self.max,
+                    len,
+                    of,
+                },
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    fn check_list(
+        &self,
+        span: Span,
+        vals: &'a [Value],
+        matches: &mut Vec<(VarId, Value)>,
+    ) -> Result<(), PatternMismatch<'a>> {
+        self.check_len(span, vals.len(), "list")?;
+        let after_start = vals.len() - self.after.len();
+
+        // Bind left to right, so a variable used twice keeps its rightmost value.
+        for (idx, pattern) in self.before.iter().enumerate() {
+            match vals.get(idx) {
+                Some(val) => pattern.check(val, matches)?,
+                None => pattern.pattern.bind_missing(pattern.span, matches)?,
+            }
+        }
+        if let Some(MatchPattern {
+            pattern: Pattern::Rest(var_id),
+            span,
+            ..
+        }) = self.rest
+        {
+            let rest_vals = vals[self.before.len()..after_start].to_vec();
+            matches.push((*var_id, Value::list(rest_vals, *span)));
+        }
+        for (pattern, val) in self.after.iter().zip(&vals[after_start..]) {
+            pattern.check(val, matches)?;
+        }
+        Ok(())
+    }
+
+    /// Match an int range as the list of its items, without making that list. `..$rest` gets
+    /// the items it covers as a range, so it works on a range without an end too.
+    fn check_int_range(
+        &self,
+        span: Span,
+        range: IntRange,
+        item_span: Span,
+        matches: &mut Vec<(VarId, Value)>,
+    ) -> Result<(), PatternMismatch<'a>> {
+        if range.is_unbounded() && (self.rest.is_none() || !self.after.is_empty()) {
+            return Err(PatternMismatch {
+                span,
+                reason: MismatchReason::UnboundedRange,
+            });
+        }
+        let start = i128::from(range.start());
+        let step = i128::from(range.step());
+        // The last item, or for a range without an end, the last one before `i64` overflows.
+        let last = match range.end() {
+            Bound::Included(end) => i128::from(end),
+            Bound::Excluded(end) => i128::from(end) - step.signum(),
+            Bound::Unbounded if step > 0 => i128::from(i64::MAX),
+            Bound::Unbounded => i128::from(i64::MIN),
+        };
+        let distance = (last - start) * step.signum();
+        let len = if distance < 0 {
+            0
+        } else {
+            usize::try_from(distance / step.abs() + 1).unwrap_or(usize::MAX)
+        };
+        self.check_len(span, len, "range")?;
+        let after_start = len - self.after.len();
+        // Every index below `len` is an item between the start and `last`, so it fits an `i64`.
+        let item_at = |index: usize| start + index as i128 * step;
+        let item = |index: usize| Value::int(item_at(index) as i64, item_span);
+
+        for (idx, pattern) in self.before.iter().enumerate() {
+            if idx < len {
+                check_range_item(pattern, item(idx), matches)?;
+            } else {
+                pattern.pattern.bind_missing(pattern.span, matches)?;
+            }
+        }
+        if let Some(MatchPattern {
+            pattern: Pattern::Rest(var_id),
+            span: rest_span,
+            ..
+        }) = self.rest
+        {
+            let rest = if after_start > self.before.len() {
+                let end = match range.end() {
+                    Bound::Unbounded => Bound::Unbounded,
+                    _ => Bound::Included(item_at(after_start - 1) as i64),
+                };
+                IntRange {
+                    start: item_at(self.before.len()) as i64,
+                    step: range.step(),
+                    end,
+                }
+            } else {
+                // No items are left for the rest: an empty range, `n..<n`.
+                let at = i64::try_from(item_at(self.before.len())).unwrap_or(range.start());
+                IntRange {
+                    start: at,
+                    step: 1,
+                    end: Bound::Excluded(at),
+                }
+            };
+            matches.push((*var_id, Value::range(Range::IntRange(rest), *rest_span)));
+        }
+        for (offset, pattern) in self.after.iter().enumerate() {
+            check_range_item(pattern, item(after_start + offset), matches)?;
+        }
+        Ok(())
+    }
+}
+
+/// Match an item of a range, an int made for the match. The detailed reason would borrow the
+/// item, so a failure reports what an int can't fit: a record or list pattern, or a literal.
+fn check_range_item<'a>(
+    pattern: &'a MatchPattern,
+    item: Value,
+    matches: &mut Vec<(VarId, Value)>,
+) -> Result<(), PatternMismatch<'a>> {
+    let mut bindings = vec![];
+    if pattern.check(&item, &mut bindings).is_ok() {
+        matches.append(&mut bindings);
+        return Ok(());
+    }
+    let failed = match &pattern.pattern {
+        Pattern::Optional { pattern, .. } => pattern,
+        _ => pattern,
+    };
+    let reason = match failed.pattern {
+        Pattern::Record(_) => MismatchReason::WrongType {
+            expected: "record",
+            actual: "int",
+        },
+        Pattern::List(_) => MismatchReason::WrongType {
+            expected: "list",
+            actual: "int",
+        },
+        _ => MismatchReason::Unmatched,
+    };
+    Err(PatternMismatch {
+        span: failed.span,
+        reason,
+    })
+}
+
+/// The name of a value's type for a mismatch message. A table is a list here: telling them apart
+/// would scan the list on every failed `match` arm.
+fn type_name(value: &Value) -> &'static str {
+    match value {
+        Value::Bool { .. } => "bool",
+        Value::Int { .. } => "int",
+        Value::Float { .. } => "float",
+        Value::Filesize { .. } => "filesize",
+        Value::Duration { .. } => "duration",
+        Value::Date { .. } => "datetime",
+        Value::Range { .. } => "range",
+        Value::String { .. } => "string",
+        Value::Glob { .. } => "glob",
+        Value::Record { .. } => "record",
+        Value::List { .. } => "list",
+        Value::Closure { .. } => "closure",
+        Value::Error { .. } => "error",
+        Value::Binary { .. } => "binary",
+        Value::CellPath { .. } => "cell-path",
+        Value::Custom { .. } => "custom",
+        Value::Nothing { .. } => "nothing",
+    }
+}
+
+/// Compare two numbers, ints as ints. `None` when either isn't a number, or for NaN.
+fn compare_numbers(value: &Value, bound: &Value) -> Option<Ordering> {
+    match (value, bound) {
+        (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Some(lhs.cmp(rhs)),
+        (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+            (*lhs as f64).partial_cmp(rhs)
+        }
+        (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+            lhs.partial_cmp(&(*rhs as f64))
+        }
+        (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => lhs.partial_cmp(rhs),
+        _ => None,
+    }
+}
+
 /// How many field names a missing-field error lists before it summarizes the rest.
 const LISTED_FIELDS: usize = 10;
 
@@ -283,13 +510,9 @@ impl PatternMismatch<'_> {
     /// The error's label, its span, and its help.
     fn describe(self) -> (String, Span, Option<String>) {
         let (msg, help) = match self.reason {
-            MismatchReason::WrongType { expected, value } => (
-                format!(
-                    "expected a {expected}, got {}",
-                    value.get_type().get_non_specified_string()
-                ),
-                None,
-            ),
+            MismatchReason::WrongType { expected, actual } => {
+                (format!("expected a {expected}, got {actual}"), None)
+            }
             MismatchReason::MissingField { field, record } => {
                 let help = if record.is_empty() {
                     "The record is empty.".to_string()
@@ -310,7 +533,7 @@ impl PatternMismatch<'_> {
                 let help = format!("{help} Add `?` after the pattern if the field can be missing.");
                 (format!("record has no field `{field}`"), Some(help))
             }
-            MismatchReason::ListLength { min, max, len } => {
+            MismatchReason::ListLength { min, max, len, of } => {
                 let items = if len == 1 { "item" } else { "items" };
                 let takes = match max {
                     Some(max) if max == min => format!("takes {max}"),
@@ -320,8 +543,14 @@ impl PatternMismatch<'_> {
                 // `..` can't join optional items, so it's only a fix for an exact length.
                 let help = (max == Some(min) && len > min)
                     .then(|| "Add `..` to ignore the rest.".to_string());
-                (format!("list has {len} {items}, the pattern {takes}"), help)
+                (format!("{of} has {len} {items}, the pattern {takes}"), help)
             }
+            MismatchReason::UnboundedRange => (
+                "the range has no end".into(),
+                Some(
+                    "End the pattern with `..` or `..$rest` to take a range without an end.".into(),
+                ),
+            ),
             MismatchReason::Unmatched => ("the value doesn't fit this pattern".into(), None),
         };
         (msg, self.span, help)
