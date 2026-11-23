@@ -126,15 +126,15 @@ fn eval_value_eq(#[case] source: &str, #[case] expected: impl IntoValue) -> Resu
 }
 
 #[rstest]
-#[case::literal_binary("0x[1f 2f f0] | table", "(?s)Length.*1f.*2f.*f0")]
+#[case::literal_binary("0x[1f 2f f0] | table --width 80", "(?s)Length.*1f.*2f.*f0")]
 #[case::literal_closure("{||} | to nuon --serialize", r#""\{\|\|\}""#)]
-#[case::literal_range("0..2..10 | table", "10")]
-#[case::literal_list("[foo bar baz] | table", "(?s)foo.*bar.*baz")]
-#[case::literal_record("{foo: bar, baz: quux} | table", "(?s)foo.*bar.*baz.*quux")]
-#[case::literal_table("[[a b]; [1 2] [3 4]] | table", "(?s)a.*b.*1.*2.*3.*4")]
+#[case::literal_range("0..2..10 | table --width 80", "10")]
+#[case::literal_list("[foo bar baz] | table --width 80", "(?s)foo.*bar.*baz")]
+#[case::literal_record("{foo: bar, baz: quux} | table --width 80", "(?s)foo.*bar.*baz.*quux")]
+#[case::literal_table("[[a b]; [1 2] [3 4]] | table --width 80", "(?s)a.*b.*1.*2.*3.*4")]
 #[case::literal_date("2020-01-01T00:00:00Z | format date '%Y'", "2020")]
 #[case::call_spread(
-    "echo foo bar ...[baz quux nushell] | table",
+    "echo foo bar ...[baz quux nushell] | table --width 80",
     "(?s)foo.*bar.*baz.*quux.*nushell"
 )]
 fn eval_rendered_matches(#[case] source: &str, #[case] regex: &str) -> Result {
