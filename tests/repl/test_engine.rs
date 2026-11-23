@@ -220,12 +220,19 @@ fn builtin_switch_rejects_a_value_that_is_not_a_bool() -> Result {
 
 #[test]
 fn const_switch_rejects_a_value_that_is_not_a_bool() -> Result {
-    // The parser has no type for a field of a const record to check against the switch.
-    let code = "const r = {a: 5}; const n = ('abc' | str length --chars=$r.a)";
+    // The parser types `$r.a` as int and rejects it before evaluation, but `get` returns `any`,
+    // so the check falls to the const evaluation.
+    let code = "const r = {a: 5}; const n = ('abc' | str length --chars=($r | get a))";
     let err = test().run(code).expect_parse_error()?;
     assert_matches!(
         err,
-        ParseError::LabeledError(shell_error, ..) if shell_error.contains("`--chars` is a switch")
+        ParseError::ParseTimeEval { error, .. } if matches!(
+            *error,
+            ShellError::CantConvert { ref to_type, ref from_type, ref help, .. }
+                if to_type == "bool"
+                    && from_type == "int"
+                    && help.as_deref() == Some("`--chars` is a switch; use true or false")
+        )
     );
     Ok(())
 }
