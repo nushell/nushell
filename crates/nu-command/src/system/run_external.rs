@@ -655,8 +655,9 @@ pub fn command_not_found(
         }
         stack.add_env_var(CANARY.into(), Value::bool(true, Span::unknown()));
 
+        let mut hook_state = engine_state.clone(); // we only have immutable access to state so we have to clone it
         let output = eval_hook(
-            &mut engine_state.clone(), // we only have immutable access to state so we have to clone it
+            &mut hook_state,
             &mut stack.clone(), // state is also coupled with the stack, cannot let `eval_hook` push stuff onto it
             None,
             &[("cmd_name".into(), Value::string(name, span))],
@@ -675,9 +676,15 @@ pub fn command_not_found(
                     span,
                 };
             }
+            // We generally cannot return err directly, because its span is pointing at the parsed hook source,
+            // which in case of a string hook was only parsed into its own cloned engine state.
+            // However, exiting error has no span, so it's safe to return directly,
+            // and we can tell closure hooks apart by the cloned state not having any extra files.
+            Err(err) if err.is_exit() || hook_state.num_files() == engine_state.num_files() => {
+                return err;
+            }
             Err(err) => {
-                // We cannot return err directly, because its span is pointing at the parsed hook source,
-                // which in case of a string hook was only parsed into its own cloned engine state.
+                // stringly typed hook
                 return GenericError::new(
                     err.to_string(),
                     format!("`{HOOK_NAME}` hook was erroneous"),
