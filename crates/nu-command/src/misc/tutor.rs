@@ -355,6 +355,10 @@ You can also learn more about variables by running:
 ```
 tutor variables
 ```
+You can learn more about loops by running:
+```
+tutor for
+```
 "
 }
 
@@ -405,6 +409,11 @@ while $x < 5 {
 One special feature of blocks is that they can modify mutable variables
 from the parent scope. For example, the `while` loop above mutates `$x`
 even though it was declared outside the block.
+
+You can learn more about loops by running:
+```
+tutor for
+```
 "#
 }
 
