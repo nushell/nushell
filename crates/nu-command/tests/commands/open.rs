@@ -401,6 +401,49 @@ fn open_multiple_files() -> Result {
         .expect_value_eq(58309279992i64)
 }
 
+/// Files without a converter are chained into one byte stream instead of 8 KiB chunks (#10027).
+#[test]
+fn open_multiple_files_chains_byte_streams(playground: Playground) -> Result {
+    playground.file("first.txt", "a".repeat(10000))?;
+    playground.file("second.txt", "b".repeat(20000))?;
+    let lines = (1..=2000)
+        .map(|i| format!("line {i}\n"))
+        .collect::<String>();
+    playground.file("lines.txt", lines)?;
+
+    for open in [
+        "open --raw first.txt second.txt",
+        "open first.txt second.txt",
+    ] {
+        test()
+            .cwd(playground.path())
+            .run(format!("{open} | str length"))
+            .expect_value_eq(30000)?;
+    }
+
+    test()
+        .cwd(playground.path())
+        .run("open lines.txt lines.txt | lines | length")
+        .expect_value_eq(4000)?;
+
+    test()
+        .cwd(playground.path())
+        .run(r#"open lines.txt lines.txt | lines | where $it !~ '^line \d+$' | length"#)
+        .expect_value_eq(0)
+}
+
+/// A typed byte stream from a `from` converter keeps its type when the files are chained.
+#[test]
+fn open_multiple_files_keeps_converter_stream_type(playground: Playground) -> Result {
+    playground.file("h1.foo", "hello")?;
+    playground.file("h2.foo", "world")?;
+
+    test()
+        .cwd(playground.path())
+        .run(r#"def "from foo" [] { into binary }; open h1.foo h2.foo | collect | to nuon"#)
+        .expect_value_eq("0x[68656C6C6F776F726C64]")
+}
+
 #[test]
 fn test_open_block_command() -> Result {
     let code = r#"
