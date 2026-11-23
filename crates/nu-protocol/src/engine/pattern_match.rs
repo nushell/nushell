@@ -2,6 +2,7 @@ use crate::{
     ParseError, Record, ShellError, Span, Value, VarId,
     ast::{MatchPattern, Pattern},
 };
+use std::{cmp::Ordering, ops::Bound};
 
 pub trait Matcher {
     fn match_value(&self, value: &Value, matches: &mut Vec<(VarId, Value)>) -> bool;
@@ -194,12 +195,30 @@ impl Pattern {
                 Ok(())
             }
             Pattern::Value(pattern_value) => {
-                let fits = match pattern_value {
-                    // Ranges match by containment.
-                    Value::Range { val, .. } => val.contains(value),
-                    _ => value == pattern_value,
+                if value == pattern_value {
+                    Ok(())
+                } else {
+                    mismatch(MismatchReason::Unmatched)
+                }
+            }
+            Pattern::Interval { low, high } => {
+                let above = match low {
+                    Bound::Included(low) => matches!(
+                        compare_numbers(value, low),
+                        Some(Ordering::Greater | Ordering::Equal)
+                    ),
+                    Bound::Excluded(low) => compare_numbers(value, low) == Some(Ordering::Greater),
+                    Bound::Unbounded => matches!(value, Value::Int { .. } | Value::Float { .. }),
                 };
-                if fits {
+                let below = match high {
+                    Bound::Included(high) => matches!(
+                        compare_numbers(value, high),
+                        Some(Ordering::Less | Ordering::Equal)
+                    ),
+                    Bound::Excluded(high) => compare_numbers(value, high) == Some(Ordering::Less),
+                    Bound::Unbounded => true,
+                };
+                if above && below {
                     Ok(())
                 } else {
                     mismatch(MismatchReason::Unmatched)
@@ -261,6 +280,21 @@ impl Pattern {
                 Ok(())
             }
         }
+    }
+}
+
+/// Compare two numbers, ints as ints. `None` when either isn't a number, or for NaN.
+fn compare_numbers(value: &Value, bound: &Value) -> Option<Ordering> {
+    match (value, bound) {
+        (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Some(lhs.cmp(rhs)),
+        (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+            (*lhs as f64).partial_cmp(rhs)
+        }
+        (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+            lhs.partial_cmp(&(*rhs as f64))
+        }
+        (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => lhs.partial_cmp(rhs),
+        _ => None,
     }
 }
 

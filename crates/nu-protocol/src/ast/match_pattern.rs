@@ -1,6 +1,7 @@
 use super::Expression;
-use crate::{Span, Value, VarId};
+use crate::{Range, Span, Value, VarId};
 use serde::{Deserialize, Serialize};
+use std::ops::Bound;
 
 /// AST Node for match arm with optional match guard
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,8 +30,13 @@ pub enum Pattern {
     /// List destructuring
     List(Vec<MatchPattern>),
     /// Matching against a literal (pure value), including const-evaluated expressions.
-    /// Range values match by containment rather than equality.
     Value(Value),
+    /// A range, as in `1..5`, `1..<5`, `..0` or `1..3..9`: a number between its ends. The step
+    /// doesn't matter, and `low` is the smaller end whichever way the range runs.
+    Interval {
+        low: Bound<Value>,
+        high: Bound<Value>,
+    },
     /// binding to a variable
     Variable(VarId),
     /// the `pattern1 \ pattern2` or-pattern
@@ -74,10 +80,40 @@ impl Pattern {
             }
             Pattern::Rest(var_id) => output.push(*var_id),
             Pattern::Optional { pattern, .. } => output.append(&mut pattern.variables()),
-            Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage | Pattern::IgnoreRest => {}
+            Pattern::Value(_)
+            | Pattern::Interval { .. }
+            | Pattern::IgnoreValue
+            | Pattern::Garbage
+            | Pattern::IgnoreRest => {}
         }
 
         output
+    }
+
+    /// The pattern for a range: the numbers between its ends. `open_start` is for a range
+    /// written without a start, like `..0`, which then has no lower end; a range value starts
+    /// such a range at 0.
+    pub fn interval(range: &Range, open_start: bool, span: Span) -> Self {
+        let (start, ascending, end) = match range {
+            Range::IntRange(range) => (
+                Value::int(range.start(), span),
+                range.step() > 0,
+                range.end().map(|end| Value::int(end, span)),
+            ),
+            Range::FloatRange(range) => (
+                Value::float(range.start(), span),
+                range.step() > 0.0,
+                range.end().map(|end| Value::float(end, span)),
+            ),
+        };
+        let (low, high) = if open_start {
+            (Bound::Unbounded, end)
+        } else if ascending {
+            (Bound::Included(start), end)
+        } else {
+            (end, Bound::Included(start))
+        };
+        Pattern::Interval { low, high }
     }
 
     pub fn is_wildcard(&self) -> bool {

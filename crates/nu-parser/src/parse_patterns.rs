@@ -77,6 +77,15 @@ fn check_binding_pattern(
             }
             return;
         }
+        Pattern::Interval { .. } => {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "A destructuring pattern can't hold a literal".into(),
+                label: "a range".into(),
+                help: "Use `match` to test whether a number is in a range.".into(),
+                span: pattern.span,
+            });
+            return;
+        }
         Pattern::Value(value) => {
             let text = working_set.get_span_contents(pattern.span);
             let bare_word = matches!(value, Value::String { .. })
@@ -269,6 +278,17 @@ fn parse_value_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPa
     }
 
     match eval_constant(working_set, &expr) {
+        // Every range is the interval between its ends. `..0` has no start, which the range
+        // value fills in as 0.
+        Ok(Value::Range { val, .. }) => MatchPattern {
+            pattern: Pattern::interval(
+                &val,
+                matches!(&expr.expr, Expr::Range(range) if range.from.is_none()),
+                span,
+            ),
+            guard: None,
+            span,
+        },
         Ok(val) => MatchPattern {
             pattern: Pattern::Value(val),
             guard: None,

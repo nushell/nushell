@@ -1,6 +1,9 @@
 use super::{DataSlice, Instruction, IrBlock, Literal, RedirectMode};
 use crate::{DeclId, VarId, ast::Pattern, engine::EngineState};
-use std::fmt::{self};
+use std::{
+    fmt::{self},
+    ops::Bound,
+};
 
 pub struct FmtIrBlock<'a> {
     pub(super) engine_state: &'a EngineState,
@@ -472,6 +475,22 @@ impl fmt::Display for FmtPattern<'_> {
             }
             Pattern::Value(value) => {
                 f.write_str(&value.to_parsable_string(", ", &self.engine_state.config))
+            }
+            Pattern::Interval { low, high } => {
+                let config = &self.engine_state.config;
+                match low {
+                    Bound::Included(low) => f.write_str(&low.to_parsable_string(", ", config))?,
+                    Bound::Excluded(low) => write!(f, ">{}", low.to_parsable_string(", ", config))?,
+                    Bound::Unbounded => {}
+                }
+                f.write_str("..")?;
+                match high {
+                    Bound::Included(high) => f.write_str(&high.to_parsable_string(", ", config)),
+                    Bound::Excluded(high) => {
+                        write!(f, "<{}", high.to_parsable_string(", ", config))
+                    }
+                    Bound::Unbounded => Ok(()),
+                }
             }
             Pattern::Variable(var_id) => {
                 let variable = FmtVar::new(self.engine_state, *var_id);
