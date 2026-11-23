@@ -92,6 +92,11 @@ impl Command for Let {
                 ])),
             },
             Example {
+                description: "Take apart a table with one row. A table is a list of records, so the pattern is a record pattern inside a list pattern.",
+                example: r#"let [{$user, $host}] = ("alice@example.com" | parse "{user}@{host}"); $host"#,
+                result: Some(Value::test_string("example.com")),
+            },
+            Example {
                 description: "Bind null for a field that may be missing, and keep the other fields.",
                 example: "let {$a, $b?, ..$rest} = {a: 1, c: 3}; {b: $b, rest: $rest}",
                 result: Some(Value::test_record(record! {

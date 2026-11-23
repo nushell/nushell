@@ -36,6 +36,10 @@ pub enum MismatchReason<'a> {
         expected: &'static str,
         actual: &'static str,
     },
+    /// A record pattern met a list. The error checks the items, to point a table at `[{...}]`.
+    ListForRecord { items: &'a [Value] },
+    /// A list pattern met a record.
+    RecordForList,
     /// A record pattern names a field the record doesn't have.
     MissingField { field: &'a str, record: &'a Record },
     /// A list pattern takes a different number of items. `min` leaves out the optional items, and
@@ -46,6 +50,9 @@ pub enum MismatchReason<'a> {
         len: usize,
         /// What has the items: "list" or "range".
         of: &'static str,
+        /// The list's items, when each item of the pattern takes a whole item, as `$a` does. The
+        /// error checks them for records, to point a table at `[{...}]`.
+        whole_items: Option<&'a [Value]>,
     },
     /// A list pattern without a rest, or with items after it, met a range that never ends.
     UnboundedRange,
@@ -96,11 +103,17 @@ impl Pattern {
             // `..` and `..$foo` only match inside a list or record pattern, which handles them.
             Pattern::IgnoreRest | Pattern::Rest(_) => mismatch(MismatchReason::Unmatched),
             Pattern::Record(field_patterns) => {
-                let Value::Record { val: record, .. } = value else {
-                    return mismatch(MismatchReason::WrongType {
-                        expected: "record",
-                        actual: type_name(value),
-                    });
+                let record = match value {
+                    Value::Record { val, .. } => val,
+                    Value::List { vals, .. } => {
+                        return mismatch(MismatchReason::ListForRecord { items: vals });
+                    }
+                    _ => {
+                        return mismatch(MismatchReason::WrongType {
+                            expected: "record",
+                            actual: type_name(value),
+                        });
+                    }
                 };
                 let mut rest = None;
                 for (field, pattern) in field_patterns {
@@ -155,6 +168,7 @@ impl Pattern {
                             actual: "float range",
                         }),
                     },
+                    Value::Record { .. } => mismatch(MismatchReason::RecordForList),
                     _ => mismatch(MismatchReason::WrongType {
                         expected: "list",
                         actual: type_name(value),
@@ -289,12 +303,14 @@ impl<'a> ListShape<'a> {
         }
     }
 
-    /// Check that `len` items fit, for the list or range `of`.
+    /// Check that `len` items fit, for the list or range `of`. `items` are the list's items, for
+    /// the error.
     fn check_len(
         &self,
         span: Span,
         len: usize,
         of: &'static str,
+        items: Option<&'a [Value]>,
     ) -> Result<(), PatternMismatch<'a>> {
         if len < self.min || self.max.is_some_and(|max| len > max) {
             Err(PatternMismatch {
@@ -304,11 +320,24 @@ impl<'a> ListShape<'a> {
                     max: self.max,
                     len,
                     of,
+                    whole_items: items.filter(|_| self.takes_whole_items()),
                 },
             })
         } else {
             Ok(())
         }
+    }
+
+    /// Whether each item of the pattern takes a whole item, as `$a` and `_` do, rather than
+    /// taking it apart.
+    fn takes_whole_items(&self) -> bool {
+        self.before.iter().chain(self.after).all(|item| {
+            let item = match &item.pattern {
+                Pattern::Optional { pattern, .. } => &pattern.pattern,
+                pattern => pattern,
+            };
+            !matches!(item, Pattern::Record(_) | Pattern::List(_))
+        })
     }
 
     fn check_list(
@@ -317,7 +346,7 @@ impl<'a> ListShape<'a> {
         vals: &'a [Value],
         matches: &mut Vec<(VarId, Value)>,
     ) -> Result<(), PatternMismatch<'a>> {
-        self.check_len(span, vals.len(), "list")?;
+        self.check_len(span, vals.len(), "list", Some(vals))?;
         let after_start = vals.len() - self.after.len();
 
         // Bind left to right, so a variable used twice keeps its rightmost value.
@@ -372,7 +401,7 @@ impl<'a> ListShape<'a> {
         } else {
             usize::try_from(distance / step.abs() + 1).unwrap_or(usize::MAX)
         };
-        self.check_len(span, len, "range")?;
+        self.check_len(span, len, "range", None)?;
         let after_start = len - self.after.len();
         // Every index below `len` is an item between the start and `last`, so it fits an `i64`.
         let item_at = |index: usize| start + index as i128 * step;
@@ -452,8 +481,10 @@ fn check_range_item<'a>(
     })
 }
 
-/// The name of a value's type for a mismatch message. A table is a list here: telling them apart
-/// would scan the list on every failed `match` arm.
+/// The name of a value's type for a mismatch message. Lists and records don't get here: a record
+/// pattern on a list reports [`MismatchReason::ListForRecord`], which looks for a table only when
+/// the error is shown rather than on every failed `match` arm, and a list pattern on a record
+/// reports [`MismatchReason::RecordForList`].
 fn type_name(value: &Value) -> &'static str {
     match value {
         Value::Bool { .. } => "bool",
@@ -494,6 +525,22 @@ fn compare_numbers(value: &Value, bound: &Value) -> Option<Ordering> {
 /// How many field names a missing-field error lists before it summarizes the rest.
 const LISTED_FIELDS: usize = 10;
 
+/// Help for a record pattern that meets a table, as in `let {$a} = [[a]; [1]]`.
+pub const TABLE_FOR_RECORD_PATTERN_HELP: &str = "A table is a list of records. Write `[{...}]` to \
+take apart a table with one row, or `[{...}, ..]` to take its first row.";
+
+/// Help for a list pattern that meets a record, as in `let [{$a}] = {a: 1}`.
+pub const RECORD_FOR_LIST_PATTERN_HELP: &str =
+    "Take a record apart with `{...}`, without `[ ]` around it.";
+
+/// Whether a list is a table: it has items, and each is a record.
+fn is_table(items: &[Value]) -> bool {
+    !items.is_empty()
+        && items
+            .iter()
+            .all(|item| matches!(item, Value::Record { .. }))
+}
+
 impl PatternMismatch<'_> {
     /// The error for a destructuring binding that doesn't fit its value.
     pub fn into_shell_error(self) -> ShellError {
@@ -513,6 +560,15 @@ impl PatternMismatch<'_> {
             MismatchReason::WrongType { expected, actual } => {
                 (format!("expected a {expected}, got {actual}"), None)
             }
+            MismatchReason::ListForRecord { items } if is_table(items) => (
+                "expected a record, got table".into(),
+                Some(TABLE_FOR_RECORD_PATTERN_HELP.into()),
+            ),
+            MismatchReason::ListForRecord { .. } => ("expected a record, got list".into(), None),
+            MismatchReason::RecordForList => (
+                "expected a list, got record".into(),
+                Some(RECORD_FOR_LIST_PATTERN_HELP.into()),
+            ),
             MismatchReason::MissingField { field, record } => {
                 let help = if record.is_empty() {
                     "The record is empty.".to_string()
@@ -533,7 +589,13 @@ impl PatternMismatch<'_> {
                 let help = format!("{help} Add `?` after the pattern if the field can be missing.");
                 (format!("record has no field `{field}`"), Some(help))
             }
-            MismatchReason::ListLength { min, max, len, of } => {
+            MismatchReason::ListLength {
+                min,
+                max,
+                len,
+                of,
+                whole_items,
+            } => {
                 let items = if len == 1 { "item" } else { "items" };
                 let takes = match max {
                     Some(max) if max == min => format!("takes {max}"),
@@ -541,8 +603,16 @@ impl PatternMismatch<'_> {
                     None => format!("needs at least {min}"),
                 };
                 // `..` can't join optional items, so it's only a fix for an exact length.
-                let help = (max == Some(min) && len > min)
-                    .then(|| "Add `..` to ignore the rest.".to_string());
+                let rest =
+                    (max == Some(min) && len > min).then_some("Add `..` to ignore the rest.");
+                let rows = whole_items.is_some_and(is_table).then_some(
+                    "The list is a table, so each variable here gets a whole row. Write \
+                     `[{...}]` to take the fields of one row.",
+                );
+                let help = match (rest, rows) {
+                    (Some(rest), Some(rows)) => Some(format!("{rest} {rows}")),
+                    (help, None) | (None, help) => help.map(String::from),
+                };
                 (format!("{of} has {len} {items}, the pattern {takes}"), help)
             }
             MismatchReason::UnboundedRange => (

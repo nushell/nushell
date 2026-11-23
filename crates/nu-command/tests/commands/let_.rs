@@ -1,4 +1,7 @@
-use nu_protocol::Type;
+use nu_protocol::{
+    Type,
+    engine::{RECORD_FOR_LIST_PATTERN_HELP, TABLE_FOR_RECORD_PATTERN_HELP},
+};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
@@ -328,6 +331,35 @@ fn let_destructure_shadows(#[case] code: &str) -> Result {
     None
 )]
 #[case::nested_wrong_type("let {a: [$b]} = {a: 1}", "expected a list, got int", None)]
+#[case::table_for_record(
+    "def f [] { [[a]; [1]] }; let {$a} = (f)",
+    "expected a record, got table",
+    Some(TABLE_FOR_RECORD_PATTERN_HELP)
+)]
+#[case::record_for_list(
+    "def f [] { {a: 1} }; let [{$a}] = (f)",
+    "expected a list, got record",
+    Some(RECORD_FOR_LIST_PATTERN_HELP)
+)]
+#[case::variables_for_table_row(
+    "let [$a, $b] = [[a b]; [1 2]]",
+    "list has 1 item, the pattern takes 2",
+    Some(
+        "The list is a table, so each variable here gets a whole row. Write `[{...}]` to take the fields of one row."
+    )
+)]
+#[case::variables_for_table_rows(
+    "let [$a, $b] = [[a]; [1] [2] [3]]",
+    "list has 3 items, the pattern takes 2",
+    Some(
+        "Add `..` to ignore the rest. The list is a table, so each variable here gets a whole row. Write `[{...}]` to take the fields of one row."
+    )
+)]
+#[case::record_pattern_for_table_rows(
+    "let [{$a}] = [[a]; [1] [2]]",
+    "list has 2 items, the pattern takes 1",
+    Some("Add `..` to ignore the rest.")
+)]
 fn let_destructure_mismatch(
     #[case] code: &str,
     #[case] expected_msg: &str,
@@ -346,6 +378,28 @@ fn let_destructure_mismatch(
 fn let_destructure_value_type_mismatch() -> Result {
     let err = test().run("let {$a} = 5").expect_parse_error()?;
     assert_matches!(err, ParseError::TypeMismatch(Type::Record(_), Type::Int, _));
+    Ok(())
+}
+
+#[test]
+fn let_destructure_table_for_record_pattern() -> Result {
+    let err = test().run("let {$a} = [[a]; [1]]").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::TypeMismatchHelp(Type::Record(_), Type::Table(_), _, help)
+            if help == TABLE_FOR_RECORD_PATTERN_HELP
+    );
+    Ok(())
+}
+
+#[test]
+fn let_destructure_record_for_list_pattern() -> Result {
+    let err = test().run("let [{$a}] = {a: 1}").expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::TypeMismatchHelp(Type::List(_), Type::Record(_), _, help)
+            if help == RECORD_FOR_LIST_PATTERN_HELP
+    );
     Ok(())
 }
 

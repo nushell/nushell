@@ -11,7 +11,7 @@ use crate::{
 use nu_protocol::{
     DidYouMean, ENV_VARIABLE_ID, ParseError, Span, SyntaxShape, Type, Value, VarId,
     ast::{Expr, MatchPattern, Pattern},
-    engine::StateWorkingSet,
+    engine::{RECORD_FOR_LIST_PATTERN_HELP, StateWorkingSet, TABLE_FOR_RECORD_PATTERN_HELP},
     eval_const::eval_constant,
 };
 pub fn garbage(span: Span) -> MatchPattern {
@@ -219,7 +219,19 @@ fn check_pattern_shape(
         || (matches!(pattern.pattern, Pattern::List(_)) && matches!(ty, Type::Range))
         || type_compatible(&expected, ty);
     if !fits {
-        working_set.error(ParseError::TypeMismatch(expected, ty.clone(), span));
+        // Point a table at `[{...}]`, and a record at `{...}`.
+        let help = match (&pattern.pattern, ty) {
+            (Pattern::Record(_), Type::Table(_)) => Some(TABLE_FOR_RECORD_PATTERN_HELP),
+            (Pattern::Record(_), Type::List(item)) if matches!(**item, Type::Record(_)) => {
+                Some(TABLE_FOR_RECORD_PATTERN_HELP)
+            }
+            (Pattern::List(_), Type::Record(_)) => Some(RECORD_FOR_LIST_PATTERN_HELP),
+            _ => None,
+        };
+        working_set.error(match help {
+            Some(help) => ParseError::TypeMismatchHelp(expected, ty.clone(), span, help.into()),
+            None => ParseError::TypeMismatch(expected, ty.clone(), span),
+        });
     }
     fits
 }
