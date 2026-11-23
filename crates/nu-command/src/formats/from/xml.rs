@@ -51,9 +51,10 @@ To represent different types of entries different values are written to this fie
 4. Text: `{tag: null attributes: null content: "<text>"}`.
 
 By default names are the local names, without prefix, and namespace declarations are not shown.
-Use `--namespaces` to keep prefixes in tag and attribute names (`dc:title`) and to add `xmlns` and
-`xmlns:<prefix>` keys to `attributes` on the element that declares them. The default output does not
-change, and the result of `--namespaces` can be passed to `to xml`.
+With `--namespaces`, names keep the prefix as it is written in the source (`dc:title`), and each
+`xmlns` or `xmlns:<prefix>` key is added to `attributes` on the element that declares it, before its
+other attributes. The result can be passed to `to xml`. A sub-record keeps its prefixes but not the
+`xmlns` keys of its ancestors, so add those to its `attributes` before passing it to `to xml`.
 
 Unlike to xml command all null values are always present and text is never represented via plain
 string. This way content of every tag is always a table and is easier to parse"#
@@ -143,38 +144,32 @@ struct ParsingInfo {
     namespaces: bool,
 }
 
-const NS_XML_URI: &str = "http://www.w3.org/XML/1998/namespace";
-
-/// `prefix:local` using a prefixed binding of `uri` in scope on `node`.
-/// The default binding is never used here.
-fn prefixed_name(node: &roxmltree::Node, local: &str, uri: &str) -> Option<String> {
-    if uri == NS_XML_URI {
-        return Some(format!("xml:{local}"));
-    }
-    node.namespaces()
-        .find(|ns| ns.name().is_some() && ns.uri() == uri)
-        .and_then(|ns| ns.name())
-        .map(|prefix| format!("{prefix}:{local}"))
+/// Element name exactly as it is written in the source (`dc:creator`), read
+/// from the start tag. The prefix is what the document uses, not one looked up
+/// from the namespace URI. The local name is used only if the source text is
+/// not available at the node's range.
+fn element_name(node: &roxmltree::Node) -> String {
+    let text = node.document().input_text();
+    text.get(node.range().start + 1..)
+        .map(|rest| {
+            let end = rest
+                .find(|c: char| c.is_whitespace() || c == '/' || c == '>')
+                .unwrap_or(rest.len());
+            &rest[..end]
+        })
+        .filter(|qname| !qname.is_empty())
+        .map(String::from)
+        .unwrap_or_else(|| String::from(node.tag_name().name().trim()))
 }
 
-/// Element name: bare when it is in the default namespace (or has none),
-/// otherwise `prefix:local`.
-fn element_name(node: &roxmltree::Node, local: &str, namespace: Option<&str>) -> String {
-    match namespace {
-        None => String::from(local),
-        Some(uri) if Some(uri) == node.default_namespace() => String::from(local),
-        Some(uri) => prefixed_name(node, local, uri).unwrap_or_else(|| String::from(local)),
-    }
-}
-
-/// Attribute name: an attribute with a namespace always keeps a prefix,
-/// because an unprefixed attribute has no namespace.
+/// Attribute name exactly as it is written in the source (`xml:space`, `p:k`).
+/// The local name is used only if the source text is not available.
 fn attribute_name(node: &roxmltree::Node, attribute: &roxmltree::Attribute) -> String {
-    match attribute.namespace() {
-        None => String::from(attribute.name()),
-        Some(uri) => prefixed_name(node, attribute.name(), uri)
-            .unwrap_or_else(|| String::from(attribute.name())),
-    }
+    node.document()
+        .input_text()
+        .get(attribute.range_qname())
+        .map(String::from)
+        .unwrap_or_else(|| String::from(attribute.name()))
 }
 
 /// Namespace declarations (`xmlns`, `xmlns:p`) that `node` itself declares.
@@ -246,7 +241,7 @@ fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
 
     let name = n.tag_name();
     let tag = if info.namespaces {
-        element_name(n, name.name().trim(), name.namespace())
+        element_name(n)
     } else {
         String::from(name.name().trim())
     };
@@ -882,8 +877,8 @@ mod tests {
     }
 
     #[test]
-    fn attribute_keeps_prefix_when_default_namespace_is_also_bound() -> Result<(), roxmltree::Error>
-    {
+    fn element_and_attribute_keep_prefix_when_default_namespace_is_also_bound()
+    -> Result<(), roxmltree::Error> {
         let source = r#"<a xmlns="u" xmlns:p="u"><p:b p:k="1">t</p:b></a>"#;
 
         assert_eq!(
@@ -892,7 +887,7 @@ mod tests {
                 "a",
                 indexmap! {"xmlns" => "u", "xmlns:p" => "u"},
                 &[content_tag(
-                    "b",
+                    "p:b",
                     indexmap! {"p:k" => "1"},
                     &[content_string("t")]
                 )]
@@ -1046,5 +1041,105 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn svg_default_and_prefix_for_same_uri_keeps_written_prefix() -> Result<(), roxmltree::Error> {
+        let source = r#"<svg xmlns="s" xmlns:svg="s"><svg:rect width="1"/></svg>"#;
+
+        assert_eq!(
+            parse_namespaces(source)?,
+            content_tag(
+                "svg",
+                indexmap! {"xmlns" => "s", "xmlns:svg" => "s"},
+                &[content_tag("svg:rect", indexmap! {"width" => "1"}, &[])]
+            )
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn second_prefix_for_same_uri_keeps_written_prefix() -> Result<(), roxmltree::Error> {
+        let source = r#"<a xmlns:p="u" xmlns:q="u"><q:b q:k="1"/></a>"#;
+
+        assert_eq!(
+            parse_namespaces(source)?,
+            content_tag(
+                "a",
+                indexmap! {"xmlns:p" => "u", "xmlns:q" => "u"},
+                &[content_tag("q:b", indexmap! {"q:k" => "1"}, &[])]
+            )
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn prefix_bound_on_ancestor_keeps_written_name() -> Result<(), roxmltree::Error> {
+        let source = r#"<a xmlns:dc="X"><b xmlns:x="X"><dc:t/></b></a>"#;
+
+        assert_eq!(
+            parse_namespaces(source)?,
+            content_tag(
+                "a",
+                indexmap! {"xmlns:dc" => "X"},
+                &[content_tag(
+                    "b",
+                    indexmap! {"xmlns:x" => "X"},
+                    &[content_tag("dc:t", indexmap! {}, &[])]
+                )]
+            )
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn names_are_read_from_source_across_newlines_and_tabs() -> Result<(), roxmltree::Error> {
+        let source = "<a\n xmlns:p=\"u\"\n><p:b\n\tp:k=\"1\"/></a>";
+
+        assert_eq!(
+            parse_namespaces(source)?,
+            content_tag(
+                "a",
+                indexmap! {"xmlns:p" => "u"},
+                &[content_tag("p:b", indexmap! {"p:k" => "1"}, &[])]
+            )
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn names_are_read_from_source_after_bom_comment_and_pi() -> Result<(), roxmltree::Error> {
+        let source = "\u{feff}<!-- c --><?pi x?><a xmlns:p=\"u\"><p:b p:k=\"1\"/></a>";
+
+        assert_eq!(
+            parse_namespaces(source)?,
+            content_tag(
+                "a",
+                indexmap! {"xmlns:p" => "u"},
+                &[content_tag("p:b", indexmap! {"p:k" => "1"}, &[])]
+            )
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn dtd_entity_element_does_not_panic() {
+        let source = "<!DOCTYPE a [<!ENTITY e \"<p:b xmlns:p='u'/>\">]><a xmlns:p=\"u\">&e;</a>";
+        let info = ParsingInfo {
+            span: Span::test_data(),
+            keep_comments: false,
+            keep_processing_instructions: false,
+            allow_dtd: true,
+            namespaces: true,
+        };
+        let value = from_xml_string_to_value(source, &info);
+        // Report what the name looks like; the point is that it does not panic.
+        eprintln!("dtd entity result: {value:?}");
+        assert!(value.is_ok());
     }
 }

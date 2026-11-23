@@ -188,7 +188,7 @@ fn from_xml_to_xml_keeps_attribute_prefix_when_default_namespace_is_also_bound()
 
     test()
         .run(code)
-        .expect_value_eq(r#"<a xmlns="u" xmlns:p="u"><b p:k="1">t</b></a>"#)
+        .expect_value_eq(r#"<a xmlns="u" xmlns:p="u"><p:b p:k="1">t</p:b></a>"#)
 }
 
 #[test]
@@ -228,4 +228,56 @@ fn from_xml_default_output_uses_local_tag_names() -> Result {
     test()
         .run(code)
         .expect_value_eq("<rss><item><creator>x</creator></item></rss>")
+}
+
+#[test]
+fn from_xml_namespaces_keeps_svg_prefix_when_uri_is_also_default() -> Result {
+    let code = r#"
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><svg:rect width="1"/></svg>'
+        | from xml --namespaces
+        | to xml
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><svg:rect width="1"></svg:rect></svg>"#)
+}
+
+#[test]
+fn from_xml_namespaces_filter_matches_written_prefixed_tag() -> Result {
+    let code = r#"
+        '<xs:schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="note" type="xs:string"/></xs:schema>'
+        | from xml --namespaces
+        | get content
+        | where tag == 'xs:element'
+        | length
+    "#;
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn from_xml_namespaces_round_trips_second_prefix_for_same_uri() -> Result {
+    let code = r#"
+        '<a xmlns:p="u" xmlns:q="u"><q:b q:k="1"/></a>'
+        | from xml --namespaces
+        | to xml
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(r#"<a xmlns:p="u" xmlns:q="u"><q:b q:k="1"></q:b></a>"#)
+}
+
+#[test]
+fn from_xml_namespaces_round_trips_prefix_bound_on_ancestor() -> Result {
+    let code = r#"
+        '<a xmlns:dc="X"><b xmlns:x="X"><dc:t/></b></a>'
+        | from xml --namespaces
+        | to xml
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(r#"<a xmlns:dc="X"><b xmlns:x="X"><dc:t></dc:t></b></a>"#)
 }
