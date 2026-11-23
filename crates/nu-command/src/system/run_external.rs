@@ -190,10 +190,20 @@ If you create a custom command with this name, that will be used instead."
         let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
+            // For a script run through its file association, normalize the name as
+            // typed so that `./script.nu` isn't parsed as the command `.` (#19584).
+            // Only the typed name is handed to CMD, never the cwd or a PATH dir, so
+            // characters such as spaces or `&` in those directories can't reach
+            // CMD's parser.
+            let cmd_target = if pathext_script_in_windows && !is_cmd_internal_command(&name_str) {
+                cmd_script_path(&expanded_name)
+            } else {
+                expanded_name.clone()
+            };
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
-            command.args(["/D", "/C", &expanded_name.to_string_lossy()]);
+            command.args(["/D", "/C", &cmd_target.to_string_lossy()]);
             for arg in &args {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
@@ -821,6 +831,18 @@ fn is_cmd_internal_command(name: &str) -> bool {
     COMMANDS.iter().any(|cmd| cmd.eq_ignore_ascii_case(name))
 }
 
+/// Normalize a script name, as typed by the user, before handing it to `cmd.exe /C`.
+///
+/// CMD treats `/` as a switch character, so a name such as `./sub/script.nu`
+/// would be split at the first `/`. Collecting the components rewrites every
+/// separator as `\` and drops redundant `.` components, while keeping a leading
+/// `.` so the name stays relative: `./sub/./script.nu` becomes `.\sub\script.nu`
+/// (#19584).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn cmd_script_path(script: &Path) -> PathBuf {
+    script.components().collect()
+}
+
 /// Returns true if a string contains CMD special characters.
 fn has_cmd_special_character(s: impl AsRef<[u8]>) -> bool {
     s.as_ref()
@@ -954,6 +976,21 @@ mod test {
         );
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
+    }
+
+    // Names as typed by the user (#19584): forward slashes become `\`, a
+    // leading `.` is kept and inner `.` components are dropped.
+    #[cfg(windows)]
+    #[rstest::rstest]
+    #[case("./hello.nu", r".\hello.nu")]
+    #[case("./hello", r".\hello")]
+    #[case("sub/hello.nu", r"sub\hello.nu")]
+    #[case("./sub/./hello.nu", r".\sub\hello.nu")]
+    #[case("../up/hello.nu", r"..\up\hello.nu")]
+    #[case(r".\hello.nu", r".\hello.nu")]
+    #[case("hello.nu", "hello.nu")]
+    fn cmd_script_path_uses_backslashes(#[case] typed: &str, #[case] expected: &str) {
+        assert_eq!(cmd_script_path(Path::new(typed)), PathBuf::from(expected));
     }
 }
 
