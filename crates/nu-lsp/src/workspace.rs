@@ -1,6 +1,6 @@
 use crate::{
     Id, LanguageServer,
-    ast::{self, find_id, find_reference_by_id},
+    ast::{self, find_id, find_reference_by_id, find_shorthand_bindings},
     path_to_uri, span_to_range, uri_to_path,
 };
 use lsp_textdocument::FullTextDocument;
@@ -22,11 +22,20 @@ use std::{
     sync::Arc,
 };
 
+/// A place where the name at the cursor occurs.
+#[derive(Debug, Clone)]
+pub(crate) struct Occurrence {
+    pub range: Range,
+    /// For a variable bound by the record shorthand `{$name}`, the field it reads. Renaming keeps
+    /// it, so `{$name}` becomes `{name: $new}`.
+    pub shorthand_key: Option<String>,
+}
+
 /// Message type indicating ranges of interest in each doc
 #[derive(Debug)]
 pub(crate) struct RangePerDoc {
     pub uri: Uri,
-    pub ranges: Vec<Range>,
+    pub occurrences: Vec<Occurrence>,
 }
 
 /// Message sent from background thread to main
@@ -157,14 +166,26 @@ impl LanguageServer {
         let changes: HashMap<Uri, Vec<TextEdit>> = self
             .occurrences
             .iter()
-            .map(|(uri, ranges)| {
+            .map(|(uri, occurrences)| {
                 (
                     uri.clone(),
-                    ranges
+                    occurrences
                         .iter()
-                        .map(|range| TextEdit {
-                            range: *range,
-                            new_text: params.new_name.to_owned(),
+                        .map(|occurrence| match &occurrence.shorthand_key {
+                            None => TextEdit {
+                                range: occurrence.range,
+                                new_text: params.new_name.to_owned(),
+                            },
+                            // Replace the `$` before the name too: `$name` becomes
+                            // `name: $new`, so the pattern still reads the field `name`.
+                            Some(key) => {
+                                let mut range = occurrence.range;
+                                range.start.character = range.start.character.saturating_sub(1);
+                                TextEdit {
+                                    range,
+                                    new_text: format!("{key}: ${}", params.new_name),
+                                }
+                            }
                         })
                         .collect(),
                 )
@@ -215,9 +236,9 @@ impl LanguageServer {
                     definition_span,
                 )
                 .into_iter()
-                .map(|range| Location {
+                .map(|occurrence| Location {
                     uri: path_uri.clone(),
-                    range,
+                    range: occurrence.range,
                 })
                 .collect(),
             );
@@ -258,10 +279,10 @@ impl LanguageServer {
         Some(
             self.occurrences
                 .iter()
-                .flat_map(|(uri, ranges)| {
-                    ranges.iter().map(|range| Location {
+                .flat_map(|(uri, occurrences)| {
+                    occurrences.iter().map(|occurrence| Location {
                         uri: uri.clone(),
-                        range: *range,
+                        range: occurrence.range,
                     })
                 })
                 .collect(),
@@ -355,7 +376,7 @@ impl LanguageServer {
         fp: &Path,
         id_tracker: &mut IDTracker,
         definition_span: Option<Span>,
-    ) -> Vec<Range> {
+    ) -> Vec<Occurrence> {
         let block = nu_parser::parse(
             working_set,
             fp.to_str(),
@@ -380,6 +401,7 @@ impl LanguageServer {
             id_tracker.renewed = true;
         }
         let mut refs: Vec<Span> = find_reference_by_id(&block, working_set, &id_tracker.id);
+        let shorthands = find_shorthand_bindings(&block, working_set, &id_tracker.id);
 
         let file_span = working_set
             .get_span_for_filename(fp.to_string_lossy().as_ref())
@@ -398,7 +420,13 @@ impl LanguageServer {
         // add_block to avoid repeated parsing
         working_set.add_block(block);
         refs.iter()
-            .map(|span| span_to_range(span, file, file_span.start))
+            .map(|span| Occurrence {
+                range: span_to_range(span, file, file_span.start),
+                shorthand_key: shorthands
+                    .iter()
+                    .find(|(shorthand, _)| shorthand == span)
+                    .map(|(_, key)| key.clone()),
+            })
             .collect()
     }
 
@@ -529,7 +557,7 @@ impl LanguageServer {
                         String::from_utf8_lossy(&file_bytes).into(),
                     )
                 };
-                let ranges = Self::find_reference_in_file(
+                let occurrences = Self::find_reference_in_file(
                     &mut working_set,
                     &file,
                     fp,
@@ -537,7 +565,10 @@ impl LanguageServer {
                     definition_span,
                 );
                 data_sender
-                    .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
+                    .send(InternalMessage::RangeMessage(RangePerDoc {
+                        uri,
+                        occurrences,
+                    }))
                     .ok();
                 data_sender
                     .send(InternalMessage::OnGoing(token.clone(), percentage))
@@ -1119,6 +1150,34 @@ mod tests {
         "workspace/foo.nu", (30, 3),
         serde_json::json!([make_highlight(30, 2, 30, 15), make_highlight(37, 0, 37, 13)])
     )]
+    #[case::let_shorthand_use(
+        "patterns/destructure.nu", (1, 8),
+        serde_json::json!([make_highlight(0, 6, 0, 10), make_highlight(1, 7, 1, 11)])
+    )]
+    #[case::let_shorthand_declaration(
+        "patterns/destructure.nu", (0, 7),
+        serde_json::json!([make_highlight(0, 6, 0, 10), make_highlight(1, 7, 1, 11)])
+    )]
+    #[case::let_renamed_field(
+        "patterns/destructure.nu", (0, 20),
+        serde_json::json!([make_highlight(0, 19, 0, 24), make_highlight(1, 13, 1, 18)])
+    )]
+    #[case::match_arm(
+        "patterns/destructure.nu", (2, 16),
+        serde_json::json!([make_highlight(2, 16, 2, 17), make_highlight(2, 33, 2, 34)])
+    )]
+    #[case::match_rest(
+        "patterns/destructure.nu", (2, 23),
+        serde_json::json!([make_highlight(2, 22, 2, 26), make_highlight(2, 36, 2, 40)])
+    )]
+    #[case::closure_parameter(
+        "patterns/destructure.nu", (3, 25),
+        serde_json::json!([make_highlight(3, 20, 3, 21), make_highlight(3, 25, 3, 26)])
+    )]
+    #[case::default_value(
+        "patterns/destructure.nu", (5, 8),
+        serde_json::json!([make_highlight(4, 6, 4, 10), make_highlight(5, 7, 5, 11)])
+    )]
     fn document_highlight_request(
         #[case] filename: &str,
         #[case] cursor_position: (u32, u32),
@@ -1138,5 +1197,54 @@ mod tests {
             panic!("unexpected message type");
         };
         assert_json_eq!(r.response_result.unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::shorthand(
+        (1, 8),
+        vec![
+            serde_json::json!({"range": make_range(0, 5, 0, 10), "newText": "name: $new"}),
+            make_text_edit(1, 7, 1, 11),
+        ]
+    )]
+    #[case::renamed_field((1, 14), vec![make_text_edit(0, 19, 0, 24), make_text_edit(1, 13, 1, 18)])]
+    #[case::shorthand_with_default(
+        (5, 8),
+        vec![
+            serde_json::json!({"range": make_range(4, 5, 4, 10), "newText": "port: $new"}),
+            make_text_edit(5, 7, 5, 11),
+        ]
+    )]
+    #[case::match_arm((2, 33), vec![make_text_edit(2, 16, 2, 17), make_text_edit(2, 33, 2, 34)])]
+    fn rename_pattern_variable(
+        #[case] position: (u32, u32),
+        #[case] expected_changes: Vec<serde_json::Value>,
+    ) {
+        let mut script = FIXTURES.clone();
+        script.push("lsp/patterns/destructure.nu");
+        let script = path_to_uri(&script);
+
+        // Without a workspace folder, only the current file is searched.
+        let (client_connection, _recv) = initialize_language_server(None, None);
+        open_unchecked(&client_connection, script.clone());
+
+        let (line, character) = position;
+        let messages = send_rename_prepare_request(
+            &client_connection,
+            script.clone(),
+            line,
+            character,
+            1,
+            false,
+        );
+        assert!(matches!(messages.as_slice(), [Message::Response(_)]));
+
+        let Message::Response(r) =
+            send_rename_request(&client_connection, script.clone(), line, character)
+        else {
+            panic!("unexpected message type");
+        };
+        let changes = r.response_result.unwrap()["changes"][script.to_string()].clone();
+        assert_json_eq!(changes, serde_json::Value::Array(expected_changes));
     }
 }
