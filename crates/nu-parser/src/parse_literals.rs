@@ -13,8 +13,8 @@ use crate::{
 use itertools::Itertools;
 use log::trace;
 use nu_protocol::{
-    DidYouMean, FilesizeUnit, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, Unit,
-    VarId, ast::*, casing::Casing, engine::StateWorkingSet,
+    DidYouMean, FilesizeUnit, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, TypeSet,
+    Unit, VarId, ast::*, casing::Casing, engine::StateWorkingSet,
 };
 use std::{borrow::Cow, num::IntErrorKind, sync::Arc};
 
@@ -1293,10 +1293,18 @@ pub fn parse_full_cell_path(
         let tail = parse_cell_path(working_set, tokens, expect_dot);
         let ty = if !tail.is_empty() {
             if nu_experimental::CELL_PATH_TYPES.get() {
-                head.ty
+                let ty = head
+                    .ty
                     .follow_cell_path(&tail)
                     .map(|ty| ty.into_owned())
-                    .unwrap_or(Type::Any)
+                    .unwrap_or(Type::Any);
+                // A missing optional member (`$list.5?`) makes the whole path `null`. Rows missing
+                // a projected column (`$table.a?`) give `null` items instead; that isn't modeled.
+                if tail.iter().any(PathMember::is_optional) {
+                    ty.union(Type::Nothing)
+                } else {
+                    ty
+                }
             } else {
                 Type::Any
             }
