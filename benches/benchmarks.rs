@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
-use nu_cli::{eval_source, evaluate_commands};
+use nu_cli::{DEFAULT_PROMPTS, eval_source, evaluate_commands};
 use nu_config::ConfigFileKind;
 use nu_experimental::DC_GLOB;
 use nu_parser::{lex, lite_parse, parse, parse_block};
@@ -14,7 +14,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
-use nu_test_support::{fs::nu_files, tester::parse_file};
+use nu_test_support::tester::parse_file;
 use std::{
     env,
     fmt::Write,
@@ -719,14 +719,11 @@ fn bench_eval_default_config() -> impl IntoBenchmarks {
     )
 }
 
-fn bench_eval_default_env() -> impl IntoBenchmarks {
-    let kind = ConfigFileKind::Env;
-    let default_env = kind.default().as_bytes().to_vec();
-    let fname = kind.default_path().to_string();
+fn bench_eval_default_prompts() -> impl IntoBenchmarks {
     bench_eval_source(
-        "eval_default_env",
-        fname,
-        default_env,
+        "eval_default_prompts",
+        "default_prompt.nu".to_string(),
+        DEFAULT_PROMPTS.as_bytes().to_vec(),
         Stack::new(),
         setup_engine(),
     )
@@ -1217,7 +1214,17 @@ const PARSER_DOC_CONFIG: &str = include_str!("../crates/nu-config/default_files/
 /// Returns None if no file could be read (will panic at benchmark time to fail loudly).
 fn collect_all_std_nu_sources() -> Option<String> {
     let std_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/nu-std/std");
-    let files = nu_files(std_root);
+    let mut files = nu_glob::glob_with_parent(
+        "**/*.nu",
+        nu_glob::MatchOptions::default(),
+        &std_root,
+        nu_glob::Uninterruptible,
+    )
+    .expect("valid glob pattern")
+    .collect::<Result<Vec<_>, _>>()
+    .expect("standard-library directory is readable");
+    files.retain(|path| !path.is_dir());
+    files.sort();
 
     let mut combined = String::new();
     for path in files {
@@ -1403,7 +1410,18 @@ fn bench_parser_full_parse_ctx(dataset: &str, source: String) -> impl IntoBenchm
 fn parser_shell_corpus() -> Vec<(String, PathBuf)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let std_root = root.join("crates/nu-std/std");
-    let mut corpus: Vec<(String, PathBuf)> = nu_files(&std_root)
+    let mut files = nu_glob::glob_with_parent(
+        "**/*.nu",
+        nu_glob::MatchOptions::default(),
+        &std_root,
+        nu_glob::Uninterruptible,
+    )
+    .expect("valid glob pattern")
+    .collect::<Result<Vec<_>, _>>()
+    .expect("standard-library directory is readable");
+    files.retain(|path| !path.is_dir());
+    files.sort();
+    let mut corpus: Vec<(String, PathBuf)> = files
         .into_iter()
         .map(|path| {
             // `std/mod.nu` is "std", `std/help/mod.nu` is "std_help".
@@ -1702,8 +1720,8 @@ tango_benchmarks!(
     bench_par_each_many_calls_threads(100),
     // Config
     bench_eval_default_config(),
-    // Env
-    bench_eval_default_env(),
+    // Prompt
+    bench_eval_default_prompts(),
     // Mut field assign (IR UpdateVarCellPath) — compare vs mut_record_update_* baseline
     bench_mut_record_assign(1_000),
     bench_mut_record_assign(10_000),

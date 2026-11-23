@@ -51,12 +51,10 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     engine_state.add_env_var("PWD".to_string(), Value::string("", Span::unknown()));
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    // Strip exactly one leading byte order mark. Windows editors and PowerShell's
-    // `Out-File` write one, so a reader that refuses them cannot open files people
-    // actually have. `U+FEFF` anywhere else is ordinary content, so this is a
-    // `strip_prefix` rather than a `trim`.
-    let input = input.strip_prefix('\u{feff}').unwrap_or(input);
-
+    // The parser skips exactly one leading byte order mark, as it does for a script.
+    // Windows editors and PowerShell's `Out-File` write one, so a reader that refuses
+    // them cannot open files people actually have. `U+FEFF` anywhere else is ordinary
+    // content.
     let mut block = nu_parser::parse(&mut working_set, None, input.as_bytes(), false);
 
     if let Some(pipeline) = block.pipelines.get(1) {
@@ -140,6 +138,7 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
                 col_name: col_name.clone(),
                 second_use: *second_use,
                 first_use: *first_use,
+                help: None,
             });
         }
         Some(ParseError::LiteralTooLarge(ty, span)) => {

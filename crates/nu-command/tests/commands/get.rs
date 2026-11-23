@@ -269,7 +269,7 @@ fn get_does_not_delve_too_deep_in_nested_lists() -> Result {
 }
 
 #[test]
-fn ignore_errors_works() -> Result {
+fn optional_works() -> Result {
     test()
         .run_with_data(r#"let path = "foo"; $in | get -o $path"#, test_value!({}))
         .expect_value_eq(())

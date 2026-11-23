@@ -68,6 +68,7 @@ impl Command for CommandlineEdit {
         }
 
         repl.accept = call.has_flag(engine_state, stack, "accept")?;
+        repl.selection = None;
 
         Ok(Value::nothing(call.head).into_pipeline_data())
     }

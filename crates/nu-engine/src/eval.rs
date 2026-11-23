@@ -1,6 +1,5 @@
 use crate::env::is_automatic_env_var;
 use crate::env::var;
-#[allow(deprecated)]
 use crate::get_full_help;
 use crate::named_flags::{
     can_rest_spread, expand_flag_record, find_signature_flag, flag_type_accepts_nothing,
@@ -81,6 +80,15 @@ impl CallEval {
         signature: &Signature,
         value: Cow<Value>,
     ) -> Result<&mut Self, ShellError> {
+        // An `exit` that arrives as a stream item ends the script. Nothing can catch it, and code
+        // that ran with it as input could simply ignore it.
+        if let Value::Error { error, .. } = value.as_ref()
+            && error.is_exit()
+        {
+            self.reset_arguments();
+            return Err((**error).clone());
+        }
+
         // After a rest spread, further positionals always go to rest (IR parity).
         if self.always_spread {
             return self.push_rest(signature, value);
@@ -108,7 +116,7 @@ impl CallEval {
                     to_type: param_type.to_string(),
                     from_type: value.get_type().to_string(),
                     span: value.span(),
-                    help: None,
+                    help: value.explain_type_mismatch(&param_type),
                 });
             }
 
@@ -142,7 +150,7 @@ impl CallEval {
                 to_type: param_type.to_string(),
                 from_type: value.get_type().to_string(),
                 span: value.span(),
-                help: None,
+                help: value.explain_type_mismatch(&param_type),
             });
         }
 
@@ -482,6 +490,7 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+    caller_stack.last_exit_code_written |= callee_stack.last_exit_code_written;
 
     // set config to callee config, to capture any updates to that
     caller_stack.config.clone_from(&callee_stack.config);
@@ -793,6 +802,10 @@ impl Eval for EvalRuntime {
         expr_span: Span,
     ) -> Result<Value, ShellError> {
         lhs.regex_match(engine_state, op_span, rhs, invert, expr_span)
+    }
+
+    fn check_point_in_time(_: &EngineState, _: &Value, _: Span) -> Result<(), ShellError> {
+        Ok(())
     }
 
     fn eval_assignment<D: DebugContext>(

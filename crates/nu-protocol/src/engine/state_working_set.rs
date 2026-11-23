@@ -4,10 +4,11 @@ use crate::{
     TypeAlias, TypeAliasId, TypeSet, Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
-        BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame, ScopeBindings,
-        StateDelta, Variable, VirtualPath, Visibility, VisibilityStack, description::build_desc,
-        engine_state::FileHint, signature_cache::SignatureCache,
+        BoundNames, BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+        ScopeBindings, ScopeFrame, StateDelta, Variable, VirtualPath, Visibility, VisibilityStack,
+        description::build_desc, engine_state::FileHint, signature_cache::SignatureCache,
     },
+    parser_path::ParserPath,
 };
 use core::panic;
 use std::{
@@ -35,6 +36,9 @@ pub struct StateWorkingSet<'a> {
     /// The REPL highlighter sets this so typing `use std` does not parse-time-load
     /// the standard library on every keystroke.
     pub skip_module_load: bool,
+    /// Set when [`skip_module_load`](Self::skip_module_load) left a module
+    /// unloaded, so what it would have imported is missing from the parse.
+    pub skipped_module_load: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
     pub compile_errors: Vec<CompileError>,
@@ -72,6 +76,7 @@ impl<'a> StateWorkingSet<'a> {
             files,
             search_predecls: true,
             skip_module_load: false,
+            skipped_module_load: false,
             parse_errors: vec![],
             parse_warnings: vec![],
             compile_errors: vec![],
@@ -166,11 +171,16 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn use_modules(&mut self, modules: Vec<(Vec<u8>, ModuleId)>) {
+        // Binding a module again undoes a `hide_module` of it in this frame.
+        self.delta
+            .last_scope_frame_mut()
+            .hidden_modules
+            .retain(|hidden| !modules.iter().any(|(_, id)| id == hidden));
+
         let overlay_frame = self.last_overlay_mut();
 
         for (name, module_id) in modules {
             overlay_frame.insert_module(name, module_id);
-            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
         }
     }
 
@@ -258,33 +268,42 @@ impl<'a> StateWorkingSet<'a> {
             .map(|(name, decl_id)| self.last_overlay_mut().predecls.insert(name, decl_id));
     }
 
+    /// Hide the declaration `name` from here to the end of the current block.
+    ///
+    /// The hide is recorded in the current scope frame, not in the frame that declared `name`, so
+    /// a `hide` inside a nested block (`do { hide f }`, a command body) doesn't hide `name` in the
+    /// enclosing block.
+    ///
+    /// Returns the declaration that was hidden, or `None` if no declaration `name` was visible.
     pub fn hide_decl(&mut self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
         let mut visibility: Visibility = Visibility::new();
 
-        // Since we can mutate scope frames in delta, remove the id directly
-        for scope_frame in self.delta.scope.iter_mut().rev() {
+        let mut found = None;
+        'frames: for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame
                 .active_overlay_ids(&mut removed_overlays)
                 .iter()
                 .rev()
             {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
+                let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
                 visibility.append(&overlay_frame.visibility);
 
                 if let Some(decl_id) = overlay_frame.get_decl(name)
                     && visibility.is_decl_id_visible(&decl_id)
                 {
-                    // Hide decl only if it's not already hidden
-                    overlay_frame.visibility.hide_decl_id(&decl_id);
-                    return Some(decl_id);
+                    found = Some(decl_id);
+                    break 'frames;
                 }
             }
         }
+        if let Some(decl_id) = found {
+            self.last_overlay_mut().visibility.hide_decl_id(&decl_id);
+            return Some(decl_id);
+        }
 
-        // We cannot mutate the permanent state => store the information in the current overlay frame
-        // for scope in self.permanent_state.scope.iter().rev() {
+        // The permanent state can't be changed, so the hide goes in the current overlay frame too
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
@@ -311,27 +330,33 @@ impl<'a> StateWorkingSet<'a> {
         let mut removed_overlays = vec![];
         let mut visibility: Visibility = Visibility::new();
 
-        // Since we can mutate scope frames in delta, hide the id in the frame that has it
-        for scope_frame in self.delta.scope.iter_mut().rev() {
+        let mut found = None;
+        'frames: for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame
                 .active_overlay_ids(&mut removed_overlays)
                 .iter()
                 .rev()
             {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
+                let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
                 visibility.append(&overlay_frame.visibility);
 
                 if let Some(type_alias_id) = overlay_frame.type_aliases.get(name).copied()
                     && visibility.is_type_alias_id_visible(&type_alias_id)
                 {
-                    overlay_frame.visibility.hide_type_alias_id(&type_alias_id);
-                    return Some(type_alias_id);
+                    found = Some(type_alias_id);
+                    break 'frames;
                 }
             }
         }
+        if let Some(type_alias_id) = found {
+            self.last_overlay_mut()
+                .visibility
+                .hide_type_alias_id(&type_alias_id);
+            return Some(type_alias_id);
+        }
 
-        // We cannot mutate the permanent state => store the information in the current overlay frame
+        // The permanent state can't be changed, so the hide goes in the current overlay frame too
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
@@ -662,11 +687,19 @@ impl<'a> StateWorkingSet<'a> {
     /// and declarations from scopes existing only in [`StateDelta`].
     pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
         let mut removed_overlays = vec![];
+        // As in `find_variable`, a module hidden in the scope frame that binds it, or in a frame
+        // inside that one, isn't found.
+        let unless_hidden = |module_id: ModuleId, binding_frame: usize| {
+            let hidden = self.delta.scope[binding_frame..]
+                .iter()
+                .any(|scope_frame| scope_frame.hidden_modules.contains(&module_id));
+            (!hidden).then_some(module_id)
+        };
 
-        for scope_frame in self.delta.scope.iter().rev() {
+        for (frame_idx, scope_frame) in self.delta.scope.iter().enumerate().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(module_id) = overlay_frame.modules.get(name) {
-                    return Some(*module_id);
+                    return unless_hidden(*module_id, frame_idx);
                 }
             }
         }
@@ -677,11 +710,23 @@ impl<'a> StateWorkingSet<'a> {
             .rev()
         {
             if let Some(module_id) = overlay_frame.modules.get(name) {
-                return Some(*module_id);
+                return unless_hidden(*module_id, 0);
             }
         }
 
         None
+    }
+
+    /// Hide `module_id` for the rest of the current scope frame, because a reload found its name
+    /// gone from the file: [`find_module`](Self::find_module) no longer finds it under any name,
+    /// until it's bound again. At the top level, merging the delta removes it from the overlays,
+    /// so later source can't find it either. `hide <module>` doesn't do this, so that
+    /// `hide spam; use spam` works.
+    pub fn hide_module(&mut self, module_id: ModuleId) {
+        self.delta
+            .last_scope_frame_mut()
+            .hidden_modules
+            .push(module_id);
     }
 
     /// Find the [`TypeAliasId`] of the type alias `name` visible in the current scope.
@@ -864,18 +909,6 @@ impl<'a> StateWorkingSet<'a> {
         self.last_overlay_mut().insert_variable(name, var_id);
     }
 
-    /// Returns the current working directory as a String, which is guaranteed to be canonicalized.
-    /// Returns an empty string if $env.PWD doesn't exist, is not a String, or is not an absolute path.
-    ///
-    /// It does NOT consider modifications to the working directory made on a stack.
-    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
-    pub fn get_cwd(&self) -> String {
-        self.permanent_state
-            .cwd(None)
-            .map(|path| path.to_string_lossy().to_string())
-            .unwrap_or_default()
-    }
-
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         self.permanent_state.get_env_var(name)
     }
@@ -947,9 +980,12 @@ impl<'a> StateWorkingSet<'a> {
     /// matching `exit_scope` (which discards that frame). Call sites:
     /// `parse_block_expression`, `parse_closure_expression`, and scoped `parse_block`.
     /// Keep those three call sites explicit so a new scoped construct is forced to opt in.
-    pub fn snapshot_scope_bindings(&self) -> Option<Arc<ScopeBindings>> {
+    pub fn snapshot_scope_bindings(&self, span: Span) -> Option<Arc<ScopeBindings>> {
         let frame = self.delta.last_scope_frame();
-        let mut bindings = ScopeBindings::default();
+        let mut bindings = ScopeBindings {
+            span: Some(span),
+            ..Default::default()
+        };
         let mut removed_overlays = vec![];
 
         for overlay in frame.active_overlays(&mut removed_overlays) {
@@ -961,6 +997,89 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             Some(Arc::new(bindings))
         }
+    }
+
+    /// The names the innermost scope frame bound since `before`, an earlier copy of that frame.
+    ///
+    /// Returns `None` if the frame changed in a way names don't describe: an overlay was activated
+    /// or removed, a declaration, type alias or module was hidden, or a variable was `unlet`. The
+    /// parser's block cache records this for an unscoped parse of a file (see [`BoundNames`]).
+    pub fn names_bound_since(&self, before: &ScopeFrame) -> Option<BoundNames> {
+        let after = self.delta.last_scope_frame();
+        if after.active_overlays != before.active_overlays
+            || after.removed_overlays != before.removed_overlays
+            || after.hidden_vars.len() != before.hidden_vars.len()
+            || after.hidden_modules.len() != before.hidden_modules.len()
+        {
+            return None;
+        }
+
+        let mut names = BoundNames::default();
+        for overlay_id in &after.active_overlays {
+            let overlay = after.get_overlay(*overlay_id);
+            let (_, previous) = before.overlays.get(overlay_id.get())?;
+            if overlay.visibility.hides_more_than(&previous.visibility) {
+                return None;
+            }
+            names.decls.extend(
+                overlay
+                    .decls
+                    .iter()
+                    .filter(|(name, id)| previous.decls.get(name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+            names.modules.extend(
+                overlay
+                    .modules
+                    .iter()
+                    .filter(|(name, id)| previous.modules.get(*name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+            names.vars.extend(
+                overlay
+                    .vars
+                    .iter()
+                    .filter(|(name, id)| previous.vars.get(*name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+            names.type_aliases.extend(
+                overlay
+                    .type_aliases
+                    .iter()
+                    .filter(|(name, id)| previous.type_aliases.get(*name) != Some(id))
+                    .map(|(name, id)| (name.clone(), *id)),
+            );
+        }
+        Some(names)
+    }
+
+    /// Bind each name in `names` that doesn't stand for its command, module, variable or type alias
+    /// here, in the current scope frame, as the parse that recorded `names` did.
+    ///
+    /// The block cache calls this when it reuses an unscoped parse of a file, which declares
+    /// nothing by itself: in another scope than the first parse's, or after a `hide`, the file's
+    /// names would be missing otherwise.
+    pub fn bind_names(&mut self, names: &BoundNames) {
+        let decls = (names.decls.iter())
+            .filter(|(name, id)| self.find_decl(name) != Some(*id))
+            .cloned()
+            .collect();
+        let modules = (names.modules.iter())
+            .filter(|(name, id)| self.find_module(name) != Some(*id))
+            .cloned()
+            .collect();
+        let vars = (names.vars.iter())
+            .filter(|(name, id)| self.find_variable(name) != Some(*id))
+            .cloned()
+            .collect();
+        let type_aliases = (names.type_aliases.iter())
+            .filter(|(name, id)| self.find_type_alias(name) != Some(*id))
+            .cloned()
+            .collect();
+        self.use_decls(decls);
+        self.use_modules(modules);
+        self.use_variables(vars);
+        self.use_type_aliases(type_aliases);
     }
 
     pub fn get_constant(&self, var_id: VarId) -> Result<&Value, ParseError> {
@@ -1018,12 +1137,7 @@ impl<'a> StateWorkingSet<'a> {
         if decl_id.get() >= self.permanent_state.num_decls() {
             return Arc::new(self.get_signature(self.get_decl(decl_id)));
         }
-        let mut cache = SignatureCache::lock(&self.permanent_state.signature_cache.effective);
-        Arc::clone(
-            cache
-                .entry(decl_id)
-                .or_insert_with(|| Arc::new(self.get_signature(self.get_decl(decl_id)))),
-        )
+        self.permanent_state.get_signature_shared(decl_id)
     }
 
     /// Shared version of `Command::signature()` for the declaration `decl_id`, i.e. the
@@ -1590,17 +1704,87 @@ impl miette::SourceCode for &StateWorkingSet<'_> {
     }
 }
 
+/// A file on the [`FileStack`].
+#[derive(Debug)]
+struct StackedFile {
+    /// The path the file was reached by, used for error messages and to resolve the paths
+    /// of the files it sources or imports.
+    path: PathBuf,
+    /// What the file is told apart from the other files on the stack by, or `None` for a file
+    /// put there by [`FileStack::with_file`] that hasn't been compared with another one yet.
+    identity: Option<FileIdentity>,
+}
+
+impl StackedFile {
+    /// Returns whether this is the file `identity` identifies.
+    fn is(&mut self, identity: &FileIdentity) -> bool {
+        match (&self.identity, identity) {
+            // A file that isn't identified yet is taken to be on disk, so it can't be virtual.
+            (None, FileIdentity::Virtual(_)) => false,
+            _ => {
+                self.identity
+                    .get_or_insert_with(|| FileIdentity::real(&self.path))
+                    == identity
+            }
+        }
+    }
+}
+
+/// What a file on the [`FileStack`] is told apart from the others by.
+#[derive(Debug, PartialEq)]
+enum FileIdentity {
+    /// A file on disk, by the canonical path of the directory it was reached in, joined with its
+    /// name.
+    Real(PathBuf),
+    /// A virtual file, such as a module of the standard library, by its path as given. These
+    /// exist only in the engine state, under relative names like `std/log/mod.nu`.
+    Virtual(PathBuf),
+}
+
+impl FileIdentity {
+    /// Identifies a file on disk.
+    ///
+    /// Paths from the parser are absolute but not canonical: on unix, `..` components are a kind
+    /// of link and so are kept as they are, which means one file can be reached under several
+    /// spellings (`mod.nu` and `sub/../mod.nu` for instance). Canonicalizing the directory
+    /// resolves those, and symlinks to a directory already on the stack, to a single path.
+    ///
+    /// The file name is kept as given, because a file's imports are resolved against the
+    /// directory it was reached in: a symlinked file reached from another directory imports
+    /// other files, and isn't a circular import. Two entries with the same identity are the same
+    /// file nested inside itself, read from the same directory. Its imports could still resolve
+    /// differently where `..` is collapsed textually (`path self`, and paths on Windows) after
+    /// going through a symlinked directory, but stopping there is what makes every chain of
+    /// `..` or symlinks end.
+    ///
+    /// The directory of a relative path, which the `--ide-*` flags pass as typed, is resolved
+    /// against the current directory of the process, which they read the file from. Windows
+    /// device paths are kept as given, as is a path whose directory can't be canonicalized,
+    /// with its dots expanded textually.
+    fn real(path: &Path) -> Self {
+        let canonical = match (path.parent(), path.file_name()) {
+            (Some(dir), Some(name)) if !nu_path::is_windows_device_path(path) => {
+                nu_path::canonicalize_with(dir, ".")
+                    .ok()
+                    .map(|dir| dir.join(name))
+            }
+            _ => None,
+        };
+
+        Self::Real(canonical.unwrap_or_else(|| nu_path::expand_path(path, false)))
+    }
+}
+
 /// Files being evaluated, arranged as a stack.
 ///
 /// The current active file is on the top of the stack.
 /// When a file source/import another file, the new file is pushed onto the stack.
 /// Attempting to add files that are already in the stack (circular import) results in an error.
 ///
-/// Note that file paths are compared without canonicalization, so the same
-/// physical file may still appear multiple times under different paths.
-/// This doesn't affect circular import detection though.
+/// Files on disk are recognized however the path to their directory was spelled, through `..`
+/// or symlinks (see [`FileIdentity`]). Virtual files are compared by their path as given.
 #[derive(Debug, Default)]
-pub struct FileStack(Vec<PathBuf>);
+pub struct FileStack(Vec<StackedFile>);
 
 impl FileStack {
     /// Creates an empty stack.
@@ -1612,42 +1796,75 @@ impl FileStack {
     ///
     /// This is a convenience method that creates an empty stack, then pushes the file onto it.
     /// It skips the circular import check and always succeeds.
+    ///
+    /// The file is taken to be on disk, and identified only when a file on disk is pushed after
+    /// it: every working set made while a script or config file runs starts its stack this way,
+    /// and most never push a file.
     pub fn with_file(path: PathBuf) -> Self {
-        Self(vec![path])
+        Self(vec![StackedFile {
+            path,
+            identity: None,
+        }])
     }
 
-    /// Adds a file to the stack.
+    /// Adds a file on disk to the stack.
     ///
     /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
     pub fn push(&mut self, path: PathBuf, span: Span) -> Result<(), ParseError> {
+        let identity = FileIdentity::real(&path);
+        self.push_identified(path, identity, span)
+    }
+
+    /// Adds the file a parser path points to, which may be a virtual file.
+    ///
+    /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
+    pub fn push_parser_path(&mut self, path: &ParserPath, span: Span) -> Result<(), ParseError> {
+        match path {
+            ParserPath::RealPath(path) => self.push(path.clone(), span),
+            ParserPath::VirtualFile(path, _) | ParserPath::VirtualDir(path, _) => {
+                self.push_identified(path.clone(), FileIdentity::Virtual(path.clone()), span)
+            }
+        }
+    }
+
+    fn push_identified(
+        &mut self,
+        path: PathBuf,
+        identity: FileIdentity,
+        span: Span,
+    ) -> Result<(), ParseError> {
         // Check for circular import.
-        if let Some(i) = self.0.iter().rposition(|p| p == &path) {
+        if let Some(i) = self.0.iter_mut().rposition(|f| f.is(&identity)) {
             let filenames: Vec<String> = self.0[i..]
                 .iter()
-                .chain(std::iter::once(&path))
+                .map(|f| f.path.as_path())
+                .chain(std::iter::once(path.as_path()))
                 .map(|p| p.to_string_lossy().to_string())
                 .collect();
             let msg = filenames.join("\nuses ");
             return Err(ParseError::CircularImport(msg, span));
         }
 
-        self.0.push(path);
+        self.0.push(StackedFile {
+            path,
+            identity: Some(identity),
+        });
         Ok(())
     }
 
     /// Removes a file from the stack and returns its path, or None if the stack is empty.
     pub fn pop(&mut self) -> Option<PathBuf> {
-        self.0.pop()
+        self.0.pop().map(|file| file.path)
     }
 
     /// Returns the active file (that is, the file on the top of the stack), or None if the stack is empty.
     pub fn top(&self) -> Option<&Path> {
-        self.0.last().map(PathBuf::as_path)
+        self.0.last().map(|file| file.path.as_path())
     }
 
     /// Returns the parent directory of the active file, or None if the stack is empty
     /// or the active file doesn't have a parent directory as part of its path.
     pub fn current_working_directory(&self) -> Option<&Path> {
-        self.0.last().and_then(|path| path.parent())
+        self.0.last().and_then(|file| file.path.parent())
     }
 }

@@ -32,6 +32,27 @@ fn http_head_failed_due_to_server_error() -> Result {
 }
 
 #[test]
+fn http_head_failed_with_json_content_type_reports_reason() -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("HEAD", "/")
+        .with_status(404)
+        .with_header("content-type", "application/json; charset=utf-8")
+        .create();
+
+    let code = format!("http head {url}", url = server.url());
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::HttpError { msg, .. } => {
+            assert_eq!(msg, "Not Found");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
 fn http_head_with_accept_errors() -> Result {
     let mut server = Server::new();
 

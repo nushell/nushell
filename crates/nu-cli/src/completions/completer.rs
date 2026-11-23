@@ -1,8 +1,8 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, CommandScope, Completer, CompletionOptions, DotNuCompletion,
-    EnvVarCompletion, FileCompletion, FlagCompletion, NuMatcher, OperatorCompletion,
-    VariableCompletion,
+    EnvVarCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, NuMatcher,
+    OperatorCompletion, OverlayCompletion, VariableCompletion,
     base::{Fetched, SemanticSuggestion},
 };
 use lru::LruCache;
@@ -14,12 +14,12 @@ use nu_protocol::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ExternalArgument, FlagRef,
         FullCellPath, PipelineRedirection, RedirectionTarget, Traverse,
     },
-    engine::{ArgType, Closure, Command, EngineState, Stack, StateWorkingSet},
+    engine::{ArgType, Closure, Command, EngineState, OverlayFrame, Stack, StateWorkingSet},
 };
 use nu_utils::time::Instant;
 use reedline::{
-    Completer as ReedlineCompleter, CompletionOrigin, CompletionResult, CompletionStatus, Partial,
-    Suggestion, Suggestions,
+    Completer as ReedlineCompleter, CompletionOrigin, CompletionResult, CompletionStatus,
+    Suggestions,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::NonZeroUsize;
@@ -285,6 +285,24 @@ fn find_flag(signature: &Signature, flag: FlagRef<'_>) -> Option<Flag> {
         FlagRef::Long(n) => signature.get_long_flag(n),
         FlagRef::Short(s) => s.chars().next().and_then(|c| signature.get_short_flag(c)),
     }
+}
+
+/// The [`FlagRef`] of a last-argument flag still awaiting its value.
+pub(crate) fn pending_flag_value<'a>(
+    call: &'a Call,
+    working_set: &StateWorkingSet,
+) -> Option<FlagRef<'a>> {
+    let Argument::Named((name, short, None)) = call.arguments.last()? else {
+        return None;
+    };
+
+    let flag_ref = FlagRef::from_named(name, short.as_ref());
+    let signature = working_set.get_decl(call.decl_id).signature();
+
+    find_flag(&signature, flag_ref)?
+        .arg
+        .is_some()
+        .then_some(flag_ref)
 }
 
 /// Positional arguments before `before_index`.
@@ -650,6 +668,15 @@ impl NarrowingCache {
                     })
                     .max_by_key(|&(cursor, ..)| cursor)?;
 
+                // Files replace `r` while subcommands replace `foo r`. Narrowing one span's
+                // token would drop the other group, and Tab would insert a prefix of what is
+                // left. So a mixed answer gives no fallback, and every keystroke in this token
+                // is pending until the fresh answer arrives. Tab inserts nothing meanwhile,
+                // and an open menu keeps showing its last answer.
+                if suggestions.iter().any(|suggestion| suggestion.span != span) {
+                    return None;
+                }
+
                 let token = query.typed().get(span.start..)?;
                 Some((Arc::clone(suggestions), span, token))
             })
@@ -660,13 +687,9 @@ impl NarrowingCache {
         // Keep the producer's ranking: re-sorting a stale list makes the menu flip between keystrokes.
         let mut matcher = NuMatcher::new(search_token, options, false);
 
-        base_suggestions
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.span == ref_span)
-            .for_each(|(i, s)| {
-                matcher.add(s.display_value(), i);
-            });
+        base_suggestions.iter().enumerate().for_each(|(i, s)| {
+            matcher.add(s.display_value(), i);
+        });
 
         let updated_span = reedline::Span::new(ref_span.start, query.cursor());
 
@@ -744,6 +767,11 @@ fn site_completer(site: &CompletionSite, working_set: &StateWorkingSet) -> Optio
         return Some(SiteCompleter::Decl(decl_id));
     }
 
+    command_wide_completer(&signature)
+}
+
+/// The command-wide completer that `signature` declares with `@complete`.
+fn command_wide_completer(signature: &Signature) -> Option<SiteCompleter> {
     match signature.complete {
         Some(CommandWideCompleter::Command(decl_id)) => Some(SiteCompleter::Decl(decl_id)),
         Some(CommandWideCompleter::External) => Some(SiteCompleter::External),
@@ -1165,7 +1193,16 @@ impl<'engine> CompletionEngine<'engine> {
 
     /// Whether the completer that would run first at `site` is interactive.
     fn site_is_interactive(&self, site: &CompletionSite, working_set: &StateWorkingSet) -> bool {
-        match site_completer(site, working_set) {
+        self.completer_is_interactive(site_completer(site, working_set), working_set)
+    }
+
+    /// Whether `completer` is an `@interactive` command or an external completer that runs one.
+    fn completer_is_interactive(
+        &self,
+        completer: Option<SiteCompleter>,
+        working_set: &StateWorkingSet,
+    ) -> bool {
+        match completer {
             Some(SiteCompleter::Decl(decl_id)) => decl_is_interactive(working_set, decl_id),
             Some(SiteCompleter::External) => self
                 .stack
@@ -1440,14 +1477,43 @@ impl<'engine> CompletionEngine<'engine> {
             });
 
         // Subcommands extending this call suppress the file fallback.
-        let subcommands =
-            self.subcommand_suggestions(working_set, buffer, external_call.span.start, site.cursor);
+        let resolved_head = match &head.expr {
+            Expr::String(name) | Expr::GlobPattern(name, _) => Some(name.as_str()),
+            _ => None,
+        };
+        let subcommands = self.subcommand_suggestions(
+            working_set,
+            buffer,
+            Span::new(external_call.span.start, site.cursor),
+            head.span,
+            resolved_head,
+        );
 
         // Add file completion when the source leaves the slot open.
         let wants_file = subcommands.is_empty()
             && (!dispatched.answered() || (!external_answered && dispatched.is_empty()));
         if wants_file {
             dispatched.merge(self.suggestions_at(&mut FileCompletion, completion_context));
+        }
+
+        // An unresolved bare head may be a typo, not an external command. Offer
+        // corrections without letting them suppress files, but keep aliases, sigils,
+        // and executable names intact. Exact subcommands already identify a parent.
+        if subcommands.is_empty()
+            && self.options.match_algorithm != MatchAlgorithm::Prefix
+            && head.span.start == external_call.span.start
+            && let Some(name) = resolved_head
+            && working_set.get_span_contents(head.span) == name.as_bytes()
+            && working_set.find_decl(name.as_bytes()).is_none()
+            && !name.contains(is_separator)
+            && !crate::repl::editor_is_resolved(self.engine_state, &self.stack, name)
+        {
+            dispatched.merge(self.command_completion_helper(
+                working_set,
+                buffer,
+                Span::new(external_call.span.start, site.cursor),
+                CommandCompletion::new(CommandScope::InternalsOnly),
+            ));
         }
 
         dispatched.merge(subcommands);
@@ -1472,13 +1538,54 @@ impl<'engine> CompletionEngine<'engine> {
 
         let signature = working_set.get_decl(call.decl_id).signature();
 
-        // Subcommands are always offered and suppress the file-path fallback.
-        let subcommands =
-            self.subcommand_suggestions(working_set, buffer, call.head.start, site.cursor);
+        // Module declarations keep their unqualified signature name, but subcommands
+        // must extend the name visible in this scope, including when reached via an alias.
+        let resolved_head = working_set
+            .find_decl_name(call.decl_id)
+            .or_else(|| {
+                // `hide` only flips a decl's visibility, so its name stays in the overlay.
+                // A module's private command was never added here and stays unresolved.
+                fn registered(overlay: &OverlayFrame, decl_id: DeclId) -> Option<&[u8]> {
+                    overlay
+                        .decls
+                        .iter()
+                        .find(|(_, id)| **id == decl_id)
+                        .map(|(name, _)| name.as_slice())
+                }
+                let mut removed = vec![];
+                for frame in working_set.delta.scope.iter().rev() {
+                    let found = frame
+                        .active_overlays(&mut removed)
+                        .rev()
+                        .find_map(|overlay| registered(overlay, call.decl_id));
+                    if found.is_some() {
+                        return found;
+                    }
+                }
+                working_set
+                    .permanent_state
+                    .active_overlays(&removed)
+                    .rev()
+                    .find_map(|overlay| registered(overlay, call.decl_id))
+            })
+            .map(String::from_utf8_lossy);
+        let subcommands = self.subcommand_suggestions(
+            working_set,
+            buffer,
+            Span::new(call.head.start, site.cursor),
+            call.head,
+            resolved_head.as_deref(),
+        );
 
-        // Value kinds share one shape; only the `ArgType`, completer lookup, and the
-        // `declared_shape` used for the empty-slot fallback differ.
-        let argument_value = |engine: &Self, arg_type, custom, arg_slot, declared_shape| {
+        // Value kinds share one shape; only the `ArgType`, completer lookup, the
+        // `declared_shape` used for the empty-slot fallback, and a command-wide result
+        // computed ahead differ.
+        let argument_value = |engine: &Self,
+                              arg_type,
+                              custom,
+                              arg_slot,
+                              declared_shape,
+                              command_wide: &mut Option<Fetched>| {
             engine.complete_argument_value(
                 custom,
                 ArgValueCompletion {
@@ -1491,6 +1598,7 @@ impl<'engine> CompletionEngine<'engine> {
                 },
                 completion_context,
                 &signature,
+                command_wide,
             )
         };
 
@@ -1505,20 +1613,43 @@ impl<'engine> CompletionEngine<'engine> {
                     signature.allows_unknown_args && positional.completion.is_some()
                 }) {
                 // `def --wrapped` binds an unknown `--x` to a positional, so its declared
-                // completer answers next to the flags (#19097); it already falls back to
-                // the command-wide one. An undeclared one would only list files.
+                // completer answers next to the flags (#19097). An undeclared one would only
+                // list files.
+                //
+                // The command-wide completer, such as an external one, knows the flags the
+                // signature doesn't declare, so its flags join even when the positional
+                // completer answers. It runs once: computed here, it is also the positional
+                // completer's fallback. When either completer is `@interactive`, it only runs
+                // as that fallback: an `@interactive` command-wide one isn't the site's first
+                // completer, and an `@interactive` positional one's answer, a pick or a
+                // cancel, isn't mixed with the command-wide flags.
                 Some(positional) => {
+                    let runs_alongside = !self.site_is_interactive(site, working_set)
+                        && !self.completer_is_interactive(
+                            command_wide_completer(&signature),
+                            working_set,
+                        );
+                    let mut command_wide = runs_alongside.then(|| {
+                        self.command_wide_completion_helper(&signature, completion_context)
+                    });
                     let mut flags = FlagCompletion {
                         decl_id: call.decl_id,
                     }
                     .fetch(completion_context);
-                    flags.merge(argument_value(
+                    // Without the declared flags it repeats, as the command-wide fallback
+                    // may.
+                    flags.merge_new(argument_value(
                         self,
                         ArgType::Positional(*sig_positional),
                         positional.completion.clone(),
                         *arg_slot,
                         Some(positional.shape.clone()),
+                        &mut command_wide,
                     ));
+                    // Left over when the positional completer answered without it.
+                    if let Some(command_wide) = command_wide {
+                        flags.merge_new(command_wide);
+                    }
                     flags
                 }
                 None => self.complete_flag_names(call.decl_id, completion_context, &signature),
@@ -1531,6 +1662,7 @@ impl<'engine> CompletionEngine<'engine> {
                     resolved.as_ref().and_then(|flag| flag.completion.clone()),
                     *arg_slot,
                     resolved.as_ref().and_then(|flag| flag.arg.clone()),
+                    &mut None,
                 )
             }
             SiteKind::Positional {
@@ -1545,6 +1677,7 @@ impl<'engine> CompletionEngine<'engine> {
                     positional.and_then(|positional| positional.completion.clone()),
                     *arg_slot,
                     positional.map(|positional| positional.shape.clone()),
+                    &mut None,
                 )
             }
             _ => Fetched::default(),
@@ -1819,7 +1952,7 @@ impl<'engine> CompletionEngine<'engine> {
 
         let point = Span::point(absolute_position);
 
-        if let Some(flag_ref) = Self::pending_flag_value(call, working_set) {
+        if let Some(flag_ref) = pending_flag_value(call, working_set) {
             // `arg_slot` past the last argument: no node exists yet; `ArgValueCompletion` reads `None`.
             CompletionSite::at(
                 absolute_position,
@@ -1905,24 +2038,6 @@ impl<'engine> CompletionEngine<'engine> {
         })
     }
 
-    /// The [`FlagRef`] of a last-argument flag still awaiting its value.
-    fn pending_flag_value<'a>(
-        call: &'a Call,
-        working_set: &StateWorkingSet,
-    ) -> Option<FlagRef<'a>> {
-        let Argument::Named((name, short, None)) = call.arguments.last()? else {
-            return None;
-        };
-
-        let flag_ref = FlagRef::from_named(name, short.as_ref());
-        let signature = working_set.get_decl(call.decl_id).signature();
-
-        find_flag(&signature, flag_ref)?
-            .arg
-            .is_some()
-            .then_some(flag_ref)
-    }
-
     fn resolve_argument_site<'a>(
         site: CallSite<'a>,
         argument: &'a Argument,
@@ -1930,6 +2045,29 @@ impl<'engine> CompletionEngine<'engine> {
         absolute_position: usize,
         working_set: &StateWorkingSet,
     ) -> CompletionSite<'a> {
+        // The lexer can split a trailing escape out of its unclosed quoted argument.
+        if matches!(argument, Argument::Positional(expression) if matches!(expression.expr, Expr::Garbage))
+            && working_set.get_span_contents(argument.span()) == b"\\"
+            && let Some(previous_index) = argument_index.checked_sub(1)
+            && let Some(previous) = site.call.arguments.get(previous_index)
+            && matches!(previous, Argument::Positional(_))
+            && previous.span().end == argument.span().start
+            && working_set.parse_errors.iter().any(|error| {
+                matches!(error, nu_protocol::ParseError::Unclosed(delimiter, opener, _, _)
+                    if delimiter == "\"" && opener.start == previous.span().start)
+            })
+        {
+            return CompletionSite::at(
+                absolute_position,
+                SiteKind::Positional {
+                    site,
+                    sig_positional: count_positionals(site.call, previous_index),
+                    arg_slot: previous_index,
+                },
+                Span::new(previous.span().start, argument.span().end),
+            );
+        }
+
         let sig_positional = count_positionals(site.call, argument_index);
         let flag_name = SiteKind::FlagName {
             site,
@@ -2033,12 +2171,19 @@ impl<'engine> CompletionEngine<'engine> {
 
         CompletionSite::at(absolute_position, kind, Span::point(absolute_position))
     }
+
+    /// Completes an argument's value: its own completer first, then, if that declines, the
+    /// command-wide completer, then its type.
+    ///
+    /// A `command_wide` result computed ahead stands in for running the command-wide
+    /// completer, and is taken only when it is needed.
     fn complete_argument_value(
         &self,
         custom: Option<Completion>,
         mut arg_value: ArgValueCompletion,
         context: &Context,
         signature: &Signature,
+        command_wide: &mut Option<Fetched>,
     ) -> Fetched {
         // Neutral seed: answered until a source declines, unreusable until one keeps.
         let mut results = Fetched::default();
@@ -2068,7 +2213,10 @@ impl<'engine> CompletionEngine<'engine> {
             }
         }
 
-        if results.absorb(self.command_wide_completion_helper(signature, context)) {
+        let command_wide = command_wide
+            .take()
+            .unwrap_or_else(|| self.command_wide_completion_helper(signature, context));
+        if results.absorb(command_wide) {
             return results;
         }
 
@@ -2093,7 +2241,56 @@ impl<'engine> CompletionEngine<'engine> {
                 arg_value.complete_module_exports(context, context.working_set)
             }
             BuiltinCompletion::EnvVar => EnvVarCompletion.fetch(context),
+            BuiltinCompletion::Overlay => OverlayCompletion.fetch(context),
             BuiltinCompletion::Command { internal_only } => {
+                if internal_only {
+                    // For commands like `help` where multiple positional rest arguments form
+                    // a single command path (e.g. `help str join`), complete words after the
+                    // first as subcommands of earlier words. Starting the replacement span at
+                    // the first rest word ensures the suggestion replaces the full sub-path
+                    // (e.g. `str ca` -> `str camel-case`).
+                    let earlier_positionals: Vec<_> = arg_value
+                        .call
+                        .arguments
+                        .iter()
+                        .take(arg_value.arg_idx)
+                        .filter_map(|arg| match arg {
+                            Argument::Positional(expr) | Argument::Unknown(expr) => Some(expr),
+                            _ => None,
+                        })
+                        .collect();
+
+                    if !earlier_positionals.is_empty() {
+                        let first_span = earlier_positionals[0].span;
+                        if first_span.start <= context.span.end {
+                            let span = Span::new(first_span.start, context.span.end);
+                            let prefix = context.working_set.get_span_contents(span);
+                            let sub_context = Context {
+                                span,
+                                prefix,
+                                ..*context
+                            };
+                            let parent_heads = vec![
+                                earlier_positionals
+                                    .iter()
+                                    .map(|expr| match &expr.expr {
+                                        Expr::String(s) => s.as_str(),
+                                        _ => {
+                                            let bytes =
+                                                context.working_set.get_span_contents(expr.span);
+                                            std::str::from_utf8(bytes).unwrap_or_default()
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(" "),
+                            ];
+
+                            return CommandCompletion::subcommands(parent_heads)
+                                .fetch(&sub_context);
+                        }
+                    }
+                }
+
                 let scope = if internal_only {
                     CommandScope::InternalsOnly
                 } else {
@@ -2162,24 +2359,30 @@ impl<'engine> CompletionEngine<'engine> {
         })
     }
 
-    /// Internal commands whose name extends the line so far (`foo test⌶` also offers
-    /// `foo test bar`); externals are excluded, since a multi-word line names only
-    /// internal subcommands.
+    /// Internal subcommands extending this call's typed or resolved head. Restrict
+    /// candidates before fuzzy matching so unrelated names cannot suppress file completion.
     fn subcommand_suggestions(
         &self,
         working_set: &StateWorkingSet,
         buffer: Buffer,
-        command_start: usize,
-        cursor: usize,
+        span: Span,
+        head: Span,
+        resolved_head: Option<&str>,
     ) -> Fetched {
-        if cursor <= command_start {
+        if span.end <= span.start {
             return Fetched::default();
         }
+        let typed_head = String::from_utf8_lossy(working_set.get_span_contents(head));
+        let heads = std::iter::once(typed_head.as_ref())
+            .chain(resolved_head)
+            .filter(|head| !head.trim_ascii().is_empty())
+            .map(str::to_owned)
+            .collect();
         self.command_completion_helper(
             working_set,
             buffer,
-            Span::new(command_start, cursor),
-            CommandCompletion::new(CommandScope::InternalsOnly),
+            span,
+            CommandCompletion::subcommands(heads),
         )
     }
 
@@ -2373,43 +2576,8 @@ impl NuCompleter {
     }
 }
 
-/// Byte length of the longest prefix `a` and `b` share. Always a char boundary in both.
-fn common_prefix_len(a: &str, b: &str) -> usize {
-    a.char_indices()
-        .zip(b.chars())
-        .find_map(|((index, x), y)| (x != y).then_some(index))
-        .unwrap_or_else(|| a.len().min(b.len()))
-}
-
-fn partial_of(line: &str, suggestions: &[Suggestion]) -> Option<Partial> {
-    let span = suggestions.first()?.span;
-
-    let mut matching_values = suggestions
-        .iter()
-        .filter(|suggestion| suggestion.span == span)
-        .map(|suggestion| suggestion.value.as_str());
-
-    // Slice a window into the first value rather than allocating a `String`; runs every
-    // keystroke.
-    let first = matching_values.next()?;
-    let shared_len = matching_values.try_fold(first.len(), |shared, value| {
-        let common = common_prefix_len(first.get(..shared)?, value);
-        (common > 0).then_some(common)
-    })?;
-    let shared_prefix = first.get(..shared_len)?;
-
-    let entered = line.get(span.start..span.end)?;
-    let extends = shared_prefix != entered
-        && shared_prefix
-            .to_lowercase()
-            .starts_with(&entered.to_lowercase());
-
-    extends.then_some(Partial {
-        span,
-        insert: shared_prefix.to_string(),
-    })
-}
-
+// No `with_partial` on the results: reedline derives Tab's shared prefix itself, lining
+// up suggestions that replace different spans.
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
         let query = CompletionQuery::new(line, pos);
@@ -2417,8 +2585,7 @@ impl ReedlineCompleter for NuCompleter {
 
         if let Some(suggestions) = self.fresh_for(&query) {
             self.settle_pending(&query);
-            let partial = partial_of(line, &suggestions);
-            return CompletionResult::fresh(suggestions).with_partial(partial);
+            return CompletionResult::fresh(suggestions);
         }
 
         // Interactive completers run on UI thread to own terminal.
@@ -2433,12 +2600,10 @@ impl ReedlineCompleter for NuCompleter {
                 suggestions: suggestions.clone(),
                 cacheable: false,
             });
-            let partial = partial_of(line, &suggestions);
-            return CompletionResult::fresh(suggestions).with_partial(partial);
+            return CompletionResult::fresh(suggestions);
         }
 
         let fallback = self.stale_fallback(&query);
-        let partial = partial_of(line, &fallback);
 
         let worker = self.worker.get_or_insert_with(|| {
             Self::spawn_worker(Arc::clone(&self.engine_state), Arc::clone(&self.stack))
@@ -2455,7 +2620,6 @@ impl ReedlineCompleter for NuCompleter {
         }
 
         CompletionResult::stale_or_pending(fallback, CompletionOrigin::new(line, pos))
-            .with_partial(partial)
     }
 
     fn poll_completion(&mut self) -> CompletionStatus {
@@ -2937,6 +3101,69 @@ mod completer_tests {
         assert_eq!(expected, settled);
     }
 
+    #[test]
+    fn dangling_escape_stays_with_its_unclosed_argument() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        apply_source(
+            &mut engine,
+            &mut Stack::new(),
+            b"def sample [name?: string] {}",
+        );
+        for (line, index, token) in [
+            (r#"sample "say\"#, 0, r#""say\"#),
+            (r#"sample "say\\\"#, 0, r#""say\\\"#),
+            (r#"sample "say" \"#, 1, r"\"),
+            (r"sample say\", 0, r"say\"),
+        ] {
+            let mut working_set = StateWorkingSet::new(&engine);
+            let offset = working_set.next_span_start();
+            let block = parse(&mut working_set, None, line.as_bytes(), false);
+            let site = CompletionEngine::resolve_completion_site(
+                &block,
+                &working_set,
+                Buffer { text: line, offset },
+                line,
+            );
+            assert_eq!(
+                site.kind.resolved(),
+                ResolvedCursor::Positional { index },
+                "{line:?}"
+            );
+            assert_eq!(site.typed_prefix, token, "{line:?}");
+            assert_eq!(
+                site.span,
+                Span::new(offset + line.len() - token.len(), offset + line.len()),
+                "{line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_hide_completions_follow_changes_across_prompts() {
+        let mut engine = Arc::unwrap_or_clone(test_engine());
+        let mut stack = Stack::new();
+        let cache = NarrowingCache::default();
+        let line = "overlay hide ";
+
+        for (source, expected) in [
+            ("overlay new alpha", vec!["alpha"]),
+            ("overlay hide alpha", vec![]),
+            ("overlay use alpha", vec!["alpha"]),
+            ("overlay new beta", vec!["alpha", "beta"]),
+        ] {
+            apply_source(&mut engine, &mut stack, source.as_bytes());
+            let mut completer = NuCompleter::with_cache(
+                Arc::new(engine.clone()),
+                Arc::new(stack.clone()),
+                cache.clone(),
+            );
+            let suggestions = completer.complete_blocking(line, line.len());
+            let values: Vec<_> = suggestions.iter().map(|s| s.value.as_str()).collect();
+            assert_eq!(values, expected, "after {source}");
+            assert!(cache.fresh(&q(line), completer.cache_env).is_none());
+        }
+    }
+
     /// A cache handed to a new per-prompt completer must still answer the previous prompt's
     /// queries.
     #[test]
@@ -2957,6 +3184,228 @@ mod completer_tests {
             "a carried-over cache entry should answer outright, got {answer:?}"
         );
         assert!(answer.suggestions().iter().any(|s| s.value == "cd"));
+    }
+
+    /// A dynamic completer can opt out of the shared cache without disabling
+    /// caching for other sources or changing the cache's environment fingerprint.
+    #[rstest::rstest]
+    #[case::parameter(
+        b"def items [token] { {completions: ($env.ITEMS | lines), options: {cache: false}} }
+          def pick [item: string@items] { $item }",
+        "pick ap"
+    )]
+    #[case::command_wide(
+        b"def items [place] { {completions: ($env.ITEMS | lines), options: {cache: false}} }
+          @complete items
+          def --wrapped pick [...rest] {}",
+        "pick ap"
+    )]
+    #[case::external(
+        b"$env.config.completions.external.completer = {|buffer|
+            {completions: ($env.ITEMS | lines), options: {cache: false}}
+          }",
+        "^some-external-command ap"
+    )]
+    fn dynamic_completer_can_refresh_between_prompts(#[case] source: &[u8], #[case] line: &str) {
+        use nu_protocol::Value;
+
+        let mut engine = (*test_engine()).clone();
+        let mut first_stack = Stack::new();
+        apply_source(&mut engine, &mut first_stack, source);
+        first_stack.add_env_var(
+            "ITEMS".into(),
+            Value::string("apple\napricot", Span::unknown()),
+        );
+        let engine = Arc::new(engine);
+        let first_stack = Arc::new(first_stack);
+        let cache = NarrowingCache::default();
+
+        let mut first_prompt =
+            NuCompleter::with_cache(engine.clone(), first_stack.clone(), cache.clone());
+        let first = first_prompt.complete_blocking(line, line.len());
+        assert!(first.iter().any(|s| s.value == "apple"));
+        assert!(first.iter().any(|s| s.value == "apricot"));
+        drop(first_prompt);
+
+        let mut second_stack = (*first_stack).clone();
+        second_stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        assert_eq!(
+            CacheEnv::of(&engine, &first_stack),
+            CacheEnv::of(&engine, &second_stack)
+        );
+        let mut second_prompt = NuCompleter::with_cache(engine, Arc::new(second_stack), cache);
+        assert!(
+            second_prompt.complete(line, line.len()).is_pending(),
+            "the previous prompt's dynamic answer must not be served as fresh"
+        );
+        let second = second_prompt.complete_blocking(line, line.len());
+        assert!(second.iter().any(|s| s.value == "apple"));
+        assert!(!second.iter().any(|s| s.value == "apricot"));
+    }
+
+    #[test]
+    fn custom_completer_keeps_cross_prompt_cache_by_default() {
+        use nu_protocol::Value;
+
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"def items [token] { $env.ITEMS | lines }
+              def pick [item: string@items] { $item }",
+        );
+        stack.add_env_var(
+            "ITEMS".into(),
+            Value::string("apple\napricot", Span::unknown()),
+        );
+        let engine = Arc::new(engine);
+        let stack = Arc::new(stack);
+        let cache = NarrowingCache::default();
+
+        let mut first_prompt =
+            NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
+        assert_eq!(first_prompt.complete_blocking("pick ap", 7).len(), 2);
+        drop(first_prompt);
+
+        let mut changed_stack = (*stack).clone();
+        changed_stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        assert_eq!(
+            CacheEnv::of(&engine, &stack),
+            CacheEnv::of(&engine, &changed_stack)
+        );
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(changed_stack), cache);
+        let answer = next_prompt.complete("pick ap", 7);
+        assert!(matches!(answer, CompletionResult::Fresh { .. }));
+        assert!(answer.suggestions().iter().any(|s| s.value == "apricot"));
+    }
+
+    #[test]
+    fn dynamic_command_completion_reads_external_state_each_prompt() {
+        use nu_protocol::{
+            DynamicCompletionCallRef, DynamicSuggestion, PipelineData, ShellError, Value,
+        };
+
+        #[derive(Clone)]
+        struct DynamicItems;
+
+        impl Command for DynamicItems {
+            fn name(&self) -> &str {
+                "dynamic-items"
+            }
+
+            fn description(&self) -> &str {
+                "test dynamic completion"
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name()).required("item", SyntaxShape::String, "item")
+            }
+
+            #[expect(deprecated, reason = "dynamic completion API")]
+            fn get_dynamic_completion(
+                &self,
+                engine_state: &EngineState,
+                stack: &mut Stack,
+                _call: DynamicCompletionCallRef,
+                _arg_type: &ArgType,
+                _marker: nu_protocol::engine::ExperimentalMarker,
+            ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
+                let items = stack
+                    .get_env_var(engine_state, "ITEMS")
+                    .and_then(|value| value.as_str().ok())
+                    .unwrap_or_default();
+                Ok(Some(
+                    items
+                        .lines()
+                        .map(|value| DynamicSuggestion {
+                            value: value.into(),
+                            ..Default::default()
+                        })
+                        .collect(),
+                ))
+            }
+
+            fn run(
+                &self,
+                _engine_state: &EngineState,
+                _stack: &mut Stack,
+                _call: &nu_protocol::engine::Call,
+                _input: PipelineData,
+            ) -> Result<PipelineData, ShellError> {
+                Ok(PipelineData::empty())
+            }
+        }
+
+        let mut engine = (*test_engine()).clone();
+        let mut working_set = StateWorkingSet::new(&engine);
+        working_set.add_decl(Box::new(DynamicItems));
+        engine
+            .merge_delta(working_set.render())
+            .expect("merge dynamic command");
+        let engine = Arc::new(engine);
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            "ITEMS".into(),
+            Value::string("apple\napricot", Span::unknown()),
+        );
+        let stack = Arc::new(stack);
+        let cache = NarrowingCache::default();
+        let line = "dynamic-items ap";
+
+        let mut first_prompt =
+            NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
+        let first = first_prompt.complete_blocking(line, line.len());
+        assert!(first.iter().any(|s| s.value == "apricot"));
+        drop(first_prompt);
+
+        let mut changed_stack = (*stack).clone();
+        changed_stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        assert_eq!(
+            CacheEnv::of(&engine, &stack),
+            CacheEnv::of(&engine, &changed_stack)
+        );
+        let mut next_prompt = NuCompleter::with_cache(engine, Arc::new(changed_stack), cache);
+        assert!(next_prompt.complete(line, line.len()).is_pending());
+        let second = next_prompt.complete_blocking(line, line.len());
+        assert!(second.iter().any(|s| s.value == "apple"));
+        assert!(!second.iter().any(|s| s.value == "apricot"));
+    }
+
+    #[test]
+    fn cache_opt_out_survives_a_fallback_source() {
+        use nu_protocol::Value;
+
+        let mut engine = (*test_engine()).clone();
+        let mut stack = Stack::new();
+        apply_source(
+            &mut engine,
+            &mut stack,
+            b"def items [token] {
+                 {completions: ($env.ITEMS | lines), fallback: true, options: {cache: false}}
+               }
+               def pick [item: string@items] { $item }",
+        );
+        stack.add_env_var("ITEMS".into(), Value::string("apple", Span::unknown()));
+        let engine = Arc::new(engine);
+        let stack = Arc::new(stack);
+        let cache = NarrowingCache::default();
+
+        let mut first_prompt =
+            NuCompleter::with_cache(engine.clone(), stack.clone(), cache.clone());
+        assert!(
+            first_prompt
+                .complete_blocking("pick ap", 7)
+                .iter()
+                .any(|s| s.value == "apple")
+        );
+        drop(first_prompt);
+
+        let mut next_prompt = NuCompleter::with_cache(engine, stack, cache);
+        assert!(
+            next_prompt.complete("pick ap", 7).is_pending(),
+            "fallback results must not make a dynamic answer cacheable"
+        );
     }
 
     /// ...but not across a `cd`/`$env.PATH` change, the reason [`CacheEnv`] exists.
@@ -2981,6 +3430,40 @@ mod completer_tests {
             next_prompt.complete("ls | c", 6).is_pending(),
             "entries from another environment must not answer"
         );
+    }
+
+    /// `foo r` + Tab, then `e` + Tab: the stale fallback narrows the cached `foo r` answer.
+    /// With a file in it as well, no fallback is given, so Tab can't insert `foo reb` and
+    /// drop `README.md` before the fresh answer arrives.
+    #[rstest::rstest]
+    #[case::file_and_subcommands(&[("README.md", 4), ("foo rebase", 0), ("foo rebuild", 0)], &[])]
+    #[case::subcommands_only(&[("foo rebase", 0), ("foo rebuild", 0)], &["foo rebase", "foo rebuild"])]
+    fn narrowed_fallback_needs_one_span(
+        #[case] cached: &[(&str, usize)],
+        #[case] expected: &[&str],
+    ) {
+        let environment = CacheEnv(0);
+        let cache = NarrowingCache::default();
+        cache.store(
+            CompletionQuery::new("foo r", 5),
+            environment,
+            cached
+                .iter()
+                .map(|&(value, start)| reedline::Suggestion {
+                    value: value.into(),
+                    span: reedline::Span::new(start, 5),
+                    ..Default::default()
+                })
+                .collect(),
+        );
+
+        let fallback = cache.narrowed_fallback(
+            &CompletionQuery::new("foo re", 6),
+            environment,
+            &CompletionOptions::default(),
+        );
+        let values: Vec<_> = fallback.iter().map(|s| s.value.as_str()).collect();
+        assert_eq!(values, expected);
     }
 
     /// Any `$env.config` assignment, including ones that are not completion

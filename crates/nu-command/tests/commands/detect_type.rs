@@ -101,6 +101,18 @@ fn valid_values_convert(#[case] input: &str, #[case] expected: Value) -> Result 
         .expect_value_eq(expected)
 }
 
+#[test]
+fn rfc3339_date_keeps_offset_and_nanoseconds() -> Result {
+    use chrono::{FixedOffset, TimeZone, Timelike};
+    let expected = FixedOffset::east_opt(5 * 3600 + 30 * 60)
+        .and_then(|offset| offset.with_ymd_and_hms(2025, 4, 18, 4, 4, 32).single())
+        .and_then(|date| date.with_nanosecond(123_456_789))
+        .expect("valid date");
+    test()
+        .run_with_data("detect type", "2025-04-18T04:04:32.123456789+05:30")
+        .expect_value_eq(Value::test_date(expected))
+}
+
 #[rstest]
 #[case("+1024")]
 #[case("+1,024")]

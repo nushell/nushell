@@ -166,7 +166,15 @@ fn stream_command(
         PipelineData::ByteStream(stream, ..) => {
             // ByteStream - collect to string and show as preview
             let span = stream.span();
-            match stream.into_string() {
+            // `into_string` rejects an external's separate stderr pipe, and on a non-zero exit code
+            // it loses what the command said, so read an external's output directly.
+            let text = match stream.into_child() {
+                Ok(child) => child.wait_with_output().map(|output| {
+                    external_output_text(output.stdout, output.stderr, output.exit_status.code())
+                }),
+                Err(stream) => stream.into_string(),
+            };
+            match text {
                 Ok(text) => {
                     let _ = sender.send(StreamMessage::SimpleValue(text));
                 }
@@ -179,6 +187,28 @@ fn stream_command(
             }
         }
     }
+}
+
+/// The preview text of a finished external: its stdout, its stderr, and its exit code if it failed.
+fn external_output_text(
+    stdout: Option<Vec<u8>>,
+    stderr: Option<Vec<u8>>,
+    exit_code: i32,
+) -> String {
+    let mut parts: Vec<String> = [stdout, stderr]
+        .into_iter()
+        .flatten()
+        .map(|bytes| {
+            String::from_utf8_lossy(&bytes)
+                .trim_end_matches(['\r', '\n'])
+                .to_string()
+        })
+        .filter(|text| !text.is_empty())
+        .collect();
+    if exit_code != 0 {
+        parts.push(format!("exit code: {exit_code}"));
+    }
+    parts.join("\n")
 }
 
 /// Stream values from an iterator, sending rows in batches
@@ -559,6 +589,32 @@ impl View for NuView {
 mod test {
     use super::*;
     use crossterm::event::KeyModifiers;
+
+    #[test]
+    fn external_output_text_cases() {
+        let cases = [
+            ("Stdout only", Some("out\n"), None, 0, "out"),
+            ("Both streams", Some("out\n"), Some("err\n"), 0, "out\nerr"),
+            ("No newline", Some("out"), Some("err"), 0, "out\nerr"),
+            ("Empty stderr", Some("out\n"), Some(""), 0, "out"),
+            (
+                "Failure",
+                Some("out\n"),
+                Some("err\n"),
+                3,
+                "out\nerr\nexit code: 3",
+            ),
+            ("Silent failure", Some(""), Some(""), 1, "exit code: 1"),
+            ("Silent success", Some(""), Some(""), 0, ""),
+            ("No pipes", None, None, 0, ""),
+        ];
+
+        for (name, stdout, stderr, exit_code, expected) in cases {
+            let to_bytes = |text: &str| text.as_bytes().to_vec();
+            let text = external_output_text(stdout.map(to_bytes), stderr.map(to_bytes), exit_code);
+            assert_eq!(text, expected, "Case failed for {name}");
+        }
+    }
 
     #[test]
     fn non_interactive_states_exit_on_q_or_esc() {

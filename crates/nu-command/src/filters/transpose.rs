@@ -1,5 +1,6 @@
 use nu_engine::{column::get_columns, command_prelude::*};
 use nu_protocol::shell_error::generic::GenericError;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Transpose;
@@ -174,23 +175,17 @@ pub fn transpose(
     }
 
     let metadata = input.take_metadata();
-    let input: Vec<_> = input.into_iter().collect();
+    let input = input.into_iter().collect_values()?;
 
-    // Ensure error values are propagated and non-record values are rejected
+    // Ensure non-record values are rejected
     for value in input.iter() {
-        match value {
-            Value::Error { .. } => {
-                return Ok(value.clone().into_pipeline_data_with_metadata(metadata));
-            }
-            Value::Record { .. } => {} // go on, this is what we're looking for
-            _ => {
-                return Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "table or record".into(),
-                    wrong_type: "list<any>".into(),
-                    dst_span: call.head,
-                    src_span: value.span(),
-                });
-            }
+        if !matches!(value, Value::Record { .. }) {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "table or record".into(),
+                wrong_type: "list<any>".into(),
+                dst_span: call.head,
+                src_span: value.span(),
+            });
         }
     }
 
@@ -239,14 +234,46 @@ pub fn transpose(
         }
     }
 
-    let mut descs = descs.into_iter();
-    if args.header_row {
-        descs.next();
+    // Gather every cell into a column-major grid in one pass over the input,
+    // instead of a linear key lookup per (column, row), which was quadratic.
+    let num_rows = input.len();
+    let col_index: HashMap<&str, usize> = descs
+        .iter()
+        .enumerate()
+        .map(|(i, desc)| (desc.as_str(), i))
+        .collect();
+    // One buffer per column, so each is freed as soon as its record is built.
+    let mut cells: Vec<Vec<Option<Value>>> = vec![vec![None; num_rows]; descs.len()];
+    for (row, value) in input.into_iter().enumerate() {
+        if let Value::Record { val, .. } = value {
+            for (key, x) in val.into_owned() {
+                if let Some(&col) = col_index.get(key.as_str()) {
+                    // Later duplicates win, like `Record::get`.
+                    cells[col][row] = Some(x);
+                }
+            }
+        }
     }
-    let mut result_data = descs
-        .map(|desc| {
+
+    // Map each header position to its field index in the output records, so
+    // repeated headers can be merged without searching the record.
+    let mut seen: HashMap<&str, usize> = HashMap::with_capacity(headers.len());
+    let slots: Vec<usize> = headers
+        .iter()
+        .map(|header| {
+            let next = seen.len();
+            *seen.entry(header.as_str()).or_insert(next)
+        })
+        .collect();
+
+    let first_col = usize::from(args.header_row);
+    let mut result_data = cells
+        .into_iter()
+        .zip(&descs)
+        .skip(first_col)
+        .map(|(column, desc)| {
             let mut column_num: usize = 0;
-            let mut record = Record::new();
+            let mut record = Record::with_capacity(seen.len());
 
             if !args.ignore_titles && !args.header_row {
                 record.push(
@@ -256,28 +283,27 @@ pub fn transpose(
                 column_num += 1
             }
 
-            for i in input.iter() {
-                let x = i
-                    .get_data_by_key(&desc)
-                    .unwrap_or_else(|| Value::nothing(name));
-                match record.get_mut(&headers[column_num]) {
-                    None => {
-                        record.push(headers[column_num].clone(), x);
-                    }
-                    Some(val) => {
-                        if args.keep_all {
-                            let current_span = val.span();
-                            match val {
-                                Value::List { vals, .. } => {
-                                    vals.to_mut().push(x);
-                                }
-                                v => {
-                                    *v = Value::list(vec![std::mem::take(v), x], current_span);
-                                }
-                            };
-                        } else if args.keep_last {
-                            *val = x;
-                        }
+            for x in column {
+                let x = x.unwrap_or_else(|| Value::nothing(name));
+                let slot = slots[column_num];
+                if slot == record.len() {
+                    record.push(headers[column_num].clone(), x);
+                } else {
+                    let (_, val) = record
+                        .get_index_mut(slot)
+                        .expect("slot refers to an existing field");
+                    if args.keep_all {
+                        let current_span = val.span();
+                        match val {
+                            Value::List { vals, .. } => {
+                                vals.to_mut().push(x);
+                            }
+                            v => {
+                                *v = Value::list(vec![std::mem::take(v), x], current_span);
+                            }
+                        };
+                    } else if args.keep_last {
+                        *val = x;
                     }
                 }
 

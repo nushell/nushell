@@ -3,8 +3,9 @@ use crate::process::ExitStatusGuard;
 use crate::{
     ByteStream, ByteStreamSource, ByteStreamType, CompareTypes, Config, ListStream, OutDest,
     PipelineMetadata, Range, ShellError, Signals, Span, Type, TypeRelation, Value,
-    ast::{Call, PathMember},
+    ast::PathMember,
     engine::{EngineState, Stack},
+    ir,
     shell_error::{generic::GenericError, io::IoError},
 };
 use std::{
@@ -68,19 +69,6 @@ impl PipelineData {
 
     pub fn byte_stream(stream: ByteStream, metadata: impl Into<Option<PipelineMetadata>>) -> Self {
         PipelineData::ByteStream(stream, metadata.into())
-    }
-
-    /// Returns a clone of the metadata if it exists.
-    ///
-    /// Note: This performs a deep clone of heap-allocated structures.
-    /// Use [`.metadata_ref()`](Self::metadata_ref), [`.metadata_mut()`](Self::metadata_mut)
-    /// or [`.take_metadata()`](Self::take_metadata) to avoid unnecessary allocations.
-    #[deprecated(
-        since = "0.111.1",
-        note = "Use .metadata_ref(), .metadata_mut() or .take_metadata() instead"
-    )]
-    pub fn metadata(&self) -> Option<PipelineMetadata> {
-        self.metadata_ref().cloned()
     }
 
     /// Returns a reference to the metadata if it exists.
@@ -293,6 +281,24 @@ impl PipelineData {
         }
     }
 
+    /// Write the data to `dest` like [`write_to`](Self::write_to), for an `o>` redirection, and
+    /// return what is left for the next command.
+    ///
+    /// That's nothing, except for an external whose stderr has its own pipe, meaning the next
+    /// command reads stdout and stderr apart: only its stdout is written, and it comes back with
+    /// its stderr (see [`ByteStream::write_stdout_to`]).
+    pub fn write_stdout_to(self, dest: impl Write) -> Result<Self, ShellError> {
+        match self {
+            #[cfg(feature = "os")]
+            PipelineData::ByteStream(stream, metadata) => Ok(stream
+                .write_stdout_to(dest)?
+                .map_or(PipelineData::Empty, |stream| {
+                    PipelineData::byte_stream(stream, metadata)
+                })),
+            data => data.write_to(dest).map(|()| PipelineData::Empty),
+        }
+    }
+
     /// Drain this [`PipelineData`] according to the current stdout [`OutDest`]s in `stack`.
     ///
     /// For [`OutDest::Pipe`], [`OutDest::PipeRaw`] and [`OutDest::PipeSeparate`], this will return
@@ -315,10 +321,7 @@ impl PipelineData {
                 let span = self.span().unwrap_or(Span::unknown());
                 self.into_value(span).map(|val| Self::Value(val, metadata))
             }
-            OutDest::File(file) => {
-                self.write_to(file.as_ref())?;
-                Ok(Self::Empty)
-            }
+            OutDest::File(file) => self.write_stdout_to(file.as_ref()),
             OutDest::Null | OutDest::Inherit => {
                 self.drain()?;
                 Ok(Self::Empty)
@@ -359,16 +362,15 @@ impl PipelineData {
                         )
                         .into_iter(),
                     ),
-                    Value::Range { val, .. } => PipelineIteratorInner::ListStream(
+                    Value::Range { val, signals, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_range_iter(val_span, Signals::empty()),
+                            val.into_range_iter(val_span, signals.unwrap_or_else(Signals::empty)),
                             val_span,
                             Signals::empty(),
                         )
                         .into_iter(),
                     ),
                     // Handle iterable custom values by converting to base value first
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(val_span) {
                             Ok(Value::List { vals, .. }) => PipelineIteratorInner::ListStream(
@@ -461,7 +463,9 @@ impl PipelineData {
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
+            PipelineData::ListStream(stream, ..) => stream
+                .into_value()?
+                .with_span(head)
                 .follow_cell_path(cell_path)
                 .map(Cow::into_owned),
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
@@ -494,7 +498,6 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .map(f)
                         .into_pipeline_data(span, signals.clone()),
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -549,7 +552,6 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .flat_map(f)
                         .into_pipeline_data(span, signals.clone()),
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -612,7 +614,6 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .filter(f)
                         .into_pipeline_data(span, signals.clone()),
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -675,7 +676,7 @@ impl PipelineData {
             PipelineData::Value(v, metadata) => {
                 let span = v.span();
                 match v {
-                    Value::Range { val, .. } => {
+                    Value::Range { val, signals, .. } => {
                         match *val {
                             Range::IntRange(range) => {
                                 if range.is_unbounded() {
@@ -706,8 +707,9 @@ impl PipelineData {
                                 }
                             }
                         }
-                        let range_values: Vec<Value> =
-                            val.into_range_iter(span, Signals::empty()).collect();
+                        let range_values: Vec<Value> = val
+                            .into_range_iter(span, signals.unwrap_or_else(Signals::empty))
+                            .collect();
                         Ok(PipelineData::value(Value::list(range_values, span), None))
                     }
                     x => Ok(PipelineData::value(x, metadata)),
@@ -734,7 +736,7 @@ impl PipelineData {
         match self {
             // Print byte streams directly as long as they aren't binary.
             PipelineData::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
-                stream.print(to_stderr)
+                write_std(engine_state, to_stderr, |out, _| stream.write_to(out))
             }
             _ => {
                 // If the table function is in the declarations, then we can use it
@@ -744,7 +746,7 @@ impl PipelineData {
                     if command.block_id().is_some() {
                         self.write_all_and_flush(engine_state, no_newline, to_stderr)
                     } else {
-                        let call = Call::new(Span::new(0, 0));
+                        let call = ir::Call::build(decl_id, Span::new(0, 0)).finish();
                         let table = command.run(engine_state, stack, &(&call).into(), self)?;
                         table.write_all_and_flush(engine_state, no_newline, to_stderr)
                     }
@@ -770,24 +772,9 @@ impl PipelineData {
     ) -> Result<(), ShellError> {
         let span = self.span();
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
-            if to_stderr {
-                write_all_and_flush(
-                    bytes.as_slice(),
-                    &mut std::io::stderr().lock(),
-                    "stderr",
-                    span,
-                    engine_state.signals(),
-                )?;
-            } else {
-                write_all_and_flush(
-                    bytes.as_slice(),
-                    &mut std::io::stdout().lock(),
-                    "stdout",
-                    span,
-                    engine_state.signals(),
-                )?;
-            }
-            Ok(())
+            write_std(engine_state, to_stderr, |mut out, name| {
+                write_all_and_flush(bytes, &mut out, name, span, engine_state.signals())
+            })
         } else {
             self.write_all_and_flush(engine_state, no_newline, to_stderr)
         }
@@ -802,7 +789,7 @@ impl PipelineData {
         let span = self.span();
         if let PipelineData::ByteStream(stream, ..) = self {
             // Copy ByteStreams directly
-            stream.print(to_stderr)
+            write_std(engine_state, to_stderr, |out, _| stream.write_to(out))
         } else {
             let config = engine_state.get_config();
             for item in self {
@@ -816,23 +803,9 @@ impl PipelineData {
                     out.push('\n');
                 }
 
-                if to_stderr {
-                    write_all_and_flush(
-                        out,
-                        &mut std::io::stderr().lock(),
-                        "stderr",
-                        span,
-                        engine_state.signals(),
-                    )?;
-                } else {
-                    write_all_and_flush(
-                        out,
-                        &mut std::io::stdout().lock(),
-                        "stdout",
-                        span,
-                        engine_state.signals(),
-                    )?;
-                }
+                write_std(engine_state, to_stderr, |mut dest, name| {
+                    write_all_and_flush(out, &mut dest, name, span, engine_state.signals())
+                })?;
             }
 
             Ok(())
@@ -921,6 +894,28 @@ impl CompareTypes<Type> for PipelineData {
     }
 }
 
+/// Run `write` on this thread's stderr or stdout, passing the stream's name for error messages.
+///
+/// A background job's output waits for the line editor while the REPL holds the terminal (see
+/// [`EngineState::job_output_writer`]).
+fn write_std<T>(
+    engine_state: &EngineState,
+    to_stderr: bool,
+    write: impl FnOnce(&mut dyn Write, &str) -> T,
+) -> T {
+    if to_stderr {
+        write(
+            &mut engine_state.job_output_writer(std::io::stderr()),
+            "stderr",
+        )
+    } else {
+        write(
+            &mut engine_state.job_output_writer(std::io::stdout()),
+            "stdout",
+        )
+    }
+}
+
 pub fn write_all_and_flush<T>(
     data: T,
     destination: &mut impl Write,
@@ -956,6 +951,44 @@ where
     Ok(())
 }
 
+/// Write collected bytes to the requested output destination.
+///
+/// A pipe, value, or inherited destination has nothing to write the bytes into, so they go to
+/// the process's stdout when `stdout_fallback` is set, and to its stderr otherwise.
+pub fn write_to_out_dest(
+    bytes: &[u8],
+    out_dest: &OutDest,
+    span: Span,
+    stdout_fallback: bool,
+    signals: &Signals,
+) -> Result<(), ShellError> {
+    if bytes.is_empty() {
+        return Ok(());
+    }
+
+    match out_dest {
+        OutDest::Null => Ok(()),
+        OutDest::File(file) => {
+            let mut file = file.as_ref();
+            write_all_and_flush(bytes, &mut file, "file", Some(span), signals)
+        }
+        OutDest::Print
+        | OutDest::Inherit
+        | OutDest::Pipe
+        | OutDest::PipeRaw
+        | OutDest::PipeSeparate
+        | OutDest::Value => {
+            if stdout_fallback {
+                let mut stdout = std::io::stdout();
+                write_all_and_flush(bytes, &mut stdout, "stdout", Some(span), signals)
+            } else {
+                let mut stderr = std::io::stderr();
+                write_all_and_flush(bytes, &mut stderr, "stderr", Some(span), signals)
+            }
+        }
+    }
+}
+
 enum PipelineIteratorInner {
     Empty,
     Value(Value),
@@ -964,6 +997,16 @@ enum PipelineIteratorInner {
 }
 
 pub struct PipelineIterator(PipelineIteratorInner);
+
+impl PipelineIterator {
+    /// Collects the items, unless one of them holds an error, which is returned instead.
+    ///
+    /// This is for commands that read everything before returning anything. An error left among
+    /// the items would disappear if the command, or the next one, dropped that item.
+    pub fn collect_values(self) -> Result<Vec<Value>, ShellError> {
+        self.map(Value::unwrap_error).collect()
+    }
+}
 
 impl IntoIterator for PipelineData {
     type Item = Value;
@@ -993,7 +1036,6 @@ impl IntoIterator for PipelineData {
                         .into_iter(),
                     ),
                     // Handle iterable custom values by converting to base value first
-                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span) {
                             Ok(Value::List { vals, signals, .. }) => {

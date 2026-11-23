@@ -142,10 +142,23 @@ fn rename(
         .map(|closure| ClosureEval::try_new(engine_state, stack, closure, call.head))
         .transpose()?;
 
+    // Use the table's zero-based row indices even when all rows share a source span.
+    let mut next_row = (specified_column.is_some()
+        && closure.is_none()
+        && matches!(
+            input,
+            PipelineData::ListStream(..) | PipelineData::Value(Value::List { .. }, _)
+        ))
+    .then_some(0usize);
+
     let metadata = input.take_metadata();
     input
         .map(
             move |item| {
+                let row = next_row;
+                if let Some(next) = &mut next_row {
+                    *next += 1;
+                }
                 let span = item.span();
                 match item {
                     Value::Record { val: record, .. } => {
@@ -191,10 +204,19 @@ fn rename(
 
                                     if let Some(missing) = missing_column {
                                         Err(ShellError::UnsupportedInput {
-                                            msg: format!(
-                                                "The column '{missing}' does not exist in the input"
-                                            ),
-                                            input: "value originated from here".into(),
+                                            msg: format!("cannot rename column '{missing}'"),
+                                            input: match row {
+                                                Some(row) => {
+                                                    format!(
+                                                        "row {row} is missing column '{missing}'"
+                                                    )
+                                                }
+                                                None => {
+                                                    format!(
+                                                        "this record is missing column '{missing}'"
+                                                    )
+                                                }
+                                            },
                                             msg_span: head,
                                             input_span: span,
                                         })
@@ -248,6 +270,7 @@ fn ensure_unique_columns(record: &Record, span: Span) -> Result<(), ShellError> 
                 col_name: column.clone(),
                 second_use: span,
                 first_use: span,
+                help: None,
             });
         }
     }

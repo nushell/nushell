@@ -322,7 +322,7 @@ pub fn group_by(
         (KeyMode::Display(&config), None)
     };
 
-    let values: Vec<Value> = input.into_iter().collect();
+    let values = input.into_iter().collect_values()?;
     if values.is_empty() {
         let val = if to_table {
             Value::list(Vec::new(), head)
@@ -397,6 +397,7 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
                     col_name: conflicting_name.item.clone(),
                     first_use: conflicting_name.span,
                     second_use: name.span,
+                    help: None,
                 }]),
             ));
         }

@@ -10,7 +10,10 @@ use std::{
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::generic::GenericError};
+use nu_protocol::{
+    Signals,
+    shell_error::{bridge::ShellErrorBridge, generic::GenericError},
+};
 use rmp::decode::{self as mp, ValueReadError};
 
 /// Max recursion depth
@@ -195,20 +198,23 @@ impl From<ReadError> for ShellError {
                 format!("exceeded depth limit ({MAX_DEPTH})"),
                 span,
             )),
-            ReadError::Io(err, span) => ShellError::Generic(
-                GenericError::new(
-                    "Error while reading MessagePack data",
-                    err.to_string(),
-                    span,
-                )
-                .with_inner(
-                    err.source()
-                        .and_then(|s| s.downcast_ref::<ShellError>())
-                        .cloned()
-                        .into_iter()
-                        .collect::<Vec<_>>(),
+            ReadError::Io(err, span) => match ShellErrorBridge::try_from(err) {
+                Ok(ShellErrorBridge(err)) => err,
+                Err(err) => ShellError::Generic(
+                    GenericError::new(
+                        "Error while reading MessagePack data",
+                        err.to_string(),
+                        span,
+                    )
+                    .with_inner(
+                        err.source()
+                            .and_then(|s| s.downcast_ref::<ShellError>())
+                            .cloned()
+                            .into_iter()
+                            .collect::<Vec<_>>(),
+                    ),
                 ),
-            ),
+            },
             ReadError::TypeMismatch(marker, span) => ShellError::Generic(GenericError::new(
                 "Invalid marker while reading MessagePack data",
                 format!("unexpected {marker:?} in data"),

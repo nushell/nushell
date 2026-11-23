@@ -1,5 +1,5 @@
 use crate::platform::input::legacy_input::LegacyInput;
-use crate::platform::input::reedline_prompt::ReedlinePrompt;
+use crate::platform::input::reedline_prompt::{ModeIndicators, ReedlinePrompt};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
 use reedline::{
@@ -165,10 +165,14 @@ impl Command for Input {
             }
         };
 
+        let config = stack.get_config(engine_state);
+        let indicators = ModeIndicators::from_config(&config);
+
         let prompt = ReedlinePrompt {
             indicator: default_str,
             left_prompt: prompt_str.unwrap_or("".to_string()),
             right_prompt: "".to_string(),
+            indicators,
         };
 
         let mut line_editor = Reedline::create();
@@ -190,7 +194,7 @@ impl Command for Input {
             Ok(Signal::Success(buffer) | Signal::HostCommand(buffer)) => {
                 buf.push_str(&buffer);
             }
-            Ok(Signal::CtrlC) => {
+            Ok(Signal::CtrlC(_)) => {
                 return Err(IoError::new(
                     shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Interrupted),
                     call.head,

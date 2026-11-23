@@ -8,6 +8,11 @@ use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
+fn binary_last_typechecks_as_int() -> Result {
+    test().run("(0x[01 02 03] | last) + 1").expect_value_eq(4)
+}
+
+#[test]
 fn gets_the_last_row() -> Result {
     test()
         .cwd("tests/fixtures/formats")
@@ -113,6 +118,66 @@ fn error_on_empty_list_stream_in_strict_mode() -> Result {
 #[test]
 fn error_on_empty_binary_in_strict_mode() -> Result {
     assert_empty_content_diagnostic("0x[] | last --strict")
+}
+
+#[test]
+fn const_last() -> Result {
+    test()
+        .run("const x = [1 2 3] | last; $x")
+        .expect_value_eq(3)
+}
+
+#[test]
+fn const_last_with_rows() -> Result {
+    test()
+        .run("const x = [1 2 3] | last 2; $x | to nuon --raw")
+        .expect_value_eq("[2,3]")
+}
+
+#[test]
+fn const_last_range() -> Result {
+    test()
+        .run("const x = 1..5 | last 2; $x | to nuon --raw")
+        .expect_value_eq("[4,5]")
+}
+
+#[test]
+fn const_last_binary_with_filesize() -> Result {
+    test()
+        .run("const x = 0x[01 02 03] | last 2b; $x | to nuon --raw")
+        .expect_value_eq("0x[0203]")
+}
+
+#[test]
+fn const_last_strict_on_empty_list_errors() -> Result {
+    let err = test()
+        .run("const x = [] | last --strict")
+        .expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    Ok(())
+}
+
+#[test]
+fn last_zero_rows_on_unbounded_range_returns_empty() -> Result {
+    test()
+        .run("1.. | last 0 | to nuon --raw")
+        .expect_value_eq("[]")
+}
+
+#[test]
+fn last_errors_on_unbounded_range() -> Result {
+    test()
+        .run("1.. | last")
+        .expect_error_code_eq("nu::shell::incorrect_value")
+}
+
+#[test]
+fn const_last_errors_on_unbounded_range() -> Result {
+    let err = test().run("const x = 1.. | last 2").expect_parse_error()?;
+
+    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Range must be bounded"));
+    Ok(())
 }
 
 fn assert_empty_content_diagnostic(code: &str) -> Result {
@@ -271,4 +336,70 @@ fn last_with_huge_count_on_binary() -> Result {
     test()
         .run("(0x[11 22 33] | last 9223372036854775807) == 0x[11 22 33]")
         .expect_value_eq(true)
+}
+
+#[test]
+fn error_on_empty_inputs_when_rows_given_in_strict_mode() -> Result {
+    for code in [
+        "[] | last -s 1",
+        "[] | last -s 0",
+        "[1] | where {|x| $x > 1 } | last -s 1",
+        "[1] | where {|x| $x > 1 } | last -s 0",
+        "0x[] | last -s 1",
+        "0x[] | last -s 0",
+        "1..<1 | last -s 1",
+        "1..<1 | last -s 0",
+    ] {
+        assert_empty_content_diagnostic(code)?;
+    }
+
+    let empty_stream = PipelineData::byte_stream(
+        nu_protocol::ByteStream::read(
+            std::io::Cursor::new(Vec::<u8>::new()),
+            Span::test_data(),
+            Signals::empty(),
+            nu_protocol::ByteStreamType::Binary,
+        ),
+        None,
+    );
+    let err = test()
+        .run_raw_with_data("last --strict 2", empty_stream)
+        .expect_err("expected empty byte stream with --strict and rows to fail");
+    assert!(
+        format!("{err:?}").contains("AccessEmptyContent"),
+        "expected AccessEmptyContent error, got {err:?}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn non_empty_inputs_succeed_with_rows_in_strict_mode() -> Result {
+    test()
+        .run("[1, 2, 3] | last -s 2")
+        .expect_value_eq(Value::test_list(vec![
+            Value::test_int(2),
+            Value::test_int(3),
+        ]))?;
+    test()
+        .run("[1, 2, 3] | last -s 0")
+        .expect_value_eq(Value::test_list(vec![]))?;
+    test()
+        .run("0x[01 02 03] | last -s 2")
+        .expect_value_eq(Value::binary(vec![2, 3], Span::test_data()))?;
+    test()
+        .run("0x[01 02 03] | last -s 0")
+        .expect_value_eq(Value::binary(vec![], Span::test_data()))?;
+    test()
+        .run("1..3 | last -s 2")
+        .expect_value_eq(Value::test_list(vec![
+            Value::test_int(2),
+            Value::test_int(3),
+        ]))?;
+    test()
+        .run("1..3 | last -s 0")
+        .expect_value_eq(Value::test_list(vec![]))?;
+    test()
+        .run("1.. | last -s 0")
+        .expect_value_eq(Value::test_list(vec![]))
 }

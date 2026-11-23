@@ -1,6 +1,4 @@
 use itertools::Itertools;
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 use pretty_assertions::{assert_eq, assert_matches};
 use rstest::rstest;
@@ -28,27 +26,28 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() -> Result 
 }
 
 #[test]
-fn treats_dot_dot_as_path_not_range() -> Result {
-    Playground::setup("dot_dot_dir", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
-                name,rusty_luck,origin
-                Jason,1,Canada
-            ",
-        )]);
+fn treats_dot_dot_as_path_not_range(playground: Playground) -> Result {
+    playground.file(
+        "nu_times.csv",
+        indoc::indoc! {"
+        name,rusty_luck,origin
+        Jason,1,Canada
+    "},
+    )?;
 
-        let code = "
-            mkdir temp
-            cd temp
-            let name = (open ../nu_times.csv).name.0
-            cd ..
-            rm temp
-            $name
-        ";
+    let code = "
+        mkdir temp
+        cd temp
+        let name = (open ../nu_times.csv).name.0
+        cd ..
+        rm temp
+        $name
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("Jason")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("Jason")
 }
 
 #[test]
@@ -75,31 +74,29 @@ fn for_loop() -> Result {
 
 #[test]
 #[deps(TESTBIN_CHOP)]
-fn subexpression_handles_dot() -> Result {
-    Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
-                name,rusty_luck,origin
-                Jason,1,Canada
-                JT,1,New Zealand
-                Andres,1,Ecuador
-                AndKitKatz,1,Estados Unidos
-            ",
-        )]);
+fn subexpression_handles_dot(playground: Playground) -> Result {
+    playground.file(
+        "nu_times.csv",
+        indoc::indoc! {"
+        name,rusty_luck,origin
+        Jason,1,Canada
+        JT,1,New Zealand
+        Andres,1,Ecuador
+        AndKitKatz,1,Estados Unidos
+    "},
+    )?;
 
-        let code = "
-            echo (open nu_times.csv)
-            | get name
-            | each { |it| chop $it }
-            | get 3
-        ";
+    let code = "
+        echo (open nu_times.csv)
+        | get name
+        | each { |it| chop $it }
+        | get 3
+    ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("AndKitKat")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("AndKitKat")
 }
 
 #[test]
@@ -267,7 +264,10 @@ fn mutate_env_hides_variable() -> Result {
 
     let result: CompleteResult = test().run_with_data(NU_RUNNER, code)?;
     assert_eq!(result.stdout, "hello world\n");
-    assert_contains("Cannot find column 'TEST_ENV_VAR'", result.stderr);
+    assert_contains(
+        "Environment variable 'TEST_ENV_VAR' not found",
+        result.stderr,
+    );
     Ok(())
 }
 
@@ -286,7 +286,10 @@ fn mutate_env_hides_variable_in_parent_scope() -> Result {
 
     let result: CompleteResult = test().run_with_data(NU_RUNNER, code)?;
     assert_eq!(result.stdout, "hello world\n");
-    assert_contains("Cannot find column 'TEST_ENV_VAR", result.stderr);
+    assert_contains(
+        "Environment variable 'TEST_ENV_VAR' not found",
+        result.stderr,
+    );
     Ok(())
 }
 
@@ -295,7 +298,7 @@ fn unlet_env_variable() -> Result {
     let err = test()
         .run(r#"$env.TEST_VAR = "hello world"; hide-env TEST_VAR; $env.TEST_VAR"#)
         .expect_error()?;
-    assert_matches!(err, ShellError::CantFindColumn {col_name, ..} if col_name == "TEST_VAR");
+    assert_matches!(err, ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "TEST_VAR");
     Ok(())
 }
 
@@ -326,7 +329,7 @@ fn mutate_env_doesnt_leak() -> Result {
     let err = test()
         .run(r#"do { $env.xyz = "my message" }; $env.xyz"#)
         .expect_error()?;
-    assert_matches!(err, ShellError::CantFindColumn { col_name, .. } if col_name == "xyz");
+    assert_matches!(err, ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "xyz");
     Ok(())
 }
 
@@ -356,30 +359,95 @@ fn load_env_variable_arg() -> Result {
 }
 
 #[test]
-fn refreshing_env_conversions_converts_loaded_variables() -> Result {
+fn load_env_converts_loaded_variables() -> Result {
     let code = r#"
         $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row ":" } } }
         load-env { TESTENVVAR: "hello:world" }
-        let before = $env.TESTENVVAR
-        $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS
-        [$before, $env.TESTENVVAR]
+        $env.TESTENVVAR
     "#;
 
-    test().run(code).expect_value_eq(Value::test_list(vec![
-        Value::test_string("hello:world"),
-        Value::test_list(vec![
-            Value::test_string("hello"),
-            Value::test_string("world"),
-        ]),
-    ]))
+    test().run(code).expect_value_eq(["hello", "world"])
 }
 
 #[test]
-fn refreshing_env_conversions_normalizes_loaded_path() -> Result {
+fn load_env_makes_path_a_list() -> Result {
     let separator = if cfg!(windows) { ";" } else { ":" };
-    let code = format!(
-        "$env.ENV_CONVERSIONS = {{}}; load-env {{ pAtH: 'first{separator}second' }}; $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS; $env.PATH"
-    );
+    let code = format!("load-env {{ pAtH: 'first{separator}second' }}; $env.PATH");
+
+    test().run(code).expect_value_eq(["first", "second"])
+}
+
+#[test]
+fn load_env_converts_only_what_it_loads() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { OTHER: { from_string: { split row "," } } }
+        $env.OTHER = "a,b"
+        load-env { TESTENVVAR: "x,y" }
+        $env.OTHER
+    "#;
+
+    test().run(code).expect_value_eq("a,b")
+}
+
+#[test]
+fn load_env_leaves_path_alone_when_it_isnt_loaded() -> Result {
+    test()
+        .run("$env.PATH = 5; load-env { TESTENVVAR: 1 }; $env.TESTENVVAR")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn load_env_leaves_path_alone_when_a_converted_variable_is_loaded() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { split row "," } } }
+        $env.PATH = 5
+        load-env { TESTENVVAR: "x,y" }
+        [$env.PATH $env.TESTENVVAR]
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq(test_value!([5, ["x", "y"]]))
+}
+
+#[test]
+fn load_env_skips_a_conversion_without_from_string() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { to_string: { $in } } }
+        load-env { TESTENVVAR: "x" }
+        $env.TESTENVVAR
+    "#;
+
+    test().run(code).expect_value_eq("x")
+}
+
+#[test]
+fn load_env_loads_nothing_when_a_conversion_fails() -> Result {
+    let code = r#"
+        $env.ENV_CONVERSIONS = { TESTENVVAR: { from_string: { error make { msg: boom } } } }
+        try { load-env { OTHER: "a", TESTENVVAR: "x" } }
+        [($env.OTHER? == null) ($env.TESTENVVAR? == null)]
+    "#;
+
+    test().run(code).expect_value_eq([true, true])
+}
+
+#[test]
+fn load_env_of_env_conversions_converts_every_variable() -> Result {
+    let code = r#"
+        $env.OTHER = "a,b"
+        load-env { ENV_CONVERSIONS: { OTHER: { from_string: { split row "," } } } }
+        $env.OTHER
+    "#;
+
+    test().run(code).expect_value_eq(["a", "b"])
+}
+
+#[test]
+fn refreshing_env_conversions_normalizes_path() -> Result {
+    let separator = if cfg!(windows) { ";" } else { ":" };
+    let code =
+        format!("$env.PATH = 'first{separator}second'; $env.ENV_CONVERSIONS = {{}}; $env.PATH");
 
     test().run(code).expect_value_eq(["first", "second"])
 }
@@ -389,7 +457,7 @@ fn load_env_doesnt_leak() -> Result {
     let err = test()
         .run(r#"do { echo { name: xyz, value: "my message" } | load-env }; $env.xyz"#)
         .expect_error()?;
-    assert_matches!(err, ShellError::CantFindColumn { col_name, .. } if col_name == "xyz");
+    assert_matches!(err, ShellError::EnvVarNotFoundAtRuntime { envvar_name, .. } if envvar_name == "xyz");
     Ok(())
 }
 

@@ -6,8 +6,9 @@
 
 use nu_command::IsRedirected;
 use nu_protocol::{
-    OutDest, PipelineData, Span, Value,
+    DeclId, OutDest, PipelineData, Span, Value,
     engine::{Call, Command, EngineState, Stack},
+    ir,
 };
 use nu_test_support::prelude::*;
 use rstest::rstest;
@@ -101,9 +102,14 @@ fn is_redirected_nested_inner_sees_own_destination() -> Result {
 /// Run the `is-redirected` builtin against a prepared stack.
 fn run_is_redirected(stack: &mut Stack) -> bool {
     let engine_state = EngineState::new();
-    let call = Call::new(Span::test_data());
+    let call = ir::Call::build(DeclId::new(0), Span::test_data()).finish();
     let result = IsRedirected
-        .run(&engine_state, stack, &call, PipelineData::empty())
+        .run(
+            &engine_state,
+            stack,
+            &Call::from(&call),
+            PipelineData::empty(),
+        )
         .expect("is-redirected should succeed");
     match result.into_value(Span::test_data()).expect("bool value") {
         Value::Bool { val, .. } => val,

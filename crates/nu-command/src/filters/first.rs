@@ -1,7 +1,7 @@
 #[cfg(feature = "sqlite")]
 use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{Signals, shell_error::bridge::ShellErrorBridge};
 use std::io::Read;
 
 #[derive(Clone)]
@@ -21,7 +21,7 @@ impl Command for First {
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Binary, Type::Binary),
+                (Type::Binary, Type::one_of([Type::Int, Type::Binary])),
                 (Type::Range, Type::Any),
             ])
             .optional(
@@ -49,7 +49,37 @@ impl Command for First {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        first_helper(engine_state, stack, call, input)
+        let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let strict_mode = call.has_flag(engine_state, stack, "strict")?;
+        first_helper(
+            rows_val,
+            strict_mode,
+            engine_state.signals(),
+            call.head,
+            input,
+        )
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let rows_val: Option<Value> = call.opt_const(working_set, stack, 0)?;
+        let strict_mode = call.has_flag_const(working_set, stack, "strict")?;
+        first_helper(
+            rows_val,
+            strict_mode,
+            working_set.permanent().signals(),
+            call.head,
+            input,
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -66,6 +96,11 @@ impl Command for First {
                     vec![Value::test_int(1), Value::test_int(2)],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Return the first byte of a binary value as an int.",
+                example: "0x[01 23 45] | first",
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value.",
@@ -86,18 +121,17 @@ impl Command for First {
     }
 }
 
+/// Body of `first`, shared by `run` and `run_const`: the first `rows_val` items of `input`, or the first item when `rows_val` is `None`.
 fn first_helper(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
+    rows_val: Option<Value>,
+    strict_mode: bool,
+    signals: &Signals,
+    head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let rows_val: Option<Value> = call.opt(engine_state, stack, 0)?;
     let is_filesize = rows_val
         .as_ref()
         .is_some_and(|v| matches!(v, Value::Filesize { .. }));
-    let strict_mode = call.has_flag(engine_state, stack, "strict")?;
 
     let rows: Option<usize> = match rows_val {
         Some(v) => {
@@ -150,7 +184,10 @@ fn first_helper(
     // pipe, and sqlite lazy queries can still run. For "take nothing" we only produce an empty
     // value: empty binary (and clear pipeline `content_type` for binary) or an empty list, with
     // other metadata unchanged.
-    if rows == 0 {
+    //
+    // With `--strict`, `-s 0` still has to look at the first item (one byte, one row, or a
+    // `LIMIT 1` query) to tell an empty input apart, so it goes on to the main `match`.
+    if rows == 0 && !strict_mode {
         return match input {
             PipelineData::Value(val, _) if matches!(&val, Value::Binary { .. }) => Ok(
                 Value::binary(Vec::new(), val.span()).into_pipeline_data_with_metadata(
@@ -173,6 +210,11 @@ fn first_helper(
         };
     }
 
+    // Take this before `match` consumes the input. An external that fails without
+    // output then reports its exit code instead of empty content.
+    #[cfg(feature = "os")]
+    let exit_status = input.clone_exit_status_future();
+
     match input {
         PipelineData::Value(val, _) => {
             let span = val.span();
@@ -188,6 +230,8 @@ fn first_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
+                    } else if strict_mode && vals.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
                     } else {
                         let value = if rows >= vals.len() {
                             Value::list_shared(vals, span)
@@ -211,6 +255,8 @@ fn first_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(binary_meta))
                         }
+                    } else if strict_mode && val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
                     } else {
                         let mut val = val.into_owned();
                         val.truncate(rows);
@@ -229,10 +275,28 @@ fn first_helper(
                             // that users can pipe this through 'default' if they want to.
                             Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
+                    } else if strict_mode {
+                        if let Some(first) = iter.next() {
+                            if rows == 0 {
+                                Ok(Value::list(Vec::new(), head)
+                                    .into_pipeline_data_with_metadata(input_meta))
+                            } else {
+                                Ok(std::iter::once(first)
+                                    .chain(iter)
+                                    .take(rows)
+                                    .into_pipeline_data_with_metadata(
+                                        span,
+                                        signals.clone(),
+                                        input_meta,
+                                    ))
+                            }
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        }
                     } else {
                         Ok(iter.take(rows).into_pipeline_data_with_metadata(
                             span,
-                            engine_state.signals().clone(),
+                            signals.clone(),
                             input_meta,
                         ))
                     }
@@ -247,21 +311,28 @@ fn first_helper(
                     ..
                 } => {
                     if let Some(plan) = QueryPlan::try_from_any(custom_val.as_any()) {
-                        if return_single_element {
-                            // For single element, limit 1
-                            let plan = plan.with_limit(1);
+                        if return_single_element || strict_mode {
+                            // With `--strict` or single element, we query at least LIMIT 1 to
+                            // verify whether the input is non-empty before returning.
+                            let plan = plan.with_limit(rows.max(1) as i64);
                             let result = plan.execute(head)?;
                             let value = result.into_value(head)?;
-                            if let Value::List { vals, .. } = value {
-                                if let Some(val) = vals.into_iter().next() {
-                                    Ok(val.into_pipeline_data_with_metadata(input_meta))
-                                } else if strict_mode {
+                            if let Value::List { ref vals, .. } = value {
+                                if strict_mode && vals.is_empty() {
                                     Err(ShellError::AccessEmptyContent { span: head })
-                                } else {
-                                    // There are no values, so return nothing instead of an error so
-                                    // that users can pipe this through 'default' if they want to.
-                                    Ok(Value::nothing(head)
+                                } else if return_single_element {
+                                    // Without `--strict` an empty table gives nothing, so it can
+                                    // go through `default`.
+                                    let val = vals
+                                        .first()
+                                        .cloned()
+                                        .unwrap_or_else(|| Value::nothing(head));
+                                    Ok(val.into_pipeline_data_with_metadata(input_meta))
+                                } else if rows == 0 {
+                                    Ok(Value::list(Vec::new(), head)
                                         .into_pipeline_data_with_metadata(input_meta))
+                                } else {
+                                    Ok(value.into_pipeline_data_with_metadata(input_meta))
                                 }
                             } else {
                                 Err(ShellError::NushellFailed {
@@ -290,16 +361,34 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(stream, _) => {
+        PipelineData::ListStream(mut stream, _) => {
             if return_single_element {
                 if let Some(v) = stream.into_iter().next() {
-                    Ok(v.into_pipeline_data_with_metadata(input_meta))
+                    Ok(v.unwrap_error()?
+                        .into_pipeline_data_with_metadata(input_meta))
                 } else if strict_mode {
                     Err(ShellError::AccessEmptyContent { span: head })
                 } else {
                     // There are no values, so return nothing instead of an error so
                     // that users can pipe this through 'default' if they want to.
                     Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
+                }
+            } else if strict_mode {
+                if let Some(first) = stream.next_value() {
+                    if rows == 0 {
+                        // The item was read to check for empty input, so its error or `exit` counts.
+                        first.unwrap_error()?;
+                        Ok(Value::list(Vec::new(), head)
+                            .into_pipeline_data_with_metadata(input_meta))
+                    } else {
+                        Ok(PipelineData::list_stream(
+                            stream
+                                .modify(move |iter| std::iter::once(first).chain(iter).take(rows)),
+                            input_meta,
+                        ))
+                    }
+                } else {
+                    Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
                 Ok(PipelineData::list_stream(
@@ -313,17 +402,35 @@ fn first_helper(
                 let span = stream.span();
                 let metadata = input_meta.map(|m| m.with_content_type(None));
                 if let Some(mut reader) = stream.reader() {
-                    if return_single_element {
-                        // Take a single byte
+                    if return_single_element || strict_mode {
                         let mut byte = [0u8];
                         if reader
                             .read(&mut byte)
-                            .map_err(|err| IoError::new(err, span, None))?
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?
                             > 0
                         {
-                            Ok(Value::int(byte[0] as i64, head)
-                                .into_pipeline_data_with_metadata(metadata))
+                            if return_single_element {
+                                Ok(Value::int(byte[0] as i64, head)
+                                    .into_pipeline_data_with_metadata(metadata))
+                            } else if rows == 0 {
+                                Ok(Value::binary(Vec::new(), span)
+                                    .into_pipeline_data_with_metadata(metadata))
+                            } else {
+                                Ok(PipelineData::byte_stream(
+                                    ByteStream::read(
+                                        std::io::Cursor::new(byte).chain(reader).take(rows as u64),
+                                        head,
+                                        Signals::empty(),
+                                        ByteStreamType::Binary,
+                                    ),
+                                    metadata,
+                                ))
+                            }
                         } else {
+                            #[cfg(feature = "os")]
+                            nu_protocol::process::check_exit_status_future(vec![
+                                exit_status.map(|status| status.with_span(span)),
+                            ])?;
                             Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
@@ -338,6 +445,8 @@ fn first_helper(
                             metadata,
                         ))
                     }
+                } else if strict_mode {
+                    Err(ShellError::AccessEmptyContent { span: head })
                 } else {
                     Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                 }
@@ -353,8 +462,8 @@ fn first_helper(
         PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, binary or range".into(),
             wrong_type: "null".into(),
-            dst_span: call.head,
-            src_span: call.head,
+            dst_span: head,
+            src_span: head,
         }),
     }
 }

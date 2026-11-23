@@ -50,6 +50,7 @@ pub(crate) fn run_commands(
         perf!("read plugins", start_time, use_color);
 
         let start_time = Instant::now();
+        nu_cli::eval_default_prompts(engine_state, &mut stack);
         // If we have an env file override *OR* we have a login shell parameter, read the env file
         if engine_state.config_dirs.env_file.is_override()
             || parsed_nu_cli_args.login_shell.is_some()
@@ -153,6 +154,7 @@ pub(crate) fn run_file(
         perf!("read plugins", start_time, use_color);
 
         let start_time = Instant::now();
+        nu_cli::eval_default_prompts(engine_state, &mut stack);
         // only want to load config and env if relative argument is provided.
         if engine_state.config_dirs.env_file.is_override() {
             config_files::read_config_file(
@@ -222,6 +224,12 @@ pub(crate) fn run_repl(
     trace!("run_repl");
     let start_time = nu_utils::time::Instant::now();
 
+    // Create the history session id before the startup config is evaluated so
+    // that `history session` reports the real id during initialization (#18321).
+    if let Some(session_id) = reedline::Reedline::create_history_session_id() {
+        engine_state.history_session_id = session_id.into();
+    }
+
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(
             engine_state,
@@ -269,6 +277,8 @@ pub(crate) fn run_lsp(
     if parsed_nu_cli_args.no_config_file.is_none() {
         let mut stack = nu_protocol::engine::Stack::new();
         config_files::setup_config(&mut engine_state, &mut stack, false);
+        // The server discards this stack and evaluates on new ones.
+        engine_state.clear_runtime_overlays();
     }
 
     engine_state.finish_startup();

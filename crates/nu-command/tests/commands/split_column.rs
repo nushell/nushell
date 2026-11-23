@@ -1,76 +1,71 @@
 use nu_protocol::record;
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 
 #[test]
-fn split_column() -> Result {
-    Playground::setup("split_column_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContentToBeTrimmed(
-                "sample.txt",
-                "
-                    importer,shipper,tariff_item,name,origin
-                ",
-            ),
-            FileWithContentToBeTrimmed(
-                "sample2.txt",
-                "
-                    importer , shipper  , tariff_item  ,   name  ,  origin
-                ",
-            ),
-        ]);
+fn split_column(playground: Playground) -> Result {
+    playground.file(
+        "sample.txt",
+        indoc::indoc! {"
+        importer,shipper,tariff_item,name,origin
+    "},
+    )?;
+    playground.file(
+        "sample2.txt",
+        indoc::indoc! {"
+        importer , shipper  , tariff_item  ,   name  ,  origin
+    "},
+    )?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | str trim
-            | split column ","
-            | get column1
-        "#;
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["shipper"])?;
+    let code = r#"
+        open sample.txt
+        | lines
+        | str trim
+        | split column ","
+        | get column1
+    "#;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["shipper"])?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | str trim
-            | split column -n 3 ","
-            | get column2
-        "#;
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["tariff_item,name,origin"])?;
+    let code = r#"
+        open sample.txt
+        | lines
+        | str trim
+        | split column -n 3 ","
+        | get column2
+    "#;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["tariff_item,name,origin"])?;
 
-        let code = r#"
-            open sample.txt
-            | lines
-            | str trim
-            | split column -n 3 --right ","
-            | get column0
-        "#;
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["importer,shipper,tariff_item"])?;
+    let code = r#"
+        open sample.txt
+        | lines
+        | str trim
+        | split column -n 3 --right ","
+        | get column0
+    "#;
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["importer,shipper,tariff_item"])?;
 
-        let code = r"
-            open sample2.txt
-            | lines
-            | str trim
-            | split column --regex '\s*,\s*'
-            | get column1
-        ";
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(["shipper"])?;
+    let code = r"
+        open sample2.txt
+        | lines
+        | str trim
+        | split column --regex '\s*,\s*'
+        | get column1
+    ";
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(["shipper"])?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
@@ -113,5 +108,47 @@ fn split_column_number_error() -> Result {
     test().run(code).expect_shell_error()?;
     let code = r#""x" | split column -n -1 --right ",""#;
     test().run(code).expect_shell_error()?;
+    Ok(())
+}
+
+#[test]
+fn split_column_duplicate_column_error() -> Result {
+    let code = "'a-b' | split column '-' col col";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::ColumnDefinedTwice {
+            col_name,
+            first_use,
+            second_use,
+            ..
+        } if col_name == "col" && first_use.start < second_use.start
+    );
+
+    // Repeated names are rejected even when some of them would go unused
+    let code = "'a' | split column '-' x x";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::ColumnDefinedTwice {
+            col_name,
+            first_use,
+            second_use,
+            ..
+        } if col_name == "x" && first_use.start < second_use.start
+    );
+    Ok(())
+}
+
+#[test]
+fn split_column_duplicate_column_const_error() -> Result {
+    let code = "const c = ('a-b' | split column '-' col col)";
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::LabeledError(msg, ..) => {
+            assert!(msg.contains("column_defined_twice"));
+        }
+        err => panic!("expected LabeledError, got {err:?}"),
+    }
     Ok(())
 }

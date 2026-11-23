@@ -18,6 +18,122 @@ pub fn wrap_error_with_input(error: ShellError, input_is_error: bool, span: Span
     EvalBlockWithInputError::wrap(error, span, EvalBlockWithInputError::SOURCE_VALUE)
 }
 
+/// Like [`Iterator::skip`], but an item that holds an error is kept, since skipping it would lose
+/// the error (or the `exit`) it carries.
+pub fn skip_keeping_errors(
+    iter: impl Iterator<Item = Value>,
+    n: usize,
+) -> impl Iterator<Item = Value> {
+    iter.enumerate()
+        .filter_map(move |(index, value)| (index >= n || value.is_error()).then_some(value))
+}
+
+/// Takes the item to report out of `items`, if any of them holds an error: an `exit` if there is
+/// one, because that has to end the script, or else the first error.
+pub fn take_error(items: &mut Vec<Value>) -> Option<Value> {
+    let holds_exit = |item: &Value| matches!(item, Value::Error { error, .. } if error.is_exit());
+    let index = items
+        .iter()
+        .position(holds_exit)
+        .or_else(|| items.iter().position(Value::is_error))?;
+    Some(items.swap_remove(index))
+}
+
+/// Makes a list out of `items`, unless one of them holds an error, which is returned instead.
+///
+/// This is for commands that group stream items. An error buried in a list wouldn't be noticed by
+/// whatever collects the stream, and it would disappear with the list if the list were dropped.
+/// The other items are lost with the group, which only a consumer that recovers from the error
+/// can notice, since anything else stops at it.
+pub fn list_or_error(mut items: Vec<Value>, span: Span) -> Value {
+    take_error(&mut items).unwrap_or_else(|| Value::list(items, span))
+}
+
+/// What a predicate or key `closure` returns for `value`. A closure that returns an error fails
+/// just like one that raises it.
+pub fn closure_result(
+    closure: &mut ClosureEval,
+    value: &Value,
+    span: Span,
+) -> Result<Value, ShellError> {
+    closure
+        .run_with_value(value.clone())
+        .and_then(|data| data.into_value(span))
+        .and_then(Value::unwrap_error)
+}
+
+/// Takes items for as long as `keep_taking` accepts what `closure` returns for them, then up to
+/// `include` more, counting the one that stopped it.
+///
+/// An item that holds an error is always taken, and a closure that fails has its error take the
+/// item's place and stops the taking, so that neither one goes missing. Nothing is pulled from
+/// `iter` once the taking is over, since that item would be dropped along with any error in it.
+pub fn take_by_closure(
+    mut iter: impl Iterator<Item = Value>,
+    mut closure: ClosureEval,
+    head: Span,
+    keep_taking: fn(&Value) -> bool,
+    include: usize,
+) -> impl Iterator<Item = Value> {
+    // How many more items to take, once the closure has stopped the taking.
+    let mut remaining = None;
+
+    std::iter::from_fn(move || {
+        match &mut remaining {
+            Some(0) => return None,
+            Some(left) => {
+                *left -= 1;
+                return iter.next();
+            }
+            None => {}
+        }
+
+        let value = iter.next()?;
+        if value.is_error() {
+            return Some(value);
+        }
+
+        match closure_result(&mut closure, &value, head) {
+            Ok(cond) if keep_taking(&cond) => Some(value),
+            Ok(_) => {
+                remaining = Some(include.saturating_sub(1));
+                (include > 0).then_some(value)
+            }
+            Err(error) => {
+                remaining = Some(include);
+                Some(Value::error(error, head))
+            }
+        }
+    })
+}
+
+/// Drops leading items for as long as `keep_skipping` accepts what `closure` returns for them.
+///
+/// An item that holds an error is kept, without ending the skipping, and a closure that fails has
+/// its error take the item's place and ends the skipping, so that neither one goes missing.
+pub fn skip_by_closure(
+    iter: impl Iterator<Item = Value>,
+    mut closure: ClosureEval,
+    head: Span,
+    keep_skipping: fn(&Value) -> bool,
+) -> impl Iterator<Item = Value> {
+    let mut skipping = true;
+
+    iter.filter_map(move |value| {
+        if !skipping || value.is_error() {
+            return Some(value);
+        }
+
+        match closure_result(&mut closure, &value, head) {
+            Ok(cond) if keep_skipping(&cond) => None,
+            result => {
+                skipping = false;
+                Some(result.map_or_else(|error| Value::error(error, head), |_| value))
+            }
+        }
+    })
+}
+
 /// Recursively sort the keys of records in a `Value` tree.
 ///
 /// This ensures that two semantically identical values produce the same

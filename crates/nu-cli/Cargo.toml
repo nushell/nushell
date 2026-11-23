@@ -19,12 +19,16 @@ path = "tests/main.rs"
 harness = false
 
 [dev-dependencies]
+indoc = { workspace = true }
 nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-command = { workspace = true, features = ["os"] }
 nu-std.workspace = true
 nu-test-support = { path = "../nu-test-support", features = ["os"] }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
+
+[target.'cfg(unix)'.dev-dependencies]
+libc.workspace = true
 
 [dependencies]
 nu-cmd-base.workspace = true
@@ -56,6 +60,8 @@ percent-encoding = { workspace = true }
 sysinfo = { workspace = true }
 strum = { workspace = true }
 unicode-segmentation = { workspace = true }
+unicode-width = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 which = { workspace = true }
 

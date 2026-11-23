@@ -91,7 +91,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
         cache: false
@@ -100,7 +100,7 @@ jobs:
         build-warnings: warn
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@95cd3bfe252450ef7d35dd9a7ddecf3484341134 # v3.28
+      uses: hustcer/setup-nu@1b8faed9a8ff673c8ce0beae243e0b72d0787241 # v3.30
       with:
         version: 0.112.2
 
@@ -132,6 +132,9 @@ jobs:
     permissions:
       # Upload the release archives to the GitHub release.
       contents: write
+      # Generate build provenance attestations for the release archives.
+      id-token: write
+      attestations: write
     steps:
     - name: Download Release Archives
       env:
@@ -141,6 +144,10 @@ jobs:
         --repo ${{ github.repository }}
         --pattern '*'
         --dir release
+    - name: Attest Release Archives
+      uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      with:
+        subject-path: release/*
     - name: Create Checksums
       run: cd release && shasum -a 256 * > ../SHA256SUMS
     - name: Publish Checksums

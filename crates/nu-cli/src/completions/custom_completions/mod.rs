@@ -31,14 +31,16 @@ thread_local! {
     static COMPLETION_SOURCE_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// Whether the current thread is evaluating a completion source. The main panic hook uses this
-/// to avoid printing a panic that completion already converted into a `ShellError`, and
-/// [`flush_completion_warnings`] to hold its output while a menu may be drawing.
+/// Whether the current thread is evaluating a completion source, or the status line's const
+/// preview. The main panic hook uses this to avoid printing a panic that completion already
+/// converted into a `ShellError`, or that the preview drops, and [`flush_completion_warnings`]
+/// to hold its output while a menu may be drawing.
 pub fn completion_source_is_active() -> bool {
     COMPLETION_SOURCE_ACTIVE.with(std::cell::Cell::get)
 }
 
-/// Catch a completion-source panic while marking it for the process panic hook.
+/// Catch a panic of a completion source or the status line preview while marking it for the
+/// process panic hook.
 pub(crate) fn catch_completion_panic<T>(
     f: impl FnOnce() -> T,
 ) -> Result<T, Box<dyn std::any::Any + Send>> {
@@ -454,10 +456,12 @@ impl Completer for UserCompletion {
         match self.eval(ctx) {
             Err(err) => {
                 report(format!("failed to eval completer block: {err}"));
-                self.empty(true).worth_keeping()
+                // A later prompt may no longer fail; do not cache this failure.
+                self.empty(true).without_cache()
             }
             Ok(value) => match CompleterOutput::read(value, ctx, self.narrowing) {
-                None => self.empty(false),
+                // A declining source can answer after its external state changes.
+                None => self.empty(false).without_cache(),
                 Some(output) => output.into_fetched(ctx),
             },
         }

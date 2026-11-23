@@ -7,7 +7,7 @@ use crate::stream::Readers;
 use crossterm::cursor::{Hide, Show};
 use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, MouseEventKind};
 use crossterm::execute;
-use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
 use nu_command::RawModeGuard;
 use nu_protocol::{
     IntoPipelineData, PipelineData, ShellError, Span, Value,
@@ -352,7 +352,11 @@ impl TerminalGuard {
     fn enter(mouse: bool, alt_screen: bool, span: Span) -> Result<Self, ShellError> {
         let mut out = stdout();
         if alt_screen {
-            execute!(out, EnterAlternateScreen)
+            // Blank, not whatever the alternate screen held: ratatui never
+            // writes a cell that matches its blank first buffer, and a cell
+            // over the terminal-colored surface does. (`Terminal::clear`
+            // would also query the cursor, which some terminals never answer.)
+            execute!(out, EnterAlternateScreen, Clear(ClearType::All))
                 .map_err(|e| io_error("failed to enter alternate screen", e.to_string(), span))?;
         }
         if mouse && let Err(e) = execute!(out, EnableMouseCapture) {

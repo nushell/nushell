@@ -16,7 +16,11 @@ impl Command for OverlayHide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .optional("name", SyntaxShape::String, "Overlay to hide.")
+            .param(Parameter::Optional(
+                PositionalArg::new("name", SyntaxShape::String)
+                    .desc("Overlay to hide.")
+                    .completion(Completion::Builtin(BuiltinCompletion::Overlay)),
+            ))
             .switch(
                 "keep-custom",
                 "Keep all newly added commands and aliases in the next activated overlay.",
@@ -32,7 +36,9 @@ impl Command for OverlayHide {
     }
 
     fn extra_description(&self) -> &str {
-        "This command is a parser keyword. For details, check:
+        "The current directory stays the same, and the overlay's other environment variables go away unless you name them in `--keep-env`.
+
+This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
@@ -76,6 +82,7 @@ impl Command for OverlayHide {
                         return Err(ShellError::EnvVarNotFoundAtRuntime {
                             envvar_name: name.item,
                             span: name.span,
+                            help: None,
                         });
                     }
                 }
@@ -88,14 +95,16 @@ impl Command for OverlayHide {
 
         // also restore env vars which has been hidden
         let env_vars_to_restore = stack.get_hidden_env_vars(&overlay_name.item, engine_state);
-        stack.remove_overlay(&overlay_name.item);
-        for (name, val) in env_vars_to_restore {
-            stack.add_env_var(name, val);
-        }
+        super::keep_cwd(engine_state, stack, |stack| {
+            stack.remove_overlay(&overlay_name.item);
+            for (name, val) in env_vars_to_restore {
+                stack.add_env_var(name, val);
+            }
 
-        for (name, val) in env_vars_to_keep {
-            stack.add_env_var(name, val);
-        }
+            for (name, val) in env_vars_to_keep {
+                stack.add_env_var(name, val);
+            }
+        });
         stack.update_config(engine_state)?;
         Ok(PipelineData::empty())
     }
@@ -127,10 +136,10 @@ impl Command for OverlayHide {
                 result: None,
             },
             Example {
-                description: "Keep the current working directory when removing an overlay.",
-                example: "overlay new spam
-    cd some-dir
-    overlay hide --keep-env [ PWD ] spam",
+                description: "Keep an environment variable when removing an overlay.",
+                example: r#"overlay new spam
+    $env.FOO = "foo"
+    overlay hide --keep-env [ FOO ] spam"#,
                 result: None,
             },
         ]

@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn view_source_returns_string() -> Result {
@@ -95,54 +95,50 @@ fn names_a_dep_the_way_its_call_site_does() -> Result {
 }
 
 #[test]
-fn keeps_metadata_of_the_root() -> Result {
-    Playground::setup("view_source_dependencies_metadata", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "mdata.nu",
-            "
+fn keeps_metadata_of_the_root(playground: Playground) -> Result {
+    playground.file(
+        "mdata.nu",
+        indoc::indoc! {"
                 def helper [] { 42 }
                 def foo [] { helper }
-            ",
-        )]);
+            "},
+    )?;
 
-        // Why: assert the dependency is there too, otherwise the metadata alone would still pass
-        // with the whole feature removed.
-        let expanded: String = test()
-            .cwd(dirs.test())
-            .run("source mdata.nu; view source foo --dependencies")?;
-        assert_contains("def helper [] { 42 }", expanded);
+    // Why: assert the dependency is there too, otherwise the metadata alone would still pass
+    // with the whole feature removed.
+    let expanded: String = test()
+        .cwd(playground.path())
+        .run("source mdata.nu; view source foo --dependencies")?;
+    assert_contains("def helper [] { 42 }", expanded);
 
-        let code = "
+    let code = "
             source mdata.nu
             view source foo --dependencies | metadata | get source
         ";
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_contains("mdata.nu", outcome);
-        Ok(())
-    })
+    let outcome: String = test().cwd(playground.path()).run(code)?;
+    assert_contains("mdata.nu", outcome);
+    Ok(())
 }
 
 #[test]
-fn datasource_filepath_metadata() -> Result {
-    Playground::setup("cd_ds_filepath_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "mdata.nu",
-            "
+fn datasource_filepath_metadata(playground: Playground) -> Result {
+    playground.file(
+        "mdata.nu",
+        indoc::indoc! {"
                 def foo [] { echo hi }
-            ",
-        )]);
+            "},
+    )?;
 
-        let code = "
+    let code = "
             source mdata.nu
             view source foo | metadata | get source
         ";
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        // expect path printed somehow
-        assert_contains("mdata.nu", outcome);
-        Ok(())
-    })
+    let outcome: String = test().cwd(playground.path()).run(code)?;
+    // expect path printed somehow
+    assert_contains("mdata.nu", outcome);
+    Ok(())
 }
 
 #[test]
@@ -223,4 +219,119 @@ fn follows_a_constant_imported_by_name() -> Result {
     test()
         .run(code)
         .expect_value_eq("const E = 5\n\ndef c [] { $E }")
+}
+
+#[test]
+fn alias_defined_inside_a_block() -> Result {
+    let code = "do { alias a = print; view source a }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn def_defined_inside_a_closure() -> Result {
+    let code = "do {|| def foo [] { 1 }; view source foo }";
+    test().run(code).expect_value_eq("def foo [] { 1 }")
+}
+
+#[test]
+fn local_alias_shadows_global_alias() -> Result {
+    let code = "alias a = ls; do { alias a = print; view source a }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn local_alias_is_gone_after_the_block() -> Result {
+    let code = "do { alias a = print }; view source a";
+    let err = match test().run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        err => panic!("expected a GenericError, got {err:?}"),
+    };
+    assert_eq!(err.error, "Cannot view string value");
+    assert_eq!(err.msg, "this name does not correspond to a viewable value");
+    Ok(())
+}
+
+#[test]
+fn module_defined_inside_a_block() -> Result {
+    let code = "do { module m { export def x [] { 1 } }; view source m }";
+    test().run(code).expect_value_eq(" export def x [] { 1 } ")
+}
+
+#[test]
+fn alias_defined_inside_a_keyword_body() -> Result {
+    let code = "if true { alias a = print; view source a }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn command_defined_inside_a_block_sees_its_names() -> Result {
+    let code = "do { alias a = print; def inner [] { view source a }; inner }";
+    test().run(code).expect_value_eq("print")
+}
+
+// A custom command doesn't see the local names of the block that calls it, so it shows the
+// definition it would run.
+#[test]
+fn custom_command_ignores_callers_local_command() -> Result {
+    let code = "
+        def helper [] { 'global' }
+        def show [] { view source helper }
+        do { def helper [] { 'local' }; show }
+    ";
+    test()
+        .run(code)
+        .expect_value_eq("def helper [] { 'global' }")
+}
+
+#[test]
+fn custom_command_ignores_callers_local_alias() -> Result {
+    let code = "alias a = ls; def show [] { view source a }; do { alias a = print; show }";
+    test().run(code).expect_value_eq("ls")
+}
+
+#[test]
+fn hidden_command_is_not_shown() -> Result {
+    let code = "def foo [] { 1 }; do { hide foo; view source foo }";
+    let err = match test().run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        err => panic!("expected a GenericError, got {err:?}"),
+    };
+    assert_eq!(err.error, "Cannot view string value");
+    Ok(())
+}
+
+#[test]
+fn hiding_a_local_alias_shows_the_outer_one() -> Result {
+    let code = "do { alias a = ls; do { alias a = print; hide a; view source a } }";
+    test().run(code).expect_value_eq("ls")
+}
+
+#[test]
+fn inner_keyword_body_shadows_the_outer_one() -> Result {
+    let code = "if true { alias a = ls; if true { alias a = print; view source a } }";
+    test().run(code).expect_value_eq("print")
+}
+
+#[test]
+fn hide_in_an_inner_keyword_body_hides_the_outer_alias() -> Result {
+    let code = "if true { alias a = print; if true { hide a; view source a } }";
+    let err = match test().run(code).expect_shell_error()? {
+        ShellError::Generic(err) => err,
+        err => panic!("expected a GenericError, got {err:?}"),
+    };
+    assert_eq!(err.error, "Cannot view string value");
+    Ok(())
+}
+
+// Stack order isn't lexical order once a command recurses, so the closest block is picked by span.
+#[test]
+fn closest_block_wins_in_a_recursive_command() -> Result {
+    let code = "
+        def f [n c?] {
+            alias a = ls
+            if $n == 0 { do $c } else { do { alias a = print; f 0 {|| view source a } } }
+        }
+        f 1
+    ";
+    test().run(code).expect_value_eq("print")
 }

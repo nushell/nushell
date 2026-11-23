@@ -62,37 +62,33 @@ fn history_config_default_path_sqlite() {
 }
 
 #[test]
-fn history_path_directory_appends_filename_plaintext() -> Result {
-    Playground::setup("history_path_dir_plaintext", |dirs, _| {
-        let dir = dirs.test().to_std_path_buf();
-        let config = HistoryConfig {
-            path: HistoryPath::Custom(dir.clone()),
-            file_format: HistoryFileFormat::Plaintext,
-            ..Default::default()
-        };
-        assert_eq!(
-            config.file_path(std::path::Path::new("/unused")),
-            Some(dir.join("history.txt"))
-        );
-        Ok(())
-    })
+fn history_path_directory_appends_filename_plaintext(playground: Playground) -> Result {
+    let dir = playground.path();
+    let config = HistoryConfig {
+        path: HistoryPath::Custom(dir.to_path_buf()),
+        file_format: HistoryFileFormat::Plaintext,
+        ..Default::default()
+    };
+    assert_eq!(
+        config.file_path(std::path::Path::new("/unused")),
+        Some(dir.join("history.txt"))
+    );
+    Ok(())
 }
 
 #[test]
-fn history_path_directory_appends_filename_sqlite() -> Result {
-    Playground::setup("history_path_dir_sqlite", |dirs, _| {
-        let dir = dirs.test().to_std_path_buf();
-        let config = HistoryConfig {
-            path: HistoryPath::Custom(dir.clone()),
-            file_format: HistoryFileFormat::Sqlite,
-            ..Default::default()
-        };
-        assert_eq!(
-            config.file_path(std::path::Path::new("/unused")),
-            Some(dir.join("history.sqlite3"))
-        );
-        Ok(())
-    })
+fn history_path_directory_appends_filename_sqlite(playground: Playground) -> Result {
+    let dir = playground.path();
+    let config = HistoryConfig {
+        path: HistoryPath::Custom(dir.to_path_buf()),
+        file_format: HistoryFileFormat::Sqlite,
+        ..Default::default()
+    };
+    assert_eq!(
+        config.file_path(std::path::Path::new("/unused")),
+        Some(dir.join("history.sqlite3"))
+    );
+    Ok(())
 }
 
 #[test]
@@ -127,139 +123,127 @@ fn history_uses_injected_config_home_not_env() {
 // ─── 2. In-process $nu path tests (NuTester) ──────────────────────────────
 
 #[test]
-fn nu_constant_reflects_resolved_config_dirs() -> Result {
-    Playground::setup("nu_constant_reflects_resolved_config_dirs", |dirs, _| {
-        let home = dirs.test().join("nu-test-cfg-home").to_std_path_buf();
-        fs::create_dir_all(&home)?;
+fn nu_constant_reflects_resolved_config_dirs(playground: Playground) -> Result {
+    let home = playground.path().join("nu-test-cfg-home");
+    fs::create_dir_all(&home)?;
 
-        let dirs = NushellConfigDirs {
-            config_home: home.clone(),
-            config_file: ConfigPath::Default(home.join("config.nu")),
-            env_file: ConfigPath::Default(home.join("env.nu")),
-            data_home: home.join("data"),
-            cache_home: home.join("cache"),
-            home_dir: home.clone(),
-            vendor_autoload_dirs: vec![home.join("vendor")],
-            user_autoload_dirs: vec![home.join("autoload")],
-            #[cfg(feature = "plugin")]
-            plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
-        };
-
-        let mut tester = test();
-        tester.engine_state.config_dirs = dirs;
+    let dirs = NushellConfigDirs {
+        config_home: home.clone(),
+        config_file: ConfigPath::Default(home.join("config.nu")),
+        env_file: ConfigPath::Default(home.join("env.nu")),
+        data_home: home.join("data"),
+        cache_home: home.join("cache"),
+        home_dir: home.clone(),
+        vendor_autoload_dirs: vec![home.join("vendor")],
+        user_autoload_dirs: vec![home.join("autoload")],
         #[cfg(feature = "plugin")]
-        {
-            tester.engine_state.plugin_path =
-                Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
-        }
-        tester.engine_state.generate_nu_constant();
+        plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
+    };
 
-        let default_dir: String = tester.run("$nu.default-config-dir")?;
-        assert!(
-            default_dir.contains("nu-test-cfg-home") || default_dir.ends_with("nu-test-cfg-home"),
-            "default-config-dir={default_dir}"
-        );
+    let mut tester = test();
+    tester.engine_state.config_dirs = dirs;
+    #[cfg(feature = "plugin")]
+    {
+        tester.engine_state.plugin_path =
+            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+    }
+    tester.engine_state.generate_nu_constant();
 
-        let config_path: String = tester.run("$nu.config-path")?;
-        assert!(
-            config_path.ends_with("config.nu") || config_path.contains("config.nu"),
-            "config-path={config_path}"
-        );
+    let default_dir: String = tester.run("$nu.default-config-dir")?;
+    assert!(
+        default_dir.contains("nu-test-cfg-home") || default_dir.ends_with("nu-test-cfg-home"),
+        "default-config-dir={default_dir}"
+    );
 
-        let env_path: String = tester.run("$nu.env-path")?;
-        assert!(
-            env_path.ends_with("env.nu") || env_path.contains("env.nu"),
-            "env-path={env_path}"
-        );
+    let config_path: String = tester.run("$nu.config-path")?;
+    assert!(
+        config_path.ends_with("config.nu") || config_path.contains("config.nu"),
+        "config-path={config_path}"
+    );
 
-        let history_path: String = tester.run("$nu.history-path")?;
-        assert!(
-            history_path.contains("history"),
-            "history-path={history_path}"
-        );
+    let env_path: String = tester.run("$nu.env-path")?;
+    assert!(
+        env_path.ends_with("env.nu") || env_path.contains("env.nu"),
+        "env-path={env_path}"
+    );
 
-        Ok(())
-    })
+    let history_path: String = tester.run("$nu.history-path")?;
+    assert!(
+        history_path.contains("history"),
+        "history-path={history_path}"
+    );
+
+    Ok(())
 }
 
 #[test]
-fn nu_constant_config_file_override() -> Result {
-    Playground::setup("nu_constant_config_file_override", |dirs, _| {
-        let home = dirs
-            .test()
-            .join("nu-test-cfg-override-home")
-            .to_std_path_buf();
-        let custom = dirs
-            .test()
-            .join("nu-test-custom-config.nu")
-            .to_std_path_buf();
-        fs::create_dir_all(&home)?;
-        // File need not exist for $nu path reporting (canonicalize falls back).
+fn nu_constant_config_file_override(playground: Playground) -> Result {
+    let home = playground.path().join("nu-test-cfg-override-home");
+    let custom = playground.path().join("nu-test-custom-config.nu");
+    fs::create_dir_all(&home)?;
+    // File need not exist for $nu path reporting (canonicalize falls back).
 
-        let dirs = NushellConfigDirs {
-            config_home: home.clone(),
-            config_file: ConfigPath::Override(custom.clone()),
-            env_file: ConfigPath::Default(home.join("env.nu")),
-            data_home: home.join("data"),
-            cache_home: home.join("cache"),
-            home_dir: home,
-            vendor_autoload_dirs: vec![],
-            user_autoload_dirs: vec![],
-            #[cfg(feature = "plugin")]
-            plugin_file: ConfigPath::Default(PathBuf::from("plugin.msgpackz")),
-        };
-
-        let mut tester = test();
-        tester.engine_state.config_dirs = dirs;
+    let dirs = NushellConfigDirs {
+        config_home: home.clone(),
+        config_file: ConfigPath::Override(custom.clone()),
+        env_file: ConfigPath::Default(home.join("env.nu")),
+        data_home: home.join("data"),
+        cache_home: home.join("cache"),
+        home_dir: home,
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        {
-            tester.engine_state.plugin_path =
-                Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
-        }
-        tester.engine_state.generate_nu_constant();
-        let config_path: String = tester.run("$nu.config-path")?;
-        assert!(
-            config_path.contains("nu-test-custom-config.nu"),
-            "config-path={config_path}"
-        );
-        Ok(())
-    })
+        plugin_file: ConfigPath::Default(PathBuf::from("plugin.msgpackz")),
+    };
+
+    let mut tester = test();
+    tester.engine_state.config_dirs = dirs;
+    #[cfg(feature = "plugin")]
+    {
+        tester.engine_state.plugin_path =
+            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+    }
+    tester.engine_state.generate_nu_constant();
+    let config_path: String = tester.run("$nu.config-path")?;
+    assert!(
+        config_path.contains("nu-test-custom-config.nu"),
+        "config-path={config_path}"
+    );
+    Ok(())
 }
 
 #[test]
-fn nu_constant_history_follows_config_home() -> Result {
-    Playground::setup("nu_constant_history_follows_config_home", |dirs, _| {
-        let home = dirs.test().join("nu-hist-config-home").to_std_path_buf();
-        fs::create_dir_all(&home)?;
+fn nu_constant_history_follows_config_home(playground: Playground) -> Result {
+    let home = playground.path().join("nu-hist-config-home");
+    fs::create_dir_all(&home)?;
 
-        let dirs = NushellConfigDirs {
-            config_home: home.clone(),
-            config_file: ConfigPath::Default(home.join("config.nu")),
-            env_file: ConfigPath::Default(home.join("env.nu")),
-            data_home: home.join("data"),
-            cache_home: home.join("cache"),
-            home_dir: home.clone(),
-            vendor_autoload_dirs: vec![],
-            user_autoload_dirs: vec![],
-            #[cfg(feature = "plugin")]
-            plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
-        };
-
-        let mut tester = test();
-        tester.engine_state.config_dirs = dirs;
+    let dirs = NushellConfigDirs {
+        config_home: home.clone(),
+        config_file: ConfigPath::Default(home.join("config.nu")),
+        env_file: ConfigPath::Default(home.join("env.nu")),
+        data_home: home.join("data"),
+        cache_home: home.join("cache"),
+        home_dir: home.clone(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        {
-            tester.engine_state.plugin_path =
-                Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
-        }
-        tester.engine_state.generate_nu_constant();
-        let history_path: String = tester.run("$nu.history-path")?;
-        assert!(
-            history_path.contains("nu-hist-config-home") && history_path.contains("history"),
-            "history-path={history_path}"
-        );
-        Ok(())
-    })
+        plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
+    };
+
+    let mut tester = test();
+    tester.engine_state.config_dirs = dirs;
+    #[cfg(feature = "plugin")]
+    {
+        tester.engine_state.plugin_path =
+            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+    }
+    tester.engine_state.generate_nu_constant();
+    let history_path: String = tester.run("$nu.history-path")?;
+    assert!(
+        history_path.contains("nu-hist-config-home") && history_path.contains("history"),
+        "history-path={history_path}"
+    );
+    Ok(())
 }
 
 // ─── 3. Subprocess / playground (startup + CLI) ───────────────────────────
@@ -277,31 +261,37 @@ fn test_default_config_path() -> Result {
     }
     tester.engine_state.generate_nu_constant();
 
+    // This test reads the real home directory. `$nu` reports each path canonicalized
+    // when it exists and as given otherwise, so a symlinked config (home-manager, a
+    // dotfiles repo) shows up as its target rather than the path it was resolved at.
+    let canonical =
+        |path: PathBuf| nu_path::canonicalize_with(&path, WORKSPACE_ROOT.as_path()).unwrap_or(path);
+
     tester
         .run("$nu.default-config-dir")
-        .expect_value_eq(dirs.config_home.clone())?;
+        .expect_value_eq(canonical(dirs.config_home.clone()))?;
 
     tester
         .run("$nu.config-path")
-        .expect_value_eq(dirs.config_file.to_path_buf())?;
+        .expect_value_eq(canonical(dirs.config_file.to_path_buf()))?;
 
     tester
         .run("$nu.env-path")
-        .expect_value_eq(dirs.env_file.to_path_buf())?;
+        .expect_value_eq(canonical(dirs.env_file.to_path_buf()))?;
 
     tester
         .run("$nu.history-path")
-        .expect_value_eq(dirs.config_home.join("history.txt"))?;
+        .expect_value_eq(canonical(dirs.config_home.join("history.txt")))?;
 
     tester
         .run("$nu.loginshell-path")
-        .expect_value_eq(dirs.config_home.join("login.nu"))?;
+        .expect_value_eq(canonical(dirs.config_home.join("login.nu")))?;
 
     #[cfg(feature = "plugin")]
     {
         tester
             .run("$nu.plugin-path")
-            .expect_value_eq(dirs.plugin_file.to_path_buf())?;
+            .expect_value_eq(canonical(dirs.plugin_file.to_path_buf()))?;
     }
 
     Ok(())
@@ -445,21 +435,19 @@ fn test_xdg_config_bad() -> Result {
 #[test]
 #[cfg(not(windows))]
 #[deps(NU)]
-fn test_xdg_config_symlink() -> Result {
-    Playground::setup("xdg_config_symlink", |_, playground| {
-        let config_link = "config_link";
-        playground.symlink("real", config_link);
+fn test_xdg_config_symlink(playground: Playground) -> Result {
+    let config_link = "config_link";
+    playground.symlink("real", config_link)?;
 
-        let result: CompleteResult = test()
-            .env(
-                "XDG_CONFIG_HOME",
-                playground.cwd().join(config_link).display().to_string(),
-            )
-            .inherit_env_if_set("HOME")
-            .run("nu -i -c 'echo $nu.is-interactive' | complete")?;
-        assert_contains_not("xdg_config_home_invalid", result.stderr);
-        Ok(())
-    })
+    let result: CompleteResult = test()
+        .env(
+            "XDG_CONFIG_HOME",
+            playground.path().join(config_link).display().to_string(),
+        )
+        .inherit_env_if_set("HOME")
+        .run("nu -i -c 'echo $nu.is-interactive' | complete")?;
+    assert_contains_not("xdg_config_home_invalid", result.stderr);
+    Ok(())
 }
 
 #[test]
@@ -519,6 +507,68 @@ fn commandstring_loads_default_env() -> Result {
 
 #[test]
 #[deps(NU)]
+fn commandstring_loads_default_prompts() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "[$env.config.prompt.left $env.config.prompt.right] | each { describe } | str join ' '" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "closure closure");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+/// The defaults stay Nu source so users can read and build on them.
+#[test]
+#[deps(NU)]
+fn default_prompt_source_is_viewable() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "view source $env.config.prompt.left | str contains 'path relative-to'" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "true");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn no_config_file_skips_default_prompts() -> Result {
+    let result: CompleteResult =
+        test().run(r#"nu -n -c "$env.config.prompt.left | describe" | complete"#)?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "nothing");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+/// `Config::default()` cannot hold a closure, so `config default` has to
+/// report the prompts installed at startup. Assigning them back must restore
+/// the default prompt rather than clear it.
+#[test]
+#[deps(NU)]
+fn config_default_has_the_default_prompts() -> Result {
+    let result: CompleteResult = test().run(
+        r#"nu -c "$env.config.prompt.left = 'mine'; $env.config.prompt = (config default).prompt; [$env.config.prompt.left $env.config.prompt.right] | each { describe } | str join ' '" | complete"#,
+    )?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "closure closure");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
+fn config_default_has_no_prompts_without_config_files() -> Result {
+    let result: CompleteResult =
+        test().run(r#"nu -n -c "(config default).prompt.left | describe" | complete"#)?;
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "nothing");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}
+
+#[test]
+#[deps(NU)]
 fn commandstring_populates_config_record() -> Result {
     let result: CompleteResult =
         test().run("nu --no-std-lib -n -c '$env.config.show_banner' | complete")?;
@@ -529,90 +579,86 @@ fn commandstring_populates_config_record() -> Result {
 }
 
 #[test]
-fn history_path_disabled_null() -> Result {
-    Playground::setup("history_path_disabled_null", |dirs, _| {
-        let home = dirs.test().join("nu-history-null-home").to_std_path_buf();
-        fs::create_dir_all(&home)?;
+fn history_path_disabled_null(playground: Playground) -> Result {
+    let home = playground.path().join("nu-history-null-home");
+    fs::create_dir_all(&home)?;
 
-        let dirs = NushellConfigDirs {
-            config_home: home.clone(),
-            config_file: ConfigPath::Default(home.join("config.nu")),
-            env_file: ConfigPath::Default(home.join("env.nu")),
-            data_home: home.join("data"),
-            cache_home: home.join("cache"),
-            home_dir: home.clone(),
-            vendor_autoload_dirs: vec![],
-            user_autoload_dirs: vec![],
-            #[cfg(feature = "plugin")]
-            plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
-        };
-
-        let mut tester = test();
-        tester.engine_state.config_dirs = dirs;
+    let dirs = NushellConfigDirs {
+        config_home: home.clone(),
+        config_file: ConfigPath::Default(home.join("config.nu")),
+        env_file: ConfigPath::Default(home.join("env.nu")),
+        data_home: home.join("data"),
+        cache_home: home.join("cache"),
+        home_dir: home.clone(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        {
-            tester.engine_state.plugin_path =
-                Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
-        }
-        tester.engine_state.generate_nu_constant();
-        tester.engine_state.set_config(Config {
-            history: HistoryConfig {
-                path: HistoryPath::Disabled,
-                ..Default::default()
-            },
+        plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
+    };
+
+    let mut tester = test();
+    tester.engine_state.config_dirs = dirs;
+    #[cfg(feature = "plugin")]
+    {
+        tester.engine_state.plugin_path =
+            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+    }
+    tester.engine_state.generate_nu_constant();
+    tester.engine_state.set_config(Config {
+        history: HistoryConfig {
+            path: HistoryPath::Disabled,
             ..Default::default()
-        });
-        tester.engine_state.generate_nu_constant();
+        },
+        ..Default::default()
+    });
+    tester.engine_state.generate_nu_constant();
 
-        tester.run("$nu.history-path").expect_value_eq("")?;
+    tester.run("$nu.history-path").expect_value_eq("")?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
-fn history_path_custom_string() -> Result {
-    Playground::setup("history_path_custom_string", |dirs, _| {
-        let home = dirs.test().join("nu-history-custom-home").to_std_path_buf();
-        fs::create_dir_all(&home)?;
-        let custom_file = home.join("my_history.txt");
+fn history_path_custom_string(playground: Playground) -> Result {
+    let home = playground.path().join("nu-history-custom-home");
+    fs::create_dir_all(&home)?;
+    let custom_file = home.join("my_history.txt");
 
-        let dirs = NushellConfigDirs {
-            config_home: home.clone(),
-            config_file: ConfigPath::Default(home.join("config.nu")),
-            env_file: ConfigPath::Default(home.join("env.nu")),
-            data_home: home.join("data"),
-            cache_home: home.join("cache"),
-            home_dir: home.clone(),
-            vendor_autoload_dirs: vec![],
-            user_autoload_dirs: vec![],
-            #[cfg(feature = "plugin")]
-            plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
-        };
-
-        let mut tester = test();
-        tester.engine_state.config_dirs = dirs;
+    let dirs = NushellConfigDirs {
+        config_home: home.clone(),
+        config_file: ConfigPath::Default(home.join("config.nu")),
+        env_file: ConfigPath::Default(home.join("env.nu")),
+        data_home: home.join("data"),
+        cache_home: home.join("cache"),
+        home_dir: home.clone(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        {
-            tester.engine_state.plugin_path =
-                Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
-        }
-        tester.engine_state.generate_nu_constant();
-        tester.engine_state.set_config(Config {
-            history: HistoryConfig {
-                path: HistoryPath::Custom(custom_file.clone()),
-                ..Default::default()
-            },
+        plugin_file: ConfigPath::Default(home.join("plugin.msgpackz")),
+    };
+
+    let mut tester = test();
+    tester.engine_state.config_dirs = dirs;
+    #[cfg(feature = "plugin")]
+    {
+        tester.engine_state.plugin_path =
+            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+    }
+    tester.engine_state.generate_nu_constant();
+    tester.engine_state.set_config(Config {
+        history: HistoryConfig {
+            path: HistoryPath::Custom(custom_file.clone()),
             ..Default::default()
-        });
-        tester.engine_state.generate_nu_constant();
+        },
+        ..Default::default()
+    });
+    tester.engine_state.generate_nu_constant();
 
-        tester
-            .run("$nu.history-path")
-            .expect_value_eq(custom_file)?;
+    tester
+        .run("$nu.history-path")
+        .expect_value_eq(custom_file)?;
 
-        Ok(())
-    })
+    Ok(())
 }
 
 #[test]
@@ -627,77 +673,75 @@ fn history_path_default_shows_in_config() -> Result {
 }
 
 #[test]
-fn config_home_cli_affects_default_config_dir() -> Result {
-    Playground::setup("config_home_cli", |_, playground| {
-        let alt_home = playground.cwd().join("alt-config-home");
-        std::fs::create_dir_all(&alt_home)?;
+fn config_home_cli_affects_default_config_dir(playground: Playground) -> Result {
+    let alt_home = playground.path().join("alt-config-home");
+    std::fs::create_dir_all(&alt_home)?;
 
-        let dirs = NushellConfigDirs {
-            config_home: alt_home.clone().into(),
-            config_file: ConfigPath::Default(alt_home.join("config.nu").into()),
-            env_file: ConfigPath::Default(alt_home.join("env.nu").into()),
-            data_home: alt_home.join("data").into(),
-            cache_home: alt_home.join("cache").into(),
-            home_dir: alt_home.clone().into(),
-            vendor_autoload_dirs: vec![],
-            user_autoload_dirs: vec![],
-            #[cfg(feature = "plugin")]
-            plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz").into()),
-        };
-
-        let mut tester = test();
-        tester.engine_state.config_dirs = dirs;
+    let dirs = NushellConfigDirs {
+        config_home: alt_home.clone(),
+        config_file: ConfigPath::Default(alt_home.join("config.nu")),
+        env_file: ConfigPath::Default(alt_home.join("env.nu")),
+        data_home: alt_home.join("data"),
+        cache_home: alt_home.join("cache"),
+        home_dir: alt_home.clone(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        {
-            tester.engine_state.plugin_path =
-                Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
-        }
-        tester.engine_state.generate_nu_constant();
-        let expected = std::path::absolute(&alt_home)?;
-        tester
-            .run("$nu.default-config-dir")
-            .expect_value_eq(expected)?;
+        plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz")),
+    };
 
-        Ok(())
-    })
+    let mut tester = test();
+    tester.engine_state.config_dirs = dirs;
+    #[cfg(feature = "plugin")]
+    {
+        tester.engine_state.plugin_path =
+            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+    }
+    tester.engine_state.generate_nu_constant();
+    let expected = nu_path::AbsolutePath::try_new(&alt_home)
+        .expect("config home is absolute")
+        .canonicalize()?;
+    tester
+        .run("$nu.default-config-dir")
+        .expect_value_eq(expected.as_std_path())?;
+
+    Ok(())
 }
 
 #[test]
-fn config_home_cli_affects_history_path() -> Result {
-    Playground::setup("config_home_history", |_, playground| {
-        let alt_home = playground.cwd().join("alt-hist-home");
-        std::fs::create_dir_all(&alt_home)?;
+fn config_home_cli_affects_history_path(playground: Playground) -> Result {
+    let alt_home = playground.path().join("alt-hist-home");
+    std::fs::create_dir_all(&alt_home)?;
 
-        let dirs = NushellConfigDirs {
-            config_home: alt_home.clone().into(),
-            config_file: ConfigPath::Default(alt_home.join("config.nu").into()),
-            env_file: ConfigPath::Default(alt_home.join("env.nu").into()),
-            data_home: alt_home.join("data").into(),
-            cache_home: alt_home.join("cache").into(),
-            home_dir: alt_home.clone().into(),
-            vendor_autoload_dirs: vec![],
-            user_autoload_dirs: vec![],
-            #[cfg(feature = "plugin")]
-            plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz").into()),
-        };
-
-        let mut tester = test();
-        tester.engine_state.config_dirs = dirs;
+    let dirs = NushellConfigDirs {
+        config_home: alt_home.clone(),
+        config_file: ConfigPath::Default(alt_home.join("config.nu")),
+        env_file: ConfigPath::Default(alt_home.join("env.nu")),
+        data_home: alt_home.join("data"),
+        cache_home: alt_home.join("cache"),
+        home_dir: alt_home.clone(),
+        vendor_autoload_dirs: vec![],
+        user_autoload_dirs: vec![],
         #[cfg(feature = "plugin")]
-        {
-            tester.engine_state.plugin_path =
-                Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
-        }
-        tester.engine_state.generate_nu_constant();
-        let history_path: String = tester.run("$nu.history-path")?;
+        plugin_file: ConfigPath::Default(alt_home.join("plugin.msgpackz")),
+    };
 
-        assert!(
-            history_path.contains("alt-hist-home") && history_path.contains("history"),
-            "history-path should live under config_home, got: {history_path}"
-        );
+    let mut tester = test();
+    tester.engine_state.config_dirs = dirs;
+    #[cfg(feature = "plugin")]
+    {
+        tester.engine_state.plugin_path =
+            Some(tester.engine_state.config_dirs.plugin_file.to_path_buf());
+    }
+    tester.engine_state.generate_nu_constant();
+    let history_path: String = tester.run("$nu.history-path")?;
 
-        Ok(())
-    })
+    assert!(
+        history_path.contains("alt-hist-home") && history_path.contains("history"),
+        "history-path should live under config_home, got: {history_path}"
+    );
+
+    Ok(())
 }
 
 /// Smoke: `resolve_paths` via system env still succeeds (no panic / empty crash).
@@ -724,107 +768,101 @@ fn system_resolve_paths_smoke() {
 #[cfg(not(windows))]
 #[test]
 #[deps(NU)]
-fn dangling_config_nu_uses_defaults_with_warning() -> Result {
-    Playground::setup("dangling_config_nu", |_, playground| {
-        let xdg = playground.cwd().join("xdg");
-        let nu_dir = xdg.join("nushell");
-        fs::create_dir_all(&nu_dir)?;
-        playground.symlink("/nonexistent/moved-repo/config.nu", "xdg/nushell/config.nu");
+fn dangling_config_nu_uses_defaults_with_warning(playground: Playground) -> Result {
+    let xdg = playground.path().join("xdg");
+    let nu_dir = xdg.join("nushell");
+    fs::create_dir_all(&nu_dir)?;
+    playground.symlink("/nonexistent/moved-repo/config.nu", "xdg/nushell/config.nu")?;
 
-        let output = Command::new(NU.path())
-            .current_dir(playground.cwd())
-            .args(["-l", "-c", "print ok"])
-            .env("XDG_CONFIG_HOME", &xdg)
-            .output()?;
+    let output = Command::new(NU.path())
+        .current_dir(playground.path())
+        .args(["-l", "-c", "print ok"])
+        .env("XDG_CONFIG_HOME", &xdg)
+        .output()?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            output.status.success(),
-            "nu should start with dangling config.nu; stderr={stderr}"
-        );
-        assert!(
-            stdout.contains("ok"),
-            "expected command output, stdout={stdout}"
-        );
-        assert!(
-            stderr.contains("broken symlink"),
-            "expected broken-symlink warning, stderr={stderr}"
-        );
-        // Never delete or replace the user's symlink.
-        assert!(
-            nu_dir.join("config.nu").is_symlink(),
-            "dangling config.nu symlink must be left in place"
-        );
-        Ok(())
-    })
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "nu should start with dangling config.nu; stderr={stderr}"
+    );
+    assert!(
+        stdout.contains("ok"),
+        "expected command output, stdout={stdout}"
+    );
+    assert!(
+        stderr.contains("broken symlink"),
+        "expected broken-symlink warning, stderr={stderr}"
+    );
+    // Never delete or replace the user's symlink.
+    assert!(
+        nu_dir.join("config.nu").is_symlink(),
+        "dangling config.nu symlink must be left in place"
+    );
+    Ok(())
 }
 
 /// Default `env.nu` as a dangling symlink: same recovery as config.nu.
 #[cfg(not(windows))]
 #[test]
 #[deps(NU)]
-fn dangling_env_nu_uses_defaults_with_warning() -> Result {
-    Playground::setup("dangling_env_nu", |_, playground| {
-        let xdg = playground.cwd().join("xdg");
-        let nu_dir = xdg.join("nushell");
-        fs::create_dir_all(&nu_dir)?;
-        playground.symlink("/nonexistent/moved-repo/env.nu", "xdg/nushell/env.nu");
+fn dangling_env_nu_uses_defaults_with_warning(playground: Playground) -> Result {
+    let xdg = playground.path().join("xdg");
+    let nu_dir = xdg.join("nushell");
+    fs::create_dir_all(&nu_dir)?;
+    playground.symlink("/nonexistent/moved-repo/env.nu", "xdg/nushell/env.nu")?;
 
-        let output = Command::new(NU.path())
-            .current_dir(playground.cwd())
-            .args(["-l", "-c", "print ok"])
-            .env("XDG_CONFIG_HOME", &xdg)
-            .output()?;
+    let output = Command::new(NU.path())
+        .current_dir(playground.path())
+        .args(["-l", "-c", "print ok"])
+        .env("XDG_CONFIG_HOME", &xdg)
+        .output()?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            output.status.success(),
-            "nu should start with dangling env.nu; stderr={stderr}"
-        );
-        assert!(stdout.contains("ok"), "stdout={stdout}");
-        assert!(
-            stderr.contains("broken symlink"),
-            "expected broken-symlink warning, stderr={stderr}"
-        );
-        assert!(
-            nu_dir.join("env.nu").is_symlink(),
-            "dangling env.nu symlink must be left in place"
-        );
-        Ok(())
-    })
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "nu should start with dangling env.nu; stderr={stderr}"
+    );
+    assert!(stdout.contains("ok"), "stdout={stdout}");
+    assert!(
+        stderr.contains("broken symlink"),
+        "expected broken-symlink warning, stderr={stderr}"
+    );
+    assert!(
+        nu_dir.join("env.nu").is_symlink(),
+        "dangling env.nu symlink must be left in place"
+    );
+    Ok(())
 }
 
 /// Explicit `--config` to a dangling path remains a hard error in strict mode.
 #[cfg(not(windows))]
 #[test]
 #[deps(NU)]
-fn dangling_config_cli_override_still_errors() -> Result {
-    Playground::setup("dangling_config_cli", |_, playground| {
-        playground.symlink("/nonexistent/custom-config.nu", "broken-config.nu");
-        let broken = playground.cwd().join("broken-config.nu");
+fn dangling_config_cli_override_still_errors(playground: Playground) -> Result {
+    playground.symlink("/nonexistent/custom-config.nu", "broken-config.nu")?;
+    let broken = playground.path().join("broken-config.nu");
 
-        let output = Command::new(NU.path())
-            .current_dir(playground.cwd())
-            .arg("--config")
-            .arg(&broken)
-            .args(["-c", "print ok"])
-            .output()?;
+    let output = Command::new(NU.path())
+        .current_dir(playground.path())
+        .arg("--config")
+        .arg(&broken)
+        .args(["-c", "print ok"])
+        .output()?;
 
-        assert!(
-            !output.status.success(),
-            "CLI --config to a missing/dangling path should fail"
-        );
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("File not found") || stderr.contains("not found"),
-            "stderr={stderr}"
-        );
-        assert!(
-            broken.is_symlink(),
-            "CLI override must not remove the broken symlink"
-        );
-        Ok(())
-    })
+    assert!(
+        !output.status.success(),
+        "CLI --config to a missing/dangling path should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("File not found") || stderr.contains("not found"),
+        "stderr={stderr}"
+    );
+    assert!(
+        broken.is_symlink(),
+        "CLI override must not remove the broken symlink"
+    );
+    Ok(())
 }

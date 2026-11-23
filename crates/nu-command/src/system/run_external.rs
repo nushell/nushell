@@ -1,11 +1,11 @@
 use itertools::Itertools;
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings};
+use nu_engine::{command_prelude::*, env_to_strings, eval_ir_call};
 use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    ByteStream, DeclId, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean, ir,
     process::{ChildProcess, PostWaitCallback},
-    shell_error::io::IoError,
+    shell_error::io::{ErrorKind, IoError},
 };
 use nu_system::ForegroundChild;
 #[cfg(unix)]
@@ -21,6 +21,7 @@ use std::{
     io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::Stdio,
+    sync::{Arc, OnceLock},
     thread,
 };
 
@@ -341,14 +342,22 @@ If you create a custom command with this name, that will be used instead."
             .ok_or(ShellError::Interrupted { span: call.head })?;
 
         // If we need to copy data into the child process, do it now.
+        let mut stdin_failure = None;
         if let Some(data) = data_to_copy_into_stdin {
-            let stdin = child.as_mut().stdin.take().expect("stdin is piped");
+            let mut stdin = child.as_mut().stdin.take().expect("stdin is piped");
             let engine_state = engine_state.clone();
             let stack = stack.clone();
+            let failure = Arc::new(OnceLock::new());
+            stdin_failure = Some(failure.clone());
             thread::Builder::new()
                 .name("external stdin worker".into())
                 .spawn(move || {
-                    let _ = write_pipeline_data(engine_state, stack, data, stdin);
+                    // Write through a reference, so that stdin stays open until the failure is set.
+                    if let Err(err) = write_pipeline_data(engine_state, stack, data, &mut stdin)
+                        && !is_expected_stdin_error(&err)
+                    {
+                        let _ = failure.set(err);
+                    }
                 })
                 .map_err(|err| {
                     IoError::new_with_additional_context(
@@ -377,7 +386,8 @@ If you create a custom command with this name, that will be used instead."
                     .and_then(|it| it.to_str())
                     .map(|it| it.to_string()),
             )),
-        )?;
+        )?
+        .with_stdin_failure(stdin_failure);
 
         Ok(PipelineData::byte_stream(
             ByteStream::child(child, call.head),
@@ -549,18 +559,41 @@ fn write_pipeline_data(
         engine_state.set_config(config);
 
         // Invoke the `table` command.
-        let output =
-            crate::Table.run(&engine_state, &mut stack, &Call::new(Span::unknown()), data)?;
+        let output = match engine_state.table_decl_id {
+            Some(decl_id) => {
+                let call = ir::Call::build(decl_id, Span::unknown());
+                eval_ir_call(&engine_state, &mut stack, call, data)?
+            }
+            None => data,
+        };
 
         // Write the output.
         for value in output {
-            let bytes = value.coerce_into_binary()?;
+            // `table` passes a lone value like a number through, and that has no bytes to write.
+            // This ends the input, without being a failure.
+            let Ok(bytes) = value.unwrap_error()?.coerce_into_binary() else {
+                break;
+            };
             writer
                 .write_all(&bytes)
                 .map_err(|err| IoError::new_internal(err, "Could not write pipeline data"))?;
         }
     }
     Ok(())
+}
+
+/// Whether `err`, from feeding an external's stdin, is not worth reporting: the external stopped
+/// reading, which is up to the external, an external earlier in the pipeline failed, which only
+/// pipefail reports, or the user interrupted, which is seen wherever the shell checks next.
+fn is_expected_stdin_error(err: &ShellError) -> bool {
+    let stopped_reading = matches!(
+        err,
+        ShellError::Io(IoError {
+            kind: ErrorKind::Std(std::io::ErrorKind::BrokenPipe, ..),
+            ..
+        })
+    );
+    stopped_reading || err.external_exit_code().is_some() || err.is_interrupt()
 }
 
 /// Explains why an `executable` that exists could not be started, given the "not found" `err`
@@ -622,7 +655,7 @@ pub fn command_not_found(
             &mut engine_state.clone(),
             &mut stack,
             None,
-            vec![("cmd_name".into(), Value::string(name, span))],
+            &[("cmd_name".into(), Value::string(name, span))],
             hook,
             "command_not_found",
         );
@@ -645,15 +678,6 @@ pub fn command_not_found(
                 // The hook did not return a string, so ignore it.
             }
         }
-    }
-
-    // If the name is one of the removed commands, recommend a replacement.
-    if let Some(replacement) = crate::removed_commands().get(&name.to_lowercase()) {
-        return ShellError::RemovedCommand {
-            removed: name.to_lowercase(),
-            replacement: replacement.clone(),
-            span,
-        };
     }
 
     // Making this a closure allows using return inside instead of nesting if-else's
@@ -834,44 +858,44 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::{fs::Stub, playground::Playground};
+    use nu_test_support::{Result, prelude::*};
 
     #[test]
-    fn test_expand_glob() {
-        Playground::setup("test_expand_glob", |dirs, play| {
-            play.with_files(&[Stub::EmptyFile("a.txt"), Stub::EmptyFile("b.txt")]);
+    fn test_expand_glob(playground: Playground) -> Result {
+        playground.empty_file("a.txt")?;
+        playground.empty_file("b.txt")?;
 
-            let cwd = dirs.test().as_std_path();
+        let cwd = playground.path();
 
-            let actual = expand_glob("*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["a.txt", "b.txt"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["a.txt", "b.txt"];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("./*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            assert_eq!(actual, expected);
+        let actual = expand_glob("./*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("'*.txt'", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["'*.txt'"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("'*.txt'", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["'*.txt'"];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob(".", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["."];
-            assert_eq!(actual, expected);
+        let actual = expand_glob(".", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["."];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("./a.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["./a.txt"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("./a.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["./a.txt"];
+        assert_eq!(actual, expected);
 
-            let actual = expand_glob("[*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let expected = &["[*.txt"];
-            assert_eq!(actual, expected);
+        let actual = expand_glob("[*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let expected = &["[*.txt"];
+        assert_eq!(actual, expected);
 
-            let actual =
-                expand_glob("~/foo.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
-            let home = dirs::home_dir().expect("failed to get home dir");
-            let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
-            assert_eq!(actual, expected);
-        })
+        let actual = expand_glob("~/foo.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
+        let home = dirs::home_dir().expect("failed to get home dir");
+        let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
+        assert_eq!(actual, expected);
+
+        Ok(())
     }
 
     #[test]

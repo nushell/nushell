@@ -48,7 +48,7 @@ jobs:
             runner: &runner_windows incredibuild-windows-2022
             target: &target_windows x86_64-pc-windows-msvc
           - name: MacOS
-            runner: &runner_macos macos-latest
+            runner: &runner_macos incredibuild-macos-latest
             target: &target_macos x86_64-apple-darwin
     steps:
 
@@ -63,37 +63,16 @@ jobs:
 
       - &step_cache_rust
         name: Cache Rust
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: ${{ env.working-directory }} -> target
           cache-all-crates: true
-          cache-workspace-crates: true
+          # Workspace crates are recompiled after an exact cache hit anyway (fingerprint
+          # mismatch), while restoring them dominates Cache Rust on Windows (~2.8 GB, ~54s).
+          # Cache dependencies only so restores stay small and useful.
+          cache-workspace-crates: false
 
-      - &step_fmt
-        name: Fmt
-        working-directory: ${{ env.working-directory }}
-        run: |
-          rustup component add rustfmt
-          cargo fmt --all --check
-
-      - &step_check
-        name: Check
-        working-directory: ${{ env.working-directory }}
-        run: >-
-          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          check ${{ env.cargo-options }} 
-          --profile ${{ env.profile }}
-
-      - &step_clippy
-        name: Clippy
-        working-directory: ${{ env.working-directory }}
-        run: >-
-          rustup component add clippy
-
-          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
-          clippy ${{ env.cargo-options }} 
-          --profile ${{ env.profile }} 
-          -- -D warnings
+      # Fmt and Clippy run in the parallel lint job so they stay off the build/test critical path.
 
       - &step_build
         name: Build
@@ -132,7 +111,7 @@ jobs:
 
       - &step_setup_python
         name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.10"
 
@@ -170,6 +149,46 @@ jobs:
         shell: bash
         run: test -z "$(git status --porcelain)"
 
+  # Fmt + Clippy on their own runners so root can build/test without waiting on them.
+  # Same platforms, same cargo-options/profile, same warning-deny via CARGO_BUILD_WARNINGS.
+  lint:
+    name: ${{ matrix.platform.name }} / lint
+    runs-on: ${{ matrix.platform.runner }}
+    if: *job_if
+    env:
+      build-target: ${{ matrix.platform.target }}
+      working-directory: ${{ github.workspace }}
+      cargo-options: --workspace --all-targets
+      profile: ci
+    strategy:
+      matrix:
+        platform: *platforms
+    steps:
+      - *step_checkout_repo
+      - *step_setup_rust_toolchain
+      - *step_cache_rust
+
+      - &step_fmt
+        name: Fmt
+        working-directory: ${{ env.working-directory }}
+        run: |
+          rustup component add rustfmt
+          cargo fmt --all --check
+
+      - &step_clippy
+        name: Clippy
+        env:
+          CARGO_BUILD_WARNINGS: deny
+        working-directory: ${{ env.working-directory }}
+        run: >-
+          rustup component add clippy
+
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml" 
+          clippy ${{ env.cargo-options }} 
+          --profile ${{ env.profile }}
+
+      - *step_assert_clean_repo
+
   root_wasm:
     name: WASM / root
     runs-on: *runner_linux
@@ -204,7 +223,13 @@ jobs:
       - *step_checkout_repo
       - *step_setup_rust_toolchain
       - *step_cache_rust
-      - *step_check
+      - name: Check
+        working-directory: ${{ env.working-directory }}
+        run: >-
+          cargo --config "${{ github.workspace }}/.cargo/ci.toml"
+          check ${{ env.cargo-options }}
+          --profile ${{ env.profile }}
+
       - *step_build
       - *step_assert_clean_repo
 
@@ -228,6 +253,5 @@ jobs:
       - *step_setup_rust_toolchain
       - *step_cache_rust
       - *step_fmt
-      - *step_check
       - *step_clippy
       - *step_assert_clean_repo

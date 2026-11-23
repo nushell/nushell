@@ -5,7 +5,10 @@ use nu_protocol::process::ChildPipe;
 use nu_protocol::shell_error;
 use nu_protocol::{
     ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
-    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
+    byte_stream::copy_with_signals,
+    engine::Closure,
+    report_shell_error,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use std::{
     io::{self, Read, Write},
@@ -442,7 +445,7 @@ impl<R: Read> Read for IoTee<R> {
         if let Some(thread) = self.thread.take() {
             if thread.is_finished() {
                 if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::other(err));
+                    return Err(ShellErrorBridge(err).into());
                 }
             } else {
                 self.thread = Some(thread)
@@ -454,7 +457,7 @@ impl<R: Read> Read for IoTee<R> {
             if let Some(thread) = self.thread.take()
                 && let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error()))
             {
-                return Err(io::Error::other(err));
+                return Err(ShellErrorBridge(err).into());
             }
         } else if let Some(sender) = self.sender.as_mut()
             && sender.send(buf[..len].to_vec()).is_err()

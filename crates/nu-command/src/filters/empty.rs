@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::shell_error::bridge::ShellErrorBridge;
 use std::io::Read;
 
 pub fn empty(
@@ -37,7 +37,7 @@ pub fn empty(
                             .bytes()
                             .next()
                             .transpose()
-                            .map_err(|err| IoError::new(err, span, None))?
+                            .map_err(|err| ShellErrorBridge::unpack(err, span))?
                             .is_none();
                         if negate {
                             Ok(Value::bool(!is_empty, head).into_pipeline_data())

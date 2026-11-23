@@ -33,7 +33,8 @@ use nu_protocol::{
 /// ```rust
 /// # use nu_engine::command_prelude::*;
 /// # use nu_cmd_base::WrapCall;
-/// # let call = WrapCall::Eval(&EngineState::new(), &mut Stack::new(), &Call::new(Span::unknown()));
+/// # let ir_call = nu_protocol::ir::Call::build(nu_protocol::DeclId::new(0), Span::unknown()).finish();
+/// # let call = WrapCall::Eval(&EngineState::new(), &mut Stack::new(), &Call::from(&ir_call));
 /// # fn do_command_logic(call: WrapCall) -> Result<(), ShellError> {
 /// let (call, required): (_, String) = call.req(0)?;
 /// let (call, flag): (_, Option<i64>) = call.get_flag("number")?;

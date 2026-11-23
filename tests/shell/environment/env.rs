@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -203,36 +203,32 @@ fn hides_environment_from_child() -> Result {
         .run(r#"nu -c 'hide-env TEST; nu -c "$env.TEST"' | complete"#)?;
 
     assert!(result.stdout.is_empty());
-    assert!(result.stderr.contains("column_not_found") || result.stderr.contains("name_not_found"));
+    assert!(result.stderr.contains("env_variable_not_found"));
     Ok(())
 }
 
 #[test]
 #[deps(NU)]
-fn has_file_pwd() -> Result {
-    Playground::setup("has_file_pwd", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", "$env.FILE_PWD")]);
+fn has_file_pwd(playground: Playground) -> Result {
+    playground.file("spam.nu", "$env.FILE_PWD")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("nu spam.nu | to text | str trim")
-            .expect_value_eq(dirs.test().to_string_lossy())
-    })
+    test()
+        .cwd(playground.path())
+        .run("nu spam.nu | to text | str trim")
+        .expect_value_eq(playground.path().to_string_lossy())
 }
 
 #[test]
 #[deps(NU)]
-fn has_file_loc() -> Result {
-    Playground::setup("has_file_loc", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
+fn has_file_loc(playground: Playground) -> Result {
+    playground.file("spam.nu", "$env.CURRENT_FILE")?;
 
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("nu spam.nu | to text | str trim")?;
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("nu spam.nu | to text | str trim")?;
 
-        assert!(actual.ends_with("spam.nu"));
-        Ok(())
-    })
+    assert!(actual.ends_with("spam.nu"));
+    Ok(())
 }
 
 #[test]
@@ -246,11 +242,42 @@ fn hides_env_in_block() -> Result {
 
     test()
         .run(pipelines.join("; "))
-        .expect_error_code_eq("nu::shell::column_not_found")?;
+        .expect_error_code_eq("nu::shell::env_variable_not_found")?;
 
     test()
         .run_multiple(pipelines)
-        .expect_error_code_eq("nu::shell::column_not_found")
+        .expect_error_code_eq("nu::shell::env_variable_not_found")
+}
+
+#[rstest]
+#[case::plain("$env.FOO", "FOO", "$env.FOO?")]
+#[case::digit("$env.P4PORT", "P4PORT", "$env.P4PORT?")]
+#[case::needs_quoting(r#"$env."MY VAR""#, "MY VAR", r#"$env."MY VAR"?"#)]
+#[case::nested("$env.FOO.bar", "FOO", "$env.FOO?")]
+fn missing_env_var_suggests_optional_access(
+    #[case] code: &str,
+    #[case] name: &str,
+    #[case] suggestion: &str,
+) -> Result {
+    match test().run(code).expect_shell_error()? {
+        ShellError::EnvVarNotFoundAtRuntime {
+            envvar_name,
+            help: Some(help),
+            ..
+        } => {
+            assert_eq!(envvar_name, name);
+            assert!(
+                help.contains(&format!("`{suggestion}`")),
+                "help should suggest {suggestion}, got: {help}"
+            );
+            assert!(
+                help.contains("add `?` after any members that follow it"),
+                "help should cover members after the key, got: {help}"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -381,15 +408,13 @@ fn path_is_a_list() -> Result {
 
 #[test]
 #[deps(NU)]
-fn path_is_a_list_in_script() -> Result {
-    Playground::setup("path_is_a_list_in_script", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("checkpath.nu", "$env.path | describe")]);
+fn path_is_a_list_in_script(playground: Playground) -> Result {
+    playground.file("checkpath.nu", "$env.path | describe")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("nu checkpath.nu | to text | str trim")
-            .expect_value_eq("list<string>")
-    })
+    test()
+        .cwd(playground.path())
+        .run("nu checkpath.nu | to text | str trim")
+        .expect_value_eq("list<string>")
 }
 
 #[test]

@@ -384,6 +384,8 @@ pub enum ShellError {
         envvar_name: String,
         #[label = "environment variable not found"]
         span: Span,
+        #[help]
+        help: Option<String>,
     },
 
     /// A referenced module was not found at runtime.
@@ -668,7 +670,9 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the record to ensure you aren't reusing the same field name
+    /// Check the record to ensure you aren't reusing the same field name. A record literal can't
+    /// contain the same key twice, including keys brought in with `...`. To replace a field, use
+    /// `merge` or `update`.
     #[error("Record field or table column used twice: {col_name}")]
     #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
@@ -677,6 +681,10 @@ pub enum ShellError {
         second_use: Span,
         #[label = "field first defined here"]
         first_use: Span,
+        /// Set by record literals when a spread is involved, see
+        /// [`ShellError::RECORD_SPREAD_DUPLICATE_HELP`].
+        #[help]
+        help: Option<String>,
     },
 
     /// Attempted to create a record from different number of columns and values
@@ -1077,21 +1085,6 @@ pub enum ShellError {
     },
 
     /// This is a generic error type used for different situations.
-    #[error("{error}")]
-    #[diagnostic(code(nu::shell::error))]
-    #[deprecated(since = "0.111.1", note = "use `ShellError::Generic` instead")]
-    GenericError {
-        error: String,
-        msg: String,
-        #[label("{msg}")]
-        span: Option<Span>,
-        #[help]
-        help: Option<String>,
-        #[related]
-        inner: Vec<ShellError>,
-    },
-
-    /// This is a generic error type used for different situations.
     #[error(transparent)]
     #[diagnostic(transparent)]
     Generic(#[from] generic::GenericError),
@@ -1327,17 +1320,6 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
-    #[error("{deprecation_type} deprecated.")]
-    #[diagnostic(code(nu::shell::deprecated), severity(Warning))]
-    DeprecationWarning {
-        deprecation_type: &'static str,
-        suggestion: String,
-        #[label("{suggestion}")]
-        span: Span,
-        #[help]
-        help: Option<&'static str>,
-    },
-
     /// Invalid glob pattern
     ///
     /// ## Resolution
@@ -1501,6 +1483,10 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 }
 
 impl ShellError {
+    /// Help for [`ShellError::ColumnDefinedTwice`] when a record literal spreads in a key that is
+    /// already present, or redefines a key that a spread brought in.
+    pub const RECORD_SPREAD_DUPLICATE_HELP: &'static str = "A record literal can't contain the same key twice, including keys brought in with `...`. To replace a field, use `merge` or `update`.";
+
     pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
         let (item, span) = match *self {
             Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
@@ -1522,6 +1508,11 @@ impl ShellError {
             return true;
         }
         matches!(self, Self::Interrupted { .. })
+    }
+
+    /// Whether this is `exit` asking to end the script, rather than something that went wrong.
+    pub fn is_exit(&self) -> bool {
+        matches!(self, Self::Exit { .. })
     }
 
     pub fn exit_code(&self) -> Option<i32> {

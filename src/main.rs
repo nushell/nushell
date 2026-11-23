@@ -18,6 +18,7 @@ use crate::{
 use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
+use nu_cmd_base::prompt::FORMERLY_SEEDED_PROMPT_VARIABLES;
 use nu_config::{CliOverrides, ConfigError, ConfigWarning, SystemEnv, resolve_paths};
 use nu_engine::{
     convert_env_values,
@@ -43,11 +44,13 @@ fn current_exe_directory() -> PathBuf {
     path
 }
 
-/// Get the current working directory from the environment.
-fn current_dir_from_environment() -> PathBuf {
-    let cwd = std::env::current_dir();
-    let pwd = std::env::var("PWD");
-    match (cwd, pwd) {
+/// Resolve the initial working directory from OS `current_dir` and `PWD`, stripping any
+/// non-root trailing slashes so `EngineState::cwd` invariants hold on startup.
+fn resolve_current_dir(
+    cwd: std::io::Result<PathBuf>,
+    pwd: std::result::Result<String, std::env::VarError>,
+) -> PathBuf {
+    let dir = match (cwd, pwd) {
         // If current_dir and PWD are the same then use PWD
         // so the path isn't unnecessarily canonicalized on Unix systems.
         (Ok(cwd), Ok(pwd)) => {
@@ -67,7 +70,13 @@ fn current_dir_from_environment() -> PathBuf {
                 current_exe_directory()
             }
         }
-    }
+    };
+    nu_path::strip_trailing_slash(&dir).into_owned()
+}
+
+/// Get the current working directory from the environment.
+fn current_dir_from_environment() -> PathBuf {
+    resolve_current_dir(std::env::current_dir(), std::env::var("PWD"))
 }
 
 /// Mirror of miette's private `Panic` diagnostic so we keep the
@@ -135,7 +144,11 @@ fn main() -> Result<()> {
                 .with_context(|| format!("at {}:{}:{}", loc.file(), loc.line(), loc.column()));
         }
         if let Err(err) = report.with_context(|| "Main thread panicked.".to_string()) {
-            let _ = writeln!(std::io::stderr(), "Error: {err:?}");
+            let mut err = format!("{err:?}");
+            if err.ends_with('\n') {
+                err.pop();
+            }
+            let _ = writeln!(std::io::stderr(), "Error: {err}");
         }
     }));
 
@@ -396,7 +409,7 @@ fn main() -> Result<()> {
 
     engine_state.add_env_var(
         "ENV_CONVERSIONS".to_string(),
-        Value::test_record(record! {}),
+        Value::record(record! {}, Span::unknown()),
     );
 
     start_time = nu_utils::time::Instant::now();
@@ -591,6 +604,11 @@ fn main() -> Result<()> {
         #[cfg(feature = "mcp")]
         RunMode::Mcp => {
             start_time = nu_utils::time::Instant::now();
+            // Preserve the converted environment before MCP creates fresh configuration and
+            // evaluation stacks, including when configuration files are disabled.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
             let mcp_transport_kind = parsed_nu_cli_args
                 .mcp_transport
                 .as_ref()
@@ -611,6 +629,8 @@ fn main() -> Result<()> {
                     &mut stack,
                     parsed_nu_cli_args.login_shell.is_some(),
                 );
+                // The server discards this stack and evaluates on new ones.
+                engine_state.clear_runtime_overlays();
             }
             let transport = match mcp_transport_kind {
                 Some("http") => nu_mcp::McpTransport::http(
@@ -638,6 +658,10 @@ fn main() -> Result<()> {
         #[cfg(feature = "lsp")]
         RunMode::Lsp => {
             start_time = nu_utils::time::Instant::now();
+            // The language server reads configuration on a fresh stack.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
             run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time)
         }
 
@@ -648,6 +672,10 @@ fn main() -> Result<()> {
         #[cfg(feature = "dap")]
         RunMode::Dap => {
             start_time = nu_utils::time::Instant::now();
+            // Configuration loading and debug runs both start with fresh stacks.
+            if let Err(err) = engine_state.merge_env(&mut stack) {
+                report_shell_error(Some(&stack), &engine_state, &err);
+            }
 
             // Debugged scripts should see the same shell the user has: aliases and
             // custom commands from config.nu, `$env` from env.nu, and `$env.config`
@@ -666,6 +694,8 @@ fn main() -> Result<()> {
                 if let Err(err) = engine_state.merge_env(&mut config_stack) {
                     report_shell_error(Some(&config_stack), &engine_state, &err);
                 }
+                // This has to follow `merge_env`, which records the stack's overlays again.
+                engine_state.clear_runtime_overlays();
             }
             perf!("dap setup_config", start_time, use_color);
 
@@ -676,27 +706,16 @@ fn main() -> Result<()> {
 
         RunMode::Repl => {
             // Environment variables that apply only when in REPL
-            engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
-            engine_state.add_env_var(
-                "PROMPT_INDICATOR_VI_NORMAL".to_string(),
-                Value::test_string("> "),
-            );
-            engine_state.add_env_var(
-                "PROMPT_INDICATOR_VI_INSERT".to_string(),
-                Value::test_string(": "),
-            );
-            engine_state.add_env_var(
-                "PROMPT_MULTILINE_INDICATOR".to_string(),
-                Value::test_string("::: "),
-            );
-            engine_state.add_env_var(
-                "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
-                Value::test_string(""),
-            );
-            engine_state.add_env_var(
-                "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
-                Value::test_string(""),
-            );
+            //
+            // No `PROMPT_*` variable is seeded here any more. Seeding one would pin
+            // every session to the variable, which still wins over the config key.
+            // The ones that used to be overwritten here are hidden instead: a
+            // parent nushell exports its string indicators, so without this a
+            // nested session would take the parent's over its own config. The
+            // other transient variables were always inherited and still are.
+            for name in FORMERLY_SEEDED_PROMPT_VARIABLES {
+                stack.hide_env_var(&engine_state, name);
+            }
             let mut shlvl = engine_state
                 .get_env_var("SHLVL")
                 .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
@@ -745,5 +764,43 @@ fn main() -> Result<()> {
             // Scripts exit when done, even with `-i`: their jobs must not outlive Nu.
             kill_jobs_and_exit(&engine_state, 0)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_current_dir;
+
+    #[test]
+    fn resolve_current_dir_strips_trailing_slash_from_inherited_pwd() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let canonical = tempdir.path().canonicalize().unwrap();
+        let with_slash = format!("{}{}", canonical.display(), std::path::MAIN_SEPARATOR);
+
+        assert_eq!(
+            resolve_current_dir(Ok(canonical.clone()), Ok(with_slash)),
+            canonical
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_current_dir_preserves_root_and_symlink_without_trailing_slash() {
+        use std::path::Path;
+
+        let tempdir = tempfile::tempdir().unwrap();
+        let real = tempdir.path().join("real");
+        let link = tempdir.path().join("link");
+        std::fs::create_dir(&real).unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        assert_eq!(
+            resolve_current_dir(Ok(real), Ok(format!("{}/", link.display()))),
+            link
+        );
+        assert_eq!(
+            resolve_current_dir(Ok(Path::new("/").to_path_buf()), Ok("/".to_string())),
+            Path::new("/")
+        );
     }
 }

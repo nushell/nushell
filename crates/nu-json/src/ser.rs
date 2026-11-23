@@ -790,45 +790,26 @@ impl Formatter for HjsonFormatter<'_> {
     }
 }
 
+/// Writes `value` as a quoted JSON string, with the same escapes as [`to_string_raw`].
+#[inline]
+fn write_escaped<W, T>(wr: &mut W, value: &T) -> Result<()>
+where
+    W: io::Write,
+    T: ser::Serialize + ?Sized,
+{
+    // Why: sharing serde_json's escape table keeps this output and `to_string_raw` in step.
+    serde_json::to_writer(wr, value).map_err(|error| Error::Io(std::io::Error::from(error)))
+}
+
 /// Serializes and escapes a `&[u8]` into a Hjson string.
+///
+/// Invalid UTF-8 is replaced with U+FFFD, since a JSON string has to be valid UTF-8.
 #[inline]
 pub fn escape_bytes<W>(wr: &mut W, bytes: &[u8]) -> Result<()>
 where
     W: io::Write,
 {
-    wr.write_all(b"\"")?;
-
-    let mut start = 0;
-
-    for (i, byte) in bytes.iter().enumerate() {
-        let escaped = match *byte {
-            b'"' => b"\\\"",
-            b'\\' => b"\\\\",
-            b'\x08' => b"\\b",
-            b'\x0c' => b"\\f",
-            b'\n' => b"\\n",
-            b'\r' => b"\\r",
-            b'\t' => b"\\t",
-            _ => {
-                continue;
-            }
-        };
-
-        if start < i {
-            wr.write_all(&bytes[start..i])?;
-        }
-
-        wr.write_all(escaped)?;
-
-        start = i + 1;
-    }
-
-    if start != bytes.len() {
-        wr.write_all(&bytes[start..])?;
-    }
-
-    wr.write_all(b"\"")?;
-    Ok(())
+    write_escaped(wr, &*String::from_utf8_lossy(bytes))
 }
 
 /// Serializes and escapes a `&str` into a Hjson string.
@@ -838,13 +819,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    if value.is_empty() {
-        formatter.start_value(wr)?;
-        return escape_bytes(wr, value.as_bytes());
-    }
-
     formatter.start_value(wr)?;
-    escape_bytes(wr, value.as_bytes())
+    write_escaped(wr, value)
 }
 
 /// Serializes and escapes a `&str` into a Hjson key.
@@ -853,7 +829,7 @@ pub fn escape_key<W>(wr: &mut W, value: &str) -> Result<()>
 where
     W: io::Write,
 {
-    escape_bytes(wr, value.as_bytes())
+    write_escaped(wr, value)
 }
 
 #[inline]
@@ -861,7 +837,7 @@ fn escape_char<W>(wr: &mut W, value: char) -> Result<()>
 where
     W: io::Write,
 {
-    escape_bytes(wr, value.encode_utf8(&mut [0; 4]).as_bytes())
+    write_escaped(wr, &value)
 }
 
 fn fmt_f32_or_null<W>(wr: &mut W, value: f32) -> Result<()>
@@ -1036,5 +1012,33 @@ where
     match result {
         Ok(result_string) => Ok(result_string),
         Err(error) => Err(Error::Io(std::io::Error::from(error))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn escaped(bytes: &[u8]) -> String {
+        let mut out = Vec::new();
+        escape_bytes(&mut out, bytes).expect("writing to a Vec can't fail");
+        String::from_utf8(out).expect("escape_bytes writes UTF-8")
+    }
+
+    #[test]
+    fn escape_bytes_matches_to_string_raw() {
+        for c in (0..0xa0)
+            .filter_map(char::from_u32)
+            .chain(['"', '\\', '/', 'é', '✓'])
+        {
+            let s = format!("a{c}b");
+            assert_eq!(escaped(s.as_bytes()), to_string_raw(&s).unwrap(), "{c:?}");
+            assert_eq!(to_string(&c).unwrap(), to_string_raw(&c).unwrap(), "{c:?}");
+        }
+    }
+
+    #[test]
+    fn escape_bytes_replaces_invalid_utf8() {
+        assert_eq!(escaped(b"a\xffb\x01"), "\"a\u{fffd}b\\u0001\"");
     }
 }

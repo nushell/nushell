@@ -10,6 +10,7 @@ use ratatui::layout::{Constraint, Rect};
 use ratatui::text::{Line, Span as TSpan, Text};
 use ratatui::widgets::Paragraph;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::rc::Rc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,9 +48,38 @@ impl TreeWidget {
         session.tree_rows(id)
     }
 
+    /// The values of the checked nodes in tree order, hidden ones included.
+    fn checked_values(&self, id: &str, state: &TreeState, session: &Session) -> Vec<Value> {
+        tree::values_at(
+            session.data_for(id),
+            &state.checked,
+            self.walk,
+            &self.column,
+            &session.cwd,
+            &state.cache,
+        )
+    }
+
+    /// The checked paths that still name a node of this tree's data.
+    pub fn existing_checks(
+        &self,
+        id: &str,
+        state: &TreeState,
+        session: &Session,
+    ) -> HashSet<String> {
+        tree::existing_paths(
+            session.data_for(id),
+            &state.checked,
+            self.walk,
+            &self.column,
+            &session.cwd,
+            &state.cache,
+        )
+    }
+
     fn set_expanded(&self, id: &str, state: &mut TreeState, expand: bool, session: &Session) {
         let rows = self.rows_with(id, state, session);
-        let Some(row) = rows.get(state.list.selected).cloned() else {
+        let Some(row) = rows.get(state.list.highlight).cloned() else {
             return;
         };
         if expand {
@@ -102,9 +132,14 @@ impl TuiWidget for TreeWidget {
         session: &Session,
     ) -> Option<Vec<Effect>> {
         let page = super::inner_rows(session.areas.get(id), 2);
-        let len = self.rows(id, session).len();
         let tree_state = state.as_tree_mut()?;
         match key.chord.as_str() {
+            "space" if self.multi => {
+                if let Some(row) = self.rows(id, session).get(tree_state.list.highlight) {
+                    tree_state.toggle(&row.path);
+                }
+                Some(Vec::new())
+            }
             "right" | "l" => {
                 self.set_expanded(id, tree_state, true, session);
                 Some(vec![Effect::Selected(id.to_string())])
@@ -113,7 +148,9 @@ impl TuiWidget for TreeWidget {
                 self.set_expanded(id, tree_state, false, session);
                 Some(vec![Effect::Selected(id.to_string())])
             }
-            chord => super::table::list_key(id, &mut tree_state.list, chord, len, page, self.multi),
+            chord => {
+                super::table::list_key(id, &mut tree_state.list, chord, &session.rows(id), page)
+            }
         }
     }
 
@@ -126,11 +163,11 @@ impl TuiWidget for TreeWidget {
         y: u16,
         session: &Session,
     ) -> Vec<Effect> {
-        let len = self.rows(id, session).len();
+        let rows = session.rows(id);
         let page = super::inner_rows(Some(&area), 2);
-        let row = y.saturating_sub(area.y).saturating_sub(1) as usize;
+        let row = y.checked_sub(area.y).and_then(|y| y.checked_sub(1));
         match state.as_list_mut() {
-            Some(list) => list_click(id, list, row, len, page),
+            Some(list) => list_click(id, list, row.map(usize::from), &rows, page).0,
             None => Vec::new(),
         }
     }
@@ -142,10 +179,10 @@ impl TuiWidget for TreeWidget {
         delta: i32,
         session: &Session,
     ) -> Vec<Effect> {
-        let len = self.rows(id, session).len();
+        let rows = session.rows(id);
         let page = super::inner_rows(session.areas.get(id), 2);
         match state.as_list_mut() {
-            Some(list) => list_scroll(id, list, delta, len, page),
+            Some(list) => list_scroll(id, list, delta, &rows, page),
             None => Vec::new(),
         }
     }
@@ -161,6 +198,7 @@ impl TuiWidget for TreeWidget {
     ) {
         let theme = &session.theme;
         let list = state.as_list().cloned().unwrap_or_default();
+        let checked = state.as_tree().map(|tree| &tree.checked);
         let rows = self.rows(id, session);
         let computer = session.style_computer();
         let name = super::custom_title(session, id, "tree");
@@ -170,7 +208,7 @@ impl TuiWidget for TreeWidget {
         let lines: Vec<Line> = rows
             .iter()
             .enumerate()
-            .skip(list.scroll_for(inner.height as usize))
+            .skip(list.scroll_for(&session.rows(id), inner.height as usize))
             .take(inner.height as usize)
             .map(|(i, row)| {
                 let marker = if !row.expandable {
@@ -181,7 +219,7 @@ impl TuiWidget for TreeWidget {
                     "▸ "
                 };
                 let check = if self.multi {
-                    if list.checked.contains(&i) {
+                    if checked.is_some_and(|checked| checked.contains(&row.path)) {
                         "[x] "
                     } else {
                         "[ ] "
@@ -191,7 +229,7 @@ impl TuiWidget for TreeWidget {
                 };
                 let indent = "  ".repeat(row.depth);
                 let mut style = session.row_style(&row.value, computer.as_ref());
-                if i == list.selected {
+                if i == list.highlight {
                     style = style.patch(theme.selected());
                 }
                 Line::from(TSpan::styled(
@@ -205,15 +243,16 @@ impl TuiWidget for TreeWidget {
 
     fn value(&self, id: &str, state: &WidgetState, session: &Session) -> Value {
         let span = Span::unknown();
-        let Some(list) = state.as_list() else {
+        let Some(tree_state) = state.as_tree() else {
             return Value::nothing(span);
         };
+        let list = &tree_state.list;
         let rows = self.rows(id, session);
         let mut rec = Record::new();
-        rec.insert("index", Value::int(list.selected as i64, span));
-        match rows.get(list.selected) {
+        rec.insert("index", Value::int(list.highlight as i64, span));
+        match rows.get(list.highlight) {
             Some(row) => {
-                rec.insert("path", Value::string(row.path.clone(), span));
+                rec.insert("path", Value::string(tree::display_path(&row.path), span));
                 rec.insert("value", row.value.clone());
             }
             None => {
@@ -224,30 +263,34 @@ impl TuiWidget for TreeWidget {
         if self.multi {
             rec.insert(
                 "checked",
-                Value::list(
-                    list.checked
-                        .iter()
-                        .filter_map(|i| rows.get(*i).map(|r| r.value.clone()))
-                        .collect(),
-                    span,
-                ),
+                Value::list(self.checked_values(id, tree_state, session), span),
             );
         }
         Value::record(rec, span)
     }
 
+    /// Checked nodes under `--multi` (the highlighted one when no checked
+    /// node is left in the data), else the highlighted node.
     fn selection(&self, id: &str, state: &WidgetState, session: &Session) -> Value {
         let span = Span::unknown();
-        let Some(list) = state.as_list() else {
+        let Some(tree_state) = state.as_tree() else {
             return Value::nothing(span);
         };
-        super::table::list_selection(list, &session.rows(id), self.multi, false)
+        let highlighted = || self.current_row(id, state, session);
+        if !self.multi {
+            return highlighted().unwrap_or_else(|| Value::nothing(span));
+        }
+        let mut picked = self.checked_values(id, tree_state, session);
+        if picked.is_empty() {
+            picked.extend(highlighted());
+        }
+        Value::list(picked, span)
     }
 
     fn current_row(&self, id: &str, state: &WidgetState, session: &Session) -> Option<Value> {
         let list: &ListState = state.as_list()?;
         self.rows(id, session)
-            .get(list.selected)
+            .get(list.highlight)
             .map(|r| r.value.clone())
     }
 

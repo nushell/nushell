@@ -1,7 +1,9 @@
 use crate::{DirBuilder, DirInfo, ExcludeGlob, FileInfo, SeenSet};
 use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
-use nu_protocol::{NuGlob, PipelineMetadata, Signals};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, NuGlob, PipelineMetadata, ReportMode, Signals,
+};
 use serde::Deserialize;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -69,10 +71,14 @@ impl Command for Du {
             .named(
                 "min-size",
                 SyntaxShape::Int,
-                "Exclude files below this size.",
+                "Exclude files below this size from the totals (deprecated).",
                 Some('m'),
             )
-            .switch("all", "Include hidden files if '*' is provided.", Some('a'))
+            .switch(
+                "all",
+                "Let glob patterns match hidden names (those starting with '.') at any depth.",
+                Some('a'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -182,12 +188,33 @@ impl Command for Du {
         }
     }
 
-    fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Disk usage of the current directory.",
-            example: "du",
-            result: None,
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("min-size".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.118.0".into()),
+            expected_removal: None,
+            help: Some(
+                "To hide small entries, filter the rows: `du | where apparent >= 1MB`. \
+                 Directory totals still include every file."
+                    .into(),
+            ),
         }]
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Disk usage of the current directory.",
+                example: "du",
+                result: None,
+            },
+            Example {
+                description: "Show only the entries of at least 1 MB.",
+                example: "du | where apparent >= 1MB",
+                result: None,
+            },
+        ]
     }
 }
 

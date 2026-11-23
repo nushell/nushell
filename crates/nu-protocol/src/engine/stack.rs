@@ -37,7 +37,8 @@ struct LastResultSlot {
     last: Option<Value>,
     /// Pipeline metadata for replaying `last` (e.g. `ls` path_columns / colors).
     metadata: Option<PipelineMetadata>,
-    truncated: bool,
+    /// Why `last` is less than the whole result (`None` when it is all there).
+    truncation: Option<LastResultTruncation>,
     /// Exit code of the last REPL line (mirrors `$env.LAST_EXIT_CODE`).
     exit_code: i64,
     /// Duration of the last REPL line in nanoseconds (Nushell `Duration` value).
@@ -48,6 +49,84 @@ struct LastResultSlot {
     warn_pending: bool,
     /// Set when `$ans` was accessed after a truncated store; reported after output prints.
     warn_deferred: bool,
+}
+
+impl LastResultSlot {
+    /// Run `f` on the locked slot, resetting it first if a panic poisoned the lock.
+    fn with_locked<R>(slot: &Mutex<Self>, f: impl FnOnce(&mut Self) -> R) -> R {
+        match slot.lock() {
+            Ok(mut slot) => f(&mut slot),
+            Err(poisoned) => {
+                let mut slot = poisoned.into_inner();
+                // Drop potentially inconsistent state after a panic while locked.
+                *slot = Self::default();
+                f(&mut slot)
+            }
+        }
+    }
+
+    /// Install an already-budgeted `$ans.last` value (caller handled truncation).
+    ///
+    /// Marks `$ans` present. Does not reset `exit_code` / `duration` / `command` (those are
+    /// updated by [`Stack::snapshot_ans_repl_metadata`] at end of each REPL line).
+    fn store(
+        &mut self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+        truncation: Option<LastResultTruncation>,
+    ) {
+        self.last = Some(value);
+        self.metadata = metadata;
+        self.truncation = truncation;
+        self.warn_pending = truncation.is_some();
+        // Fresh store replaces any not-yet-shown deferred warning.
+        self.warn_deferred = false;
+        self.present = true;
+    }
+
+    /// Drop `$ans.last` and its metadata/truncation flags, freeing payload memory.
+    ///
+    /// Leaves `present`, `exit_code`, `duration`, and `command` unchanged.
+    fn clear_payload(&mut self) {
+        self.last = None;
+        self.metadata = None;
+        self.truncation = None;
+        self.warn_pending = false;
+        self.warn_deferred = false;
+    }
+}
+
+/// Why `$ans.last` holds less than the whole result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LastResultTruncation {
+    /// The result went over `max_last_result_size`.
+    OverBudget,
+    /// The stream wasn't read to its end, so there may have been more of it.
+    UnfinishedStream,
+}
+
+/// Stores `$ans.last` from code that can't hold on to the [`Stack`].
+///
+/// A stream on its way to display must be `'static`, so whatever captures it for `$ans.last`
+/// keeps one of these, from [`Stack::last_result_sink`], to store the result when the stream ends.
+#[derive(Debug)]
+pub struct LastResultSink(Arc<Mutex<LastResultSlot>>);
+
+impl LastResultSink {
+    /// Install an already-budgeted `$ans.last` value (caller handled truncation).
+    pub fn store(
+        &self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+        truncation: Option<LastResultTruncation>,
+    ) {
+        LastResultSlot::with_locked(&self.0, |slot| slot.store(value, metadata, truncation));
+    }
+
+    /// Free the stored `$ans.last`, for a stream whose copy needs the room.
+    pub fn clear_payload(&self) {
+        LastResultSlot::with_locked(&self.0, LastResultSlot::clear_payload);
+    }
 }
 
 /// Environment variables per overlay
@@ -106,6 +185,11 @@ pub struct Stack {
     /// the controlling terminal, and empty stdin is `/dev/null` instead of inheriting
     /// the TTY. Used on completion threads so children cannot race reedline.
     pub suppress_stdin: bool,
+    /// Whether `$env.LAST_EXIT_CODE` was set since this was last cleared: by an external, by a
+    /// failure that `try` handled, or by an assignment. The REPL clears it before each line and
+    /// sets the code to 0 after the line only when nothing set it. A callee stack starts without
+    /// it and hands it back to its caller along with its environment.
+    pub last_exit_code_written: bool,
     /// Active block-local scope bindings (commands/modules), outer → inner.
     ///
     /// Pushed when evaluating a whole block via `eval_ir_block` (closures, custom commands).
@@ -152,6 +236,7 @@ impl Stack {
             config: None,
             out_dest: StackOutDest::new(),
             suppress_stdin: false,
+            last_exit_code_written: false,
             active_scope_bindings: vec![],
             ir_scope_regions: vec![],
             ir_instruction_index: None,
@@ -179,6 +264,7 @@ impl Stack {
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             suppress_stdin: parent.suppress_stdin,
+            last_exit_code_written: false,
             // Child inherits outer block bindings so nested `scope` still sees them.
             active_scope_bindings: parent.active_scope_bindings.clone(),
             // Nested IR evaluation installs its own regions/pc.
@@ -275,15 +361,12 @@ impl Stack {
     }
 
     fn with_last_result_slot_mut<R>(&self, f: impl FnOnce(&mut LastResultSlot) -> R) -> R {
-        match self.last_result.lock() {
-            Ok(mut slot) => f(&mut slot),
-            Err(poisoned) => {
-                let mut slot = poisoned.into_inner();
-                // Drop potentially inconsistent state after a panic while locked.
-                *slot = LastResultSlot::default();
-                f(&mut slot)
-            }
-        }
+        LastResultSlot::with_locked(&self.last_result, f)
+    }
+
+    /// Handle for storing `$ans.last` later, without keeping this stack borrowed.
+    pub fn last_result_sink(&self) -> LastResultSink {
+        LastResultSink(self.last_result.clone())
     }
 
     /// Build the `$ans` record when the slot is present; otherwise `None` (→ `nothing`).
@@ -333,15 +416,7 @@ impl Stack {
     /// Leaves `present`, `exit_code`, `duration`, and `command` unchanged so a budget of
     /// `0` can still expose timing/exit status/source without retaining the pipeline value.
     pub fn clear_last_result_payload(&mut self) {
-        self.with_last_result_slot_mut(|slot| {
-            if let Some(old) = slot.last.take() {
-                drop(old);
-            }
-            slot.metadata = None;
-            slot.truncated = false;
-            slot.warn_pending = false;
-            slot.warn_deferred = false;
-        });
+        self.with_last_result_slot_mut(LastResultSlot::clear_payload);
     }
 
     /// Store `value` as `$ans.last`, enforcing `budget` via truncation.
@@ -361,30 +436,8 @@ impl Stack {
         }
 
         let (stored, truncated) = truncate_value_to_budget(value, budget);
-        self.store_last_result_raw(stored, metadata, truncated);
-    }
-
-    /// Install an already-budgeted `$ans.last` value (caller handled truncation).
-    ///
-    /// Marks `$ans` present. Does not reset `exit_code` / `duration` / `command` (those are
-    /// updated by [`Self::snapshot_ans_repl_metadata`] at end of each REPL line).
-    pub fn store_last_result_raw(
-        &mut self,
-        value: Value,
-        metadata: Option<PipelineMetadata>,
-        truncated: bool,
-    ) {
-        self.with_last_result_slot_mut(|slot| {
-            if let Some(old) = slot.last.replace(value) {
-                drop(old);
-            }
-            slot.metadata = metadata;
-            slot.truncated = truncated;
-            slot.warn_pending = truncated;
-            // Fresh store replaces any not-yet-shown deferred warning.
-            slot.warn_deferred = false;
-            slot.present = true;
-        });
+        let truncation = truncated.then_some(LastResultTruncation::OverBudget);
+        self.with_last_result_slot_mut(|slot| slot.store(stored, metadata, truncation));
     }
 
     /// After a REPL user command finishes: refresh `$ans.exit_code`, `$ans.duration`,
@@ -455,7 +508,7 @@ impl Stack {
 
     /// Whether the currently stored `$ans.last` was truncated.
     pub fn last_result_was_truncated(&self) -> bool {
-        self.with_last_result_slot(|slot| slot.truncated)
+        self.with_last_result_slot(|slot| slot.truncation.is_some())
     }
 
     /// On `$ans` access after a truncated store: schedule a warning for after output prints.
@@ -488,16 +541,24 @@ impl Stack {
     ///
     /// Prefer calling this after printing so output is not scrolled away by the warning.
     pub fn flush_last_result_truncation_warning(&self, engine_state: &EngineState, span: Span) {
-        if !self.take_last_result_warn_deferred() {
-            return;
+        if self.take_last_result_warn_deferred()
+            && let Some(warning) = self.last_result_truncation_warning(engine_state, span)
+        {
+            report_shell_warning(Some(self), engine_state, &warning);
         }
-        let limit_bytes = self.get_config(engine_state).max_last_result_size_bytes();
-        report_shell_warning(
-            Some(self),
-            engine_state,
-            &crate::ShellWarning::LastResultTruncated {
+    }
+
+    /// The warning that says why the stored `$ans.last` is short, if it is.
+    pub fn last_result_truncation_warning(
+        &self,
+        engine_state: &EngineState,
+        span: Span,
+    ) -> Option<crate::ShellWarning> {
+        let truncation = self.with_last_result_slot(|slot| slot.truncation)?;
+        Some(match truncation {
+            LastResultTruncation::OverBudget => crate::ShellWarning::LastResultTruncated {
                 span,
-                limit_bytes,
+                limit_bytes: self.get_config(engine_state).max_last_result_size_bytes(),
                 help: Some(format!(
                     "Increase $env.config.max_last_result_size or use a smaller command result. Variable name is `${}`.",
                     crate::LAST_RESULT_VAR_NAME
@@ -505,7 +566,8 @@ impl Stack {
                 // EveryUse: once-per-access is handled by warn_pending/warn_deferred flags.
                 report_mode: crate::ReportMode::EveryUse,
             },
-        );
+            LastResultTruncation::UnfinishedStream => crate::ShellWarning::LastResultIncomplete,
+        })
     }
 
     /// Lookup a variable, erroring if it is not found
@@ -678,6 +740,7 @@ impl Stack {
 
     pub fn set_last_exit_code(&mut self, code: i32, span: Span) {
         self.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), span));
+        self.last_exit_code_written = true;
     }
 
     pub fn set_last_error(&mut self, error: &ShellError) {
@@ -734,6 +797,7 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            last_exit_code_written: false,
             // Inherit caller block bindings so nested closures still see outer local defs.
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
@@ -751,7 +815,9 @@ impl Stack {
         for (capture, _) in captures {
             // Note: this assumes we have calculated captures correctly and that commands
             // that take in a var decl will manually set this into scope when running the blocks
-            if let Ok(value) = self.get_var(*capture, fake_span) {
+            // Keep the span the value was defined with, so `metadata $x` in a closure inside the
+            // block still points at the definition.
+            if let Ok(value) = self.get_var_with_origin(*capture, fake_span) {
                 vars.push((*capture, value));
             } else if let Some(const_val) = &engine_state.get_var(*capture).const_val {
                 vars.push((*capture, const_val.clone()));
@@ -776,6 +842,7 @@ impl Stack {
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
             suppress_stdin: self.suppress_stdin,
+            last_exit_code_written: false,
             // Inherit caller block bindings so nested closures still see outer local defs.
             active_scope_bindings: self.active_scope_bindings.clone(),
             ir_scope_regions: vec![],
@@ -1325,10 +1392,10 @@ impl Stack {
     }
 
     /// Error if this stack is detached from the controlling terminal (see
-    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads). Commands that grab
-    /// the terminal (`input`, `input list`, `input listen`, `term query`) call this first so
-    /// they decline instead of racing reedline for it; completers turn the error into a
-    /// fallback. `span` points at the offending call.
+    /// [`suppress_stdin`](Self::suppress_stdin), set on completion threads and hint closures).
+    /// Commands that grab the terminal (`input`, `input list`, `input listen`, `term query`)
+    /// call this first so they decline instead of racing reedline for it; completers turn
+    /// the error into a fallback. `span` points at the offending call.
     pub fn require_stdin(&self, span: Span) -> Result<(), ShellError> {
         if self.suppress_stdin {
             Err(ShellError::Generic(
@@ -1338,7 +1405,7 @@ impl Stack {
                     span,
                 )
                 .with_help(
-                    "this stack is detached from the terminal (completion worker or MCP), so \
+                    "this stack is detached from the terminal (completion worker, hint closure or MCP), so \
                      interactive commands like `input`, `input list`, `input listen`, and \
                      `term query` cannot run here",
                 ),

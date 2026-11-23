@@ -3,8 +3,9 @@ use nu_protocol::engine::{PromptContents, PromptState};
 use nu_utils::enable_vt_processing;
 use reedline::PromptHelixMode;
 use reedline::{
-    DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
-    PromptViMode,
+    Color, DEFAULT_INDICATOR_COLOR, DEFAULT_PROMPT_COLOR, DEFAULT_PROMPT_MULTILINE_COLOR,
+    DEFAULT_PROMPT_RIGHT_COLOR, DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch,
+    PromptHistorySearchStatus, PromptViMode,
 };
 use std::{borrow::Cow, sync::Arc};
 
@@ -111,10 +112,43 @@ impl Prompt for NushellPrompt {
             PromptHistorySearchStatus::Failing => "failing ",
         };
 
+        // Trailing space keeps the indicator off the matched entry:
+        // `(reverse-search: ls) ls -la` rather than `(reverse-search: ls)ls -la`.
         Cow::Owned(format!(
-            "({}reverse-search: {})",
+            "({}reverse-search: {}) ",
             prefix, history_search.term
         ))
+    }
+
+    // The left and right prompt keep the terminal foreground when the user
+    // supplies them, so their own styling (e.g. starship) isn't tinted, while
+    // the built-in fallback keeps nushell's default color.
+    fn get_prompt_color(&self) -> Color {
+        if self.with_contents(|c| c.left.is_some()) {
+            Color::Default
+        } else {
+            DEFAULT_PROMPT_COLOR
+        }
+    }
+
+    // The indicators are nushell's own rather than the user's prompt generator,
+    // thus they always keep the default color. Styling one means putting the
+    // escapes in the indicator value. These override the trait defaults on
+    // purpose, so nushell's appearance doesn't follow reedline's.
+    fn get_prompt_multiline_color(&self) -> Color {
+        DEFAULT_PROMPT_MULTILINE_COLOR
+    }
+
+    fn get_indicator_color(&self) -> Color {
+        DEFAULT_INDICATOR_COLOR
+    }
+
+    fn get_prompt_right_color(&self) -> Color {
+        if self.with_contents(|c| c.right.is_some()) {
+            Color::Default
+        } else {
+            DEFAULT_PROMPT_RIGHT_COLOR
+        }
     }
 
     fn right_prompt_on_last_line(&self) -> bool {
@@ -122,28 +156,37 @@ impl Prompt for NushellPrompt {
     }
 }
 
-/// The indicator string for the given edit mode, with the built-in defaults.
+/// The indicator string for the given edit mode.
+///
+/// `update_prompt` resolves every indicator from `$env.config.prompt` before a
+/// prompt is drawn, so a `None` here only happens on a `PromptState` that has
+/// not been through a prompt cycle yet. The fallbacks mirror
+/// `PromptConfig::default()`; `defaults_match_prompt_config` keeps them honest.
 fn indicator_for(contents: &PromptContents, edit_mode: PromptEditMode) -> String {
     match edit_mode {
         PromptEditMode::Default | PromptEditMode::Emacs => {
             contents.indicator.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Normal) => {
-            contents.vi_normal.as_deref().unwrap_or("> ").to_string()
+            contents.vi_normal.as_deref().unwrap_or(": ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Insert) => {
-            contents.vi_insert.as_deref().unwrap_or(": ").to_string()
+            contents.vi_insert.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Vi(PromptViMode::Visual) => {
-            contents.vi_normal.as_deref().unwrap_or("v ").to_string()
+            contents.vi_visual.as_deref().unwrap_or("+ ").to_string()
         }
-        // Helix reuses the vi indicators; normal and select share one, as they
-        // share a keybinding table.
-        PromptEditMode::Helix(PromptHelixMode::Normal | PromptHelixMode::Select) => {
-            contents.vi_normal.as_deref().unwrap_or("> ").to_string()
+        // Helix reuses the vi indicators: the keys are named for the dialect
+        // but the values describe the state, and select is the state whose
+        // motions grow a span, thus it takes the visual one.
+        PromptEditMode::Helix(PromptHelixMode::Normal) => {
+            contents.vi_normal.as_deref().unwrap_or(": ").to_string()
+        }
+        PromptEditMode::Helix(PromptHelixMode::Select) => {
+            contents.vi_visual.as_deref().unwrap_or("+ ").to_string()
         }
         PromptEditMode::Helix(PromptHelixMode::Insert) => {
-            contents.vi_insert.as_deref().unwrap_or(": ").to_string()
+            contents.vi_insert.as_deref().unwrap_or("> ").to_string()
         }
         PromptEditMode::Custom(str) => format!("({str})"),
     }
@@ -160,5 +203,83 @@ mod tests {
 
         assert!(!rendered.contains("\x1b]133;"));
         assert!(!rendered.contains("\x1b]633;"));
+    }
+
+    /// The fallbacks in `indicator_for` and `render_prompt_multiline_indicator`
+    /// exist only for a `PromptContents` that never went through a prompt
+    /// cycle. They must still agree with the config they stand in for, or the
+    /// two would drift apart silently.
+    #[test]
+    fn defaults_match_prompt_config() {
+        use nu_protocol::PromptConfig;
+
+        let config = PromptConfig::default();
+        let empty = PromptContents::default();
+        let prompt = NushellPrompt::shared(Arc::new(PromptState::new()));
+
+        for (mode, expected) in [
+            (PromptEditMode::Emacs, &config.indicator),
+            (PromptEditMode::Vi(PromptViMode::Normal), &config.vi_normal),
+            (PromptEditMode::Vi(PromptViMode::Insert), &config.vi_insert),
+            (PromptEditMode::Vi(PromptViMode::Visual), &config.vi_visual),
+        ] {
+            assert_eq!(&indicator_for(&empty, mode), expected);
+        }
+
+        assert_eq!(
+            prompt.render_prompt_multiline_indicator(),
+            config.multiline.as_str()
+        );
+    }
+
+    #[test]
+    fn visual_mode_does_not_reuse_the_normal_indicator() {
+        let contents = PromptContents {
+            vi_normal: Some("normal> ".into()),
+            vi_visual: Some("visual> ".into()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            indicator_for(&contents, PromptEditMode::Vi(PromptViMode::Visual)),
+            "visual> "
+        );
+    }
+
+    /// A `PromptState` holding only the given left and right prompt.
+    fn prompt_with(left: Option<&str>, right: Option<&str>) -> NushellPrompt {
+        let state = Arc::new(PromptState::new());
+        state.set_contents(PromptContents {
+            left: left.map(Into::into),
+            right: right.map(Into::into),
+            ..Default::default()
+        });
+        NushellPrompt::shared(state)
+    }
+
+    #[test]
+    fn a_supplied_prompt_keeps_the_terminal_foreground() {
+        let prompt = prompt_with(Some("left"), Some("right"));
+
+        assert_eq!(prompt.get_prompt_color(), Color::Default);
+        assert_eq!(prompt.get_prompt_right_color(), Color::Default);
+    }
+
+    #[test]
+    fn the_fallback_prompt_keeps_the_default_colors() {
+        let prompt = prompt_with(None, None);
+
+        assert_eq!(prompt.get_prompt_color(), DEFAULT_PROMPT_COLOR);
+        assert_eq!(prompt.get_prompt_right_color(), DEFAULT_PROMPT_RIGHT_COLOR);
+    }
+
+    /// The sides are judged separately: supplying only a left prompt must not
+    /// strip the color from the built-in right one.
+    #[test]
+    fn each_side_is_judged_on_its_own() {
+        let prompt = prompt_with(Some("left"), None);
+
+        assert_eq!(prompt.get_prompt_color(), Color::Default);
+        assert_eq!(prompt.get_prompt_right_color(), DEFAULT_PROMPT_RIGHT_COLOR);
     }
 }

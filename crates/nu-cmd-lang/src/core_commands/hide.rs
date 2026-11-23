@@ -71,6 +71,11 @@ This command is a parser keyword. For details, check:
                 example: "type Id = int; hide Id",
                 result: None,
             },
+            Example {
+                description: "Hide what a module brought in, with or without its prefix.",
+                example: r#"module spam { export def foo [] { "foo" } }; use spam *; hide spam"#,
+                result: None,
+            },
         ]
     }
 }

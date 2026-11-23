@@ -56,6 +56,28 @@ pub enum ShellWarning {
         help: Option<String>,
         report_mode: ReportMode,
     },
+    /// The interactive last-result value stopped short because its stream wasn't read to the end,
+    /// which raising `max_last_result_size` wouldn't change.
+    ///
+    /// "May be" because a reader that stops right after the last item can't tell it was the last.
+    /// Reported like [`Self::LastResultTruncated`].
+    #[error("Last result may be incomplete because its stream was not read to the end.")]
+    #[diagnostic(
+        code(nu::shell::last_result_incomplete),
+        help(
+            "`${}.last` holds what was read before the stream stopped. Ctrl-C, an error, or a `display_output` hook that stops reading can end it early.",
+            crate::LAST_RESULT_VAR_NAME
+        )
+    )]
+    LastResultIncomplete,
+    /// `$env.PWD` pointed to a directory that no longer exists or is inaccessible, so the REPL
+    /// fell back to an existing ancestor directory (or home).
+    #[error("$env.PWD ('{old_cwd}') is no longer valid; changed directory to '{new_cwd}'.")]
+    #[diagnostic(
+        code(nu::shell::cwd_recovered),
+        help("The previous working directory was removed, moved, or became inaccessible.")
+    )]
+    CwdRecovered { old_cwd: String, new_cwd: String },
 }
 
 impl Reportable for ShellWarning {
@@ -65,6 +87,9 @@ impl Reportable for ShellWarning {
             | ShellWarning::LastResultTruncated { report_mode, .. } => *report_mode,
             ShellWarning::InvalidConfig { .. } => ReportMode::FirstUse,
             ShellWarning::BackgroundJobsRunning { .. } => ReportMode::EveryUse,
+            // Once-per-access is handled by a stack flag.
+            ShellWarning::LastResultIncomplete => ReportMode::EveryUse,
+            ShellWarning::CwdRecovered { .. } => ReportMode::EveryUse,
         }
     }
 }
@@ -87,6 +112,11 @@ impl Hash for ShellWarning {
             ShellWarning::LastResultTruncated { limit_bytes, .. } => {
                 limit_bytes.hash(state);
             }
+            ShellWarning::LastResultIncomplete => {}
+            ShellWarning::CwdRecovered { old_cwd, new_cwd } => {
+                old_cwd.hash(state);
+                new_cwd.hash(state);
+            }
         }
     }
 }
@@ -102,11 +132,12 @@ mod tests {
         std::hash::Hasher::finish(&hasher)
     }
 
-    fn shared_name_batch(names: &str) -> ShellWarning {
+    fn incompatible_batch(label: &'static str) -> ShellWarning {
         ShellWarning::InvalidConfig {
-            warnings: vec![ConfigWarning::SharedKeybindingName {
-                names: names.into(),
+            warnings: vec![ConfigWarning::IncompatibleOptions {
+                label,
                 span: Span::test_data(),
+                help: "",
             }],
         }
     }
@@ -116,8 +147,8 @@ mod tests {
     #[test]
     fn different_config_warning_batches_hash_differently() {
         assert_ne!(
-            hash_of(&shared_name_batch("atuin")),
-            hash_of(&shared_name_batch("other")),
+            hash_of(&incompatible_batch("history")),
+            hash_of(&incompatible_batch("other")),
         );
     }
 
@@ -125,8 +156,8 @@ mod tests {
     #[test]
     fn an_identical_config_warning_batch_hashes_the_same() {
         assert_eq!(
-            hash_of(&shared_name_batch("atuin")),
-            hash_of(&shared_name_batch("atuin")),
+            hash_of(&incompatible_batch("history")),
+            hash_of(&incompatible_batch("history")),
         );
     }
 }

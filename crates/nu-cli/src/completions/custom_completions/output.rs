@@ -16,6 +16,8 @@ pub(crate) struct CompleterOutput {
     filter: bool,
     /// Whether the completer requested the next source.
     fallback: bool,
+    /// Whether its answer may be reused on later prompts.
+    cache: bool,
 }
 
 /// Log a non-fatal completer error without disrupting line editing.
@@ -112,12 +114,12 @@ returned_record! {
         /// Whether the engine narrows the list against the typed text. Defaults by completer
         /// kind; see [`Narrowing`].
         filter: Option<bool>,
+        /// Set to false when suggestions depend on state outside Nushell's cache key.
+        cache: Option<bool>,
         sort: Option<bool>,
         case_sensitive: Option<bool>,
         match_description: Option<bool>,
         completion_algorithm: Option<String>,
-        /// Deprecated; use the substring match algorithm.
-        positional: Option<bool>,
     }
 }
 
@@ -259,6 +261,7 @@ impl CompleterOutput {
             sort: true,
             filter: narrowing.filters_by_default(),
             fallback: returned.fallback,
+            cache: true,
         };
 
         if let Some(options) = returned.options {
@@ -270,6 +273,10 @@ impl CompleterOutput {
 
     /// Apply the `options` record a completer returned alongside its completions.
     fn read_options(&mut self, options: ReturnedOptions) {
+        if let Some(cache) = options.cache {
+            self.cache = cache;
+        }
+
         if let Some(filter) = options.filter {
             self.filter = filter;
         }
@@ -289,35 +296,28 @@ impl CompleterOutput {
             self.options.match_description = match_description;
         }
 
-        if options.positional.is_some() {
-            log::warn!(
-                "Use of the positional option is deprecated. Use the substring match algorithm instead."
-            );
-        }
-
         if let Some(algorithm) = options
             .completion_algorithm
             .and_then(|algorithm| MatchAlgorithm::try_from(algorithm).ok())
         {
             self.options.match_algorithm = algorithm;
         }
-
-        if let Some(positional) = options.positional
-            && !positional
-            && self.options.match_algorithm == MatchAlgorithm::Prefix
-        {
-            self.options.match_algorithm = MatchAlgorithm::Substring;
-        }
     }
 
     /// Narrow suggestions and preserve the completer's fallback request.
     pub(crate) fn into_fetched(self, ctx: &Context) -> Fetched {
         let fallback = self.fallback;
+        let cache = self.cache;
         let outcome = |suggestions| {
-            if fallback {
+            let fetched = if fallback {
                 Fetched::contributing(suggestions)
             } else {
                 Fetched::answering(suggestions).worth_keeping()
+            };
+            if cache {
+                fetched
+            } else {
+                fetched.without_cache()
             }
         };
 

@@ -86,6 +86,7 @@ impl Command for HideEnv {
                 return Err(ShellError::EnvVarNotFoundAtRuntime {
                     envvar_name: name.item,
                     span: name.span,
+                    help: None,
                 });
             }
         }

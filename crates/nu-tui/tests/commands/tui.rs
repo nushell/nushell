@@ -1,6 +1,4 @@
 use nu_protocol::ConfigError;
-use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
 
 #[test]
@@ -434,54 +432,48 @@ fn box_is_a_bordered_group_and_tabs_cannot_nest() -> Result {
 }
 
 #[test]
-fn preview_shows_file_contents_on_selection() -> Result {
-    Playground::setup("tui_preview", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent("one.txt", "ONE-FILE-BODY"),
-            FileWithContent("two.txt", "TWO-FILE-BODY"),
-        ]);
+fn preview_shows_file_contents_on_selection(playground: Playground) -> Result {
+    playground.file("one.txt", "ONE-FILE-BODY")?;
+    playground.file("two.txt", "TWO-FILE-BODY")?;
 
-        let screen: String = test().cwd(dirs.test()).run(
-            "
-                ls
-                | sort-by name
-                | tui split [(tui table --columns [name type]) (tui preview)]
-                | tui debug --size [80 16]
-                | get screen
-            ",
-        )?;
-        assert_contains("ONE-FILE-BODY", &screen);
+    let screen: String = test().cwd(playground.path()).run(
+        "
+            ls
+            | sort-by name
+            | tui split [(tui table --columns [name type]) (tui preview)]
+            | tui debug --size [80 16]
+            | get screen
+        ",
+    )?;
+    assert_contains("ONE-FILE-BODY", &screen);
 
-        let screen: String = test().cwd(dirs.test()).run(
-            "
-                ls
-                | sort-by name
-                | tui split [(tui table --columns [name type]) (tui preview)]
-                | tui debug --keys down --size [80 16]
-                | get screen
-            ",
-        )?;
-        assert_contains("TWO-FILE-BODY", &screen);
-        Ok(())
-    })
+    let screen: String = test().cwd(playground.path()).run(
+        "
+            ls
+            | sort-by name
+            | tui split [(tui table --columns [name type]) (tui preview)]
+            | tui debug --keys down --size [80 16]
+            | get screen
+        ",
+    )?;
+    assert_contains("TWO-FILE-BODY", &screen);
+    Ok(())
 }
 
 #[test]
-fn preview_closure_transforms_file_contents() -> Result {
-    Playground::setup("tui_preview_closure", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("note.txt", "hello-preview")]);
+fn preview_closure_transforms_file_contents(playground: Playground) -> Result {
+    playground.file("note.txt", "hello-preview")?;
 
-        let screen: String = test().cwd(dirs.test()).run(
-            r#"
-                [{name: "note.txt", type: "file"}]
-                | tui split [(tui table) (tui preview { $in | str upcase })]
-                | tui debug --size [80 16]
-                | get screen
-            "#,
-        )?;
-        assert_contains("HELLO-PREVIEW", &screen);
-        Ok(())
-    })
+    let screen: String = test().cwd(playground.path()).run(
+        r#"
+            [{name: "note.txt", type: "file"}]
+            | tui split [(tui table) (tui preview { $in | str upcase })]
+            | tui debug --size [80 16]
+            | get screen
+        "#,
+    )?;
+    assert_contains("HELLO-PREVIEW", &screen);
+    Ok(())
 }
 
 #[test]
@@ -495,6 +487,36 @@ fn preview_closure_with_row_param_is_the_source() -> Result {
         "#,
     )?;
     assert_contains("OpenHistory", &screen);
+    Ok(())
+}
+
+#[test]
+fn hyperlinks_show_only_their_text() -> Result {
+    // `ansi link` ends OSC 8 with ESC `\`; glow ends it with BEL, adds an
+    // `id=`, and prints text after the closing sequence (#19174).
+    let st = r#"$"('https://x.dev' | ansi link --text here) after""#;
+    let bel = r#"$"(char -u '1b')]8;id=7;https://x.dev(char -u '7')here(char -u '1b')]8;;(char -u '7') after""#;
+    for link in [st, bel] {
+        let widgets = [
+            format!("[x] | tui table | tui preview {{|v| {link} }}"),
+            format!("tui label {link}"),
+            format!("tui label --titlebar {link}"),
+            format!("[x] | tui table | tui label --status {link}"),
+            format!("[{link}] | tui log"),
+            format!("[{link}] | tui select"),
+            format!("[{link}] | tui tree"),
+            format!("tui menu [{link}] | tui table"),
+        ]
+        .map(|widget| format!("{widget} | tui debug"));
+        // The titlebar text is also the dialog's border title.
+        let dialog = format!("tui label --titlebar {link} | tui debug --dialog");
+        for run in widgets.into_iter().chain([dialog]) {
+            let screen: String = test().run(format!("{run} | get screen"))?;
+            assert_contains("here after", &screen);
+            assert_contains_not("]8;", &screen);
+            assert_contains_not("x.dev", &screen);
+        }
+    }
     Ok(())
 }
 
@@ -673,6 +695,69 @@ fn split_sizes_take_cells_percent_and_fractions() -> Result {
         .run("tui split --sizes [wide] [(tui label a)] | tui debug")
         .expect_error()?;
     assert_contains("size", &format!("{err:?}"));
+    Ok(())
+}
+
+/// Forty `1fr` children once left ratatui's solver looping forever.
+#[test]
+fn split_of_many_children_lays_out() -> Result {
+    let widths: Vec<i64> = test().run(
+        "tui split (0..<40 | each { [a] | tui table }) | tui debug --size [400 8] | get widgets.0.children.rect.width",
+    )?;
+    assert_eq!(widths.len(), 40);
+    assert_eq!(widths.iter().sum::<i64>(), 400 - 39, "{widths:?}");
+    Ok(())
+}
+
+#[test]
+fn size_flags_accept_dynamic_scalars() -> Result {
+    let sizes: Vec<Vec<i64>> = test().run(
+        "
+            let width: any = 10
+            [
+                (tui split --sizes $width [(tui label x)] | get widgets.0.sizes)
+                (tui table --column-sizes $width | get widgets.0.column_sizes)
+            ]
+        ",
+    )?;
+    assert_eq!(sizes, vec![vec![10], vec![10]]);
+    Ok(())
+}
+
+#[test]
+fn table_column_sizes_set_column_widths() -> Result {
+    let screen: String = test().run(
+        "[{a: x, b: 'a very long entry'}] | tui table --multi --column-sizes [3] | tui debug --size [30 5] | get screen",
+    )?;
+    assert_contains("[ ] x   a very long entry", &screen);
+    Ok(())
+}
+
+#[test]
+fn table_column_sizes_reject_invalid_sizes() -> Result {
+    let err = test()
+        .run("tui table --column-sizes [wide]")
+        .expect_error()?;
+    assert_contains("expected a size", &format!("{err:?}"));
+    Ok(())
+}
+
+#[test]
+fn table_of_many_columns_lays_out() -> Result {
+    for (flags, sizes) in [
+        ("", "[10]"),
+        ("--multi", "([10] ++ (1..<40 | each { '1fr' }))"),
+    ] {
+        let screen: String = test().run(format!(
+            r#"
+                [(0..<40 | each {{|i| {{name: $"c($i)", value: x}}}} | transpose -rd)]
+                | tui table {flags} --column-sizes {sizes}
+                | tui debug --size [200 5]
+                | get screen
+            "#,
+        ))?;
+        assert_eq!(screen.matches('x').count(), 40, "{screen}");
+    }
     Ok(())
 }
 
@@ -918,6 +1003,195 @@ fn multi_and_index_change_the_selection() -> Result {
     let index: i64 =
         test().run("[a b c] | tui table --index | tui debug --keys [down enter] | get selected")?;
     assert_eq!(index, 1);
+    Ok(())
+}
+
+/// The screen line that shows `item`, for reading its check mark.
+fn line_with<'a>(screen: &'a str, item: &str) -> &'a str {
+    screen
+        .lines()
+        .find(|line| line.contains(item))
+        .unwrap_or_default()
+}
+
+#[test]
+fn checks_stay_on_their_rows_when_the_filter_widens() -> Result {
+    // Check `banana` while the filter shows only it, then clear the filter.
+    let fruit = "[apple banana cherry] | tui search --focus";
+    let keys = "type:an tab space shift+tab backspace backspace";
+    for list in ["tui table --multi", "tui select --multi"] {
+        let screen: String = test().run(format!(
+            "{fruit} | {list} | tui debug --size [30 9] --keys [{keys}] | get screen"
+        ))?;
+        assert_contains("[x]", line_with(&screen, "banana"));
+        assert_contains("[ ]", line_with(&screen, "apple"));
+        // Enter in the search box submits the list's checked rows.
+        let selected: Vec<String> = test().run(format!(
+            "{fruit} | {list} | tui debug --keys [{keys} enter] | get selected"
+        ))?;
+        assert_eq!(selected, vec!["banana".to_string()], "{list}");
+    }
+    Ok(())
+}
+
+#[test]
+fn checks_survive_a_filter_that_hides_them() -> Result {
+    let fruit = "[apple banana cherry] | tui search --focus | tui table --multi";
+    // Check `cherry`, filter it out, then bring it back.
+    let selected: Vec<String> = test().run(format!(
+        "{fruit} | tui debug --keys [tab end space shift+tab type:an backspace backspace enter] | get selected"
+    ))?;
+    assert_eq!(selected, vec!["cherry".to_string()]);
+    // Submitted while the filter hides it, it is still checked.
+    let selected: Vec<String> = test().run(format!(
+        "{fruit} | tui debug --keys [tab end space shift+tab type:an enter] | get selected"
+    ))?;
+    assert_eq!(selected, vec!["cherry".to_string()]);
+    // A filter that leaves no rows keeps the check too.
+    let selected: Vec<String> = test().run(format!(
+        "{fruit} | tui debug --keys [tab end space shift+tab type:zz enter] | get selected"
+    ))?;
+    assert_eq!(selected, vec!["cherry".to_string()]);
+    Ok(())
+}
+
+#[test]
+fn checks_follow_rows_not_equal_values() -> Result {
+    // Two equal rows: checking the second must not check the first.
+    let selected: Vec<i64> = test().run(
+        "[b a a] | tui search --focus | tui table --multi --index | tui debug --keys [tab end space shift+tab type:a enter] | get selected",
+    )?;
+    assert_eq!(selected, vec![2]);
+    Ok(())
+}
+
+#[test]
+fn index_counts_rows_of_the_unfiltered_data() -> Result {
+    for list in ["tui table --index --id t", "tui select --index --id t"] {
+        let fruit = format!("[apple banana cherry] | tui search --focus | {list}");
+        let index: i64 = test().run(format!(
+            "{fruit} | tui debug --keys [type:an tab enter] | get selected"
+        ))?;
+        assert_eq!(index, 1, "{list}");
+        // `values.<id>.index` counts the same rows.
+        let index: i64 = test().run(format!(
+            "{fruit} | tui debug --keys [type:an tab] | get values.t.index"
+        ))?;
+        assert_eq!(index, 1, "{list}");
+    }
+    Ok(())
+}
+
+#[test]
+fn the_highlight_stays_on_its_row_when_the_filter_changes() -> Result {
+    let fruit = "[apple banana cherry date] | tui search --bind / | tui table --id t";
+    // `e` hides `banana` above the highlighted `cherry`; it stays on
+    // `cherry`, not on the row now at its old position.
+    for keys in [
+        r#"down down "/" type:e"#,
+        r#"down down "/" type:e backspace"#,
+    ] {
+        let row: String = test().run(format!(
+            "{fruit} | tui debug --keys [{keys}] | get values.t.row"
+        ))?;
+        assert_eq!(row, "cherry", "{keys}");
+    }
+    Ok(())
+}
+
+#[test]
+fn search_enter_submits_the_list_it_filters() -> Result {
+    // The search box filters `a` only; `b` sits outside its split. Enter
+    // submits `a`'s checks, whether or not the query hides them and
+    // whichever list comes first.
+    let inner = r#"(tui split --vertical [(tui search --bind "/") (tui table --id a --multi)])"#;
+    for (layout, query) in [
+        (format!("[{inner} (tui table --id b)]"), "zzz"),
+        (format!("[(tui table --id b) {inner}]"), "alp"),
+    ] {
+        let selected: Vec<String> = test().run(format!(
+            r#"[alpha beta] | tui split {layout} | tui debug --keys ["/" tab space "/" type:{query} enter] | get selected"#
+        ))?;
+        assert_eq!(selected, vec!["alpha".to_string()], "{layout} {query}");
+    }
+    Ok(())
+}
+
+#[test]
+fn enter_on_a_log_submits_the_checked_rows() -> Result {
+    let selected: Vec<String> = test().run(
+        "[a b c] | tui split [(tui table --multi) (tui log)] | tui debug --keys [space down space tab enter] | get selected",
+    )?;
+    assert_eq!(selected, vec!["a".to_string(), "b".to_string()]);
+    Ok(())
+}
+
+#[test]
+fn follower_checks_clear_when_the_followed_row_changes() -> Result {
+    // Check a node of row 0's detail tree, then highlight row 1: the tree
+    // now shows row 1's data and submits its highlighted node.
+    let tree = "tui split [(tui table --id t) (tui tree --id tr --multi --from t {|r| $r.n })]";
+    let selected: Vec<i64> = test().run(format!(
+        "[{{n: {{a: 1, b: 2}}}} {{n: {{c: 3}}}}] | {tree} | tui debug --keys [tab down space shift+tab down tab enter] | get selected"
+    ))?;
+    assert_eq!(selected, vec![3]);
+    // Row 1's data has a node at the checked path too; it is not checked.
+    let selected: Vec<i64> = test().run(format!(
+        "[{{n: {{a: 1, b: 2}}}} {{n: {{a: 5, b: 6}}}}] | {tree} | tui debug --keys [tab down space shift+tab down tab up enter] | get selected"
+    ))?;
+    assert_eq!(selected, vec![5]);
+    // A detail table drops its checks the same way.
+    let selected: Vec<String> = test().run(
+        "[{n: [x y]} {n: [z w]}] | tui split [(tui table --id t) (tui table --id d --multi --from t {|r| $r.n })] | tui debug --keys [tab space shift+tab down tab down enter] | get selected",
+    )?;
+    assert_eq!(selected, vec!["w".to_string()]);
+    Ok(())
+}
+
+#[test]
+fn tree_keys_with_slashes_name_their_own_nodes() -> Result {
+    // `a/b` is one key; `b` inside `a` is another node.
+    let selected: Vec<i64> = test().run(
+        r#"{"a/b": 1, a: {b: 2}} | tui tree --multi | tui debug --keys [down right down space enter] | get selected"#,
+    )?;
+    assert_eq!(selected, vec![2]);
+    // Child `x` of an empty key is not the top-level `x`.
+    let selected: Vec<i64> = test().run(
+        r#"{"": {x: 1}, x: 2} | tui tree --multi | tui debug --keys [right down space enter] | get selected"#,
+    )?;
+    assert_eq!(selected, vec![1]);
+    // `values.<id>.path` still reads as the keys joined with `/`.
+    let path: String = test().run(
+        r#"{"a/b": 1, a: {b: 2}} | tui tree --id tr | tui debug --keys [down right down] | get values.tr.path"#,
+    )?;
+    assert_eq!(path, "a/b");
+    Ok(())
+}
+
+#[test]
+fn tree_checks_stay_on_their_nodes() -> Result {
+    let data = "{fruit: {apple: 1, banana: 2}, veg: {kale: 3}}";
+    // Filtered to `veg`, check it, then clear the filter.
+    let selected: Vec<i64> = test().run(format!(
+        "{data} | tui search --focus | tui tree --multi | tui debug --keys [type:veg tab space shift+tab backspace backspace backspace enter] | get selected.kale"
+    ))?;
+    assert_eq!(selected, vec![3]);
+    // Expand `fruit`, check `veg` below its children, then collapse `fruit`.
+    let screen: String = test().run(format!(
+        "{data} | tui tree --multi | tui debug --size [30 8] --keys [right down down down space up up up left] | get screen"
+    ))?;
+    assert_contains("[x]", line_with(&screen, "veg"));
+    assert_contains("[ ]", line_with(&screen, "fruit"));
+    // A checked child hidden by collapsing its parent is still submitted.
+    let selected: Vec<i64> = test().run(format!(
+        "{data} | tui tree --multi | tui debug --keys [right down space up left enter] | get selected"
+    ))?;
+    assert_eq!(selected, vec![1]);
+    // Checked nodes come back in tree order, not in path order ("11" < "2").
+    let selected: Vec<i64> = test().run(
+        "0..11 | tui tree --multi | tui debug --keys [end space home down down space enter] | get selected",
+    )?;
+    assert_eq!(selected, vec![2, 11]);
     Ok(())
 }
 

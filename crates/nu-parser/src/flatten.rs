@@ -349,8 +349,9 @@ fn flatten_expression_into(
                         flatten_positional_arg_into(working_set, positional, shape, output)
                     }
                     Argument::Named(named) => {
-                        if named.0.span.end != 0 {
-                            // Ignore synthetic flags
+                        if !named.0.span.is_empty() {
+                            // Ignore flags with no text: synthetic ones, and a flag an alias
+                            // ends with, whose value was filled in where the alias is used
                             output.push((named.0.span, FlatShape::Flag));
                         }
                         if let Some(expr) = &named.2 {
@@ -700,9 +701,7 @@ fn flatten_pattern_into(match_pattern: &MatchPattern, output: &mut Vec<(Span, Fl
                 output.push((match_pattern.span, FlatShape::MatchPattern));
             }
         }
-        Pattern::Expression(_) | Pattern::Value(_) => {
-            output.push((match_pattern.span, FlatShape::MatchPattern))
-        }
+        Pattern::Value(_) => output.push((match_pattern.span, FlatShape::MatchPattern)),
         Pattern::Variable(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
         Pattern::Rest(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
         Pattern::Or(patterns) => {

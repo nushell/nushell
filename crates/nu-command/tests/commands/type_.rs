@@ -1,35 +1,31 @@
 use nu_protocol::engine::StateWorkingSet;
-use nu_test_support::{
-    fs::Stub::{EmptyFile, FileWithContent},
-    prelude::*,
-};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
-fn alias_names_a_command_output_and_a_parameter() -> Result {
-    Playground::setup("type_alias_ls", |dirs, playground| {
-        playground.with_files(&[EmptyFile("a.txt"), EmptyFile("b.txt")]);
+fn alias_names_a_command_output_and_a_parameter(playground: Playground) -> Result {
+    playground.empty_file("a.txt")?;
+    playground.empty_file("b.txt")?;
 
-        let code = "
-            type LsType = table<name: string, type: string, size: filesize, modified: datetime>
+    let code = "
+        type LsType = table<name: string, type: string, size: filesize, modified: datetime>
+        
+        def my-ls []: nothing -> LsType {
+          ls
+        }
+        
+        def process-files [files: LsType] {
+          $files | where size > 1mb
+        }
+        
+        let big: LsType = my-ls | where size > 10mb
+        [(my-ls | length) (process-files (my-ls) | length) ($big | length)]
+    ";
 
-            def my-ls []: nothing -> LsType {
-              ls
-            }
-
-            def process-files [files: LsType] {
-              $files | where size > 1mb
-            }
-
-            let big: LsType = my-ls | where size > 10mb
-            [(my-ls | length) (process-files (my-ls) | length) ($big | length)]
-        ";
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq(vec![2, 0, 0])
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(vec![2, 0, 0])
 }
 
 #[rstest]
@@ -166,7 +162,7 @@ fn completer_on_the_right_is_an_error() -> Result {
         .run("type Color = string@[red green blue]")
         .expect_parse_error()?;
     assert!(
-        matches!(&err, ParseError::LabeledError(msg, ..) if msg == "Unexpected custom completer in type spec"),
+        matches!(&err, ParseError::LabeledErrorWithHelp { error, .. } if error == "Unexpected custom completer in type spec"),
         "unexpected error: {err:?}"
     );
     Ok(())
@@ -234,18 +230,13 @@ fn alias_persists_across_repl_lines() -> Result {
 }
 
 #[test]
-fn alias_comes_in_with_source() -> Result {
-    Playground::setup("type_alias_source", |dirs, playground| {
-        playground.with_files(&[FileWithContent(
-            "types.nu",
-            "type Point = record<x: int, y: int>",
-        )]);
+fn alias_comes_in_with_source(playground: Playground) -> Result {
+    playground.file("types.nu", "type Point = record<x: int, y: int>")?;
 
-        test()
-            .cwd(dirs.test())
-            .run("source types.nu; let p: Point = {x: 1, y: 2}; $p.y")
-            .expect_value_eq(2)
-    })
+    test()
+        .cwd(playground.path())
+        .run("source types.nu; let p: Point = {x: 1, y: 2}; $p.y")
+        .expect_value_eq(2)
 }
 
 #[test]
@@ -365,6 +356,7 @@ fn alias_is_not_imported(#[case] import: &str, #[case] code: &str) -> Result {
 #[case::module_member("use zoo Animal; hide zoo Animal")]
 #[case::module_member_list("use zoo [Animal feed]; hide zoo [Animal]")]
 #[case::module_glob("use zoo *; hide zoo *")]
+#[case::module_glob_hidden_by_name("use zoo *; hide zoo")]
 fn hidden_alias_is_unknown(#[case] code: &str) -> Result {
     test()
         .run(format!("{ZOO}\n{code}\nlet a: Animal = 'cat'"))
@@ -466,14 +458,13 @@ fn alias_goes_away_with_its_overlay() -> Result {
 }
 
 #[test]
-fn alias_comes_from_a_module_file() -> Result {
-    Playground::setup("type_alias_module_file", |dirs, playground| {
-        playground.with_files(&[FileWithContent(
-            "geo.nu",
-            "
+fn alias_comes_from_a_module_file(playground: Playground) -> Result {
+    playground.file(
+        "geo.nu",
+        "
             export type Point = record<x: float, y: float>
             export type Polygon = list<Point>
-
+            
             # Area of a simple polygon, by the shoelace formula.
             export def area [poly: Polygon]: nothing -> float {
               let n = $poly | length
@@ -483,14 +474,13 @@ fn alias_comes_from_a_module_file() -> Result {
                 $a.x * $b.y - $b.x * $a.y
               } | math sum | math abs | $in / 2
             }
-            ",
-        )]);
+        ",
+    )?;
 
-        let code = "
-            use geo.nu [Polygon area]
-            let square: Polygon = [{x: 0.0, y: 0.0} {x: 2.0, y: 0.0} {x: 2.0, y: 2.0} {x: 0.0, y: 2.0}]
-            area $square
-        ";
-        test().cwd(dirs.test()).run(code).expect_value_eq(4.0)
-    })
+    let code = "
+        use geo.nu [Polygon area]
+        let square: Polygon = [{x: 0.0, y: 0.0} {x: 2.0, y: 0.0} {x: 2.0, y: 2.0} {x: 0.0, y: 2.0}]
+        area $square
+    ";
+    test().cwd(playground.path()).run(code).expect_value_eq(4.0)
 }

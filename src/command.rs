@@ -16,7 +16,6 @@ use std::{
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
 const HELP_FLAG_COLOR: &str = "\x1b[36m";
 const HELP_TYPE_COLOR: &str = "\x1b[94m";
-const HELP_DESC_COLOR: &str = "\x1b[2;39m";
 #[allow(dead_code)]
 const HELP_SUBCMD_COLOR: &str = "\x1b[96m"; // bright cyan, lighter than flags
 const DEFAULT_COLOR: &str = "\x1b[39m";
@@ -1733,18 +1732,10 @@ fn cli_help_text() -> String {
                 )
                 .expect("writing to a String is infallible");
             }
-            write!(
-                output,
-                "\n      {HELP_DESC_COLOR}{}{RESET_COLOR}\n",
-                flag.description
-            )
-            .expect("writing to a String is infallible");
-            writeln!(
-                output,
-                "      {HELP_DESC_COLOR}Example: {RESET_COLOR}{}",
-                flag.example
-            )
-            .expect("writing to a String is infallible");
+            write!(output, "\n      {}\n", flag.description)
+                .expect("writing to a String is infallible");
+            writeln!(output, "      Example: {}", flag.example)
+                .expect("writing to a String is infallible");
         }
     }
     output

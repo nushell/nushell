@@ -75,10 +75,13 @@ export def --env prev [
 # If there is only one directory in the list,
 # then this command has no effect.
 export def --env drop [] {
-    if ($env.DIRS_LIST | length) > 1 {
-        $env.DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
-        if ($env.DIRS_POSITION >= ($env.DIRS_LIST | length)) {$env.DIRS_POSITION = 0}
+    # with a single slot there is nothing to drop, and its saved path may be stale
+    if ($env.DIRS_LIST | length) <= 1 {
+        return
     }
+
+    $env.DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
+    if ($env.DIRS_POSITION >= ($env.DIRS_LIST | length)) {$env.DIRS_POSITION = 0}
 
     # step to previous slot
     _fetch -1 --forget_current --always_cd
