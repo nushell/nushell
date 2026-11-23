@@ -1351,6 +1351,8 @@ fn eval_instruction<D: DebugContext>(
             pattern
                 .check(*span, value, &mut matches)
                 .map_err(PatternMismatch::into_shell_error)?;
+            // Convert and check every value before storing any, so a failure assigns nothing.
+            let mut bindings = Vec::with_capacity(matches.len());
             for (var_id, value) in matches {
                 let variable_ty = &ctx.engine_state.get_var(var_id).ty;
                 // A string bound to a variable typed `glob` becomes a glob, as in `let g: glob`.
@@ -1366,6 +1368,9 @@ fn eval_instruction<D: DebugContext>(
                 } else {
                     value
                 };
+                bindings.push((var_id, value));
+            }
+            for (var_id, value) in bindings {
                 ctx.stack.add_var(var_id, value);
             }
             Ok(Continue)

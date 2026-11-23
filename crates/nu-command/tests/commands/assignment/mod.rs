@@ -1,4 +1,5 @@
 mod concat;
+mod destructure;
 
 use nu_experimental::REORDER_CELL_PATHS;
 use nu_test_support::prelude::*;

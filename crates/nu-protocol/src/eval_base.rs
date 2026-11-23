@@ -360,6 +360,7 @@ pub trait Eval {
             | Expr::Block(_) // blocks are handled directly by core commands
             | Expr::VarDecl(_)
             | Expr::Pattern(_) // patterns are handled by `let`, `mut` and `const`
+            | Expr::AssignmentPattern(_) // and by assignments
             | Expr::ImportPattern(_)
             | Expr::Signature(_)
             | Expr::Operator(_)

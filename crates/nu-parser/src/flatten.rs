@@ -656,6 +656,16 @@ fn flatten_expression_into(
         Expr::Var(var_id) => output.push((expr.span, FlatShape::Variable(*var_id))),
         Expr::VarDecl(var_id) => output.push((expr.span, FlatShape::VarDecl(*var_id))),
         Expr::Pattern(pattern) => flatten_pattern_into(pattern, output),
+        // The variables already exist, so they are uses here.
+        Expr::AssignmentPattern(pattern) => {
+            let start = output.len();
+            flatten_pattern_into(pattern, output);
+            for (_, shape) in &mut output[start..] {
+                if let FlatShape::VarDecl(var_id) = *shape {
+                    *shape = FlatShape::Variable(var_id);
+                }
+            }
+        }
     }
 }
 

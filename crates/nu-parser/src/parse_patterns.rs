@@ -9,7 +9,7 @@ use crate::{
     type_check::type_compatible,
 };
 use nu_protocol::{
-    ParseError, Span, SyntaxShape, Type, Value, VarId,
+    DidYouMean, ENV_VARIABLE_ID, ParseError, Span, SyntaxShape, Type, Value, VarId,
     ast::{Expr, MatchPattern, Pattern},
     engine::StateWorkingSet,
     eval_const::eval_constant,
@@ -31,6 +31,8 @@ enum PatternContext {
     /// A destructuring `let`, `mut`, `const` or `for`. Every variable is a new one, mutable for
     /// `mut`.
     Binding { mutable: bool },
+    /// The left side of a destructuring assignment. Every variable is an existing `mut` one.
+    Assign,
 }
 
 /// Parse the pattern of a `match` arm.
@@ -52,6 +54,38 @@ pub fn parse_binding_pattern(
     let pattern = parse_pattern_in(working_set, span, PatternContext::Binding { mutable });
     check_binding_pattern(working_set, &pattern, &mut vec![]);
     pattern
+}
+
+/// Parse the left side of a destructuring assignment, as in `[$a, $b] = [$b, $a]` or
+/// `{$x, $y} = $point`. It takes the same patterns as a binding, but its variables are existing
+/// `mut` variables, each named once.
+pub fn parse_assignment_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPattern {
+    let pattern = parse_pattern_in(working_set, span, PatternContext::Assign);
+    check_binding_pattern(working_set, &pattern, &mut vec![]);
+    pattern
+}
+
+/// Check the value of a destructuring assignment, of type `ty`, against the pattern's shape and
+/// against the types of the variables it assigns.
+pub fn check_assignment_types(
+    working_set: &mut StateWorkingSet,
+    pattern: &MatchPattern,
+    ty: &Type,
+    value_span: Span,
+) {
+    if !check_pattern_shape(working_set, pattern, ty, value_span) {
+        return;
+    }
+    let mut errors = vec![];
+    visit_binding_types(pattern, ty, &mut |var_id, part_ty, span| {
+        let var_ty = &working_set.get_variable(var_id).ty;
+        if !type_compatible(var_ty, &part_ty) {
+            errors.push(ParseError::TypeMismatch(var_ty.clone(), part_ty, span));
+        }
+    });
+    for error in errors {
+        working_set.error(error);
+    }
 }
 
 /// Report the literals and repeated variables in a binding pattern. `bound` holds the names of
@@ -193,15 +227,30 @@ fn check_pattern_shape(
 
 /// Give each variable in `pattern` the type of the part of a `ty` value it binds.
 fn set_pattern_types(working_set: &mut StateWorkingSet, pattern: &MatchPattern, ty: &Type) {
+    let mut types = vec![];
+    visit_binding_types(pattern, ty, &mut |var_id, ty, _| types.push((var_id, ty)));
+    for (var_id, ty) in types {
+        working_set.set_variable_type(var_id, ty);
+    }
+}
+
+/// Call `f` with each variable in `pattern`, the type of the part of a `ty` value it gets, and
+/// its span. Variables under `?` or a default are left out: they may get `null` or the default.
+fn visit_binding_types(pattern: &MatchPattern, ty: &Type, f: &mut impl FnMut(VarId, Type, Span)) {
     match &pattern.pattern {
-        Pattern::Variable(var_id) => working_set.set_variable_type(*var_id, ty.clone()),
+        Pattern::Variable(var_id) => f(*var_id, ty.clone(), pattern.span),
         Pattern::Record(fields) => {
             for (name, field) in fields {
+                if let Pattern::Rest(var_id) = field.pattern {
+                    // `..$rest`, a record of the other fields
+                    f(var_id, Type::record(), field.span);
+                    continue;
+                }
                 let field_ty = match ty {
                     Type::Record(columns) => columns.get(name).cloned().unwrap_or(Type::Any),
                     _ => Type::Any,
                 };
-                set_pattern_types(working_set, field, &field_ty);
+                visit_binding_types(field, &field_ty, f);
             }
         }
         Pattern::List(items) => {
@@ -214,8 +263,8 @@ fn set_pattern_types(working_set: &mut StateWorkingSet, pattern: &MatchPattern, 
             };
             for item in items {
                 match item.pattern {
-                    Pattern::Rest(var_id) => working_set.set_variable_type(var_id, rest_ty.clone()),
-                    _ => set_pattern_types(working_set, item, &item_ty),
+                    Pattern::Rest(var_id) => f(var_id, rest_ty.clone(), item.span),
+                    _ => visit_binding_types(item, &item_ty, f),
                 }
             }
         }
@@ -314,6 +363,7 @@ fn parse_variable_pattern_helper(
     let bytes = working_set.get_span_contents(span);
 
     if !is_variable(bytes) {
+        working_set.error(ParseError::Expected("valid variable name", span));
         return None;
     }
     let mutable = match ctx {
@@ -324,6 +374,17 @@ fn parse_variable_pattern_helper(
             false
         }
         PatternContext::Binding { mutable } => mutable,
+        PatternContext::Assign => {
+            let Some(var_id) = working_set.find_variable(bytes) else {
+                let suggestion = DidYouMean::new(&working_set.list_variables(), bytes);
+                working_set.error(ParseError::VariableNotFound(suggestion, span));
+                return None;
+            };
+            if var_id == ENV_VARIABLE_ID || !working_set.get_variable(var_id).mutable {
+                working_set.error(ParseError::AssignmentRequiresMutableVar(span));
+            }
+            return Some(var_id);
+        }
     };
     let name = bytes.to_vec();
     ensure_not_reserved_variable_name(working_set, &name, span);
@@ -335,15 +396,14 @@ fn parse_variable_pattern(
     span: Span,
     ctx: PatternContext,
 ) -> MatchPattern {
-    if let Some(var_id) = parse_variable_pattern_helper(working_set, span, ctx) {
-        MatchPattern {
+    match parse_variable_pattern_helper(working_set, span, ctx) {
+        Some(var_id) => MatchPattern {
             pattern: Pattern::Variable(var_id),
             guard: None,
             span,
-        }
-    } else {
-        working_set.error(ParseError::Expected("valid variable name", span));
-        garbage(span)
+        },
+        // The helper reported why.
+        None => garbage(span),
     }
 }
 
@@ -397,15 +457,14 @@ fn parse_rest_pattern(
     ctx: PatternContext,
 ) -> MatchPattern {
     let name_span = Span::new(span.start + 2, span.end);
-    if let Some(var_id) = parse_variable_pattern_helper(working_set, name_span, ctx) {
-        MatchPattern {
+    match parse_variable_pattern_helper(working_set, name_span, ctx) {
+        Some(var_id) => MatchPattern {
             pattern: Pattern::Rest(var_id),
             guard: None,
             span,
-        }
-    } else {
-        working_set.error(ParseError::Expected("valid variable name", span));
-        garbage(span)
+        },
+        // The helper reported why.
+        None => garbage(span),
     }
 }
 
@@ -472,12 +531,12 @@ fn parse_list_pattern(
                     parse_rest_pattern(working_set, part, ctx)
                 } else {
                     let item = parse_pattern_in(working_set, part, ctx);
-                    // `pattern = default`, only in bindings: in a `match` arm a bare `=` item is
-                    // the string "=", as in `[$key, =, $value]`.
+                    // `pattern = default`, but not in a `match` arm, where a bare `=` item is the
+                    // string "=", as in `[$key, =, $value]`.
                     let is_equals = |next: &Span| working_set.get_span_contents(*next) == b"=";
-                    match parts.next_if(|next| {
-                        matches!(ctx, PatternContext::Binding { .. }) && is_equals(next)
-                    }) {
+                    match parts
+                        .next_if(|next| !matches!(ctx, PatternContext::Match) && is_equals(next))
+                    {
                         Some(equals) => parse_default(working_set, item, equals, parts.next()),
                         None => item,
                     }
