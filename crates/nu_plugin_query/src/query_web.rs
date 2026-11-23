@@ -689,6 +689,63 @@ mod tests {
     }
 
     #[test]
+    fn test_nested_table_does_not_add_rows_or_cells_to_outer_table() {
+        let html = r#"
+            <table>
+                <thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><table><tr><td>Inner text</td></tr></table></td>
+                        <td>3</td>
+                    </tr>
+                </tbody>
+                <tfoot><tr><td>4</td><td>5</td><td>6</td></tr></tfoot>
+            </table>
+        "#;
+        let span = Span::test_data();
+        let columns = Value::list(
+            ["A", "B", "C"]
+                .into_iter()
+                .map(|name| Value::string(name, span))
+                .collect(),
+            span,
+        );
+
+        let result = retrieve_tables(html, &columns, false, span).unwrap();
+
+        assert_eq!(
+            table_to_records(result),
+            [
+                [("A", "1"), ("B", "Inner text"), ("C", "3")],
+                [("A", "4"), ("B", "5"), ("C", "6")],
+            ]
+            .map(|row| row.map(|(col, val)| (col.to_owned(), val.to_owned())))
+        );
+    }
+
+    #[test]
+    fn test_nested_table_matches_its_own_headers() {
+        let html = r#"
+            <table><tr><td>
+                <table>
+                    <tr><th>Item</th></tr>
+                    <tr><td>Inner text</td></tr>
+                </table>
+            </td></tr></table>
+        "#;
+        let span = Span::test_data();
+        let columns = Value::list(vec![Value::string("Item", span)], span);
+
+        let result = retrieve_tables(html, &columns, false, span).unwrap();
+
+        assert_eq!(
+            table_to_records(result),
+            vec![vec![("Item".to_owned(), "Inner text".to_owned())]]
+        );
+    }
+
+    #[test]
     fn test_multiple_attributes() {
         let item = execute_selector_query_with_attributes(
             MULTIPLE_ATTRIBUTES,
