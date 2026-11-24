@@ -1,4 +1,4 @@
-//! Foundational [`Eval`] trait allowing dispatch between const-eval and regular evaluation
+//! The [`Eval`] trait, which evaluates parser expressions for const evaluation
 use nu_path::expand_path;
 
 use crate::{
@@ -11,14 +11,13 @@ use crate::{
 };
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
-/// To share implementations for regular eval and const eval
+/// Evaluates a parser expression. Const evaluation in `eval_const` is the only implementation;
+/// code that runs after parsing is compiled to IR and run by nu-engine instead.
 pub trait Eval {
-    /// State that doesn't need to be mutated.
-    /// EngineState for regular eval and StateWorkingSet for const eval
+    /// State that doesn't need to be mutated: the `StateWorkingSet` for const eval.
     type State<'a>: Copy + GetSpan;
 
-    /// State that needs to be mutated.
-    /// This is the stack for regular eval, and unused by const eval
+    /// State that needs to be mutated. Const eval doesn't use it.
     type MutState;
 
     fn eval<D: DebugContext>(
