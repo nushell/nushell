@@ -83,3 +83,10 @@ fn filesize_round_rejects_precision() -> Result {
     assert!(matches!(err, ShellError::UnsupportedInput { .. }));
     Ok(())
 }
+
+#[test]
+fn integers_above_2_pow_53_are_unchanged() -> Result {
+    test()
+        .run("9007199254740993 | math round")
+        .expect_value_eq(9_007_199_254_740_993_i64)
+}

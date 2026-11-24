@@ -197,6 +197,12 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
         return value;
     }
 
+    // An integer is already rounded. Without a precision it is returned as is: an f64 cannot
+    // hold every i64 above 2^53, so the round trip below would change it.
+    if let (Value::Int { .. }, None) = (&value, precision) {
+        return value;
+    }
+
     // We treat int values as float values to share the rounding path.
     let float_val = match &value {
         Value::Int { val, .. } => *val as f64,
