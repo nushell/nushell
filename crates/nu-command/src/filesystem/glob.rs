@@ -694,6 +694,10 @@ fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     Ok(res)
 }
 
+/// Filters legacy glob entries by file type and converts them into a `ListStream` of paths.
+///
+/// When `relative_to` is `Some((prefix, walk_root))`, `walk_root` is stripped from each
+/// match and `prefix` is prepended so the output is relative to `$env.PWD`.
 fn glob_to_value(
     signals: &Signals,
     glob_results: impl Iterator<Item = GlobEntry> + Send + 'static,
@@ -742,6 +746,11 @@ fn glob_to_value(
     ListStream::new(result, span, signals.clone())
 }
 
+/// Filters `dc_glob` matches by file type and converts them into a `ListStream` of paths.
+///
+/// Each item in `glob_results` is `(absolute_path, relative_path)`, where `absolute_path`
+/// is used for `symlink_metadata` checks (and fallback output) and `relative_path` is the
+/// optional relative path to print instead.
 fn glob_paths_to_value<I>(
     signals: &Signals,
     glob_results: I,
