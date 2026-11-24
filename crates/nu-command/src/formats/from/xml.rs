@@ -153,7 +153,7 @@ fn element_name(node: &roxmltree::Node) -> String {
     text.get(node.range().start + 1..)
         .map(|rest| {
             let end = rest
-                .find(|c: char| matches!(c, ' ' | '\t' | '\r' | '\n' | '/' | '>'))
+                .find([' ', '\t', '\r', '\n', '/', '>'])
                 .unwrap_or(rest.len());
             &rest[..end]
         })
