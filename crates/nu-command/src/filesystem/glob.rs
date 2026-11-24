@@ -1021,4 +1021,37 @@ mod tests {
     fn expand_ndots_with_backslash_separators(#[case] pattern: &str, #[case] expected: &str) {
         assert_eq!(expand_ndots_in_literal_prefix(pattern), expected);
     }
+
+    #[rstest::rstest]
+    #[case("foo", true)]
+    #[case("./foo", true)]
+    #[case(".", true)]
+    #[case("../foo", true)]
+    #[case("..", true)]
+    #[case("*", true)]
+    #[case("dir0/*", true)]
+    #[case("/", false)]
+    #[case("/a/b/*", false)]
+    #[case("~", false)]
+    #[case("~/foo", false)]
+    #[case("~user", false)]
+    fn allows_relative_paths_cross_platform(#[case] path: &str, #[case] expected: bool) {
+        assert_eq!(allows_relative_paths(path), expected);
+    }
+
+    #[cfg(windows)]
+    #[rstest::rstest]
+    #[case(r"foo\bar", true)]
+    #[case(r".\foo", true)]
+    #[case(r"..\foo", true)]
+    #[case(r"\", false)]
+    #[case(r"\foo", false)]
+    #[case("C:", false)]
+    #[case("C:foo", false)]
+    #[case(r"D:bar\baz", false)]
+    #[case(r"C:\foo", false)]
+    #[case(r"\\server\share", false)]
+    fn allows_relative_paths_windows(#[case] path: &str, #[case] expected: bool) {
+        assert_eq!(allows_relative_paths(path), expected);
+    }
 }
