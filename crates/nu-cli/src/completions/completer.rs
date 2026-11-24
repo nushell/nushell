@@ -2834,7 +2834,7 @@ mod completer_tests {
         check("ls -al", 5, "-a", 3);
         // Each flag of a batch has its own span (#12925); the token is still the whole batch,
         // but separate flags are separate tokens.
-        check("ls -als", 7, "-als", 3);
+        check("ls -lad", 7, "-lad", 3);
         check("ls -a -l", 8, "-l", 6);
         check("str tri", 7, "tri", 4);
         check("str tri", 5, "t", 4); // mid-token prefix
