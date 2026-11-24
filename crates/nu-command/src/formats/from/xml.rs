@@ -153,7 +153,7 @@ fn element_name(node: &roxmltree::Node) -> String {
     text.get(node.range().start + 1..)
         .map(|rest| {
             let end = rest
-                .find(|c: char| c.is_whitespace() || c == '/' || c == '>')
+                .find(|c: char| matches!(c, ' ' | '\t' | '\r' | '\n' | '/' | '>'))
                 .unwrap_or(rest.len());
             &rest[..end]
         })
@@ -1128,7 +1128,20 @@ mod tests {
     }
 
     #[test]
-    fn dtd_entity_element_does_not_panic() {
+    fn names_are_not_cut_at_non_xml_whitespace() -> Result<(), roxmltree::Error> {
+        // U+1680 is whitespace for Rust but a valid XML name character.
+        let source = "<a\u{1680}b/>";
+
+        assert_eq!(
+            parse_namespaces(source)?,
+            content_tag("a\u{1680}b", indexmap! {}, &[])
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn dtd_entity_element_keeps_written_name() -> Result<(), roxmltree::Error> {
         let source = "<!DOCTYPE a [<!ENTITY e \"<p:b xmlns:p='u'/>\">]><a xmlns:p=\"u\">&e;</a>";
         let info = ParsingInfo {
             span: Span::test_data(),
@@ -1137,9 +1150,16 @@ mod tests {
             allow_dtd: true,
             namespaces: true,
         };
-        let value = from_xml_string_to_value(source, &info);
-        // Report what the name looks like; the point is that it does not panic.
-        eprintln!("dtd entity result: {value:?}");
-        assert!(value.is_ok());
+
+        assert_eq!(
+            from_xml_string_to_value(source, &info)?,
+            content_tag(
+                "a",
+                indexmap! {"xmlns:p" => "u"},
+                &[content_tag("p:b", indexmap! {}, &[])]
+            )
+        );
+
+        Ok(())
     }
 }
