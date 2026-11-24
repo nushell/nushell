@@ -17,7 +17,7 @@ impl Command for TuiTree {
     }
 
     fn extra_description(&self) -> &str {
-        "Up/Down move. Right or l expands, Left or h collapses. Enter submits the selected node; with `--multi`, Space checks nodes. `--walk` treats `type == dir` rows as folders and lists them on expand; `--column` names the path column for that walk. A `tui preview` or a `--from` widget next to this tree follows the selected node."
+        "Up/Down move. Right or l expands, Left or h collapses. Enter submits the selected node; with `--multi`, Space checks nodes, and checked nodes that a collapsed parent or a filter hides are still submitted. `--walk` treats `type == dir` rows as folders and lists them on expand; `--column` names the path column for that walk. A `tui preview` or a `--from` widget next to this tree follows the selected node."
     }
 
     fn signature(&self) -> Signature {

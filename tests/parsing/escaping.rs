@@ -1,8 +1,6 @@
 use nu_test_support::prelude::*;
 use rstest::rstest;
 
-use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
-
 #[rstest]
 #[case::basic(r#""line1\nline2""#, "line1\nline2")]
 #[case::basic(r#""col1\tcol2""#, "col1\tcol2")]
@@ -90,68 +88,54 @@ fn external_command_escaped_space_stays_one_argument() -> Result {
 }
 
 #[test]
-fn escaped_glob_pattern_reports_current_error() -> Result {
-    Playground::setup(
-        "escaped_glob_pattern_reports_current_error",
-        |dirs, sandbox| {
-            sandbox.with_files(&[
-                FileWithContentToBeTrimmed("file[1].txt", "literal"),
-                FileWithContentToBeTrimmed("file1.txt", "pattern"),
-            ]);
+fn escaped_glob_pattern_reports_current_error(playground: Playground) -> Result {
+    playground.file("file[1].txt", indoc::indoc! {"literal"})?;
+    playground.file("file1.txt", indoc::indoc! {"pattern"})?;
 
-            let mut tester = test().cwd(dirs.test());
-            let err = match tester.run::<Value>(r#"ls file\[1\].txt"#) {
-                Ok(value) => panic!("expected escaped glob path to fail, got {value:?}"),
-                Err(err) => err.to_string(),
-            };
+    let mut tester = test().cwd(playground.path());
+    let err = match tester.run::<Value>(r#"ls file\[1\].txt"#) {
+        Ok(value) => panic!("expected escaped glob path to fail, got {value:?}"),
+        Err(err) => err.to_string(),
+    };
 
-            assert!(
-                err.contains("unrecognized escape")
-                    || (err.contains("No matches found for ")
-                        && err.contains("Pattern, file or folder not found"))
-                    || (err.contains("Error extracting glob pattern")
-                        && err.contains("invalid range pattern")),
-                "expected escaped glob error, got {err:?}"
-            );
+    assert!(
+        err.contains("unrecognized escape")
+            || (err.contains("No matches found for ")
+                && err.contains("Pattern, file or folder not found"))
+            || (err.contains("Error extracting glob pattern")
+                && err.contains("invalid range pattern")),
+        "expected escaped glob error, got {err:?}"
+    );
 
-            Ok(())
-        },
-    )
+    Ok(())
 }
 
 #[test]
-fn quoted_glob_path_stays_literal() -> Result {
-    Playground::setup("quoted_glob_path_stays_literal", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContentToBeTrimmed("file[1].txt", "literal"),
-            FileWithContentToBeTrimmed("file1.txt", "pattern"),
-        ]);
+fn quoted_glob_path_stays_literal(playground: Playground) -> Result {
+    playground.file("file[1].txt", indoc::indoc! {"literal"})?;
+    playground.file("file1.txt", indoc::indoc! {"pattern"})?;
 
-        test()
-            .cwd(dirs.test())
-            .run(
-                r#"
+    test()
+        .cwd(playground.path())
+        .run(
+            r#"
                     let quoted = "file[1].txt"
                     ls $quoted | get name | path basename
                 "#,
-            )
-            .expect_value_eq(["file[1].txt"])
-    })
+        )
+        .expect_value_eq(["file[1].txt"])
 }
 
 #[test]
-fn escaped_space_in_quoted_path_arguments() -> Result {
-    Playground::setup("escaped_space_in_quoted_path_arguments", |dirs, sandbox| {
-        sandbox
-            .mkdir("dir with space")
-            .with_files(&[EmptyFile("dir with space/file.txt")]);
+fn escaped_space_in_quoted_path_arguments(playground: Playground) -> Result {
+    playground.dir("dir with space")?;
+    playground.empty_file("dir with space/file.txt")?;
 
-        let mut tester = test().cwd(dirs.test());
-        tester
-            .run(r#"ls "dir\ with\ space/file.txt" | get name | path basename"#)
-            .expect_value_eq(["file.txt"])?;
-        tester
-            .run(r#"cd "dir\ with\ space"; $env.PWD | path basename"#)
-            .expect_value_eq("dir with space")
-    })
+    let mut tester = test().cwd(playground.path());
+    tester
+        .run(r#"ls "dir\ with\ space/file.txt" | get name | path basename"#)
+        .expect_value_eq(["file.txt"])?;
+    tester
+        .run(r#"cd "dir\ with\ space"; $env.PWD | path basename"#)
+        .expect_value_eq("dir with space")
 }

@@ -8,20 +8,24 @@ use crate as nu_protocol;
 #[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]
 pub struct PromptConfig {
     /// The main prompt: a string used verbatim, or a closure evaluated once
-    /// per cycle. `None` falls back to the line editor's built-in prompt.
+    /// per cycle. `None` falls back to nushell's built-in prompt, the working
+    /// directory.
     pub left: Option<Value>,
-    /// The right-aligned prompt, same shape as [`PromptConfig::left`].
+    /// The right-aligned prompt, same shape as [`PromptConfig::left`]. Its
+    /// built-in fallback is a clock.
     pub right: Option<Value>,
-    /// Shown in emacs mode and whenever no edit mode applies.
-    pub indicator: String,
-    /// Shown in vi insert mode.
-    pub vi_insert: String,
-    /// Shown in vi normal mode.
-    pub vi_normal: String,
-    /// Shown in vi visual mode.
-    pub vi_visual: String,
-    /// Shown on continuation lines of a multiline entry.
-    pub multiline: String,
+    /// Shown in emacs mode and whenever no edit mode applies. A string or a
+    /// closure like [`PromptConfig::left`], but never `null`.
+    pub indicator: Value,
+    /// Shown in vi insert mode, same shape as [`PromptConfig::indicator`].
+    pub vi_insert: Value,
+    /// Shown in vi normal mode, same shape as [`PromptConfig::indicator`].
+    pub vi_normal: Value,
+    /// Shown in vi visual mode, same shape as [`PromptConfig::indicator`].
+    pub vi_visual: Value,
+    /// Shown on continuation lines of a multiline entry, same shape as
+    /// [`PromptConfig::indicator`].
+    pub multiline: Value,
     /// Whether the right prompt sits on the last line of a multi-line left
     /// prompt. Renamed from `$env.config.render_right_prompt_on_last_line`.
     pub render_right_on_last_line: bool,
@@ -39,11 +43,11 @@ impl Default for PromptConfig {
             // These mirror reedline's `DEFAULT_*_PROMPT_INDICATOR`, which this
             // crate cannot name without depending on the line editor. Keep the
             // two in step by hand until a bump lets `nu-cli` assert it.
-            indicator: "> ".into(),
-            vi_insert: "> ".into(),
-            vi_normal: ": ".into(),
-            vi_visual: "+ ".into(),
-            multiline: "::: ".into(),
+            indicator: Value::string("> ", Span::unknown()),
+            vi_insert: Value::string("> ", Span::unknown()),
+            vi_normal: Value::string(": ", Span::unknown()),
+            vi_visual: Value::string("+ ", Span::unknown()),
+            multiline: Value::string("::: ", Span::unknown()),
             render_right_on_last_line: false,
             transient: TransientPromptConfig::default(),
         }
@@ -76,18 +80,18 @@ pub struct TransientPromptConfig {
     /// matching the seed `src/main.rs` used to install: a right prompt is
     /// usually a timestamp, which is noise once the line is submitted.
     pub right: Option<Value>,
-    /// Replaces [`PromptConfig::indicator`].
-    pub indicator: Option<String>,
+    /// Replaces [`PromptConfig::indicator`], again a string or a closure.
+    pub indicator: Option<Value>,
     /// Replaces [`PromptConfig::vi_insert`].
-    pub vi_insert: Option<String>,
+    pub vi_insert: Option<Value>,
     /// Replaces [`PromptConfig::vi_normal`].
-    pub vi_normal: Option<String>,
+    pub vi_normal: Option<Value>,
     /// Replaces [`PromptConfig::vi_visual`].
-    pub vi_visual: Option<String>,
+    pub vi_visual: Option<Value>,
     /// Replaces [`PromptConfig::multiline`]. Defaults to empty rather than
     /// `null`: dropping the continuation marker keeps submitted multiline
     /// entries copyable out of scrollback.
-    pub multiline: Option<String>,
+    pub multiline: Option<Value>,
 }
 
 impl Default for TransientPromptConfig {
@@ -99,14 +103,14 @@ impl Default for TransientPromptConfig {
             vi_insert: None,
             vi_normal: None,
             vi_visual: None,
-            multiline: Some(String::new()),
+            multiline: Some(Value::string(String::new(), Span::unknown())),
         }
     }
 }
 
-/// A string, a closure, or `null` to clear the key. Shared by the live and
-/// transient keys so both stay interchangeable with the variables they
-/// replace.
+/// A string, a closure, or `null` to clear the key. Shared by the prompts and
+/// every transient key so all stay interchangeable with the variables they
+/// replace. For a transient key, `null` keeps whatever the live prompt showed.
 fn update_prompt_source<'a>(
     field: &mut Option<Value>,
     value: &'a Value,
@@ -120,19 +124,17 @@ fn update_prompt_source<'a>(
     }
 }
 
-/// A string, or `null` to keep whatever the live prompt showed. `null` being a
-/// value rather than a type error is what separates these from the live
-/// prompt's indicators.
-fn update_optional_string<'a>(
-    field: &mut Option<String>,
+/// A live mode indicator: a string or a closure, as its variable always took.
+/// Unlike the prompt it has no `null`, since every edit mode draws one.
+fn update_indicator<'a>(
+    field: &mut Value,
     value: &'a Value,
     path: &mut ConfigPath<'a>,
     errors: &mut ConfigErrors,
 ) {
     match value {
-        Value::Nothing { .. } => *field = None,
-        Value::String { val, .. } => *field = Some(val.clone()),
-        _ => errors.type_mismatch(path, Type::custom("string or nothing"), value),
+        Value::String { .. } | Value::Closure { .. } => *field = value.clone(),
+        _ => errors.type_mismatch(path, Type::custom("string or closure"), value),
     }
 }
 
@@ -153,11 +155,11 @@ impl UpdateFromValue for TransientPromptConfig {
             match col.as_str() {
                 "left" => update_prompt_source(&mut self.left, val, path, errors),
                 "right" => update_prompt_source(&mut self.right, val, path, errors),
-                "indicator" => update_optional_string(&mut self.indicator, val, path, errors),
-                "vi_insert" => update_optional_string(&mut self.vi_insert, val, path, errors),
-                "vi_normal" => update_optional_string(&mut self.vi_normal, val, path, errors),
-                "vi_visual" => update_optional_string(&mut self.vi_visual, val, path, errors),
-                "multiline" => update_optional_string(&mut self.multiline, val, path, errors),
+                "indicator" => update_prompt_source(&mut self.indicator, val, path, errors),
+                "vi_insert" => update_prompt_source(&mut self.vi_insert, val, path, errors),
+                "vi_normal" => update_prompt_source(&mut self.vi_normal, val, path, errors),
+                "vi_visual" => update_prompt_source(&mut self.vi_visual, val, path, errors),
+                "multiline" => update_prompt_source(&mut self.multiline, val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }
@@ -181,11 +183,11 @@ impl UpdateFromValue for PromptConfig {
             match col.as_str() {
                 "left" => update_prompt_source(&mut self.left, val, path, errors),
                 "right" => update_prompt_source(&mut self.right, val, path, errors),
-                "indicator" => self.indicator.update(val, path, errors),
-                "vi_insert" => self.vi_insert.update(val, path, errors),
-                "vi_normal" => self.vi_normal.update(val, path, errors),
-                "vi_visual" => self.vi_visual.update(val, path, errors),
-                "multiline" => self.multiline.update(val, path, errors),
+                "indicator" => update_indicator(&mut self.indicator, val, path, errors),
+                "vi_insert" => update_indicator(&mut self.vi_insert, val, path, errors),
+                "vi_normal" => update_indicator(&mut self.vi_normal, val, path, errors),
+                "vi_visual" => update_indicator(&mut self.vi_visual, val, path, errors),
+                "multiline" => update_indicator(&mut self.multiline, val, path, errors),
                 "render_right_on_last_line" => {
                     self.render_right_on_last_line.update(val, path, errors)
                 }
@@ -208,21 +210,21 @@ mod tests {
             PromptConfig {
                 left: Some(Value::test_string("left ")),
                 right: Some(Value::test_string("right ")),
-                indicator: "$ ".into(),
-                vi_insert: "i ".into(),
-                vi_normal: "n ".into(),
-                vi_visual: "V ".into(),
-                multiline: ".. ".into(),
+                indicator: Value::test_string("$ "),
+                vi_insert: Value::test_string("i "),
+                vi_normal: Value::test_string("n "),
+                vi_visual: Value::test_string("V "),
+                multiline: Value::test_string(".. "),
                 render_right_on_last_line: true,
                 transient: TransientPromptConfig {
                     left: Some(Value::test_string("tleft ")),
                     right: Some(Value::test_string("tright ")),
-                    indicator: Some("t$ ".into()),
-                    vi_insert: Some("ti ".into()),
-                    vi_normal: Some("tn ".into()),
+                    indicator: Some(Value::test_string("t$ ")),
+                    vi_insert: Some(Value::test_string("ti ")),
+                    vi_normal: Some(Value::test_string("tn ")),
                     // Left null to cover the "keep the live prompt" case.
                     vi_visual: None,
-                    multiline: Some("t.. ".into()),
+                    multiline: Some(Value::test_string("t.. ")),
                 },
             },
             Value::test_record(record! {
@@ -327,6 +329,34 @@ mod tests {
     }
 
     #[test]
+    fn indicators_accept_a_string_or_a_closure() {
+        // `$env.PROMPT_INDICATOR` and friends always took a closure, so the
+        // keys replacing them have to as well.
+        for source in [Value::test_string("> "), test_closure()] {
+            let (prompt, has_errors) = update_prompt(Value::test_record(record! {
+                "indicator" => source.clone(),
+                "multiline" => source.clone(),
+            }));
+
+            assert!(!has_errors);
+            assert_eq!(prompt.indicator, source);
+            assert_eq!(prompt.multiline, source);
+        }
+    }
+
+    #[test]
+    fn indicator_rejects_null() {
+        // Every edit mode draws an indicator, so there is nothing for `null`
+        // to fall back to, unlike the prompt.
+        let (prompt, has_errors) = update_prompt(Value::test_record(record! {
+            "indicator" => Value::test_nothing(),
+        }));
+
+        assert!(has_errors);
+        assert_eq!(prompt.indicator, PromptConfig::default().indicator);
+    }
+
+    #[test]
     fn left_null_means_the_line_editor_default() {
         let (prompt, has_errors) = update_prompt(Value::test_record(record! {
             "left" => Value::test_nothing(),
@@ -378,7 +408,13 @@ mod tests {
         // used to seed: submitted multiline entries drop the continuation
         // marker so they stay copyable out of scrollback.
         let transient = TransientPromptConfig::default();
-        assert_eq!(transient.multiline.as_deref(), Some(""));
+        assert_eq!(
+            transient
+                .multiline
+                .as_ref()
+                .and_then(|val| val.as_str().ok()),
+            Some("")
+        );
         assert_eq!(transient.indicator, None);
     }
 
@@ -395,19 +431,24 @@ mod tests {
     }
 
     #[test]
-    fn transient_accepts_a_string_override() {
-        let (transient, has_errors) = update_transient(Value::test_record(record! {
-            "indicator" => Value::test_string("t> "),
-        }));
+    fn transient_accepts_a_string_or_a_closure_override() {
+        for source in [Value::test_string("t> "), test_closure()] {
+            let (transient, has_errors) = update_transient(Value::test_record(record! {
+                "indicator" => source.clone(),
+            }));
 
-        assert!(!has_errors);
-        assert_eq!(transient.indicator.as_deref(), Some("t> "));
-        // Untouched keys keep their defaults.
-        assert_eq!(transient.multiline.as_deref(), Some(""));
+            assert!(!has_errors);
+            assert_eq!(transient.indicator, Some(source));
+            // Untouched keys keep their defaults.
+            assert_eq!(
+                transient.multiline,
+                TransientPromptConfig::default().multiline
+            );
+        }
     }
 
     #[test]
-    fn transient_rejects_a_non_string_value() {
+    fn transient_rejects_a_value_that_cannot_render() {
         let (_, has_errors) = update_transient(Value::test_record(record! {
             "indicator" => Value::test_int(1),
         }));

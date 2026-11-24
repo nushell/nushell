@@ -1,5 +1,4 @@
-use chrono::{DateTime, FixedOffset};
-use nu_protocol::{Filesize, ShellError, Span, Value};
+use nu_protocol::{DateTime, Filesize, ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [`Value`], which is hashable.
@@ -38,7 +37,7 @@ pub enum HashableValue {
         span: Span,
     },
     Date {
-        val: DateTime<FixedOffset>,
+        val: DateTime,
         span: Span,
     },
     String {
@@ -209,15 +208,11 @@ mod test {
             ),
             (
                 Value::date(
-                    DateTime::<FixedOffset>::parse_from_rfc2822("Wed, 18 Feb 2015 23:16:09 GMT")
-                        .unwrap(),
+                    DateTime::parse_rfc3339("2015-02-18T23:16:09Z").unwrap(),
                     span,
                 ),
                 HashableValue::Date {
-                    val: DateTime::<FixedOffset>::parse_from_rfc2822(
-                        "Wed, 18 Feb 2015 23:16:09 GMT",
-                    )
-                    .unwrap(),
+                    val: DateTime::parse_rfc3339("2015-02-18T23:16:09Z").unwrap(),
                     span,
                 },
             ),

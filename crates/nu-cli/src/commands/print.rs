@@ -40,6 +40,7 @@ impl Command for Print {
 Since this command has no output, there is no point in piping it with other commands.
 
 `print` may be used inside blocks of code (e.g.: hooks) to display text during execution without interfering with the pipeline.
+To display a value while passing it along the pipeline, use `inspect` instead.
 In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep stdout reserved for protocol messages."#
     }
 

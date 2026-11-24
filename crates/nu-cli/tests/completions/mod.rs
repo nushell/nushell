@@ -1020,6 +1020,39 @@ fn which_command_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// Help completes internal commands and subcommands
+#[test]
+fn help_command_completions() {
+    let engine = new_external_engine();
+    let mut completer = NuCompleter::new(
+        Arc::new(engine),
+        Arc::new(nu_protocol::engine::Stack::new()),
+    );
+    // commands after help
+    let completion_str = "help sleep";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    // commands after help commands
+    let completion_str = "help commands sleep";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    // subcommands after help
+    let completion_str = "help str jo";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["str join"];
+    match_suggestions(&expected, &suggestions);
+
+    // subcommands after help commands
+    let completion_str = "help commands str jo";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["str join"];
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn which_command_quoted_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
@@ -1452,6 +1485,218 @@ fn dont_use_dotnu_completions() {
         "`./dir_module/sub module/`",
     ];
     match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+#[case::empty("", vec!["alpha", "beta"])]
+#[case::partial("al", vec!["alpha"])]
+#[case::full("alpha", vec!["alpha"])]
+#[case::hidden("hidden", vec![])]
+#[case::default_overlay("zero", vec![])]
+fn overlay_hide_completions(#[case] prefix: &str, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(
+        b"overlay new hidden; overlay hide hidden; overlay new alpha; overlay new beta",
+        &mut engine,
+        &mut stack,
+    )
+    .unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = format!("overlay hide {prefix}");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    match_suggestions(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        assert_eq!(
+            suggestion.span,
+            Span::new("overlay hide ".len(), line.len())
+        );
+        assert!(suggestion.append_whitespace);
+    }
+}
+
+#[rstest]
+#[case::space("with space", "with sp", "\"with space\"")]
+#[case::flag_like("-flag", "-f", "\"-flag\"")]
+#[case::keyword("true", "tr", "\"true\"")]
+#[case::quote("say\"hi", "say", "\"say\\\"hi\"")]
+#[case::backslash(r"path\ name", "path", r#""path\\ name""#)]
+fn overlay_hide_quoted_completions(
+    #[case] name: &str,
+    #[case] prefix: &str,
+    #[case] expected: &str,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let source = format!("overlay new {}", nu_utils::escape_quote_string(name));
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let line = format!("overlay hide \"{prefix}\"");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    match_suggestions(&vec![expected], &suggestions);
+    let suggestion = &suggestions[0];
+    assert_eq!(
+        suggestion.span,
+        Span::new("overlay hide ".len(), line.len())
+    );
+    let mut completed = line;
+    completed.replace_range(
+        suggestion.span.start..suggestion.span.end,
+        &suggestion.value,
+    );
+    support::merge_input(completed.as_bytes(), &mut engine, &mut stack).unwrap();
+    assert!(!stack.is_overlay_active(name));
+}
+
+#[rstest]
+#[case::single_open("say\"hi", r#"'say"h"#, 5)]
+#[case::single_closed("say\"hi", r#"'say"h'"#, 5)]
+#[case::double_open("say\"hi", r#""say\"h"#, 5)]
+#[case::double_closed("say\"hi", r#""say\"h""#, 5)]
+#[case::escaped_quote_at_end("say\"hi", r#""say\""#, 4)]
+#[case::backslash_open(r"path\name", r#""path\\n"#, 6)]
+#[case::backslash_closed(r"path\name", r#""path\\n""#, 6)]
+#[case::literal_backslash(r"path\name", r"'path\n", 6)]
+#[case::backtick("say\"hi", r#"`say"h"#, 5)]
+#[case::unicode("é\"toile", r#"'é"to"#, 4)]
+fn overlay_hide_escape_sensitive_prefixes(
+    #[case] name: &str,
+    #[case] prefix: &str,
+    #[case] matched_graphemes: usize,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let source = format!("overlay new {}", nu_utils::escape_quote_string(name));
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    support::merge_input(b"overlay new sayhello", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let mut line = format!("overlay hide {prefix}");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    assert_eq!(suggestions.len(), 1, "prefix {prefix:?}: {suggestions:?}");
+    let suggestion = &suggestions[0];
+    assert_eq!(suggestion.display_value(), name);
+    assert_eq!(
+        suggestion.span,
+        Span::new("overlay hide ".len(), line.len())
+    );
+    assert_eq!(
+        suggestion.match_indices,
+        Some((0..matched_graphemes).collect())
+    );
+    line.replace_range(
+        suggestion.span.start..suggestion.span.end,
+        &suggestion.value,
+    );
+    support::merge_input(line.as_bytes(), &mut engine, &mut stack).unwrap();
+    assert!(!stack.is_overlay_active(name));
+}
+
+#[rstest]
+#[case::before_escape("say\"hi", r#""say"#, 3)]
+#[case::trailing_backslash("say\"hi", r#""say\"#, 3)]
+#[case::unicode_start("say\"hi", r#""say\u"#, 3)]
+#[case::unicode_brace("say\"hi", r#""say\u{"#, 3)]
+#[case::unicode_digit("say\"hi", r#""say\u{2"#, 3)]
+#[case::complete_unicode("say\"hi", r#""say\u{22}"#, 4)]
+#[case::hex_start("say\"hi", r#""say\x"#, 3)]
+#[case::hex_digit("say\"hi", r#""say\x2"#, 3)]
+#[case::complete_hex("say\"hi", r#""say\x22"#, 4)]
+#[case::paired_backslashes(r"path\name", r#""path\\"#, 5)]
+#[case::odd_backslashes(r"path\name", r#""path\\\"#, 5)]
+#[case::single_quoted(r"path\name", r"'path\", 5)]
+#[case::backtick(r"path\name", r"`path\", 5)]
+#[case::escaped_unicode_introducer(r"say\u{name", r#""say\\u{"#, 6)]
+fn overlay_hide_incomplete_escape_prefixes(
+    #[case] name: &str,
+    #[case] prefix: &str,
+    #[case] matched_graphemes: usize,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let source = format!("overlay new {}", nu_utils::escape_quote_string(name));
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let mut line = format!("overlay hide {prefix}");
+    let suggestions = completer.complete_blocking(&line, line.len());
+    assert_eq!(suggestions.len(), 1, "prefix {prefix:?}: {suggestions:?}");
+    let suggestion = &suggestions[0];
+    assert_eq!(suggestion.display_value(), name);
+    assert_eq!(
+        suggestion.span,
+        Span::new("overlay hide ".len(), line.len())
+    );
+    assert_eq!(
+        suggestion.match_indices,
+        Some((0..matched_graphemes).collect())
+    );
+    line.replace_range(
+        suggestion.span.start..suggestion.span.end,
+        &suggestion.value,
+    );
+    support::merge_input(line.as_bytes(), &mut engine, &mut stack).unwrap();
+    assert!(!stack.is_overlay_active(name));
+}
+
+#[rstest]
+#[case(r#""say\q"#)]
+#[case(r#""say\xZ"#)]
+#[case(r#""say\u{ZZ"#)]
+fn overlay_hide_invalid_escape_prefixes(#[case] prefix: &str) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(b"overlay new sayhello", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = format!("overlay hide {prefix}");
+    assert!(completer.complete_blocking(&line, line.len()).is_empty());
+}
+
+#[test]
+fn overlay_hide_completion_replaces_only_the_name() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(b"overlay new alpha", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let line = "'é'; overlay hide al --keep-custom";
+    let start = line.find("al ").unwrap();
+    let end = start + 2;
+    let suggestions = completer.complete_blocking(line, end);
+    match_suggestions(&vec!["alpha"], &suggestions);
+    assert_eq!(suggestions[0].span, Span::new(start, end));
+    let mut completed = line.to_string();
+    completed.replace_range(start..end, &suggestions[0].value);
+    assert_eq!(completed, "'é'; overlay hide alpha --keep-custom");
+}
+
+#[rstest]
+#[case::activated_in_block("if true { overlay new runtime }", vec![])]
+#[case::hidden_in_block("overlay new runtime; if true { overlay hide runtime }", vec![])]
+#[case::runtime_only_with_valid("overlay new valid; if true { overlay new runtime }", vec!["valid"])]
+#[case::parser_only_with_valid("overlay new runtime; overlay new valid; if true { overlay hide runtime }", vec!["valid"])]
+fn overlay_hide_completions_require_parser_and_runtime_state(
+    #[case] source: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(source.as_bytes(), &mut engine, &mut stack).unwrap();
+    let parser_active = engine
+        .active_overlay_names(&[])
+        .any(|name| name == b"runtime");
+    assert_ne!(parser_active, stack.is_overlay_active("runtime"));
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let line = "overlay hide ";
+    let suggestions = completer.complete_blocking(line, line.len());
+    match_suggestions(&expected, &suggestions);
+    for suggestion in suggestions.iter() {
+        let command = format!("overlay hide {}", suggestion.value);
+        support::merge_input(command.as_bytes(), &mut engine, &mut stack).unwrap();
+        assert!(!stack.is_overlay_active(&suggestion.value));
+    }
+}
+
+#[rstest]
+#[case::help_flag("overlay hide --h", vec!["--help"])]
+#[case::partial_flag("overlay hide --keep-c", vec!["--keep-custom"])]
+#[case::flag_after_name("overlay hide alpha --keep-e", vec!["--keep-env"])]
+#[case::name_after_flag("overlay hide --keep-custom al", vec!["alpha"])]
+fn overlay_hide_flag_completions(#[case] line: &str, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    support::merge_input(b"overlay new alpha", &mut engine, &mut stack).unwrap();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    match_suggestions(&expected, &completer.complete_blocking(line, line.len()));
 }
 
 #[test]
@@ -1900,16 +2145,21 @@ fn command_wide_completion_sees_every_word_of_an_extern() {
     match_suggestions(&vec![r#"["tool issue list", --state, ""]"#], &suggestions);
 }
 
-#[test]
-fn command_wide_completion_external_skips_declared_flags() {
+#[rstest]
+#[case::same_value("[--short --porcelain]")]
+// carapace ends a value with a space so that one follows it.
+#[case::trailing_space(r#"["--short " --porcelain]"#)]
+fn command_wide_completion_external_skips_declared_flags(#[case] external: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
     // Carapace and other external completers list the flags the signature declares too.
-    let setup = /* lang=nu */ r#"
-        $env.config.completions.external.completer = {|buffer| [--short --porcelain] }
+    let setup = format!(
+        r#"
+        $env.config.completions.external.completer = {{|buffer| {external} }}
 
         @complete external
         extern "gs" [--short(-s)]
-    "#;
+    "#
+    );
     assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -2111,11 +2361,11 @@ fn wrapped_rest_completer_completes_flag_tokens() {
     match_suggestions(&vec!["--bbb"], &suggestions);
 }
 
-/// A wrapped `--x` token binds to the rest parameter, so it follows the positional chain:
-/// the rest completer overrides `@complete` unless it declines (`null`) or contributes
-/// (`fallback: true`).
+/// A wrapped `--x` token binds to the rest parameter, so the rest completer answers it. The
+/// flags of `@complete` join whatever the rest completer answers, since the command-wide
+/// completer knows the flags the signature doesn't declare.
 #[rstest]
-#[case::answers("[aaa --bbb]", vec!["--bbb"])]
+#[case::answers("[aaa --bbb]", vec!["--bbb", "--wide"])]
 #[case::contributes("{completions: [aaa --bbb], fallback: true}", vec!["--bbb", "--wide"])]
 #[case::declines("null", vec!["--wide"])]
 fn wrapped_rest_completer_chains_to_command_wide_on_flag_tokens(
@@ -2130,6 +2380,87 @@ fn wrapped_rest_completer_chains_to_command_wide_on_flag_tokens(
         def "nu-complete wide" [] {{ ["--wide"] }}
         @complete "nu-complete wide"
         def --wrapped both [...args: string@"nu-complete rest"] {{}}
+        both --"#
+    );
+
+    let suggestions = completer.complete_blocking(&sample, sample.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+/// An extern's argument completer, such as one `generate completions` writes for hosts,
+/// doesn't hide the flags that the external completer lists at a flag token, whether it
+/// answers, declines, or contributes. A value the external completer returns with a trailing
+/// space is still the declared flag. Arguments keep their own completer.
+#[rstest]
+#[case::flag_answers("[alpha beta]", "tool sub -", vec!["--foo", "-h", "--help"])]
+#[case::flag_declines("null", "tool sub -", vec!["--foo", "-h", "--help"])]
+#[case::flag_contributes(
+    "{completions: [alpha beta], fallback: true}",
+    "tool sub -",
+    vec!["--foo", "-h", "--help"]
+)]
+#[case::argument("[alpha beta]", "tool sub ", vec!["alpha", "beta"])]
+fn extern_argument_completer_keeps_external_flags(
+    #[case] hosts: &str,
+    #[case] input: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let setup = format!(
+        r#"
+        $env.config.completions.external.completer = {{|token|
+            if ($token.text | str starts-with "-") {{ ["--foo " --help] }} else {{ [gamma] }}
+        }}
+        def "nu-complete tool hosts" [] {{ {hosts} }}
+
+        @complete external
+        extern "tool sub" [--foo, -h, ...args: external_arg@"nu-complete tool hosts"]
+    "#
+    );
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+/// An `@interactive` command-wide completer takes over the terminal, so at a flag token where
+/// the rest completer runs first and answers, it isn't run alongside.
+#[test]
+fn interactive_command_wide_completer_waits_behind_a_rest_completer() {
+    let mut completer = custom_completer();
+
+    let sample = r#"
+        @interactive
+        def "nu-complete picker" [token] { [--picked] }
+        def "nu-complete rest" [] { [--bbb] }
+        @complete "nu-complete picker"
+        def --wrapped both [...args: string@"nu-complete rest"] {}
+        both --"#;
+
+    let suggestions = completer.complete_blocking(sample, sample.len());
+    match_suggestions(&vec!["--bbb"], &suggestions);
+}
+
+/// An `@interactive` rest completer takes over the terminal, so at a flag token the
+/// command-wide completer doesn't run ahead of it, and the picker's answer, a pick or a
+/// cancel, isn't mixed with the command-wide flags.
+#[rstest]
+#[case::picked("[--picked]", vec!["--picked"])]
+#[case::cancelled("null", vec![])]
+fn command_wide_completer_waits_behind_an_interactive_rest_completer(
+    #[case] picker_output: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let mut completer = custom_completer();
+
+    let sample = format!(
+        r#"
+        @interactive
+        def "nu-complete picker" [] {{ {picker_output} }}
+        def "nu-complete wide" [] {{ ["--wide"] }}
+        @complete "nu-complete wide"
+        def --wrapped both [...args: string@"nu-complete picker"] {{}}
         both --"#
     );
 
@@ -3131,7 +3462,12 @@ fn flag_completions() {
 
     // https://github.com/nushell/nushell/issues/16375
     let suggestions = completer.complete_blocking("table -", 7);
-    assert_eq!(22, suggestions.len());
+    assert_eq!(23, suggestions.len());
+    assert!(
+        suggestions
+            .iter()
+            .any(|suggestion| suggestion.value == "--no-headers")
+    );
 }
 
 #[test]
@@ -3783,6 +4119,26 @@ fn alias_of_basic_command() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
+/// An alias that ends with a flag that takes a value completes that flag's values, as typing
+/// its expansion would.
+#[rstest]
+#[case::nothing_typed("a ", vec!["cat", "dog", "eel"])]
+#[case::partial("a d", vec!["dog"])]
+fn alias_ending_with_flag_completes_flag_value(#[case] input: &str, #[case] expected: Vec<&str>) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let code = "
+        def animals [] { [cat dog eel] }
+        def fruits [] { [apple banana] }
+        def cmd [--opt: string@animals, ...rest: string@fruits] {}
+        alias a = cmd --opt
+    ";
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn alias_of_another_alias() {
     let (_, _, mut engine, mut stack) = new_engine();
@@ -4220,28 +4576,27 @@ fn exact_match() {
 
 #[cfg(all(not(windows), not(target_os = "macos")))]
 #[test]
-fn exact_match_case_insensitive() {
-    use nu_test_support::playground::Playground;
+fn exact_match_case_insensitive(playground: Playground) -> Result {
     use support::completions_helpers::new_engine_helper;
 
-    Playground::setup("exact_match_case_insensitive", |dirs, playground| {
-        playground.mkdir("AA/foo");
-        playground.mkdir("aa/foo");
-        playground.mkdir("aaa/foo");
+    playground.dir("AA/foo")?;
+    playground.dir("aa/foo")?;
+    playground.dir("aaa/foo")?;
 
-        let (dir, _, engine, stack) = new_engine_helper(dirs.test().into());
-        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let (dir, _, engine, stack) = new_engine_helper(playground.path().try_into().unwrap());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-        let target = format!("open {}", folder(dir.join("aa")));
-        match_suggestions(
-            &vec![
-                folder(dir.join("AA").join("foo")).as_str(),
-                folder(dir.join("aa").join("foo")).as_str(),
-                folder(dir.join("aaa").join("foo")).as_str(),
-            ],
-            &completer.complete_blocking(&target, target.len()),
-        );
-    });
+    let target = format!("open {}", folder(dir.join("aa")));
+    match_suggestions(
+        &vec![
+            folder(dir.join("AA").join("foo")).as_str(),
+            folder(dir.join("aa").join("foo")).as_str(),
+            folder(dir.join("aaa").join("foo")).as_str(),
+        ],
+        &completer.complete_blocking(&target, target.len()),
+    );
+
+    Ok(())
 }
 
 #[rstest]
@@ -4568,7 +4923,6 @@ fn suggestion_match_indices(
 }
 
 #[test]
-#[ignore = "run this test only when experimental option native-clip is set"]
 fn clip_subcommands_show_before_and_after_use() {
     // Ensure `clip` subcommands (e.g. `clip copy`) appear in completions both before
     // and after `use std/clip`.

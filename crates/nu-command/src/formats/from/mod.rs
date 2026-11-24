@@ -21,6 +21,7 @@ mod yaml;
 pub use self::csv::FromCsv;
 pub use self::toml::FromToml;
 pub use command::From;
+pub(crate) use delimited::dedupe_headers;
 pub use dotenv::FromDotenv;
 pub(crate) use dotenv::{is_dotenv_file, is_key as is_dotenv_key};
 pub use json::FromJson;

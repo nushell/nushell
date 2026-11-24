@@ -68,6 +68,13 @@ impl PathMember {
         }
     }
 
+    /// Returns `true` if the member is marked optional with `?`.
+    pub fn is_optional(&self) -> bool {
+        match self {
+            PathMember::String { optional, .. } | PathMember::Int { optional, .. } => *optional,
+        }
+    }
+
     pub fn make_optional(&mut self) {
         match self {
             PathMember::String { optional, .. } => *optional = true,

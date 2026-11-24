@@ -1,4 +1,3 @@
-use chrono::Duration;
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter},
@@ -62,140 +61,51 @@ pub fn format_duration_as_timeperiod(
     duration: i64,
     max_unit: DurationMaxUnit,
 ) -> (i32, Vec<TimePeriod>) {
-    // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
-    // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
     // Current duration doesn't know a date it's based on, weeks is the max time unit it can normalize into.
     // Don't guess or estimate how many years or months it might contain.
 
     let sign = if duration >= 0 { 1 } else { -1 };
     let duration = duration.max(-i64::MAX).abs();
 
-    let dur = Duration::nanoseconds(duration);
-
-    /// Split this a duration into number of whole weeks and the remainder
-    fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
-        let weeks = duration.num_weeks();
-        normalize_split(weeks, Duration::try_weeks(weeks), duration)
-    }
-
-    /// Split this a duration into number of whole days and the remainder
-    fn split_days(duration: Duration) -> (Option<i64>, Duration) {
-        let days = duration.num_days();
-        normalize_split(days, Duration::try_days(days), duration)
-    }
-
-    /// Split this a duration into number of whole hours and the remainder
-    fn split_hours(duration: Duration) -> (Option<i64>, Duration) {
-        let hours = duration.num_hours();
-        normalize_split(hours, Duration::try_hours(hours), duration)
-    }
-
-    /// Split this a duration into number of whole minutes and the remainder
-    fn split_minutes(duration: Duration) -> (Option<i64>, Duration) {
-        let minutes = duration.num_minutes();
-        normalize_split(minutes, Duration::try_minutes(minutes), duration)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_seconds(duration: Duration) -> (Option<i64>, Duration) {
-        let seconds = duration.num_seconds();
-        normalize_split(seconds, Duration::try_seconds(seconds), duration)
-    }
-
-    /// Split this a duration into number of whole milliseconds and the remainder
-    fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let millis = duration.num_milliseconds();
-        normalize_split(millis, Duration::try_milliseconds(millis), duration)
-    }
-
-    /// Split this a duration into number of whole microseconds and the remainder
-    fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let micros = duration.num_microseconds().unwrap_or_default();
-        normalize_split(micros, Duration::microseconds(micros), duration)
-    }
-
-    /// Split this a duration into number of whole nanoseconds and the remainder
-    fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let nanos = duration.num_nanoseconds().unwrap_or_default();
-        normalize_split(nanos, Duration::nanoseconds(nanos), duration)
-    }
-
-    fn normalize_split(
-        wholes: i64,
-        wholes_duration: impl Into<Option<Duration>>,
-        total_duration: Duration,
-    ) -> (Option<i64>, Duration) {
-        match wholes_duration.into() {
-            Some(wholes_duration) if wholes != 0 => {
-                (Some(wholes), total_duration - wholes_duration)
-            }
-            _ => (None, total_duration),
-        }
-    }
+    // Each unit and its length in nanoseconds, largest first. Units above `max_unit` are skipped,
+    // so their time is counted in the largest unit allowed.
+    type Unit = (DurationMaxUnit, i64, fn(i64) -> TimePeriod);
+    let units: [Unit; 8] = [
+        (
+            DurationMaxUnit::Week,
+            7 * 86_400 * 1_000_000_000,
+            TimePeriod::Weeks,
+        ),
+        (
+            DurationMaxUnit::Day,
+            86_400 * 1_000_000_000,
+            TimePeriod::Days,
+        ),
+        (
+            DurationMaxUnit::Hour,
+            3_600 * 1_000_000_000,
+            TimePeriod::Hours,
+        ),
+        (
+            DurationMaxUnit::Minute,
+            60 * 1_000_000_000,
+            TimePeriod::Minutes,
+        ),
+        (DurationMaxUnit::Second, 1_000_000_000, TimePeriod::Seconds),
+        (DurationMaxUnit::Millisecond, 1_000_000, TimePeriod::Millis),
+        (DurationMaxUnit::Microsecond, 1_000, TimePeriod::Micros),
+        (DurationMaxUnit::Nanosecond, 1, TimePeriod::Nanos),
+    ];
 
     let mut periods = vec![];
-    let mut remainder = dur;
-
-    if max_unit <= DurationMaxUnit::Week {
-        let (weeks, rem) = split_weeks(remainder);
-        remainder = rem;
-        if let Some(weeks) = weeks {
-            periods.push(TimePeriod::Weeks(weeks));
-        }
-    }
-
-    if max_unit <= DurationMaxUnit::Day {
-        let (days, rem) = split_days(remainder);
-        remainder = rem;
-        if let Some(days) = days {
-            periods.push(TimePeriod::Days(days));
-        }
-    }
-
-    if max_unit <= DurationMaxUnit::Hour {
-        let (hours, rem) = split_hours(remainder);
-        remainder = rem;
-        if let Some(hours) = hours {
-            periods.push(TimePeriod::Hours(hours));
-        }
-    }
-
-    if max_unit <= DurationMaxUnit::Minute {
-        let (minutes, rem) = split_minutes(remainder);
-        remainder = rem;
-        if let Some(minutes) = minutes {
-            periods.push(TimePeriod::Minutes(minutes));
-        }
-    }
-
-    if max_unit <= DurationMaxUnit::Second {
-        let (seconds, rem) = split_seconds(remainder);
-        remainder = rem;
-        if let Some(seconds) = seconds {
-            periods.push(TimePeriod::Seconds(seconds));
-        }
-    }
-
-    if max_unit <= DurationMaxUnit::Millisecond {
-        let (millis, rem) = split_milliseconds(remainder);
-        remainder = rem;
-        if let Some(millis) = millis {
-            periods.push(TimePeriod::Millis(millis));
-        }
-    }
-
-    if max_unit <= DurationMaxUnit::Microsecond {
-        let (micros, rem) = split_microseconds(remainder);
-        remainder = rem;
-        if let Some(micros) = micros {
-            periods.push(TimePeriod::Micros(micros));
-        }
-    }
-
-    if max_unit <= DurationMaxUnit::Nanosecond {
-        let (nanos, _rem) = split_nanoseconds(remainder);
-        if let Some(nanos) = nanos {
-            periods.push(TimePeriod::Nanos(nanos));
+    let mut remainder = duration;
+    for (unit, length, period) in units {
+        if max_unit <= unit {
+            let wholes = remainder / length;
+            remainder -= wholes * length;
+            if wholes != 0 {
+                periods.push(period(wholes));
+            }
         }
     }
 

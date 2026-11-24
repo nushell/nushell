@@ -126,3 +126,42 @@ fn mut_field_assign_compiles_to_update_var_cell_path() -> Result {
     );
     Ok(())
 }
+
+/// An assignment or `let` used as a statement leaves nothing to drain, so the compiler emits no
+/// `load-literal nothing` + `drain` after it, including at the end of a loop body.
+#[test]
+fn statement_assignments_compile_without_drain() -> Result {
+    let code = "
+        def __statement_assign_ir [] {
+            mut x = 1
+            $x = 2
+            while $x < 5 { $x += 1 }
+            $x
+        }
+        view ir __statement_assign_ir
+    ";
+
+    let ir: String = test().run(code)?;
+    assert!(!ir.contains("drain"), "expected no drain in IR, got:\n{ir}");
+    assert!(
+        !ir.contains("nothing"),
+        "expected no nothing literal in IR, got:\n{ir}"
+    );
+    Ok(())
+}
+
+/// A drain that a branch jumps to stays, since the other branch's value still has to be drained.
+#[test]
+fn drain_after_branch_is_kept() -> Result {
+    let code = "
+        def __branch_drain_ir [] {
+            if true { 1 } else { null }
+            2
+        }
+        view ir __branch_drain_ir
+    ";
+
+    let ir: String = test().run(code)?;
+    assert!(ir.contains("drain"), "expected a drain in IR, got:\n{ir}");
+    Ok(())
+}

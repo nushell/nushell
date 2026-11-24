@@ -3,7 +3,6 @@ use crate::{
     ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
     engine::{EngineState, ScopeBindings},
 };
-use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 use std::{fmt, sync::Arc};
 
@@ -503,7 +502,7 @@ pub enum Literal {
     String(DataSlice),
     RawString(DataSlice),
     CellPath(Box<CellPath>),
-    Date(Box<DateTime<FixedOffset>>),
+    Date(Box<crate::DateTime>),
     Nothing,
     /// Represents an empty pipeline input (distinct from `Nothing` which is the `null` value).
     /// Used by `load_empty` to initialize registers with no input.

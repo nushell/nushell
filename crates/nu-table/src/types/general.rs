@@ -82,7 +82,9 @@ fn create_table(input: Vec<Value>, opts: &TableOpts<'_>) -> TableResult {
         (false, false) => create_table_with_no_header(input, opts)?,
     };
 
-    let table = table.map(|table| TableOutput::from_table(table, with_header, with_index));
+    let table = table.map(|table| {
+        TableOutput::from_table(table, with_header && !opts.header_remove, with_index)
+    });
 
     Ok(table)
 }
@@ -92,7 +94,8 @@ fn create_table_with_header(
     headers: Vec<String>,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
-    let count_rows = input.len() + 1;
+    let first_row = usize::from(!opts.header_remove);
+    let count_rows = input.len() + first_row;
     let count_columns = headers.len();
     let mut table = NuTable::new(count_rows, count_columns);
     table.set_header_style(get_header_style(&opts.style_computer));
@@ -108,14 +111,16 @@ fn create_table_with_header(
         for (col, header) in headers.iter().enumerate() {
             let (text, style) = get_string_value_with_header(&item, header, opts);
 
-            let pos = (row + 1, col);
+            let pos = (row + first_row, col);
             table.insert(pos, text);
             table.insert_style(pos, style);
         }
     }
 
-    let headers = collect_headers(headers, false);
-    table.set_row(0, headers);
+    if !opts.header_remove {
+        let headers = collect_headers(headers, false);
+        table.set_row(0, headers);
+    }
 
     Ok(Some(table))
 }
@@ -129,7 +134,8 @@ fn create_table_with_header_and_index(
     let priority_columns = resolve_priority_columns(&headers, &opts.width_priority_columns, true);
     let head = collect_headers(headers, true);
 
-    let count_rows = input.len() + 1;
+    let first_row = usize::from(!opts.header_remove);
+    let count_rows = input.len() + first_row;
     let count_columns = head.len();
 
     let mut table = NuTable::new(count_rows, count_columns);
@@ -138,19 +144,21 @@ fn create_table_with_header_and_index(
     table.set_indent(opts.config.table.padding);
     table.set_width_priority_columns(&priority_columns);
 
-    table.set_row(0, head.clone());
+    if !opts.header_remove {
+        table.set_row(0, head.clone());
+    }
 
     for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(&opts.span)?;
         check_value(&item)?;
 
         let text = get_table_row_index(&item, opts.config, row, row_offset);
-        table.insert((row + 1, 0), text);
+        table.insert((row + first_row, 0), text);
 
         for (col, head) in head.iter().enumerate().skip(1) {
             let (text, style) = get_string_value_with_header(&item, head.as_ref(), opts);
 
-            let pos = (row + 1, col);
+            let pos = (row + first_row, col);
             table.insert(pos, text);
             table.insert_style(pos, style);
         }

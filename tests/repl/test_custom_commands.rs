@@ -89,11 +89,13 @@ fn custom_flag_with_type_checking(
     (type_sig, value): (&str, &str),
     #[values("--dry-run", "-d")] flag: &str,
 ) -> Result {
-    let code = format! {"
+    let code = format!(
+        "
         def florb [{flag}: {type_sig}] {{}}
         let y = {value}
         florb {flag} $y
-    "};
+    "
+    );
 
     test()
         .run(code)
@@ -104,11 +106,13 @@ fn custom_flag_with_type_checking(
 /// (same as not passing it) rather than type-mismatching.
 #[rstest]
 fn custom_flag_null_is_omitted(#[values("--dry-run", "-d")] flag: &str) -> Result {
-    let code = format! {"
+    let code = format!(
+        "
         def florb [--dry-run (-d): int] {{ $dry_run }}
         let y = null
         florb {flag} $y
-    "};
+    "
+    );
 
     test().run(code).expect_value_eq(())
 }
@@ -146,6 +150,27 @@ fn custom_switch6() -> Result {
     test()
         .run("def florb [ --dry-run ] { $dry_run }; florb --dry-run")
         .expect_value_eq(true)
+}
+
+// The parser can't check a switch's value typed `any`, so the call checks it.
+#[rstest]
+#[case::true_(true, true)]
+#[case::false_(false, false)]
+#[case::null((), false)]
+fn custom_switch_value_typed_any(#[case] value: impl IntoValue, #[case] expected: bool) -> Result {
+    let code = "def florb [ --dry-run ] { $dry_run }; let x: any = $in; florb --dry-run=$x";
+    test().run_with_data(code, value).expect_value_eq(expected)
+}
+
+#[test]
+fn custom_switch_rejects_a_value_that_is_not_a_bool() -> Result {
+    let code = "def florb [ --dry-run ] { $dry_run }; let x: any = 5; florb --dry-run=$x";
+    let err = test().run(code).expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. } if to_type == "bool" && from_type == "int"
+    );
+    Ok(())
 }
 
 #[test]
@@ -516,4 +541,34 @@ fn glob_literal_string_interpolation_with_metachars() -> Result {
     test()
         .run("def spam [foo: glob] { $foo }; spam $\"/path/[foo]*.txt\"")
         .expect_value_eq("/path/[foo]*.txt")
+}
+
+// A custom command call lends the caller's variables to the callee's parent stack and takes them
+// back afterwards. These check that the caller always gets them back.
+
+#[test]
+fn caller_variables_survive_a_failing_call() -> Result {
+    test()
+        .run("def bad [] { error make {msg: boom} }; let a = 1; try { bad } catch { }; $a")
+        .expect_value_eq(1)
+}
+
+#[test]
+fn caller_variables_survive_a_call_returning_a_stream() -> Result {
+    // The returned stream still holds the callee's parent when the call ends.
+    test()
+        .run("def f [] { 1..3 | each {|x| $x } }; let a = 5; f | each {|x| $x + $a } | to nuon")
+        .expect_value_eq("[6, 7, 8]")
+}
+
+#[test]
+fn caller_variables_survive_recursive_calls() -> Result {
+    test()
+        .run(
+            "def r [n] { if $n == 0 { 0 } else { let v = $n; (r ($n - 1)) + $v } }
+            mut total = 0
+            for i in 1..3 { $total += (r $i) }
+            $total",
+        )
+        .expect_value_eq(10)
 }

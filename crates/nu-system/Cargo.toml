@@ -27,7 +27,7 @@ web-time = { workspace = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = { workspace = true, default-features = false, features = ["fs", "term", "process", "signal"] }
-# `mode` uses rustix::fs::Mode / rustix::process::umask; uucore 0.12 only
+# `mode` uses rustix::fs::Mode / rustix::process::umask; uucore 0.13 only
 # enables rustix/process for that feature, so also enable `fs` (rustix/fs).
 uucore = { workspace = true, features = ["fs", "mode"] }
 

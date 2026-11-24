@@ -60,7 +60,7 @@ impl PluginCommand for Truncate {
                         Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-01-01 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -68,7 +68,7 @@ impl PluginCommand for Truncate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-02-12 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -76,7 +76,7 @@ impl PluginCommand for Truncate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-03-26 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -84,7 +84,7 @@ impl PluginCommand for Truncate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-05-07 00:00:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -97,7 +97,7 @@ impl PluginCommand for Truncate {
                         Column::new(
                             "truncated".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2024-12-30 16:49:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -105,7 +105,7 @@ impl PluginCommand for Truncate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-02-08 21:45:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -113,7 +113,7 @@ impl PluginCommand for Truncate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-03-21 02:41:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -121,7 +121,7 @@ impl PluginCommand for Truncate {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-05-05 08:14:00 +0000",
                                         "%Y-%m-%d %H:%M:%S %z",

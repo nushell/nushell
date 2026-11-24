@@ -1,5 +1,4 @@
 use crate::formats::{preserve_toml_document, read_toml_source_from_metadata};
-use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
 use nu_protocol::{PipelineMetadata, ast::PathMember};
 
@@ -219,34 +218,34 @@ fn to_toml(
     }
 }
 
-/// Convert chrono datetime into a toml::Value datetime.  The latter uses its
-/// own ad-hoc datetime types, which makes this somewhat convoluted.
-fn to_toml_datetime(datetime: &DateTime<FixedOffset>) -> toml::value::Datetime {
+/// Convert a nushell date into a toml::Value datetime. The latter uses its own ad-hoc datetime
+/// types, which makes this somewhat convoluted. TOML offsets are whole minutes, so an offset with
+/// seconds is rounded and the wall clock moves with it.
+fn to_toml_datetime(datetime: &nu_protocol::DateTime) -> toml::value::Datetime {
+    let datetime = datetime.to_minute_offset();
+    let civil = datetime.parts();
     let date = toml::value::Date {
-        // TODO: figure out what to do with BC dates, because the toml
-        // crate doesn't support them.  Same for large years, which
-        // don't fit in u16.
-        year: datetime.year_ce().1 as u16,
-        // Panic: this is safe, because chrono guarantees that the month
-        // value will be between 1 and 12 and the day will be between 1
-        // and 31
-        month: datetime.month() as u8,
-        day: datetime.day() as u8,
+        // TODO: figure out what to do with BC dates, because the toml crate doesn't support
+        // them. Years before 1 CE count down from 1 BCE.
+        year: if civil.year > 0 {
+            civil.year as u16
+        } else {
+            (1 - civil.year) as u16
+        },
+        month: civil.month as u8,
+        day: civil.day as u8,
     };
 
     let time = toml::value::Time {
-        // Panic: same as before, chorono guarantees that all of the following 3
-        // methods return values less than 65'000
-        hour: datetime.hour() as u8,
-        minute: datetime.minute() as u8,
-        second: Some(datetime.second() as u8),
-        nanosecond: Some(datetime.nanosecond()),
+        hour: civil.hour as u8,
+        minute: civil.minute as u8,
+        second: Some(civil.second as u8),
+        nanosecond: Some(civil.nanosecond as u32),
     };
 
     let offset = toml::value::Offset::Custom {
-        // Panic: minute timezone offset fits into i16 (that's more than
-        // 1000 hours)
-        minutes: (-datetime.timezone().utc_minus_local() / 60) as i16,
+        // A minute offset fits into i16 (that's more than 500 hours).
+        minutes: (datetime.offset().seconds() / 60) as i16,
     };
 
     toml::value::Datetime {
@@ -259,7 +258,6 @@ fn to_toml_datetime(datetime: &DateTime<FixedOffset>) -> toml::value::Datetime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
@@ -272,10 +270,7 @@ mod tests {
         let serialize_types = false;
 
         let test_date = Value::date(
-            chrono::FixedOffset::east_opt(60 * 120)
-                .unwrap()
-                .with_ymd_and_hms(1980, 10, 12, 10, 12, 44)
-                .unwrap(),
+            nu_protocol::DateTime::parse_rfc3339("1980-10-12T10:12:44+02:00").unwrap(),
             Span::test_data(),
         );
 
@@ -297,6 +292,33 @@ mod tests {
         let result = nu_value_to_toml_value(&engine_state, &test_date, serialize_types);
 
         assert!(result.is_ok_and(|res| res == reference_date));
+    }
+
+    #[test]
+    fn second_60_and_offsets_with_seconds_round_trip() {
+        use crate::formats::from::toml_datetime_to_value;
+        // Second 60, a leap second, reads as second 59.
+        let leap = nu_protocol::DateTime::parse_rfc3339("2016-12-31T23:59:60.5Z").unwrap();
+        // +00:17:30, Amsterdam's local mean time, rounds to +00:18 and moves the clock with it.
+        let lmt = nu_protocol::DateTime::parse_rfc3339("1800-01-01T00:00:00Z")
+            .unwrap()
+            .with_offset(jiff::tz::Offset::from_seconds(1050).unwrap());
+        assert_eq!(
+            to_toml_datetime(&leap).to_string(),
+            "2016-12-31T23:59:59.5+00:00"
+        );
+        assert_eq!(
+            to_toml_datetime(&lmt).to_string(),
+            "1800-01-01T00:18:00.0+00:18"
+        );
+        for date in [leap, lmt] {
+            let back = toml_datetime_to_value(&to_toml_datetime(&date), Span::test_data());
+            assert_eq!(back.as_date().ok(), Some(date));
+        }
+        // TOML text with second 60 reads the same way.
+        let text: toml::value::Datetime = "2016-12-31T23:59:60.5Z".parse().unwrap();
+        let read = toml_datetime_to_value(&text, Span::test_data());
+        assert_eq!(read.as_date().ok(), Some(leap));
     }
 
     #[test]

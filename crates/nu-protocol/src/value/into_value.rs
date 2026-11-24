@@ -1,5 +1,4 @@
 use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
-use chrono::{DateTime, FixedOffset};
 use nu_path::form::PathForm;
 use std::{
     borrow::{Borrow, Cow},
@@ -326,7 +325,7 @@ impl<Form: PathForm> IntoValue for nu_path::PathBuf<Form> {
 
 // Foreign Types
 
-impl IntoValue for DateTime<FixedOffset> {
+impl IntoValue for crate::DateTime {
     fn into_value(self, span: Span) -> Value {
         Value::date(self, span)
     }

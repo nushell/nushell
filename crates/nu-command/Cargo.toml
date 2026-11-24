@@ -55,7 +55,7 @@ bracoxide = { workspace = true }
 brotli = { workspace = true }
 byteorder = { workspace = true }
 bytesize = { workspace = true }
-calamine = { workspace = true, features = ["dates"] }
+calamine = { workspace = true }
 chardetng = { workspace = true }
 chrono = { workspace = true, features = [
   "std",
@@ -75,7 +75,6 @@ filesize = { workspace = true }
 filetime = { workspace = true }
 fluent = { workspace = true }
 http = { workspace = true }
-human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
@@ -167,17 +166,20 @@ winreg = { workspace = true }
 arboard = { version = "3.6.0", default-features = false, features = ["wayland-data-control"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# `mode` uses rustix::fs::Mode / rustix::process::umask; uucore 0.12 only
+# `mode` uses rustix::fs::Mode / rustix::process::umask; uucore 0.13 only
 # enables rustix/process for that feature, so also enable `fs` (rustix/fs).
 uucore = { workspace = true, features = ["fs", "mode"] }
 fff-search = { workspace = true, optional = true, default-features = false }
+# Version pin for fff-search's notify dependency; see the workspace Cargo.toml.
+notify = { workspace = true, optional = true, default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
 nix = { workspace = true, default-features = false, features = [
-  "user",
-  "resource",
-  "pthread",
+	"user",
+	"resource",
+	"pthread",
+	"term",
 ] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
@@ -200,13 +202,14 @@ workspace = true
 [features]
 default = ["os", "network", "rustls-tls", "sqlite"]
 os = [
-  # include other features
-  "js",
-  "nu-cmd-lang/os",
-  "nu-engine/os",
-  "nu-protocol/os",
-  "nu-utils/os",
-  "dep:fff-search",
+	# include other features
+	"js",
+	"nu-cmd-lang/os",
+	"nu-engine/os",
+	"nu-protocol/os",
+	"nu-utils/os",
+	"dep:fff-search",
+	"dep:notify",
 
   # os-dependant dependencies
   "crossterm",
@@ -229,11 +232,12 @@ os = [
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
 js = [
-  "aegis-password-generator",
-  "getrandom",
-  "getrandom/wasm_js",
-  "rand",
-  "uuid",
+	"aegis-password-generator",
+	"getrandom",
+	"getrandom/wasm_js",
+	"jiff/js",
+	"rand",
+	"uuid",
 ]
 
 # These dependencies require networking capabilities, especially the http

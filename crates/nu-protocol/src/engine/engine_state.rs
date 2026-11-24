@@ -2,11 +2,12 @@ use crate::{
     BlockId, Config, DeclId, DefaultPrompts, FileId, GetSpan, Handlers, HistoryConfig, JobId,
     Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type,
     TypeAlias, TypeAliasId, Value, VarId, VirtualPathId,
-    ast::{Block, Expr},
+    ast::{Block, Expr, Traverse},
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, PromptState,
-        ScopeFrame, Stack, StateDelta, Variable, VisibilityStack,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, JobOutput, JobOutputWriter,
+        OverlayFrame, PromptState, ScopeFrame, Stack, StateDelta, StateWorkingSet, Variable,
+        VisibilityStack,
         description::{Doccomments, build_desc},
         signature_cache::SignatureCache,
     },
@@ -23,6 +24,7 @@ use nu_utils::time::Instant;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    io::{IsTerminal, Write},
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
@@ -182,6 +184,9 @@ pub struct EngineState {
     /// and triggers an in-place repaint. Shared with every job that clones this
     /// engine state.
     pub prompt_state: Arc<PromptState>,
+    /// Text background jobs write to the terminal while the REPL waits for input. Shared with every
+    /// job that clones this engine state.
+    pub job_output: Arc<JobOutput>,
     /// The default prompt closures, once `nu-cli` has evaluated them at startup.
     pub default_prompts: DefaultPrompts,
     pub table_decl_id: Option<DeclId>,
@@ -331,6 +336,7 @@ impl EngineState {
                 selection: None,
             })),
             prompt_state: Arc::new(PromptState::new()),
+            job_output: Arc::new(JobOutput::new()),
             default_prompts: DefaultPrompts::default(),
             table_decl_id: None,
             signature_cache: Arc::default(),
@@ -466,6 +472,12 @@ impl EngineState {
                 for item in delta_overlay.vars.into_iter() {
                     existing_overlay.insert_variable(item.0, item.1);
                 }
+                // The loop above only sees each name's last binding. A binding the same source
+                // shadowed (the first `$x` in `let x = 1; let x = 2`) was recorded in the delta,
+                // so carry it over, or `cleanup_stack_variables` never frees its value.
+                existing_overlay
+                    .shadowed_vars
+                    .extend(delta_overlay.shadowed_vars);
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
@@ -610,7 +622,10 @@ impl EngineState {
     }
 
     /// Clean up unused variables from a Stack to prevent memory leaks.
-    /// This removes variables that are no longer referenced by any overlay or alias.
+    ///
+    /// This removes the values of variables recorded as shadowed since the last cleanup, unless
+    /// some overlay still binds the variable by name, or an alias or custom command still
+    /// references it.
     pub fn cleanup_stack_variables(&mut self, stack: &mut Stack) {
         // Only take the scope for writing when there is something to drain.
         if self
@@ -627,20 +642,54 @@ impl EngineState {
             shadowed_vars.extend(frame.shadowed_vars.drain(..));
         }
 
-        // Collect VarIds still referenced by alias definitions so we don't
-        // remove them — doing so would cause a VariableNotFoundAtRuntime error
-        // when the alias is invoked after the variable has been re-bound.
-        let mut alias_var_ids = HashSet::new();
-        for decl in self.decls.iter() {
-            if let Some(alias) = decl.as_alias() {
-                collect_alias_var_ids(&alias.wrapped_call, &mut alias_var_ids);
+        // A shadowed variable can be bound by name again, as when `source` of a file it already
+        // read binds that file's names to the same variables. Check every overlay, since a hidden
+        // one can be brought back.
+        for (_, frame) in &self.scope.overlays {
+            for var_id in frame.vars.values() {
+                shadowed_vars.remove(var_id);
             }
         }
 
-        // Remove variables from stack that are shadowed and not referenced by any alias
-        stack.vars.retain(|(var_id, _)| {
-            !shadowed_vars.contains(var_id) || alias_var_ids.contains(var_id)
-        });
+        // When none of the shadowed variables has a value on the stack, there is nothing to
+        // remove, so skip the scan of every declaration below.
+        if !stack
+            .vars
+            .iter()
+            .any(|(var_id, _)| shadowed_vars.contains(var_id))
+        {
+            return;
+        }
+
+        // Collect VarIds still referenced by alias definitions and custom command bodies so we
+        // don't remove them. Both read these variables from the caller's stack when invoked (a
+        // `def` body through its captures), so removing one would cause a
+        // VariableNotFoundAtRuntime error after the variable has been re-bound.
+        let working_set = StateWorkingSet::new(self);
+        let mut referenced_var_ids = Vec::new();
+        for decl in self.decls.iter() {
+            if let Some(alias) = decl.as_alias() {
+                // Walks into subexpressions and blocks too, as in `alias foo = echo ($x + 1)`.
+                alias.wrapped_call.flat_map(
+                    &working_set,
+                    &|expr| match expr.expr {
+                        Expr::Var(var_id) => vec![var_id],
+                        _ => vec![],
+                    },
+                    &mut referenced_var_ids,
+                );
+            } else if let Some(block_id) = decl.block_id() {
+                let captures = &self.get_block(block_id).captures;
+                referenced_var_ids.extend(captures.iter().map(|(var_id, _)| *var_id));
+            }
+        }
+        for var_id in &referenced_var_ids {
+            shadowed_vars.remove(var_id);
+        }
+
+        stack
+            .vars
+            .retain(|(var_id, _)| !shadowed_vars.contains(var_id));
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -1504,6 +1553,7 @@ impl EngineState {
         self.repl_state = Default::default();
         self.report_log = Default::default();
         self.prompt_state = Arc::new(PromptState::new());
+        self.job_output = Arc::new(JobOutput::new());
         self.jobs = Default::default();
         self.current_job = CurrentJob {
             id: JobId::new(0),
@@ -1539,39 +1589,30 @@ impl EngineState {
         self.current_job.background_thread_job.is_some()
     }
 
+    /// A writer for this thread's output to `stream`, the process's stdout or stderr.
+    ///
+    /// While the REPL holds the terminal, a background job's output to it waits in [`JobOutput`],
+    /// and the line editor prints it above the prompt. The line editor paints on stderr, so this
+    /// only happens when both `stream` and stderr are terminals.
+    pub fn job_output_writer<W: Write + IsTerminal>(&self, stream: W) -> JobOutputWriter<'_, W> {
+        self.job_output_writer_with(stream, |stream| {
+            stream.is_terminal() && std::io::stderr().is_terminal()
+        })
+    }
+
+    /// [`Self::job_output_writer`] with the terminal check passed in.
+    fn job_output_writer_with<W: Write>(
+        &self,
+        stream: W,
+        is_terminal: fn(&W) -> bool,
+    ) -> JobOutputWriter<'_, W> {
+        let job_output = self.is_background_job().then_some(&*self.job_output);
+        JobOutputWriter::new(job_output, stream, is_terminal)
+    }
+
     // Gets the thread job entry
     pub fn current_thread_job(&self) -> Option<&ThreadJob> {
         self.current_job.background_thread_job.as_ref()
-    }
-}
-
-/// Collect all `VarId`s referenced by `Expr::Var` nodes in `expr`.
-/// This is used by [`EngineState::cleanup_stack_variables`] to avoid removing
-/// variables that are still referenced by alias definitions.
-fn collect_alias_var_ids(expr: &crate::ast::Expression, var_ids: &mut HashSet<VarId>) {
-    let mut queue = vec![expr];
-
-    while let Some(e) = queue.pop() {
-        match &e.expr {
-            Expr::Var(id) => {
-                var_ids.insert(*id);
-            }
-            Expr::Call(call) => {
-                for arg in &call.arguments {
-                    if let Some(sub_expr) = arg.expr() {
-                        queue.push(sub_expr);
-                    }
-                }
-            }
-            Expr::ExternalCall(head, args) => {
-                queue.push(head);
-                for arg in args.iter() {
-                    queue.push(arg.expr());
-                }
-            }
-            Expr::FullCellPath(fcp) => queue.push(&fcp.head),
-            _ => {}
-        }
     }
 }
 
@@ -1617,6 +1658,81 @@ mod engine_state_tests {
         let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
+    }
+
+    fn background_job_state() -> EngineState {
+        let mut engine_state = EngineState::new();
+        let (sender, _receiver) = channel();
+        engine_state.current_job.background_thread_job =
+            Some(ThreadJob::new(Signals::empty(), None, false, sender));
+        engine_state
+    }
+
+    /// Write `text` as `engine_state` would to a terminal, or to a file when `to_terminal` is
+    /// false, and return what reached the stream instead of the queue.
+    fn write_output(engine_state: &EngineState, to_terminal: bool, text: &str) -> String {
+        let mut written = Vec::new();
+        let is_terminal = if to_terminal {
+            |_: &_| true
+        } else {
+            |_: &_| false
+        };
+        engine_state
+            .job_output_writer_with(&mut written, is_terminal)
+            .write_all(text.as_bytes())
+            .expect("writing to a Vec");
+        String::from_utf8(written).expect("UTF-8 output")
+    }
+
+    #[test]
+    fn job_output_to_the_terminal_is_queued_while_held() {
+        let engine_state = background_job_state();
+        engine_state.job_output.hold();
+
+        assert_eq!(write_output(&engine_state, true, "from a job\n"), "");
+
+        assert_eq!(
+            engine_state.job_output.drain().as_deref(),
+            Some("from a job\n")
+        );
+    }
+
+    #[test]
+    fn main_thread_output_is_written_directly_while_held() {
+        let engine_state = EngineState::new();
+        engine_state.job_output.hold();
+
+        assert_eq!(write_output(&engine_state, true, "main\n"), "main\n");
+        assert_eq!(engine_state.job_output.drain(), None);
+    }
+
+    #[test]
+    fn job_output_to_a_file_is_written_directly_while_held() {
+        let engine_state = background_job_state();
+        engine_state.job_output.hold();
+
+        assert_eq!(
+            write_output(&engine_state, false, "to a file\n"),
+            "to a file\n"
+        );
+        assert_eq!(engine_state.job_output.drain(), None);
+    }
+
+    #[test]
+    fn job_output_is_shared_with_clones() {
+        let engine_state = EngineState::new();
+        let mut job_side = engine_state.clone();
+        let (sender, _receiver) = channel();
+        job_side.current_job.background_thread_job =
+            Some(ThreadJob::new(Signals::empty(), None, false, sender));
+        engine_state.job_output.hold();
+
+        write_output(&job_side, true, "from a clone\n");
+
+        assert_eq!(
+            engine_state.job_output.drain().as_deref(),
+            Some("from a clone\n")
+        );
     }
 
     /// An engine that appends declarations to a signature cache it shares with a clone starts

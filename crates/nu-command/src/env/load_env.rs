@@ -86,6 +86,10 @@ impl Command for LoadEnv {
                 let name = stack.get_env_var_name(engine_state, &name).into_owned();
                 stack.add_env_var(name, value);
             } else {
+                // Setting the code on purpose, as `$env.LAST_EXIT_CODE = 0` does.
+                if env_var_eq(&name, var::LAST_EXIT_CODE) {
+                    stack.last_exit_code_written = true;
+                }
                 stack.add_env_var(name, value);
             }
         }

@@ -185,7 +185,8 @@ impl Command for Glob {
         if nu_experimental::DC_GLOB.get() {
             "Patterns use the same syntax as `ls` and the other file commands: `*`, `?`, `[...]`, \
             `[!...]`, `**` and `{a,b}`. A trailing `**` lists the directories below its prefix; use \
-            `**/*` to list everything below it."
+            `**/*` to list everything below it. Before the first glob syntax, `...` means `../..`, \
+            `....` means `../../..`, and so on."
         } else {
             "For more glob pattern help, please refer to https://docs.rs/crate/wax/latest."
         }
@@ -356,6 +357,30 @@ fn infer_folder_depth(glob_pattern: &str, depth: Option<usize>) -> usize {
     }
 }
 
+/// Expand n-dots such as `...` into `../..` in the literal components that start the pattern,
+/// up to the first one with glob syntax. The legacy backend does the same to the literal prefix
+/// it resolves with `absolute_with`, and `ls` does it in `glob_from`. Later components and every
+/// separator stay as typed, so a trailing `/` still matches directories only.
+///
+/// dc-glob reads its patterns as typed, so every pattern `glob` hands it goes through here: the
+/// main pattern, each `--exclude` and the `--dbg-glob` pattern.
+fn expand_ndots_in_literal_prefix(pattern: &str) -> String {
+    let mut expanded = String::with_capacity(pattern.len());
+    let mut in_prefix = true;
+    for piece in pattern.split_inclusive(std::path::is_separator) {
+        let component = piece.trim_end_matches(std::path::is_separator);
+        in_prefix &= !nu_glob::dc_glob::is_glob_component(component);
+        // n dots name the directory n - 1 levels up.
+        if in_prefix && nu_path::dots::is_ndots(std::ffi::OsStr::new(component)) {
+            expanded.push_str(&vec![".."; component.len() - 1].join("/"));
+            expanded.push_str(&piece[component.len()..]);
+        } else {
+            expanded.push_str(piece);
+        }
+    }
+    expanded
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_dc_glob(
     engine_state: &EngineState,
@@ -371,12 +396,18 @@ fn run_dc_glob(
     ignore_case: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let folder_depth = infer_folder_depth(glob_pattern, depth);
+    // Expanded before the depth is inferred, so `.../*` walks like `../../*`.
+    let glob_pattern = expand_ndots_in_literal_prefix(glob_pattern);
+    let folder_depth = infer_folder_depth(&glob_pattern, depth);
     let cwd = engine_state.cwd(Some(stack))?;
     let options = nu_glob::dc_glob::GlobWalkOptions {
         max_depth: (folder_depth != usize::MAX).then_some(folder_depth),
         follow_symlinks,
-        excludes: not_patterns,
+        // Excludes match the same relative paths as the pattern, so `...` must mean the same.
+        excludes: not_patterns
+            .iter()
+            .map(|exclude| expand_ndots_in_literal_prefix(exclude))
+            .collect(),
         interrupt: engine_state.signals().interrupt_flag(),
         ignore_case,
         // `glob` lists hidden names, as it does with the legacy backend.
@@ -386,9 +417,11 @@ fn run_dc_glob(
     // Drop `.` components, so a cwd like `dir/.` gives `dir/name` matches rather than
     // `dir/./name`, as with wax.
     let cwd_for_matches: std::path::PathBuf = cwd.as_std_path().components().collect();
-    let glob_pattern = nu_path::expand_tilde(glob_pattern)
+    let glob_pattern = nu_path::expand_tilde(&glob_pattern)
         .to_string_lossy()
         .to_string();
+    #[cfg(windows)]
+    let (cwd_for_matches, glob_pattern) = split_drive_relative_glob(glob_pattern, cwd_for_matches);
 
     let matches =
         nu_glob::dc_glob::glob_with(&cwd_for_matches, &glob_pattern, &options).map_err(|err| {
@@ -571,6 +604,30 @@ fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<S
     }
 }
 
+/// Split a drive-relative prefix like `C:` off `C:*.txt` and resolve it against `cwd` the way
+/// `ls` does, so the walk doesn't start in the process's directory for that drive. The
+/// directory is returned as the walk base rather than put into the pattern, where glob
+/// characters in it such as `[` would need escaping and change where the walk starts.
+#[cfg(windows)]
+fn split_drive_relative_glob(
+    glob_pattern: String,
+    cwd: std::path::PathBuf,
+) -> (std::path::PathBuf, String) {
+    let mut chars = glob_pattern.chars();
+    match (chars.next(), chars.next(), chars.next()) {
+        (Some(drive), Some(':'), next)
+            if drive.is_ascii_alphabetic() && !matches!(next, Some('/' | '\\')) =>
+        {
+            let (drive, rest) = glob_pattern.split_at(2);
+            let base = nu_path::resolve_drive_relative(std::path::Path::new(drive), &cwd);
+            // `C:` alone names the directory itself, as `.` does.
+            let rest = if rest.is_empty() { "." } else { rest };
+            (base.into_owned(), rest.to_string())
+        }
+        _ => (cwd, glob_pattern),
+    }
+}
+
 fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
@@ -720,9 +777,11 @@ fn run_debug_subcommand(
                         span,
                     ))
                 })?;
-            let expanded_pattern = nu_path::expand_tilde(&pattern.item)
-                .to_string_lossy()
-                .to_string();
+            // Expanded as `glob` expands its pattern, so both find the same paths.
+            let expanded_pattern =
+                nu_path::expand_tilde(expand_ndots_in_literal_prefix(&pattern.item))
+                    .to_string_lossy()
+                    .to_string();
             let out = nu_glob::dc_glob::glob_with(
                 relative_to,
                 &expanded_pattern,
@@ -843,5 +902,37 @@ mod tests {
                 "glob signature should hide --ignore-case when dc-glob is disabled"
             );
         }
+    }
+
+    #[rstest::rstest]
+    #[case("...", "../..")]
+    #[case("....", "../../..")]
+    #[case(".../*.txt", "../../*.txt")]
+    #[case(".../", "../../")]
+    #[case("./.../*", "./../../*")]
+    #[case("a/.../b*", "a/../../b*")]
+    #[case("/a/b/.../**", "/a/b/../../**")]
+    // Past the first component with glob syntax, `...` is a name, as with the legacy backend.
+    #[case("*/.../x", "*/.../x")]
+    #[case("{a,b}/...", "{a,b}/...")]
+    // Not n-dots.
+    #[case("..", "..")]
+    #[case("a.../*", "a.../*")]
+    #[case("...a/*", "...a/*")]
+    fn expand_ndots_only_in_literal_prefix(#[case] pattern: &str, #[case] expected: &str) {
+        assert_eq!(expand_ndots_in_literal_prefix(pattern), expected);
+    }
+
+    /// Windows also splits on `\`. The `..` pieces are joined with `/` and the typed separators
+    /// are kept, so the output mixes the two.
+    #[cfg(windows)]
+    #[rstest::rstest]
+    #[case(r"...\*.txt", r"../..\*.txt")]
+    #[case(r"...\", r"../..\")]
+    #[case(r"a\...\b*", r"a\../..\b*")]
+    #[case(r"a/...\b*", r"a/../..\b*")]
+    #[case(r"*\...\x", r"*\...\x")]
+    fn expand_ndots_with_backslash_separators(#[case] pattern: &str, #[case] expected: &str) {
+        assert_eq!(expand_ndots_in_literal_prefix(pattern), expected);
     }
 }

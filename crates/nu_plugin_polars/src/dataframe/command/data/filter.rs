@@ -84,7 +84,7 @@ impl PluginCommand for LazyFilter {
                             Column::new(
                                 "dt".to_string(),
                                 vec![
-                                    Value::date(
+                                    nu_protocol::IntoValue::into_value(
                                         chrono::DateTime::parse_from_str(
                                             "2025-04-03 00:00:00 +0000",
                                             "%Y-%m-%d %H:%M:%S %z",
@@ -92,7 +92,7 @@ impl PluginCommand for LazyFilter {
                                         .expect("date calculation should not fail in test"),
                                         Span::test_data(),
                                     ),
-                                    Value::date(
+                                    nu_protocol::IntoValue::into_value(
                                         chrono::DateTime::parse_from_str(
                                             "2025-04-04 00:00:00 +0000",
                                             "%Y-%m-%d %H:%M:%S %z",

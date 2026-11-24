@@ -252,7 +252,7 @@ fn parse_script(engine_state: &mut EngineState, target: &Target) -> Result<Arc<B
     if let Some(err) = working_set.parse_errors.first() {
         // Display, not Debug, and matching the compile-error arm below: the
         // Debug form dumps spans into the message the user actually reads.
-        return Err(format!("parse error: {err}"));
+        return Err(format!("parse error: {}", err.one_line_message()));
     }
 
     if let Some(err) = working_set.compile_errors.first() {

@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_expression};
+use nu_engine::command_prelude::*;
 use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionArgType, GetCompletionInfo};
 use nu_protocol::engine::ArgType;
 use nu_protocol::shell_error::generic::GenericError;
@@ -72,12 +72,9 @@ impl Command for PluginDeclaration {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let eval_expression = get_eval_expression(engine_state);
-
         // Create the EvaluatedCall to send to the plugin first - it's best for this to fail early,
         // before we actually try to run the plugin command
-        let evaluated_call =
-            EvaluatedCall::try_from_call(call, engine_state, stack, eval_expression)?;
+        let evaluated_call = EvaluatedCall::try_from_call(call, stack)?;
 
         // Get the engine config
         let engine_config = stack.get_config(engine_state);

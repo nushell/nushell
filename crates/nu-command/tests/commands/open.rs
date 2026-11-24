@@ -1,171 +1,159 @@
 use std::path::Path;
 
 use nu_protocol::shell_error;
-use nu_test_support::{
-    fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed},
-    playground::Playground,
-    prelude::*,
-};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
-fn parses_file_with_uppercase_extension() -> Result {
-    Playground::setup("open_test_uppercase_extension", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu.zion.JSON",
-            r#"
-                {
-                    "glossary": {
-                        "GlossDiv": {
-                            "GlossList": {
-                                "GlossEntry": {
-                                    "ID": "SGML"
-                                }
-                            }
+fn parses_file_with_uppercase_extension(playground: Playground) -> Result {
+    playground.file(
+        "nu.zion.JSON",
+        indoc::indoc! {r#"
+        {
+            "glossary": {
+                "GlossDiv": {
+                    "GlossList": {
+                        "GlossEntry": {
+                            "ID": "SGML"
                         }
                     }
                 }
-            "#,
-        )]);
+            }
+        }
+    "#},
+    )?;
 
-        let code = "
-            open nu.zion.JSON
-            | get glossary.GlossDiv.GlossList.GlossEntry.ID
-        ";
+    let code = "
+        open nu.zion.JSON
+        | get glossary.GlossDiv.GlossList.GlossEntry.ID
+    ";
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("SGML")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("SGML")
 }
 
 #[test]
-fn parses_file_with_tar_gz_extension() -> Result {
-    Playground::setup("open_test_tar_gz_extension", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("file.tar.gz", "this is a tar.gz file")]);
+fn parses_file_with_tar_gz_extension(playground: Playground) -> Result {
+    playground.file("file.tar.gz", "this is a tar.gz file")?;
 
-        let code = r#"
-            hide "from tar.gz" ;
-            hide "from gz" ;
+    let code = r#"
+        hide "from tar.gz" ;
+        hide "from gz" ;
+        
+        def "from tar.gz" [] { 'opened tar.gz' } ;
+        def "from gz" [] { 'opened gz' } ;
+        open file.tar.gz
+    "#;
 
-            def "from tar.gz" [] { 'opened tar.gz' } ;
-            def "from gz" [] { 'opened gz' } ;
-            open file.tar.gz
-        "#;
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("opened tar.gz")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("opened tar.gz")
 }
 
 #[test]
-fn parses_file_with_tar_xz_extension() -> Result {
-    Playground::setup("open_test_tar_xz_extension", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("file.tar.xz", "this is a tar.xz file")]);
+fn parses_file_with_tar_xz_extension(playground: Playground) -> Result {
+    playground.file("file.tar.xz", "this is a tar.xz file")?;
 
-        let code = r#"
-            hide "from tar.xz" ;
-            hide "from xz" ;
-            hide "from tar" ;
+    let code = r#"
+        hide "from tar.xz" ;
+        hide "from xz" ;
+        hide "from tar" ;
+        
+        def "from tar" [] { 'opened tar' } ;
+        def "from xz" [] { 'opened xz' } ;
+        open file.tar.xz
+    "#;
 
-            def "from tar" [] { 'opened tar' } ;
-            def "from xz" [] { 'opened xz' } ;
-            open file.tar.xz
-        "#;
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("opened xz")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("opened xz")
 }
 
 #[test]
-fn parses_dotfile() -> Result {
-    Playground::setup("open_test_dotfile", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(".gitignore", "/target/")]);
+fn parses_dotfile(playground: Playground) -> Result {
+    playground.file(".gitignore", "/target/")?;
 
-        let code = r#"
-            hide "from gitignore" ;
+    let code = r#"
+        hide "from gitignore" ;
+        
+        def "from gitignore" [] { 'opened gitignore' } ;
+        open .gitignore
+    "#;
 
-            def "from gitignore" [] { 'opened gitignore' } ;
-            open .gitignore
-        "#;
-
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("opened gitignore")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("opened gitignore")
 }
 
 #[test]
-fn parses_csv() -> Result {
-    Playground::setup("open_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "nu.zion.csv",
-            "
-                author,lang,source
-                JT Turner,Rust,New Zealand
-                Andres N. Robalino,Rust,Ecuador
-                Yehuda Katz,Rust,Estados Unidos
-            ",
-        )]);
+fn parses_csv(playground: Playground) -> Result {
+    playground.file(
+        "nu.zion.csv",
+        indoc::indoc! {"
+        author,lang,source
+        JT Turner,Rust,New Zealand
+        Andres N. Robalino,Rust,Ecuador
+        Yehuda Katz,Rust,Estados Unidos
+    "},
+    )?;
 
-        let code = r#"
-            open nu.zion.csv
-            | where author == "Andres N. Robalino"
-            | get source.0
-        "#;
+    let code = r#"
+        open nu.zion.csv
+        | where author == "Andres N. Robalino"
+        | get source.0
+    "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("Ecuador")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("Ecuador")
 }
 
 /// A `from <ext>` alias is rejected with an error suggesting a `def`, instead of failing with
 /// "Can't run alias directly" (#18725).
 #[test]
-fn open_with_a_from_alias_suggests_def() -> Result {
-    Playground::setup("open_with_from_alias", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContent("deno.jsonc", r#"{"name": "nu"}"#),
-            FileWithContent("plain.foo", "a,b\n1,2\n"),
-        ]);
+fn open_with_a_from_alias_suggests_def(playground: Playground) -> Result {
+    playground.file("deno.jsonc", r#"{"name": "nu"}"#)?;
+    playground.file("plain.foo", "a,b\n1,2\n")?;
 
-        let code = r#"alias "from jsonc" = from json; open deno.jsonc"#;
-        let err = test().cwd(dirs.test()).run(code).expect_error()?;
-        assert_contains("Can't open file with alias `from jsonc`", err.to_string());
-        assert_contains("def 'from jsonc' [] { from json }", format!("{err:?}"));
-        assert!(!format!("{err:?}").contains("Can't run alias directly"));
+    let code = r#"alias "from jsonc" = from json; open deno.jsonc"#;
+    let err = test().cwd(playground.path()).run(code).expect_error()?;
+    assert_contains("Can't open file with alias `from jsonc`", err.to_string());
+    assert_contains("def 'from jsonc' [] { from json }", format!("{err:?}"));
+    assert!(!format!("{err:?}").contains("Can't run alias directly"));
 
-        // The suggestion keeps the alias's flags.
-        let code = r#"alias "from foo" = from csv --noheaders; open plain.foo"#;
-        let err = test().cwd(dirs.test()).run(code).expect_error()?;
-        assert_contains(
-            "def 'from foo' [] { from csv --noheaders }",
-            format!("{err:?}"),
-        );
-        Ok(())
-    })
+    // The suggestion keeps the alias's flags.
+    let code = r#"alias "from foo" = from csv --noheaders; open plain.foo"#;
+    let err = test().cwd(playground.path()).run(code).expect_error()?;
+    assert_contains(
+        "def 'from foo' [] { from csv --noheaders }",
+        format!("{err:?}"),
+    );
+
+    Ok(())
 }
 
 /// An alias over the converter it shadows (`alias "from json" = from json --objects`) can't
 /// become a `def` of that name, which would call itself, so the help shows the explicit pipeline.
 #[test]
-fn open_with_a_shadowing_from_alias_suggests_a_pipeline() -> Result {
-    Playground::setup("open_with_shadowing_from_alias", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("data.json", r#"{"name": "nu"}"#)]);
+fn open_with_a_shadowing_from_alias_suggests_a_pipeline(playground: Playground) -> Result {
+    playground.file("data.json", r#"{"name": "nu"}"#)?;
 
-        let code = r#"alias "from json" = from json --objects; open data.json"#;
-        let err = test().cwd(dirs.test()).run(code).expect_error()?;
-        assert_contains("Can't open file with alias `from json`", err.to_string());
-        assert_contains(
-            "open --raw data.json | from json --objects",
-            format!("{err:?}"),
-        );
-        assert!(!format!("{err:?}").contains("def 'from json'"));
-        Ok(())
-    })
+    let code = r#"alias "from json" = from json --objects; open data.json"#;
+    let err = test().cwd(playground.path()).run(code).expect_error()?;
+    assert_contains("Can't open file with alias `from json`", err.to_string());
+    assert_contains(
+        "open --raw data.json | from json --objects",
+        format!("{err:?}"),
+    );
+    assert!(!format!("{err:?}").contains("def 'from json'"));
+
+    Ok(())
 }
 
 // sample.db has the following format:
@@ -413,6 +401,49 @@ fn open_multiple_files() -> Result {
         .expect_value_eq(58309279992i64)
 }
 
+/// Files without a converter are chained into one byte stream instead of 8 KiB chunks (#10027).
+#[test]
+fn open_multiple_files_chains_byte_streams(playground: Playground) -> Result {
+    playground.file("first.txt", "a".repeat(10000))?;
+    playground.file("second.txt", "b".repeat(20000))?;
+    let lines = (1..=2000)
+        .map(|i| format!("line {i}\n"))
+        .collect::<String>();
+    playground.file("lines.txt", lines)?;
+
+    for open in [
+        "open --raw first.txt second.txt",
+        "open first.txt second.txt",
+    ] {
+        test()
+            .cwd(playground.path())
+            .run(format!("{open} | str length"))
+            .expect_value_eq(30000)?;
+    }
+
+    test()
+        .cwd(playground.path())
+        .run("open lines.txt lines.txt | lines | length")
+        .expect_value_eq(4000)?;
+
+    test()
+        .cwd(playground.path())
+        .run(r#"open lines.txt lines.txt | lines | where $it !~ '^line \d+$' | length"#)
+        .expect_value_eq(0)
+}
+
+/// A typed byte stream from a `from` converter keeps its type when the files are chained.
+#[test]
+fn open_multiple_files_keeps_converter_stream_type(playground: Playground) -> Result {
+    playground.file("h1.foo", "hello")?;
+    playground.file("h2.foo", "world")?;
+
+    test()
+        .cwd(playground.path())
+        .run(r#"def "from foo" [] { into binary }; open h1.foo h2.foo | collect | to nuon"#)
+        .expect_value_eq("0x[68656C6C6F776F726C64]")
+}
+
 #[test]
 fn test_open_block_command() -> Result {
     let code = r#"
@@ -445,13 +476,11 @@ fn test_open_with_converter_flags() -> Result {
 }
 
 #[test]
-fn open_ignore_ansi() -> Result {
-    Playground::setup("open_test_ansi", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("nu.zion.txt")]);
-        let code = "ls | find nu.zion | get 0 | get name | open $in";
-        let _: Value = test().cwd(dirs.test()).run(code)?;
-        Ok(())
-    })
+fn open_ignore_ansi(playground: Playground) -> Result {
+    playground.empty_file("nu.zion.txt")?;
+    let code = "ls | find nu.zion | get 0 | get name | open $in";
+    let _: Value = test().cwd(playground.path()).run(code)?;
+    Ok(())
 }
 
 #[test]
@@ -467,15 +496,16 @@ fn open_no_parameter() -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-fn open_literal_file_with_glob_metachars(#[case] src_name: &str) -> Result {
-    Playground::setup("open_test_with_glob_metachars", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(src_name, "hello")]);
-        let src = dirs.test().join(src_name);
-        test()
-            .cwd(dirs.test())
-            .run(format!("open '{}'", src.display()))
-            .expect_value_eq("hello")
-    })
+fn open_literal_file_with_glob_metachars(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    playground.file(src_name, "hello")?;
+    let src = playground.path().join(src_name);
+    test()
+        .cwd(playground.path())
+        .run(format!("open '{}'", src.display()))
+        .expect_value_eq("hello")
 }
 
 #[track_caller]
@@ -484,15 +514,16 @@ fn open_literal_file_with_glob_metachars(#[case] src_name: &str) -> Result {
 #[case("a[c")]
 #[case("a[bc]d")]
 #[case("a][c")]
-fn open_variable_file_with_glob_metachars(#[case] src_name: &str) -> Result {
-    Playground::setup("open_test_variable_with_glob_metachars", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(src_name, "hello")]);
-        let src = dirs.test().join(src_name);
-        test()
-            .cwd(dirs.test())
-            .run(format!("let f = '{}'; open $f", src.display()))
-            .expect_value_eq("hello")
-    })
+fn open_variable_file_with_glob_metachars(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    playground.file(src_name, "hello")?;
+    let src = playground.path().join(src_name);
+    test()
+        .cwd(playground.path())
+        .run(format!("let f = '{}'; open $f", src.display()))
+        .expect_value_eq("hello")
 }
 
 #[cfg(not(windows))]
@@ -500,8 +531,11 @@ fn open_variable_file_with_glob_metachars(#[case] src_name: &str) -> Result {
 #[case("a]?c")]
 #[case("a*.?c")]
 // windows doesn't allow filename with `*`.
-fn open_literal_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
-    open_literal_file_with_glob_metachars(src_name)
+fn open_literal_files_with_glob_metachars_nw(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    open_literal_file_with_glob_metachars(playground, src_name)
 }
 
 #[cfg(not(windows))]
@@ -509,23 +543,91 @@ fn open_literal_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
 #[case("a]?c")]
 #[case("a*.?c")]
 // windows doesn't allow filename with `*`.
-fn open_variable_files_with_glob_metachars_nw(#[case] src_name: &str) -> Result {
-    open_variable_file_with_glob_metachars(src_name)
+fn open_variable_files_with_glob_metachars_nw(
+    #[ignore] playground: Playground,
+    #[case] src_name: &str,
+) -> Result {
+    open_variable_file_with_glob_metachars(playground, src_name)
 }
 
 #[test]
-fn open_files_inside_glob_metachars_dir() -> Result {
-    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
-        let sub_dir = "test[]";
-        sandbox
-            .within(sub_dir)
-            .with_files(&[FileWithContent("test_file.txt", "hello")]);
+fn open_files_inside_glob_metachars_dir(playground: Playground) -> Result {
+    let sub_dir = "test[]";
+    playground.file("test[]/test_file.txt", "hello")?;
 
-        test()
-            .cwd(dirs.test().join(sub_dir))
-            .run("open test_file.txt")
-            .expect_value_eq("hello")
-    })
+    test()
+        .cwd(playground.path().join(sub_dir))
+        .run("open test_file.txt")
+        .expect_value_eq("hello")
+}
+
+fn assert_open_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
+    playground.file("work[1]/marker.txt", "inside")?;
+    playground.file("outer.txt", "outside")?;
+    playground.file("work[1]/a/outer.txt", "lexical parent")?;
+    playground.symlink("work[1]", "work[1]/a/up")?;
+    let mut tester = test().cwd(playground.path());
+
+    tester
+        .run("open --raw 'work[1]/a/up/marker.txt'")
+        .expect_value_eq("inside")?;
+    // Compare with the platform's own resolution of `..` through a directory link.
+    let expected = std::fs::read_to_string(playground.path().join("work[1]/a/up/../outer.txt"))?;
+    tester
+        .run("open --raw 'work[1]/a/up/../outer.txt'")
+        .expect_value_eq(expected)
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn open_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
+    assert_open_quoted_symlink_in_bracket_path(playground)
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn open_dc_glob_quoted_symlink_in_bracket_path(playground: Playground) -> Result {
+    assert_open_quoted_symlink_in_bracket_path(playground)
+}
+
+#[cfg(unix)]
+fn assert_open_quoted_path_reports_permission_denied(playground: Playground) -> Result {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    if nix::unistd::Uid::effective().is_root() {
+        return Ok(());
+    }
+
+    playground.file("private/[1]", "contents")?;
+    let directory = playground.path().join("private");
+    let permissions = fs::metadata(&directory)?.permissions();
+    fs::set_permissions(&directory, fs::Permissions::from_mode(0o000))?;
+    let result = test()
+        .cwd(playground.path())
+        .run("open --raw 'private/[1]'")
+        .expect_io_error();
+    fs::set_permissions(&directory, permissions)?;
+
+    pretty_assertions::assert_matches!(
+        result?.kind,
+        shell_error::io::ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
+    );
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB = false)]
+fn open_quoted_path_reports_permission_denied(playground: Playground) -> Result {
+    assert_open_quoted_path_reports_permission_denied(playground)
+}
+
+#[cfg(unix)]
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn open_dc_glob_quoted_path_reports_permission_denied(playground: Playground) -> Result {
+    assert_open_quoted_path_reports_permission_denied(playground)
 }
 
 #[rstest]

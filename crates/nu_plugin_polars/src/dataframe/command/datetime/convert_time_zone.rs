@@ -8,7 +8,7 @@ use crate::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape,
 };
 
 use chrono::DateTime;
@@ -62,7 +62,7 @@ impl PluginCommand for ConvertTimeZone {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-04-10 14:30:00 +0100",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -70,7 +70,7 @@ impl PluginCommand for ConvertTimeZone {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-04-10 15:30:00 +0100",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -106,7 +106,7 @@ impl PluginCommand for ConvertTimeZone {
                         vec![Column::new(
                             "datetime".to_string(),
                             vec![
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-04-10 05:30:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",
@@ -114,7 +114,7 @@ impl PluginCommand for ConvertTimeZone {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-                                Value::date(
+                                nu_protocol::IntoValue::into_value(
                                     DateTime::parse_from_str(
                                         "2025-04-10 06:30:00 -0400",
                                         "%Y-%m-%d %H:%M:%S %z",

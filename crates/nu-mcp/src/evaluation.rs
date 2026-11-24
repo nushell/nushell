@@ -611,6 +611,10 @@ fn eval_inner(
     } = &mut state;
 
     let result = eval_on_state(engine_state, stack, history, nu_source);
+    // Like the REPL after each line, free the values this evaluation shadowed, or a long session
+    // keeps every one of them. The state is kept even when the evaluation failed, so clean up
+    // either way.
+    engine_state.cleanup_stack_variables(stack);
     (state, result)
 }
 
@@ -627,7 +631,14 @@ fn eval_on_state(
 
         if let Some(err) = working_set.parse_errors.first() {
             let span = block.span.unwrap_or(Span::unknown());
-            return Err(user_input_error(&working_set, err, None, span));
+            // A parse-time evaluation error's message is a full report; its code, help and
+            // labels come from the evaluation error inside it.
+            return Err(user_input_error(
+                &working_set,
+                err.one_line_diagnostic(),
+                None,
+                span,
+            ));
         }
 
         if let Some(err) = working_set.compile_errors.first() {
@@ -665,7 +676,9 @@ fn eval_on_state(
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos() as i64)
         .unwrap_or(0);
-    let timestamp_value = chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
+    let timestamp_value =
+        nu_protocol::DateTime::from_unix_nanos(timestamp.into(), jiff::tz::Offset::UTC)
+            .unwrap_or(nu_protocol::DateTime::UNIX_EPOCH);
 
     // Store in history
     let history_index = history.push(output_value.clone(), engine_state, stack);
@@ -797,6 +810,15 @@ fn process_pipeline(
         }
     }
 
+    // Lists, streamed or not, are collected item by item like everything
+    // else, so remember which results were one: a lone item is only the value
+    // itself when the pipeline did not produce a list. Unwrapped, `[{a: 1}]`
+    // would come back as `{a: 1}`.
+    let is_list = matches!(
+        pipeline_execution_data.body,
+        PipelineData::ListStream(..) | PipelineData::Value(Value::List { .. }, ..)
+    );
+
     let mut values = Vec::new();
     for item in pipeline_execution_data.body {
         if let Value::Error { error, .. } = &item {
@@ -810,7 +832,7 @@ fn process_pipeline(
     }
 
     let value_to_store = match values.len() {
-        1 => values.pop().unwrap_or_else(|| Value::nothing(span)),
+        1 if !is_list => values.pop().unwrap_or_else(|| Value::nothing(span)),
         _ => Value::list(values, span),
     };
 
@@ -829,8 +851,6 @@ fn process_pipeline(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(unix)]
-    use nu_engine::eval_expression;
     #[cfg(unix)]
     use nu_protocol::engine::StateWorkingSet;
     #[cfg(unix)]
@@ -886,13 +906,12 @@ mod tests {
 
         fn run(
             &self,
-            engine_state: &EngineState,
+            _engine_state: &EngineState,
             stack: &mut Stack,
             call: &Call,
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
-            let args: Vec<Value> =
-                call.rest_iter_flattened(engine_state, stack, eval_expression::<WithoutDebug>, 0)?;
+            let args: Vec<Value> = call.rest_iter_flattened(stack, 0)?;
             let args = args
                 .into_iter()
                 .map(|value| value.coerce_into_string())
@@ -1023,6 +1042,28 @@ mod tests {
             ),
             "list field should remain a list, got: {result_nuon}"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_item_list_stays_a_list() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        for source in ["[{a: 1}]", "$history.0"] {
+            let result_nuon = evaluator.eval(source)?;
+            let result = nuon::from_nuon(&result_nuon, None)?;
+            let output = result
+                .into_record()?
+                .remove("output")
+                .ok_or("missing output field in evaluate response")?;
+            assert_eq!(
+                output.into_list()?.len(),
+                1,
+                "`{source}` should give a list of one record, got: {result_nuon}"
+            );
+        }
 
         Ok(())
     }
@@ -1168,6 +1209,23 @@ mod tests {
         );
     }
 
+    /// A parse-time evaluation error is reported with the evaluation error's own fields, not a
+    /// rendered report in `msg`.
+    #[test]
+    fn test_evaluator_parse_time_eval_error_fields() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        let err = evaluator
+            .eval("const x = (1 / 0)")
+            .expect_err("dividing by zero in a const should fail");
+        let data = err.data.expect("error data");
+
+        assert_eq!(data["code"], "nu::shell::division_by_zero");
+        assert_eq!(data["msg"], "Division by zero.");
+        assert_eq!(data["labels"][0]["text"], "division by zero");
+    }
+
     #[test]
     fn test_evaluator_compile_error_nuon_format() {
         let engine_state = nu_cmd_lang::create_default_context();
@@ -1283,6 +1341,29 @@ mod tests {
             output.contains("hello_repl"),
             "Env var should be 'hello_repl', got: {output}"
         );
+    }
+
+    /// Like the REPL, the session frees a value once a later binding shadows it.
+    #[test]
+    fn shadowed_variable_is_cleaned_up() -> Result<(), Box<dyn std::error::Error>> {
+        let evaluator = Evaluator::new(nu_cmd_lang::create_default_context());
+        evaluator.eval(r#"let x = "first"; let x = "second""#)?;
+
+        let first_kept = evaluator
+            .state
+            .blocking_lock()
+            .stack
+            .vars
+            .iter()
+            .any(|(_, value)| value.as_str().is_ok_and(|s| s == "first"));
+        assert!(!first_kept, "the shadowed value is still on the stack");
+
+        let result = evaluator.eval("$x")?;
+        assert!(
+            result.contains("second"),
+            "$x should be second, got: {result}"
+        );
+        Ok(())
     }
 
     /// An evaluator with a documented `foo bar`, an alias `fb` of it, and a module command that

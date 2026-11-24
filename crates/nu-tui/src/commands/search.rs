@@ -18,7 +18,7 @@ impl Command for TuiSearch {
     }
 
     fn extra_description(&self) -> &str {
-        "`--bind` focuses this search box from anywhere except a text field (for example `--bind /` or `--bind ctrl+r`). Esc clears the query; Esc again leaves the box. Enter submits the highlighted row of the list it filters.\n\
+        "`--bind` focuses this search box from anywhere except a text field (for example `--bind /` or `--bind ctrl+r`). Esc clears the query; Esc again leaves the box. Enter submits the selection of the list it filters: its highlighted row, or its checked rows with `--multi`. The highlight and checks stay on their rows while the query changes (when the query hides the highlighted row, the highlight moves to the next row shown, else the last), and checked rows the query hides are still submitted.\n\
          \n\
          Matching is a case-insensitive substring over every field by default. `--fuzzy` uses the same matcher as `input list --fuzzy`, `--case-sensitive` respects case, and `--columns [name]` matches only those columns.\n\
          \n\

@@ -198,7 +198,7 @@ fn process(
 
 #[cfg(test)]
 mod test {
-    use chrono::DateTime;
+    use nu_protocol::DateTime;
 
     use super::*;
 
@@ -233,7 +233,7 @@ mod test {
         columns.insert(
             "date_column".to_string(),
             Value::test_date(
-                DateTime::parse_from_str("2021-12-30 00:00:00 +0000", "%Y-%m-%d %H:%M:%S %z")
+                DateTime::parse_rfc3339("2021-12-30T00:00:00+00:00")
                     .expect("Date string should parse."),
             ),
         );

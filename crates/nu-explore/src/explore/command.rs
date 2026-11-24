@@ -8,6 +8,7 @@ use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
+use nu_table::common::row_stripes;
 
 /// A `less` like program to render a [`Value`] as a table.
 #[derive(Clone)]
@@ -71,6 +72,7 @@ impl Command for Explore {
         explore_config.table.show_header = show_head;
         explore_config.table.show_index = show_index;
         explore_config.table.separator_style = lookup_color(&style_computer, "separator");
+        explore_config.table.stripes = row_stripes(&nu_config);
 
         let lscolors = create_lscolors(engine_state, stack);
         let cwd = engine_state.cwd(Some(stack)).map_or(String::new(), |path| {

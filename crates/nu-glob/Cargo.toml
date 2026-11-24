@@ -20,6 +20,9 @@ log = { workspace = true }
 nu-experimental = { workspace = true }
 rayon = { workspace = true }
 
+[target.'cfg(windows)'.dependencies]
+same-file = { workspace = true }
+
 [dev-dependencies]
 doc-comment = "0.3"
 

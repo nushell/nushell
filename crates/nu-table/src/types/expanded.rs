@@ -309,7 +309,7 @@ fn list_layout<'v>(
         .into_iter()
         .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
         .collect();
-    let with_header = !headers.is_empty();
+    let with_header = !headers.is_empty() && !cfg.opts.header_remove;
     let first_row = with_header as usize;
     let first_column = with_index as usize;
     let count_data_columns = max(headers.len(), 1);
@@ -345,7 +345,9 @@ fn list_layout<'v>(
     for col in 0..count_data_columns {
         let column = col + first_column;
         let header = headers.get(col);
-        if let Some(header) = header {
+        if let Some(header) = header
+            && with_header
+        {
             table.insert((0, column), header.clone());
         }
 
@@ -436,10 +438,12 @@ fn insert_cell<'v>(
             table.insert_style(pos, style);
         }
         Cell::Table {
-            layout,
+            mut layout,
             value,
             kind,
         } => {
+            // Stripes of its own would look like rows of the table it is in.
+            layout.out.table.set_stripes([None; 2]);
             let natural = layout.out.table.total_width();
             table.reserve_width(pos.1, natural, layout.out.table.min_widths());
             table.insert_style(pos, TextStyle::default());

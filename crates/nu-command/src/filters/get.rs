@@ -1,11 +1,7 @@
 use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    Signals,
-    ast::{self, PathMember},
-    engine::CallImpl,
-};
+use nu_protocol::{Signals, ast::PathMember, engine::CallImpl};
 
 #[derive(Clone)]
 pub struct Get;
@@ -224,17 +220,9 @@ Strings in a spread are single column names: `...[a.b]` looks for a column named
 /// rather than letting a one-element spread collapse to a single value.
 fn has_spread_argument(call: &Call, stack: &Stack) -> bool {
     match &call.inner {
-        CallImpl::AstRef(call) => ast_has_spread(call),
-        CallImpl::AstBox(call) => ast_has_spread(call),
         CallImpl::IrRef(call) => call.rest_iter(stack, 0).any(|(_, spread)| spread),
         CallImpl::IrBox(call) => call.rest_iter(stack, 0).any(|(_, spread)| spread),
     }
-}
-
-fn ast_has_spread(call: &ast::Call) -> bool {
-    call.arguments
-        .iter()
-        .any(|arg| matches!(arg, ast::Argument::Spread(_)))
 }
 
 /// Follows `cell_paths` into `input`.

@@ -191,7 +191,10 @@ pub enum BuiltinCompletion {
     ModuleExports,
     /// An environment variable name (`hide-env`).
     EnvVar,
-    /// A command name; `internal_only` restricts to internal commands (`attr complete`).
+    /// An active overlay name (`overlay hide`).
+    Overlay,
+    /// A command name; `internal_only` restricts to internal commands (`attr complete`),
+    /// and completes subsequent rest arguments as subcommands of earlier words (`help`).
     Command { internal_only: bool },
 }
 
@@ -221,6 +224,7 @@ impl Completion {
                     BuiltinCompletion::NuFile { .. } => "<nu-file>",
                     BuiltinCompletion::ModuleExports => "<module-exports>",
                     BuiltinCompletion::EnvVar => "<env-var>",
+                    BuiltinCompletion::Overlay => "<overlay-name>",
                     BuiltinCompletion::Command { .. } => "<command-name>",
                 },
                 span,

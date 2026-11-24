@@ -21,6 +21,7 @@ use crate::session::Session;
 use crate::theme::Theme;
 use ansi_str::get_blocks;
 use nu_explore::style::ansi_style_to_tui;
+use nu_utils::strip_ansi_unlikely;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders};
@@ -55,7 +56,8 @@ pub(crate) fn framed(title: &str, focused: bool, session: &Session, id: &str) ->
 }
 
 /// Text with ANSI escapes (from `nu-highlight`, `ls` colors, …) as styled
-/// lines over the surface color.
+/// lines over the surface color. Escapes other than colors are dropped; see
+/// [`ansi_line`].
 pub(crate) fn ansi_to_text(text: &str, theme: &Theme) -> Text<'static> {
     Text::from(
         text.split('\n')
@@ -64,11 +66,15 @@ pub(crate) fn ansi_to_text(text: &str, theme: &Theme) -> Text<'static> {
     )
 }
 
+/// One line with ANSI escapes as styled spans. SGR colors become span
+/// styles. Every other escape (OSC 8 hyperlinks, cursor moves, …) is
+/// dropped: `get_blocks` keeps those in the block text, and ratatui would
+/// print all of it but the control bytes, e.g. `]8;;https://…\here`.
 pub(crate) fn ansi_line(line: &str, theme: &Theme) -> Line<'static> {
     let spans: Vec<Span<'static>> = get_blocks(line)
         .map(|block| {
             Span::styled(
-                block.text().to_string(),
+                strip_ansi_unlikely(block.text()).into_owned(),
                 theme.surface().patch(ansi_style_to_tui(block.style())),
             )
         })
@@ -153,5 +159,28 @@ mod tests {
         assert_eq!(texts, ["abc", "def", "gh"]);
         assert_eq!(wrap_line(&Line::from(""), 3).len(), 1);
         assert_eq!(wrap_line(&Line::from("abc"), 3).len(), 1);
+    }
+
+    #[test]
+    fn ansi_line_drops_hyperlink_escapes_and_keeps_colors() {
+        use ratatui::style::Color;
+        let theme = Theme::default();
+        // `ansi link` ends OSC 8 with ESC `\`; glow ends it with BEL and adds
+        // an `id=` parameter. `grep --color` adds erase-in-line (`ESC [K`).
+        let st = "\x1b]8;;https://x.dev\x1b\\here\x1b]8;;\x1b\\ after";
+        let bel = "\x1b[32m\x1b]8;id=7;https://x.dev\x07here\x1b]8;;\x07 after\x1b[0m";
+        let erase = "here\x1b[K after";
+        for text in [st, bel, erase] {
+            assert_eq!(
+                ansi_line(text, &theme).to_string(),
+                "here after",
+                "{text:?}"
+            );
+        }
+        let line = ansi_line(bel, &theme);
+        assert!(
+            line.spans.iter().all(|s| s.style.fg == Some(Color::Green)),
+            "{line:?}"
+        );
     }
 }

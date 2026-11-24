@@ -229,7 +229,7 @@ pub fn print_pipeline(
             engine_state,
             stack,
             Some(pipeline),
-            vec![],
+            &[],
             &hook,
             "display_output",
         )?;
@@ -252,10 +252,8 @@ pub fn eval_source(
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
         Ok(failed) => {
-            let code = failed.into();
-            // No call span available in eval_source — this wraps generic source evaluation
-            stack.set_last_exit_code(code, Span::unknown());
-            code
+            set_last_exit_code_after_source(stack, failed);
+            failed.into()
         }
         Err(err) => map_eval_error_to_exit_code(engine_state, stack, err),
     };
@@ -279,14 +277,24 @@ pub fn eval_parsed_block_source(
 
     let exit_code = match evaluate_parsed_block(engine_state, stack, block, input, allow_return) {
         Ok(failed) => {
-            let code = failed.into();
-            stack.set_last_exit_code(code, Span::unknown());
-            code
+            set_last_exit_code_after_source(stack, failed);
+            failed.into()
         }
         Err(err) => map_eval_error_to_exit_code(engine_state, stack, err),
     };
 
     finish_eval_source(engine_state, fname, start_time, exit_code)
+}
+
+/// Set `$env.LAST_EXIT_CODE` after a source ran without an error: 1 when it failed to parse or
+/// compile, otherwise the code the source set, such as the code of a failure `try` handled, or 0
+/// when it set none. The process exit status doesn't follow this; a handled failure still exits 0.
+pub(crate) fn set_last_exit_code_after_source(stack: &mut Stack, failed: bool) {
+    if failed {
+        stack.set_last_exit_code(1, Span::unknown());
+    } else if !stack.last_exit_code_written {
+        stack.set_last_exit_code(0, Span::unknown());
+    }
 }
 
 fn map_eval_error_to_exit_code(
@@ -387,12 +395,16 @@ pub(crate) fn evaluate_parsed_block(
     input: PipelineData,
     allow_return: bool,
 ) -> Result<bool, ShellError> {
+    // Track what this block sets, for `set_last_exit_code_after_source`.
+    stack.last_exit_code_written = false;
     let pipeline = if allow_return {
         eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
     } else {
         eval_block::<WithoutDebug>(engine_state, stack, block, input)
     }?;
     let mut pipeline_data = pipeline.body;
+    // Read before `maybe_store_last_result`, which wraps a stream it copies.
+    let ends_in_external = matches!(&pipeline_data, PipelineData::ByteStream(stream, _) if stream.source().is_external());
 
     // Update engine_state with deleted variables
     engine_state.merge_deletions(stack);
@@ -406,6 +418,10 @@ pub(crate) fn evaluate_parsed_block(
 
     let no_newline = matches!(&pipeline_data, &PipelineData::ByteStream(..));
     print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
+    // Printing waited for the external that ends the block, and it didn't fail.
+    if ends_in_external {
+        stack.set_last_exit_code(0, Span::unknown());
+    }
 
     // Truncation warning for `$ans` is deferred until after display so the data
     // is not scrolled off the screen by the warning.
@@ -750,9 +766,12 @@ fn tee_byte_stream(
 mod test {
     use super::*;
     use nu_protocol::LAST_VARIABLE_ID;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+    use std::{
+        env,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
     };
 
     #[test]
@@ -808,9 +827,15 @@ mod test {
     /// unit (like the next REPL line) still has it, though the block ran on the same stack.
     #[test]
     fn unlet_constant_in_nested_block_keeps_it_for_later_source() -> Result<(), ShellError> {
-        let mut engine_state =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         let mut stack = Stack::new();
+        let mut engine_state = {
+            let default_context = nu_cmd_lang::create_default_context();
+            let mut state = nu_command::add_shell_command_context(default_context);
+            let cwd = env::current_dir().unwrap().into_string().unwrap();
+            state.add_env_var("PWD".into(), Value::test_string(cwd));
+            state
+        };
+
         for source in ["const x = 1", "if true { unlet $x }"] {
             let failed = evaluate_source(
                 &mut engine_state,

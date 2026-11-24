@@ -100,7 +100,7 @@ jobs:
         build-warnings: warn
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@eacad52a4634c4f8d17a94916f93be6856861b9c # v3.29
+      uses: hustcer/setup-nu@1b8faed9a8ff673c8ce0beae243e0b72d0787241 # v3.30
       with:
         version: 0.112.2
 
@@ -132,6 +132,9 @@ jobs:
     permissions:
       # Upload the release archives to the GitHub release.
       contents: write
+      # Generate build provenance attestations for the release archives.
+      id-token: write
+      attestations: write
     steps:
     - name: Download Release Archives
       env:
@@ -141,6 +144,10 @@ jobs:
         --repo ${{ github.repository }}
         --pattern '*'
         --dir release
+    - name: Attest Release Archives
+      uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      with:
+        subject-path: release/*
     - name: Create Checksums
       run: cd release && shasum -a 256 * > ../SHA256SUMS
     - name: Publish Checksums

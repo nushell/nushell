@@ -634,6 +634,38 @@ $env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true
 # Default: false
 $env.config.table.header_on_separator = false
 
+# table.striped (bool): Draw every other row on a background of its own.
+# true: The second row of a table, then every other one, gets a background of its
+#   own. Its color is `color_config.row_stripe_alt`, or one made from a "#rrggbb"
+#   `color_config.row_stripe_bg`: a little lighter than a dark one, a little
+#   darker than a light one (see `table.stripe_blend`). If you use a named
+#   color, like "blue", for `row_stripe_bg`, you must set `row_stripe_alt` also.
+#   There are no stripes when neither is set.
+# false: Every row has the same background.
+# Applies to `table` and `explore`, not to `table --collapse` or the markup modes.
+# Default: false
+$env.config.table.striped = false
+
+# To have stripes follow the background of the terminal, ask for it when nushell
+# starts, with `terminal-background` of the standard library. It returns nothing
+# from a terminal that does not tell (or over ssh to Windows), which leaves
+# tables without stripes. Keys typed before the terminal answers are lost, and
+# where nothing answers at all, as in a pty with no terminal behind it, startup
+# waits until Ctrl+C.
+# use std/config terminal-background
+# if $nu.is-interactive and $env.config.table.striped {
+#     let background = terminal-background
+#     if $background != null { $env.config.color_config.row_stripe_bg = $background }
+# }
+
+# table.stripe_blend (float): Strength of the stripes made from `color_config.row_stripe_bg`.
+# How much white (into a dark color) or black (into a light one) is blended into a
+# "#rrggbb" `color_config.row_stripe_bg`, from 0.0 to 1.0: 0.0 is no stripe, 1.0
+# is plain white or black.
+# Not used when `color_config.row_stripe_alt` is set.
+# Default: 0.08
+$env.config.table.stripe_blend = 0.08
+
 # table.abbreviated_row_count (int|null): Abbreviate large tables.
 # (int): Show first N and last N rows with ellipsis.
 # null: Show all rows.
@@ -746,10 +778,11 @@ $env.config.ls.clickable_links = true
 # $env.config.prompt.
 #
 # Indicators are colored by the line editor. To style one yourself, include
-# the escape codes in the value, e.g. $"(ansi light_red)> ".
+# the escape codes in the value, e.g. $"(ansi light_red)> ". Like the prompt,
+# an indicator can be a closure, evaluated once per prompt.
 
 # prompt.left (string|closure|null): The main prompt.
-# null falls back to the line editor's built-in prompt.
+# null falls back to nushell's built-in prompt, the working directory.
 # Default: a closure showing the current directory. Read it with
 # view source $env.config.prompt.left
 # and build on it by keeping a reference:
@@ -758,27 +791,33 @@ $env.config.ls.clickable_links = true
 # $env.config.prompt.left = {|| $"(pwd) " }
 
 # prompt.right (string|closure|null): The right-aligned prompt.
+# null falls back to nushell's built-in right prompt, a clock.
 # Default: a closure showing the time and last exit code.
 # $env.config.prompt.right = {|| date now | format date "%d-%a %r" }
 
-# prompt.indicator (string): Shown in emacs mode and whenever no edit mode applies.
+# prompt.indicator (string|closure): Shown in emacs mode and whenever no edit
+# mode applies.
 # Default: "> "
 $env.config.prompt.indicator = "> "
+# Turn it red after a failed command:
+# $env.config.prompt.indicator = {||
+#     if $env.LAST_EXIT_CODE == 0 { "> " } else { $"(ansi red)> (ansi reset)" }
+# }
 
-# prompt.vi_insert (string): Shown in vi insert mode.
+# prompt.vi_insert (string|closure): Shown in vi insert mode.
 # Default: "> "
 $env.config.prompt.vi_insert = "> "
 
-# prompt.vi_normal (string): Shown in vi normal mode.
+# prompt.vi_normal (string|closure): Shown in vi normal mode.
 # Default: ": "
 $env.config.prompt.vi_normal = ": "
 
-# prompt.vi_visual (string): Shown in vi visual mode.
+# prompt.vi_visual (string|closure): Shown in vi visual mode.
 # Note: This key has no environment variable equivalent.
 # Default: "+ "
 $env.config.prompt.vi_visual = "+ "
 
-# prompt.multiline (string): Shown on continuation lines of a multiline entry.
+# prompt.multiline (string|closure): Shown on continuation lines of a multiline entry.
 # Default: "::: "
 $env.config.prompt.multiline = "::: "
 
@@ -821,24 +860,24 @@ $env.config.prompt.transient.left = null
 # Default: ""
 $env.config.prompt.transient.right = ""
 
-# prompt.transient.indicator (string|null): Replaces prompt.indicator.
+# prompt.transient.indicator (string|closure|null): Replaces prompt.indicator.
 # Default: null
 $env.config.prompt.transient.indicator = null
 
-# prompt.transient.vi_insert (string|null): Replaces prompt.vi_insert.
+# prompt.transient.vi_insert (string|closure|null): Replaces prompt.vi_insert.
 # Default: null
 $env.config.prompt.transient.vi_insert = null
 
-# prompt.transient.vi_normal (string|null): Replaces prompt.vi_normal.
+# prompt.transient.vi_normal (string|closure|null): Replaces prompt.vi_normal.
 # Default: null
 $env.config.prompt.transient.vi_normal = null
 
-# prompt.transient.vi_visual (string|null): Replaces prompt.vi_visual.
+# prompt.transient.vi_visual (string|closure|null): Replaces prompt.vi_visual.
 # Note: This key has no environment variable equivalent.
 # Default: null
 $env.config.prompt.transient.vi_visual = null
 
-# prompt.transient.multiline (string|null): Replaces prompt.multiline.
+# prompt.transient.multiline (string|closure|null): Replaces prompt.multiline.
 # Unlike the others this defaults to empty rather than null: dropping the
 # continuation marker keeps submitted multiline entries copyable out of
 # scrollback.
@@ -850,6 +889,8 @@ $env.config.prompt.transient.multiline = ""
 # -----
 # Hooks run code at specific shell events.
 # Most accept a string (code), closure, or list of strings/closures.
+# An error inside a hook, caught or not, sets $env.LAST_EXIT_CODE: the prompt sees it after a
+# pre_prompt or env_change hook, and a display_output hook's error counts as the line's code.
 # See https://www.nushell.sh/book/hooks for details.
 
 # hooks.pre_prompt (list): Hook(s) to run before each prompt is displayed.
@@ -876,7 +917,7 @@ $env.config.hooks.env_change = {}
 # Default: "if (term size).columns >= 100 { table -e } else { table }"
 $env.config.hooks.display_output = "if (term size).columns >= 100 { table -e } else { table }"
 
-# hooks.command_not_found (closure|null): Hook when a command is not found.
+# hooks.command_not_found (closure|list|null): Hook when a command is not found.
 # Can suggest packages or provide custom error handling.
 # Default: null
 $env.config.hooks.command_not_found = null
@@ -1496,6 +1537,18 @@ $env.config.color_config.header = "green_bold"
 # color_config.separator: Style for table/list/record borders.
 # Default: default
 $env.config.color_config.separator = "default"
+
+# color_config.row_stripe_bg: Background of the first row and every other one,
+# when `table.striped` is on. A color: a name or "#rrggbb". Give it as "#rrggbb"
+# to have the color of the rows between made from it.
+# Default: not set, which is the terminal's own background
+# $env.config.color_config.row_stripe_bg = "#282c34"
+
+# color_config.row_stripe_alt: Background of the rows between them, when
+# `table.striped` is on. A color: a name or "#rrggbb".
+# Default: not set, which is a color made with `table.stripe_blend` from
+# `row_stripe_bg` when that is "#rrggbb", else the terminal's own background
+# $env.config.color_config.row_stripe_alt = "#393d44"
 
 # color_config.row_index: Style for the index (#) column in tables and lists.
 # Default: green_bold

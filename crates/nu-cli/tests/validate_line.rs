@@ -1,7 +1,7 @@
 use nu_cli::NuValidator;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, StateWorkingSet};
-use nu_test_support::{fs::Stub::FileWithContent, playground::Playground};
+use nu_test_support::prelude::*;
 use reedline::{ValidationResult, Validator};
 use rstest::rstest;
 use std::sync::Arc;
@@ -38,70 +38,69 @@ fn unfinished_line_is_incomplete(#[case] line: &str) {
 
 /// A one-byte file has its error at offset 0, which is the offset right after the line.
 #[rstest]
-#[case::bracket("validate_one_bracket", "[")]
-#[case::brace("validate_one_brace", "{")]
-#[case::paren("validate_one_paren", "(")]
-#[case::double_quote("validate_one_double_quote", "\"")]
-#[case::single_quote("validate_one_single_quote", "'")]
-#[case::backtick("validate_one_backtick", "`")]
-fn one_byte_loaded_file_is_not_incomplete(#[case] topic: &str, #[case] contents: &str) {
-    Playground::setup(topic, |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("one.nu", contents)]);
-        let path = dirs.test().join("one.nu");
+#[case::bracket("[")]
+#[case::brace("{")]
+#[case::paren("(")]
+#[case::double_quote("\"")]
+#[case::single_quote("'")]
+#[case::backtick("`")]
+fn one_byte_loaded_file_is_not_incomplete(
+    #[ignore] playground: Playground,
+    #[case] contents: &str,
+) -> Result {
+    playground.file("one.nu", contents)?;
+    let path = playground.path().join("one.nu");
 
-        let line = format!("use `{}`", path.display());
-        assert!(!is_incomplete(engine(), &line));
-    });
+    let line = format!("use `{}`", path.display());
+    assert!(!is_incomplete(engine(), &line));
+    Ok(())
 }
 
 /// An unclosed delimiter in a file the line loads is an error to show, or the REPL traps you at
 /// the continuation prompt with nothing you could type to get out.
 #[rstest]
-#[case::use_file("validate_use", "use")]
-#[case::overlay_use("validate_overlay", "overlay use")]
-#[case::module("validate_module", "module")]
-#[case::source("validate_source", "source")]
+#[case::use_file("use")]
+#[case::overlay_use("overlay use")]
+#[case::module("module")]
+#[case::source("source")]
 fn unclosed_delimiter_in_a_loaded_file_is_not_incomplete(
-    #[case] topic: &str,
+    #[ignore] playground: Playground,
     #[case] command: &str,
-) {
-    Playground::setup(topic, |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("broken.nu", "export def foo [ {")]);
-        let path = dirs.test().join("broken.nu");
+) -> Result {
+    playground.file("broken.nu", "export def foo [ {")?;
+    let path = playground.path().join("broken.nu");
 
-        let line = format!("{command} `{}`", path.display());
-        assert!(!is_incomplete(engine(), &line));
-    });
+    let line = format!("{command} `{}`", path.display());
+    assert!(!is_incomplete(engine(), &line));
+    Ok(())
 }
 
 /// The same goes for `use <name>`, which reads the module's file again when it changed.
 #[test]
-fn unclosed_delimiter_in_a_changed_module_is_not_incomplete() {
-    Playground::setup("validate_use_by_name", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("spam.nu", "export def foo [] { 'foo' }")]);
-        let path = dirs.test().join("spam.nu");
+fn unclosed_delimiter_in_a_changed_module_is_not_incomplete(playground: Playground) -> Result {
+    playground.file("spam.nu", "export def foo [] { 'foo' }")?;
+    let path = playground.path().join("spam.nu");
 
-        let mut engine = engine();
-        let mut working_set = StateWorkingSet::new(&engine);
-        let line = format!("use `{}`", path.display());
-        parse(&mut working_set, None, line.as_bytes(), false);
-        assert!(working_set.parse_errors.is_empty());
-        let delta = working_set.render();
-        engine.merge_delta(delta).expect("merging the first `use`");
+    let mut engine = engine();
+    let mut working_set = StateWorkingSet::new(&engine);
+    let line = format!("use `{}`", path.display());
+    parse(&mut working_set, None, line.as_bytes(), false);
+    assert!(working_set.parse_errors.is_empty());
+    let delta = working_set.render();
+    engine.merge_delta(delta).expect("merging the first `use`");
 
-        std::fs::write(&path, "export def foo [ {").expect("editing the module");
-        assert!(!is_incomplete(engine, "use spam"));
-    });
+    std::fs::write(&path, "export def foo [ {").expect("editing the module");
+    assert!(!is_incomplete(engine, "use spam"));
+    Ok(())
 }
 
 /// A line that loads a broken file can still be unfinished itself.
 #[test]
-fn unclosed_delimiter_in_the_line_wins_over_one_in_a_file() {
-    Playground::setup("validate_both", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("broken.nu", "export def foo [ {")]);
-        let path = dirs.test().join("broken.nu");
+fn unclosed_delimiter_in_the_line_wins_over_one_in_a_file(playground: Playground) -> Result {
+    playground.file("broken.nu", "export def foo [ {")?;
+    let path = playground.path().join("broken.nu");
 
-        let line = format!("use `{}`; if true {{", path.display());
-        assert!(is_incomplete(engine(), &line));
-    });
+    let line = format!("use `{}`; if true {{", path.display());
+    assert!(is_incomplete(engine(), &line));
+    Ok(())
 }
