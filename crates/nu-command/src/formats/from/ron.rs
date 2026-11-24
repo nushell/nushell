@@ -57,27 +57,30 @@ impl Command for FromRon {
     }
 }
 
-fn convert_ron_to_value(value: &RonValue, span: Span) -> Value {
+fn convert_ron_to_value(value: &RonValue, span: Span) -> Result<Value, ShellError> {
     match value {
-        RonValue::Bool(b) => Value::bool(*b, span),
-        RonValue::Char(c) => Value::string(c.to_string(), span),
+        RonValue::Bool(b) => Ok(Value::bool(*b, span)),
+        RonValue::Char(c) => Ok(Value::string(c.to_string(), span)),
         RonValue::Number(n) => {
             let num = n.into_f64();
             if num.fract() == 0.0 {
-                Value::int(num as i64, span)
+                Ok(Value::int(num as i64, span))
             } else {
-                Value::float(num, span)
+                Ok(Value::float(num, span))
             }
         }
-        RonValue::String(s) => Value::string(s.clone(), span),
+        RonValue::String(s) => Ok(Value::string(s.clone(), span)),
         RonValue::Option(opt) => match opt {
             Some(v) => convert_ron_to_value(v, span),
-            None => Value::nothing(span),
+            None => Ok(Value::nothing(span)),
         },
-        RonValue::Bytes(b) => Value::binary(b.clone(), span),
+        RonValue::Bytes(b) => Ok(Value::binary(b.clone(), span)),
         RonValue::Seq(seq) => {
-            let v: Vec<Value> = seq.iter().map(|x| convert_ron_to_value(x, span)).collect();
-            Value::list(v, span)
+            let v: Vec<Value> = seq
+                .iter()
+                .map(|x| convert_ron_to_value(x, span).unwrap())
+                .collect();
+            Ok(Value::list(v, span))
         }
         RonValue::Map(map) => {
             let record_fields = map
@@ -85,12 +88,21 @@ fn convert_ron_to_value(value: &RonValue, span: Span) -> Value {
                 .map(|(k, v)| {
                     let key_str = match k {
                         RonValue::String(s) => s.clone(),
-                        _ => format!("{:?}", k),
+                        RonValue::Char(c) => c.to_string(),
+                        RonValue::Number(i) => i.into_f64().to_string(),
+                        RonValue::Bool(b) => b.to_string(),
+                        _ => {
+                            return Err(ShellError::InvalidValue {
+                                valid: "key".into(),
+                                actual: format!("{:?}", k),
+                                span,
+                            });
+                        }
                     };
-                    (key_str, convert_ron_to_value(v, span))
+                    (key_str, convert_ron_to_value(v, span)?)
                 })
                 .collect();
-            Value::record(record_fields, span)
+            Ok(Value::record(record_fields, span))
         }
         RonValue::Unit => Value::nothing(span),
     }
