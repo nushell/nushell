@@ -1,5 +1,5 @@
 use indoc::indoc;
-use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn table_pagging_row_offset_overlap() -> Result {
@@ -44,11 +44,8 @@ fn table_index_0() -> Result {
 }
 
 #[test]
-fn test_expand_big_0() -> Result {
-    Playground::setup("test_expand_big_0", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "sample.toml",
-            r#"
+fn test_expand_big_0(playground: Playground) -> Result {
+    playground.file("sample.toml", r#"
             [package]
             authors = ["The Nushell Project Developers"]
             default-run = "nu"
@@ -184,12 +181,11 @@ fn test_expand_big_0() -> Result {
             [[bench]]
             name = "benchmarks"
             harness = false
-            "#,
-        )]);
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("open sample.toml | table --width=80 --expand")?;
-        let expected = indoc! {r#"
+            "#)?;
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("open sample.toml | table --width=80 --expand")?;
+    let expected = indoc! {r#"
             ╭──────────────────┬───────────────────────────────────────────────────────────╮
             │                  │ ╭───────────────┬───────────────────────────────────────╮ │
             │ package          │ │               │ ╭───┬───────────────────────────────╮ │ │
@@ -376,11 +372,11 @@ fn test_expand_big_0() -> Result {
             │                  │ │ 0 │ benchmarks │ false   │                              │
             │                  │ ╰───┴────────────┴─────────╯                              │
             ╰──────────────────┴───────────────────────────────────────────────────────────╯"#};
-        assert_eq!(actual, expected);
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("open sample.toml | table --expand --width=120")?;
-        let expected = indoc! {r#"
+    assert_eq!(actual, expected);
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("open sample.toml | table --expand --width=120")?;
+    let expected = indoc! {r#"
             ╭──────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────╮
             │                  │ ╭───────────────┬───────────────────────────────────────────────────────────────────────────────╮ │
             │ package          │ │               │ ╭───┬────────────────────────────────╮                                        │ │
@@ -572,11 +568,11 @@ fn test_expand_big_0() -> Result {
             │                  │ │ 0 │ benchmarks │ false   │                                                                      │
             │                  │ ╰───┴────────────┴─────────╯                                                                      │
             ╰──────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────╯"#};
-        assert_eq!(actual, expected);
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("open sample.toml | table --expand --width=60")?;
-        let expected = indoc! {r#"
+    assert_eq!(actual, expected);
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("open sample.toml | table --expand --width=60")?;
+    let expected = indoc! {r#"
             ╭──────────────────┬───────────────────────────────────────╮
             │                  │ ╭───────────────┬───────────────────╮ │
             │ package          │ │               │ ╭───┬───────────╮ │ │
@@ -732,11 +728,11 @@ fn test_expand_big_0() -> Result {
             │                  │ │ 0 │ benchmarks │ false   │          │
             │                  │ ╰───┴────────────┴─────────╯          │
             ╰──────────────────┴───────────────────────────────────────╯"#};
-        assert_eq!(actual, expected);
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("open sample.toml | table --expand --width=40")?;
-        let expected = indoc! {"
+    assert_eq!(actual, expected);
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("open sample.toml | table --expand --width=40")?;
+    let expected = indoc! {"
             ╭──────────────────┬───────────────────╮
             │ package          │ {record 13        │
             │                  │ fields}           │
@@ -750,9 +746,8 @@ fn test_expand_big_0() -> Result {
             │ patch            │ {record 1 field}  │
             │ bench            │ [table 1 row]     │
             ╰──────────────────┴───────────────────╯"};
-        assert_eq!(actual, expected);
-        Ok(())
-    })
+    assert_eq!(actual, expected);
+    Ok(())
 }
 
 #[test]
@@ -1493,11 +1488,8 @@ fn big_table_expanded_with_padding_0() -> Result {
 }
 
 #[test]
-fn test_collapse_big_0() -> Result {
-    Playground::setup("test_expand_big_0", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "sample.toml",
-            r#"
+fn test_collapse_big_0(playground: Playground) -> Result {
+    playground.file("sample.toml", r#"
             [package]
             authors = ["The Nushell Project Developers"]
             default-run = "nu"
@@ -1633,12 +1625,11 @@ fn test_collapse_big_0() -> Result {
             [[bench]]
             name = "benchmarks"
             harness = false
-            "#,
-        )]);
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("open sample.toml | table --width=80 --collapse")?;
-        let expected = indoc! {r#"
+            "#)?;
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("open sample.toml | table --width=80 --collapse")?;
+    let expected = indoc! {r#"
             ╭──────────────────┬───────────────┬───────────────────────────────────────────╮
             │ package          │ authors       │ The Nushell Project Developers            │
             │                  ├───────────────┼───────────────────────────────────────────┤
@@ -1816,11 +1807,11 @@ fn test_collapse_big_0() -> Result {
             │                  ├────────────┼──────────────────────────────────────────────┤
             │                  │ benchmarks │ false                                        │
             ╰──────────────────┴────────────┴──────────────────────────────────────────────╯"#};
-        assert_eq!(actual, expected);
-        let actual: String = test()
-            .cwd(dirs.test())
-            .run("open sample.toml | table --collapse --width=160")?;
-        let expected = indoc! {r#"
+    assert_eq!(actual, expected);
+    let actual: String = test()
+        .cwd(playground.path())
+        .run("open sample.toml | table --collapse --width=160")?;
+    let expected = indoc! {r#"
             ╭──────────────────┬───────────────┬──────────────────────────────────────────────────────────────────────────╮
             │ package          │ authors       │ The Nushell Project Developers                                           │
             │                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤
@@ -2010,9 +2001,8 @@ fn test_collapse_big_0() -> Result {
             │                  ├────────────┼─────────────────────────────────────────────────────────────────────────────┤
             │                  │ benchmarks │ false                                                                       │
             ╰──────────────────┴────────────┴─────────────────────────────────────────────────────────────────────────────╯"#};
-        assert_eq!(actual, expected);
-        Ok(())
-    })
+    assert_eq!(actual, expected);
+    Ok(())
 }
 
 #[test]

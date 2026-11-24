@@ -2,7 +2,6 @@ use crate::formats::kdl::{
     KdlFormat, KdlMetadata, KdlSpec, jik_document_to_value, nodes_document_to_value,
     parse_kdl_document,
 };
-use chrono::TimeZone;
 use nu_engine::command_prelude::*;
 use std::str::FromStr;
 
@@ -205,10 +204,8 @@ impl Command for FromKdl {
                     "size" => Value::test_filesize(1024),
                     "wait" => Value::test_duration(5_000_000_000),
                     "when" => Value::test_date(
-                        chrono::FixedOffset::east_opt(0)
-                            .expect("offset")
-                            .with_ymd_and_hms(2020, 1, 2, 3, 4, 5)
-                            .unwrap()
+                        nu_protocol::DateTime::parse_rfc3339("2020-01-02T03:04:05Z")
+                            .expect("example date is valid")
                     ),
                 })),
             },
@@ -217,10 +214,8 @@ impl Command for FromKdl {
                 example: r#"'- when=(datetime)"2020-01-02T03:04:05+00:00"' | from kdl --format jik"#,
                 result: Some(Value::test_record(record! {
                     "when" => Value::test_date(
-                        chrono::FixedOffset::east_opt(0)
-                            .expect("offset")
-                            .with_ymd_and_hms(2020, 1, 2, 3, 4, 5)
-                            .unwrap()
+                        nu_protocol::DateTime::parse_rfc3339("2020-01-02T03:04:05Z")
+                            .expect("example date is valid")
                     ),
                 })),
             },

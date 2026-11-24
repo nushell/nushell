@@ -167,7 +167,7 @@ impl Scratch {
         // Bail before merging, so a broken condition re-evaluated on every
         // hit leaves nothing behind.
         if let Some(err) = working_set.parse_errors.first() {
-            return Err(err.to_string());
+            return Err(err.one_line_message());
         }
 
         if let Some(err) = working_set.compile_errors.first() {
@@ -331,6 +331,17 @@ mod tests {
             !err.contains("Span {"),
             "message should not be a Debug dump: {err}"
         );
+    }
+
+    /// An error from parse-time evaluation reaches the watch UI as one line,
+    /// not as the full rendered report with color codes and box drawing.
+    #[test]
+    fn parse_time_eval_errors_are_one_line() {
+        let mut scratch = scratch();
+        let err = scratch
+            .eval("const z = (1 / 0)", &[])
+            .expect_err("division by zero");
+        assert_eq!(err, "Division by zero");
     }
 
     /// A watch expression can parse and still fail to compile. The message

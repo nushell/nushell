@@ -28,7 +28,6 @@
 
 use crate::yaml::{KnownTag, Spec, error::SerializeError};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
-use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
 use nu_protocol::{
     FromValue, Range, ShellError, Span, Value,
@@ -304,7 +303,7 @@ enum YamlValue<'v> {
     Glob(&'v str),
     Filesize(i64),
     Duration(i64),
-    Date(&'v DateTime<FixedOffset>),
+    Date(&'v nu_protocol::DateTime),
     Range(&'v Range),
     Closure(&'v Closure),
     Error(&'v ShellError),

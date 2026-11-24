@@ -16,6 +16,7 @@ pub mod var {
     pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
     pub const CONFIG: &str = "config";
     pub const PATH: &str = "path";
+    pub const LAST_EXIT_CODE: &str = "LAST_EXIT_CODE";
     pub const AUTOMATIC_VARS: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
 }
 

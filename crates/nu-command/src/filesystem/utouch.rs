@@ -1,7 +1,7 @@
-use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
 use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
+use nu_protocol::DateTime;
 use nu_protocol::{
     NuGlob, shell_error::generic::GenericError, shell_error::io::ErrorKind,
     shell_error::io::IoError,
@@ -120,7 +120,7 @@ impl Command for UTouch {
             } else {
                 (None, None)
             };
-        let timestamp: Option<Spanned<DateTime<FixedOffset>>> =
+        let timestamp: Option<Spanned<DateTime>> =
             call.get_flag(engine_state, stack, "timestamp")?;
 
         let source = if let Some(timestamp) = timestamp {
@@ -141,8 +141,8 @@ impl Command for UTouch {
                 });
             }
             Source::Timestamp(FileTime::from_unix_time(
-                timestamp.item.timestamp(),
-                timestamp.item.timestamp_subsec_nanos(),
+                timestamp.item.unix_seconds(),
+                timestamp.item.subsec_nanos(),
             ))
         } else if let Some(reference_file) = reference_file {
             let reference_file = expand_path_with(reference_file, &cwd, true);

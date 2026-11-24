@@ -1,5 +1,7 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
-use nu_test_support::prelude::{TestResultExt, test};
+use nu_protocol::{ParseError, ShellError};
+use nu_test_support::prelude::*;
+use pretty_assertions::assert_matches;
 use rstest::rstest;
 
 #[test]
@@ -187,6 +189,52 @@ fn missing_flags_are_nothing4() -> TestResult {
         "def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 3 -b 10000",
         "10003",
     )
+}
+
+// A builtin reads a switch with `has_flag`, which checks a value the parser couldn't, such as one
+// typed `any`.
+#[rstest]
+#[case::true_(true, [3, 2, 1])]
+#[case::false_(false, [1, 2, 3])]
+#[case::null((), [1, 2, 3])]
+fn builtin_switch_value_typed_any(
+    #[case] value: impl IntoValue,
+    #[case] expected: [i64; 3],
+) -> Result {
+    test()
+        .run_with_data("let x: any = $in; [1 3 2] | sort --reverse=$x", value)
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn builtin_switch_rejects_a_value_that_is_not_a_bool() -> Result {
+    let err = test()
+        .run("let x: any = 5; [1 3 2] | sort --reverse=$x")
+        .expect_shell_error()?;
+    assert_matches!(
+        err,
+        ShellError::CantConvert { to_type, from_type, .. } if to_type == "bool" && from_type == "int"
+    );
+    Ok(())
+}
+
+#[test]
+fn const_switch_rejects_a_value_that_is_not_a_bool() -> Result {
+    // The parser types `$r.a` as int and rejects it before evaluation, but `get` returns `any`,
+    // so the check falls to the const evaluation.
+    let code = "const r = {a: 5}; const n = ('abc' | str length --chars=($r | get a))";
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(
+        err,
+        ParseError::ParseTimeEval { error, .. } if matches!(
+            *error,
+            ShellError::CantConvert { ref to_type, ref from_type, ref help, .. }
+                if to_type == "bool"
+                    && from_type == "int"
+                    && help.as_deref() == Some("`--chars` is a switch; use true or false")
+        )
+    );
+    Ok(())
 }
 
 #[test]
@@ -532,5 +580,67 @@ fn shadowed_variables_in_aliases() -> TestResult {
         .engine_state
         .cleanup_stack_variables(&mut tester.stack);
     tester.run("foo").expect_value_eq(10)?;
+    Ok(())
+}
+
+/// The REPL cleans up after each line, so a value shadowed within one line is freed too.
+#[test]
+fn shadowed_variable_in_same_source_is_cleaned_up() -> TestResult {
+    let mut tester = test();
+    let () = tester.run(r#"let x = "first"; let x = "second""#)?;
+    tester
+        .engine_state
+        .cleanup_stack_variables(&mut tester.stack);
+    let first_kept = tester
+        .stack
+        .vars
+        .iter()
+        .any(|(_, value)| value.as_str().is_ok_and(|s| s == "first"));
+    assert!(!first_kept, "the shadowed value is still on the stack");
+    tester.run("$x").expect_value_eq("second")?;
+    Ok(())
+}
+
+/// Aliases and `def` bodies read the shadowed variable when called, so cleanup keeps it.
+#[rstest]
+#[case::alias_same_source(&["let x = 10; alias foo = echo $x; let x = 20"])]
+#[case::alias_subexpression_same_source(&["let x = 10; alias foo = echo ($x + 0); let x = 20"])]
+#[case::alias_subexpression_later_source(&["let x = 10; alias foo = echo ($x + 0)", "let x = 20"])]
+#[case::alias_record_same_source(&["let x = 10; alias foo = echo {a: $x}.a; let x = 20"])]
+#[case::alias_list_same_source(&["let x = 10; alias foo = echo [$x].0; let x = 20"])]
+#[case::alias_closure_same_source(&["let x = 10; alias foo = do { $x }; let x = 20"])]
+#[case::def_same_source(&["let x = 10; def foo [] { $x }; let x = 20"])]
+#[case::def_later_source(&["let x = 10; def foo [] { $x }", "let x = 20"])]
+fn shadowed_variables_still_referenced(#[case] sources: &[&str]) -> TestResult {
+    let mut tester = test();
+    for source in sources {
+        let () = tester.run(source)?;
+        tester
+            .engine_state
+            .cleanup_stack_variables(&mut tester.stack);
+    }
+    tester.run("foo").expect_value_eq(10)?;
+    Ok(())
+}
+
+/// `source` of a file it already read binds the file's names to the same variables again, so
+/// cleanup keeps a variable that was shadowed and then bound again.
+#[rstest]
+#[case::same_source(&["source f.nu; let y = 'mid'; source f.nu"])]
+#[case::later_source(&["source f.nu", "let y = 'mid'; source f.nu"])]
+#[case::new_overlay(&["overlay new o; source f.nu; let y = 'mid'; source f.nu"])]
+fn shadowed_variable_bound_again(
+    #[ignore] playground: Playground,
+    #[case] sources: &[&str],
+) -> TestResult {
+    playground.file("f.nu", r#"let y = "from-file""#)?;
+    let mut tester = test().cwd(playground.path());
+    for source in sources {
+        let () = tester.run(source)?;
+        tester
+            .engine_state
+            .cleanup_stack_variables(&mut tester.stack);
+    }
+    tester.run("$y").expect_value_eq("from-file")?;
     Ok(())
 }

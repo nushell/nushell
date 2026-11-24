@@ -349,7 +349,7 @@ $env.config.prompt.right = {||
 ///
 /// Runs before every config file, so `env.nu` and `config.nu` can both
 /// override or extend the result. Not run under `--no-config-file`, which
-/// leaves the line editor's own prompt in place.
+/// leaves nushell's built-in fallback prompt in place.
 pub fn eval_default_prompts(engine_state: &mut EngineState, stack: &mut Stack) {
     eval_source(
         engine_state,

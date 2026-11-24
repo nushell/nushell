@@ -1,12 +1,8 @@
-use std::sync::LazyLock;
-
 use super::parser::datetime_in_timezone;
+use crate::date::TIME_ZONE_NAMES;
 use crate::date::utils::parse_date_from_string;
-use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
 use nu_engine::command_prelude::*;
-
-static TIMEZONES: LazyLock<Vec<&'static str>> =
-    LazyLock::new(|| chrono_tz::TZ_VARIANTS.iter().map(|tz| tz.name()).collect());
+use nu_protocol::DateTime;
 
 #[derive(Clone)]
 pub struct DateToTimezone;
@@ -34,7 +30,7 @@ impl Command for DateToTimezone {
             .param(
                 PositionalArg::new("time zone", SyntaxShape::String)
                     .desc("Time zone description.")
-                    .completion(Completion::new_list(TIMEZONES.as_slice()))
+                    .completion(Completion::new_list(TIME_ZONE_NAMES.as_slice()))
                     .required(),
             )
             .category(Category::Date)
@@ -81,54 +77,24 @@ impl Command for DateToTimezone {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        let example_result_1 = || match FixedOffset::east_opt(5 * 3600)
-            .expect("to timezone: help example is invalid")
-            .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
-        {
-            LocalResult::Single(dt) => Some(Value::date(dt, Span::test_data())),
-            _ => panic!("to timezone: help example is invalid"),
+        // Dates at +05:00, as the examples convert to.
+        let at_five = |text: &str| {
+            DateTime::parse_rfc3339(&format!("{text}+05:00"))
+                .ok()
+                .map(Value::test_date)
         };
-
+        let example_result_1 = || at_five("2020-10-10T13:00:00");
         let example_result_list_datetime = || {
-            let tz = FixedOffset::east_opt(5 * 3600).expect("to timezone: help example is invalid");
-            Some(Value::list(
-                vec![
-                    Value::date(
-                        tz.with_ymd_and_hms(2021, 10, 22, 13, 00, 00)
-                            .single()
-                            .expect("to timezone: help example is invalid"),
-                        Span::test_data(),
-                    ),
-                    Value::date(
-                        tz.with_ymd_and_hms(2021, 10, 23, 13, 00, 00)
-                            .single()
-                            .expect("to timezone: help example is invalid"),
-                        Span::test_data(),
-                    ),
-                ],
-                Span::test_data(),
-            ))
+            Some(Value::test_list(vec![
+                at_five("2021-10-22T13:00:00")?,
+                at_five("2021-10-23T13:00:00")?,
+            ]))
         };
-
         let example_result_list_string = || {
-            let tz = FixedOffset::east_opt(5 * 3600).expect("to timezone: help example is invalid");
-            Some(Value::list(
-                vec![
-                    Value::date(
-                        tz.with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
-                            .single()
-                            .expect("to timezone: help example is invalid"),
-                        Span::test_data(),
-                    ),
-                    Value::date(
-                        tz.with_ymd_and_hms(2020, 10, 10, 15, 00, 00)
-                            .single()
-                            .expect("to timezone: help example is invalid"),
-                        Span::test_data(),
-                    ),
-                ],
-                Span::test_data(),
-            ))
+            Some(Value::test_list(vec![
+                at_five("2020-10-10T13:00:00")?,
+                at_five("2020-10-10T15:00:00")?,
+            ]))
         };
 
         vec![
@@ -183,10 +149,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             }
         }
 
-        Value::Nothing { .. } => {
-            let dt = Local::now();
-            _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
-        }
+        Value::Nothing { .. } => _to_timezone(DateTime::now(), timezone, head),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "date, string (that represents datetime), or nothing".into(),
@@ -199,8 +162,8 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
     }
 }
 
-fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> Value {
-    match datetime_in_timezone(&dt, timezone.item.as_str()) {
+fn _to_timezone(dt: DateTime, timezone: &Spanned<String>, span: Span) -> Value {
+    match datetime_in_timezone(dt, timezone.item.as_str()) {
         Ok(dt) => Value::date(dt, span),
         Err(_) => Value::error(
             ShellError::TypeMismatch {

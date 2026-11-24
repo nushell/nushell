@@ -14,6 +14,7 @@ mod exportable_completions;
 mod file_completions;
 mod flag_completions;
 mod operator_completions;
+mod overlay_completions;
 mod static_completions;
 mod variable_completions;
 
@@ -41,5 +42,6 @@ pub use file_completions::FileCompletion;
 pub use flag_completions::FlagCompletion;
 pub use nu_protocol::SuggestionKind;
 pub use operator_completions::OperatorCompletion;
+pub use overlay_completions::OverlayCompletion;
 pub use static_completions::StaticCompletion;
 pub use variable_completions::VariableCompletion;

@@ -5,6 +5,7 @@ use crate::theme::Theme;
 use crate::widget::{WidgetKind, WidgetState};
 use crate::widgets::label::Slot;
 use crate::widgets::split::SplitDir;
+use nu_utils::strip_ansi_string_unlikely;
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -51,7 +52,9 @@ fn render_dialog_frame(frame: &mut Frame, session: &Session, theme: &Theme) {
         .widgets
         .iter()
         .find_map(|w| match &w.kind {
-            WidgetKind::Label(l) if l.slot == Slot::Title => Some(l.text(&w.id, session)),
+            WidgetKind::Label(l) if l.slot == Slot::Title => {
+                Some(strip_ansi_string_unlikely(l.text(&w.id, session)))
+            }
             _ => None,
         })
         .unwrap_or_else(|| "tui".into());
@@ -153,10 +156,11 @@ pub fn render_to_string(session: &mut Session, width: u16, height: u16) -> Resul
     use ratatui::{Terminal, backend::TestBackend};
 
     let backend = TestBackend::new(width, height);
-    let mut terminal = Terminal::new(backend).map_err(|e| e.to_string())?;
+    // The test backend is infallible, so neither operation can return an error.
+    let mut terminal = Terminal::new(backend).unwrap_or_else(|err| match err {});
     terminal
         .draw(|frame| render(frame, session))
-        .map_err(|e| e.to_string())?;
+        .unwrap_or_else(|err| match err {});
     let buffer = terminal.backend().buffer();
     let mut output = String::new();
     for y in 0..height {

@@ -12,6 +12,7 @@ impl Command for MathArcSinH {
         Signature::build("math arcsinh")
             .input_output_types(vec![
                 (Type::Number, Type::Float),
+                (Type::Range, Type::List(Box::new(Type::Float))),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
@@ -41,6 +42,7 @@ impl Command for MathArcSinH {
         if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        super::ensure_bounded_range(&input, head)?;
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 

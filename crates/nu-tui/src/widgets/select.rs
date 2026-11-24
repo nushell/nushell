@@ -1,5 +1,5 @@
 //! `tui select`: a radio (or checkbox, with `--multi`) list of items.
-use super::table::{list_click, list_key, list_scroll, list_selection, list_value};
+use super::table::{check_key, list_click, list_key, list_scroll, list_selection, list_value};
 use crate::filter::value_text;
 use crate::hooks::call_closure;
 use crate::keys::KeyPress;
@@ -7,6 +7,7 @@ use crate::session::{Rows, Session};
 use crate::widget::{Caps, Effect, ListState, TuiWidget, WidgetState};
 use nu_protocol::engine::Closure;
 use nu_protocol::{Record, Span, Value};
+use nu_utils::strip_ansi_string_unlikely;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::text::{Line, Span as TSpan, Text};
@@ -44,8 +45,10 @@ impl SelectWidget {
         session.rows(id)
     }
 
+    /// The text shown for `item`, without ANSI escapes: the row is drawn in
+    /// one style, and a hyperlink would otherwise print its URL.
     fn label(&self, item: &Value, session: &Session) -> String {
-        match &self.display {
+        let text = match &self.display {
             Some(Display::Column(col)) => item
                 .as_record()
                 .ok()
@@ -62,7 +65,8 @@ impl SelectWidget {
                 None => value_text(item),
             },
             None => value_text(item),
-        }
+        };
+        strip_ansi_string_unlikely(text)
     }
 }
 
@@ -101,10 +105,11 @@ impl TuiWidget for SelectWidget {
         key: &KeyPress,
         session: &Session,
     ) -> Option<Vec<Effect>> {
-        let len = self.rows(id, session).len();
+        let rows = self.rows(id, session);
         let page = super::inner_rows(session.areas.get(id), 2);
         let list = state.as_list_mut()?;
-        list_key(id, list, &key.chord, len, page, self.multi)
+        check_key(list, &key.chord, &rows, self.multi)
+            .or_else(|| list_key(id, list, &key.chord, &rows, page))
     }
 
     fn click(
@@ -116,14 +121,16 @@ impl TuiWidget for SelectWidget {
         y: u16,
         session: &Session,
     ) -> Vec<Effect> {
-        let len = self.rows(id, session).len();
+        let rows = self.rows(id, session);
         let page = super::inner_rows(Some(&area), 2);
-        let row = y.saturating_sub(area.y).saturating_sub(1) as usize;
+        let row = y.checked_sub(area.y).and_then(|y| y.checked_sub(1));
         match state.as_list_mut() {
             Some(list) => {
-                let mut effects = list_click(id, list, row, len, page);
-                if self.multi && len > 0 {
-                    list.toggle(list.selected);
+                let (mut effects, hit) = list_click(id, list, row.map(usize::from), &rows, page);
+                // Only a click on an item toggles it, not one on the border
+                // or the empty space below the items.
+                if self.multi && hit {
+                    list.toggle(list.highlight);
                     effects.push(Effect::Selected(id.to_string()));
                 }
                 effects
@@ -139,10 +146,10 @@ impl TuiWidget for SelectWidget {
         delta: i32,
         session: &Session,
     ) -> Vec<Effect> {
-        let len = self.rows(id, session).len();
+        let rows = self.rows(id, session);
         let page = super::inner_rows(session.areas.get(id), 2);
         match state.as_list_mut() {
-            Some(list) => list_scroll(id, list, delta, len, page),
+            Some(list) => list_scroll(id, list, delta, &rows, page),
             None => Vec::new(),
         }
     }
@@ -168,19 +175,24 @@ impl TuiWidget for SelectWidget {
         let block = super::framed(&title, focused, session, id);
         let inner = block.inner(area);
         frame.render_widget(block, area);
+        let highlight = list.position(&rows);
         let lines: Vec<Line> = rows
             .iter()
             .enumerate()
-            .skip(list.scroll_for(inner.height as usize))
+            .skip(list.scroll_for(&rows, inner.height as usize))
             .take(inner.height as usize)
             .map(|(i, item)| {
-                let mark = match (self.multi, list.checked.contains(&i), i == list.selected) {
+                let checked = rows
+                    .source(i)
+                    .is_some_and(|source| list.checked.contains(&source));
+                let highlighted = highlight == Some(i);
+                let mark = match (self.multi, checked, highlighted) {
                     (true, true, _) => "[x] ",
                     (true, false, _) => "[ ] ",
                     (false, _, true) => "(•) ",
                     (false, _, false) => "( ) ",
                 };
-                let style = if i == list.selected {
+                let style = if highlighted {
                     theme.text().patch(theme.selected())
                 } else {
                     theme.text()
@@ -196,21 +208,32 @@ impl TuiWidget for SelectWidget {
 
     fn value(&self, id: &str, state: &WidgetState, session: &Session) -> Value {
         match state.as_list() {
-            Some(list) => list_value(list, &self.rows(id, session), self.multi),
+            Some(list) => list_value(
+                list,
+                &self.rows(id, session),
+                session.source_rows(id),
+                self.multi,
+            ),
             None => Value::nothing(Span::unknown()),
         }
     }
 
     fn selection(&self, id: &str, state: &WidgetState, session: &Session) -> Value {
         match state.as_list() {
-            Some(list) => list_selection(list, &self.rows(id, session), self.multi, self.index),
+            Some(list) => list_selection(
+                list,
+                &self.rows(id, session),
+                session.source_rows(id),
+                self.multi,
+                self.index,
+            ),
             None => Value::nothing(Span::unknown()),
         }
     }
 
     fn current_row(&self, id: &str, state: &WidgetState, session: &Session) -> Option<Value> {
-        let list = state.as_list()?;
-        self.rows(id, session).get(list.selected).cloned()
+        let rows = self.rows(id, session);
+        rows.get(state.as_list()?.position(&rows)?).cloned()
     }
 
     fn debug(&self, id: &str, _state: &WidgetState, session: &Session, rec: &mut Record) {

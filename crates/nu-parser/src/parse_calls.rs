@@ -460,6 +460,32 @@ fn ensure_flag_arg_type(
     }
 }
 
+/// Parse a named flag's value, allowing a bare `null` when requested if its own shape rejects it.
+///
+/// Parsing the declared shape first preserves its diagnostics and literal interpretations, such
+/// as the cell path `$.null`. Known externals disable the fallback to preserve their argument parsing.
+///
+/// Null flag values are handled according to the flag's signature at evaluation time: they omit
+/// flags whose type does not accept `nothing`, and are passed through otherwise.
+fn parse_flag_value(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+    allow_null: bool,
+) -> Expression {
+    let starting_error_count = working_set.parse_errors.len();
+    let arg = crate::parser::parse_value(working_set, span, shape, None);
+    if allow_null
+        && working_set.parse_errors.len() > starting_error_count
+        && working_set.get_span_contents(span) == b"null"
+    {
+        working_set.parse_errors.truncate(starting_error_count);
+        crate::parser::parse_value(working_set, span, &SyntaxShape::Nothing, None)
+    } else {
+        arg
+    }
+}
+
 /// Result of attempting to parse a long flag.
 ///
 /// This enum indicates whether a declared long flag was found, an undeclared one was found,
@@ -482,6 +508,7 @@ fn parse_long_flag(
     spans: &[Span],
     spans_idx: &mut usize,
     sig: &Signature,
+    allow_null: bool,
 ) -> LongFlagParseResult {
     let arg_span = spans[*spans_idx];
     let arg_contents = working_set.get_span_contents(arg_span);
@@ -505,7 +532,7 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg = crate::parser::parse_value(working_set, span, arg_shape, None);
+                        let arg = parse_flag_value(working_set, span, arg_shape, allow_null);
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
                             long_name,
@@ -515,7 +542,7 @@ fn parse_long_flag(
                         );
                         LongFlagParseResult::FoundFlag(arg_name, Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                        let arg = crate::parser::parse_value(working_set, *arg, arg_shape, None);
+                        let arg = parse_flag_value(working_set, *arg, arg_shape, allow_null);
 
                         *spans_idx += 1;
                         let (arg_name, val_expression) =
@@ -545,12 +572,8 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg = crate::parser::parse_value(
-                            working_set,
-                            span,
-                            &SyntaxShape::Boolean,
-                            None,
-                        );
+                        let arg =
+                            parse_flag_value(working_set, span, &SyntaxShape::Boolean, allow_null);
 
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
@@ -1029,6 +1052,67 @@ fn short_spanned(short: char, span: Span) -> Spanned<String> {
     }
 }
 
+/// Fill in the value of a flag that an alias's expansion ends with.
+///
+/// `alias myfind = find -r` stores `-r` without its value. `myfind 'txt$'` should parse like
+/// `find -r 'txt$'`, so the first word after the alias becomes the value. If there is no word,
+/// the missing value is reported at `command_span`, the alias's name. `myfind --help` (or `-h`)
+/// still asks for help instead of searching for `--help`. Returns how many of `spans` were used.
+fn fill_alias_flag_value(
+    working_set: &mut StateWorkingSet,
+    call: &mut Call,
+    signature: &Signature,
+    command_span: Span,
+    spans: &[Span],
+    allow_null: bool,
+) -> usize {
+    let Some(Argument::Named((long, short, None))) = call.arguments.last() else {
+        return 0;
+    };
+    let flag = match short.as_ref().and_then(|short| short.item.chars().next()) {
+        Some(short) if long.item.is_empty() => signature.get_short_flag(short),
+        _ => signature.get_long_flag(&long.item),
+    };
+    // A switch has no value to fill.
+    let Some(shape) = flag.and_then(|flag| flag.arg) else {
+        return 0;
+    };
+    let long_name = long.item.clone();
+
+    let Some(&value_span) = spans.first() else {
+        working_set.error(ParseError::MissingFlagParam(
+            shape.to_string(),
+            command_span,
+        ));
+        return 0;
+    };
+    let help_short = signature.get_long_flag("help").and_then(|flag| flag.short);
+    let asks_for_help = match working_set.get_span_contents(value_span) {
+        b"--help" => true,
+        [b'-', short] => help_short == Some(char::from(*short)),
+        _ => false,
+    };
+    if asks_for_help {
+        return 0;
+    }
+
+    // The flag's name spans come from the alias definition, maybe in another file. With the
+    // value's span from here, `Argument::span` would run from one to the other, so the name
+    // gets an empty span where the value starts. It stays clear of the alias name, which
+    // highlighting colors as a command.
+    let name_span = Span::new(value_span.start, value_span.start);
+    let value = parse_flag_value(working_set, value_span, &shape, allow_null);
+    let (_, value) = ensure_flag_arg_type(working_set, long_name, value, &shape, name_span);
+    if let Some(Argument::Named((long, short, slot))) = call.arguments.last_mut() {
+        long.span = name_span;
+        if let Some(short) = short {
+            short.span = name_span;
+        }
+        *slot = Some(value);
+    }
+    1
+}
+
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -1108,7 +1192,9 @@ pub fn parse_internal_call(
     // Starting at the first argument
     let mut spans_idx = 0;
 
+    let mut is_alias = false;
     if let Some(alias) = decl.as_alias() {
+        is_alias = true;
         if let Expression {
             expr: Expr::Call(wrapped_call),
             ..
@@ -1143,7 +1229,20 @@ pub fn parse_internal_call(
         working_set.enter_scope();
     }
 
+    // After alias resolution, call.decl_id names the aliased command.
+    let allow_null_flag_value = !working_set.get_decl(call.decl_id).is_known_external();
     let mut end_of_options = false;
+
+    if is_alias {
+        spans_idx = fill_alias_flag_value(
+            working_set,
+            &mut call,
+            &signature,
+            command_span,
+            spans,
+            allow_null_flag_value,
+        );
+    }
 
     // Commands that pass unknown arguments through (extern, def --wrapped, exec, etc.) forward
     // a flag the signature doesn't declare to the program instead of reporting it.
@@ -1161,7 +1260,13 @@ pub fn parse_internal_call(
         // If we've seen --, skip all flag parsing and go straight to positional parsing
         if !end_of_options {
             // Check if we're on a long flag, if so, parse
-            let flag_parse_result = parse_long_flag(working_set, spans, &mut spans_idx, &signature);
+            let flag_parse_result = parse_long_flag(
+                working_set,
+                spans,
+                &mut spans_idx,
+                &signature,
+                allow_null_flag_value,
+            );
 
             match flag_parse_result {
                 LongFlagParseResult::EndOfOptions => {
@@ -1234,8 +1339,12 @@ pub fn parse_internal_call(
 
                         if let Some(arg_shape) = flag.arg {
                             if let Some(arg) = spans.get(spans_idx + 1) {
-                                let arg =
-                                    crate::parser::parse_value(working_set, *arg, &arg_shape, None);
+                                let arg = parse_flag_value(
+                                    working_set,
+                                    *arg,
+                                    &arg_shape,
+                                    allow_null_flag_value,
+                                );
                                 let (arg_name, val_expression) = ensure_flag_arg_type(
                                     working_set,
                                     flag.long.clone(),

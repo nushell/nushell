@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn which_ls() -> Result {
@@ -122,29 +122,27 @@ fn which_dedup_is_less_than_all() -> Result {
 }
 
 #[test]
-fn which_custom_command_reports_file() -> Result {
-    Playground::setup("which_file_1", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "foo.nu",
-            "
-                def foo [] { echo hi }
-            ",
-        )]);
+fn which_custom_command_reports_file(playground: Playground) -> Result {
+    playground.file(
+        "foo.nu",
+        indoc::indoc! {"
+        def foo [] { echo hi }
+    "},
+    )?;
 
-        let code = "
-            source foo.nu
-            which foo
-        ";
+    let code = "
+        source foo.nu
+        which foo
+    ";
 
-        #[derive(Debug, FromValue)]
-        struct Outcome {
-            path: String,
-        }
+    #[derive(Debug, FromValue)]
+    struct Outcome {
+        path: String,
+    }
 
-        let outcome: (Outcome,) = test().cwd(dirs.test()).run(code)?;
-        assert_contains("foo.nu", outcome.0.path);
-        Ok(())
-    })
+    let outcome: (Outcome,) = test().cwd(playground.path()).run(code)?;
+    assert_contains("foo.nu", outcome.0.path);
+    Ok(())
 }
 
 #[cfg(feature = "plugin")]
@@ -181,29 +179,27 @@ fn which_external_command_reports_path() -> Result {
 // shell's `$env.PATHEXT` includes `.QQQ`.
 #[cfg(windows)]
 #[test]
-fn which_respects_pathext_from_env() -> Result {
-    Playground::setup("which_pathext", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed("foo.qqq", "")]);
-        let dir = dirs.test().display().to_string();
+fn which_respects_pathext_from_env(playground: Playground) -> Result {
+    playground.file("foo.qqq", indoc::indoc! {""})?;
+    let dir = playground.path().display().to_string();
 
-        let found: i32 = test().cwd(dirs.test()).run(format!(
-            "with-env {{ Path: '{dir}', PATHEXT: '.QQQ' }} {{ which foo | length }}"
-        ))?;
-        assert_eq!(
-            found, 1,
-            "which should find foo.qqq when $env.PATHEXT has .QQQ"
-        );
+    let found: i32 = test().cwd(playground.path()).run(format!(
+        "with-env {{ Path: '{dir}', PATHEXT: '.QQQ' }} {{ which foo | length }}"
+    ))?;
+    assert_eq!(
+        found, 1,
+        "which should find foo.qqq when $env.PATHEXT has .QQQ"
+    );
 
-        let not_found: i32 = test().cwd(dirs.test()).run(format!(
-            "with-env {{ Path: '{dir}', PATHEXT: '.EXE' }} {{ which foo | length }}"
-        ))?;
-        assert_eq!(
-            not_found, 0,
-            "which should not find foo.qqq when $env.PATHEXT lacks .QQQ"
-        );
+    let not_found: i32 = test().cwd(playground.path()).run(format!(
+        "with-env {{ Path: '{dir}', PATHEXT: '.EXE' }} {{ which foo | length }}"
+    ))?;
+    assert_eq!(
+        not_found, 0,
+        "which should not find foo.qqq when $env.PATHEXT lacks .QQQ"
+    );
 
-        Ok(())
-    })
+    Ok(())
 }
 
 // A `PATHEXT` removed with `hide-env` must stay hidden: `which` must not fall
@@ -212,27 +208,25 @@ fn which_respects_pathext_from_env() -> Result {
 // again).
 #[cfg(windows)]
 #[test]
-fn which_respects_hidden_pathext() -> Result {
-    Playground::setup("which_pathext_hidden", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed("foo.cmd", "")]);
-        let dir = dirs.test().display().to_string();
+fn which_respects_hidden_pathext(playground: Playground) -> Result {
+    playground.file("foo.cmd", indoc::indoc! {""})?;
+    let dir = playground.path().display().to_string();
 
-        let found: i32 = test().cwd(dirs.test()).run(format!(
-            "with-env {{ Path: '{dir}', PATHEXT: '.CMD' }} {{ which foo | length }}"
-        ))?;
-        assert_eq!(
-            found, 1,
-            "which should find foo.cmd when $env.PATHEXT has .CMD"
-        );
+    let found: i32 = test().cwd(playground.path()).run(format!(
+        "with-env {{ Path: '{dir}', PATHEXT: '.CMD' }} {{ which foo | length }}"
+    ))?;
+    assert_eq!(
+        found, 1,
+        "which should find foo.cmd when $env.PATHEXT has .CMD"
+    );
 
-        let hidden: i32 = test().cwd(dirs.test()).run(format!(
-            "with-env {{ Path: '{dir}', PATHEXT: '.CMD' }} {{ hide-env PATHEXT; which foo | length }}"
-        ))?;
-        assert_eq!(
-            hidden, 0,
-            "which should not resurrect a hidden $env.PATHEXT from the process environment"
-        );
+    let hidden: i32 = test().cwd(playground.path()).run(format!(
+        "with-env {{ Path: '{dir}', PATHEXT: '.CMD' }} {{ hide-env PATHEXT; which foo | length }}"
+    ))?;
+    assert_eq!(
+        hidden, 0,
+        "which should not resurrect a hidden $env.PATHEXT from the process environment"
+    );
 
-        Ok(())
-    })
+    Ok(())
 }

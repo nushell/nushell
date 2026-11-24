@@ -5,7 +5,6 @@ use crate::{
     engine::Closure,
     shell_error::generic::GenericError,
 };
-use chrono::{DateTime, FixedOffset};
 use std::{
     any,
     borrow::Cow,
@@ -771,7 +770,7 @@ impl FromValue for Closure {
     }
 }
 
-impl FromValue for DateTime<FixedOffset> {
+impl FromValue for crate::DateTime {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Date { val, .. } => Ok(val),

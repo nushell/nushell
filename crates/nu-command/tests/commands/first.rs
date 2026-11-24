@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use nu_protocol::DateTime;
 use nu_protocol::{
     Filesize, IntRange, IntoPipelineData, LabeledError, ListStream, PipelineData, PipelineMetadata,
     Range, Signals, Span, Value, ast::RangeInclusion,
@@ -6,6 +6,11 @@ use nu_protocol::{
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
+
+#[test]
+fn binary_first_typechecks_as_int() -> Result {
+    test().run("(0x[01 02 03] | first) + 1").expect_value_eq(2)
+}
 
 #[derive(Clone, Copy)]
 enum InputKind {
@@ -81,7 +86,7 @@ fn const_first_strict_on_empty_list_errors() -> Result {
         .run("const x = [] | first --strict")
         .expect_parse_error()?;
 
-    assert_matches!(err, ParseError::LabeledError(msg, _, _) if msg.contains("Cannot access empty content"));
+    assert_matches!(err, ParseError::ParseTimeEval { report: msg, .. } if msg.contains("Cannot access empty content"));
     Ok(())
 }
 
@@ -99,10 +104,10 @@ fn gets_first_rows_by_amount() -> Result {
             "$in | first 3 | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(3)
@@ -115,10 +120,10 @@ fn gets_all_rows_if_amount_higher_than_all_rows() -> Result {
             "$in | first 99 | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["los.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["tres.txt", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
+                ["amigos.txt", "file", Filesize::from(3), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(4), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(4)
@@ -132,8 +137,8 @@ fn gets_first_row_when_no_amount_given() -> Result {
             "$in | first | values | length",
             test_table![
                 ["name", "type", "size", "modified"];
-                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH.fixed_offset()],
-                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH.fixed_offset()],
+                ["caballeros.txt", "file", Filesize::from(1), DateTime::UNIX_EPOCH],
+                ["arepas.clu", "file", Filesize::from(2), DateTime::UNIX_EPOCH],
             ],
         )
         .expect_value_eq(4)
@@ -208,6 +213,83 @@ fn error_on_empty_list_stream_in_strict_mode() -> Result {
 #[test]
 fn error_on_empty_binary_in_strict_mode() -> Result {
     assert_empty_content_diagnostic("0x[] | first --strict")
+}
+
+#[test]
+fn error_on_empty_inputs_when_rows_given_in_strict_mode() -> Result {
+    for code in [
+        "[] | first -s 1",
+        "[] | first -s 0",
+        "[1] | where {|x| $x > 1 } | first -s 1",
+        "[1] | where {|x| $x > 1 } | first -s 0",
+        "0x[] | first -s 1",
+        "0x[] | first -s 0",
+        "1..<1 | first -s 1",
+        "1..<1 | first -s 0",
+    ] {
+        assert_empty_content_diagnostic(code)?;
+    }
+
+    let const_err = test()
+        .run("const x = [] | first --strict 1")
+        .expect_parse_error()?;
+    assert_matches!(
+        const_err,
+        nu_protocol::ParseError::ParseTimeEval { report: msg, .. } if msg.contains("Cannot access empty content")
+    );
+
+    let empty_stream = PipelineData::byte_stream(
+        nu_protocol::ByteStream::read(
+            std::io::Cursor::new(Vec::<u8>::new()),
+            Span::test_data(),
+            Signals::empty(),
+            nu_protocol::ByteStreamType::Binary,
+        ),
+        None,
+    );
+    let err = test()
+        .run_raw_with_data("first --strict 2", empty_stream)
+        .expect_err("expected empty byte stream with --strict and rows to fail");
+    assert!(
+        format!("{err:?}").contains("AccessEmptyContent"),
+        "expected AccessEmptyContent error, got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn non_empty_inputs_succeed_with_rows_in_strict_mode() -> Result {
+    test()
+        .run("[1 2 3] | first -s 2")
+        .expect_value_eq(vec![Value::test_int(1), Value::test_int(2)])?;
+    test()
+        .run("[1 2 3] | where {|x| $x > 1 } | first -s 1")
+        .expect_value_eq(vec![Value::test_int(2)])?;
+    test()
+        .run("[1 2 3] | where {|x| $x > 1 } | first -s 0")
+        .expect_value_eq(Vec::<Value>::new())?;
+    test()
+        .run("(0x[aa bb cc] | first -s 2) == 0x[aa bb]")
+        .expect_value_eq(true)?;
+    test()
+        .run("1..3 | first -s 2")
+        .expect_value_eq(vec![Value::test_int(1), Value::test_int(2)])?;
+
+    let stream = PipelineData::byte_stream(
+        nu_protocol::ByteStream::read(
+            std::io::Cursor::new(vec![0xaa, 0xbb, 0xcc]),
+            Span::test_data(),
+            Signals::empty(),
+            nu_protocol::ByteStreamType::Binary,
+        ),
+        None,
+    );
+    let bytes = test()
+        .run_raw_with_data("first -s 2", stream)?
+        .body
+        .into_value(Span::test_data())?;
+    assert_eq!(bytes, Value::binary(vec![0xaa, 0xbb], Span::test_data()));
+    Ok(())
 }
 
 fn assert_empty_content_diagnostic(code: &str) -> Result {
@@ -303,4 +385,19 @@ fn first_preserves_pipeline_metadata(#[case] input: InputKind, #[case] code: &st
     };
     assert_eq!(expected, out);
     Ok(())
+}
+
+#[rstest]
+#[case::strict_rows("first -s 2")]
+#[case::strict_zero("first -s 0")]
+#[case::strict("first -s")]
+#[case::single("first")]
+#[nu_test_support::test]
+#[deps(TESTBIN_FAIL)]
+fn failed_external_with_no_output_keeps_exit_code(#[case] first: &str) -> Result {
+    test()
+        .run(format!(
+            "try {{ fail 42 | {first} }} catch {{|e| $e.exit_code }}"
+        ))
+        .expect_value_eq(42)
 }

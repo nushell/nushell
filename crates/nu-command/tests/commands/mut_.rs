@@ -1,7 +1,7 @@
 use rstest::rstest;
 
-use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
-use nu_test_support::{fs::Stub::EmptyFile, playground::Playground, prelude::*};
+use nu_experimental::{CELL_PATH_TYPES, ENFORCE_RUNTIME_ANNOTATIONS};
+use nu_test_support::prelude::*;
 
 #[test]
 fn mut_variable() -> Result {
@@ -117,9 +117,19 @@ fn mut_path_upsert_list() -> Result {
 }
 
 #[test]
-#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+#[exp(CELL_PATH_TYPES)]
+fn mut_path_operator_assign_should_error_at_parse_time() -> Result {
+    // cell-path-types gives `$a.b` the type `int`, so the parser rejects the division
+    test()
+        .run("mut a: record<b: int> = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b")
+        .expect_error_code_eq("nu::parser::operator_incompatible_types")
+}
+
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS, CELL_PATH_TYPES = false)]
 fn mut_path_operator_assign_should_error_enforce_runtime() -> Result {
-    // should error on the division
+    // without cell-path-types the parser sees `$a.b` as `any`, so the runtime check catches the
+    // division
     test()
         .run("mut a: record<b: int> = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b")
         .expect_error_code_eq("nu::shell::type_mismatch")
@@ -154,15 +164,15 @@ fn mut_glob_type() -> Result {
 }
 
 #[test]
-fn mut_typed_glob_expands_in_ls() -> Result {
-    Playground::setup("mut_glob_ls", |dirs, sandbox| {
-        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+fn mut_typed_glob_expands_in_ls(playground: Playground) -> Result {
+    playground.empty_file("a.toml")?;
+    playground.empty_file("b.toml")?;
+    playground.empty_file("c.txt")?;
 
-        test()
-            .cwd(dirs.test())
-            .run(r#"mut x: glob = "*.toml"; ls $x | length"#)
-            .expect_value_eq(2)
-    })
+    test()
+        .cwd(playground.path())
+        .run(r#"mut x: glob = "*.toml"; ls $x | length"#)
+        .expect_value_eq(2)
 }
 
 #[rstest]

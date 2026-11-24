@@ -64,3 +64,64 @@ fn headers_invalid_column_type(#[case] code: &str) -> Result {
     );
     Ok(())
 }
+
+#[test]
+fn headers_renames_repeated_names() -> Result {
+    test()
+        .run("[[a b c]; [x x x] [1 2 3]] | headers | to nuon")
+        .expect_value_eq(r#"[[x, "x_1", "x_2"]; [1, 2, 3]]"#)
+}
+
+#[test]
+fn headers_repeated_name_skips_existing_suffix() -> Result {
+    // A real `x_1` column keeps its name; the repeated `x` moves past it.
+    test()
+        .run("[[a b c]; [x x x_1] [1 2 3]] | headers | to nuon")
+        .expect_value_eq(r#"[[x, "x_2", "x_1"]; [1, 2, 3]]"#)
+}
+
+#[test]
+fn headers_blank_names_collide_with_literal_column_name() -> Result {
+    // Blank cells are named by position first (`column0`, `column1`), then a
+    // literal `column0` in the header row is renamed rather than duplicated.
+    test()
+        .run(r#"[[a b c]; ["" "" column0] [1 2 3]] | headers | to nuon"#)
+        .expect_value_eq(r#"[["column0", "column1", "column0_1"]; [1, 2, 3]]"#)
+}
+
+#[test]
+fn headers_renamed_columns_apply_to_every_row() -> Result {
+    test()
+        .run("[[a b]; [x x] [1 2] [3 4]] | headers | to nuon")
+        .expect_value_eq(r#"[[x, "x_1"]; [1, 2], [3, 4]]"#)
+}
+
+#[test]
+fn headers_non_string_names_are_deduped() -> Result {
+    // Int and float header cells become "1" and "1.0"; the repeated "1" gets a suffix.
+    test()
+        .run("[[a b c]; [1 1.0 1] [1 2 3]] | headers | columns | to nuon")
+        .expect_value_eq(r#"["1", "1.0", "1_1"]"#)
+}
+
+#[test]
+fn headers_null_name_collides_with_literal() -> Result {
+    // A null header cell is named `column0`, so a literal `column0` in the next column is renamed.
+    test()
+        .run("[[a b]; [null column0] [1 2]] | headers | columns | to nuon")
+        .expect_value_eq(r#"["column0", "column0_1"]"#)
+}
+
+#[test]
+fn headers_reordered_and_missing_columns_map_by_name() -> Result {
+    test()
+        .run("[{a: x, b: x}, {b: 2, a: 1}, {a: 5}] | headers | to nuon")
+        .expect_value_eq(r#"[{"x_1": 2, x: 1}, {x: 5}]"#)
+}
+
+#[test]
+fn headers_renamed_column_is_reachable_by_name() -> Result {
+    test()
+        .run("[[a b]; [x x] [1 2]] | headers | get x_1 | to nuon")
+        .expect_value_eq("[2]")
+}

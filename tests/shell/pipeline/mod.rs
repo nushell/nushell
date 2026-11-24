@@ -1,4 +1,6 @@
 mod commands;
+#[cfg(unix)]
+mod foreground;
 
 use nu_test_support::prelude::*;
 

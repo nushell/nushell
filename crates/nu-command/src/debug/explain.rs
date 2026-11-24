@@ -1,7 +1,9 @@
+use std::ops::ControlFlow;
+
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_protocol::{
-    ast::{self, Argument, Block, Expr, Expression},
-    engine::Closure,
+    ast::{self, Argument, Block, Expr, Expression, Traverse},
+    engine::{Closure, StateWorkingSet},
 };
 
 #[derive(Clone)]
@@ -112,10 +114,11 @@ fn get_arguments(
     call: &ast::Call,
     eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
 ) -> Vec<Value> {
+    let working_set = StateWorkingSet::new(engine_state);
     let mut arg_value = vec![];
     let span = Span::test_data();
     for arg in &call.arguments {
-        match arg {
+        let (arg_type, expression) = match arg {
             // I think the second argument to Argument::Named is the short name, but I'm not really sure.
             // Please fix it if it's wrong. :)
             Argument::Named((name, short, opt_expr)) => {
@@ -149,95 +152,82 @@ fn get_arguments(
                     arg_value.push(Value::record(record, name.span));
                 };
 
-                if let Some(expression) = opt_expr {
-                    let evaluated_expression = get_expression_as_value(
-                        engine_state,
-                        stack,
-                        expression,
-                        eval_expression_fn,
-                    );
-                    let arg_type = "expr";
-                    let arg_value_name =
-                        debug_string_without_formatting(engine_state, &evaluated_expression);
-                    let arg_value_type = &evaluated_expression.get_type().to_string();
-                    let evaled_span = evaluated_expression.span();
-                    let arg_value_name_span_start = evaled_span.start as i64;
-                    let arg_value_name_span_end = evaled_span.end as i64;
-
-                    let record = record! {
-                        "arg_type" => Value::string(arg_type, span),
-                        "name" => Value::string(arg_value_name, expression.span),
-                        "type" => Value::string(arg_value_type, span),
-                        "span_start" => Value::int(arg_value_name_span_start, span),
-                        "span_end" => Value::int(arg_value_name_span_end, span),
-                    };
-                    arg_value.push(Value::record(record, expression.span));
-                };
+                match opt_expr {
+                    Some(expression) => ("expr", expression),
+                    None => continue,
+                }
             }
-            Argument::Positional(inner_expr) => {
-                let arg_type = "positional";
-                let evaluated_expression =
-                    get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
-                let arg_value_name =
-                    debug_string_without_formatting(engine_state, &evaluated_expression);
-                let arg_value_type = &evaluated_expression.get_type().to_string();
-                let evaled_span = evaluated_expression.span();
-                let arg_value_name_span_start = evaled_span.start as i64;
-                let arg_value_name_span_end = evaled_span.end as i64;
-
-                let record = record! {
-                    "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
-                    "type" => Value::string(arg_value_type, span),
-                    "span_start" => Value::int(arg_value_name_span_start, span),
-                    "span_end" => Value::int(arg_value_name_span_end, span),
-                };
-                arg_value.push(Value::record(record, inner_expr.span));
-            }
-            Argument::Unknown(inner_expr) => {
-                let arg_type = "unknown";
-                let evaluated_expression =
-                    get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
-                let arg_value_name =
-                    debug_string_without_formatting(engine_state, &evaluated_expression);
-                let arg_value_type = &evaluated_expression.get_type().to_string();
-                let evaled_span = evaluated_expression.span();
-                let arg_value_name_span_start = evaled_span.start as i64;
-                let arg_value_name_span_end = evaled_span.end as i64;
-
-                let record = record! {
-                    "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
-                    "type" => Value::string(arg_value_type, span),
-                    "span_start" => Value::int(arg_value_name_span_start, span),
-                    "span_end" => Value::int(arg_value_name_span_end, span),
-                };
-                arg_value.push(Value::record(record, inner_expr.span));
-            }
-            Argument::Spread(inner_expr) => {
-                let arg_type = "spread";
-                let evaluated_expression =
-                    get_expression_as_value(engine_state, stack, inner_expr, eval_expression_fn);
-                let arg_value_name =
-                    debug_string_without_formatting(engine_state, &evaluated_expression);
-                let arg_value_type = &evaluated_expression.get_type().to_string();
-                let evaled_span = evaluated_expression.span();
-                let arg_value_name_span_start = evaled_span.start as i64;
-                let arg_value_name_span_end = evaled_span.end as i64;
-
-                let record = record! {
-                    "arg_type" => Value::string(arg_type, span),
-                    "name" => Value::string(arg_value_name, inner_expr.span),
-                    "type" => Value::string(arg_value_type, span),
-                    "span_start" => Value::int(arg_value_name_span_start, span),
-                    "span_end" => Value::int(arg_value_name_span_end, span),
-                };
-                arg_value.push(Value::record(record, inner_expr.span));
-            }
+            Argument::Positional(inner_expr) => ("positional", inner_expr),
+            Argument::Unknown(inner_expr) => ("unknown", inner_expr),
+            Argument::Spread(inner_expr) => ("spread", inner_expr),
         };
+        arg_value.push(get_expression_record(
+            &working_set,
+            stack,
+            arg_type,
+            expression,
+            eval_expression_fn,
+        ));
     }
 
     arg_value
+}
+
+/// The row for an argument's expression: its value, or its source text and parsed type when it
+/// holds a subexpression.
+fn get_expression_record(
+    working_set: &StateWorkingSet,
+    stack: &mut Stack,
+    arg_type: &str,
+    expression: &Expression,
+    eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
+) -> Value {
+    let engine_state = working_set.permanent_state;
+    let span = Span::test_data();
+    let (name, ty, value_span) = if has_subexpression(working_set, expression) {
+        // A subexpression's block is compiled only as part of the closure, so it can't run on its
+        // own. Compiling it here would run its commands, which `explain` mustn't do.
+        let source = engine_state.get_span_contents(expression.span);
+        (
+            String::from_utf8_lossy(source).into_owned(),
+            expression.ty.to_string(),
+            expression.span,
+        )
+    } else {
+        let value = get_expression_as_value(engine_state, stack, expression, eval_expression_fn);
+        (
+            debug_string_without_formatting(engine_state, &value),
+            value.get_type().to_string(),
+            value.span(),
+        )
+    };
+
+    let record = record! {
+        "arg_type" => Value::string(arg_type, span),
+        "name" => Value::string(name, expression.span),
+        "type" => Value::string(ty, span),
+        "span_start" => Value::int(value_span.start as i64, span),
+        "span_end" => Value::int(value_span.end as i64, span),
+    };
+    Value::record(record, expression.span)
+}
+
+/// Whether evaluating `expression` would reach a subexpression, as in `(1 + 2)`, `$"a(1)"` or
+/// `[(ls)]`. A closure or block isn't run when it's evaluated, so its body doesn't count, and a
+/// call doesn't either, because it reports its own error.
+fn has_subexpression(working_set: &StateWorkingSet, expression: &Expression) -> bool {
+    expression
+        .find_map(working_set, &|expr| match expr.expr {
+            Expr::Subexpression(_) => ControlFlow::Break(Some(())),
+            Expr::Closure(_)
+            | Expr::Block(_)
+            | Expr::RowCondition(_)
+            | Expr::MatchBlock(_)
+            | Expr::Call(_)
+            | Expr::ExternalCall(..) => ControlFlow::Break(None),
+            _ => ControlFlow::Continue(()),
+        })
+        .is_some()
 }
 
 fn get_expression_as_value(

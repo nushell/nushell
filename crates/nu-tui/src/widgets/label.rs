@@ -3,6 +3,7 @@ use crate::filter::value_text;
 use crate::session::Session;
 use crate::widget::{Caps, TuiWidget, WidgetState};
 use nu_protocol::{Record, Span, Value};
+use nu_utils::strip_ansi_string_unlikely;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::Paragraph;
@@ -79,15 +80,21 @@ impl TuiWidget for LabelWidget {
         _focused: bool,
     ) {
         let theme = &session.theme;
+        // The title and status bars are plain text in their theme style, so
+        // escapes are dropped rather than turned into colors.
         let para = match self.slot {
-            Slot::Title => {
-                Paragraph::new(format!(" {} ", self.text(id, session))).style(theme.title())
-            }
+            Slot::Title => Paragraph::new(format!(
+                " {} ",
+                strip_ansi_string_unlikely(self.text(id, session))
+            ))
+            .style(theme.title()),
             Slot::Content => Paragraph::new(super::ansi_to_text(&self.text(id, session), theme))
                 .style(theme.text()),
-            Slot::Status => {
-                Paragraph::new(format!(" {} ", session.status_text())).style(theme.status())
-            }
+            Slot::Status => Paragraph::new(format!(
+                " {} ",
+                strip_ansi_string_unlikely(session.status_text())
+            ))
+            .style(theme.status()),
         };
         frame.render_widget(para, area);
     }

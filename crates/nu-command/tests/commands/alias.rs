@@ -1,4 +1,5 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_protocol::Span;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
 
@@ -52,27 +53,25 @@ fn alias_wont_recurse() -> Result {
 
 // Issue https://github.com/nushell/nushell/issues/8246
 #[test]
-fn alias_wont_recurse2() -> Result {
-    Playground::setup("alias_wont_recurse2", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "spam.nu",
-            "
-                def eggs [] { spam 'eggs' }
-                alias spam = spam 'spam'
-            ",
-        )]);
+fn alias_wont_recurse2(playground: Playground) -> Result {
+    playground.file(
+        "spam.nu",
+        indoc::indoc! {"
+        def eggs [] { spam 'eggs' }
+        alias spam = spam 'spam'
+    "},
+    )?;
 
-        let code = "
-            def spam [what: string] { 'spam ' + $what };
-            source spam.nu;
-            spam
-        ";
+    let code = "
+        def spam [what: string] { 'spam ' + $what };
+        source spam.nu;
+        spam
+    ";
 
-        test()
-            .cwd(dirs.test())
-            .run(code)
-            .expect_value_eq("spam spam")
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq("spam spam")
 }
 
 #[rstest]
@@ -168,4 +167,81 @@ fn export_alias_with_overlay_use_works() -> Result {
 #[test]
 fn alias_flag() -> Result {
     test().run("alias si = stor import").expect_value_eq(())
+}
+
+/// An alias that ends with a flag that takes a value parses like its expansion followed by the
+/// words after the alias, so the first of those words is the flag's value.
+#[rstest]
+#[case::long_flag("alias hex = into int --radix; 'ff' | hex 16", test_value!(255))]
+#[case::short_flag("alias hex = into int -r; 'ff' | hex 16", test_value!(255))]
+#[case::short_flag_group(
+    "alias myfind = find -nr; ['file.txt' 'x'] | myfind 'txt$'",
+    test_value!(["file.txt"])
+)]
+#[case::more_flags_after(
+    "alias myfind = find -nr; ['FILE.TXT' 'x'] | myfind 'txt$' -i",
+    test_value!(["FILE.TXT"])
+)]
+#[case::alias_of_alias(
+    "alias hex = into int --radix; alias hex2 = hex; 'ff' | hex2 16",
+    test_value!(255)
+)]
+#[case::switch_is_not_filled("alias rep = str replace -a; 'aaa' | rep a b", test_value!("bbb"))]
+fn alias_ending_with_flag_takes_value_from_use(
+    #[case] code: &str,
+    #[case] expected: Value,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+/// `--help` after such an alias still shows help rather than becoming the flag's value.
+#[rstest]
+#[case::long("alias myfind = find -r; [] | myfind --help")]
+#[case::short("alias myfind = find -r; [] | myfind -h")]
+fn alias_ending_with_flag_still_shows_help(#[case] code: &str) -> Result {
+    let help: String = test().run(code)?;
+    assert_contains("Search for terms in the input data.", help);
+    Ok(())
+}
+
+/// Without a word to fill it, the flag's missing value is reported at the alias's name where it
+/// is used, not where it is defined.
+#[test]
+fn alias_ending_with_flag_reports_missing_value_at_use() -> Result {
+    let code = "alias hex = into int --radix; 'ff' | hex";
+    let mut tester = test();
+    let entry_start = tester.engine_state.next_span_start();
+    let err = tester.run(code).expect_parse_error()?;
+    let use_start = entry_start + code.rfind("hex").expect("code uses the alias");
+    assert_matches!(
+        err,
+        ParseError::MissingFlagParam(_, span) if span == Span::new(use_start, use_start + 3)
+    );
+    Ok(())
+}
+
+/// A runtime error about the filled value points at the value. The flag's name comes from the
+/// alias definition, in an earlier entry here, so a span covering both would reach across
+/// entries and the error couldn't show its source.
+#[test]
+fn alias_ending_with_flag_reports_value_error_at_use() -> Result {
+    let mut tester = test();
+    let () = tester.run("alias hex = into int --radix")?;
+    let err = tester.run("'ff' | hex 99").expect_shell_error()?;
+    let ShellError::TypeMismatch { span, .. } = err else {
+        panic!("expected a radix TypeMismatch, got {err:?}");
+    };
+    assert_eq!(tester.engine_state.get_span_contents(span), b"99");
+    Ok(())
+}
+
+/// An alias defined in one entry, like one from `config.nu`, fills the flag in a later entry.
+#[test]
+fn alias_ending_with_flag_used_in_later_entry() -> Result {
+    let mut tester = test();
+    let () = tester.run("alias hex = into int --radix")?;
+    tester.run("'ff' | hex 16").expect_value_eq(255)?;
+    let err = tester.run("'ff' | hex").expect_parse_error()?;
+    assert_matches!(err, ParseError::MissingFlagParam(..));
+    Ok(())
 }

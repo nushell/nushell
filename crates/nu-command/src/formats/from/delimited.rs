@@ -3,6 +3,8 @@ use nu_protocol::{
     ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value,
     shell_error::bridge::ShellErrorBridge,
 };
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
     let msg = err.to_string();
@@ -48,18 +50,32 @@ fn from_delimited_stream(
     let headers = if noheaders {
         vec![]
     } else {
-        reader
+        let headers: Vec<String> = reader
             .headers()
             .map_err(|err| from_csv_error(err, span))?
             .iter()
-            .map(String::from)
-            .collect()
+            .enumerate()
+            // Name blank header cells by position, the same way `headers` does,
+            // so files with several unlabeled columns still load.
+            .map(|(idx, name)| match name.is_empty() {
+                true => format!("column{idx}"),
+                false => name.to_string(),
+            })
+            .collect();
+        dedupe_headers(headers)
     };
 
     let n = headers.len();
-    let columns = headers
-        .into_iter()
-        .chain((n..).map(|i| format!("column{i}")));
+    // With `--flexible`, a row can have more fields than the header; the
+    // generated `columnN` filler names skip anything already used by the header
+    // so they can't create another duplicate.
+    // Shared, so cloning `columns` for every row doesn't copy the set.
+    let header_names: Arc<HashSet<String>> = Arc::new(headers.iter().cloned().collect());
+    let columns = headers.into_iter().chain(
+        (n..)
+            .map(|i| format!("column{i}"))
+            .filter(move |name| !header_names.contains(name)),
+    );
     let iter = reader.into_records().map(move |row| {
         let row = match row {
             Ok(row) => row,
@@ -82,6 +98,35 @@ fn from_delimited_stream(
     });
 
     Ok(ListStream::new(iter, span, Signals::empty()))
+}
+
+/// Give each repeated header name a `_N` suffix (`name`, `name_1`, `name_2`, ...).
+///
+/// Records with duplicate keys lose the earlier values on every later
+/// name-based lookup (`get`, `to csv`, ...). A suffixed name never matches a
+/// name the header row already uses, so the names it spells out stay as they
+/// are. Used by `from csv`, `from tsv` and `headers`.
+pub(crate) fn dedupe_headers(headers: Vec<String>) -> Vec<String> {
+    let mut taken: HashSet<String> = headers.iter().cloned().collect();
+    // The next suffix to try for each name, so a repeat picks up where the
+    // previous one stopped instead of probing `_1`, `_2`, ... again.
+    let mut next_suffix: HashMap<String, usize> = HashMap::with_capacity(headers.len());
+    headers
+        .into_iter()
+        .map(|name| {
+            let Some(n) = next_suffix.get_mut(&name) else {
+                next_suffix.insert(name.clone(), 1);
+                return name;
+            };
+            loop {
+                let candidate = format!("{name}_{n}");
+                *n += 1;
+                if taken.insert(candidate.clone()) {
+                    return candidate;
+                }
+            }
+        })
+        .collect()
 }
 
 pub(super) struct DelimitedReaderConfig {

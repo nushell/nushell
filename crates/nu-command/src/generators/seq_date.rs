@@ -1,9 +1,8 @@
-use chrono::{Duration, Local, NaiveDate, NaiveDateTime, NaiveTime};
+use jiff::{civil, tz::Offset};
 use nu_engine::command_prelude::*;
+use nu_protocol::{DateTime, ParsedDate};
 use nu_protocol::{FromValue, shell_error::generic::GenericError};
 use num_traits::Zero;
-
-use std::fmt::Write;
 
 const NANOSECONDS_IN_DAY: i64 = 1_000_000_000i64 * 60i64 * 60i64 * 24i64;
 
@@ -275,14 +274,13 @@ impl Command for SeqDate {
     }
 }
 
-#[allow(clippy::unnecessary_lazy_evaluations)]
-pub fn parse_date_string(s: &str, format: &str) -> Result<NaiveDateTime, &'static str> {
-    NaiveDateTime::parse_from_str(s, format).or_else(|_| {
-        // If parsing as DateTime fails, try parsing as Date before throwing error
-        let date = NaiveDate::parse_from_str(s, format).map_err(|_| "Failed to parse date.")?;
-        date.and_hms_opt(0, 0, 0)
-            .ok_or_else(|| "Failed to convert NaiveDate to NaiveDateTime.")
-    })
+/// Reads `s` with `format` as a wall-clock date and time; a date alone is midnight, minutes
+/// left out after an hour are 0, and an offset in the text is ignored. The wall-clock time is
+/// returned as a date at UTC, which `seq date` steps through without time zones.
+pub fn parse_date_string(s: &str, format: &str) -> Result<DateTime, &'static str> {
+    ParsedDate::parse(s, format)
+        .and_then(|parsed| parsed.to_wall_clock())
+        .map_err(|_| "Failed to parse date.")
 }
 
 fn error_out_of_range(msg: &'static str, span: Span) -> ShellError {
@@ -313,12 +311,13 @@ pub fn run_seq_dates(
     let increment_span = increment.span();
     let mut step_size: i64 = i64::from_value(increment)?;
 
-    let now = Local::now().naive_local();
+    let now = jiff::ZonedDateTime::now().datetime();
     let today = if step_size % NANOSECONDS_IN_DAY == 0 {
-        now.date().and_time(NaiveTime::MIN)
+        now.date().to_datetime(civil::Time::midnight())
     } else {
         now
     };
+    let today = DateTime::from_civil(today, Offset::UTC).unwrap_or(DateTime::UNIX_EPOCH);
 
     if step_size == 0 {
         return Err(ShellError::Generic(GenericError::new(
@@ -431,15 +430,14 @@ pub fn run_seq_dates(
         end_date = periods_to_output
             .checked_sub(periods_to_output.signum())
             .and_then(|val| val.checked_mul(step_size.abs()))
-            .map(Duration::nanoseconds)
-            .and_then(|inc| start_date.checked_add_signed(inc))
+            .and_then(|inc| start_date.checked_add_nanos(inc))
             .ok_or_else(|| error_large_increment(call_span))?;
     } else if days_to_output != 0 {
         let span = days_to_output_span.unwrap_or(call_span);
         end_date = days_to_output
             .checked_sub(days_to_output.signum())
-            .and_then(Duration::try_days)
-            .and_then(|days| start_date.checked_add_signed(days))
+            .and_then(|days| days.checked_mul(86_400))
+            .and_then(|seconds| start_date.checked_add_seconds(seconds))
             .ok_or_else(|| error_large_days(span))?;
     }
 
@@ -452,9 +450,6 @@ pub fn run_seq_dates(
     let is_out_of_range =
         |next| (step_size > 0 && next > end_date) || (step_size < 0 && next < end_date);
 
-    // Bounds are enforced by i64 conversion above
-    let step_size = Duration::nanoseconds(step_size);
-
     let mut next = start_date;
     if is_out_of_range(next) {
         return Err(ShellError::Generic(GenericError::new(
@@ -466,19 +461,19 @@ pub fn run_seq_dates(
 
     let mut ret = vec![];
     loop {
-        let mut date_string = String::new();
-        match write!(date_string, "{}", next.format(&out_format)) {
-            Ok(_) => {}
+        // The date has no offset; UTC stands in for one so `%z` has something to print.
+        let formatted = next.format(&out_format).map_err(|e| e.to_string());
+        match formatted {
+            Ok(date_string) => ret.push(Value::string(date_string, call_span)),
             Err(e) => {
                 return Err(ShellError::Generic(GenericError::new(
                     "Invalid output format",
-                    e.to_string(),
+                    e,
                     call_span,
                 )));
             }
         }
-        ret.push(Value::string(date_string, call_span));
-        if let Some(n) = next.checked_add_signed(step_size) {
+        if let Some(n) = next.checked_add_nanos(step_size) {
             next = n;
         } else {
             return Err(ShellError::Generic(GenericError::new(

@@ -14,6 +14,7 @@ pub mod casing;
 mod collection_columns;
 mod completion;
 pub mod config;
+mod datetime;
 pub mod debugger;
 mod deprecation;
 mod did_you_mean;
@@ -47,6 +48,10 @@ pub use ast::unit::*;
 pub use collection_columns::*;
 pub use completion::*;
 pub use config::*;
+pub use datetime::{
+    DateFormatError, DateParseError, DateTime, HumanTime, ParsedDate, SecondsFormat,
+    parse_utc_offset, parse_zone_offset, time_locale,
+};
 pub use deprecation::*;
 pub use did_you_mean::did_you_mean;
 pub use engine::{
@@ -55,6 +60,8 @@ pub use engine::{
 pub use errors::*;
 pub use example::*;
 pub use id::*;
+/// The date and time library behind [`DateTime`], re-exported so plugins use the same version.
+pub use jiff;
 pub use last_result::{
     block_is_bare_last_result, block_is_bare_last_result_with, truncate_list_item,
     truncate_value_to_budget, value_is_error_only,
@@ -65,6 +72,8 @@ pub use one_of::*;
 pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
+/// The locale tables behind [`DateTime::format_localized`], re-exported for plugins.
+pub use pure_rust_locales;
 pub use signature::*;
 pub use span::*;
 pub use syntax_shape::*;

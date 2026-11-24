@@ -13,6 +13,7 @@ impl Command for MathCos {
             .switch("degrees", "Use degrees instead of radians.", Some('d'))
             .input_output_types(vec![
                 (Type::Number, Type::Float),
+                (Type::Range, Type::List(Box::new(Type::Float))),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
@@ -42,6 +43,7 @@ impl Command for MathCos {
         if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        super::ensure_bounded_range(&input, head)?;
         input.map(
             move |value| operate(value, head, use_degrees),
             engine_state.signals(),

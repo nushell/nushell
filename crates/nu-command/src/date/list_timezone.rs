@@ -1,4 +1,4 @@
-use chrono_tz::TZ_VARIANTS;
+use crate::date::{TIME_ZONE_NAMES, time_zone_named};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -41,20 +41,21 @@ impl Command for DateListTimezones {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        Ok(TZ_VARIANTS
+        let now = jiff::Timestamp::now();
+        Ok(TIME_ZONE_NAMES
             .iter()
-            .map(move |x| {
-                let offset = chrono::Utc::now()
-                    .with_timezone(x)
+            .filter_map(move |name| {
+                let time_zone = time_zone_named(name)?;
+                let offset = nu_protocol::DateTime::new(now, time_zone.to_offset(now))
                     .format("%:z")
-                    .to_string();
-                Value::record(
+                    .ok()?;
+                Some(Value::record(
                     record! {
-                        "timezone" => Value::string(x.name(), head),
+                        "timezone" => Value::string(*name, head),
                         "offset" => Value::string(offset, head),
                     },
                     head,
-                )
+                ))
             })
             .into_pipeline_data(head, engine_state.signals().clone()))
     }

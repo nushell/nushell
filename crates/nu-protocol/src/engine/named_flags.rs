@@ -7,14 +7,59 @@
 use std::sync::Arc;
 
 use crate::{
-    CompareTypes, Flag, Record, ShellError, Signature, Span, Value, engine::Argument,
-    ir::DataSlice, shell_error::generic::GenericError,
+    CompareTypes, Flag, Record, ShellError, Signature, Span, Type, Value,
+    engine::{Argument, Command, Stack},
+    ir::{self, DataSlice},
+    shell_error::generic::GenericError,
 };
 
 /// Whether a named flag's value type accepts `nothing`/`null`.
 #[inline]
 pub fn flag_type_accepts_nothing(flag: &Flag) -> bool {
     flag.type_accepts_nothing()
+}
+
+/// Checks the value given to a switch, as in `--all=$x`, which must be a bool. The parser checks
+/// a value whose type it knows, so this catches one that is only known when the call runs. A flag
+/// that takes a value passes.
+pub fn check_switch_value(flag: &Flag, value: &Value, span: Span) -> Result<(), ShellError> {
+    if flag.arg.is_none() && !matches!(value, Value::Bool { .. }) {
+        return Err(ShellError::CantConvert {
+            to_type: Type::Bool.to_string(),
+            from_type: value.get_type().to_string(),
+            span,
+            help: Some(format!("`--{}` is a switch; use true or false", flag.long)),
+        });
+    }
+    Ok(())
+}
+
+/// Whether `call` sets the flag `flag_name` of `decl`, for a command's `has_flag`.
+///
+/// `--flag` and `--flag=true` set a switch, and `--flag=false` clears it. Any other value is an
+/// error for a switch, and only shows that a flag taking a value is present.
+pub fn call_has_flag(
+    call: &ir::Call,
+    stack: &Stack,
+    decl: &dyn Command,
+    flag_name: &str,
+) -> Result<bool, ShellError> {
+    match call
+        .named_iter(stack)
+        .find(|(name, _)| name.item == flag_name)
+    {
+        None => Ok(false),
+        Some((_, None)) => Ok(true),
+        Some((_, Some(Value::Bool { val, .. }))) => Ok(*val),
+        Some((name, Some(value))) => {
+            // Only this rare case reads the signature, so the common ones stay cheap. The error
+            // points at the argument, because a const value keeps the span it was written at.
+            if let Some(flag) = decl.signature().get_long_flag(flag_name) {
+                check_switch_value(&flag, value, name.span)?;
+            }
+            Ok(true)
+        }
+    }
 }
 
 pub fn find_signature_flag<'a>(
@@ -111,13 +156,17 @@ pub fn expand_flag_record(
             {
                 let expected = shape.to_type();
                 if !val.is_assignable_to(&expected) {
+                    let mut help =
+                        format!("spread field `{key}` does not match the type of `--{key}`");
+                    if let Some(detail) = val.explain_type_mismatch(&expected) {
+                        help.push('\n');
+                        help.push_str(&detail);
+                    }
                     return Err(ShellError::CantConvert {
                         to_type: expected.to_string(),
                         from_type: val.get_type().to_string(),
                         span: val.span(),
-                        help: Some(format!(
-                            "spread field `{key}` does not match the type of `--{key}`"
-                        )),
+                        help: Some(help),
                     });
                 }
             }

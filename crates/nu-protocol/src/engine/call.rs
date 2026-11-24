@@ -1,14 +1,9 @@
-use crate::{
-    DeclId, FromValue, ShellError, Span, Value,
-    ast::{self, Expression},
-    ir,
-};
+use crate::{DeclId, FromValue, ShellError, Span, Value, ast::Expression, ir};
 
-use super::{EngineState, Stack, StateWorkingSet};
+use super::{Stack, StateWorkingSet, named_flags::call_has_flag};
 
-/// This is a HACK to help [`Command`](super::Command) support both the old AST evaluator and the
-/// new IR evaluator at the same time. It should be removed once we are satisfied with the new
-/// evaluator.
+/// The call that [`Command::run`](super::Command::run) gets: a compiled [`ir::Call`], borrowed or
+/// owned.
 #[derive(Debug, Clone)]
 pub struct Call<'a> {
     pub head: Span,
@@ -18,8 +13,6 @@ pub struct Call<'a> {
 
 #[derive(Debug, Clone)]
 pub enum CallImpl<'a> {
-    AstRef(&'a ast::Call),
-    AstBox(Box<ast::Call>),
     IrRef(&'a ir::Call),
     IrBox(Box<ir::Call>),
 }
@@ -35,6 +28,10 @@ impl Call<'_> {
         }
     }
 
+    // The `*_const` methods read the call's arguments from `stack`. Those that don't need
+    // `working_set` keep it anyway, so that the `run_const` implementations calling them don't
+    // change.
+
     /// Check if a boolean flag is set at const-eval time.
     pub fn has_flag_const(
         &self,
@@ -42,24 +39,21 @@ impl Call<'_> {
         stack: &Stack,
         flag_name: &str,
     ) -> Result<bool, ShellError> {
+        let decl = working_set.get_decl(self.decl_id);
         match &self.inner {
-            CallImpl::AstRef(call) => call.has_flag_const(working_set, flag_name),
-            CallImpl::AstBox(call) => call.has_flag_const(working_set, flag_name),
-            CallImpl::IrRef(call) => ir_has_flag_const(call, stack, flag_name),
-            CallImpl::IrBox(call) => ir_has_flag_const(call, stack, flag_name),
+            CallImpl::IrRef(call) => call_has_flag(call, stack, decl, flag_name),
+            CallImpl::IrBox(call) => call_has_flag(call, stack, decl, flag_name),
         }
     }
 
     /// Get a typed named argument at const-eval time.
     pub fn get_flag_const<T: FromValue>(
         &self,
-        working_set: &StateWorkingSet,
+        _working_set: &StateWorkingSet,
         stack: &Stack,
         name: &str,
     ) -> Result<Option<T>, ShellError> {
         match &self.inner {
-            CallImpl::AstRef(call) => call.get_flag_const(working_set, name),
-            CallImpl::AstBox(call) => call.get_flag_const(working_set, name),
             CallImpl::IrRef(call) => ir_get_flag_const(call, stack, name),
             CallImpl::IrBox(call) => ir_get_flag_const(call, stack, name),
         }
@@ -68,13 +62,11 @@ impl Call<'_> {
     /// Get a required positional argument at const-eval time.
     pub fn req_const<T: FromValue>(
         &self,
-        working_set: &StateWorkingSet,
+        _working_set: &StateWorkingSet,
         stack: &Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
         match &self.inner {
-            CallImpl::AstRef(call) => call.req_const(working_set, pos),
-            CallImpl::AstBox(call) => call.req_const(working_set, pos),
             CallImpl::IrRef(call) => ir_req_const(call, stack, self.head, pos),
             CallImpl::IrBox(call) => ir_req_const(call, stack, self.head, pos),
         }
@@ -83,13 +75,11 @@ impl Call<'_> {
     /// Get the rest of the positional arguments at const-eval time.
     pub fn rest_const<T: FromValue>(
         &self,
-        working_set: &StateWorkingSet,
+        _working_set: &StateWorkingSet,
         stack: &Stack,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
         match &self.inner {
-            CallImpl::AstRef(call) => call.rest_const(working_set, starting_pos),
-            CallImpl::AstBox(call) => call.rest_const(working_set, starting_pos),
             CallImpl::IrRef(call) => ir_rest_const(call, stack, starting_pos),
             CallImpl::IrBox(call) => ir_rest_const(call, stack, starting_pos),
         }
@@ -98,8 +88,6 @@ impl Call<'_> {
     /// Returns a span covering the call's arguments.
     pub fn arguments_span(&self) -> Span {
         match &self.inner {
-            CallImpl::AstRef(call) => call.arguments_span(),
-            CallImpl::AstBox(call) => call.arguments_span(),
             CallImpl::IrRef(call) => call.arguments_span(),
             CallImpl::IrBox(call) => call.arguments_span(),
         }
@@ -108,8 +96,6 @@ impl Call<'_> {
     /// Returns a span covering the whole call.
     pub fn span(&self) -> Span {
         match &self.inner {
-            CallImpl::AstRef(call) => call.span(),
-            CallImpl::AstBox(call) => call.span(),
             CallImpl::IrRef(call) => call.span(),
             CallImpl::IrBox(call) => call.span(),
         }
@@ -118,59 +104,21 @@ impl Call<'_> {
     /// Get a parser info argument by name.
     pub fn get_parser_info<'a>(&'a self, stack: &'a Stack, name: &str) -> Option<&'a Expression> {
         match &self.inner {
-            CallImpl::AstRef(call) => call.get_parser_info(name),
-            CallImpl::AstBox(call) => call.get_parser_info(name),
             CallImpl::IrRef(call) => call.get_parser_info(stack, name),
             CallImpl::IrBox(call) => call.get_parser_info(stack, name),
         }
     }
 
-    /// Evaluator-agnostic implementation of `rest_iter_flattened()`. Evaluates or gets all of the
-    /// positional and spread arguments, flattens spreads, and then returns one list of values.
+    /// Gets all of the positional and spread arguments from `starting_pos` on, flattens spreads,
+    /// and returns one list of values.
     pub fn rest_iter_flattened(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        eval_expression: fn(
-            &EngineState,
-            &mut Stack,
-            &ast::Expression,
-        ) -> Result<Value, ShellError>,
+        stack: &Stack,
         starting_pos: usize,
     ) -> Result<Vec<Value>, ShellError> {
-        fn by_ast(
-            call: &ast::Call,
-            engine_state: &EngineState,
-            stack: &mut Stack,
-            eval_expression: fn(
-                &EngineState,
-                &mut Stack,
-                &ast::Expression,
-            ) -> Result<Value, ShellError>,
-            starting_pos: usize,
-        ) -> Result<Vec<Value>, ShellError> {
-            call.rest_iter_flattened(starting_pos, |expr| {
-                eval_expression(engine_state, stack, expr)
-            })
-        }
-
-        fn by_ir(
-            call: &ir::Call,
-            stack: &Stack,
-            starting_pos: usize,
-        ) -> Result<Vec<Value>, ShellError> {
-            call.rest_iter_flattened(stack, starting_pos)
-        }
-
         match &self.inner {
-            CallImpl::AstRef(call) => {
-                by_ast(call, engine_state, stack, eval_expression, starting_pos)
-            }
-            CallImpl::AstBox(call) => {
-                by_ast(call, engine_state, stack, eval_expression, starting_pos)
-            }
-            CallImpl::IrRef(call) => by_ir(call, stack, starting_pos),
-            CallImpl::IrBox(call) => by_ir(call, stack, starting_pos),
+            CallImpl::IrRef(call) => call.rest_iter_flattened(stack, starting_pos),
+            CallImpl::IrBox(call) => call.rest_iter_flattened(stack, starting_pos),
         }
     }
 }
@@ -178,19 +126,10 @@ impl Call<'_> {
 impl CallImpl<'_> {
     pub fn to_owned(&self) -> CallImpl<'static> {
         match self {
-            CallImpl::AstRef(call) => CallImpl::AstBox(Box::new((*call).clone())),
-            CallImpl::AstBox(call) => CallImpl::AstBox(call.clone()),
             CallImpl::IrRef(call) => CallImpl::IrBox(Box::new((*call).clone())),
             CallImpl::IrBox(call) => CallImpl::IrBox(call.clone()),
         }
     }
-}
-
-fn ir_has_flag_const(call: &ir::Call, stack: &Stack, flag_name: &str) -> Result<bool, ShellError> {
-    Ok(call
-        .named_iter(stack)
-        .find(|(name, _)| name.item == flag_name)
-        .is_some_and(|(_, value)| !matches!(value, Some(Value::Bool { val: false, .. }))))
 }
 
 fn ir_get_flag_const<T: FromValue>(
@@ -234,16 +173,6 @@ fn ir_rest_const<T: FromValue>(
         .into_iter()
         .map(T::from_value)
         .collect()
-}
-
-impl<'a> From<&'a ast::Call> for Call<'a> {
-    fn from(call: &'a ast::Call) -> Self {
-        Call {
-            head: call.head,
-            decl_id: call.decl_id,
-            inner: CallImpl::AstRef(call),
-        }
-    }
 }
 
 impl<'a> From<&'a ir::Call> for Call<'a> {

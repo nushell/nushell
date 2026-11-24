@@ -1,6 +1,6 @@
 use crate::date::utils::parse_date_from_string;
-use chrono::{DateTime, FixedOffset, Local};
 use nu_engine::command_prelude::*;
+use nu_protocol::DateTime;
 
 #[derive(Clone)]
 pub struct DateHumanize;
@@ -84,10 +84,7 @@ impl Command for DateHumanize {
 fn helper(value: Value, head: Span) -> Value {
     let span = value.span();
     match value {
-        Value::Nothing { .. } => {
-            let dt = Local::now();
-            Value::string(humanize_date(dt.with_timezone(dt.offset())), head)
-        }
+        Value::Nothing { .. } => Value::string(humanize_date(DateTime::now()), head),
         Value::String { val, .. } => {
             let dt = parse_date_from_string(&val, span);
             match dt {
@@ -108,7 +105,7 @@ fn helper(value: Value, head: Span) -> Value {
     }
 }
 
-fn humanize_date(dt: DateTime<FixedOffset>) -> String {
+fn humanize_date(dt: DateTime) -> String {
     nu_protocol::human_time_from_now(&dt).to_string()
 }
 
