@@ -1,6 +1,9 @@
 use csv::{ReaderBuilder, Trim};
+use nu_engine::CallExt;
 use nu_protocol::{
-    ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value,
+    ByteStream, DeprecationEntry, DeprecationType, ListStream, PipelineData, ReportMode,
+    ShellError, Signals, Span, Value,
+    engine::{Call, EngineState, Stack},
     shell_error::bridge::ShellErrorBridge,
 };
 use std::collections::{HashMap, HashSet};
@@ -25,7 +28,7 @@ fn from_delimited_stream(
         escape,
         noheaders,
         flexible,
-        no_infer,
+        infer,
         trim,
     }: DelimitedReaderConfig,
     input: ByteStream,
@@ -83,7 +86,7 @@ fn from_delimited_stream(
         };
         let columns = columns.clone();
         let values = row.into_iter().map(|s| {
-            if no_infer {
+            if !infer {
                 Value::string(s, span)
             } else if let Ok(i) = s.parse() {
                 Value::int(i, span)
@@ -136,8 +139,60 @@ pub(super) struct DelimitedReaderConfig {
     pub escape: Option<char>,
     pub noheaders: bool,
     pub flexible: bool,
-    pub no_infer: bool,
+    /// Turn fields that parse as numbers into ints and floats. Off, every
+    /// field is a string.
+    pub infer: bool,
     pub trim: Trim,
+}
+
+/// Help text of the `--infer` switch, shared by `from csv` and `from tsv`.
+pub(super) const INFER_FLAG_DESC: &str =
+    "Convert fields that parse as numbers into ints and floats. Every field is a string otherwise.";
+
+/// Help text of the deprecated `--no-infer` switch, shared by `from csv` and `from tsv`.
+pub(super) const NO_INFER_FLAG_DESC: &str =
+    "Keep every field a string (deprecated: this is the default now).";
+
+/// Extra help text shared by `from csv` and `from tsv`.
+pub(super) const INFER_EXTRA_DESC: &str = "Every field is read as a string, so values like `007` or `1E5` stay as written. Pass \
+     `--infer` to turn fields that parse as numbers into ints and floats, or convert the \
+     columns you need afterwards, e.g. `update id { into int }`. `open` and `http get` run \
+     this command without flags, so read the file or response with `--raw` to use `--infer`.";
+
+/// Read `--infer`, and accept the deprecated `--no-infer` as a no-op since
+/// keeping every field a string is the default. Passing both is an error.
+pub(super) fn infer_from_flags(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<bool, ShellError> {
+    let infer = call.has_flag(engine_state, stack, "infer")?;
+    let no_infer = call.has_flag(engine_state, stack, "no-infer")?;
+    if infer && no_infer {
+        let flag_span = |name| call.get_flag_span(stack, name).unwrap_or(call.head);
+        return Err(ShellError::IncompatibleParameters {
+            left_message: "--infer".into(),
+            left_span: flag_span("infer"),
+            right_message: "--no-infer".into(),
+            right_span: flag_span("no-infer"),
+        });
+    }
+    Ok(infer)
+}
+
+/// The `--no-infer` deprecation, shared by `from csv` and `from tsv`.
+pub(super) fn no_infer_deprecation() -> Vec<DeprecationEntry> {
+    vec![DeprecationEntry {
+        ty: DeprecationType::Flag("no-infer".into()),
+        report_mode: ReportMode::FirstUse,
+        since: Some("0.118.0".into()),
+        expected_removal: None,
+        help: Some(
+            "Every field is a string by default now, so the flag can be dropped. \
+             Use `--infer` to turn numeric fields into ints and floats."
+                .into(),
+        ),
+    }]
 }
 
 pub(super) fn from_delimited_data(

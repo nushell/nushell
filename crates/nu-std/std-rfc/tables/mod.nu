@@ -3,12 +3,13 @@
     ls | group-by type { get name | path parse | get extension } --to-table | aggregate size
 }
 @example "group data by multiple columns, and run custom aggregate operations" {
-    open movies.csv
+    open --raw movies.csv
+    | from csv --infer
     | group-by Lead_Studio Genre --to-table
     | aggregate Worldwide_Gross Profitability --ops {avg: {math avg}, std: {math stddev}}
 }
 @example "run aggregate operations without grouping the input" {
-    open movies.csv | aggregate Year
+    open --raw movies.csv | from csv --infer | aggregate Year
 }
 export def aggregate [
     --ops: record, # default = {min: {math min}, avg: {math avg}, max: {math max}, sum: {math sum}}  
