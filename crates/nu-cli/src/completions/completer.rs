@@ -305,6 +305,36 @@ pub(crate) fn pending_flag_value<'a>(
         .then_some(flag_ref)
 }
 
+/// The span of the whole short flag batch that the flag at `index` belongs to.
+///
+/// The parser gives each flag in a batch such as `-al` its own span (`-a`, then
+/// `l`), so neighbouring flags of one batch have touching spans, while separate
+/// flags (`-a -l`) are split by whitespace. Completion works on the whole word,
+/// so this widens `span` over the batch.
+fn short_flag_batch_span(call: &Call, index: usize, span: Span) -> Span {
+    let name_span = |i: usize| match call.arguments.get(i) {
+        Some(Argument::Named((name, _, _))) if !name.span.is_empty() => Some(name.span),
+        _ => None,
+    };
+
+    let mut batch = span;
+    let mut i = index;
+    while let Some(previous) = i.checked_sub(1).and_then(name_span)
+        && previous.end == batch.start
+    {
+        batch.start = previous.start;
+        i -= 1;
+    }
+    let mut i = index;
+    while let Some(next) = name_span(i + 1)
+        && next.start == batch.end
+    {
+        batch.end = next.end;
+        i += 1;
+    }
+    batch
+}
+
 /// Positional arguments before `before_index`.
 fn count_positionals(call: &Call, before_index: usize) -> usize {
     call.arguments
@@ -2091,7 +2121,10 @@ impl<'engine> CompletionEngine<'engine> {
                     )
                 } else {
                     // Only the name is completed; `Argument::span` would cover the value after it.
-                    (flag_name, name.span)
+                    (
+                        flag_name,
+                        short_flag_batch_span(site.call, argument_index, name.span),
+                    )
                 }
             }
             // A positional/unknown token starting with `-` is a flag name being typed.
@@ -2799,6 +2832,10 @@ mod completer_tests {
         // Cursor mid-flag: only text up to the cursor is parsed, so the token is the prefix.
         check("ls -al", 4, "-", 3);
         check("ls -al", 5, "-a", 3);
+        // Each flag of a batch has its own span (#12925); the token is still the whole batch,
+        // but separate flags are separate tokens.
+        check("ls -als", 7, "-als", 3);
+        check("ls -a -l", 8, "-l", 6);
         check("str tri", 7, "tri", 4);
         check("str tri", 5, "t", 4); // mid-token prefix
         check("str tri", 6, "tr", 4);

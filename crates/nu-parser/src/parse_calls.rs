@@ -633,13 +633,18 @@ fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
     ) || matches!(shape, SyntaxShape::OneOf(shapes) if shapes.iter().any(shape_allows_negative_number))
 }
 
+/// Parses a short flag or a batch of short flags such as `-ra`.
+///
+/// Each flag comes back with its own span: the first one covers the leading `-`
+/// as well (`-r`), the others only their own character (`a`). A lone `-r` thus
+/// keeps the span of the whole argument.
 fn parse_short_flags(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     spans_idx: &mut usize,
     positional_idx: usize,
     sig: &Signature,
-) -> Option<Vec<Flag>> {
+) -> Option<Vec<(Flag, Span)>> {
     let arg_span = spans[*spans_idx];
 
     let arg_contents = working_set.get_span_contents(arg_span);
@@ -662,7 +667,12 @@ fn parse_short_flags(
                             .error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
                         break;
                     }
-                    found_short_flags.push(flag);
+                    let flag_span = if offset == 0 {
+                        Span::new(arg_span.start, short_flag_span.end)
+                    } else {
+                        short_flag_span
+                    };
+                    found_short_flags.push((flag, flag_span));
                 } else {
                     unmatched_short_flags.push(short_flag_span);
                 }
@@ -1334,7 +1344,9 @@ pub fn parse_internal_call(
 
                     call.add_unknown(arg);
                 } else {
-                    for flag in short_flags {
+                    // Each flag gets its own span, so a batch such as `-ra` isn't
+                    // reported as two flags that both cover `-ra` (#12925).
+                    for (flag, flag_span) in short_flags {
                         let _ = working_set.add_span(spans[spans_idx]);
 
                         if let Some(arg_shape) = flag.arg {
@@ -1350,14 +1362,14 @@ pub fn parse_internal_call(
                                     flag.long.clone(),
                                     arg.clone(),
                                     &arg_shape,
-                                    spans[spans_idx],
+                                    flag_span,
                                 );
 
                                 if flag.long.is_empty() {
                                     if let Some(short) = flag.short {
                                         call.add_named((
                                             arg_name,
-                                            Some(short_spanned(short, spans[spans_idx])),
+                                            Some(short_spanned(short, flag_span)),
                                             Some(val_expression),
                                         ));
                                     }
@@ -1377,10 +1389,9 @@ pub fn parse_internal_call(
                                 call.add_named((
                                     Spanned {
                                         item: flag.long.clone(),
-                                        span: spans[spans_idx],
+                                        span: flag_span,
                                     },
-                                    flag.short
-                                        .map(|short| short_spanned(short, spans[spans_idx])),
+                                    flag.short.map(|short| short_spanned(short, flag_span)),
                                     None,
                                 ));
                             }
@@ -1389,9 +1400,9 @@ pub fn parse_internal_call(
                                 call.add_named((
                                     Spanned {
                                         item: String::new(),
-                                        span: spans[spans_idx],
+                                        span: flag_span,
                                     },
-                                    Some(short_spanned(short, spans[spans_idx])),
+                                    Some(short_spanned(short, flag_span)),
                                     None,
                                 ));
                             }
@@ -1399,7 +1410,7 @@ pub fn parse_internal_call(
                             call.add_named((
                                 Spanned {
                                     item: flag.long.clone(),
-                                    span: spans[spans_idx],
+                                    span: flag_span,
                                 },
                                 None,
                                 None,

@@ -699,6 +699,48 @@ pub fn parse_call_short_flag_batch_disallow_multiple_args() {
     ));
 }
 
+/// Each flag in a short flag batch gets its own span (#12925): the first one
+/// covers the `-` too, the others only their own character. Before, every flag
+/// in `-mx` covered all of `-mx`, so `ast --flatten` listed `-mx` twice.
+#[rstest]
+#[case::single(b"foo -m", &["-m"])]
+#[case::batch(b"foo -mx", &["-m", "x"])]
+#[case::batch_of_three(b"foo -mxy", &["-m", "x", "y"])]
+#[case::batch_ending_with_arg(b"foo -mj 10", &["-m", "j"])]
+#[case::separate_flags(b"foo -m -x", &["-m", "-x"])]
+fn parse_call_short_flag_spans(#[case] code: &[u8], #[case] expected: &[&str]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let sig = Signature::build("foo")
+        .switch("--math", "Math!!.", Some('m'))
+        .switch("--xylophone", "Xylophone!!.", Some('x'))
+        .switch("--yodel", "Yodel!!.", Some('y'))
+        .named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'));
+    working_set.add_decl(sig.predeclare());
+
+    let block = parse(&mut working_set, None, code, true);
+    assert!(working_set.parse_errors.is_empty());
+
+    let contents = |span: Span| String::from_utf8_lossy(working_set.get_span_contents(span));
+
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("expected a call");
+    };
+    let named_spans: Vec<_> = call
+        .named_iter()
+        .map(|(long, _, _)| contents(long.span))
+        .collect();
+    assert_eq!(named_spans, expected);
+
+    let flat_flags: Vec<_> = flatten_block(&working_set, &block)
+        .into_iter()
+        .filter(|(_, shape)| matches!(shape, FlatShape::Flag))
+        .map(|(span, _)| contents(span))
+        .collect();
+    assert_eq!(flat_flags, expected);
+}
+
 #[test]
 pub fn parse_call_unknown_shorthand() {
     let engine_state = EngineState::new();
