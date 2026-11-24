@@ -633,21 +633,32 @@ fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
     ) || matches!(shape, SyntaxShape::OneOf(shapes) if shapes.iter().any(shape_allows_negative_number))
 }
 
-/// Parses a short flag or a batch of short flags such as `-ra`.
+/// The flags named by a word of short flags, such as `-abc`.
+struct ShortFlags {
+    /// Each flag with its own span (#12925). The spans are contiguous and, without an attached
+    /// value, cover the whole word: each one starts where the previous one ended (the first at
+    /// the `-`) and the last one runs to the end of the word. So `-ra` gives `-r` and `a`,
+    /// characters that aren't known flags (the `z` in `-az` or `-za`) belong to a neighbouring
+    /// flag, and a lone `-r` keeps the span of the whole word.
+    flags: Vec<(Flag, Span)>,
+    /// The flag whose value is the rest of the word, as `-j` takes `8` in `-j8`, and the span of
+    /// that value. `flags` ends before that flag.
+    attached_value: Option<(Flag, Span)>,
+}
+
+/// Parse a word of short flags, such as `-abc`.
 ///
-/// Each found flag comes back with its own span. The spans are contiguous and
-/// together cover the whole argument: each one starts where the previous one
-/// ended (the first at the `-`) and the last one runs to the end of the word,
-/// so `-ra` gives `-r` and `a`, and characters that aren't known flags (the `z`
-/// in `-az` or `-za`) belong to a neighbouring flag. A lone `-r` keeps the span
-/// of the whole argument.
+/// Only the last flag in the word can take a value, from the next word. With `attached_values`,
+/// the rest of the word after a flag that takes a value is that value instead, as `getopt` reads
+/// `-j8` and `-Zscript`, and no error is reported for it. The caller checks that value.
 fn parse_short_flags(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     spans_idx: &mut usize,
     positional_idx: usize,
     sig: &Signature,
-) -> Option<Vec<(Flag, Span)>> {
+    attached_values: bool,
+) -> Option<ShortFlags> {
     let arg_span = spans[*spans_idx];
 
     let arg_contents = working_set.get_span_contents(arg_span);
@@ -655,19 +666,24 @@ fn parse_short_flags(
     if let Ok(arg_contents_uft8_ref) = str::from_utf8(arg_contents) {
         if arg_contents_uft8_ref.starts_with('-') && arg_contents_uft8_ref.len() > 1 {
             let short_flags = &arg_contents_uft8_ref[1..];
-            let num_chars = short_flags.chars().count();
             let mut found_short_flags = vec![];
             let mut unmatched_short_flags = vec![];
+            let mut attached_value = None;
             for (offset, short_flag) in short_flags.char_indices() {
                 let short_flag_span = Span::new(
                     arg_span.start + 1 + offset,
                     arg_span.start + 1 + offset + short_flag.len_utf8(),
                 );
                 if let Some(flag) = sig.get_short_flag(short_flag) {
-                    // Allow args in short flag batches as long as it is the last flag.
-                    if flag.arg.is_some() && offset < num_chars - 1 {
-                        working_set
-                            .error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
+                    let is_last = short_flag_span.end == arg_span.end;
+                    if flag.arg.is_some() && !is_last {
+                        if attached_values {
+                            let value_span = Span::new(short_flag_span.end, arg_span.end);
+                            attached_value = Some((flag, value_span));
+                        } else {
+                            working_set
+                                .error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
+                        }
                         break;
                     }
                     let start = found_short_flags
@@ -678,12 +694,21 @@ fn parse_short_flags(
                     unmatched_short_flags.push(short_flag_span);
                 }
             }
-            if let Some((_, span)) = found_short_flags.last_mut() {
+            // With an attached value, the rest of the word is that value, not part of a flag.
+            if attached_value.is_none()
+                && let Some((_, span)) = found_short_flags.last_mut()
+            {
                 span.end = arg_span.end;
             }
 
+            // A word that starts with a value flag, as `-inf` does with `-i`, is that flag and its
+            // value, not a number.
+            let starts_with_value_flag =
+                attached_value.is_some() && unmatched_short_flags.is_empty();
+
             if found_short_flags.is_empty()
                 // check to see if we have a negative number
+                && !starts_with_value_flag
                 && sig
                     .get_positional(positional_idx)
                     .is_some_and(|p| shape_allows_negative_number(&p.shape))
@@ -702,7 +727,10 @@ fn parse_short_flags(
                 ));
             }
 
-            Some(found_short_flags)
+            Some(ShortFlags {
+                flags: found_short_flags,
+                attached_value,
+            })
         } else {
             None
         }
@@ -1259,7 +1287,8 @@ pub fn parse_internal_call(
     }
 
     // After alias resolution, call.decl_id names the aliased command.
-    let allow_null_flag_value = !working_set.get_decl(call.decl_id).is_known_external();
+    let is_known_external = working_set.get_decl(call.decl_id).is_known_external();
+    let allow_null_flag_value = !is_known_external;
     let mut end_of_options = false;
 
     if is_alias {
@@ -1343,29 +1372,60 @@ pub fn parse_internal_call(
         if !end_of_options {
             let starting_error_count = working_set.parse_errors.len();
 
-            // Check if we're on a short flag or group of short flags, if so, parse
+            // Check if we're on a short flag or group of short flags, if so, parse.
+            // A known external's program reads `-j8` as `-j 8`, so its value can be attached.
             let short_flags = parse_short_flags(
                 working_set,
                 spans,
                 &mut spans_idx,
                 positional_idx,
                 &signature,
+                is_known_external,
             );
 
-            if let Some(short_flags) = short_flags {
-                if working_set.parse_errors[starting_error_count..]
+            if let Some(ShortFlags {
+                flags,
+                attached_value,
+            }) = short_flags
+            {
+                let unknown_flag = working_set.parse_errors[starting_error_count..]
                     .iter()
-                    .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                    && forwards_unknown_flag(working_set.get_span_contents(arg_span))
-                {
+                    .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)));
+
+                if unknown_flag && forwards_unknown_flag(working_set.get_span_contents(arg_span)) {
                     working_set.parse_errors.truncate(starting_error_count);
                     let arg = parse_unknown_arg(working_set, arg_span, &signature);
+
+                    call.add_unknown(arg);
+                } else if let Some((flag, value_span)) = attached_value.filter(|_| !unknown_flag) {
+                    // A word with an attached value goes to the program as written. It names only
+                    // declared flags, so `extern --strict` takes it too. Its value is checked as
+                    // `-j 8` checks `8`, and the word is a string, not one of the rest arguments.
+                    // A value that starts with `$` or `(` reads differently inside the word
+                    // (`-Z$x` stays as written, `-j(1 + 2)` becomes `-j3`), so it isn't checked.
+                    let checkable =
+                        !matches!(working_set.get_span_contents(value_span), [b'$' | b'(', ..]);
+                    if let Some(arg_shape) = flag.arg.as_ref().filter(|_| checkable) {
+                        let value = parse_flag_value(
+                            working_set,
+                            value_span,
+                            arg_shape,
+                            allow_null_flag_value,
+                        );
+                        ensure_flag_arg_type(working_set, flag.long, value, arg_shape, value_span);
+                    }
+                    let arg = crate::parser::parse_value(
+                        working_set,
+                        arg_span,
+                        &SyntaxShape::String,
+                        None,
+                    );
 
                     call.add_unknown(arg);
                 } else {
                     // Each flag gets its own span, so a batch such as `-ra` isn't
                     // reported as two flags that both cover `-ra` (#12925).
-                    for (flag, flag_span) in short_flags {
+                    for (flag, flag_span) in flags {
                         let _ = working_set.add_span(spans[spans_idx]);
 
                         if let Some(arg_shape) = flag.arg {

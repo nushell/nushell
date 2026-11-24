@@ -74,20 +74,24 @@ fn known_external_short_flag_batch_arg_allowed() -> TestResult {
     run_test_contains("extern echo [-a, -b: int]; echo -ab 10", "-b 10")
 }
 
+/// The program reads `b` as the value of `-a`, as `git commit -amf` does (#5923, #19639).
 #[test]
-fn known_external_short_flag_batch_arg_disallowed() -> TestResult {
-    fail_test(
-        "extern echo [-a: int, -b]; echo -ab 10",
-        "last flag can take args",
-    )
+fn known_external_short_flag_batch_attached_value() -> TestResult {
+    run_test_contains("extern echo [-a: string, -b]; echo -ab 10", "-ab 10")
 }
 
 #[test]
-fn known_external_short_flag_batch_multiple_args() -> TestResult {
-    fail_test(
-        "extern echo [-a: int, -b: int]; echo -ab 10 20",
-        "last flag can take args",
+fn known_external_short_flag_batch_attached_value_with_positionals() -> TestResult {
+    run_test_contains(
+        "extern echo [-a: string, -b: int]; echo -ab 10 20",
+        "-ab 10 20",
     )
+}
+
+/// `b` is the value of `-a`, so it must be an int, as in `echo -a b 10`.
+#[test]
+fn known_external_short_flag_batch_attached_value_wrong_type() -> TestResult {
+    fail_test("extern echo [-a: int, -b]; echo -ab 10", "expected int")
 }
 
 #[test]

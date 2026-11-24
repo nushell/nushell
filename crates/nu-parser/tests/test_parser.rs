@@ -699,6 +699,25 @@ pub fn parse_call_short_flag_batch_disallow_multiple_args() {
     ));
 }
 
+/// A flag written with more than one byte doesn't move where the batch ends: `-j` isn't last.
+#[test]
+pub fn parse_call_short_flag_batch_arg_disallowed_after_a_multibyte_flag() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let sig = Signature::build("foo")
+        .switch("--eh", "Eh.", Some('é'))
+        .named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'))
+        .switch("--math", "Math!!.", Some('m'));
+    working_set.add_decl(sig.predeclare());
+
+    parse(&mut working_set, None, "foo -éjm 10".as_bytes(), true);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::OnlyLastFlagInBatchCanTakeArg(..))
+    ));
+}
+
 /// Parses `code` against `foo [--math(-m) --xylophone(-x) --yodel(-y) --jazz(-j): int]`
 /// and returns the text each flag's name span covers, from the parsed call and from
 /// `flatten_block` (what `ast --flatten` and editors see), plus the parse errors.
@@ -778,6 +797,137 @@ fn parse_call_missing_short_flag_arg_in_batch_points_at_the_flag() {
         matches!(errors.first(), Some((ParseError::MissingFlagParam(..), j)) if j == "j"),
         "{errors:?}"
     );
+}
+
+/// A known external's program reads the rest of `-j8` as the value of `-j`, so the word goes to
+/// it as written, and the next word stays an argument of its own. The word is a flag word, so
+/// the `int` rest parameter doesn't reject it.
+#[rstest]
+#[case::value_flag("-Zscript")]
+#[case::after_a_switch("-vj8")]
+#[case::before_a_switch("-Zv")]
+fn extern_forwards_a_short_flag_with_an_attached_value(#[case] word: &str) {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let source = format!(
+        "extern cmd [-Z: string, --jobs(-j): int, --verbose(-v), ...rest: int]; cmd {word} 1"
+    );
+    let block = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    let Expr::Call(call) = &block.pipelines[1].elements[0].expr.expr else {
+        panic!("expected a call");
+    };
+    let [Argument::Unknown(flags), Argument::Positional(next)] = call.arguments.as_slice() else {
+        panic!("expected the word and `1`, got {:?}", call.arguments);
+    };
+    assert!(
+        matches!(&flags.expr, Expr::String(s) if s == word),
+        "{:?}",
+        flags.expr
+    );
+    assert_eq!(working_set.get_span_contents(next.span), b"1");
+}
+
+/// An attached value is checked against the flag's type, as `-j abc` is, even though the word
+/// goes to the program as written.
+#[test]
+fn extern_checks_the_type_of_an_attached_value() {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    parse(
+        &mut working_set,
+        None,
+        b"extern cmd [--jobs(-j): int, --verbose(-v), ...rest]; cmd -vjabc",
+        false,
+    );
+
+    let [err] = working_set.parse_errors.as_slice() else {
+        panic!("expected one error, got {:?}", working_set.parse_errors);
+    };
+    assert_eq!(working_set.get_span_contents(err.span()), b"abc");
+}
+
+/// `-inf` with a value flag `-i` is that flag and its value, as the program reads it, even where
+/// a number could go.
+#[test]
+fn extern_forwards_an_attached_value_that_spells_a_number() {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(
+        &mut working_set,
+        None,
+        b"extern cmd [-i: string, n?: number]; cmd -inf",
+        false,
+    );
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    let Expr::Call(call) = &block.pipelines[1].elements[0].expr.expr else {
+        panic!("expected a call");
+    };
+    let [Argument::Unknown(word)] = call.arguments.as_slice() else {
+        panic!("expected only the word, got {:?}", call.arguments);
+    };
+    assert_eq!(working_set.get_span_contents(word.span), b"-inf");
+}
+
+/// `-1e5` starts with `1`, which isn't a flag, so it stays a number even though `-e` takes a value.
+#[test]
+fn extern_number_with_a_value_flag_letter_stays_a_number() {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(
+        &mut working_set,
+        None,
+        b"extern cmd [-e: string, n: number]; cmd -1e5",
+        false,
+    );
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    let Expr::Call(call) = &block.pipelines[1].elements[0].expr.expr else {
+        panic!("expected a call");
+    };
+    let [Argument::Positional(n)] = call.arguments.as_slice() else {
+        panic!("expected only `n`, got {:?}", call.arguments);
+    };
+    assert_eq!(n.expr, Expr::Float(-1e5));
+}
+
+/// A value that starts with `$` or `(` reads differently inside the word than on its own, so it
+/// isn't checked: `-Z$x` reaches the program as written, and `-Z(1 + 2)` as `-Z3`.
+#[rstest]
+#[case::variable("-Z$undefined")]
+#[case::subexpression("-Z(1 + 2)")]
+fn extern_does_not_check_an_attached_value_spelled_with_code(#[case] word: &str) {
+    let engine_state = engine_with_def_and_extern();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let source = format!("extern cmd [-Z: string, ...rest]; cmd {word}");
+    let block = parse(&mut working_set, None, source.as_bytes(), false);
+
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+    let Expr::Call(call) = &block.pipelines[1].elements[0].expr.expr else {
+        panic!("expected a call");
+    };
+    let [Argument::Unknown(arg)] = call.arguments.as_slice() else {
+        panic!("expected only the word, got {:?}", call.arguments);
+    };
+    assert_eq!(working_set.get_span_contents(arg.span), word.as_bytes());
 }
 
 #[test]

@@ -1114,3 +1114,125 @@ fn failing_external_stderr_follows_stderr_redirection(playground: Playground) ->
     );
     Ok(())
 }
+
+// The last call in a `try` block runs with the stderr mode of the command after the `try`. When
+// that command is `complete`, `ignore`, `save` or `tee`, a failing internal call returns its error
+// as a value for it to handle. `try` raises that value, so `catch` and `finally` still run.
+#[rstest]
+#[case::direct("try { error make {msg: 'boom'} } catch { $env.LOG ++= ['catch'] } | ignore", vec!["catch"])]
+#[case::custom_command_in_body(
+    "def boom [] { error make {msg: 'boom'} }; try { boom } catch { $env.LOG ++= ['catch'] } | ignore",
+    vec!["catch"]
+)]
+#[case::closure(
+    "do --env { try { error make {msg: 'boom'} } catch { $env.LOG ++= ['catch'] } } | ignore",
+    vec!["catch"]
+)]
+#[case::custom_command(
+    "def --env f [] { try { error make {msg: 'boom'} } catch { $env.LOG ++= ['catch'] } }; f | ignore",
+    vec!["catch"]
+)]
+#[case::finally(
+    "try { error make {msg: 'boom'} } catch { $env.LOG ++= ['catch'] } finally { $env.LOG ++= ['finally'] } | ignore",
+    vec!["catch", "finally"]
+)]
+fn internal_error_piped_to_ignore_runs_handlers(
+    #[case] code: &str,
+    #[case] expected: Vec<&str>,
+) -> Result {
+    test()
+        .run_multiple(["$env.LOG = []", code, "$env.LOG"])
+        .expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::plain_try("try { error make {msg: 'boom'} } | ignore", ())]
+#[case::tee(
+    "try { error make {msg: 'boom'} } catch { 'caught' } | tee { ignore }",
+    "caught"
+)]
+#[case::ignore_stderr(
+    "try { error make {msg: 'boom'} } catch { 'caught' } | ignore --stderr",
+    "caught"
+)]
+fn internal_error_piped_on_gives_the_catch_output(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn internal_error_piped_to_save_saves_the_catch_output(playground: Playground) -> Result {
+    let () = test()
+        .cwd(playground.path())
+        .run("try { error make {msg: 'boom'} } catch { 'caught' } | save out.txt")?;
+    assert_eq!(
+        fs::read_to_string(playground.path().join("out.txt"))?,
+        "caught"
+    );
+    Ok(())
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn internal_error_piped_to_complete_completes_the_catch_external() -> Result {
+    let result: CompleteResult =
+        test().run("try { error make {msg: 'boom'} } catch { cococo caught } | complete")?;
+    assert_eq!(result.stdout, "caught\n");
+    assert_eq!(result.exit_code, 0);
+    Ok(())
+}
+
+/// Without `catch`, `finally` gets the error as a record, as it does without the pipe, and the error
+/// still leaves the `try`.
+#[test]
+fn finally_gets_the_internal_error_piped_to_ignore(playground: Playground) -> Result {
+    let code = "try { error make {msg: 'boom'} } finally {|err| $err.msg | save msg.txt } | ignore";
+
+    let err = test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_labeled_error()?;
+    assert_eq!(err.msg, "boom");
+    assert_eq!(
+        fs::read_to_string(playground.path().join("msg.txt"))?,
+        "boom"
+    );
+    Ok(())
+}
+
+/// An error raised in `catch` gets the same treatment before `finally` runs: it is the one that
+/// leaves the `try`, not the error the `try` block raised.
+#[test]
+fn error_raised_in_catch_piped_to_ignore_leaves_the_try() -> Result {
+    let code = "
+        try { error make {msg: 'from try'} } catch { error make {msg: 'from catch'} } finally { null }
+        | ignore
+    ";
+
+    let err = test().run(code).expect_labeled_error()?;
+    assert_eq!(err.msg, "from catch");
+    Ok(())
+}
+
+/// When only `finally` handles an error that the `try` got as a value, `finally` gets it as a
+/// record, and then it goes on to the next command as that value, as it would without `finally`:
+/// `ignore --stderr` swallows it.
+#[rstest]
+#[case::try_block(
+    "try { error make {msg: 'boom'} } finally {|err| $env.LOG ++= [$err.msg] } | ignore --stderr",
+    vec!["boom"]
+)]
+#[case::catch_block(
+    "try { error make {msg: 'boom'} } catch { error make {msg: 'from catch'} } finally {|err| $env.LOG ++= [$err.msg] } | ignore --stderr",
+    vec!["from catch"]
+)]
+fn internal_error_through_finally_reaches_ignore_stderr(
+    #[case] code: &str,
+    #[case] expected: Vec<&str>,
+) -> Result {
+    test()
+        .run_multiple(["$env.LOG = []", code, "$env.LOG"])
+        .expect_value_eq(expected)
+}
