@@ -1535,7 +1535,8 @@ fn run_shell_integration_osc2(
 /// The home directory only matches whole path components, so with home `/home/bob` the path
 /// `/home/bobby/src` is left as it is.
 fn abbreviate_home_dir(path: String, home: Option<&Path>) -> String {
-    let Some(home) = home else {
+    // With home `/` every path would start with `~`; bash, zsh and fish don't abbreviate then.
+    let Some(home) = home.filter(|home| home.parent().is_some()) else {
         return path;
     };
     match Path::new(&path).strip_prefix(home) {
@@ -2654,6 +2655,22 @@ mod test_abbreviate_home_dir {
         let outside = outside.display().to_string();
         assert_eq!(abbreviate_home_dir(outside.clone(), Some(&home)), outside);
         assert_eq!(abbreviate_home_dir(outside.clone(), None), outside);
+    }
+
+    #[test]
+    fn keeps_paths_when_home_is_the_root() {
+        let root = if cfg!(windows) {
+            PathBuf::from(r"C:\")
+        } else {
+            PathBuf::from("/")
+        };
+        let path = under(&root, "usr");
+        assert_eq!(abbreviate_home_dir(path.clone(), Some(&root)), path);
+        let root_path = root.display().to_string();
+        assert_eq!(
+            abbreviate_home_dir(root_path.clone(), Some(&root)),
+            root_path
+        );
     }
 }
 
