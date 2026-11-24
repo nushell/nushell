@@ -1,9 +1,10 @@
 use std::ops::ControlFlow;
 
-use nu_engine::{command_prelude::*, get_eval_expression};
+use nu_engine::{command_prelude::*, eval_variable};
 use nu_protocol::{
     ast::{self, Argument, Block, Expr, Expression, Traverse},
     engine::{Closure, StateWorkingSet},
+    eval_const::eval_constant,
 };
 
 #[derive(Clone)]
@@ -41,8 +42,8 @@ impl Command for Explain {
         // This was all delightfully stolen from benchmark :)
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_closure_block(&capture_block, head)?;
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let elements = get_pipeline_elements(engine_state, &mut stack, block, head);
+        let stack = stack.captures_to_stack(capture_block.captures);
+        let elements = get_pipeline_elements(engine_state, &stack, block, head);
         Ok(Value::list(elements, head).into_pipeline_data())
     }
 
@@ -57,12 +58,10 @@ impl Command for Explain {
 
 pub fn get_pipeline_elements(
     engine_state: &EngineState,
-    stack: &mut Stack,
+    stack: &Stack,
     block: &Block,
     span: Span,
 ) -> Vec<Value> {
-    let eval_expression = get_eval_expression(engine_state);
-
     block
         .pipelines
         .iter()
@@ -83,7 +82,7 @@ pub fn get_pipeline_elements(
                 let command = engine_state.get_decl(call.decl_id);
                 (
                     command.name().to_string(),
-                    get_arguments(engine_state, stack, call.as_ref(), eval_expression),
+                    get_arguments(engine_state, stack, call.as_ref()),
                     command
                         .signature()
                         .get_output_type(None)
@@ -108,12 +107,7 @@ pub fn get_pipeline_elements(
         .collect()
 }
 
-fn get_arguments(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &ast::Call,
-    eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
-) -> Vec<Value> {
+fn get_arguments(engine_state: &EngineState, stack: &Stack, call: &ast::Call) -> Vec<Value> {
     let working_set = StateWorkingSet::new(engine_state);
     let mut arg_value = vec![];
     let span = Span::test_data();
@@ -166,40 +160,43 @@ fn get_arguments(
             stack,
             arg_type,
             expression,
-            eval_expression_fn,
         ));
     }
 
     arg_value
 }
 
-/// The row for an argument's expression: its value, or its source text and parsed type when it
-/// holds a subexpression.
+/// The row for an argument's expression. A constant or a bare variable shows its value. Anything
+/// else shows its source text and the type the parser gave it, because getting its value would
+/// mean running code, which `explain` mustn't do.
 fn get_expression_record(
     working_set: &StateWorkingSet,
-    stack: &mut Stack,
+    stack: &Stack,
     arg_type: &str,
     expression: &Expression,
-    eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
 ) -> Value {
     let engine_state = working_set.permanent_state;
     let span = Span::test_data();
-    let (name, ty, value_span) = if has_subexpression(working_set, expression) {
-        // A subexpression's block is compiled only as part of the closure, so it can't run on its
-        // own. Compiling it here would run its commands, which `explain` mustn't do.
-        let source = engine_state.get_span_contents(expression.span);
-        (
-            String::from_utf8_lossy(source).into_owned(),
-            expression.ty.to_string(),
-            expression.span,
-        )
-    } else {
-        let value = get_expression_as_value(engine_state, stack, expression, eval_expression_fn);
-        (
+    // A keyword argument, as in `catch { .. }` or `else if ..`, stands for the expression after
+    // the keyword.
+    let expression = match &expression.expr {
+        Expr::Keyword(keyword) => &keyword.expr,
+        _ => expression,
+    };
+    let (name, ty, value_span) = match get_expression_value(working_set, stack, expression) {
+        Some(value) => (
             debug_string_without_formatting(engine_state, &value),
             value.get_type().to_string(),
             value.span(),
-        )
+        ),
+        None => {
+            let source = engine_state.get_span_contents(expression.span);
+            (
+                String::from_utf8_lossy(source).into_owned(),
+                expression.ty.to_string(),
+                expression.span,
+            )
+        }
     };
 
     let record = record! {
@@ -212,34 +209,50 @@ fn get_expression_record(
     Value::record(record, expression.span)
 }
 
-/// Whether evaluating `expression` would reach a subexpression, as in `(1 + 2)`, `$"a(1)"` or
-/// `[(ls)]`. A closure or block isn't run when it's evaluated, so its body doesn't count, and a
-/// call doesn't either, because it reports its own error.
-fn has_subexpression(working_set: &StateWorkingSet, expression: &Expression) -> bool {
+/// Whether getting the value of `expression` would run code: a subexpression, as in `(1 + 2)`,
+/// `$"a(1)"` or `[(ls)]`, or a call that a keyword takes as an argument, as in `else if`. A
+/// closure or block isn't run when it's evaluated, so its body doesn't count.
+fn runs_code(working_set: &StateWorkingSet, expression: &Expression) -> bool {
     expression
         .find_map(working_set, &|expr| match expr.expr {
-            Expr::Subexpression(_) => ControlFlow::Break(Some(())),
-            Expr::Closure(_)
-            | Expr::Block(_)
-            | Expr::RowCondition(_)
-            | Expr::MatchBlock(_)
-            | Expr::Call(_)
-            | Expr::ExternalCall(..) => ControlFlow::Break(None),
+            Expr::Subexpression(_) | Expr::Call(_) | Expr::ExternalCall(..) => {
+                ControlFlow::Break(Some(()))
+            }
+            Expr::Closure(_) | Expr::Block(_) | Expr::RowCondition(_) | Expr::MatchBlock(_) => {
+                ControlFlow::Break(None)
+            }
             _ => ControlFlow::Continue(()),
         })
         .is_some()
 }
 
-fn get_expression_as_value(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    inner_expr: &Expression,
-    eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
-) -> Value {
-    match eval_expression_fn(engine_state, stack, inner_expr) {
-        Ok(v) => v,
-        Err(error) => Value::error(error, inner_expr.span),
+/// The value of an expression that is a bare variable, such as a captured `$v`, or a constant,
+/// such as a literal. Anything else has no value without running code.
+fn get_expression_value(
+    working_set: &StateWorkingSet,
+    stack: &Stack,
+    expression: &Expression,
+) -> Option<Value> {
+    // Const evaluation runs subexpressions and const commands.
+    if runs_code(working_set, expression) {
+        return None;
     }
+    // The parser wraps a bare `$v` in a cell path with no members.
+    let var_id = match &expression.expr {
+        Expr::Var(var_id) => Some(*var_id),
+        Expr::FullCellPath(cell_path) if cell_path.tail.is_empty() => match cell_path.head.expr {
+            Expr::Var(var_id) => Some(var_id),
+            _ => None,
+        },
+        _ => None,
+    };
+    // The closure's captures, consts among them, are on the stack, and a value read from there
+    // takes the argument's span.
+    var_id
+        .and_then(|var_id| {
+            eval_variable(working_set.permanent_state, stack, var_id, expression.span).ok()
+        })
+        .or_else(|| eval_constant(working_set, expression).ok())
 }
 
 pub fn debug_string_without_formatting(engine_state: &EngineState, value: &Value) -> String {
