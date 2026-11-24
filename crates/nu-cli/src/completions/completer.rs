@@ -308,10 +308,11 @@ pub(crate) fn pending_flag_value<'a>(
 /// The span of the whole short flag batch that the flag at `index` belongs to.
 ///
 /// The parser gives each flag in a batch such as `-al` its own span (`-a`, then
-/// `l`), so neighbouring flags of one batch have touching spans, while separate
-/// flags (`-a -l`) are split by whitespace. Completion works on the whole word,
-/// so this widens `span` over the batch.
-fn short_flag_batch_span(call: &Call, index: usize, span: Span) -> Span {
+/// `l`), and together those spans cover the whole word, so neighbouring flags of
+/// one batch have touching spans, while separate flags (`-a -l`) are split by
+/// whitespace. Completion works on the whole word, so this widens `span` over
+/// the batch.
+pub(crate) fn short_flag_batch_span(call: &Call, index: usize, span: Span) -> Span {
     let name_span = |i: usize| match call.arguments.get(i) {
         Some(Argument::Named((name, _, _))) if !name.span.is_empty() => Some(name.span),
         _ => None,
@@ -2836,6 +2837,9 @@ mod completer_tests {
         // but separate flags are separate tokens.
         check("ls -lad", 7, "-lad", 3);
         check("ls -a -l", 8, "-l", 6);
+        // An unknown flag (`z`) in the batch still belongs to the token.
+        check("ls -az", 6, "-az", 3);
+        check("ls -za", 6, "-za", 3);
         check("str tri", 7, "tri", 4);
         check("str tri", 5, "t", 4); // mid-token prefix
         check("str tri", 6, "tr", 4);

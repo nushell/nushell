@@ -635,9 +635,12 @@ fn shape_allows_negative_number(shape: &SyntaxShape) -> bool {
 
 /// Parses a short flag or a batch of short flags such as `-ra`.
 ///
-/// Each flag comes back with its own span: the first one covers the leading `-`
-/// as well (`-r`), the others only their own character (`a`). A lone `-r` thus
-/// keeps the span of the whole argument.
+/// Each found flag comes back with its own span. The spans are contiguous and
+/// together cover the whole argument: each one starts where the previous one
+/// ended (the first at the `-`) and the last one runs to the end of the word,
+/// so `-ra` gives `-r` and `a`, and characters that aren't known flags (the `z`
+/// in `-az` or `-za`) belong to a neighbouring flag. A lone `-r` keeps the span
+/// of the whole argument.
 fn parse_short_flags(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -667,15 +670,16 @@ fn parse_short_flags(
                             .error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
                         break;
                     }
-                    let flag_span = if offset == 0 {
-                        Span::new(arg_span.start, short_flag_span.end)
-                    } else {
-                        short_flag_span
-                    };
-                    found_short_flags.push((flag, flag_span));
+                    let start = found_short_flags
+                        .last()
+                        .map_or(arg_span.start, |(_, span): &(Flag, Span)| span.end);
+                    found_short_flags.push((flag, Span::new(start, short_flag_span.end)));
                 } else {
                     unmatched_short_flags.push(short_flag_span);
                 }
+            }
+            if let Some((_, span)) = found_short_flags.last_mut() {
+                span.end = arg_span.end;
             }
 
             if found_short_flags.is_empty()
@@ -1378,9 +1382,10 @@ pub fn parse_internal_call(
                                 }
                                 spans_idx += 1;
                             } else {
+                                // Point at the flag that needs the value, not the whole batch.
                                 working_set.error(ParseError::MissingFlagParam(
                                     arg_shape.to_string(),
-                                    arg_span,
+                                    flag_span,
                                 ));
                                 // NOTE: still need to cover this incomplete flag in the final expression
                                 // see https://github.com/nushell/nushell/issues/16375

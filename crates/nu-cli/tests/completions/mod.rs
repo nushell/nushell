@@ -2145,6 +2145,33 @@ fn command_wide_completion_sees_every_word_of_an_extern() {
     match_suggestions(&vec![r#"["tool issue list", --state, ""]"#], &suggestions);
 }
 
+/// Each flag of a short flag batch has its own span (#12925), but a command-wide
+/// completer still sees the batch as one word, also when an alias supplies it.
+#[rstest]
+#[case::batch("tool -av ", r#"[tool, -av, ""]"#)]
+#[case::batch_ending_with_value("tool -aj 1 ", r#"[tool, -aj, "1", ""]"#)]
+#[case::separate_flags("tool -a -v ", r#"[tool, -a, -v, ""]"#)]
+#[case::from_an_alias("tl ", r#"[tool, -av, ""]"#)]
+fn command_wide_completion_sees_a_short_flag_batch_as_one_word(
+    #[case] input: &str,
+    #[case] expected: &str,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let setup = /* lang=nu */ r#"
+        def "nu-complete tool" [place: record] { [{value: ($place.command | to nuon)}] }
+
+        @complete "nu-complete tool"
+        extern tool [--all(-a) --verbose(-v) --jobs(-j): int ...args]
+
+        alias tl = tool -av
+    "#;
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete_blocking(input, input.len());
+    match_suggestions(&vec![expected], &suggestions);
+}
+
 #[rstest]
 #[case::same_value("[--short --porcelain]")]
 // carapace ends a value with a space so that one follows it.
