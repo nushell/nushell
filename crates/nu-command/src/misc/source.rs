@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_path::{absolute_with, is_windows_device_path};
-use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
+use nu_protocol::{engine::CommandType, ir::ParserInfo, shell_error::io::IoError};
 
 /// Include a script file in the current scope at parse time and run statements outside of custom commands.
 #[derive(Clone)]
@@ -48,12 +48,14 @@ impl Command for Source {
         // Note: two hidden positionals are used here that are injected by the parser:
         // 1. The block_id that corresponded to the 0th position
         // 2. The block_id_name that corresponded to the file name at the 0th position
-        let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
-        let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
-        let block_id = BlockId::new(block_id as usize);
+        let block_id = call.req_parser_info(stack, "block_id", ParserInfo::block_id)?;
+        let pb = std::path::PathBuf::from(call.req_parser_info(
+            stack,
+            "block_id_name",
+            ParserInfo::path,
+        )?);
         let block = engine_state.get_block(block_id).clone();
         let cwd = engine_state.cwd_as_string(Some(stack))?;
-        let pb = std::path::PathBuf::from(block_id_name);
         let parent = pb.parent().unwrap_or(std::path::Path::new(""));
         let file_path = if is_windows_device_path(pb.as_path()) {
             pb.clone()

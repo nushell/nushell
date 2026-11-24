@@ -1,5 +1,9 @@
-use super::{DataSlice, Instruction, IrBlock, Literal, RedirectMode};
-use crate::{DeclId, VarId, ast::Pattern, engine::EngineState};
+use super::{DataSlice, Instruction, IrBlock, Literal, ParserInfo, RedirectMode};
+use crate::{
+    DeclId, VarId,
+    ast::{ImportPatternMember, Pattern},
+    engine::EngineState,
+};
 use std::fmt::{self};
 
 pub struct FmtIrBlock<'a> {
@@ -154,7 +158,8 @@ impl fmt::Display for FmtInstruction<'_> {
             }
             Instruction::PushParserInfo { name, info } => {
                 let name = FmtData(self.data, *name);
-                write!(f, "{:WIDTH$} {name}, {info:?}", "push-parser-info")
+                let info = FmtParserInfo(self.engine_state, info);
+                write!(f, "{:WIDTH$} {name}, {info}", "push-parser-info")
             }
             Instruction::RedirectOut { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-out")
@@ -312,6 +317,39 @@ impl<'a> FmtDecl<'a> {
 impl fmt::Display for FmtDecl<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "decl {} {:?}", self.0.get(), self.1)
+    }
+}
+
+struct FmtParserInfo<'a>(&'a EngineState, &'a ParserInfo);
+
+impl fmt::Display for FmtParserInfo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.1 {
+            ParserInfo::Flag => write!(f, "flag"),
+            ParserInfo::BlockId(block_id) => write!(f, "block({})", block_id.get()),
+            ParserInfo::DeclId(decl_id) => write!(f, "{}", FmtDecl::new(self.0, *decl_id)),
+            ParserInfo::Path(path) => write!(f, "{path:?}"),
+            ParserInfo::Var(var_id) => write!(f, "{}", FmtVar::new(self.0, *var_id)),
+            ParserInfo::ImportPattern(pattern) => {
+                let name = |name: &[u8]| format!("{:?}", String::from_utf8_lossy(name));
+                write!(f, "import {}", name(&pattern.head.name))?;
+                for member in &pattern.members {
+                    match member {
+                        ImportPatternMember::Glob { .. } => write!(f, " *")?,
+                        ImportPatternMember::Name { name: member, .. } => {
+                            write!(f, " {}", name(member))?
+                        }
+                        ImportPatternMember::List { names } => {
+                            let names: Vec<_> = names.iter().map(|(n, _)| name(n)).collect();
+                            write!(f, " [{}]", names.join(", "))?
+                        }
+                    }
+                }
+                Ok(())
+            }
+            ParserInfo::Overlay(Some(module_id)) => write!(f, "module({})", module_id.get()),
+            ParserInfo::Overlay(None) => write!(f, "module(none)"),
+        }
     }
 }
 

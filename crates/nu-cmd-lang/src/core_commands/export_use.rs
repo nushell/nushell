@@ -1,11 +1,7 @@
 use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
-use nu_protocol::{
-    ast::{Expr, Expression},
-    engine::CommandType,
-    shell_error::generic::GenericError,
-};
+use nu_protocol::{engine::CommandType, ir::ParserInfo, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct ExportUse;
@@ -56,10 +52,8 @@ impl Command for ExportUse {
         if call.get_parser_info(caller_stack, "noop").is_some() {
             return Ok(PipelineData::empty());
         }
-        let Some(Expression {
-            expr: Expr::ImportPattern(import_pattern),
-            ..
-        }) = call.get_parser_info(caller_stack, "import_pattern")
+        let Some(ParserInfo::ImportPattern(import_pattern)) =
+            call.get_parser_info(caller_stack, "import_pattern")
         else {
             return Err(ShellError::Generic(GenericError::new(
                 "Unexpected import",
@@ -69,7 +63,7 @@ impl Command for ExportUse {
         };
 
         // Necessary so that we can modify the stack.
-        let import_pattern = import_pattern.clone();
+        let import_pattern = import_pattern.as_ref().clone();
 
         if let Some(module_id) = import_pattern.head.id {
             // Add constants

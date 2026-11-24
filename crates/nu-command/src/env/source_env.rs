@@ -3,8 +3,8 @@ use nu_engine::{
     redirect_env,
 };
 use nu_protocol::{
-    BlockId,
     engine::CommandType,
+    ir::ParserInfo,
     shell_error::{self, io::IoError},
 };
 use std::path::PathBuf;
@@ -63,8 +63,7 @@ impl Command for SourceEnv {
 
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
-        let block_id: i64 = call.req_parser_info(engine_state, caller_stack, "block_id")?;
-        let block_id = BlockId::new(block_id as usize);
+        let block_id = call.req_parser_info(caller_stack, "block_id", ParserInfo::block_id)?;
 
         // Set the currently evaluated directory (file-relative PWD)
         let file_path = if let Some(path) = find_in_dirs_env(
