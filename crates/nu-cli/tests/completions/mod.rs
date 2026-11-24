@@ -2152,6 +2152,8 @@ fn command_wide_completion_sees_every_word_of_an_extern() {
 #[case::batch_ending_with_value("tool -aj 1 ", r#"[tool, -aj, "1", ""]"#)]
 #[case::separate_flags("tool -a -v ", r#"[tool, -a, -v, ""]"#)]
 #[case::from_an_alias("tl ", r#"[tool, -av, ""]"#)]
+// The alias ends in a batch whose last flag takes the typed value.
+#[case::alias_ending_in_a_value_flag("taj 1 ", r#"[tool, -aj, "1", ""]"#)]
 fn command_wide_completion_sees_a_short_flag_batch_as_one_word(
     #[case] input: &str,
     #[case] expected: &str,
@@ -2164,6 +2166,7 @@ fn command_wide_completion_sees_a_short_flag_batch_as_one_word(
         extern tool [--all(-a) --verbose(-v) --jobs(-j): int ...args]
 
         alias tl = tool -av
+        alias taj = tool -aj
     "#;
     assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
 

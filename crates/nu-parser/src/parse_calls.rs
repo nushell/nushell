@@ -1117,6 +1117,21 @@ fn fill_alias_flag_value(
     let name_span = Span::new(value_span.start, value_span.start);
     let value = parse_flag_value(working_set, value_span, &shape, allow_null);
     let (_, value) = ensure_flag_arg_type(working_set, long_name, value, &shape, name_span);
+    // In a short flag batch such as `-ir`, each flag has its own span (#12925). Before the
+    // last flag's name loses its span, hand that part of the word to the flag before it, so
+    // the batch's spans still cover the whole word and a completer reads `-ir`, not `-i`.
+    if let [
+        ..,
+        Argument::Named((previous, previous_short, _)),
+        Argument::Named((last, _, _)),
+    ] = call.arguments.as_mut_slice()
+        && previous.span.end == last.span.start
+    {
+        previous.span.end = last.span.end;
+        if let Some(short) = previous_short {
+            short.span.end = last.span.end;
+        }
+    }
     if let Some(Argument::Named((long, short, slot))) = call.arguments.last_mut() {
         long.span = name_span;
         if let Some(short) = short {
