@@ -394,6 +394,25 @@ fn expand_ndots_in_literal_prefix(pattern: &str) -> String {
     expanded
 }
 
+/// Returns `true` if `path` is relative and safe for `--relative-paths` output.
+///
+/// Any `~`-prefixed path (`~/...`, `~user/...`) is treated as non-relative.
+/// On Windows, drive-relative paths (e.g., `D:foo`) also return `false` since `$env.PWD`
+/// can differ from the process cwd, which could resolve against the wrong directory
+/// or produce `..\..\...` chains longer than the absolute path.
+fn allows_relative_paths(path: &str) -> bool {
+    if path.starts_with('~') {
+        return false;
+    }
+    let path = std::path::Path::new(path);
+    !path.has_root()
+        && !(cfg!(windows)
+            && matches!(
+                path.components().next(),
+                Some(std::path::Component::Prefix(_))
+            ))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_dc_glob(
     engine_state: &EngineState,
@@ -434,6 +453,10 @@ fn run_dc_glob(
     let glob_pattern = nu_path::expand_tilde(&glob_pattern)
         .to_string_lossy()
         .to_string();
+
+    // Only make output relative if the pattern itself was relative.
+    let relative_paths = relative_paths && allows_relative_paths(&glob_pattern);
+
     #[cfg(windows)]
     let (cwd_for_matches, glob_pattern) = split_drive_relative_glob(glob_pattern, cwd_for_matches);
 
@@ -445,9 +468,6 @@ fn run_dc_glob(
                 glob_span,
             ))
         })?;
-
-    // Only make output relative if the pattern itself was relative.
-    let relative_paths = relative_paths && !std::path::Path::new(&glob_pattern).has_root();
 
     let matches = matches.map(move |item| {
         item.map(|path| {
@@ -531,9 +551,9 @@ fn run_legacy_glob(
         }
     };
 
+    // only make output relative if the pattern itself was relative
     let relative_to = if relative_paths
-        // only make output relative if the pattern itself was relative
-        && !(prefix.starts_with("~") || prefix.has_root())
+        && allows_relative_paths(&prefix.to_string_lossy())
         && let Some(diff) = pathdiff::diff_paths(&path, &cwd)
     {
         Some((diff, path.clone()))
