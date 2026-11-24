@@ -62,12 +62,11 @@ fn convert_ron_to_value(value: &RonValue, span: Span) -> Value {
         RonValue::Bool(b) => Value::bool(*b, span),
         RonValue::Char(c) => Value::string(c.to_string(), span),
         RonValue::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                Value::int(i, span)
-            } else if let Some(f) = n.as_f64() {
-                Value::float(f, span)
+            let num = n.into_f64();
+            if num.fract() == 0.0 {
+                Value::int(num as i64, span)
             } else {
-                Value::string(format!("{:?}", n), span)
+                Value::float(num, span)
             }
         }
         RonValue::String(s) => Value::string(s.clone(), span),
@@ -75,6 +74,7 @@ fn convert_ron_to_value(value: &RonValue, span: Span) -> Value {
             Some(v) => convert_ron_to_value(v, span),
             None => Value::nothing(span),
         },
+        RonValue::Bytes(b) => Value::binary(b.clone(), span),
         RonValue::Seq(seq) => {
             let v: Vec<Value> = seq.iter().map(|x| convert_ron_to_value(x, span)).collect();
             Value::list(v, span)
