@@ -1,12 +1,6 @@
-use nu_engine::{
-    command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return,
-    redirect_env,
-};
-use nu_protocol::{
-    engine::CommandType,
-    ir::ParserInfo,
-    shell_error::{self, io::IoError},
-};
+use crate::misc::sourced_file_path;
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
+use nu_protocol::{engine::CommandType, ir::ParserInfo};
 use std::path::PathBuf;
 
 /// Source a file for environment variables.
@@ -59,28 +53,16 @@ impl Command for SourceEnv {
             return Ok(PipelineData::empty());
         }
 
-        let source_filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
-
-        // Note: this hidden positional is the block_id that corresponded to the 0th position
-        // it is put here by the parser
+        // The parser puts two hidden values here: the block it compiled from the file at the 0th
+        // position, and the path it found that file at. Looking the name up again here could
+        // find a different file, for example after a `cd`.
         let block_id = call.req_parser_info(caller_stack, "block_id", ParserInfo::block_id)?;
+        let path =
+            PathBuf::from(call.req_parser_info(caller_stack, "block_id_name", ParserInfo::path)?);
+        let filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
+        let file_path = sourced_file_path(engine_state, caller_stack, &path, filename.span)?;
 
         // Set the currently evaluated directory (file-relative PWD)
-        let file_path = if let Some(path) = find_in_dirs_env(
-            &source_filename.item,
-            engine_state,
-            caller_stack,
-            get_dirs_var_from_call(caller_stack, call),
-        )? {
-            PathBuf::from(&path)
-        } else {
-            return Err(ShellError::Io(IoError::new(
-                shell_error::io::ErrorKind::FileNotFound,
-                source_filename.span,
-                PathBuf::from(source_filename.item),
-            )));
-        };
-
         if let Some(parent) = file_path.parent() {
             let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 

@@ -1,6 +1,28 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{engine::CommandType, ir::ParserInfo, shell_error::io::IoError};
+use std::path::{Path, PathBuf};
+
+/// Returns the absolute path of the file the parser read for `source` or `source-env`, or a
+/// `FileNotFound` error at `span` if the file is gone by the time the command runs.
+pub(crate) fn sourced_file_path(
+    engine_state: &EngineState,
+    stack: &Stack,
+    path: &Path,
+    span: Span,
+) -> Result<PathBuf, ShellError> {
+    let cwd = engine_state.cwd_as_string(Some(stack))?;
+    if is_windows_device_path(path) {
+        return Ok(path.to_path_buf());
+    }
+    let file_path =
+        absolute_with(path, cwd).map_err(|err| IoError::new(err, span, path.to_path_buf()))?;
+    match file_path.try_exists() {
+        Ok(true) => Ok(file_path),
+        Ok(false) => Err(IoError::new(ErrorKind::FileNotFound, span, path.to_path_buf()).into()),
+        Err(err) => Err(IoError::new(err, span, path.to_path_buf()).into()),
+    }
+}
 
 /// Include a script file in the current scope at parse time and run statements outside of custom commands.
 #[derive(Clone)]
@@ -49,28 +71,10 @@ impl Command for Source {
         // 1. The block_id that corresponded to the 0th position
         // 2. The block_id_name that corresponded to the file name at the 0th position
         let block_id = call.req_parser_info(stack, "block_id", ParserInfo::block_id)?;
-        let pb = std::path::PathBuf::from(call.req_parser_info(
-            stack,
-            "block_id_name",
-            ParserInfo::path,
-        )?);
+        let pb = PathBuf::from(call.req_parser_info(stack, "block_id_name", ParserInfo::path)?);
         let block = engine_state.get_block(block_id).clone();
-        let cwd = engine_state.cwd_as_string(Some(stack))?;
-        let parent = pb.parent().unwrap_or(std::path::Path::new(""));
-        let file_path = if is_windows_device_path(pb.as_path()) {
-            pb.clone()
-        } else {
-            let path = absolute_with(pb.as_path(), cwd)
-                .map_err(|err| IoError::new(err, call.head, pb.clone()))?;
-            match path.try_exists() {
-                Ok(true) => {}
-                Ok(false) => {
-                    return Err(IoError::new(ErrorKind::FileNotFound, call.head, pb.clone()).into());
-                }
-                Err(e) => return Err(IoError::new(e, call.head, pb.clone()).into()),
-            };
-            path
-        };
+        let parent = pb.parent().unwrap_or(Path::new(""));
+        let file_path = sourced_file_path(engine_state, stack, &pb, call.head)?;
 
         // Note: We intentionally left out PROCESS_PATH since it's supposed to
         // to work like argv[0] in C, which is the name of the program being executed.

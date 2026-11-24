@@ -320,6 +320,7 @@ impl fmt::Display for FmtDecl<'_> {
     }
 }
 
+/// Formats a [`ParserInfo`] value for `view ir`.
 struct FmtParserInfo<'a>(&'a EngineState, &'a ParserInfo);
 
 impl fmt::Display for FmtParserInfo<'_> {
