@@ -122,6 +122,11 @@ pub enum Instruction {
     ///
     /// An external whose stderr has its own pipe stays a stream, so the next command still gets
     /// stdout and stderr apart. Its output is read into memory and its exit status checked.
+    ///
+    /// An error value is raised, so that the `try`'s handlers run: the last call in the block
+    /// returns its error as a value when the next command takes errors as values (`complete`,
+    /// `ignore`, `save`, `tee`). If only `finally` handles it, `EndFinally` puts it back in this
+    /// register as a value.
     TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },
@@ -134,6 +139,9 @@ pub enum Instruction {
     /// exit-code-only stream, leaving the block.
     Drain { src: RegId },
     /// Drain the value/stream in a register and discard only if this is the last pipeline element.
+    ///
+    /// Ends a `try` without `catch` or `finally`, so like `TryCollect`, it raises an error value
+    /// for the `try` to swallow.
     // TODO: see if it's possible to remove this
     DrainIfEnd { src: RegId },
     /// Load the value of a variable into the `dst` register.
@@ -299,6 +307,8 @@ pub enum Instruction {
     BeginFinally,
     /// Leave a `finally` block: pops its running marker and, if the block was entered by
     /// unwinding (an error, `return`, `exit`, `break`, or `continue`), resumes that unwinding.
+    /// An error value raised by `TryCollect` doesn't unwind further: it goes back in that
+    /// instruction's register as a value.
     EndFinally,
     /// Return early from the block with the value in the register.
     ///
