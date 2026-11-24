@@ -93,7 +93,7 @@ impl Command for Let {
             },
             Example {
                 description: "Take apart a table with one row. A table is a list of records, so the pattern is a record pattern inside a list pattern.",
-                example: r#"let [{$user, $host}] = ("alice@example.com" | parse "{user}@{host}"); $host"#,
+                example: r#"let [{$user, $host}] = "alice@example.com" | parse "{user}@{host}"; $host"#,
                 result: Some(Value::test_string("example.com")),
             },
             Example {
