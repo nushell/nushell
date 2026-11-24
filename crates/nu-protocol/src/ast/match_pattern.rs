@@ -2,11 +2,26 @@ use super::Expression;
 use crate::{Span, Value, VarId};
 use serde::{Deserialize, Serialize};
 
-/// AST Node for match arm with optional match guard
+/// One arm of a `match` block: `pattern if guard => body`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MatchArm {
+    pub pattern: MatchPattern,
+    /// The expression after `if`. The arm is taken only when it's true.
+    pub guard: Option<Box<Expression>>,
+    pub body: Expression,
+}
+
+impl MatchArm {
+    /// Whether the arm matches every value: a wildcard pattern with no guard.
+    pub fn is_wildcard(&self) -> bool {
+        self.guard.is_none() && self.pattern.is_wildcard()
+    }
+}
+
+/// A pattern with its span, in a match arm or nested in another pattern
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {
     pub pattern: Pattern,
-    pub guard: Option<Box<Expression>>,
     pub span: Span,
 }
 
@@ -16,7 +31,7 @@ impl MatchPattern {
     }
 
     pub fn is_wildcard(&self) -> bool {
-        self.guard.is_none() && self.pattern.is_wildcard()
+        self.pattern.is_wildcard()
     }
 }
 

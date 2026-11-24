@@ -282,6 +282,16 @@ fn match_with_guard_no_expr_after_if() -> Result {
     Ok(())
 }
 
+// A variable read only in a guard is captured, so the closure still has it after `make` returns.
+#[test]
+fn match_guard_reads_a_captured_variable() -> Result {
+    let code = r#"
+        def make [limit: int] { {|| match 5 { $x if $x > $limit => "big", _ => "small" } } }
+        do (make 1)
+    "#;
+    test().run(code).expect_value_eq("big")
+}
+
 #[test]
 fn match_with_guard_multiarm() -> Result {
     test()
