@@ -558,7 +558,7 @@ fn write_pipeline_data(
     mut writer: impl Write,
 ) -> Result<(), ShellError> {
     if let PipelineData::ByteStream(stream, ..) = data {
-        stream.write_to(writer)?;
+        stream.write_to_child_stdin(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer
             .write_all(&val)
@@ -596,8 +596,8 @@ fn write_pipeline_data(
 }
 
 /// Whether `err`, from feeding an external's stdin, is not worth reporting: the external stopped
-/// reading, which is up to the external, an external earlier in the pipeline failed, which only
-/// pipefail reports, or the user interrupted, which is seen wherever the shell checks next.
+/// reading, which is up to the external, or the user interrupted, which is seen wherever the
+/// shell checks next. Errors read from the input must pass through, including deferred exits.
 fn is_expected_stdin_error(err: &ShellError) -> bool {
     let stopped_reading = matches!(
         err,
@@ -606,7 +606,7 @@ fn is_expected_stdin_error(err: &ShellError) -> bool {
             ..
         })
     );
-    stopped_reading || err.external_exit_code().is_some() || err.is_interrupt()
+    stopped_reading || matches!(err, ShellError::Interrupted { .. })
 }
 
 /// Explains why an `executable` that exists could not be started, given the "not found" `err`

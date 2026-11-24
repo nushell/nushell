@@ -44,6 +44,13 @@ impl ErrorHandlerStack {
         self.handlers.len()
     }
 
+    /// Whether a `try` without `catch` or `finally` can handle an error here.
+    pub fn has_bare_try(&self) -> bool {
+        self.handlers
+            .iter()
+            .any(|handler| matches!(handler, TryHandler::Catch(handler) if handler.error_register.is_none()))
+    }
+
     /// Push a new handler onto the stack.
     pub fn push(&mut self, handler: TryHandler) {
         self.handlers.push(handler);

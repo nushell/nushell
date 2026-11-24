@@ -109,6 +109,18 @@ impl Command for Do {
         .add_args(rest)?
         .run_with_input(input);
 
+        let result = result.and_then(|output| match output {
+            PipelineData::ListStream(stream, metadata)
+                if (ignore_all_errors || capture_errors) && stream.has_eager_input_errors() =>
+            {
+                Ok(PipelineData::list_stream(
+                    stream.resolve_input_errors(engine_state.signals().clone())?,
+                    metadata,
+                ))
+            }
+            output => Ok(output),
+        });
+
         match result {
             Ok(PipelineData::ByteStream(stream, metadata)) if capture_errors => {
                 let span = stream.span();

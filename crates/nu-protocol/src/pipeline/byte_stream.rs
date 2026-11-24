@@ -77,6 +77,8 @@ impl Debug for ByteStreamSource {
 enum SourceReader {
     Read(Box<dyn Read + Send + 'static>),
     File(File),
+    #[cfg(feature = "os")]
+    Child(Box<ChildProcess>),
 }
 
 impl Read for SourceReader {
@@ -84,6 +86,8 @@ impl Read for SourceReader {
         match self {
             SourceReader::Read(reader) => reader.read(buf),
             SourceReader::File(file) => file.read(buf),
+            #[cfg(feature = "os")]
+            SourceReader::Child(child) => child.read_stdout_with_exit_status(buf),
         }
     }
 }
@@ -93,6 +97,8 @@ impl Debug for SourceReader {
         match self {
             SourceReader::Read(_) => f.debug_tuple("Read").field(&"..").finish(),
             SourceReader::File(file) => f.debug_tuple("File").field(file).finish(),
+            #[cfg(feature = "os")]
+            SourceReader::Child(child) => f.debug_tuple("Child").field(child).finish(),
         }
     }
 }
@@ -522,7 +528,7 @@ impl ByteStream {
         })
     }
 
-    /// Convert the [`ByteStream`] into a [`SplitRead`] iterator where each element is a `Result<String, ShellError>`.
+    /// Convert the [`ByteStream`] into a [`SplitRead`] iterator of byte segments.
     ///
     /// Each call to [`next`](Iterator::next) reads the currently available data from the byte
     /// stream source, until `delimiter` or the end of the stream is encountered.
@@ -532,6 +538,21 @@ impl ByteStream {
     pub fn split(self, delimiter: Vec<u8>) -> Option<SplitRead> {
         let reader = self.stream.reader()?;
         Some(SplitRead::new(reader, delimiter, self.span, self.signals))
+    }
+
+    /// Split on a nonempty delimiter, checking the exit status of an external producer at EOF.
+    /// Dropping the iterator early closes the reader. The evaluator may still track the exit status.
+    pub fn split_with_exit_status(self, delimiter: Vec<u8>) -> Result<SplitRead, ShellError> {
+        let reader = match self.stream {
+            ByteStreamSource::Read(read) => SourceReader::Read(read),
+            ByteStreamSource::File(file) => SourceReader::File(file),
+            #[cfg(feature = "os")]
+            ByteStreamSource::Child(child) => {
+                child.check_stdout_only()?;
+                SourceReader::Child(child)
+            }
+        };
+        Ok(SplitRead::new(reader, delimiter, self.span, self.signals))
     }
 
     /// Convert the [`ByteStream`] into a [`Chunks`] iterator where each element is a `Result<Value, ShellError>`.
@@ -725,6 +746,25 @@ impl ByteStream {
 
     /// Write all bytes of the [`ByteStream`] to `dest`.
     pub fn write_to(self, dest: impl Write) -> Result<(), ShellError> {
+        self.write_to_impl(
+            dest,
+            #[cfg(feature = "os")]
+            true,
+        )
+    }
+
+    /// Copy to an external's stdin. The evaluator handles a source child's own exit status.
+    /// A failure to read the stream or feed the source child's stdin is still reported.
+    #[cfg(feature = "os")]
+    pub fn write_to_child_stdin(self, dest: impl Write) -> Result<(), ShellError> {
+        self.write_to_impl(dest, false)
+    }
+
+    fn write_to_impl(
+        self,
+        dest: impl Write,
+        #[cfg(feature = "os")] check_exit: bool,
+    ) -> Result<(), ShellError> {
         let span = self.span;
         let signals = &self.signals;
         match self.stream {
@@ -751,7 +791,7 @@ impl ByteStream {
                         }
                     }
                 }
-                child.wait()?;
+                child.wait_with_exit_check(check_exit)?;
             }
         }
         Ok(())
@@ -888,6 +928,7 @@ impl Read for Reader {
 
 impl BufRead for Reader {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        self.signals.check(&self.span).map_err(ShellErrorBridge)?;
         self.reader.fill_buf()
     }
 
@@ -956,7 +997,7 @@ impl Iterator for Lines {
 }
 
 pub struct SplitRead {
-    internal: SplitReadInner<BufReader<SourceReader>>,
+    internal: Option<SplitReadInner<Reader>>,
     span: Span,
     signals: Signals,
 }
@@ -968,8 +1009,13 @@ impl SplitRead {
         span: Span,
         signals: Signals,
     ) -> Self {
+        let reader = Reader {
+            reader: BufReader::new(reader),
+            span,
+            signals: signals.clone(),
+        };
         Self {
-            internal: SplitReadInner::new(BufReader::new(reader), delimiter),
+            internal: Some(SplitReadInner::new(reader, delimiter)),
             span,
             signals,
         }
@@ -978,17 +1024,40 @@ impl SplitRead {
     pub fn span(&self) -> Span {
         self.span
     }
+
+    /// Whether the iterator has returned the final segment at EOF or a read error.
+    pub fn is_finished(&self) -> bool {
+        self.internal
+            .as_ref()
+            .is_none_or(SplitReadInner::is_finished)
+    }
+
+    /// Discard the remaining bytes, checking for read and exit errors.
+    pub fn drain(self) -> Result<(), ShellError> {
+        self.signals.check(&self.span)?;
+        match self.internal {
+            Some(reader) => reader
+                .drain()
+                .map_err(|err| ShellErrorBridge::unpack(err, self.span)),
+            None => Ok(()),
+        }
+    }
 }
 
 impl Iterator for SplitRead {
     type Item = Result<Vec<u8>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.signals.interrupted() {
+        if self.is_finished() {
             return None;
+        }
+        if let Err(err) = self.signals.check(&self.span) {
+            self.internal = None;
+            return Some(Err(err));
         }
         let span = self.span;
         self.internal
+            .as_mut()?
             .next()
             .map(|r| r.map_err(|err| ShellErrorBridge::unpack(err, span)))
     }

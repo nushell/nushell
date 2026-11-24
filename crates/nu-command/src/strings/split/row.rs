@@ -1,6 +1,6 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::generic::GenericError;
+use nu_protocol::{ListStream, Signals, shell_error::generic::GenericError};
 
 use super::split;
 
@@ -44,6 +44,12 @@ impl Command for SplitRow {
 
     fn description(&self) -> &str {
         "Split a string into multiple rows using a separator."
+    }
+
+    fn extra_description(&self) -> &str {
+        "Byte streams can yield rows before the input ends. With --number, --right, or --regex,\n\
+         or if the separator is empty or ends in a carriage return or newline,\n\
+         split row reads the full input first."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -184,6 +190,63 @@ fn split_row(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
+    let separator = args.separator.item.as_str();
+    // A separator ending in CR or LF may itself be removed by the EOF trim.
+    if !args.has_regex
+        && args.max_split.is_none()
+        && !args.split_from_right
+        && !separator.is_empty()
+        && !separator.ends_with(['\r', '\n'])
+        && let PipelineData::ByteStream(stream, metadata) = input
+    {
+        let span = stream.span();
+        let caller_spans = stream.get_caller_spans().clone();
+        let signals = engine_state.signals().clone();
+        let mut split = Some(stream.split_with_exit_status(separator.as_bytes().to_vec())?);
+        let rows = std::iter::from_fn(move || {
+            let parts = split.as_mut()?;
+            if parts.is_finished() {
+                return None;
+            }
+            let row = match signals
+                .check(&span)
+                .and_then(|()| parts.next().transpose())
+                .transpose()?
+            {
+                Ok(bytes) => match String::from_utf8(bytes) {
+                    Ok(mut row) => {
+                        if parts.is_finished() {
+                            row.truncate(row.trim_end_matches(['\r', '\n']).len());
+                        }
+                        return Some(Value::string(row, span));
+                    }
+                    Err(_) => {
+                        // The eager path checked for upstream errors before decoding. Read the
+                        // rest without splitting or retaining it so those errors still win.
+                        return Some(match split.take()?.drain() {
+                            Ok(()) => Value::error(
+                                unsupported_input("binary".into(), name_span, span),
+                                name_span,
+                            ),
+                            Err(err) => Value::error(err, span),
+                        });
+                    }
+                },
+                Err(err) => Value::error(err, span),
+            };
+            // Release the reader after a terminal error, even if the consumer keeps the iterator.
+            split = None;
+            Some(row)
+        });
+        // The iterator reports interruption as an error. A ListStream signal wrapper would
+        // stop it before it could return that error.
+        let mut output = ListStream::new(rows, span, Signals::empty()).with_eager_input_errors();
+        for caller_span in caller_spans {
+            output.push_caller_span(caller_span);
+        }
+        return Ok(PipelineData::list_stream(output, metadata));
+    }
+
     let pattern = if args.has_regex {
         std::borrow::Cow::Borrowed(args.separator.item.as_str())
     } else {
@@ -209,12 +272,7 @@ fn split_row_helper(
     }
     let Ok(s) = v.coerce_string() else {
         return vec![Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string".into(),
-                wrong_type: v.get_type().to_string(),
-                dst_span: name,
-                src_span: span,
-            },
+            unsupported_input(v.get_type().to_string(), name, span),
             name,
         )];
     };
@@ -249,6 +307,15 @@ fn split_row_helper(
             span,
         )]
     })
+}
+
+fn unsupported_input(wrong_type: String, dst_span: Span, src_span: Span) -> ShellError {
+    ShellError::OnlySupportsThisInputType {
+        exp_input_type: "string".into(),
+        wrong_type,
+        dst_span,
+        src_span,
+    }
 }
 
 #[cfg(test)]

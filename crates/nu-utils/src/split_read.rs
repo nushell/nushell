@@ -5,6 +5,7 @@ use memchr::memmem::Finder;
 pub struct SplitRead<R> {
     reader: Option<R>,
     buf: Option<Vec<u8>>,
+    start: usize,
     finder: Finder<'static>,
 }
 
@@ -15,7 +16,31 @@ impl<R: BufRead> SplitRead<R> {
         Self {
             reader: Some(reader),
             buf: Some(Vec::new()),
+            start: 0,
             finder: Finder::new(delim.as_ref()).into_owned(),
+        }
+    }
+
+    /// Whether the iterator has returned its final segment or a read error.
+    pub fn is_finished(&self) -> bool {
+        self.buf.is_none()
+    }
+
+    /// Discard the remaining bytes and report any error encountered before EOF.
+    pub fn drain(self) -> std::io::Result<()> {
+        let Some(mut reader) = self.reader else {
+            return Ok(());
+        };
+        loop {
+            match reader.fill_buf() {
+                Ok([]) => return Ok(()),
+                Ok(bytes) => {
+                    let len = bytes.len();
+                    reader.consume(len);
+                }
+                Err(err) if err.kind() == ErrorKind::Interrupted => continue,
+                Err(err) => return Err(err),
+            }
         }
     }
 }
@@ -25,30 +50,46 @@ impl<R: BufRead> Iterator for SplitRead<R> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let buf = self.buf.as_mut()?;
-        let mut search_start = 0usize;
+        let mut search_start = self.start;
 
         loop {
             if let Some(i) = self.finder.find(&buf[search_start..]) {
-                let needle_idx = search_start + i;
-                let right = buf.split_off(needle_idx + self.finder.needle().len());
-                buf.truncate(needle_idx);
-                let left = std::mem::replace(buf, right);
-                return Some(Ok(left));
+                let end = search_start + i;
+                let next_start = end + self.finder.needle().len();
+                if self.start == 0 && end >= buf.len() - next_start {
+                    // Give a large segment the existing allocation and copy the smaller tail.
+                    let tail = buf.split_off(next_start);
+                    let mut segment = std::mem::replace(buf, tail);
+                    segment.truncate(end);
+                    return Some(Ok(segment));
+                }
+                let segment = buf[self.start..end].to_vec();
+                self.start = next_start;
+                return Some(Ok(segment));
             }
 
-            if let Some(mut r) = self.reader.take() {
-                search_start = buf.len().saturating_sub(self.finder.needle().len() + 1);
+            if let Some(r) = self.reader.as_mut() {
+                // Compact consumed bytes once per refill, even when it contains many segments.
+                if self.start != 0 {
+                    buf.drain(..self.start);
+                    self.start = 0;
+                }
+                search_start = buf.len().saturating_sub(self.finder.needle().len() - 1);
                 let available = match r.fill_buf() {
                     Ok(n) => n,
                     Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
-                    Err(e) => return Some(Err(e)),
+                    Err(e) => {
+                        self.reader = None;
+                        self.buf = None;
+                        return Some(Err(e));
+                    }
                 };
 
                 buf.extend_from_slice(available);
                 let used = available.len();
                 r.consume(used);
-                if used != 0 {
-                    self.reader = Some(r);
+                if used == 0 {
+                    self.reader = None;
                 }
                 continue;
             } else {
@@ -150,5 +191,26 @@ mod tests {
         assert_eq!(split.next().unwrap(), "baz");
         assert_eq!(split.next().unwrap(), "");
         assert_eq!(split.next(), None);
+    }
+
+    #[test]
+    fn retries_interrupted_read() {
+        struct InterruptedOnce(Cursor<&'static str>, bool);
+
+        impl Read for InterruptedOnce {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                if std::mem::replace(&mut self.1, false) {
+                    return Err(ErrorKind::Interrupted.into());
+                }
+                self.0.read(buf)
+            }
+        }
+
+        let reader = io::BufReader::new(InterruptedOnce(Cursor::new("a--b"), true));
+        let mut split = SplitRead::new(reader, "--");
+        assert_eq!(split.next().unwrap().unwrap(), b"a");
+        assert_eq!(split.next().unwrap().unwrap(), b"b");
+        assert!(split.is_finished());
+        assert!(split.next().is_none());
     }
 }
