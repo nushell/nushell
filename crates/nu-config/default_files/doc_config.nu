@@ -166,9 +166,10 @@ $env.config.clip.default_raw = false
 $env.config.edit_mode = "emacs"
 
 # buffer_editor (string|list|null): Command to edit the current line buffer with Ctrl+O.
+# The editor must not exit until editing is finished (for example, `code` needs `--wait`).
 # null: Uses $env.VISUAL, then $env.EDITOR, then falls back to default.
-# string: Command name to invoke (e.g., "vim", "nano", "code --wait").
-# list: Command with arguments as a list (e.g., ["vim", "-p"]).
+# string: Command name to invoke (e.g., "vim", "nano", "hx").
+# list: Command with arguments as a list (e.g., ["vim", "-p"], ["code", "--wait"]).
 # Default: null
 $env.config.buffer_editor = null
 
