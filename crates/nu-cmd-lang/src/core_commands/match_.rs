@@ -67,6 +67,11 @@ impl Command for Match {
                 result: Some(Value::test_string("yes!")),
             },
             Example {
+                description: "A range matches any number between its ends, not only the steps.",
+                example: "match 2.5 { ..0 => 'low', 1..5 => 'middle', _ => 'high' }",
+                result: Some(Value::test_string("middle")),
+            },
+            Example {
                 description: "Match on a constant expression.",
                 example: "match 42 { (40 + 2) => 'yes!' }",
                 result: Some(Value::test_string("yes!")),

@@ -79,6 +79,37 @@ impl Command for Let {
                 result: None,
             },
             Example {
+                description: "Take a record apart into variables, renaming one field.",
+                example: "let {$name, size: $bytes} = {name: 'a.txt', size: 10}; $bytes",
+                result: Some(Value::test_int(10)),
+            },
+            Example {
+                description: "Take the first item of a list and keep the rest.",
+                example: "let [$first, ..$rest] = [1 2 3]; $rest",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
+            },
+            Example {
+                description: "Take apart a table with one row. A table is a list of records, so the pattern is a record pattern inside a list pattern.",
+                example: r#"let [{$user, $host}] = "alice@example.com" | parse "{user}@{host}"; $host"#,
+                result: Some(Value::test_string("example.com")),
+            },
+            Example {
+                description: "Bind null for a field that may be missing, and keep the other fields.",
+                example: "let {$a, $b?, ..$rest} = {a: 1, c: 3}; {b: $b, rest: $rest}",
+                result: Some(Value::test_record(record! {
+                    "b" => Value::test_nothing(),
+                    "rest" => Value::test_record(record! { "c" => Value::test_int(3) }),
+                })),
+            },
+            Example {
+                description: "Give a field that may be missing or null a default.",
+                example: "let {$host, $port = 8080} = {host: 'localhost'}; $port",
+                result: Some(Value::test_int(8080)),
+            },
+            Example {
                 description: "Set a variable to the output of a pipeline.",
                 example: "ls | let files",
                 result: None,

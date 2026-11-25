@@ -551,3 +551,33 @@ fn const_const() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn const_destructure() -> Result {
+    let code = "
+        const {$a, b: [$c, ..$d]} = {a: 1, b: [2 3 4]}
+        const e = $a + $c
+        [$e $d]
+    ";
+
+    test().run(code).expect_value_eq(test_value!([3, [3, 4]]))
+}
+
+#[rstest]
+#[case::missing_field("const {$a, $b} = {a: 1}", "record has no field `b`")]
+#[case::list_length("const [$a] = [1 2]", "list has 2 items, the pattern takes 1")]
+fn const_destructure_mismatch(#[case] code: &str, #[case] expected: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::PatternMismatch { msg, .. } if msg == expected));
+    Ok(())
+}
+
+#[rstest]
+#[case::glob("use spam *; $a + $b")]
+#[case::members("use spam [a b]; $a + $b")]
+#[case::module_record("use spam; $spam.a + $spam.b")]
+fn export_const_destructure(#[case] code: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run("module spam { export const {$a, b: [$b]} = {a: 1, b: [2]} }")?;
+    tester.run(code).expect_value_eq(3)
+}

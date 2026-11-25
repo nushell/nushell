@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     AttributeBlock, Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchArm,
-    Operator, Range, Table, ValueWithUnit,
+    MatchPattern, Operator, Range, Table, ValueWithUnit,
 };
 use crate::{
     BlockId, ModuleId, OutDest, Signature, Span, VarId, ast::ImportPattern, engine::StateWorkingSet,
@@ -19,6 +19,11 @@ pub enum Expr {
     Range(Box<Range>),
     Var(VarId),
     VarDecl(VarId),
+    /// A destructuring pattern that declares variables, as in `let {$name} = $record`.
+    Pattern(Box<MatchPattern>),
+    /// The left side of a destructuring assignment, as in `[$a, $b] = [$b, $a]`: a pattern whose
+    /// variables are existing `mut` variables, which it assigns rather than declares.
+    AssignmentPattern(Box<MatchPattern>),
     Call(Box<Call>),
     ExternalCall(Box<Expression>, Box<[ExternalArgument]>), // head, args
     Operator(Operator),
@@ -78,6 +83,8 @@ impl Expr {
             Expr::Range(_) => "a range",
             Expr::Var(_) => "a variable",
             Expr::VarDecl(_) => "a variable declaration",
+            Expr::Pattern(_) => "a destructuring pattern",
+            Expr::AssignmentPattern(_) => "a destructuring assignment",
             Expr::Call(_) => "a command call",
             Expr::ExternalCall(_, _) => "an external command call",
             Expr::Operator(_) => "an operator",
@@ -160,6 +167,8 @@ impl Expr {
                 (None, None)
             }
             Expr::VarDecl(_)
+            | Expr::Pattern(_)
+            | Expr::AssignmentPattern(_)
             | Expr::Operator(_)
             | Expr::Filepath(_, _)
             | Expr::Directory(_, _)

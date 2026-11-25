@@ -318,7 +318,7 @@ pub fn parse_export_in_module(
                 (pipeline, result)
             }
             b"const" => {
-                let (mut pipeline, var_name_span) = parse_const(working_set, &spans[1..]);
+                let (mut pipeline, constants) = parse_const(working_set, &spans[1..]);
 
                 if !warp_export_call(working_set, &mut pipeline, "export const", spans) {
                     return (garbage_pipeline(working_set, spans), vec![]);
@@ -326,24 +326,11 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                if let Some(var_name_span) = var_name_span {
-                    let var_name = working_set.get_span_contents(var_name_span);
-                    let var_name = trim_quotes(var_name);
-
-                    if let Some(var_id) = working_set.find_variable(var_name) {
-                        if let Err(err) = working_set.get_constant(var_id) {
-                            working_set.error(err);
-                        } else {
-                            result.push(Exportable::VarDecl {
-                                name: var_name.to_vec(),
-                                id: var_id,
-                            });
-                        }
+                for (name, id) in constants {
+                    if let Err(err) = working_set.get_constant(id) {
+                        working_set.error(err);
                     } else {
-                        working_set.error(ParseError::InternalError(
-                            "failed to find added variable".into(),
-                            Span::concat(&spans[1..]),
-                        ));
+                        result.push(Exportable::VarDecl { name, id });
                     }
                 }
 

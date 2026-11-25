@@ -242,6 +242,11 @@ fn glob_follow_symlinks(playground: Playground) -> Result {
 }
 
 #[test]
+fn glob_relative_paths(playground: Playground) -> Result {
+    check_glob_relative_paths(&playground)
+}
+
+#[test]
 #[exp(nu_experimental::DC_GLOB)]
 fn glob_dc_glob_explicit_relative_paths(playground: Playground) -> Result {
     playground.empty_file("root.txt")?;
@@ -463,6 +468,12 @@ fn glob_dc_glob_supports_follow_symlinks(playground: Playground) -> Result {
         .expect("glob should follow symlinked dirs when --follow-symlinks is set");
 
     Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_relative_paths(playground: Playground) -> Result {
+    check_glob_relative_paths(&playground)
 }
 
 #[test]
@@ -796,5 +807,95 @@ fn check_glob_matches_hidden_names(playground: &Playground) -> Result {
     };
     assert_eq!(names("*")?, [".e", ".top", "x"]);
     assert_eq!(names("**/y")?, ["y"]);
+    Ok(())
+}
+
+/// Test cases for `glob --relative-paths`, shared by both glob backends.
+fn check_glob_relative_paths(playground: &Playground) -> Result {
+    playground.empty_file("file0")?;
+    playground.empty_file("file1")?;
+    playground.empty_file("file2")?;
+    playground.dir("dir0")?;
+    playground.empty_file("dir0/file0")?;
+    playground.empty_file("dir0/file1")?;
+    playground.empty_file("dir0/file2")?;
+    playground.dir("dir0/dir1")?;
+    playground.empty_file("dir0/dir1/file0")?;
+    playground.empty_file("dir0/dir1/file1")?;
+    playground.empty_file("dir0/dir1/file2")?;
+
+    test()
+        .cwd(playground.path())
+        .run("(glob 'dir0/*' | path relative-to $env.PWD) == (glob --relative-paths 'dir0/*')")
+        .expect_value_eq(true)
+        .expect(
+            "glob --relative-paths with a relative pattern should return paths relative to cwd",
+        );
+
+    let abs_pattern = format!(
+        "{}/dir0/*",
+        playground.path().to_string_lossy().replace('\\', "/")
+    );
+    test()
+        .cwd(playground.path())
+        .run(format!(
+            "(glob '{abs_pattern}') == (glob --relative-paths '{abs_pattern}')",
+        ))
+        .expect_value_eq(true)
+        .expect("glob --relative-paths with an absolute pattern should keep paths absolute");
+
+    test()
+        .cwd(playground.path())
+        .run("glob --relative-paths '.' | first")
+        .expect_value_eq(".")
+        .expect("glob --relative-paths '.' should yield '.' first");
+
+    if !nu_experimental::DC_GLOB.get() {
+        test()
+            .cwd(playground.path())
+            .run("glob --relative-paths '**' | first")
+            .expect_value_eq(".")
+            .expect("glob --relative-paths '**' should yield '.' first without DC_GLOB");
+    }
+
+    test()
+        .cwd(playground.path().join("dir0"))
+        .run("glob --relative-paths '..' | first")
+        .expect_value_eq("..")
+        .expect("glob --relative-paths '..' should yield '..' first");
+
+    test()
+        .cwd(playground.path().join("dir0"))
+        .run(r"glob --relative-paths '../*' | str replace -a '\' '/' | sort")
+        .expect_value_eq(["../dir0", "../file0", "../file1", "../file2"])
+        .expect("glob --relative-paths '../*' should yield '../'-prefixed paths");
+
+    let expected = [
+        "../..",
+        "../../dir0",
+        "../../dir0/dir1",
+        "../../dir0/dir1/file0",
+        "../../dir0/dir1/file1",
+        "../../dir0/dir1/file2",
+        "../../dir0/file0",
+        "../../dir0/file1",
+        "../../dir0/file2",
+        "../../file0",
+        "../../file1",
+        "../../file2",
+    ][nu_experimental::DC_GLOB.get().into()..]
+        .to_vec();
+    test()
+        .cwd(playground.path().join("dir0/dir1"))
+        .run(r"glob --relative-paths '../../**/*' | str replace -a '\' '/' | sort")
+        .expect_value_eq(expected)
+        .expect("glob --relative-paths '../../**/*' should yield '../../'-prefixed paths");
+
+    test()
+        .cwd(playground.path())
+        .run("glob --relative-paths -DF * | is-empty")
+        .expect_value_eq(true)
+        .expect("glob --relative-paths -DF * should match nothing");
+
     Ok(())
 }

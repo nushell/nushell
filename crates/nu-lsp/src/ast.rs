@@ -1,7 +1,10 @@
 use crate::Id;
 use nu_protocol::{
-    DeclId, ModuleId, Span,
-    ast::{Argument, Block, Call, Expr, Expression, ListItem, PathMember, Traverse},
+    DeclId, ModuleId, Span, VarId,
+    ast::{
+        Argument, Block, Call, Expr, Expression, ListItem, MatchPattern, PathMember, Pattern,
+        Traverse,
+    },
     engine::StateWorkingSet,
 };
 use std::{ops::ControlFlow, sync::Arc};
@@ -35,6 +38,99 @@ fn strip_dollar_sign(span: Span, working_set: &StateWorkingSet<'_>) -> (Box<[u8]
     } else {
         (content.into(), span)
     }
+}
+
+/// A variable a pattern binds, as in `let {$name} = ...`, `match $x { [$a, ..$rest] => ... }` or
+/// `{|{$size}| ...}`.
+pub(crate) struct PatternBinding {
+    pub var_id: VarId,
+    /// The span of `$name`.
+    pub span: Span,
+    /// For the record shorthand `{$name}`, the field it reads. Renaming the variable has to
+    /// keep it, as in `{name: $new}`.
+    pub shorthand_key: Option<String>,
+}
+
+/// Collect the variables `pattern` binds into `out`.
+fn pattern_bindings(
+    working_set: &StateWorkingSet,
+    pattern: &MatchPattern,
+    out: &mut Vec<PatternBinding>,
+) {
+    match &pattern.pattern {
+        Pattern::Variable(var_id) => out.push(PatternBinding {
+            var_id: *var_id,
+            span: pattern.span,
+            shorthand_key: None,
+        }),
+        Pattern::Rest(var_id) => out.push(PatternBinding {
+            var_id: *var_id,
+            // `..$rest`
+            span: Span::new(pattern.span.start + 2, pattern.span.end),
+            shorthand_key: None,
+        }),
+        Pattern::List(items) | Pattern::Or(items) => {
+            for item in items {
+                pattern_bindings(working_set, item, out);
+            }
+        }
+        Pattern::Record(fields) => {
+            for (field, entry) in fields {
+                // `{$a}`, `{$a?}` and `{$a = 1}` are the shorthand; `{a: $a}` has a `:` before
+                // the variable.
+                let before =
+                    working_set.get_span_contents(Span::new(pattern.span.start, entry.span.start));
+                let is_shorthand =
+                    before.iter().rev().find(|c| !c.is_ascii_whitespace()) != Some(&b':');
+                let target = match &entry.pattern {
+                    Pattern::Optional { pattern, .. } => pattern,
+                    _ => entry,
+                };
+                match target.pattern {
+                    Pattern::Variable(var_id) if is_shorthand => out.push(PatternBinding {
+                        var_id,
+                        span: target.span,
+                        shorthand_key: Some(field.clone()),
+                    }),
+                    _ => pattern_bindings(working_set, entry, out),
+                }
+            }
+        }
+        Pattern::Optional { pattern, .. } => pattern_bindings(working_set, pattern, out),
+        Pattern::Value(_)
+        | Pattern::Interval { .. }
+        | Pattern::IgnoreValue
+        | Pattern::IgnoreRest
+        | Pattern::Garbage => {}
+    }
+}
+
+/// The variables the patterns directly in `expr` bind: a destructuring `let`, `mut`, `const` or
+/// `for`, the arms of a `match`, or a closure's pattern parameters. The variables a destructuring
+/// assignment like `[$a, $b] = ...` assigns count too, as uses. Nested expressions are left to
+/// the traversal.
+pub(crate) fn expr_pattern_bindings(
+    expr: &Expression,
+    working_set: &StateWorkingSet,
+) -> Vec<PatternBinding> {
+    let mut out = vec![];
+    match &expr.expr {
+        Expr::Pattern(pattern) | Expr::AssignmentPattern(pattern) => {
+            pattern_bindings(working_set, pattern, &mut out)
+        }
+        Expr::MatchBlock(arms) => {
+            for arm in arms {
+                pattern_bindings(working_set, &arm.pattern, &mut out);
+            }
+        }
+        Expr::Closure(block_id) => {
+            for (_, pattern) in &working_set.get_block(*block_id).parameter_patterns {
+                pattern_bindings(working_set, pattern, &mut out);
+            }
+        }
+        _ => {}
+    }
+    out
 }
 
 /// For a command call with head span content of `module name command    name`,
@@ -435,7 +531,16 @@ fn find_id_in_expr(
         return ControlFlow::Break(None);
     }
     let span = expr.span;
+    if let Some(binding) = expr_pattern_bindings(expr, working_set)
+        .into_iter()
+        .find(|binding| binding.span.contains(*location))
+    {
+        let (name, clean_span) = strip_dollar_sign(binding.span, working_set);
+        return ControlFlow::Break(Some((Id::Variable(binding.var_id, name), clean_span)));
+    }
     match &expr.expr {
+        // A pattern has nothing inside it but its variables.
+        Expr::Pattern(_) => ControlFlow::Break(None),
         Expr::VarDecl(var_id) | Expr::Var(var_id) => {
             let (name, clean_span) = strip_dollar_sign(span, working_set);
             ControlFlow::Break(Some((Id::Variable(*var_id, name), clean_span)))
@@ -518,6 +623,16 @@ fn find_reference_by_id_in_expr(
     working_set: &StateWorkingSet,
     id: &Id,
 ) -> Vec<Span> {
+    if let Id::Variable(var_id, _) = id {
+        let spans: Vec<Span> = expr_pattern_bindings(expr, working_set)
+            .into_iter()
+            .filter(|binding| binding.var_id == *var_id)
+            .map(|binding| strip_dollar_sign(binding.span, working_set).1)
+            .collect();
+        if !spans.is_empty() {
+            return spans;
+        }
+    }
     match (&expr.expr, id) {
         (Expr::Var(vid1), Id::Variable(vid2, _)) if *vid1 == *vid2 => vec![Span::new(
             // we want to exclude the `$` sign for renaming
@@ -552,6 +667,31 @@ pub(crate) fn find_reference_by_id(
 ) -> Vec<Span> {
     let mut results = Vec::new();
     let closure = |e| find_reference_by_id_in_expr(e, working_set, id);
+    ast.flat_map(working_set, &closure, &mut results);
+    results
+}
+
+/// The places in `ast` where a record shorthand like `{$name}` binds the variable `id`, each as
+/// the span of `name` (without the `$`) and the field it reads.
+pub(crate) fn find_shorthand_bindings(
+    ast: &Arc<Block>,
+    working_set: &StateWorkingSet,
+    id: &Id,
+) -> Vec<(Span, String)> {
+    let Id::Variable(var_id, _) = id else {
+        return vec![];
+    };
+    let mut results = Vec::new();
+    let closure = |expr| {
+        expr_pattern_bindings(expr, working_set)
+            .into_iter()
+            .filter(|binding| binding.var_id == *var_id)
+            .filter_map(|binding| {
+                let span = strip_dollar_sign(binding.span, working_set).1;
+                Some((span, binding.shorthand_key?))
+            })
+            .collect()
+    };
     ast.flat_map(working_set, &closure, &mut results);
     results
 }

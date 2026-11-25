@@ -1,4 +1,4 @@
-use super::Pipeline;
+use super::{MatchPattern, Pipeline};
 use crate::{
     OutDest, Signature, Span, Type, VarId,
     engine::{BoundNames, ScopeBindings, StateWorkingSet},
@@ -16,6 +16,10 @@ pub struct Block {
     /// The block compiled to IR instructions. Not available for subexpressions.
     pub ir_block: Option<IrBlock>,
     pub span: Option<Span>, // None option encodes no span to avoid using test_span()
+    /// The closure parameters written as destructuring patterns, as in `{|{$name}| ...}`. Each
+    /// argument arrives in the hidden variable of its signature parameter, and the body binds the
+    /// pattern's variables from it before anything else runs.
+    pub parameter_patterns: Vec<(VarId, MatchPattern)>,
     /// Local command/module name bindings introduced while parsing this block.
     ///
     /// Nested parse scopes discard their name maps on exit; this snapshot lets `scope`
@@ -75,6 +79,7 @@ impl Block {
             redirect_env: false,
             ir_block: None,
             span: None,
+            parameter_patterns: vec![],
             scope_bindings: None,
             parsed_scoped: false,
             bound_names: None,
@@ -89,6 +94,7 @@ impl Block {
             redirect_env: false,
             ir_block: None,
             span: None,
+            parameter_patterns: vec![],
             scope_bindings: None,
             parsed_scoped: false,
             bound_names: None,
@@ -129,6 +135,7 @@ where
             redirect_env: false,
             ir_block: None,
             span: None,
+            parameter_patterns: vec![],
             scope_bindings: None,
             parsed_scoped: false,
             bound_names: None,

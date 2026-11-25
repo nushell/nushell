@@ -292,7 +292,7 @@ impl Expression {
 
             Expr::ValueWithUnit(value) => value.expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
-            Expr::VarDecl(_) => false,
+            Expr::VarDecl(_) | Expr::Pattern(_) | Expr::AssignmentPattern(_) => false,
         }
     }
 
@@ -449,7 +449,7 @@ impl Expression {
 
             Expr::ValueWithUnit(value) => value.expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
-            Expr::VarDecl(_) => {}
+            Expr::VarDecl(_) | Expr::Pattern(_) | Expr::AssignmentPattern(_) => {}
         }
     }
 
@@ -476,6 +476,7 @@ impl Expression {
                     *var_id = new_var_id;
                 }
             }
+            Expr::Pattern(_) | Expr::AssignmentPattern(_) => {}
             Expr::Call(call) => {
                 for arg in call.arguments.iter_mut() {
                     match arg {
