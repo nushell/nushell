@@ -494,6 +494,10 @@ pub(crate) fn compile_try(
     // `complete`, `ignore`, `save` or `tee`) as a stream. %result_reg keeps that stream, so the
     // next command still gets its stderr, and `clone` gives `finally` its stdout as a value.
     //
+    // A call that returns its error as a value for such a command is still the `try`'s error:
+    // `try-collect` and `drain-if-end` raise it, so the handlers run. If only `finally` handles
+    // it, `end-finally` puts it back in %io_reg as a value for the next command.
+    //
     // At runtime, `begin-finally` swaps the `finally` handler for a "running" marker, and
     // `end-finally` pops that marker. When control unwinds into the `finally` block instead (an
     // error, `return`, `exit`, `break`, or `continue`), the evaluator does the swap itself and

@@ -1,5 +1,9 @@
-use super::delimited::{DelimitedReaderConfig, from_delimited_data, trim_from_str};
+use super::delimited::{
+    DelimitedReaderConfig, INFER_EXTRA_DESC, INFER_FLAG_DESC, NO_INFER_FLAG_DESC,
+    from_delimited_data, infer_from_flags, no_infer_deprecation, trim_from_str,
+};
 use nu_engine::command_prelude::*;
+use nu_protocol::DeprecationEntry;
 
 #[derive(Clone)]
 pub struct FromCsv;
@@ -48,7 +52,8 @@ impl Command for FromCsv {
                 "Allow the number of fields in records to be variable.",
                 None,
             )
-            .switch("no-infer", "No field type inferencing.", None)
+            .switch("infer", INFER_FLAG_DESC, None)
+            .switch("no-infer", NO_INFER_FLAG_DESC, None)
             .param(
                 Flag::new("trim")
                     .short('t')
@@ -66,6 +71,14 @@ impl Command for FromCsv {
         "Parse text as .csv and create table."
     }
 
+    fn extra_description(&self) -> &str {
+        INFER_EXTRA_DESC
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        no_infer_deprecation()
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -79,28 +92,41 @@ impl Command for FromCsv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert comma-separated data to a table.",
+                description: "Convert comma-separated data to a table. Every field is a string.",
                 example: "\"ColA,ColB\n1,2\" | from csv",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" => Value::test_int(1),
-                    "ColB" => Value::test_int(2),
+                    "ColA" => Value::test_string("1"),
+                    "ColB" => Value::test_string("2"),
                 })])),
+            },
+            Example {
+                description: "Convert comma-separated data to a table, turning fields that parse as numbers into ints and floats.",
+                example: "\"ColA,ColB\n1,2.5\" | from csv --infer",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_int(1),
+                    "ColB" => Value::test_float(2.5),
+                })])),
+            },
+            Example {
+                description: "Open a CSV file and turn fields that parse as numbers into ints and floats. `open data.csv` alone keeps every field a string.",
+                example: "open --raw data.csv | from csv --infer",
+                result: None,
             },
             Example {
                 description: "Convert comma-separated data to a table, allowing variable number of columns per row.",
                 example: "\"ColA,ColB\n1,2\n3,4,5\n6\" | from csv --flexible",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "ColA" => Value::test_int(1),
-                        "ColB" => Value::test_int(2),
+                        "ColA" => Value::test_string("1"),
+                        "ColB" => Value::test_string("2"),
                     }),
                     Value::test_record(record! {
-                        "ColA" => Value::test_int(3),
-                        "ColB" => Value::test_int(4),
-                        "column2" => Value::test_int(5),
+                        "ColA" => Value::test_string("3"),
+                        "ColB" => Value::test_string("4"),
+                        "column2" => Value::test_string("5"),
                     }),
                     Value::test_record(record! {
-                        "ColA" => Value::test_int(6),
+                        "ColA" => Value::test_string("6"),
                     }),
                 ])),
             },
@@ -182,7 +208,7 @@ fn from_csv(
         .get_flag(engine_state, stack, "escape")?
         .map(|v: Value| v.as_char())
         .transpose()?;
-    let no_infer = call.has_flag(engine_state, stack, "no-infer")?;
+    let infer = infer_from_flags(engine_state, stack, call)?;
     let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
     let flexible = call.has_flag(engine_state, stack, "flexible")?;
     let trim = trim_from_str(call.get_flag(engine_state, stack, "trim")?)?;
@@ -194,7 +220,7 @@ fn from_csv(
         escape,
         noheaders,
         flexible,
-        no_infer,
+        infer,
         trim,
     };
 
@@ -229,14 +255,14 @@ mod test {
         // A real `name_1` column keeps its name; the repeat moves past it.
         nu_test_support::test()
             .run(r#""name,name,name_1\n1,2,3" | from csv | to nuon"#)
-            .expect_value_eq(r#"[[name, "name_2", "name_1"]; [1, 2, 3]]"#)
+            .expect_value_eq(r#"[[name, "name_2", "name_1"]; ["1", "2", "3"]]"#)
     }
 
     #[test]
     fn test_duplicate_headers_with_flexible() -> nu_test_support::Result {
         nu_test_support::test()
             .run(r#""a,a\n1,2,3" | from csv --flexible | to nuon"#)
-            .expect_value_eq(r#"[[a, "a_1", "column2"]; [1, 2, 3]]"#)
+            .expect_value_eq(r#"[[a, "a_1", "column2"]; ["1", "2", "3"]]"#)
     }
 
     #[test]
@@ -244,7 +270,50 @@ mod test {
         // Several unlabeled header cells must not count as duplicates.
         nu_test_support::test()
             .run(r#""a,b,,\n1,2,3,4" | from csv | to nuon"#)
-            .expect_value_eq(r#"[[a, b, "column2", "column3"]; [1, 2, 3, 4]]"#)
+            .expect_value_eq(r#"[[a, b, "column2", "column3"]; ["1", "2", "3", "4"]]"#)
+    }
+
+    #[test]
+    fn test_fields_are_strings_by_default() -> nu_test_support::Result {
+        // Leading zeros, exponents and `NaN` are kept as written: CSV has no
+        // types, and turning these into numbers loses the original text.
+        nu_test_support::test()
+            .run(r#""code\n0123\n28E37262\n942371E0\nNaN\n1.0" | from csv | get code | to nuon"#)
+            .expect_value_eq(r#"["0123", "28E37262", "942371E0", "NaN", "1.0"]"#)
+    }
+
+    #[test]
+    fn test_infer_turns_numeric_fields_into_numbers() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run(r#""a,b,c\n1,2.5,x" | from csv --infer | get 0 | values | each { describe } | to nuon"#)
+            .expect_value_eq("[int, float, string]")
+    }
+
+    #[test]
+    fn test_no_infer_is_accepted_and_keeps_strings() -> nu_test_support::Result {
+        // The deprecated flag still parses and asks for what is now the default.
+        nu_test_support::test()
+            .run(r#""a\n0123" | from csv --no-infer | get 0.a"#)
+            .expect_value_eq("0123")
+    }
+
+    #[test]
+    fn test_no_infer_flag_is_deprecated() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("scope commands | where name == 'from csv' | get 0.deprecation_info.flag.0")
+            .expect_value_eq("no-infer")
+    }
+
+    #[test]
+    fn test_infer_and_no_infer_together_is_an_error() -> nu_test_support::Result {
+        let err = nu_test_support::test()
+            .run(r#""a\n1" | from csv --infer --no-infer"#)
+            .expect_shell_error()?;
+        assert!(
+            matches!(err, ShellError::IncompatibleParameters { .. }),
+            "expected IncompatibleParameters, got {err:?}"
+        );
+        Ok(())
     }
 
     #[test]
@@ -262,7 +331,7 @@ mod test {
         // extra field must move past it instead of repeating it.
         nu_test_support::test()
             .run(r#""a,column2\n1,2,3" | from csv --flexible | to nuon"#)
-            .expect_value_eq(r#"[[a, "column2", "column3"]; [1, 2, 3]]"#)
+            .expect_value_eq(r#"[[a, "column2", "column3"]; ["1", "2", "3"]]"#)
     }
 
     #[test]

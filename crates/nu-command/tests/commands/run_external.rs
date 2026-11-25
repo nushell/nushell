@@ -504,6 +504,94 @@ fn can_run_ps1_files_with_space_in_path(prefix: &str, #[ignore] playground: Play
     Ok(())
 }
 
+// Scripts run through their file association (#19584). Windows associates `.vbs`
+// with WScript by default and `.VBS` is in the default PATHEXT, so no registry
+// change is needed.
+//
+// rstest names each `#[values]` case after its text, e.g. `name_1_____hello_vbs__`,
+// which `non_snake_case` rejects; the lint is allowed for the whole module.
+#[cfg(windows)]
+#[allow(
+    non_snake_case,
+    reason = "rstest names the cases after the script paths"
+)]
+mod file_association {
+    use super::*;
+    use std::path::Path;
+
+    /// Writes `ran.txt` next to the script, proving that it ran.
+    const MARKER_VBS: &str = r#"Set fso = CreateObject("Scripting.FileSystemObject")
+fso.CreateTextFile(fso.GetParentFolderName(WScript.ScriptFullName) & "\ran.txt", True).Close
+"#;
+
+    /// Runs `code` in `cwd` and reports whether the `.vbs` script wrote its
+    /// marker file into `marker_dir`.
+    fn run_marker_script(cwd: &Path, marker_dir: &Path, code: &str) -> Result<bool> {
+        let marker = marker_dir.join("ran.txt");
+        let _: Value = test()
+            .inherit_path()
+            .inherit_env_if_set("SystemRoot")
+            .cwd(cwd)
+            .run(code)?;
+        // `cmd /C` normally waits for WScript, but give it a moment just in case.
+        let ran = (0..50).any(|_| {
+            marker.exists() || {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                marker.exists()
+            }
+        });
+        Ok(ran)
+    }
+
+    // `./script.vbs` used to reach cmd.exe as typed, and cmd.exe parsed it as
+    // the command `.`.
+    #[apply(run_external_prefixes)]
+    #[nu_test_support::test]
+    fn can_run_file_associated_scripts_with_forward_slashes(
+        prefix: &str,
+        #[values(
+            "./hello.vbs",
+            "./hello",
+            "./sub/hello.vbs",
+            "./sub/./hello.vbs",
+            r".\sub\hello.vbs"
+        )]
+        name: &str,
+        #[ignore] playground: Playground,
+    ) -> Result {
+        playground.file("hello.vbs", MARKER_VBS)?;
+        playground.file("sub/hello.vbs", MARKER_VBS)?;
+
+        // The script writes its marker next to itself, i.e. in the name's parent dir.
+        let script_dir = Path::new(name).parent().unwrap_or(Path::new("."));
+        let ran = run_marker_script(
+            playground.path(),
+            &playground.path().join(script_dir),
+            &format!("{prefix}{name}"),
+        )?;
+        assert!(ran, "{prefix}{name} did not run the script");
+        Ok(())
+    }
+
+    // Only the name as typed may reach cmd.exe's parser, not the cwd: spaces or
+    // `&` in the directory name must not break running a file-associated script.
+    #[apply(run_external_prefixes)]
+    #[nu_test_support::test]
+    fn can_run_file_associated_scripts_in_dirs_with_cmd_special_chars(
+        prefix: &str,
+        #[values("John Doe", "R&D")] dir: &str,
+        #[values(r".\hello.vbs", "./hello.vbs", r#".\hello.vbs "a b""#)] name: &str,
+        #[ignore] playground: Playground,
+    ) -> Result {
+        playground.file(format!("{dir}/hello.vbs"), MARKER_VBS)?;
+        let cwd = playground.path().join(dir);
+
+        let ran = run_marker_script(&cwd, &cwd, &format!("{prefix}{name}"))?;
+        assert!(ran, "{prefix}{name} did not run the script in {dir:?}");
+        Ok(())
+    }
+}
+
 #[rstest]
 #[case::caret("^")]
 #[case::run_external("run-external ")]
