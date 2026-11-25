@@ -82,7 +82,7 @@ jiff = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
-  "nu-ansi-term",
+	"nu-ansi-term",
 ] }
 md5 = { workspace = true }
 mime = { workspace = true }
@@ -109,10 +109,9 @@ rayon = { workspace = true }
 reedline = { workspace = true, optional = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = [
-  "bundled",
-  "backup",
-  "chrono",
-  "column_decltype",
+	"bundled",
+	"backup",
+	"column_decltype",
 ], optional = true }
 rustls = { workspace = true, optional = true, features = ["ring"] }
 rustls-native-certs = { workspace = true, optional = true }
@@ -130,10 +129,10 @@ toml_edit = { workspace = true }
 kdl = { workspace = true }
 unicode-segmentation = { workspace = true }
 ureq = { workspace = true, default-features = false, features = [
-  "charset",
-  "gzip",
-  "json",
-  "platform-verifier",
+	"charset",
+	"gzip",
+	"json",
+	"platform-verifier",
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
@@ -144,11 +143,11 @@ uu_touch = { workspace = true, optional = true }
 uu_uname = { workspace = true, optional = true }
 uu_whoami = { workspace = true, optional = true }
 uuid = { workspace = true, features = [
-  "v1",
-  "v3",
-  "v4",
-  "v5",
-  "v7",
+	"v1",
+	"v3",
+	"v4",
+	"v5",
+	"v7",
 ], optional = true }
 v_htmlescape = { workspace = true }
 wax = { workspace = true }
@@ -188,14 +187,14 @@ workspace = true
 
 [target.'cfg(windows)'.dependencies.windows]
 features = [
-  "Win32_Foundation",
-  "Win32_Networking_WinSock",
-  "Win32_NetworkManagement_IpHelper",
-  "Win32_Security",
-  "Win32_Storage_FileSystem",
-  "Win32_System_Environment",
-  "Win32_System_SystemServices",
-  "Win32_System_Threading",
+	"Win32_Foundation",
+	"Win32_Networking_WinSock",
+	"Win32_NetworkManagement_IpHelper",
+	"Win32_Security",
+	"Win32_Storage_FileSystem",
+	"Win32_System_Environment",
+	"Win32_System_SystemServices",
+	"Win32_System_Threading",
 ]
 workspace = true
 
@@ -211,21 +210,21 @@ os = [
 	"dep:fff-search",
 	"dep:notify",
 
-  # os-dependant dependencies
-  "crossterm",
-  "notify-debouncer-full",
-  "open",
-  "os_pipe",
-  "dep:parse_datetime",
-  "reedline",
-  "uu_cp",
-  "uu_mkdir",
-  "uu_mktemp",
-  "uu_mv",
-  "uu_touch",
-  "uu_uname",
-  "uu_whoami",
-  "which",
+	# os-dependant dependencies
+	"crossterm",
+	"notify-debouncer-full",
+	"open",
+	"os_pipe",
+	"dep:parse_datetime",
+	"reedline",
+	"uu_cp",
+	"uu_mkdir",
+	"uu_mktemp",
+	"uu_mv",
+	"uu_touch",
+	"uu_uname",
+	"uu_whoami",
+	"which",
 ]
 
 # The dependencies listed below need 'getrandom'.
@@ -244,20 +243,20 @@ js = [
 # interface requires openssl which is not easy to embed into wasm,
 # using rustls could solve this issue.
 network = [
-  "dns-lookup",
-  "multipart-rs",
-  "nu-test-support/network",
-  "ureq",
-  "uuid",
+	"dns-lookup",
+	"multipart-rs",
+	"nu-test-support/network",
+	"ureq",
+	"uuid",
 ]
 
 native-tls = ["dep:native-tls", "ureq/native-tls"]
 rustls-tls = [
-  "dep:rustls-native-certs",
-  "dep:rustls",
-  "dep:webpki-roots",
-  "nu-test-support/rustls-tls",
-  "ureq/rustls",
+	"dep:rustls-native-certs",
+	"dep:rustls",
+	"dep:webpki-roots",
+	"nu-test-support/rustls-tls",
+	"ureq/rustls",
 ]
 
 plugin = ["nu-parser/plugin", "nu-test-support/plugin", "os"]
