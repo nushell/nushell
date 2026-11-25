@@ -1245,11 +1245,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "pure-rust-locales",
  "serde",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -8134,7 +8132,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f172c4812a19b26d1c23cdb0070e69db335503dfa378b910eb857386e5b8beba"
 dependencies = [
  "bitflags 2.13.1",
- "chrono",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
