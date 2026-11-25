@@ -2,7 +2,6 @@ use std::ops::Deref;
 
 use nix::libc::mode_t;
 use nu_engine::command_prelude::*;
-use nu_system::get_umask;
 
 /// Wraps umask::Mode, providing conversions to and from mode_t regardless of its
 /// size.
@@ -129,4 +128,22 @@ impl Command for UMask {
             },
         ]
     }
+}
+
+/// Returns the umask for the current process
+pub fn get_umask() -> u32 {
+    // uucore::more::get_umask isn't threadsafe, see:
+    // https://github.com/uutils/coreutils/blob/8bb31eeab9abe1c73ac5c03f3930d6e25854e4f2/src/uucore/src/lib/features/mode.rs#L172-L196
+    //
+    // This lock attempts to fake it.
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = match LOCK.lock() {
+        Ok(g) => g,
+        Err(e) => {
+            log::warn!("umask lock poisoned. Recovering.");
+            e.into_inner()
+        }
+    };
+
+    uucore::mode::get_umask()
 }

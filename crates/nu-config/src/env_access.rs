@@ -119,10 +119,7 @@ fn known_folder_program_data() -> Option<PathBuf> {
 ///
 /// Build with [`TestEnv::new`] or [`TestEnv::with_os_vars`], then chain
 /// `with_*_dir` helpers for platform fallbacks.
-#[derive(derive_setters::Setters)]
-#[setters(prefix = "with_", strip_option, into)]
 pub struct TestEnv {
-    #[setters(skip)]
     vars: HashMap<String, OsString>,
     config_dir: Option<PathBuf>,
     data_dir: Option<PathBuf>,
@@ -160,6 +157,42 @@ impl TestEnv {
             #[cfg(windows)]
             program_data_dir: None,
         }
+    }
+
+    /// Overrides the platform config directory.
+    #[must_use]
+    pub fn with_config_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.config_dir = Some(dir.into());
+        self
+    }
+
+    /// Overrides the platform data directory.
+    #[must_use]
+    pub fn with_data_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.data_dir = Some(dir.into());
+        self
+    }
+
+    /// Overrides the platform cache directory.
+    #[must_use]
+    pub fn with_cache_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.cache_dir = Some(dir.into());
+        self
+    }
+
+    /// Overrides the platform home directory.
+    #[must_use]
+    pub fn with_home_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.home_dir = Some(dir.into());
+        self
+    }
+
+    /// Overrides the platform ProgramData directory.
+    #[cfg(windows)]
+    #[must_use]
+    pub fn with_program_data_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.program_data_dir = Some(dir.into());
+        self
     }
 
     /// Insert or replace an env var as an [`OsStr`].

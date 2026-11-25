@@ -39,7 +39,6 @@ use crate::{
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
-use derive_setters::Setters;
 use jiff::{civil, tz::Offset};
 use nu_protocol::{
     DateTime, FromValue, Range, Record, ShellError, Span, Spanned, Type, Value, ast::CellPath,
@@ -72,8 +71,7 @@ use std::{
 ///     .with_ignore_tags(true);
 /// ```
 #[non_exhaustive]
-#[derive(Debug, Clone, Default, Setters)]
-#[setters(prefix = "with_")]
+#[derive(Debug, Clone, Default)]
 pub struct ParseOptions {
     /// Keep the original styles of parsed values.
     ///
@@ -96,6 +94,44 @@ pub struct ParseOptions {
 
     /// Configure how plain scalar keys are handled.
     pub key_resolution: KeyResolution,
+}
+
+impl ParseOptions {
+    /// Sets [`keep_styles`](Self::keep_styles).
+    #[must_use]
+    #[allow(deprecated)]
+    pub fn with_keep_styles(mut self, value: bool) -> Self {
+        self.keep_styles = value;
+        self
+    }
+
+    /// Sets [`multiple`](Self::multiple).
+    #[must_use]
+    pub fn with_multiple(mut self, value: ParseMultiple) -> Self {
+        self.multiple = value;
+        self
+    }
+
+    /// Sets [`spec`](Self::spec).
+    #[must_use]
+    pub fn with_spec(mut self, value: Spec) -> Self {
+        self.spec = value;
+        self
+    }
+
+    /// Sets [`ignore_tags`](Self::ignore_tags).
+    #[must_use]
+    pub fn with_ignore_tags(mut self, value: bool) -> Self {
+        self.ignore_tags = value;
+        self
+    }
+
+    /// Sets [`key_resolution`](Self::key_resolution).
+    #[must_use]
+    pub fn with_key_resolution(mut self, value: KeyResolution) -> Self {
+        self.key_resolution = value;
+        self
+    }
 }
 
 /// Configure how multiple documents in a YAML stream are handled.

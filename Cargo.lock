@@ -24,17 +24,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
-name = "aegis-password-generator"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9050b1a8122ca1728e5a21d8d310972979f8eb5cde4ba3b968d644f686043af8"
-dependencies = [
- "rand 0.9.5",
- "serde",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -44,7 +33,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "version_check",
- "zerocopy 0.8.42",
+ "zerocopy",
 ]
 
 [[package]]
@@ -236,7 +225,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "windows-sys 0.61.2",
  "wl-clipboard-rs",
@@ -1055,15 +1044,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "buf-trait"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21eaafc770e8c073d6c3facafe7617e774305d4954aa6351b9c452eb37ee17b4"
-dependencies = [
- "zerocopy 0.7.35",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1137,15 +1117,6 @@ name = "bytesize"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7354288c522e7e980fafd2075d63d1285794c3a6a16cdd492f189ea406e5f18b"
-
-[[package]]
-name = "byteyarn"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b93e51d26468a15ea59f8525e0c13dc405db43e644a0b1e6d44346c72cf4cf7b"
-dependencies = [
- "buf-trait",
-]
 
 [[package]]
 name = "calamine"
@@ -1657,7 +1628,7 @@ dependencies = [
  "document-features",
  "filedescriptor",
  "mio",
- "parking_lot 0.12.5",
+ "parking_lot",
  "rustix 1.1.6",
  "serde",
  "signal-hook 0.3.18",
@@ -1795,59 +1766,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cdf337090841a411e2a7f3deb9187445851f91b309c0c0a29e05f74a00a48c0"
-dependencies = [
- "darling_core 0.21.3",
- "darling_macro 0.21.3",
-]
-
-[[package]]
-name = "darling"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25ae13da2f202d56bd7f91c25fba009e7717a1e4a1cc98a76d844b65ae912e9d"
-dependencies = [
- "darling_core 0.23.0",
- "darling_macro 0.23.0",
-]
-
-[[package]]
-name = "darling"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed17f5901b6630b993ca003def43f2f8ef4014fc13b047b57aad617ff32bc2ec"
 dependencies = [
- "darling_core 0.24.1",
- "darling_macro 0.24.1",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1247195ecd7e3c85f83c8d2a366e4210d588e802133e1e355180a9870b517ea4"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 2.0.117",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9865a50f7c335f53564bb694ef660825eb8610e0a53d3e11bf1b0d3df31e03b0"
-dependencies = [
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 2.0.117",
+ "darling_core",
+ "darling_macro",
 ]
 
 [[package]]
@@ -1865,33 +1789,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d38308df82d1080de0afee5d069fa14b0326a88c14f15c5ccda35b4a6c414c81"
-dependencies = [
- "darling_core 0.21.3",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
-name = "darling_macro"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac3984ec7bd6cfa798e62b4a642426a5be0e68f9401cfc2a01e3fa9ea2fcdb8d"
-dependencies = [
- "darling_core 0.23.0",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
-name = "darling_macro"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ac7135c3ef02b2f7833bbeb1be5ba7f966dcde8a87c6b87f65a778d71a02785"
 dependencies = [
- "darling_core 0.24.1",
+ "darling_core",
  "quote",
  "syn 3.0.4",
 ]
@@ -1969,18 +1871,6 @@ dependencies = [
  "rustc_version",
  "syn 2.0.117",
  "unicode-xid",
-]
-
-[[package]]
-name = "derive_setters"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7e6f6fa1f03c14ae082120b84b3c7fbd7b8588d924cf2d7c3daf9afd49df8b9"
-dependencies = [
- "darling 0.21.3",
- "proc-macro2",
- "quote",
- "syn 2.0.117",
 ]
 
 [[package]]
@@ -2488,7 +2378,7 @@ dependencies = [
  "memmap2",
  "neo_frizbee",
  "notify 9.0.0-rc.4",
- "parking_lot 0.12.5",
+ "parking_lot",
  "pathdiff",
  "rayon",
  "regex",
@@ -2961,7 +2851,7 @@ dependencies = [
  "crunchy",
  "num-traits",
  "serde",
- "zerocopy 0.8.42",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3535,15 +3425,15 @@ dependencies = [
 
 [[package]]
 name = "instability"
-version = "0.3.11"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357b7205c6cd18dd2c86ed312d1e70add149aea98e7ef72b9fdf0270e555c11d"
+checksum = "4c3b5acc1e2fd9375041a388da33d1eb8aed5f7a8c0dd3543e3ea2805adfbe20"
 dependencies = [
- "darling 0.23.0",
+ "darling",
  "indoc",
  "proc-macro2",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.4",
 ]
 
 [[package]]
@@ -3861,11 +3751,11 @@ dependencies = [
 
 [[package]]
 name = "kasuari"
-version = "0.4.11"
+version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fe90c1150662e858c7d5f945089b7517b0a80d8bf7ba4b1b5ffc984e7230a5b"
+checksum = "72f14c90e40a6133f4805b83542a7ed7364f56070b447f56e7f4e90297122209"
 dependencies = [
- "hashbrown 0.16.1",
+ "hashbrown 0.17.1",
  "portable-atomic",
  "thiserror 2.0.20",
 ]
@@ -4133,15 +4023,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lock_api"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65d91b22da179613dcf4d6ec8349563f52a363f6849e03b00dd0a185ec4a59af"
-dependencies = [
- "scopeguard",
-]
-
-[[package]]
 name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4152,15 +4033,6 @@ name = "lru"
 version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef9ac18847474e638e3702b76c65d4eb93428471a74778ef0f1be711717f89b5"
-dependencies = [
- "hashbrown 0.17.1",
-]
-
-[[package]]
-name = "lru"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a9f71e3591c7ec44d3e563e87bf14ddc2bada8519dca046e5b0e560cd004e2d"
 dependencies = [
  "hashbrown 0.17.1",
 ]
@@ -4605,18 +4477,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77730ed34f01f4990cb2ea67fec715ecebc6fab9a6396cf83c5529b13f581bdc"
-dependencies = [
- "bitflags 2.13.1",
- "cfg-if",
- "cfg_aliases",
- "libc",
-]
-
-[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4733,8 +4593,7 @@ dependencies = [
  "lexopt",
  "log",
  "miette 7.6.0",
- "multipart-rs",
- "nix 0.32.0",
+ "nix 0.31.3",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-extra",
@@ -4795,7 +4654,7 @@ dependencies = [
  "jiff 1.0.0",
  "libc",
  "log",
- "lru 0.19.0",
+ "lru",
  "lscolors",
  "miette 7.6.0",
  "nu-ansi-term",
@@ -4803,7 +4662,6 @@ dependencies = [
  "nu-cmd-lang",
  "nu-color-config",
  "nu-command",
- "nu-config",
  "nu-engine",
  "nu-experimental",
  "nu-glob",
@@ -4815,7 +4673,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "nucleo-matcher",
- "parking_lot 0.13.0",
+ "parking_lot",
  "percent-encoding",
  "reedline",
  "rstest",
@@ -4838,7 +4696,6 @@ dependencies = [
  "miette 7.6.0",
  "nu-engine",
  "nu-parser",
- "nu-path",
  "nu-protocol",
 ]
 
@@ -4856,8 +4713,6 @@ dependencies = [
  "nu-command",
  "nu-engine",
  "nu-heavy-utils",
- "nu-json",
- "nu-parser",
  "nu-pretty-hex",
  "nu-protocol",
  "nu-test-support",
@@ -4916,9 +4771,7 @@ dependencies = [
 name = "nu-command"
 version = "0.117.1"
 dependencies = [
- "aegis-password-generator",
  "alphanumeric-sort",
- "ansi-str",
  "ansiopt",
  "arboard",
  "base64 0.23.1",
@@ -4959,7 +4812,7 @@ dependencies = [
  "multipart-rs",
  "native-tls",
  "ndarray",
- "nix 0.32.0",
+ "nix 0.31.3",
  "notify 9.0.0-rc.4",
  "notify-debouncer-full",
  "nu-ansi-term",
@@ -5036,8 +4889,6 @@ dependencies = [
  "uuid",
  "v_htmlescape",
  "wax",
- "web-time",
- "webpki-roots",
  "which 8.0.6",
  "win_uds",
  "windows 0.62.2",
@@ -5049,11 +4900,9 @@ name = "nu-config"
 version = "0.117.1"
 dependencies = [
  "derive_more 2.1.1",
- "derive_setters",
  "dirs 7.0.0",
  "nu-path",
  "nu-test-support",
- "tempfile",
  "thiserror 2.0.20",
  "windows-sys 0.61.2",
 ]
@@ -5073,7 +4922,7 @@ dependencies = [
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
- "parking_lot 0.13.0",
+ "parking_lot",
  "pretty_assertions",
  "rstest",
  "serde",
@@ -5131,7 +4980,6 @@ dependencies = [
  "nu-color-config",
  "nu-config",
  "nu-engine",
- "nu-json",
  "nu-parser",
  "nu-path",
  "nu-pretty-hex",
@@ -5142,7 +4990,6 @@ dependencies = [
  "serde_json",
  "strip-ansi-escapes",
  "tui-tree-widget",
- "unicode-segmentation",
  "unicode-width 0.2.2",
 ]
 
@@ -5152,7 +4999,6 @@ version = "0.117.1"
 dependencies = [
  "anyhow",
  "doc-comment",
- "log",
  "nu-experimental",
  "rayon",
  "same-file",
@@ -5164,7 +5010,6 @@ version = "0.117.1"
 dependencies = [
  "base64 0.23.1",
  "better_default",
- "derive_setters",
  "indoc",
  "jiff 1.0.0",
  "miette 7.6.0",
@@ -5184,9 +5029,7 @@ dependencies = [
 name = "nu-json"
 version = "0.117.1"
 dependencies = [
- "fancy-regex",
  "linked-hash-map",
- "nu-path",
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
@@ -5231,13 +5074,11 @@ dependencies = [
 name = "nu-mcp"
 version = "0.117.1"
 dependencies = [
- "bytes",
  "futures",
  "hyper-util",
- "indoc",
  "jiff 1.0.0",
  "miette 7.6.0",
- "nix 0.32.0",
+ "nix 0.31.3",
  "nu-cmd-lang",
  "nu-engine",
  "nu-json",
@@ -5270,8 +5111,6 @@ dependencies = [
  "nu-utils",
  "rstest",
  "rustc-hash",
- "semver",
- "serde_json",
 ]
 
 [[package]]
@@ -5289,7 +5128,7 @@ name = "nu-plugin"
 version = "0.117.1"
 dependencies = [
  "log",
- "nix 0.32.0",
+ "nix 0.31.3",
  "nu-engine",
  "nu-plugin-core",
  "nu-plugin-protocol",
@@ -5380,8 +5219,6 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "derive_more 2.1.1",
- "dirs 7.0.0",
- "dirs-sys 0.5.0",
  "fancy-regex",
  "heck",
  "humantime",
@@ -5390,10 +5227,9 @@ dependencies = [
  "itertools 0.15.0",
  "jiff 1.0.0",
  "log",
- "lru 0.19.0",
- "memchr",
+ "lru",
  "miette 7.6.0",
- "nix 0.32.0",
+ "nix 0.31.3",
  "nu-config",
  "nu-derive-value",
  "nu-experimental",
@@ -5418,9 +5254,7 @@ dependencies = [
  "thiserror 2.0.20",
  "typetag",
  "unicode-segmentation",
- "web-time",
  "windows 0.62.2",
- "windows-sys 0.61.2",
  "winnow 1.0.4",
 ]
 
@@ -5430,7 +5264,6 @@ version = "0.117.1"
 dependencies = [
  "log",
  "miette 7.6.0",
- "nu-engine",
  "nu-parser",
  "nu-protocol",
 ]
@@ -5444,13 +5277,11 @@ dependencies = [
  "libproc",
  "log",
  "mach2",
- "nix 0.32.0",
+ "nix 0.31.3",
  "ntapi",
  "nu-utils",
  "procfs",
  "sysinfo 0.40.3",
- "uucore",
- "web-time",
  "windows 0.62.2",
 ]
 
@@ -5497,7 +5328,6 @@ dependencies = [
  "nu-command",
  "nu-engine",
  "nu-experimental",
- "nu-glob",
  "nu-parser",
  "nu-path",
  "nu-plugin-core",
@@ -5507,24 +5337,19 @@ dependencies = [
  "nu-test-support-macros",
  "nu-tui",
  "nu-utils",
- "num-format",
- "parking_lot 0.13.0",
+ "parking_lot",
  "pastey",
  "rand 0.10.2",
  "rstest",
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
- "which 8.0.6",
 ]
 
 [[package]]
 name = "nu-test-support-macros"
 version = "0.117.1"
 dependencies = [
- "heck",
- "nu-experimental",
- "proc-macro-error3",
  "proc-macro2",
  "quote",
  "syn 3.0.4",
@@ -5559,7 +5384,6 @@ dependencies = [
 name = "nu-utils"
 version = "0.117.1"
 dependencies = [
- "byteyarn",
  "crossterm",
  "crossterm_winapi",
  "derive_more 2.1.1",
@@ -5568,9 +5392,9 @@ dependencies = [
  "log",
  "lscolors",
  "memchr",
- "nix 0.32.0",
+ "nix 0.31.3",
  "num-format",
- "parking_lot 0.13.0",
+ "parking_lot",
  "serde",
  "serde_json",
  "strip-ansi-escapes",
@@ -5973,7 +5797,7 @@ dependencies = [
  "hyper",
  "itertools 0.14.0",
  "md-5 0.10.6",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "quick-xml 0.39.4",
  "rand 0.10.2",
@@ -6203,18 +6027,8 @@ version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
- "lock_api 0.4.14",
- "parking_lot_core 0.9.12",
-]
-
-[[package]]
-name = "parking_lot"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9cf937ca4e1d0b7578784559063422fc39ae7c5a00f02471f2614d5486fd226"
-dependencies = [
- "lock_api 0.5.0",
- "parking_lot_core 0.10.0",
+ "lock_api",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -6225,19 +6039,7 @@ checksum = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.5.18",
- "smallvec",
- "windows-link",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cfff060068cc18aa7815010fcaf80c68c7fb9e85fc7f5c0f9bf142c21d19826"
-dependencies = [
- "libc",
- "redox_syscall 0.9.5",
+ "redox_syscall",
  "smallvec",
  "windows-link",
 ]
@@ -6594,7 +6396,7 @@ dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-utils",
- "parking_lot 0.12.5",
+ "parking_lot",
  "pin-project-lite",
  "polars-config",
  "polars-error",
@@ -6717,7 +6519,7 @@ checksum = "8f6995c2121c31687704fae5281517e29bbd34838fcf8dd15c8e8ae526bb6624"
 dependencies = [
  "avro-schema",
  "object_store",
- "parking_lot 0.12.5",
+ "parking_lot",
  "polars-arrow-format",
  "regex",
  "signal-hook 0.4.3",
@@ -6778,7 +6580,7 @@ dependencies = [
  "memmap2",
  "num-traits",
  "object_store",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "polars-arrow",
  "polars-buffer",
@@ -7091,7 +6893,7 @@ dependencies = [
  "futures",
  "memchr",
  "num-traits",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "polars-arrow",
  "polars-async",
@@ -7230,7 +7032,7 @@ version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
- "zerocopy 0.8.42",
+ "zerocopy",
 ]
 
 [[package]]
@@ -7659,7 +7461,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "itertools 0.14.0",
  "kasuari",
- "lru 0.18.5",
+ "lru",
  "palette",
  "serde",
  "strum",
@@ -7777,15 +7579,6 @@ name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
-dependencies = [
- "bitflags 2.13.1",
-]
-
-[[package]]
-name = "redox_syscall"
-version = "0.9.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "580c875845b41ecb1564ad1ae4703044cef774145e3d7a94dc2b3fa7c97868fd"
 dependencies = [
  "bitflags 2.13.1",
 ]
@@ -8026,7 +7819,7 @@ version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3140f24a766f80f9ec1607bde85680959a69b83d46fa9ce87dadab7e67ab029"
 dependencies = [
- "darling 0.24.1",
+ "darling",
  "proc-macro2",
  "quote",
  "serde_json",
@@ -8399,12 +8192,12 @@ dependencies = [
 
 [[package]]
 name = "serde-saphyr"
-version = "2.1.1"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d43fb82d550b07e6f929a58d7d0935182602f48ddead875f5ee313c41c8f07fe"
+checksum = "969cde0349344dbbf58b5f9badbfb8f806db13969364eb8007c057ef687007d9"
 dependencies = [
  "annotate-snippets",
- "base64 0.22.1",
+ "base64 0.23.1",
  "encoding_rs_io",
  "granit-parser",
  "nohash-hasher",
@@ -8883,7 +8676,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a18596f8c785a729f2819c0f6a7eae6ebeebdfffbfe4214ae6b087f690e31901"
 dependencies = [
  "new_debug_unreachable",
- "parking_lot 0.12.5",
+ "parking_lot",
  "phf_shared 0.13.1",
  "precomputed-hash",
  "serde",
@@ -8896,7 +8689,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffa8a5dbe8b3f0bbe29d4c3225daafaeead63afdc1b65fc4c01a1384166038e6"
 dependencies = [
  "new_debug_unreachable",
- "parking_lot 0.12.5",
+ "parking_lot",
  "phf_shared 0.14.0",
  "precomputed-hash",
 ]
@@ -9362,7 +9155,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot 0.12.5",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.6.3",
@@ -11177,32 +10970,11 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.7.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
-dependencies = [
- "byteorder",
- "zerocopy-derive 0.7.35",
-]
-
-[[package]]
-name = "zerocopy"
 version = "0.8.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2578b716f8a7a858b7f02d5bd870c14bf4ddbbcf3a4c05414ba6503640505e3"
 dependencies = [
- "zerocopy-derive 0.8.42",
-]
-
-[[package]]
-name = "zerocopy-derive"
-version = "0.7.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
+ "zerocopy-derive",
 ]
 
 [[package]]

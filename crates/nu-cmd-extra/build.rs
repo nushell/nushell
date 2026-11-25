@@ -19,8 +19,33 @@ fn main() {
 }
 
 fn prepare_html_themes() {
-    #[path = "src/extra/formats/to/html/theme.rs"]
-    mod theme;
+    /// Mirror of `HtmlTheme` in `src/extra/formats/to/html/theme.rs`, without the
+    /// `IntoValue` derive, so this build script doesn't need `nu-protocol`.
+    mod theme {
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(rename_all = "camelCase")]
+        pub struct HtmlTheme {
+            pub name: String,
+            pub black: String,
+            pub red: String,
+            pub green: String,
+            pub yellow: String,
+            pub blue: String,
+            pub purple: String,
+            pub cyan: String,
+            pub white: String,
+            pub bright_black: String,
+            pub bright_red: String,
+            pub bright_green: String,
+            pub bright_yellow: String,
+            pub bright_blue: String,
+            pub bright_purple: String,
+            pub bright_cyan: String,
+            pub bright_white: String,
+            pub background: String,
+            pub foreground: String,
+        }
+    }
 
     #[derive(Deserialize, Debug)]
     pub struct HtmlThemes {

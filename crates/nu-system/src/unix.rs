@@ -1,22 +1,20 @@
-use log::warn;
-use std::sync::Mutex;
-
-/// Returns the umask for the current process
+/// Returns the umask for the current process.
+///
+/// This reads the umask by setting it to 0 and back. A lock keeps two callers of this
+/// function from interleaving, but another thread that changes the umask at the same time
+/// can still race it.
+#[deprecated(note = "use `nu_command::get_umask`, which also coordinates with the uutils commands")]
 pub fn get_umask() -> u32 {
-    // uucore::more::get_umask isn't threadsafe, see:
-    // https://github.com/uutils/coreutils/blob/8bb31eeab9abe1c73ac5c03f3930d6e25854e4f2/src/uucore/src/lib/features/mode.rs#L172-L196
-    //
-    // This lock attempts to fake it.
-    static LOCK: Mutex<()> = Mutex::new(());
-    let _guard = match LOCK.lock() {
-        Ok(g) => g,
-        Err(e) => {
-            warn!("umask lock poisoned. Recovering.");
-            e.into_inner()
-        }
-    };
+    use nix::sys::stat::{Mode, umask};
 
-    uucore::mode::get_umask()
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = LOCK.lock().unwrap_or_else(|poisoned| {
+        log::warn!("umask lock poisoned. Recovering.");
+        poisoned.into_inner()
+    });
+    let mask = umask(Mode::empty());
+    umask(mask);
+    u32::from(mask.bits())
 }
 
 /// Resolves user ids to account names for a process listing, looking each id up only once.
@@ -66,4 +64,15 @@ pub(crate) fn c_string(bytes: &[u8]) -> Option<String> {
         .ok()?
         .to_string_lossy();
     (!string.is_empty()).then(|| string.into_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[allow(deprecated)]
+    fn get_umask_restores_the_umask() {
+        // A second read would return 0 if the first one didn't put the umask back.
+        let first = super::get_umask();
+        assert_eq!(first, super::get_umask());
+    }
 }

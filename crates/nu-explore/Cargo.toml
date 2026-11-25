@@ -21,7 +21,6 @@ nu-parser.workspace = true
 nu-color-config.workspace = true
 nu-engine = { workspace = true, features = ["os"] }
 nu-table.workspace = true
-nu-json.workspace = true
 nu-utils.workspace = true
 nu-config.workspace = true
 nu-ansi-term.workspace = true
@@ -42,7 +41,6 @@ edtui = { version = "0.11.2", default-features = false, features = [
     "system-editor",
 ] }
 tui-tree-widget = "0.24"
-unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }
 
 [target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]

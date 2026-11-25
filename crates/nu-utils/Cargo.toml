@@ -18,7 +18,6 @@ bench = false
 bench = false
 
 [dependencies]
-byteyarn.workspace = true
 crossterm = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["debug"]}
 fancy-regex = { workspace = true }
