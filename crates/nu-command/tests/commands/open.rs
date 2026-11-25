@@ -397,7 +397,7 @@ fn open_wildcard() -> Result {
 fn open_multiple_files() -> Result {
     test()
         .cwd("tests/fixtures/formats")
-        .run("open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | math sum")
+        .run("open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | into int | math sum")
         .expect_value_eq(58309279992i64)
 }
 
