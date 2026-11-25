@@ -3,6 +3,18 @@ use nu_test_support::prelude::*;
 #[test]
 fn rejects_empty_range() -> Result {
     let error = test().run("random float 1..<1").expect_shell_error()?;
+    assert!(matches!(
+        error,
+        ShellError::InvalidRange { right_flank, .. } if right_flank == "<1"
+    ));
+    Ok(())
+}
+
+#[test]
+fn rejects_empty_unbounded_range() -> Result {
+    let error = test()
+        .run("random float 1.7976931348623157e308..")
+        .expect_shell_error()?;
     assert!(matches!(error, ShellError::InvalidRange { .. }));
     Ok(())
 }
@@ -33,6 +45,18 @@ fn generates_a_float() -> Result {
     test()
         .run("random float 42..43 | describe")
         .expect_value_eq("float")?;
+    Ok(())
+}
+
+#[test]
+fn generates_float_in_widest_inclusive_range() -> Result {
+    let outcome: f64 = test().run("random float 0..1.7976931348623157e308")?;
+    assert!((0.0..=f64::MAX).contains(&outcome));
+
+    let half_max = f64::MAX / 2.0;
+    let outcome: f64 =
+        test().run("random float (-8.988465674311579e307)..8.988465674311579e307")?;
+    assert!((-half_max..=half_max).contains(&outcome));
     Ok(())
 }
 
