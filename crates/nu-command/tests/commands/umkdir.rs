@@ -124,7 +124,7 @@ fn mkdir_umask_permission(playground: Playground) -> Result {
         .permissions()
         .mode();
 
-    let umask = nu_system::get_umask();
+    let umask = nu_command::get_umask();
     let default_mode = 0o40777;
     let expected: u32 = default_mode & !umask;
 

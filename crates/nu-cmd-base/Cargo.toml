@@ -16,7 +16,6 @@ workspace = true
 [dependencies]
 nu-engine.workspace = true
 nu-parser.workspace = true
-nu-path.workspace = true
 nu-protocol.workspace = true
 
 indexmap = { workspace = true }

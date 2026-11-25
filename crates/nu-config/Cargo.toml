@@ -19,7 +19,6 @@ plugin = []
 nu-path = { workspace = true }
 
 derive_more = { workspace = true, features = ["display"] }
-derive_setters = { workspace = true }
 dirs = { workspace = true }
 thiserror = { workspace = true }
 
@@ -35,4 +34,3 @@ windows-sys = { workspace = true, features = [
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", default-features = false }
-tempfile = { workspace = true }

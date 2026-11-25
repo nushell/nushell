@@ -24,7 +24,6 @@ harness = false
 workspace = true
 
 [dependencies]
-ansi-str = { workspace = true }
 ansiopt = { workspace = true, features = ["render"] }
 nu-ansi-term.workspace = true
 nu-cmd-base.workspace = true
@@ -94,7 +93,6 @@ percent-encoding = { workspace = true }
 pure-rust-locales = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
-aegis-password-generator = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 rayon = { workspace = true }
@@ -136,7 +134,6 @@ uu_uname = { workspace = true, optional = true }
 uu_whoami = { workspace = true, optional = true }
 uuid = { workspace = true, features = [
 	"v1",
-	"v3",
 	"v4",
 	"v5",
 	"v7",
@@ -146,8 +143,6 @@ wax = { workspace = true }
 which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
 data-encoding = { version = "2.11.0", features = ["alloc"] }
-web-time = { workspace = true }
-webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 win_uds = { workspace = true }
@@ -223,7 +218,6 @@ os = [
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
 js = [
-	"aegis-password-generator",
 	"getrandom",
 	"getrandom/wasm_js",
 	"jiff/js",
@@ -246,7 +240,6 @@ native-tls = ["dep:native-tls", "ureq/native-tls"]
 rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:rustls",
-	"dep:webpki-roots",
 	"nu-test-support/rustls-tls",
 	"ureq/rustls",
 ]
