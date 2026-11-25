@@ -4772,6 +4772,7 @@ name = "nu-command"
 version = "0.117.1"
 dependencies = [
  "alphanumeric-sort",
+ "ansi-str",
  "ansiopt",
  "arboard",
  "base64 0.23.1",
