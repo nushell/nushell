@@ -29,7 +29,10 @@ impl Command for ToRon {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let mut input = input;
-        let metadata = input.take_metadata(); // take metadata before pipeline is consumed
+        let metadata = input
+            .take_metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/x-ron".into()));
         let value = input.into_value(call.head)?;
         let span = value.span();
 
@@ -52,11 +55,7 @@ impl Command for ToRon {
             help: Some(err.to_string()),
         })?;
 
-        Ok(
-            Value::string(output_string, span).into_pipeline_data_with_metadata(
-                metadata.map(|md| md.with_content_type(Some("application/x-ron".into()))),
-            ),
-        )
+        Ok(Value::string(output_string, span).into_pipeline_data_with_metadata(Some(metadata)))
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

@@ -238,3 +238,15 @@ fn ron_rejects_unsupported_type() -> Result {
     assert!(test().run::<Value>(code).is_err());
     Ok(())
 }
+
+#[test]
+fn ron_content_type() -> Result {
+    let code = r#"
+        {a: 42, b: "hello"}
+        | to ron
+        | metadata
+        | get content_type
+    "#;
+
+    test().run(code).expect_value_eq("application/x-ron")
+}
