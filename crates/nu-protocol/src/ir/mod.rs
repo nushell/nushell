@@ -1,6 +1,6 @@
 use crate::{
     BlockId, DeclId, Filesize, RegId, ShellError, Span, Value, VarId,
-    ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
+    ast::{CellPath, Operator, Pattern, RangeInclusion},
     engine::{EngineState, ScopeBindings},
 };
 use serde::{Deserialize, Serialize};
@@ -8,9 +8,11 @@ use std::{fmt, sync::Arc};
 
 mod call;
 mod display;
+mod parser_info;
 
 pub use call::*;
 pub use display::{FmtInstruction, FmtIrBlock};
+pub use parser_info::ParserInfo;
 
 /// Instruction-index range where a nested block's local command/module bindings apply.
 ///
@@ -181,7 +183,7 @@ pub enum Instruction {
     /// Add parser info to the next (internal) call.
     PushParserInfo {
         name: DataSlice,
-        info: Box<Expression>,
+        info: Box<ParserInfo>,
     },
     /// Set the redirection for stdout for the next call (only).
     ///

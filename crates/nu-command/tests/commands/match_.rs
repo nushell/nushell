@@ -302,6 +302,53 @@ fn match_with_guard_no_expr_after_if() -> Result {
     Ok(())
 }
 
+// A variable read only in a guard is captured, so the closure still has it after `make` returns.
+#[test]
+fn match_guard_reads_a_captured_variable() -> Result {
+    let code = r#"
+        def make [limit: int] { {|| match 5 { $x if $x > $limit => "big", _ => "small" } } }
+        do (make 1)
+    "#;
+    test().run(code).expect_value_eq("big")
+}
+
+// `$in` in a guard or in a bare-expression body is the match's pipeline input, in a closure too.
+// A closure whose guard names `$in` must not fail when it's created, even if that arm never runs.
+#[rstest]
+#[case::guard(
+    "[1 2] | match ($in | length) { 2 if $in == [1 2] => 'y', _ => 'n' }",
+    "y"
+)]
+#[case::guard_in_closure(
+    "[5] | each {|v| match $v { 5 if $in == 5 => 'y', _ => 'n' } } | first",
+    "y"
+)]
+#[case::guard_not_run(
+    "[1] | each {|v| match $v { 5 if $in == 5 => 'y', _ => 'n' } } | first",
+    "n"
+)]
+#[case::body_in_closure("do { [1 2] | match 1 { 1 => $in } } | to nuon", "[1, 2]")]
+#[case::guard_with_a_capture(
+    "def make [limit: int] { {|| match 5 { $x if $x > $limit and $in == null => 'big', _ => 'small' } } }; do (make 1)",
+    "big"
+)]
+fn match_in_variable_is_the_pipeline_input(#[case] code: &str, #[case] expected: &str) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+// A guard reads the variables it uses from the closure's captures, like `if` and the arm body do,
+// so a `mut` variable there is an error in a closure and fine outside one.
+#[test]
+fn match_guard_in_a_closure_rejects_a_mutable_variable() -> Result {
+    let code = "mut lim = 1; [5] | each {|v| match $v { $x if $x > $lim => 'big', _ => 'small' } }";
+    let err = test().run(code).expect_parse_error()?;
+    assert_matches!(err, ParseError::CaptureOfMutableVar(_));
+
+    test()
+        .run("mut lim = 1; match 5 { $x if $x > $lim => 'big', _ => 'small' }")
+        .expect_value_eq("big")
+}
+
 #[test]
 fn match_with_guard_multiarm() -> Result {
     test()

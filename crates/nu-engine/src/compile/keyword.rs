@@ -200,14 +200,14 @@ pub(crate) fn compile_match(
     let mut next_labels = Vec::with_capacity(match_block.len());
     let end_label = builder.label(None);
 
-    for (pattern, _) in match_block {
+    for arm in match_block {
         let match_label = builder.label(None);
         match_labels.push(match_label);
         builder.r#match(
-            pattern.pattern.clone(),
+            arm.pattern.pattern.clone(),
             match_reg,
             match_label,
-            pattern.span,
+            arm.pattern.span,
         )?;
         // Also add a label for the next match instruction or failure case
         next_labels.push(builder.label(Some(builder.here())));
@@ -219,7 +219,7 @@ pub(crate) fn compile_match(
     builder.jump(end_label, call.head)?;
 
     // Generate each of the match expressions. Handle guards here, if present.
-    for (index, (pattern, expr)) in match_block.iter().enumerate() {
+    for (index, arm) in match_block.iter().enumerate() {
         let match_label = match_labels[index];
         let next_label = next_labels[index];
 
@@ -231,7 +231,7 @@ pub(crate) fn compile_match(
         builder.set_label(match_label, builder.here())?;
 
         // Handle guard, if present
-        if let Some(guard) = &pattern.guard {
+        if let Some(guard) = &arm.guard {
             let guard_reg = builder.next_register()?;
             compile_expression(
                 working_set,
@@ -251,7 +251,7 @@ pub(crate) fn compile_match(
                 // Span the branch with the next pattern, or the head if this is the end
                 match_block
                     .get(index + 1)
-                    .map(|b| b.0.span)
+                    .map(|next| next.pattern.span)
                     .unwrap_or(call.head),
             )?;
             builder.add_comment("if match guard false");
@@ -261,7 +261,7 @@ pub(crate) fn compile_match(
         builder.drop_reg(match_reg)?;
 
         // Execute match right hand side expression
-        if let Expr::Block(block_id) = expr.expr {
+        if let Expr::Block(block_id) = arm.body.expr {
             let block = working_set.get_block(block_id);
             compile_block(
                 working_set,
@@ -276,7 +276,7 @@ pub(crate) fn compile_match(
             compile_expression(
                 working_set,
                 builder,
-                expr,
+                &arm.body,
                 redirect_modes.clone(),
                 Some(io_reg),
                 io_reg,

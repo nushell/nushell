@@ -17,7 +17,6 @@ use nu_protocol::{
 pub fn garbage(span: Span) -> MatchPattern {
     MatchPattern {
         pattern: Pattern::Garbage,
-        guard: None,
         span,
     }
 }
@@ -303,7 +302,6 @@ fn parse_pattern_in(
                 pattern: Box::new(inner),
                 default: None,
             },
-            guard: None,
             span,
         };
     }
@@ -320,7 +318,6 @@ fn parse_pattern_in(
     } else if bytes == b"_" {
         MatchPattern {
             pattern: Pattern::IgnoreValue,
-            guard: None,
             span,
         }
     } else {
@@ -352,12 +349,10 @@ fn parse_value_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPa
                 matches!(&expr.expr, Expr::Range(range) if range.from.is_none()),
                 span,
             ),
-            guard: None,
             span,
         },
         Ok(val) => MatchPattern {
             pattern: Pattern::Value(val),
-            guard: None,
             span,
         },
         Err(e) => {
@@ -411,7 +406,6 @@ fn parse_variable_pattern(
     match parse_variable_pattern_helper(working_set, span, ctx) {
         Some(var_id) => MatchPattern {
             pattern: Pattern::Variable(var_id),
-            guard: None,
             span,
         },
         // The helper reported why.
@@ -458,7 +452,6 @@ fn parse_default(
             pattern: Box::new(pattern),
             default: Some(Box::new(default)),
         },
-        guard: None,
     }
 }
 
@@ -472,7 +465,6 @@ fn parse_rest_pattern(
     match parse_variable_pattern_helper(working_set, name_span, ctx) {
         Some(var_id) => MatchPattern {
             pattern: Pattern::Rest(var_id),
-            guard: None,
             span,
         },
         // The helper reported why.
@@ -536,7 +528,6 @@ fn parse_list_pattern(
                 let arg = if contents == b".." {
                     MatchPattern {
                         pattern: Pattern::IgnoreRest,
-                        guard: None,
                         span: part,
                     }
                 } else if contents.starts_with(b"..$") {
@@ -599,7 +590,6 @@ fn parse_list_pattern(
 
     MatchPattern {
         pattern: Pattern::List(args),
-        guard: None,
         span,
     }
 }
@@ -717,7 +707,6 @@ fn parse_record_pattern(
 
     MatchPattern {
         pattern: Pattern::Record(output),
-        guard: None,
         span,
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     BlockId, GetSpan, IN_VARIABLE_ID, Signature, Span, SpanId, Type, VarId,
-    ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
+    ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchArm, RecordItem},
     engine::StateWorkingSet,
 };
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ impl Expression {
         }
     }
 
-    pub fn as_match_block(&self) -> Option<&[(MatchPattern, Expression)]> {
+    pub fn as_match_block(&self) -> Option<&[MatchArm]> {
         match &self.expr {
             Expr::MatchBlock(matches) => Some(matches),
             _ => None,
@@ -207,7 +207,14 @@ impl Expression {
                 false
             }
             Expr::Operator(_) => false,
-            Expr::MatchBlock(_) => false,
+            // A guard and a bare-expression body read the match's pipeline input. A block body
+            // has already wrapped its own `$in`, so checking it finds nothing.
+            Expr::MatchBlock(arms) => arms.iter().any(|arm| {
+                arm.guard
+                    .as_ref()
+                    .is_some_and(|guard| guard.has_in_variable(working_set))
+                    || arm.body.has_in_variable(working_set)
+            }),
             Expr::Range(range) => {
                 if let Some(left) = &range.from
                     && left.has_in_variable(working_set)
@@ -526,9 +533,12 @@ impl Expression {
                     expr.replace_in_variable(working_set, new_var_id);
                 }
             }
-            Expr::MatchBlock(match_patterns) => {
-                for (_, expr) in match_patterns.iter_mut() {
-                    expr.replace_in_variable(working_set, new_var_id);
+            Expr::MatchBlock(arms) => {
+                for arm in arms.iter_mut() {
+                    if let Some(guard) = &mut arm.guard {
+                        guard.replace_in_variable(working_set, new_var_id);
+                    }
+                    arm.body.replace_in_variable(working_set, new_var_id);
                 }
             }
             Expr::List(items) => {

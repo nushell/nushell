@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AttributeBlock, Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword,
+    AttributeBlock, Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchArm,
     MatchPattern, Operator, Range, Table, ValueWithUnit,
 };
 use crate::{
@@ -36,7 +36,7 @@ pub enum Expr {
     Subexpression(BlockId),
     Block(BlockId),
     Closure(BlockId),
-    MatchBlock(Vec<(MatchPattern, Expression)>),
+    MatchBlock(Vec<MatchArm>),
     List(Vec<ListItem>),
     Table(Table),
     Record(Vec<RecordItem>),

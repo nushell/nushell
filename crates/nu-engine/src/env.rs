@@ -2,8 +2,8 @@ use crate::ClosureEvalOnce;
 use nu_path::absolute_with;
 use nu_protocol::{
     ShellError, Span, Type, Value, VarId,
-    ast::Expr,
     engine::{Call, EngineState, EnvName, Stack, env_var_eq},
+    ir::ParserInfo,
     shell_error::generic::GenericError,
 };
 use std::{
@@ -267,14 +267,10 @@ pub fn path_str(
 }
 
 pub fn get_dirs_var_from_call(stack: &Stack, call: &Call) -> Option<VarId> {
-    call.get_parser_info(stack, DIR_VAR_PARSER_INFO)
-        .and_then(|x| {
-            if let Expr::Var(id) = x.expr {
-                Some(id)
-            } else {
-                None
-            }
-        })
+    match call.get_parser_info(stack, DIR_VAR_PARSER_INFO)? {
+        ParserInfo::Var(var_id) => Some(*var_id),
+        _ => None,
+    }
 }
 
 /// This helper function is used to find files during eval

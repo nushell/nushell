@@ -545,10 +545,14 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
-        Expr::MatchBlock(match_block) => {
-            for match_ in match_block {
-                discover_captures_in_pattern(&match_.0, seen);
-                discover_captures_in_expr(working_set, &match_.1, seen, seen_blocks, output)?;
+        Expr::MatchBlock(arms) => {
+            for arm in arms {
+                // The pattern binds its variables before the guard and the body read them.
+                discover_captures_in_pattern(&arm.pattern, seen);
+                if let Some(guard) = &arm.guard {
+                    discover_captures_in_expr(working_set, guard, seen, seen_blocks, output)?;
+                }
+                discover_captures_in_expr(working_set, &arm.body, seen, seen_blocks, output)?;
             }
         }
         Expr::Collect(var_id, expr) => {

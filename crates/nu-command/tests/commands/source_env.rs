@@ -140,6 +140,45 @@ fn source_env_do_cd_file_relative(playground: Playground) -> Result {
         .expect_value_eq("test1")
 }
 
+// `FILE_PWD` and `CURRENT_FILE` name the file the parser read. After the `cd`, looking
+// `../env.nu` up again would point one directory too high.
+#[test]
+fn source_env_file_vars_name_the_parsed_file_after_cd(playground: Playground) -> Result {
+    playground.file("env.nu", "$env.FOO = [$env.FILE_PWD $env.CURRENT_FILE]")?;
+    playground.dir("sub")?;
+
+    let code = "
+        cd ..
+        source-env ../env.nu
+        let pwd = $env.PWD | path expand
+        [
+            (($env.FOO.0 | path expand) == $pwd)
+            (($env.FOO.1 | path expand) == ($pwd | path join env.nu))
+            ($env.FOO.0 | str contains '..')
+        ]
+    ";
+    test()
+        .cwd(playground.path().join("sub"))
+        .run(code)
+        .expect_value_eq([true, true, false])
+}
+
+// Like `source`, `source-env` checks that the file it parsed still exists when it runs.
+#[rstest]
+#[case::source_env("source-env")]
+#[case::source("source")]
+fn sourcing_a_file_removed_after_parsing_is_an_error(
+    #[ignore] playground: Playground,
+    #[case] command: &str,
+) -> Result {
+    playground.file("spam.nu", "$env.FOO = 'foo'")?;
+
+    test()
+        .cwd(playground.path())
+        .run(format!("rm spam.nu; {command} spam.nu"))
+        .expect_error_code_eq("nu::shell::io::file_not_found")
+}
+
 #[test]
 fn source_env_dont_cd_overlay(playground: Playground) -> Result {
     playground.file(

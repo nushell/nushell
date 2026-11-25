@@ -409,10 +409,13 @@ fn flatten_expression_into(
         Expr::Binary(_) => output.push((expr.span, FlatShape::Binary)),
         Expr::Int(_) => output.push((expr.span, FlatShape::Int)),
         Expr::Float(_) => output.push((expr.span, FlatShape::Float)),
-        Expr::MatchBlock(matches) => {
-            for (pattern, expr) in matches {
-                flatten_pattern_into(pattern, output);
-                flatten_expression_into(working_set, expr, output);
+        Expr::MatchBlock(arms) => {
+            for arm in arms {
+                flatten_pattern_into(&arm.pattern, output);
+                if let Some(guard) = &arm.guard {
+                    flatten_expression_into(working_set, guard, output);
+                }
+                flatten_expression_into(working_set, &arm.body, output);
             }
         }
         Expr::ValueWithUnit(value) => {

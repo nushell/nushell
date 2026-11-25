@@ -683,11 +683,11 @@ pub fn parse_match_block_expression(
 
             pattern = MatchPattern {
                 pattern: Pattern::Or(or_pattern),
-                guard: None,
                 span: Span::new(start, end),
             }
         }
         // A match guard
+        let mut guard = None;
         if connector == b"if" {
             let if_end = {
                 let end = output[position].span.end;
@@ -723,15 +723,13 @@ pub fn parse_match_block_expression(
             };
 
             let mut start = 0;
-            let guard = parse_multispan_value(
+            guard = Some(Box::new(parse_multispan_value(
                 working_set,
                 &tokens.iter().map(|tok| tok.span).collect_vec(),
                 &mut start,
                 &SyntaxShape::MathExpression,
                 None,
-            );
-
-            pattern.guard = Some(Box::new(guard));
+            )));
             position += if found { start + 1 } else { start };
             connector = working_set.get_span_contents(output[position].span);
         }
@@ -758,7 +756,7 @@ pub fn parse_match_block_expression(
             break;
         }
 
-        let result = parse_multispan_value(
+        let body = parse_multispan_value(
             working_set,
             &[output[position].span],
             &mut 0,
@@ -770,7 +768,7 @@ pub fn parse_match_block_expression(
             working_set.exit_scope();
         }
 
-        let branch_output_type = match &result.expr {
+        let branch_output_type = match &body.expr {
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
                 match block.pipelines.is_empty() {
@@ -778,14 +776,18 @@ pub fn parse_match_block_expression(
                     true => input_type.cloned().unwrap_or(Type::Any),
                 }
             }
-            _ => result.ty.clone(),
+            _ => body.ty.clone(),
         };
         output_type = output_type.union(branch_output_type);
 
-        output_matches.push((pattern, result));
+        output_matches.push(MatchArm {
+            pattern,
+            guard,
+            body,
+        });
     }
 
-    let has_wildcard = output_matches.iter().any(|(pat, _)| pat.is_wildcard());
+    let has_wildcard = output_matches.iter().any(MatchArm::is_wildcard);
     if !has_wildcard {
         output_type = output_type.union(Type::Nothing);
     }

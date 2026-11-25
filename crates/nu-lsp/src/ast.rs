@@ -119,8 +119,8 @@ pub(crate) fn expr_pattern_bindings(
             pattern_bindings(working_set, pattern, &mut out)
         }
         Expr::MatchBlock(arms) => {
-            for (pattern, _) in arms {
-                pattern_bindings(working_set, pattern, &mut out);
+            for arm in arms {
+                pattern_bindings(working_set, &arm.pattern, &mut out);
             }
         }
         Expr::Closure(block_id) => {
