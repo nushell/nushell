@@ -72,7 +72,8 @@ fn table_to_tsv_text_skipping_headers_after_conversion(playground: Playground) -
 
 #[test]
 fn table_to_tsv_float_doesnt_become_int() -> Result {
-    let code = "[[a]; [1.0]] | to tsv | from tsv | get 0.a | describe";
+    // `to tsv` has to write `1.0`, not `1`, for `--infer` to read a float back.
+    let code = "[[a]; [1.0]] | to tsv | from tsv --infer | get 0.a | describe";
 
     test().run(code).expect_value_eq("float")
 }

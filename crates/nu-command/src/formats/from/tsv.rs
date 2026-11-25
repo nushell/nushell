@@ -1,5 +1,9 @@
-use super::delimited::{DelimitedReaderConfig, from_delimited_data, trim_from_str};
+use super::delimited::{
+    DelimitedReaderConfig, INFER_EXTRA_DESC, INFER_FLAG_DESC, NO_INFER_FLAG_DESC,
+    from_delimited_data, infer_from_flags, no_infer_deprecation, trim_from_str,
+};
 use nu_engine::command_prelude::*;
+use nu_protocol::DeprecationEntry;
 
 #[derive(Clone)]
 pub struct FromTsv;
@@ -40,7 +44,8 @@ impl Command for FromTsv {
                 "Allow the number of fields in records to be variable.",
                 None,
             )
-            .switch("no-infer", "No field type inferencing.", None)
+            .switch("infer", INFER_FLAG_DESC, None)
+            .switch("no-infer", NO_INFER_FLAG_DESC, None)
             .param(
                 Flag::new("trim")
                     .short('t')
@@ -57,6 +62,14 @@ impl Command for FromTsv {
         "Parse text as .tsv and create table."
     }
 
+    fn extra_description(&self) -> &str {
+        INFER_EXTRA_DESC
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        no_infer_deprecation()
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -70,12 +83,25 @@ impl Command for FromTsv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert tab-separated data to a table.",
+                description: "Convert tab-separated data to a table. Every field is a string.",
                 example: "\"ColA\tColB\n1\t2\" | from tsv",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" =>  Value::test_int(1),
-                    "ColB" =>  Value::test_int(2),
+                    "ColA" =>  Value::test_string("1"),
+                    "ColB" =>  Value::test_string("2"),
                 })])),
+            },
+            Example {
+                description: "Convert tab-separated data to a table, turning fields that parse as numbers into ints and floats.",
+                example: "\"ColA\tColB\n1\t2.5\" | from tsv --infer",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" =>  Value::test_int(1),
+                    "ColB" =>  Value::test_float(2.5),
+                })])),
+            },
+            Example {
+                description: "Open a TSV file and turn fields that parse as numbers into ints and floats. `open data.tsv` alone keeps every field a string.",
+                example: "open --raw data.tsv | from tsv --infer",
+                result: None,
             },
             Example {
                 description: "Convert comma-separated data to a table, allowing variable number of columns per row and ignoring headers.",
@@ -140,7 +166,7 @@ fn from_tsv(
         .get_flag(engine_state, stack, "escape")?
         .map(|v: Value| v.as_char())
         .transpose()?;
-    let no_infer = call.has_flag(engine_state, stack, "no-infer")?;
+    let infer = infer_from_flags(engine_state, stack, call)?;
     let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
     let flexible = call.has_flag(engine_state, stack, "flexible")?;
     let trim = trim_from_str(call.get_flag(engine_state, stack, "trim")?)?;
@@ -152,7 +178,7 @@ fn from_tsv(
         escape,
         noheaders,
         flexible,
-        no_infer,
+        infer,
         trim,
     };
 
@@ -179,6 +205,27 @@ mod test {
         nu_test_support::test()
             .run(r#""name\tname\nAlice\tBob" | from tsv | to nuon"#)
             .expect_value_eq(r#"[[name, "name_1"]; [Alice, Bob]]"#)
+    }
+
+    #[test]
+    fn test_fields_are_strings_by_default() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run(r#""code\n0123\n1E5" | from tsv | get code | to nuon"#)
+            .expect_value_eq(r#"["0123", "1E5"]"#)
+    }
+
+    #[test]
+    fn test_infer_turns_numeric_fields_into_numbers() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run(r#""a\tb\tc\n1\t2.5\tx" | from tsv --infer | get 0 | values | each { describe } | to nuon"#)
+            .expect_value_eq("[int, float, string]")
+    }
+
+    #[test]
+    fn test_no_infer_flag_is_deprecated() -> nu_test_support::Result {
+        nu_test_support::test()
+            .run("scope commands | where name == 'from tsv' | get 0.deprecation_info.flag.0")
+            .expect_value_eq("no-infer")
     }
 
     #[test]

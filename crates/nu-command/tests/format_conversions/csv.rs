@@ -66,10 +66,36 @@ fn table_to_csv_text_skipping_headers_after_conversion(playground: Playground) -
 
 #[test]
 fn table_to_csv_float_doesnt_become_int() -> Result {
-    let code = "[[a]; [1.0]] | to csv | from csv | get 0.a";
+    // `to csv` has to write `1.0`, not `1`, for `--infer` to read a float back.
+    let code = "[[a]; [1.0]] | to csv | from csv --infer | get 0.a";
     let outcome: Value = test().run(code)?;
     assert!(matches!(outcome, Value::Float { .. }));
     Ok(())
+}
+
+#[test]
+fn open_keeps_fields_as_strings(playground: Playground) -> Result {
+    // `open` runs `from csv` without flags, so a file's fields come out as
+    // written: no leading zero or exponent is turned into a number.
+    playground.file(
+        "codes.csv",
+        indoc::indoc! {"
+        code,qty
+        0123,1
+        28E37262,2
+    "},
+    )?;
+
+    let code = "
+        open codes.csv
+        | get code
+        | to nuon
+    ";
+
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(r#"["0123", "28E37262"]"#)
 }
 
 #[test]
@@ -86,7 +112,8 @@ fn infers_types(playground: Playground) -> Result {
     )?;
 
     let code = "
-        open los_cuatro_mosqueteros.csv
+        open --raw los_cuatro_mosqueteros.csv
+        | from csv --infer
         | where rusty_luck > 0
         | length
     ";
@@ -558,7 +585,7 @@ fn from_csv_test_flexible_extra_vals() -> Result {
       echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
     "#;
 
-    test().run(code).expect_value_eq("[1, 2, 3]")
+    test().run(code).expect_value_eq(r#"["1", "2", "3"]"#)
 }
 
 #[test]
@@ -567,7 +594,7 @@ fn from_csv_test_flexible_missing_vals() -> Result {
       echo "a,b\n1" | from csv --flexible | first | values | to nuon
     "#;
 
-    test().run(code).expect_value_eq("[1]")
+    test().run(code).expect_value_eq(r#"["1"]"#)
 }
 
 #[test]

@@ -43,13 +43,26 @@
 
     <!-- Workaround Wix Bug: https://github.com/wixtoolset/issues/issues/2165 -->
     <!-- The suggested folder in the dest folder dialog should be C:\Program Files\nu -->
+    <!-- The UI starts per-user, so ProgramFiles64Folder initially points into LocalAppData. -->
+    <Property Id="MACHINEPROGRAMFILES">
+      <RegistrySearch Id="FindMachineProgramFiles"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\Windows\CurrentVersion"
+                      Name="ProgramFilesDir"
+                      Type="directory"
+                      Bitness="always64" />
+    </Property>
+    <SetProperty Id="WixPerMachineFolder"
+                 Action="SetWixPerMachineFolderUI"
+                 Value="[MACHINEPROGRAMFILES][ApplicationFolderName]"
+                 After="WixSetDefaultPerMachineFolder"
+                 Condition="MACHINEPROGRAMFILES"
+                 Sequence="ui" />
+
     <CustomAction Id="Overwrite_WixSetDefaultPerMachineFolder" Property="WixPerMachineFolder"
       Value="[ProgramFiles64Folder][ApplicationFolderName]" Execute="immediate" />
     <CustomAction Id="Overwrite_ARPINSTALLLOCATION" Property="ARPINSTALLLOCATION"
       Value="[ProgramFiles64Folder][ApplicationFolderName]" Execute="immediate" />
-    <InstallUISequence>
-      <Custom Action="Overwrite_WixSetDefaultPerMachineFolder" After="WixSetDefaultPerMachineFolder" />
-    </InstallUISequence>
     <InstallExecuteSequence>
       <Custom Action="Overwrite_WixSetDefaultPerMachineFolder" After="WixSetDefaultPerMachineFolder" />
       <Custom Action="Overwrite_ARPINSTALLLOCATION" After="InstallValidate"/>
