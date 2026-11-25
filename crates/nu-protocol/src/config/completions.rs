@@ -34,6 +34,7 @@ pub enum CompletionSort {
     #[default]
     Smart,
     Alphabetical,
+    Natural,
 }
 
 impl FromStr for CompletionSort {
@@ -43,7 +44,8 @@ impl FromStr for CompletionSort {
         match s.to_ascii_lowercase().as_str() {
             "smart" => Ok(Self::Smart),
             "alphabetical" => Ok(Self::Alphabetical),
-            _ => Err("'smart' or 'alphabetical'"),
+            "natural" => Ok(Self::Natural),
+            _ => Err("'smart', 'alphabetical' or 'natural'"),
         }
     }
 }
