@@ -1,4 +1,4 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn ron_roundtrip_string() -> Result {
@@ -206,24 +206,21 @@ fn ron_integration_record_pipeline() -> Result {
 }
 
 #[test]
-fn ron_file_open_and_save() -> Result {
-    Playground::setup("ron_file_open_and_save", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
-            "input.ron",
-            r#"
-                {"name": "Ada", "languages": ["Rust", "Nushell"]}
-            "#,
-        )]);
+fn ron_file_open_and_save(playground: Playground) -> Result {
+    playground.file(
+        "input.ron",
+        r#"{"name": "Ada", "languages": ["Rust", "Nushell"]}"#,
+    )?;
 
-        let code = r#"
-            open input.ron
-            | save output.ron
-            open output.ron
-            | $in == {name: "Ada" languages: ["Rust" "Nushell"]}
-        "#;
+    let code = r#"
+        open input.ron | save output.ron
+        open output.ron | $in == {name: "Ada" languages: ["Rust" "Nushell"]}
+    "#;
 
-        test().cwd(dirs.test()).run(code).expect_value_eq(true)
-    })
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(true)
 }
 
 #[test]
