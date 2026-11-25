@@ -365,11 +365,11 @@ impl Serialize for YamlValue<'_> {
     where
         S: serde::Serializer,
     {
-        let tag = self.tag().to_string();
-        let tag = tag.as_str();
+        // Formatted only by the tagged variants below; most values have no tag to write.
+        let tag = self.tag();
         fn serialize_with_tag<S: serde::Serializer>(
             serializer: S,
-            tag: &str,
+            tag: KnownTag,
             value: impl Serialize,
         ) -> Result<S::Ok, S::Error> {
             WRITER.with_borrow_mut(|writer| {
@@ -383,9 +383,7 @@ impl Serialize for YamlValue<'_> {
                         .expect("infallible for writes to string");
                 }
 
-                writer
-                    .write_str(tag)
-                    .expect("infallible for writes to string");
+                write!(writer, "{tag}").expect("infallible for writes to string");
 
                 if Container::current() != Some(Container::Map) {
                     writer

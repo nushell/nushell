@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 pub use self::de::{
-    Deserializer, StreamDeserializer, from_iter, from_reader, from_slice, from_str,
+    Deserializer, StreamDeserializer, from_iter, from_reader, from_slice, from_slice_seed, from_str,
 };
 pub use self::error::{Error, ErrorCode, Result};
 pub use self::ser::{
@@ -18,3 +18,5 @@ pub mod value;
 
 #[cfg(feature = "nu-protocol")]
 mod nu_value;
+#[cfg(feature = "nu-protocol")]
+pub use self::nu_value::{NuValueJson, NuValueSeed, write_nu_value};

@@ -19,11 +19,17 @@ enum State {
     Keyname,
 }
 
+/// How deep lists and objects may nest. Each level is a few recursive calls, so deeper input
+/// gets an error here instead of overflowing the stack.
+const MAX_DEPTH: usize = 1024;
+
 /// A structure that deserializes Hjson into Rust values.
 pub struct Deserializer<Iter: Iterator<Item = u8>> {
     rdr: StringReader<Iter>,
     str_buf: Vec<u8>,
     state: State,
+    /// How many more lists and objects may open inside the current one.
+    remaining_depth: usize,
 }
 
 impl<Iter> Deserializer<Iter>
@@ -37,6 +43,7 @@ where
             rdr: StringReader::new(rdr),
             str_buf: Vec::with_capacity(128),
             state: State::Normal,
+            remaining_depth: MAX_DEPTH,
         }
     }
 
@@ -146,23 +153,36 @@ where
                 let s = str::from_utf8(&self.str_buf).expect("Internal error: json parsing");
                 visitor.visit_str(s)
             }
-            b'[' => {
-                self.rdr.eat_char();
-                let ret = visitor.visit_seq(SeqVisitor::new(self))?;
-                self.rdr.parse_whitespace()?;
-                match self.rdr.next_char()? {
+            b'[' => self.nested(|de| {
+                de.rdr.eat_char();
+                let ret = visitor.visit_seq(SeqVisitor::new(de))?;
+                de.rdr.parse_whitespace()?;
+                match de.rdr.next_char()? {
                     Some(b']') => Ok(ret),
-                    Some(_) => Err(self.rdr.error(ErrorCode::TrailingCharacters)),
-                    None => Err(self.rdr.error(ErrorCode::EofWhileParsingList)),
+                    Some(_) => Err(de.rdr.error(ErrorCode::TrailingCharacters)),
+                    None => Err(de.rdr.error(ErrorCode::EofWhileParsingList)),
                 }
-            }
-            b'{' => {
-                self.rdr.eat_char();
-                self.visit_map(false, visitor)
-            }
+            }),
+            b'{' => self.nested(|de| {
+                de.rdr.eat_char();
+                de.visit_map(false, visitor)
+            }),
             b'\x00' => Err(self.rdr.error(ErrorCode::ExpectedSomeValue)),
             _ => self.parse_tfnns(visitor),
         }
+    }
+
+    /// Runs `parse` on a list or object one level deeper, or fails past [`MAX_DEPTH`].
+    fn nested<T>(&mut self, parse: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
+        if self.remaining_depth == 0 {
+            return Err(self.rdr.error(ErrorCode::Custom(format!(
+                "Found lists and objects nested more than {MAX_DEPTH} deep"
+            ))));
+        }
+        self.remaining_depth -= 1;
+        let result = parse(self);
+        self.remaining_depth += 1;
+        result
     }
 
     fn visit_map<'de, V>(&mut self, root: bool, visitor: V) -> Result<V::Value>
@@ -351,9 +371,12 @@ where
         // Parse a multiline string value.
         let mut triple = 0;
 
-        // we are at ''' +1 - get indent
+        // `col` is the column of the third quote, so the opening ''' starts `col - 3` bytes into
+        // its line. `ml_skip_indent` skips one byte more than it is asked to, hence the `- 4`.
+        // When ''' starts the line there is nothing to subtract from. Release builds have always
+        // wrapped to `usize::MAX` there, which strips all leading whitespace, so keep that.
         let (_, col) = self.rdr.pos();
-        let indent = col - 4;
+        let indent = col.checked_sub(4).unwrap_or(usize::MAX);
 
         // skip white/to (newline)
         while self.ml_skip_white()? {}
@@ -765,37 +788,8 @@ where
     I: Iterator<Item = io::Result<u8>>,
     T: de::DeserializeOwned,
 {
-    let fold: io::Result<Vec<_>> = iter.collect();
-
-    if let Err(e) = fold {
-        return Err(Error::Io(e));
-    }
-
-    let bytes = fold.expect("Internal error: json parsing");
-
-    // deserialize tries first to decode with legacy support (new_for_root)
-    // and then with the standard method if this fails.
-    // todo: add compile switch
-
-    // deserialize and make sure the whole stream has been consumed
-    let mut de = Deserializer::new_for_root(bytes.iter().copied());
-    de::Deserialize::deserialize(&mut de)
-        .and_then(|x| de.end().map(|()| x))
-        .or_else(|_| {
-            let mut de2 = Deserializer::new(bytes.iter().copied());
-            de::Deserialize::deserialize(&mut de2).and_then(|x| de2.end().map(|()| x))
-        })
-
-    /* without legacy support:
-    // deserialize and make sure the whole stream has been consumed
-    let mut de = Deserializer::new(bytes.iter().map(|b| *b));
-    let value = match de::Deserialize::deserialize(&mut de)
-        .and_then(|x| { try!(de.end()); Ok(x) })
-    {
-        Ok(v) => Ok(v),
-        Err(e) => Err(e),
-    };
-    */
+    let bytes = iter.collect::<io::Result<Vec<_>>>().map_err(Error::Io)?;
+    from_slice(&bytes)
 }
 
 /// Decodes a Hjson value from a `std::io::Read`.
@@ -815,7 +809,27 @@ pub fn from_slice<T>(v: &[u8]) -> Result<T>
 where
     T: de::DeserializeOwned,
 {
-    from_iter(v.iter().map(|&byte| Ok(byte)))
+    from_slice_seed(v, PhantomData::<T>)
+}
+
+/// Decodes a Hjson value from a byte slice with `seed`, which decides what the value is built
+/// into (see [`de::DeserializeSeed`]).
+///
+/// Like [`from_slice`], this first reads the input as a root object without braces (legacy Hjson)
+/// and, if that fails, as a plain value. Either way the whole input must be consumed.
+pub fn from_slice_seed<S, T>(v: &[u8], seed: S) -> Result<T>
+where
+    S: for<'de> de::DeserializeSeed<'de, Value = T> + Clone,
+{
+    let mut de = Deserializer::new_for_root(v.iter().copied());
+    seed.clone()
+        .deserialize(&mut de)
+        .and_then(|x| de.end().map(|()| x))
+        .or_else(|_| {
+            let mut de2 = Deserializer::new(v.iter().copied());
+            seed.deserialize(&mut de2)
+                .and_then(|x| de2.end().map(|()| x))
+        })
 }
 
 /// Decodes a Hjson value from a `&str`.
@@ -824,4 +838,73 @@ where
     T: de::DeserializeOwned,
 {
     from_slice(s.as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Value;
+
+    #[test]
+    fn unclosed_block_comment_is_an_error() {
+        for input in ["[1, 2] /* x", "[1, 2] /* x *", "[1, /* x", "/*/"] {
+            let err = from_str::<Value>(input).expect_err(input);
+            assert!(
+                err.to_string().contains("no closing */"),
+                "{input:?}: {err}"
+            );
+        }
+        let expected = from_str::<Value>("[1, 2]").expect("valid input parses");
+        for input in [
+            "[1, 2] /* x */",
+            "[1, /**/ 2]",
+            "/***/ [1, 2]",
+            "[1, 2 /* * / */]",
+        ] {
+            assert_eq!(
+                from_str::<Value>(input).expect(input),
+                expected,
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn multiline_string_indent() {
+        // The column of the opening ''' sets how much indent each line loses.
+        let value: Value = from_str("[\n  '''\n    abc\n      def\n  '''\n]").expect("parses");
+        assert_eq!(
+            value,
+            Value::Array(vec![Value::String("  abc\n    def".into())])
+        );
+        // At the start of a line it strips all leading whitespace, as release builds always did.
+        let value: Value = from_str("'''\n  abc\n    def\n'''").expect("parses");
+        assert_eq!(value, Value::String("abc\ndef".into()));
+    }
+
+    #[test]
+    fn nesting_past_max_depth_is_an_error() {
+        // Debug builds use far more stack per level than release builds, and the default test
+        // thread is too small for `MAX_DEPTH` levels there.
+        std::thread::Builder::new()
+            .stack_size(64 * 1024 * 1024)
+            .spawn(|| {
+                let nest = |open: &str, inner: &str, close: &str, depth: usize| {
+                    format!("{}{inner}{}", open.repeat(depth), close.repeat(depth))
+                };
+                for (open, inner, close) in [("[", "", "]"), (r#"{"a":"#, "1", "}")] {
+                    let input = nest(open, inner, close, MAX_DEPTH);
+                    assert!(from_str::<Value>(&input).is_ok(), "{open} at the limit");
+                    let input = nest(open, inner, close, MAX_DEPTH + 1);
+                    let err = from_str::<Value>(&input).expect_err("past the limit");
+                    assert!(
+                        err.to_string().contains("nested more than"),
+                        "{open}: {err}"
+                    );
+                }
+            })
+            .expect("test thread starts")
+            .join()
+            .expect("test thread does not panic");
+    }
 }
