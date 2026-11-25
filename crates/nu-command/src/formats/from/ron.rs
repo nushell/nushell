@@ -76,10 +76,10 @@ fn convert_ron_to_value(value: &RonValue, span: Span) -> Result<Value, ShellErro
         },
         RonValue::Bytes(b) => Ok(Value::binary(b.clone(), span)),
         RonValue::Seq(seq) => {
-            let v: Vec<Value> = seq
+            let v = seq
                 .iter()
-                .map(|x| convert_ron_to_value(x, span).unwrap())
-                .collect();
+                .map(|x| convert_ron_to_value(x, span))
+                .collect::<Result<Vec<Value>, _>>()?;
             Ok(Value::list(v, span))
         }
         RonValue::Map(map) => {
