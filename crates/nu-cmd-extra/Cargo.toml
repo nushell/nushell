@@ -27,8 +27,6 @@ harness = false
 nu-cmd-base.workspace = true
 nu-engine.workspace = true
 nu-heavy-utils = { workspace = true, features = ["endian"] }
-nu-json.workspace = true
-nu-parser.workspace = true
 nu-pretty-hex.workspace = true
 nu-protocol.workspace = true
 nu-utils.workspace = true
@@ -51,8 +49,6 @@ nu-command = { workspace = true, features = ["os"] }
 nu-test-support = { path = "../nu-test-support" }
 
 [build-dependencies]
-nu-protocol.workspace = true
-
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 quote = { workspace = true }

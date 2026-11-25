@@ -1,4 +1,7 @@
-use crate::{DeclId, FromValue, ShellError, Span, Value, ast::Expression, ir};
+use crate::{
+    DeclId, FromValue, ShellError, Span, Value,
+    ir::{self, ParserInfo},
+};
 
 use super::{Stack, StateWorkingSet, named_flags::call_has_flag};
 
@@ -102,11 +105,34 @@ impl Call<'_> {
     }
 
     /// Get a parser info argument by name.
-    pub fn get_parser_info<'a>(&'a self, stack: &'a Stack, name: &str) -> Option<&'a Expression> {
+    pub fn get_parser_info<'a>(&'a self, stack: &'a Stack, name: &str) -> Option<&'a ParserInfo> {
         match &self.inner {
             CallImpl::IrRef(call) => call.get_parser_info(stack, name),
             CallImpl::IrBox(call) => call.get_parser_info(stack, name),
         }
+    }
+
+    /// Get a parser info argument by name and read it with `get`, such as
+    /// [`ParserInfo::block_id`]. It's an error if the call has no parser info named `name`, or if
+    /// `get` finds a different kind of value there.
+    pub fn req_parser_info<'a, T>(
+        &'a self,
+        stack: &'a Stack,
+        name: &str,
+        get: impl FnOnce(&'a ParserInfo) -> Option<T>,
+    ) -> Result<T, ShellError> {
+        let info = self
+            .get_parser_info(stack, name)
+            .ok_or_else(|| ShellError::CantFindColumn {
+                col_name: name.into(),
+                span: None,
+                src_span: self.head,
+            })?;
+        get(info).ok_or_else(|| ShellError::NushellFailedSpanned {
+            msg: format!("Parser info `{name}` holds the wrong kind of value"),
+            label: format!("found {info:?}"),
+            span: self.head,
+        })
     }
 
     /// Gets all of the positional and spread arguments from `starting_pos` on, flattens spreads,

@@ -1,6 +1,13 @@
-use super::{DataSlice, Instruction, IrBlock, Literal, RedirectMode};
-use crate::{DeclId, VarId, ast::Pattern, engine::EngineState};
-use std::fmt::{self};
+use super::{DataSlice, Instruction, IrBlock, Literal, ParserInfo, RedirectMode};
+use crate::{
+    DeclId, VarId,
+    ast::{ImportPatternMember, Pattern},
+    engine::EngineState,
+};
+use std::{
+    fmt::{self},
+    ops::Bound,
+};
 
 pub struct FmtIrBlock<'a> {
     pub(super) engine_state: &'a EngineState,
@@ -154,7 +161,8 @@ impl fmt::Display for FmtInstruction<'_> {
             }
             Instruction::PushParserInfo { name, info } => {
                 let name = FmtData(self.data, *name);
-                write!(f, "{:WIDTH$} {name}, {info:?}", "push-parser-info")
+                let info = FmtParserInfo(self.engine_state, info);
+                write!(f, "{:WIDTH$} {name}, {info}", "push-parser-info")
             }
             Instruction::RedirectOut { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-out")
@@ -263,6 +271,13 @@ impl fmt::Display for FmtInstruction<'_> {
                 };
                 write!(f, "{:WIDTH$} ({pattern}), {src}, {index}", "match")
             }
+            Instruction::Destructure { pattern, src } => {
+                let pattern = FmtPattern {
+                    engine_state: self.engine_state,
+                    pattern,
+                };
+                write!(f, "{:WIDTH$} ({pattern}), {src}", "destructure")
+            }
             Instruction::CheckMatchGuard { src } => {
                 write!(f, "{:WIDTH$} {src}", "check-match-guard")
             }
@@ -312,6 +327,40 @@ impl<'a> FmtDecl<'a> {
 impl fmt::Display for FmtDecl<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "decl {} {:?}", self.0.get(), self.1)
+    }
+}
+
+/// Formats a [`ParserInfo`] value for `view ir`.
+struct FmtParserInfo<'a>(&'a EngineState, &'a ParserInfo);
+
+impl fmt::Display for FmtParserInfo<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.1 {
+            ParserInfo::Flag => write!(f, "flag"),
+            ParserInfo::BlockId(block_id) => write!(f, "block({})", block_id.get()),
+            ParserInfo::DeclId(decl_id) => write!(f, "{}", FmtDecl::new(self.0, *decl_id)),
+            ParserInfo::Path(path) => write!(f, "{path:?}"),
+            ParserInfo::Var(var_id) => write!(f, "{}", FmtVar::new(self.0, *var_id)),
+            ParserInfo::ImportPattern(pattern) => {
+                let name = |name: &[u8]| format!("{:?}", String::from_utf8_lossy(name));
+                write!(f, "import {}", name(&pattern.head.name))?;
+                for member in &pattern.members {
+                    match member {
+                        ImportPatternMember::Glob { .. } => write!(f, " *")?,
+                        ImportPatternMember::Name { name: member, .. } => {
+                            write!(f, " {}", name(member))?
+                        }
+                        ImportPatternMember::List { names } => {
+                            let names: Vec<_> = names.iter().map(|(n, _)| name(n)).collect();
+                            write!(f, " [{}]", names.join(", "))?
+                        }
+                    }
+                }
+                Ok(())
+            }
+            ParserInfo::Overlay(Some(module_id)) => write!(f, "module({})", module_id.get()),
+            ParserInfo::Overlay(None) => write!(f, "module(none)"),
+        }
     }
 }
 
@@ -433,15 +482,16 @@ impl fmt::Display for FmtPattern<'_> {
                     if index > 0 {
                         f.write_str(", ")?;
                     }
-                    write!(
-                        f,
-                        "{}: {}",
-                        name,
-                        FmtPattern {
-                            engine_state: self.engine_state,
-                            pattern: &pattern.pattern,
-                        }
-                    )?;
+                    let pattern = FmtPattern {
+                        engine_state: self.engine_state,
+                        pattern: &pattern.pattern,
+                    };
+                    // A `..$rest` entry has no field name.
+                    if matches!(pattern.pattern, Pattern::Rest(_)) {
+                        write!(f, "{pattern}")?;
+                    } else {
+                        write!(f, "{name}: {pattern}")?;
+                    }
                 }
                 f.write_str("}")
             }
@@ -464,6 +514,22 @@ impl fmt::Display for FmtPattern<'_> {
             }
             Pattern::Value(value) => {
                 f.write_str(&value.to_parsable_string(", ", &self.engine_state.config))
+            }
+            Pattern::Interval { low, high } => {
+                let config = &self.engine_state.config;
+                match low {
+                    Bound::Included(low) => f.write_str(&low.to_parsable_string(", ", config))?,
+                    Bound::Excluded(low) => write!(f, ">{}", low.to_parsable_string(", ", config))?,
+                    Bound::Unbounded => {}
+                }
+                f.write_str("..")?;
+                match high {
+                    Bound::Included(high) => f.write_str(&high.to_parsable_string(", ", config)),
+                    Bound::Excluded(high) => {
+                        write!(f, "<{}", high.to_parsable_string(", ", config))
+                    }
+                    Bound::Unbounded => Ok(()),
+                }
             }
             Pattern::Variable(var_id) => {
                 let variable = FmtVar::new(self.engine_state, *var_id);
@@ -488,6 +554,20 @@ impl fmt::Display for FmtPattern<'_> {
             Pattern::Rest(var_id) => {
                 let variable = FmtVar::new(self.engine_state, *var_id);
                 write!(f, "..{variable}")
+            }
+            Pattern::Optional { pattern, default } => {
+                let pattern = FmtPattern {
+                    engine_state: self.engine_state,
+                    pattern: &pattern.pattern,
+                };
+                match default {
+                    Some(default) => write!(
+                        f,
+                        "{pattern} = {}",
+                        default.to_parsable_string(", ", &self.engine_state.config)
+                    ),
+                    None => write!(f, "{pattern}?"),
+                }
             }
             Pattern::IgnoreRest => f.write_str(".."),
             Pattern::IgnoreValue => f.write_str("_"),

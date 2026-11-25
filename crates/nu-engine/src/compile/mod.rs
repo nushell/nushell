@@ -64,6 +64,28 @@ fn compile_block(
     let span = block.span.unwrap_or(Span::unknown());
     let region_start = builder.instructions.len();
 
+    // A closure parameter written as a pattern, as in `{|{$name}| ...}`, arrives in a hidden
+    // variable. Bind the pattern's variables from it before the body runs.
+    for (var_id, pattern) in &block.parameter_patterns {
+        let reg = builder.next_register()?;
+        builder.push(
+            Instruction::LoadVariable {
+                dst: reg,
+                var_id: *var_id,
+                preserve_origin: false,
+            }
+            .into_spanned(pattern.span),
+        )?;
+        builder.push(
+            Instruction::Destructure {
+                pattern: Box::new(pattern.pattern.clone()),
+                src: reg,
+            }
+            .into_spanned(pattern.span),
+        )?;
+        builder.drop_reg(reg)?;
+    }
+
     let mut redirect_modes = Some(redirect_modes);
     if !block.pipelines.is_empty() {
         let last_index = block.pipelines.len() - 1;

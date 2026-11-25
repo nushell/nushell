@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::{Span, Value, ast::Expression, ir::DataSlice};
+use crate::{
+    Span, Value,
+    ir::{DataSlice, ParserInfo},
+};
 
 /// Represents a fully evaluated argument to a call.
 #[derive(Debug, Clone)]
@@ -28,9 +31,7 @@ pub enum Argument {
     ParserInfo {
         data: Arc<[u8]>,
         name: DataSlice,
-        // TODO: rather than `Expression`, this would probably be best served by a specific enum
-        // type for this purpose.
-        info: Box<Expression>,
+        info: Box<ParserInfo>,
     },
 }
 

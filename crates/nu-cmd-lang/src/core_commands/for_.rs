@@ -72,6 +72,11 @@ impl Command for For {
                 example: r#"for $it in (['bob' 'fred'] | enumerate) { print $"($it.index) is ($it.item)" }"#,
                 result: None,
             },
+            Example {
+                description: "Take the fields of each row apart with a record pattern.",
+                example: r#"for {$index, $item} in (['bob' 'fred'] | enumerate) { print $"($index) is ($item)" }"#,
+                result: None,
+            },
         ]
     }
 }

@@ -11,7 +11,7 @@ const DEFAULT_MODE: u32 = 0o777;
 
 #[cfg(target_family = "unix")]
 fn get_mode() -> u32 {
-    !nu_system::get_umask() & DEFAULT_MODE
+    !crate::get_umask() & DEFAULT_MODE
 }
 
 #[cfg(not(target_family = "unix"))]

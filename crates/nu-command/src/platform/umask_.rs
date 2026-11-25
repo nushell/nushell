@@ -2,7 +2,6 @@ use std::ops::Deref;
 
 use nix::libc::mode_t;
 use nu_engine::command_prelude::*;
-use nu_system::get_umask;
 
 /// Wraps umask::Mode, providing conversions to and from mode_t regardless of its
 /// size.
@@ -103,6 +102,7 @@ impl Command for UMask {
                     call_span: call.head,
                 })?;
 
+            let _guard = lock_umask();
             nix::sys::stat::umask(mask).bits()
         } else {
             get_umask() as mode_t
@@ -129,4 +129,24 @@ impl Command for UMask {
             },
         ]
     }
+}
+
+/// Serializes the `umask` command's writes with [`get_umask`].
+///
+/// Reading the umask means setting it to 0 and back, so a write that lands in between reports
+/// 0 as the previous mask and is then undone. uucore's `get_umask` has a lock of its own, but
+/// it is private, so setting the mask can't take it. That leaves one gap: the uutils commands
+/// (`cp`, `mkdir`) read the umask under uucore's lock alone and can still race a write.
+fn lock_umask() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|poisoned| {
+        log::warn!("umask lock poisoned. Recovering.");
+        poisoned.into_inner()
+    })
+}
+
+/// Returns the umask for the current process.
+pub fn get_umask() -> u32 {
+    let _guard = lock_umask();
+    uucore::mode::get_umask()
 }

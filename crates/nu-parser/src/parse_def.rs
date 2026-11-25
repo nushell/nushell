@@ -4,6 +4,7 @@ use crate::{
     parse_captures_compile::discover_closure_captures,
     parse_helpers::{SPREAD_OPERATOR, garbage},
     parse_keywords::{find_keyword_decl, is_uncallable_name, reject_parser_keyword_name},
+    parse_patterns::check_binding_type,
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id, parse_attribute,
@@ -263,6 +264,29 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         Type::OneOf(types) => Type::one_of(types.into_iter().map(yielded_type)),
         ty => yielded_type(ty),
     };
+
+    // `for {$name, $size} in (ls) { ... }` destructures each value. As for a single loop
+    // variable, the body's signature declares the pattern's variables.
+    if let (Expr::Pattern(pattern), Some(block_id)) = (&var_decl.expr, block_expr.as_block()) {
+        let value_span = iteration_expr
+            .as_keyword()
+            .map_or(iteration_expr.span, |expr| expr.span);
+        check_binding_type(working_set, pattern, &var_type, value_span);
+        let params = pattern
+            .variables()
+            .into_iter()
+            .map(|var_id| PositionalArg {
+                name: String::new(),
+                desc: String::new(),
+                shape: working_set.get_variable(var_id).ty.to_shape(),
+                var_id: Some(var_id),
+                default_value: None,
+                completion: None,
+            })
+            .collect::<Vec<_>>();
+        let block = working_set.get_block_mut(block_id);
+        block.signature.required_positional.splice(0..0, params);
+    }
 
     if let (Some(var_id), Some(block_id)) = (var_decl.as_var(), block_expr.as_block()) {
         working_set.set_variable_type(var_id, var_type.clone());

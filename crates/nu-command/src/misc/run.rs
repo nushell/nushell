@@ -9,6 +9,7 @@ use nu_protocol::{
     BlockId, CompareTypes, DeclId, Flag, Value,
     ast::Block,
     engine::{self, CommandType, StateWorkingSet, named_flags::list_spread_before_required_error},
+    ir::ParserInfo,
     parser_path::{MAX_RUN_SCRIPT_BYTES, ScriptLoadError, read_run_script_file},
     shell_error::{generic::GenericError, io::IoError},
 };
@@ -76,7 +77,9 @@ impl Command for Run {
         // Parser-time metadata tells us exactly which script block was compiled for this call.
         // We intentionally execute that precompiled block instead of reparsing at runtime.
         //
-        let block_id_name: String = call.req_parser_info(engine_state, stack, "block_id_name")?;
+        let block_id_name = call
+            .req_parser_info(stack, "block_id_name", ParserInfo::path)?
+            .to_owned();
         let args = run_arguments(stack, call)?;
         let full_reparse =
             call.get_parser_info(stack, "full_reparse").is_some() || args.full_reparse;
@@ -114,14 +117,10 @@ impl Command for Run {
         } else {
             // - `block_id`: block compiled from the resolved script file
             // - `main_block_id`: the block of the script's `def main`, when it has one
-            let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
-            let block = engine_state
-                .get_block(BlockId::new(block_id as usize))
-                .clone();
+            let block_id = call.req_parser_info(stack, "block_id", ParserInfo::block_id)?;
+            let block = engine_state.get_block(block_id).clone();
             let main_block_id = if call.get_parser_info(stack, "main_block_id").is_some() {
-                let main_block_id: i64 =
-                    call.req_parser_info(engine_state, stack, "main_block_id")?;
-                Some(BlockId::new(main_block_id as usize))
+                Some(call.req_parser_info(stack, "main_block_id", ParserInfo::block_id)?)
             } else {
                 None
             };

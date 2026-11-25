@@ -1,6 +1,6 @@
 use crate::{
     BlockId, DeclId, Filesize, RegId, ShellError, Span, Value, VarId,
-    ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
+    ast::{CellPath, Operator, Pattern, RangeInclusion},
     engine::{EngineState, ScopeBindings},
 };
 use serde::{Deserialize, Serialize};
@@ -8,9 +8,11 @@ use std::{fmt, sync::Arc};
 
 mod call;
 mod display;
+mod parser_info;
 
 pub use call::*;
 pub use display::{FmtInstruction, FmtIrBlock};
+pub use parser_info::ParserInfo;
 
 /// Instruction-index range where a nested block's local command/module bindings apply.
 ///
@@ -181,7 +183,7 @@ pub enum Instruction {
     /// Add parser info to the next (internal) call.
     PushParserInfo {
         name: DataSlice,
-        info: Box<Expression>,
+        info: Box<ParserInfo>,
     },
     /// Set the redirection for stdout for the next call (only).
     ///
@@ -276,6 +278,10 @@ pub enum Instruction {
         src: RegId,
         index: usize,
     },
+    /// Bind the variables of a destructuring pattern, as in `let {$name} = $record`, from the
+    /// collected value in `src`. Raises [`PatternMismatch`](crate::ShellError::PatternMismatch)
+    /// if the value doesn't fit. The value is preserved in `src`.
+    Destructure { pattern: Box<Pattern>, src: RegId },
     /// Check that a match guard is a boolean, throwing
     /// [`MatchGuardNotBool`](crate::ShellError::MatchGuardNotBool) if it isn't. Preserves `src`.
     CheckMatchGuard { src: RegId },
@@ -387,6 +393,7 @@ impl Instruction {
             Instruction::BranchIf { .. } => None,
             Instruction::BranchIfEmpty { .. } => None,
             Instruction::Match { .. } => None,
+            Instruction::Destructure { .. } => None,
             Instruction::CheckMatchGuard { .. } => None,
             Instruction::Iterate { dst, .. } => Some(dst),
             Instruction::OnError { .. } => None,

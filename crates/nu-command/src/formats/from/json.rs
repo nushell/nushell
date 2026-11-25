@@ -1,5 +1,7 @@
 use std::io::{BufRead, Cursor};
 
+use serde::de::DeserializeSeed;
+
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DEFAULT_ERROR_CONTEXT, ListStream, Signals,
@@ -171,18 +173,30 @@ pub fn try_str_to_value(
     // Windows editors and PowerShell's `Out-File` write a UTF-8 BOM, which RFC 8259 lets a
     // parser ignore. Strip exactly one leading one: `U+FEFF` anywhere else is content.
     let input = input.strip_prefix('\u{feff}').unwrap_or(input);
+    // Both parsers build nushell values directly, with no JSON value tree in between.
+    let seed = nu_json::NuValueSeed { span };
     match strict {
         true => try_str_to_value_impl(
             input,
             span,
             signals,
-            |s| serde_json::from_str(s),
+            |s| {
+                let mut de = serde_json::Deserializer::from_str(s);
+                let value = seed.deserialize(&mut de)?;
+                de.end().map(|()| value)
+            },
             |err| err.is_syntax().then_some((err.line(), err.column())),
         ),
-        false => try_str_to_value_impl(input, span, signals, nu_json::from_str, |err| match err {
-            nu_json::Error::Syntax(_, row, col) => Some((*row, *col)),
-            _ => None,
-        }),
+        false => try_str_to_value_impl(
+            input,
+            span,
+            signals,
+            |s| nu_json::from_slice_seed(s.as_bytes(), seed),
+            |err| match err {
+                nu_json::Error::Syntax(_, row, col) => Some((*row, *col)),
+                _ => None,
+            },
+        ),
     }
 }
 
@@ -191,11 +205,11 @@ fn try_str_to_value_impl<E: std::error::Error>(
     input: &str,
     span: Span,
     signals: &Signals,
-    parser: impl Fn(&str) -> Result<nu_json::Value, E>,
+    parser: impl Fn(&str) -> Result<Value, E>,
     on_syntax_err: impl Fn(&E) -> Option<(usize, usize)>,
 ) -> Result<Value, ShellError> {
     match parser(input) {
-        Ok(value) => Ok(value.into_value(span)),
+        Ok(value) => Ok(value),
         Err(err) => match on_syntax_err(&err) {
             Some((row, col)) => {
                 let label = err.to_string();

@@ -1,10 +1,11 @@
 use nu_parser::*;
 use nu_protocol::{
     DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit, Value,
-    ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
+    ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range, Traverse},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
 use rstest::rstest;
+use std::ops::ControlFlow;
 
 use mock::{
     Alias, AttrEcho, Const, Def, Extern, IfMocked, Let, LsCustom, LsTest, MatchMocked, Mut,
@@ -4721,4 +4722,121 @@ pub fn parse_name_check_leaves_no_block_in_the_state() {
         blocks_after(r#"alias "x..(foo)" = attr echo"#),
         blocks_after("alias foo = attr echo"),
     );
+}
+
+/// A match block's type includes `nothing` unless an arm matches every value. A guarded `_` can
+/// still fall through, so it doesn't count.
+#[rstest]
+#[case::wildcard("_ => 1", "int")]
+#[case::variable("$x => 1", "int")]
+#[case::guarded_wildcard("_ if false => 1", "oneof<int, nothing>")]
+fn match_block_type_with_a_guard(#[case] arm: &str, #[case] ty: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let source = format!("match 1 {{ {arm} }}");
+    let block = parse(&mut working_set, None, source.as_bytes(), false);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("expected a call to `match`");
+    };
+    let match_block = call.positional_iter().nth(1).expect("a match block");
+    assert_eq!(match_block.ty.to_string(), ty);
+}
+
+/// `Traverse` reaches the expression in a match guard.
+#[test]
+fn traverse_reaches_a_match_guard() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let block = parse(
+        &mut working_set,
+        None,
+        b"match 1 { $x if $x > 0 => 1 }",
+        false,
+    );
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+
+    let is_comparison = |expr: &Expression| matches!(expr.expr, Expr::BinaryOp(..));
+    let found = block.find_map(&working_set, &|expr| {
+        if is_comparison(expr) {
+            ControlFlow::Break(Some(expr.span))
+        } else {
+            ControlFlow::Continue(())
+        }
+    });
+    let mut all = vec![];
+    block.flat_map(
+        &working_set,
+        &|expr| {
+            if is_comparison(expr) {
+                vec![expr.span]
+            } else {
+                vec![]
+            }
+        },
+        &mut all,
+    );
+
+    let guard: &[u8] = b"$x > 0";
+    assert_eq!(
+        found.map(|span| working_set.get_span_contents(span)),
+        Some(guard)
+    );
+    assert_eq!(
+        all.iter()
+            .map(|span| working_set.get_span_contents(*span))
+            .collect::<Vec<_>>(),
+        [guard]
+    );
+}
+
+/// Flattening (what the highlighter colors) covers a match guard, in source order.
+#[test]
+fn flatten_includes_a_match_guard() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(MatchMocked));
+    let block = parse(
+        &mut working_set,
+        None,
+        b"match 1 { $x if $x > 0 => 1 }",
+        false,
+    );
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{:?}",
+        working_set.parse_errors
+    );
+
+    let shapes: Vec<_> = flatten_block(&working_set, &block)
+        .into_iter()
+        .map(|(span, shape)| {
+            (
+                String::from_utf8_lossy(working_set.get_span_contents(span)).into_owned(),
+                shape.as_str().to_string(),
+            )
+        })
+        .collect();
+    let expected = [
+        ("match", "shape_internalcall"),
+        ("1", "shape_int"),
+        ("$x", "shape_vardecl"),
+        ("$x", "shape_variable"),
+        (">", "shape_operator"),
+        ("0", "shape_int"),
+        ("1", "shape_int"),
+    ]
+    .map(|(text, shape)| (text.to_string(), shape.to_string()));
+    assert_eq!(shapes, expected);
 }

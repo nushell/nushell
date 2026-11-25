@@ -1,3 +1,4 @@
+use md5::Digest;
 use nu_engine::command_prelude::*;
 use nu_protocol::FromValue;
 use uuid::{Timestamp, Uuid};
@@ -137,7 +138,13 @@ fn uuid(
         }
         3 => {
             let (namespace, name) = get_namespace_and_name(engine_state, stack, call, span)?;
-            let uuid = Uuid::new_v3(&namespace, name.as_bytes());
+            // Same as `Uuid::new_v3`, but hashed with the `md-5` crate that `hash md5`
+            // already uses, so uuid doesn't pull in a second copy of the RustCrypto stack.
+            let digest = md5::Md5::new()
+                .chain_update(namespace.as_bytes())
+                .chain_update(name.as_bytes())
+                .finalize();
+            let uuid = uuid::Builder::from_md5_bytes(digest.into()).into_uuid();
             uuid.hyphenated().to_string()
         }
         4 => {
