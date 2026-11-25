@@ -102,6 +102,7 @@ impl Command for UMask {
                     call_span: call.head,
                 })?;
 
+            let _guard = lock_umask();
             nix::sys::stat::umask(mask).bits()
         } else {
             get_umask() as mode_t
@@ -130,20 +131,22 @@ impl Command for UMask {
     }
 }
 
-/// Returns the umask for the current process
-pub fn get_umask() -> u32 {
-    // uucore::more::get_umask isn't threadsafe, see:
-    // https://github.com/uutils/coreutils/blob/8bb31eeab9abe1c73ac5c03f3930d6e25854e4f2/src/uucore/src/lib/features/mode.rs#L172-L196
-    //
-    // This lock attempts to fake it.
+/// Serializes the `umask` command's writes with [`get_umask`].
+///
+/// Reading the umask means setting it to 0 and back, so a write that lands in between reports
+/// 0 as the previous mask and is then undone. uucore's `get_umask` has a lock of its own, but
+/// it is private, so setting the mask can't take it. That leaves one gap: the uutils commands
+/// (`cp`, `mkdir`) read the umask under uucore's lock alone and can still race a write.
+fn lock_umask() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _guard = match LOCK.lock() {
-        Ok(g) => g,
-        Err(e) => {
-            log::warn!("umask lock poisoned. Recovering.");
-            e.into_inner()
-        }
-    };
+    LOCK.lock().unwrap_or_else(|poisoned| {
+        log::warn!("umask lock poisoned. Recovering.");
+        poisoned.into_inner()
+    })
+}
 
+/// Returns the umask for the current process.
+pub fn get_umask() -> u32 {
+    let _guard = lock_umask();
     uucore::mode::get_umask()
 }

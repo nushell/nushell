@@ -9,6 +9,10 @@ const UPPERCASE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERCASE: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 const NUMBERS: &[u8] = b"0123456789";
 const SYMBOLS: &[u8] = b"!@#$%^&*()_+-=[]{}|;':\",.<>/?`~";
+/// Left out unless `--include-ambiguous` is given.
+const AMBIGUOUS: &[u8] = b"O0l1";
+/// Left out unless `--include-similar` is given.
+const SIMILAR: &[u8] = b"il1";
 
 #[derive(Clone)]
 pub struct RandomPass;
@@ -34,12 +38,12 @@ impl Command for RandomPass {
             .switch("no-symbols", "Exclude symbols like !@#$%.", Some('s'))
             .switch(
                 "include-ambiguous",
-                "Include ambiguous characters O, 0, l, 1.",
+                "Include ambiguous characters O, 0, l, 1, which are left out by default.",
                 None,
             )
             .switch(
                 "include-similar",
-                "Include similar characters i, l, 1.",
+                "Include similar characters i, l, 1, which are left out by default.",
                 None,
             )
             .switch(
@@ -67,46 +71,69 @@ impl Command for RandomPass {
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
-        let chars: Option<i64> = call.get_flag(engine_state, stack, "chars")?;
+        let chars: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "chars")?;
         let no_uppercase = call.has_flag(engine_state, stack, "no-uppercase")?;
         let no_lowercase = call.has_flag(engine_state, stack, "no-lowercase")?;
         let no_numbers = call.has_flag(engine_state, stack, "no-numbers")?;
         let no_symbols = call.has_flag(engine_state, stack, "no-symbols")?;
         let require_each_type = call.has_flag(engine_state, stack, "require-each-type")?;
-        // `--include-ambiguous` and `--include-similar` are still parsed and type-checked, but
-        // they don't change the character sets, as in earlier releases.
-        let _ = call.has_flag(engine_state, stack, "include-ambiguous")?;
-        let _ = call.has_flag(engine_state, stack, "include-similar")?;
+        let include_ambiguous = call.has_flag(engine_state, stack, "include-ambiguous")?;
+        let include_similar = call.has_flag(engine_state, stack, "include-similar")?;
 
-        let length = chars.map(|c| c as usize).unwrap_or(DEFAULT_PASSWORD_LENGTH);
-        let sets: Vec<&[u8]> = [
+        let keep = |c: &u8| {
+            let ambiguous = AMBIGUOUS.contains(c);
+            let similar = SIMILAR.contains(c);
+            !(ambiguous || similar)
+                || (ambiguous && include_ambiguous)
+                || (similar && include_similar)
+        };
+        let sets: Vec<Vec<u8>> = [
             (!no_uppercase, UPPERCASE),
             (!no_lowercase, LOWERCASE),
             (!no_numbers, NUMBERS),
             (!no_symbols, SYMBOLS),
         ]
         .into_iter()
-        .filter_map(|(enabled, set)| enabled.then_some(set))
+        .filter(|(enabled, _)| *enabled)
+        .map(|(_, set)| set.iter().copied().filter(keep).collect())
         .collect();
 
-        let error = |msg: &'static str| {
+        let error = |msg: &'static str, span: Span| {
             ShellError::Generic(GenericError::new("Password generation failed", msg, span))
         };
-        if length == 0 {
-            return Err(error("Password length must be greater than 0"));
-        }
-        if length > MAX_PASSWORD_LENGTH {
-            return Err(error("Password length must be less than or equal to 128"));
-        }
+        let length = match chars {
+            None => DEFAULT_PASSWORD_LENGTH,
+            // A negative length fails the conversion and is reported like 0.
+            Some(chars) => match usize::try_from(chars.item) {
+                Ok(0) | Err(_) => {
+                    return Err(error("Password length must be greater than 0", chars.span));
+                }
+                Ok(length) if length > MAX_PASSWORD_LENGTH => {
+                    return Err(error(
+                        "Password length must be less than or equal to 128",
+                        chars.span,
+                    ));
+                }
+                Ok(length) => length,
+            },
+        };
         if require_each_type && sets.len() < 4 {
             return Err(error(
                 "Invalid password configuration: You've enabled `require_each_type`, but have \
                  also excluded one or more character sets.",
+                span,
+            ));
+        }
+        if require_each_type && length < sets.len() {
+            return Err(error(
+                "Password length must be at least 4 to include each character type",
+                span,
             ));
         }
         if sets.is_empty() {
             return Err(error(
                 "Invalid password configuration: At least one character type must be included.",
+                span,
             ));
         }
 
@@ -144,17 +171,19 @@ impl Command for RandomPass {
     }
 }
 
-/// Builds a password from `sets`, each of which must be non-empty.
+/// Builds a password of `length` characters from `sets`, each of which must be non-empty.
 ///
-/// The password starts with one character from every set, so it is longer than `length` when
-/// `length` is less than the number of sets. The rest comes from all sets combined, and the
-/// result is shuffled.
-fn generate_password(length: usize, sets: &[&[u8]]) -> String {
+/// When `length` leaves room for it, the password starts with one character from every set.
+/// The rest comes from all sets combined, and the result is shuffled.
+fn generate_password(length: usize, sets: &[Vec<u8>]) -> String {
     let mut rng = rand::rng();
-    let mut password: Vec<u8> = sets
-        .iter()
-        .filter_map(|set| set.choose(&mut rng).copied())
-        .collect();
+    let mut password: Vec<u8> = if length >= sets.len() {
+        sets.iter()
+            .filter_map(|set| set.choose(&mut rng).copied())
+            .collect()
+    } else {
+        Vec::with_capacity(length)
+    };
     let all: Vec<u8> = sets.concat();
     for _ in password.len()..length {
         password.extend(all.choose(&mut rng));

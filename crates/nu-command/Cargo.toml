@@ -240,7 +240,6 @@ native-tls = ["dep:native-tls", "ureq/native-tls"]
 rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:rustls",
-
 	"nu-test-support/rustls-tls",
 	"ureq/rustls",
 ]
@@ -261,6 +260,4 @@ pretty_assertions = { workspace = true }
 rand_chacha = { workspace = true }
 rstest = { workspace = true, default-features = false }
 rstest_reuse = { workspace = true }
-# The tests check `random uuid -v 3` against uuid's own `new_v3`.
-uuid = { workspace = true, features = ["v3"] }
 tempfile = { workspace = true }

@@ -4,6 +4,10 @@
 /// function from interleaving, but another thread that changes the umask at the same time
 /// can still race it.
 #[deprecated(note = "use `nu_command::get_umask`, which also coordinates with the uutils commands")]
+#[allow(
+    clippy::useless_conversion,
+    reason = "mode_t is u32 on Linux but u16 on macOS"
+)]
 pub fn get_umask() -> u32 {
     use nix::sys::stat::{Mode, umask};
 
@@ -71,8 +75,13 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn get_umask_restores_the_umask() {
-        // A second read would return 0 if the first one didn't put the umask back.
-        let first = super::get_umask();
-        assert_eq!(first, super::get_umask());
+        use nix::sys::stat::{Mode, umask};
+
+        // Start from a known non-zero mask: a second read would return 0 if the first one
+        // didn't put the umask back, but only if the mask wasn't 0 to begin with.
+        let original = umask(Mode::from_bits_truncate(0o027));
+        let reads = [super::get_umask(), super::get_umask()];
+        umask(original);
+        assert_eq!(reads, [0o027, 0o027]);
     }
 }

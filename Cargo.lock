@@ -8192,9 +8192,9 @@ dependencies = [
 
 [[package]]
 name = "serde-saphyr"
-version = "2.2.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "969cde0349344dbbf58b5f9badbfb8f806db13969364eb8007c057ef687007d9"
+checksum = "d43fb82d550b07e6f929a58d7d0935182602f48ddead875f5ee313c41c8f07fe"
 dependencies = [
  "annotate-snippets",
  "base64 0.23.1",
@@ -9840,7 +9840,6 @@ dependencies = [
  "atomic",
  "getrandom 0.4.2",
  "js-sys",
- "md-5 0.10.6",
  "serde_core",
  "sha1_smol",
  "wasm-bindgen",

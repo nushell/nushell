@@ -99,6 +99,7 @@ pub struct ParseOptions {
 impl ParseOptions {
     /// Sets [`keep_styles`](Self::keep_styles).
     #[must_use]
+    #[deprecated = "not implemented yet"]
     #[allow(deprecated)]
     pub fn with_keep_styles(mut self, value: bool) -> Self {
         self.keep_styles = value;
