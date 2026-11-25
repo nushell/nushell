@@ -523,3 +523,16 @@ fn help_flag_is_reserved() -> Result {
         .run("def f [--host (-h)] { $host }; f -h")
         .expect_value_eq(true)
 }
+
+// A trailing `:` after the signature starts an input/output type annotation. When
+// the type is missing (e.g. written on the next line, which isn't part of the
+// signature), the error should point at the dangling colon instead of reporting a
+// bogus "unclosed ] or )". Regression test for #13926.
+#[rstest]
+#[case("def hello []:\n  nothing -> string { \"hi\" }")]
+#[case("def hello [x]:\n  int -> int { $x }")]
+#[case("def hello ():\n  nothing -> string { \"hi\" }")]
+#[case("def hello (x):\n  int -> int { $x }")]
+fn def_dangling_type_colon(#[case] input: &str) -> TestResult {
+    fail_test(input, "a type after ':'")
+}
