@@ -304,6 +304,8 @@ pub enum Instruction {
     /// Mark the `finally` handler on top of the handler stack as running, on the way into its
     /// block from the `try`/`catch` fall-through path. The unwinder does this itself when it
     /// enters a `finally` block, so `index` of `finally` points just past this instruction.
+    /// A pending interrupt is raised before the marker is set, so it unwinds through the
+    /// `finally` block instead of interrupting it.
     BeginFinally,
     /// Leave a `finally` block: pops its running marker and, if the block was entered by
     /// unwinding (an error, `return`, `exit`, `break`, or `continue`), resumes that unwinding.
@@ -315,7 +317,8 @@ pub enum Instruction {
     /// Unlike `return`, this runs pending `finally` handlers first (collecting the value in that
     /// case, like the `try-collect` on the fall-through path), and flags the result as an early
     /// return. Custom command and closure calls clear that flag; only top-level file evaluation
-    /// reads it, to skip `main`.
+    /// reads it, to skip `main`. A pending interrupt is raised instead of returning, as `return`
+    /// does, so it unwinds through those `finally` handlers as an error.
     ReturnEarly { src: RegId },
     /// Return from the block with the value in the register
     Return { src: RegId },
@@ -453,7 +456,12 @@ impl Instruction {
         Ok(())
     }
 
-    /// Check for an interrupt before certain instructions
+    /// Check for an interrupt before certain instructions.
+    ///
+    /// `begin-finally` and `return-early` check before control enters a `finally` block, so an
+    /// interrupt that arrived while the `try` body ran (for example, an external command that
+    /// handles SIGINT itself and exits 0) unwinds into that `finally` handler as an error: the
+    /// `finally` block runs, and the interrupt is raised after it.
     pub fn check_interrupt(
         &self,
         engine_state: &EngineState,
@@ -462,6 +470,8 @@ impl Instruction {
         match self {
             Instruction::Jump { .. }
             | Instruction::UnwindJump { .. }
+            | Instruction::BeginFinally
+            | Instruction::ReturnEarly { .. }
             | Instruction::Return { .. } => engine_state.signals().check(span),
             _ => Ok(()),
         }

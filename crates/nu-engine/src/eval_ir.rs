@@ -547,6 +547,18 @@ fn unwind_through_handlers(ctx: &mut EvalContext<'_>, mut unwind: Unwind, span: 
                         Err(err) => Unwind::Error(err.into_spanned(span)),
                     };
                 }
+                // An external that handles Ctrl-C itself, like `ssh`, can fail because of it
+                // while the interrupt is still pending. The interrupt wins over that failure, as
+                // it does when such an external exits 0: `finally` runs with it cleared, and it is
+                // raised afterwards. Only `finally` does this; `catch` would swallow the Ctrl-C.
+                if let Unwind::Error(err) | Unwind::ErrorValue { error: err, .. } = &unwind
+                    && !matches!(err.item, ShellError::Exit { .. })
+                    && !err.item.is_interrupt()
+                    && ctx.engine_state.signals().interrupted()
+                {
+                    let span = err.span;
+                    unwind = Unwind::Error(ShellError::Interrupted { span }.into_spanned(span));
+                }
                 // The block gets to see the error that led to it (but not `exit`), otherwise
                 // its register is set to empty.
                 let error = match &unwind {
