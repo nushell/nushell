@@ -18,14 +18,15 @@ fn make_csv_error(error: csv::Error, format_name: &str, head: Span) -> ShellErro
     }
 }
 
-fn to_string_tagged_value(
-    v: &Value,
+/// The text of one cell. Strings are borrowed, so most cells cost no allocation.
+fn to_string_tagged_value<'a>(
+    v: &'a Value,
     config: &Config,
     format_name: &'static str,
-) -> Result<String, ShellError> {
+) -> Result<Cow<'a, str>, ShellError> {
     match &v {
-        Value::String { .. }
-        | Value::Bool { .. }
+        Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+        Value::Bool { .. }
         | Value::Int { .. }
         | Value::Duration { .. }
         | Value::Binary { .. }
@@ -33,8 +34,8 @@ fn to_string_tagged_value(
         | Value::Filesize { .. }
         | Value::CellPath { .. }
         | Value::Float { .. }
-        | Value::Date { .. } => Ok(v.to_expanded_string(", ", config)),
-        Value::Nothing { .. } => Ok(String::new()),
+        | Value::Date { .. } => Ok(Cow::Owned(v.to_expanded_string(", ", config))),
+        Value::Nothing { .. } => Ok(Cow::Borrowed("")),
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(make_cant_convert_error(v, format_name)),
@@ -172,7 +173,10 @@ fn current_stream_columns<'a>(
     }
 }
 
-/// Helper function to write a single row to CSV
+/// Helper function to write a single row to CSV.
+///
+/// Every cell is converted before the first one is written, so a cell that can't be converted
+/// leaves no partial row behind in the writer's buffer.
 fn write_csv_row(
     wtr: &mut csv::Writer<&mut Vec<u8>>,
     record: &nu_protocol::Record,
@@ -182,12 +186,15 @@ fn write_csv_row(
     head: Span,
     escape: Option<u8>,
 ) -> Result<(), ShellError> {
-    for column in columns {
-        let field = record
-            .get(column)
-            .map(|v| to_string_tagged_value(v, config, format_name))
-            .unwrap_or(Ok(String::new()))?;
-        wtr.write_field(escape_delimited_field(&field, escape).as_bytes())
+    let fields = columns
+        .iter()
+        .map(|column| match record.get(column) {
+            Some(v) => to_string_tagged_value(v, config, format_name),
+            None => Ok(Cow::Borrowed("")),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    for field in &fields {
+        wtr.write_field(escape_delimited_field(field, escape).as_bytes())
             .map_err(|err| make_csv_error(err, format_name, head))?;
     }
     wtr.write_record(iter::empty::<String>())
@@ -298,12 +305,17 @@ pub fn to_delimited_data(
         };
         let mut iter = input.into_iter();
         let mut header_written = noheaders; // If noheaders is true, consider it already written
+        // A row that fails after other rows of its chunk were written, reported on the next call.
+        let mut pending_error = None;
 
         let stream = ByteStream::from_fn(
             head,
             Signals::empty(),
             ByteStreamType::String,
             move |buffer| {
+                if let Some(err) = pending_error.take() {
+                    return Err(err);
+                }
                 let mut wtr = builder.from_writer(buffer);
 
                 // Write header once if not already written
@@ -312,24 +324,39 @@ pub fn to_delimited_data(
                     header_written = true;
                 }
 
-                if let Some(row) = iter.next() {
-                    if let Value::Error { error, .. } = &row {
-                        return Err(*error.clone());
+                // The rows are already in memory, so keep writing until the csv writer's own
+                // buffer spills into `buffer`. A chunk per row would cost a write (a syscall in
+                // `save`) per row.
+                let mut wrote_row = false;
+                for row in iter.by_ref() {
+                    let written = match row {
+                        Value::Error { error, .. } => Err(*error),
+                        row => row.into_record().and_then(|record| {
+                            write_csv_row(
+                                &mut wtr,
+                                &record,
+                                &columns,
+                                &config,
+                                format_name,
+                                head,
+                                escape,
+                            )
+                        }),
+                    };
+                    match written {
+                        Ok(()) => wrote_row = true,
+                        // Hand out the rows before it first, as when each row was its own chunk.
+                        Err(err) if wrote_row => {
+                            pending_error = Some(err);
+                            break;
+                        }
+                        Err(err) => return Err(err),
                     }
-                    let record = row.into_record()?;
-                    write_csv_row(
-                        &mut wtr,
-                        &record,
-                        &columns,
-                        &config,
-                        format_name,
-                        head,
-                        escape,
-                    )?;
-                    Ok(true)
-                } else {
-                    Ok(false)
+                    if !wtr.get_ref().is_empty() {
+                        break;
+                    }
                 }
+                Ok(wrote_row)
             },
         );
         return Ok(PipelineData::byte_stream(stream, metadata));
@@ -431,4 +458,66 @@ pub fn to_delimited_data(
     );
 
     Ok(PipelineData::byte_stream(stream, metadata))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::{Record, shell_error::bridge::ShellErrorBridge};
+    use std::io::Read;
+
+    fn to_csv(rows: Vec<Value>) -> nu_protocol::ByteStream {
+        let span = Span::test_data();
+        let args = ToDelimitedDataArgs {
+            noheaders: false,
+            separator: Spanned { item: ',', span },
+            quote: Spanned { item: '"', span },
+            escape: None,
+            columns: None,
+            format_name: "CSV",
+            input: PipelineData::value(Value::test_list(rows), None),
+            head: span,
+            content_type: None,
+        };
+        match to_delimited_data(args, Arc::new(Config::default())) {
+            Ok(PipelineData::ByteStream(stream, ..)) => stream,
+            _ => panic!("to csv makes a byte stream"),
+        }
+    }
+
+    fn row(i: i64) -> Value {
+        let mut record = Record::new();
+        record.push("a", Value::test_int(i));
+        record.push("b", Value::test_string("some text to fill the chunks"));
+        Value::test_record(record)
+    }
+
+    #[test]
+    fn rows_before_a_bad_row_are_still_written() {
+        // Enough rows for several chunks, so the bad row lands in a later one.
+        let good: Vec<Value> = (0..2000).map(row).collect();
+        let mut bad = Record::new();
+        bad.push("a", Value::test_list(vec![Value::test_int(1)]));
+        let mut rows = good.clone();
+        rows.push(Value::test_record(bad));
+
+        let mut expected = String::new();
+        to_csv(good)
+            .reader()
+            .expect("has a reader")
+            .read_to_string(&mut expected)
+            .expect("good rows write");
+
+        let mut written = Vec::new();
+        let err = to_csv(rows)
+            .reader()
+            .expect("has a reader")
+            .read_to_end(&mut written)
+            .expect_err("the bad row fails");
+        assert_eq!(String::from_utf8_lossy(&written), expected);
+        assert!(matches!(
+            ShellErrorBridge::try_from(err),
+            Ok(ShellErrorBridge(ShellError::CantConvert { .. }))
+        ));
+    }
 }

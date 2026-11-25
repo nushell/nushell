@@ -106,27 +106,27 @@ pub(crate) fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value
     }
 }
 
-fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
+/// Converts a parsed TOML value, moving its strings and keys instead of copying them.
+fn convert_toml_to_value(value: toml::Value, span: Span) -> Value {
     match value {
-        toml::Value::Array(array) => {
-            let v: Vec<Value> = array
-                .iter()
+        toml::Value::Array(array) => Value::list(
+            array
+                .into_iter()
                 .map(|x| convert_toml_to_value(x, span))
-                .collect();
-
-            Value::list(v, span)
-        }
-        toml::Value::Boolean(b) => Value::bool(*b, span),
-        toml::Value::Float(f) => Value::float(*f, span),
-        toml::Value::Integer(i) => Value::int(*i, span),
-        toml::Value::Table(k) => Value::record(
-            k.iter()
-                .map(|(k, v)| (k.clone(), convert_toml_to_value(v, span)))
                 .collect(),
             span,
         ),
-        toml::Value::String(s) => Value::string(s.clone(), span),
-        toml::Value::Datetime(dt) => convert_toml_datetime_to_value(dt, span),
+        toml::Value::Boolean(b) => Value::bool(b, span),
+        toml::Value::Float(f) => Value::float(f, span),
+        toml::Value::Integer(i) => Value::int(i, span),
+        toml::Value::Table(k) => Value::record(
+            k.into_iter()
+                .map(|(k, v)| (k, convert_toml_to_value(v, span)))
+                .collect(),
+            span,
+        ),
+        toml::Value::String(s) => Value::string(s, span),
+        toml::Value::Datetime(dt) => convert_toml_datetime_to_value(&dt, span),
     }
 }
 
@@ -136,7 +136,7 @@ pub(crate) fn convert_string_to_value(
 ) -> Result<Value, ShellError> {
     let result: Result<toml::Value, toml::de::Error> = toml::from_str(&string_input);
     match result {
-        Ok(value) => Ok(convert_toml_to_value(&value, span)),
+        Ok(value) => Ok(convert_toml_to_value(value, span)),
 
         Err(err) => Err(ShellError::CantConvert {
             to_type: "structured toml data".into(),
@@ -184,7 +184,7 @@ mod tests {
             Span::test_data(),
         );
 
-        let result = convert_toml_to_value(&toml_date, span);
+        let result = convert_toml_to_value(toml_date, span);
 
         //positive test (from toml returns a nushell date)
         assert_eq!(result, reference_date);
