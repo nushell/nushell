@@ -84,3 +84,35 @@ fn for_with_non_block_body_errors_without_panic(#[case] src: &str) -> Result {
     assert_matches!(err, CompileError::InvalidKeywordCall { .. });
     Ok(())
 }
+
+#[rstest]
+#[case::record(
+    "for {$name, $n} in [[name n]; [a 1] [b 2]] { $out ++= [$\"($name)($n)\"] }",
+    test_value!(["a1", "b2"])
+)]
+#[case::list("for [$k, $v] in [[a 1] [b 2]] { $out ++= [$\"($k)($v)\"] }", test_value!(["a1", "b2"]))]
+#[case::enumerate(
+    "for {$index, $item} in ([x y] | enumerate) { $out ++= [$\"($index)($item)\"] }",
+    test_value!(["0x", "1y"])
+)]
+fn for_destructures(#[case] body: &str, #[case] expected: Value) -> Result {
+    test()
+        .run(format!("mut out = []; {body}; $out"))
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn for_destructure_mismatch() -> Result {
+    let err = test()
+        .run("for [$a, $b] in [[1 2] [3]] { }")
+        .expect_shell_error()?;
+    assert_matches!(err, ShellError::PatternMismatch { msg, .. } if msg == "list has 1 item, the pattern takes 2");
+    Ok(())
+}
+
+#[test]
+fn for_destructure_type_mismatch() -> Result {
+    test()
+        .run("for {$a} in [1 2] { }")
+        .expect_error_code_eq("nu::parser::type_mismatch")
+}

@@ -26,7 +26,7 @@ pub use crate::parse_literals::{
 pub(crate) use crate::parse_signatures::ensure_not_reserved_variable_name;
 pub use crate::parse_signatures::{
     expand_to_cell_path, parse_full_signature, parse_import_pattern, parse_row_condition,
-    parse_signature, parse_signature_helper, parse_var_with_opt_type,
+    parse_signature, parse_var_with_opt_type,
 };
 
 // Re-exports from parse_expressions

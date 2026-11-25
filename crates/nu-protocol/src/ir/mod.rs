@@ -276,6 +276,10 @@ pub enum Instruction {
         src: RegId,
         index: usize,
     },
+    /// Bind the variables of a destructuring pattern, as in `let {$name} = $record`, from the
+    /// collected value in `src`. Raises [`PatternMismatch`](crate::ShellError::PatternMismatch)
+    /// if the value doesn't fit. The value is preserved in `src`.
+    Destructure { pattern: Box<Pattern>, src: RegId },
     /// Check that a match guard is a boolean, throwing
     /// [`MatchGuardNotBool`](crate::ShellError::MatchGuardNotBool) if it isn't. Preserves `src`.
     CheckMatchGuard { src: RegId },
@@ -387,6 +391,7 @@ impl Instruction {
             Instruction::BranchIf { .. } => None,
             Instruction::BranchIfEmpty { .. } => None,
             Instruction::Match { .. } => None,
+            Instruction::Destructure { .. } => None,
             Instruction::CheckMatchGuard { .. } => None,
             Instruction::Iterate { dst, .. } => Some(dst),
             Instruction::OnError { .. } => None,

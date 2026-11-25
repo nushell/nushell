@@ -99,6 +99,9 @@ pub fn discover_captures_in_closure(
             seen.push(var_id);
         }
     }
+    for (_, pattern) in &block.parameter_patterns {
+        discover_captures_in_pattern(pattern, seen);
+    }
 
     for positional in &block.signature.required_positional {
         if let Some(var_id) = positional.var_id {
@@ -180,8 +183,10 @@ fn see_sourced_variables(
             continue;
         };
         for arg in call.positional_iter() {
-            if let Expr::VarDecl(var_id) = arg.expr {
-                seen.push(var_id);
+            match &arg.expr {
+                Expr::VarDecl(var_id) => seen.push(*var_id),
+                Expr::Pattern(pattern) => discover_captures_in_pattern(pattern, seen),
+                _ => {}
             }
         }
         if let Some(nested) = parser_info_block_id(call) {
@@ -306,7 +311,12 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut SeenVars)
             }
         }
         Pattern::Rest(var_id) => seen.push(*var_id),
-        Pattern::Value(_) | Pattern::IgnoreValue | Pattern::IgnoreRest | Pattern::Garbage => {}
+        Pattern::Optional { pattern, .. } => discover_captures_in_pattern(pattern, seen),
+        Pattern::Value(_)
+        | Pattern::Interval { .. }
+        | Pattern::IgnoreValue
+        | Pattern::IgnoreRest
+        | Pattern::Garbage => {}
     }
 }
 
@@ -321,23 +331,24 @@ fn assigned_mutable_capture(
         let Expr::BinaryOp(lhs, op, _) = &expr.expr else {
             return ControlFlow::Continue(());
         };
-        let target = match &lhs.expr {
-            Expr::Var(var_id) => Some(*var_id),
+        let targets = match &lhs.expr {
+            Expr::Var(var_id) => vec![*var_id],
             Expr::FullCellPath(path) => match path.head.expr {
-                Expr::Var(var_id) => Some(var_id),
-                _ => None,
+                Expr::Var(var_id) => vec![var_id],
+                _ => vec![],
             },
-            _ => None,
+            Expr::AssignmentPattern(pattern) => pattern.variables(),
+            _ => vec![],
         };
-        match target {
-            Some(var_id)
-                if matches!(op.expr, Expr::Operator(Operator::Assignment(_)))
-                    && captures.iter().any(|(captured, _)| *captured == var_id)
-                    && working_set.get_variable(var_id).mutable =>
-            {
-                ControlFlow::Break(Some(lhs.span))
-            }
-            _ => ControlFlow::Continue(()),
+        let assigns_capture = matches!(op.expr, Expr::Operator(Operator::Assignment(_)))
+            && targets.iter().any(|var_id| {
+                captures.iter().any(|(captured, _)| captured == var_id)
+                    && working_set.get_variable(*var_id).mutable
+            });
+        if assigns_capture {
+            ControlFlow::Break(Some(lhs.span))
+        } else {
+            ControlFlow::Continue(())
         }
     })
 }
@@ -600,6 +611,15 @@ pub fn discover_captures_in_expr(
         }
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
+        }
+        Expr::Pattern(pattern) => discover_captures_in_pattern(pattern, seen),
+        // An assignment uses the variables it assigns, like `$x = ...`.
+        Expr::AssignmentPattern(pattern) => {
+            for var_id in pattern.variables() {
+                if var_id > LAST_VARIABLE_ID && !seen.contains(&var_id) {
+                    output.push((var_id, expr.span));
+                }
+            }
         }
     }
     Ok(())

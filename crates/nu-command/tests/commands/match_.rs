@@ -44,6 +44,26 @@ fn record_shorthand() -> Result {
         .expect_value_eq(12)
 }
 
+#[rstest]
+#[case::double_quotes(r#"match {"a b": 1} { {"a b": $x} => $x }"#)]
+#[case::single_quotes("match {'a b': 1} { {'a b': $x} => $x }")]
+#[case::backticks("match {`a b`: 1} { {`a b`: $x} => $x }")]
+#[case::escape(r#"match {"a\tb": 1} { {"a\tb": $x} => $x }"#)]
+#[case::quoted_bare_word(r#"match {a: 1} { {"a": $x} => $x }"#)]
+fn record_quoted_key(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn or_pattern_binds_null_for_unmatched_side() -> Result {
+    let code = "
+        match [1] {
+            [$a, $b] | [$a] => { [$a, $b] }
+        }
+    ";
+    test().run(code).expect_value_eq(test_value!([1, ()]))
+}
+
 #[test]
 fn list() -> Result {
     test()
@@ -362,4 +382,55 @@ fn match_paren_expression_non_const_errors() -> Result {
 
     assert_contains("not a parse-time constant", err.to_string());
     Ok(())
+}
+
+#[rstest]
+#[case::missing_field("match {a: 1} { {$a, $b?} => [$a $b] }", test_value!([1, ()]))]
+#[case::variable_with_question_mark("match {a: 1} { {a: $x?} => $x }", test_value!(1))]
+#[case::missing_item("match [1] { [$x, $y?] => [$x $y] }", test_value!([1, ()]))]
+#[case::top_level_null("match null { {a: $x}? => [$x], _ => 'no' }", test_value!([()]))]
+#[case::bare_word_is_string("match 'foo?' { foo? => 'yes', _ => 'no' }", test_value!("yes"))]
+#[case::record_rest("match {a: 1, b: 2} { {$a, ..$r} => $r }", test_value!({b: 2}))]
+#[case::optional_wrong_shape_falls_through(
+    "match {a: 5} { {a: {$b}?} => 'first', _ => 'second' }",
+    test_value!("second")
+)]
+fn match_optional_and_record_rest(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn match_record_default() -> Result {
+    test()
+        .run("match {a: 1} { {$a, $b = 9} => [$a $b] }")
+        .expect_value_eq(test_value!([1, 9]))
+}
+
+#[rstest]
+#[case::bare_equals("match [a '=' b] { [$k, =, $v] => [$k $v] }", test_value!(["a", "b"]))]
+#[case::quoted_equals("match [a '=' b] { [$k, '=', $v] => [$k $v] }", test_value!(["a", "b"]))]
+fn match_list_equals_is_a_string(#[case] code: &str, #[case] expected: Value) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::float_in_int_range("match 3.5 { 1..5 => true, _ => false }", true)]
+#[case::float_range("match 1.5 { 1.0..2.0 => true, _ => false }", true)]
+#[case::stepped("match 2 { 1..3..9 => true, _ => false }", true)]
+#[case::stepped_float("match 2.5 { 1.0..1.5..3.0 => true, _ => false }", true)]
+#[case::open_start("match (-3) { ..0 => true, _ => false }", true)]
+#[case::open_start_above("match 1 { ..0 => true, _ => false }", false)]
+#[case::open_end("match 100 { 1.. => true, _ => false }", true)]
+#[case::descending("match 3 { 5..1 => true, _ => false }", true)]
+#[case::descending_exclusive_end("match 1 { 5..<1 => true, _ => false }", false)]
+#[case::exclusive_end("match 5 { 1..<5 => true, _ => false }", false)]
+#[case::not_a_number("match '3' { 1..5 => true, _ => false }", false)]
+#[case::large_ints(
+    "match 9007199254740993 { 9007199254740992..9007199254740992 => true, _ => false }",
+    false
+)]
+#[case::parenthesized("match 3.5 { (1..5) => true, _ => false }", true)]
+#[case::nested("match [3.5] { [1..5] => true, _ => false }", true)]
+fn range_is_interval(#[case] code: &str, #[case] expected: bool) -> Result {
+    test().run(code).expect_value_eq(expected)
 }

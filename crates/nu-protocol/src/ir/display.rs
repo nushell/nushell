@@ -1,6 +1,9 @@
 use super::{DataSlice, Instruction, IrBlock, Literal, RedirectMode};
 use crate::{DeclId, VarId, ast::Pattern, engine::EngineState};
-use std::fmt::{self};
+use std::{
+    fmt::{self},
+    ops::Bound,
+};
 
 pub struct FmtIrBlock<'a> {
     pub(super) engine_state: &'a EngineState,
@@ -263,6 +266,13 @@ impl fmt::Display for FmtInstruction<'_> {
                 };
                 write!(f, "{:WIDTH$} ({pattern}), {src}, {index}", "match")
             }
+            Instruction::Destructure { pattern, src } => {
+                let pattern = FmtPattern {
+                    engine_state: self.engine_state,
+                    pattern,
+                };
+                write!(f, "{:WIDTH$} ({pattern}), {src}", "destructure")
+            }
             Instruction::CheckMatchGuard { src } => {
                 write!(f, "{:WIDTH$} {src}", "check-match-guard")
             }
@@ -433,15 +443,16 @@ impl fmt::Display for FmtPattern<'_> {
                     if index > 0 {
                         f.write_str(", ")?;
                     }
-                    write!(
-                        f,
-                        "{}: {}",
-                        name,
-                        FmtPattern {
-                            engine_state: self.engine_state,
-                            pattern: &pattern.pattern,
-                        }
-                    )?;
+                    let pattern = FmtPattern {
+                        engine_state: self.engine_state,
+                        pattern: &pattern.pattern,
+                    };
+                    // A `..$rest` entry has no field name.
+                    if matches!(pattern.pattern, Pattern::Rest(_)) {
+                        write!(f, "{pattern}")?;
+                    } else {
+                        write!(f, "{name}: {pattern}")?;
+                    }
                 }
                 f.write_str("}")
             }
@@ -464,6 +475,22 @@ impl fmt::Display for FmtPattern<'_> {
             }
             Pattern::Value(value) => {
                 f.write_str(&value.to_parsable_string(", ", &self.engine_state.config))
+            }
+            Pattern::Interval { low, high } => {
+                let config = &self.engine_state.config;
+                match low {
+                    Bound::Included(low) => f.write_str(&low.to_parsable_string(", ", config))?,
+                    Bound::Excluded(low) => write!(f, ">{}", low.to_parsable_string(", ", config))?,
+                    Bound::Unbounded => {}
+                }
+                f.write_str("..")?;
+                match high {
+                    Bound::Included(high) => f.write_str(&high.to_parsable_string(", ", config)),
+                    Bound::Excluded(high) => {
+                        write!(f, "<{}", high.to_parsable_string(", ", config))
+                    }
+                    Bound::Unbounded => Ok(()),
+                }
             }
             Pattern::Variable(var_id) => {
                 let variable = FmtVar::new(self.engine_state, *var_id);
@@ -488,6 +515,20 @@ impl fmt::Display for FmtPattern<'_> {
             Pattern::Rest(var_id) => {
                 let variable = FmtVar::new(self.engine_state, *var_id);
                 write!(f, "..{variable}")
+            }
+            Pattern::Optional { pattern, default } => {
+                let pattern = FmtPattern {
+                    engine_state: self.engine_state,
+                    pattern: &pattern.pattern,
+                };
+                match default {
+                    Some(default) => write!(
+                        f,
+                        "{pattern} = {}",
+                        default.to_parsable_string(", ", &self.engine_state.config)
+                    ),
+                    None => write!(f, "{pattern}?"),
+                }
             }
             Pattern::IgnoreRest => f.write_str(".."),
             Pattern::IgnoreValue => f.write_str("_"),

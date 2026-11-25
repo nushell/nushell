@@ -17,15 +17,18 @@ use crate::{
         parse_where, parse_where_expr,
     },
     parse_literals::{has_range_operator, is_unmatched_paren},
-    parse_patterns::parse_pattern,
+    parse_patterns::{
+        annotate_binding, check_assignment_types, parse_assignment_pattern, parse_pattern,
+    },
     parse_pipelines::{parse_block, parse_pipeline_element, redirecting_builtin_error},
+    parse_signatures::parse_closure_signature,
     parser::{
         compile_block, expand_to_cell_path, parse_binary, parse_brace_expr, parse_call,
         parse_datetime, parse_directory, parse_dollar_expr, parse_duration, parse_filepath,
         parse_filesize, parse_float, parse_full_cell_path, parse_glob_pattern, parse_int,
         parse_multispan_value, parse_number, parse_oneof, parse_paren_expr, parse_range,
-        parse_raw_string, parse_regular_external_arg, parse_signature, parse_signature_helper,
-        parse_simple_cell_path, parse_string, parse_string_strict,
+        parse_raw_string, parse_regular_external_arg, parse_signature, parse_simple_cell_path,
+        parse_string, parse_string_strict,
     },
     type_check::{math_result_type, negation_type},
 };
@@ -832,6 +835,8 @@ pub fn parse_closure_expression(
 
     working_set.enter_scope();
 
+    let mut parameter_patterns = vec![];
+
     // Check to see if we have parameters
     let (signature, amt_to_skip): (Option<(Box<Signature>, Span)>, usize) = match output.first() {
         Some(Token {
@@ -865,7 +870,14 @@ pub fn parse_closure_expression(
             };
 
             let signature_span = Span::new(start_point, end_point);
-            let signature = parse_signature_helper(working_set, signature_span, false);
+            let (signature, patterns) = parse_closure_signature(working_set, signature_span);
+            // A pattern parameter's annotation is the type of the value it takes apart, and its
+            // variables take their types from it, as in `let`.
+            for (var_id, pattern) in &patterns {
+                let ty = working_set.get_variable(*var_id).ty.clone();
+                annotate_binding(working_set, pattern, &ty, pattern.span);
+            }
+            parameter_patterns = patterns;
 
             (Some((signature, signature_span)), amt_to_skip)
         }
@@ -916,6 +928,7 @@ pub fn parse_closure_expression(
         false,
         input_type,
     );
+    output.parameter_patterns = parameter_patterns;
 
     // NOTE: closures need to be compiled eagerly due to these reasons:
     //  - their `Block`s (which contains their `IrBlock`) are stored in the working_set
@@ -1243,22 +1256,58 @@ pub fn parse_assignment_expression(
         );
     }
 
-    // Parse the lhs and operator as usual for a math expression
-    let mut lhs = parse_expression(working_set, lhs_spans, None);
-    // make sure that lhs is a mutable variable.
-    match &lhs.expr {
-        Expr::FullCellPath(p) => {
-            if let Expr::Var(var_id) = p.head.expr
-                && var_id != nu_protocol::ENV_VARIABLE_ID
-                && !working_set.get_variable(var_id).mutable
-            {
-                working_set.error(ParseError::AssignmentRequiresMutableVar(lhs.span))
-            }
+    // `[$a, $b] = [$b, $a]` and `{$x, $y} = $point` assign to existing `mut` variables.
+    let pattern_span = match lhs_spans {
+        [span]
+            if matches!(
+                working_set.get_span_contents(*span).first(),
+                Some(b'[' | b'{')
+            ) =>
+        {
+            Some(*span)
         }
-        _ => working_set.error(ParseError::AssignmentRequiresVar(lhs.span)),
-    }
+        _ => None,
+    };
+    let mut lhs = if let Some(span) = pattern_span {
+        let pattern = parse_assignment_pattern(working_set, span);
+        Expression::new(
+            working_set,
+            Expr::AssignmentPattern(Box::new(pattern)),
+            span,
+            Type::Any,
+        )
+    } else {
+        // Parse the lhs and operator as usual for a math expression
+        let lhs = parse_expression(working_set, lhs_spans, None);
+        // make sure that lhs is a mutable variable.
+        match &lhs.expr {
+            Expr::FullCellPath(p) => {
+                if let Expr::Var(var_id) = p.head.expr
+                    && var_id != nu_protocol::ENV_VARIABLE_ID
+                    && !working_set.get_variable(var_id).mutable
+                {
+                    working_set.error(ParseError::AssignmentRequiresMutableVar(lhs.span))
+                }
+            }
+            _ => working_set.error(ParseError::AssignmentRequiresVar(lhs.span)),
+        }
+        lhs
+    };
 
     let mut operator = parse_assignment_operator(working_set, op_span);
+    if pattern_span.is_some()
+        && !matches!(
+            operator.expr,
+            Expr::Operator(Operator::Assignment(Assignment::Assign))
+        )
+    {
+        working_set.error(ParseError::LabeledErrorWithHelp {
+            error: "Only `=` can assign to a pattern".into(),
+            label: "not `=`".into(),
+            help: "Update each variable on its own, as in `$a += 1`.".into(),
+            span: op_span,
+        });
+    }
 
     // Re-parse the right-hand side as a subexpression
     let rhs_span = Span::concat(rhs_spans);
@@ -1300,6 +1349,10 @@ pub fn parse_assignment_expression(
         rhs_span,
         rhs_ty,
     );
+
+    if let Expr::AssignmentPattern(pattern) = &lhs.expr {
+        check_assignment_types(working_set, pattern, &rhs.ty, rhs.span);
+    }
 
     let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut operator, &mut rhs);
     if let Some(err) = err {
