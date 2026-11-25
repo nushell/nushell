@@ -907,3 +907,90 @@ fn http_get_allow_errors_post_echo_type_mismatch() -> Result {
     );
     Ok(())
 }
+
+/// A Content-Type whose subtype is not a file extension still names a format nushell can
+/// read: the full MIME type is mapped back to its file extensions, and the first one with
+/// a `from <ext>` command converts the response (#19662).
+#[rstest::rstest]
+#[case::tsv(
+    "text/tab-separated-values",
+    "a\tb\nx\ty",
+    "http get {url}/data | get 0.a",
+    "x"
+)]
+#[case::markdown("text/markdown", "# hi", "http get {url}/data | get 0.content", "hi")]
+fn http_get_content_type_mapped_by_mime_extensions(
+    #[case] content_type: &str,
+    #[case] body: &str,
+    #[case] pipeline: &str,
+    #[case] expected: &str,
+) -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", content_type)
+        .with_body(body)
+        .create();
+
+    let code = pipeline.replace("{url}", &server.url());
+
+    test().run(code).expect_value_eq(expected)
+}
+
+/// An `ld+json` response is a `+json` structured-syntax suffix (RFC 6839), so it parses
+/// with `from json` when the full subtype has no `from <subtype>` command (#19662).
+#[test]
+fn http_get_json_structured_syntax_suffix() -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", "application/ld+json")
+        .with_body(r#"{"a": 1}"#)
+        .create();
+
+    let code = format!("http get {url}/data | get a", url = server.url());
+
+    test().run(code).expect_value_eq(1)
+}
+
+/// An `atom+xml` response is a `+xml` structured-syntax suffix (RFC 6839), so it parses
+/// with `from xml` when the full subtype has no `from <subtype>` command (#19662).
+#[test]
+fn http_get_xml_structured_syntax_suffix() -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", "application/atom+xml")
+        .with_body("<feed><title>t</title></feed>")
+        .create();
+
+    let code = format!(
+        "http get {url}/data | get content.0.content.0.content",
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq("t")
+}
+
+/// A vendor type nushell has no converter for keeps returning the raw byte stream (#19662).
+#[test]
+fn http_get_content_type_without_converter_stays_a_byte_stream() -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", "application/vnd.custom+zipx")
+        .with_body("payload")
+        .create();
+
+    let code = format!("http get {url}/data | describe", url = server.url());
+
+    test().run(code).expect_value_eq("byte stream")
+}

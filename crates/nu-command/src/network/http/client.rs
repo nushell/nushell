@@ -1001,6 +1001,13 @@ fn is_json_content_type(content_type: &str) -> bool {
     })
 }
 
+/// Returns true when a `from <ext>` command exists for the given extension.
+fn converter_exists(engine_state: &EngineState, ext: &str) -> bool {
+    engine_state
+        .find_decl(format!("from {ext}").as_bytes(), &[])
+        .is_some()
+}
+
 fn handle_status_error(span: Span, requested_url: &str, response: &mut Response) -> ShellError {
     let reason = response.status().canonical_reason().unwrap_or("");
     let msg = if response
@@ -1135,7 +1142,33 @@ fn transform_response_using_content_type(
             }),
         _ => {
             let subtype = content_type.subtype().as_str();
-            Some(subtype.strip_prefix("x-").unwrap_or(subtype).to_string())
+            let subtype = subtype.strip_prefix("x-").unwrap_or(subtype).to_string();
+            if converter_exists(engine_state, &subtype) {
+                Some(subtype)
+            } else {
+                // The subtype is not a nushell file extension (`text/tab-separated-values`,
+                // `text/markdown`, vendor spreadsheet types). Map the full MIME type back
+                // to its file extensions, as `open` maps them forward, and take the first
+                // one that has a `from <ext>` command (#19662).
+                content_type
+                    .essence_str()
+                    .split_once('/')
+                    .and_then(|(type_, subtype)| mime_guess::get_extensions(type_, subtype))
+                    .and_then(|extensions| {
+                        extensions
+                            .iter()
+                            .map(|&ext| ext.to_string())
+                            .find(|ext| converter_exists(engine_state, ext))
+                    })
+                    // Structured syntax suffixes (RFC 6839) like `+json`/`+xml` name the
+                    // format when the full subtype does not.
+                    .or_else(|| {
+                        content_type
+                            .suffix()
+                            .map(|suffix| suffix.as_str().to_string())
+                            .filter(|suffix| converter_exists(engine_state, suffix))
+                    })
+            }
         }
     };
 
