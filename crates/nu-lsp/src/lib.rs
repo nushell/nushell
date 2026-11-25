@@ -24,7 +24,7 @@ use std::{
     time::Duration,
 };
 use symbols::SymbolCache;
-use workspace::{InternalMessage, RangePerDoc};
+use workspace::{InternalMessage, Occurrence, RangePerDoc};
 
 mod ast;
 mod completion;
@@ -58,7 +58,7 @@ pub struct LanguageServer {
     semantic_tokens: BTreeMap<Uri, Vec<SemanticToken>>,
     workspace_folders: BTreeMap<String, WorkspaceFolder>,
     /// for workspace wide requests
-    occurrences: BTreeMap<Uri, Vec<Range>>,
+    occurrences: BTreeMap<Uri, Vec<Occurrence>>,
     channels: Option<(
         crossbeam_channel::Sender<bool>,
         Arc<crossbeam_channel::Receiver<InternalMessage>>,
@@ -317,8 +317,8 @@ impl LanguageServer {
         if let Some((_, receiver)) = &self.channels {
             for im in receiver.try_iter() {
                 match im {
-                    InternalMessage::RangeMessage(RangePerDoc { uri, ranges }) => {
-                        self.occurrences.insert(uri, ranges);
+                    InternalMessage::RangeMessage(RangePerDoc { uri, occurrences }) => {
+                        self.occurrences.insert(uri, occurrences);
                     }
                     InternalMessage::OnGoing(token, progress) => {
                         self.send_progress_report(token, progress, None)?;

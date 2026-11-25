@@ -3,6 +3,7 @@
 use crate::parse_captures_compile::compile_block;
 use crate::parse_expressions::{parse_closure_expression, parse_math_expression, parse_value};
 use crate::parse_literals::parse_full_cell_path;
+use crate::parse_patterns::{annotate_binding, parse_binding_pattern};
 use crate::{
     Token, TokenContents,
     lex::lex_signature,
@@ -168,6 +169,30 @@ pub fn parse_import_pattern<'a>(
     )
 }
 
+/// Parse the type annotation that starts at `spans[*spans_idx]` and runs to the end of `spans`,
+/// leaving `spans_idx` at the last span.
+fn parse_annotation(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    spans_idx: &mut usize,
+) -> Type {
+    // signature like record<a: int b: int> is broken into multiple spans due to
+    // whitespaces. Collect the rest into one span and work on it
+    let full_span = Span::concat(&spans[*spans_idx..]);
+    let type_bytes = working_set.get_span_contents(full_span).to_vec();
+
+    let (tokens, parse_error) = lex_signature(&type_bytes, full_span.start, &[], &[b','], true);
+
+    if let Some(parse_error) = parse_error {
+        working_set.error(parse_error);
+    }
+
+    let type_span = tokens.first().map_or(full_span, |token| token.span);
+    let ty = parse_type(working_set, &type_bytes, type_span);
+    *spans_idx = spans.len() - 1;
+    ty
+}
+
 pub fn parse_var_with_opt_type(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -177,6 +202,38 @@ pub fn parse_var_with_opt_type(
 ) -> (Expression, Option<Type>) {
     let name_span = spans[*spans_idx];
     let bytes = working_set.get_span_contents(name_span);
+
+    // `let {$a, $b} = ...` and `let [$a, $b] = ...` destructure the value.
+    if matches!(bytes.first(), Some(b'{' | b'[')) {
+        // `let {$a}: record<a: int> = ...` annotates the whole value, and the variables take
+        // their types from the annotation.
+        let (pattern_span, annotation) = if bytes.ends_with(b":") {
+            let pattern_span = Span::new(name_span.start, name_span.end - 1);
+            if *spans_idx + 1 < spans.len() {
+                *spans_idx += 1;
+                (
+                    pattern_span,
+                    Some(parse_annotation(working_set, spans, spans_idx)),
+                )
+            } else {
+                working_set.error(ParseError::MissingType(name_span));
+                (pattern_span, None)
+            }
+        } else {
+            (name_span, None)
+        };
+        let pattern = parse_binding_pattern(working_set, pattern_span, mutable);
+        if let Some(ty) = &annotation {
+            annotate_binding(working_set, &pattern, ty, pattern_span);
+        }
+        let expr = Expression::new(
+            working_set,
+            Expr::Pattern(Box::new(pattern)),
+            pattern_span,
+            Type::Any,
+        );
+        return (expr, annotation);
+    }
 
     if bytes.contains(&b' ')
         || bytes.contains(&b'"')
@@ -194,20 +251,7 @@ pub fn parse_var_with_opt_type(
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
             *spans_idx += 1;
-            // signature like record<a: int b: int> is broken into multiple spans due to
-            // whitespaces. Collect the rest into one span and work on it
-            let full_span = Span::concat(&spans[*spans_idx..]);
-            let type_bytes = working_set.get_span_contents(full_span).to_vec();
-
-            let (tokens, parse_error) =
-                lex_signature(&type_bytes, full_span.start, &[], &[b','], true);
-
-            if let Some(parse_error) = parse_error {
-                working_set.error(parse_error);
-            }
-
-            let ty = parse_type(working_set, &type_bytes, tokens[0].span);
-            *spans_idx = spans.len() - 1;
+            let ty = parse_annotation(working_set, spans, spans_idx);
 
             if !is_variable(&var_name) {
                 working_set.error(ParseError::Expected(
@@ -583,6 +627,32 @@ pub fn parse_signature_helper(
     span: Span,
     is_external: bool,
 ) -> Box<Signature> {
+    parse_signature_inner(working_set, span, is_external, None)
+}
+
+/// Parse the parameters of a closure, between its `|`s.
+///
+/// A closure parameter may be a destructuring pattern, as in `{|acc, {$name, $size}| ...}`. It
+/// becomes a positional parameter with a hidden variable, returned with its pattern for the body
+/// to destructure. The parameter is optional when the whole pattern is (`{$a}?`), and a type
+/// annotation or default value applies to the whole value.
+pub fn parse_closure_signature(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Box<Signature>, Vec<(VarId, MatchPattern)>) {
+    let mut patterns = vec![];
+    let signature = parse_signature_inner(working_set, span, false, Some(&mut patterns));
+    (signature, patterns)
+}
+
+/// [`parse_signature_helper`], with `patterns` collecting the pattern parameters where a
+/// signature can have them (see [`parse_closure_signature`]).
+fn parse_signature_inner(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    is_external: bool,
+    mut patterns: Option<&mut Vec<(VarId, MatchPattern)>>,
+) -> Box<Signature> {
     enum ParseMode {
         Arg,
         AfterCommaArg,
@@ -932,6 +1002,44 @@ pub fn parse_signature_helper(
                                     }
                                 } else {
                                     working_set.error(ParseError::Expected("short flag", span));
+                                }
+                            }
+                            // A destructuring pattern, as in `{|{$name}| ...}`
+                            else if matches!(contents.first(), Some(b'{' | b'[')) && !is_external
+                            {
+                                if let Some(patterns) = patterns.as_deref_mut() {
+                                    let pattern = parse_binding_pattern(working_set, span, false);
+                                    let var_id = working_set.add_variable_without_scope(
+                                        span,
+                                        Type::Any,
+                                        false,
+                                    );
+                                    let required =
+                                        !matches!(pattern.pattern, Pattern::Optional { .. });
+                                    patterns.push((var_id, pattern));
+                                    args.push(Arg::Positional {
+                                        arg: PositionalArg {
+                                            desc: String::new(),
+                                            name: String::from_utf8_lossy(&contents).to_string(),
+                                            shape: SyntaxShape::Any,
+                                            var_id: Some(var_id),
+                                            default_value: None,
+                                            completion: None,
+                                        },
+                                        required,
+                                        type_annotated: false,
+                                    });
+                                    parse_mode = ParseMode::Arg;
+                                } else {
+                                    working_set.error(ParseError::LabeledErrorWithHelp {
+                                        error: "A command's parameter can't be a pattern".into(),
+                                        label: "destructuring pattern".into(),
+                                        help: "Name the parameter, then destructure it in the \
+                                            body: `let {$a, $b} = $param`."
+                                            .into(),
+                                        span,
+                                    });
+                                    parse_mode = ParseMode::AfterError;
                                 }
                             }
                             // Positional arg, optional

@@ -99,3 +99,24 @@ fn race_overwrite_mask() -> Result {
     assert_eq!(result.stderr, "");
     Ok(())
 }
+
+#[cfg(target_family = "unix")]
+#[test]
+#[deps(NU)]
+fn race_set_while_reading() -> Result {
+    // A read sets the umask to 0 for a moment. A set that lands then would report 0
+    // (`rwxrwxrwx`) as the previous mask, and the read would undo it.
+    let result: CompleteResult = test().run_with_data(
+        "nu -n -c $in | complete",
+        "umask rwx------ | ignore
+        seq 0 4000
+        | par-each {|i| if $i mod 2 == 0 { umask rwx------ } else { umask } }
+        | where $it != 'rwx------'
+        | length",
+    )?;
+
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout.trim(), "0");
+    assert_eq!(result.stderr, "");
+    Ok(())
+}

@@ -47,6 +47,11 @@ impl Command for Glob {
                 "Whether to follow symbolic links to their targets.",
                 Some('l'),
             )
+            .switch(
+                "relative-paths",
+                "Whether to return relative paths for a relative pattern.",
+                Some('r'),
+            )
             .named(
                 "exclude",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -164,6 +169,11 @@ impl Command for Glob {
                 result: None,
             },
             Example {
+                description: "Search for .txt files in subdir, returning paths relative to the current directory.",
+                example: "glob --relative-paths subdir/*.txt",
+                result: None,
+            },
+            Example {
                 description: "Search for files named tsconfig.json that are not in node_modules directories.",
                 example: "glob **/tsconfig.json --exclude [**/node_modules/**]",
                 result: None,
@@ -257,6 +267,7 @@ impl Command for Glob {
         let no_files = call.has_flag(engine_state, stack, "no-file")?;
         let no_symlinks = call.has_flag(engine_state, stack, "no-symlink")?;
         let follow_symlinks = call.has_flag(engine_state, stack, "follow-symlinks")?;
+        let relative_paths = call.has_flag(engine_state, stack, "relative-paths")?;
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
         let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
@@ -317,6 +328,7 @@ impl Command for Glob {
                     no_dirs,
                     no_files,
                     no_symlinks,
+                    relative_paths,
                     ignore_case,
                     span,
                 )
@@ -338,6 +350,7 @@ impl Command for Glob {
                     no_dirs,
                     no_files,
                     no_symlinks,
+                    relative_paths,
                     span,
                 )
             }
@@ -381,6 +394,25 @@ fn expand_ndots_in_literal_prefix(pattern: &str) -> String {
     expanded
 }
 
+/// Returns `true` if `path` is relative and safe for `--relative-paths` output.
+///
+/// Any `~`-prefixed path (`~/...`, `~user/...`) is treated as non-relative.
+/// On Windows, drive-relative paths (e.g., `D:foo`) also return `false` since `$env.PWD`
+/// can differ from the process cwd, which could resolve against the wrong directory
+/// or produce `..\..\...` chains longer than the absolute path.
+fn allows_relative_paths(path: &str) -> bool {
+    if path.starts_with('~') {
+        return false;
+    }
+    let path = std::path::Path::new(path);
+    !path.has_root()
+        && !(cfg!(windows)
+            && matches!(
+                path.components().next(),
+                Some(std::path::Component::Prefix(_))
+            ))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_dc_glob(
     engine_state: &EngineState,
@@ -393,6 +425,7 @@ fn run_dc_glob(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
+    relative_paths: bool,
     ignore_case: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -420,6 +453,10 @@ fn run_dc_glob(
     let glob_pattern = nu_path::expand_tilde(&glob_pattern)
         .to_string_lossy()
         .to_string();
+
+    // Only make output relative if the pattern itself was relative.
+    let relative_paths = relative_paths && allows_relative_paths(&glob_pattern);
+
     #[cfg(windows)]
     let (cwd_for_matches, glob_pattern) = split_drive_relative_glob(glob_pattern, cwd_for_matches);
 
@@ -435,14 +472,14 @@ fn run_dc_glob(
     let matches = matches.map(move |item| {
         item.map(|path| {
             if path.is_absolute() {
-                path
+                (path, None)
             } else if path.as_os_str().is_empty() {
                 // The globber emits an empty relative path when the pattern
                 // names the base directory itself, as `glob .` does. Joining
                 // it would append a trailing separator to the directory.
-                cwd_for_matches.clone()
+                (cwd_for_matches.clone(), relative_paths.then(|| ".".into()))
             } else {
-                cwd_for_matches.join(path)
+                (cwd_for_matches.join(&path), relative_paths.then_some(path))
             }
         })
         .map_err(|err| {
@@ -479,6 +516,7 @@ fn run_legacy_glob(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
+    relative_paths: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
@@ -496,8 +534,9 @@ fn run_legacy_glob(
         }
     };
 
-    let path = engine_state.cwd_as_string(Some(stack))?;
-    let path = nu_path::absolute_with(prefix, path).map_err(|e| {
+    let cwd = engine_state.cwd_as_string(Some(stack))?;
+
+    let path = nu_path::absolute_with(&prefix, &cwd).map_err(|e| {
         ShellError::Generic(GenericError::new("invalid path", format!("{e}"), glob_span))
     })?;
     let path = match path.try_exists() {
@@ -510,6 +549,16 @@ fn run_legacy_glob(
                 glob_span,
             )));
         }
+    };
+
+    // only make output relative if the pattern itself was relative
+    let relative_to = if relative_paths
+        && allows_relative_paths(&prefix.to_string_lossy())
+        && let Some(diff) = pathdiff::diff_paths(&path, &cwd)
+    {
+        Some((diff, path.clone()))
+    } else {
+        None
     };
 
     let link_behavior = match follow_symlinks {
@@ -564,6 +613,7 @@ fn run_legacy_glob(
             no_dirs,
             no_files,
             no_symlinks,
+            relative_to,
             span,
         )
     } else {
@@ -576,6 +626,7 @@ fn run_legacy_glob(
             no_dirs,
             no_files,
             no_symlinks,
+            relative_to,
             span,
         )
     };
@@ -643,12 +694,17 @@ fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     Ok(res)
 }
 
+/// Filters legacy glob entries by file type and converts them into a `ListStream` of paths.
+///
+/// When `relative_to` is `Some((prefix, walk_root))`, `walk_root` is stripped from each
+/// match and `prefix` is prepended so the output is relative to `$env.PWD`.
 fn glob_to_value(
     signals: &Signals,
     glob_results: impl Iterator<Item = GlobEntry> + Send + 'static,
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
+    relative_to: Option<(std::path::PathBuf, std::path::PathBuf)>,
     span: Span,
 ) -> ListStream {
     let map_signals = signals.clone();
@@ -662,10 +718,26 @@ fn glob_to_value(
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            Some(Value::string(
-                entry.into_path().to_string_lossy().into_owned(),
-                span,
-            ))
+            let path = entry.path();
+            let path = if let Some((prefix, walk_root)) = relative_to.as_ref() {
+                let stripped = path.strip_prefix(walk_root).unwrap_or(path);
+                match (prefix.is_empty(), stripped.is_empty()) {
+                    // Bare patterns like '*', or '**' after the first match.
+                    (true, false) => std::borrow::Cow::Borrowed(stripped),
+                    // Patterns like '../*', 'files/*', or 'files/**' after the first match.
+                    (false, false) => std::borrow::Cow::Owned(prefix.join(stripped)),
+                    // Patterns that return the prefix as a match, like 'files/**' or bare file paths.
+                    (false, true) => std::borrow::Cow::Borrowed(prefix.as_path()),
+                    // Bare patterns that match cwd, like '.' or '**' on its first match.
+                    (true, true) => std::borrow::Cow::Borrowed(std::path::Path::new(".")),
+                }
+                .to_string_lossy()
+                .into_owned()
+            } else {
+                path.to_string_lossy().into_owned()
+            };
+
+            Some(Value::string(path, span))
         } else {
             None
         }
@@ -674,14 +746,24 @@ fn glob_to_value(
     ListStream::new(result, span, signals.clone())
 }
 
-fn glob_paths_to_value(
+/// Filters `dc_glob` matches by file type and converts them into a `ListStream` of paths.
+///
+/// Each item in `glob_results` is `(absolute_path, relative_path)`, where `absolute_path`
+/// is used for `symlink_metadata` checks (and fallback output) and `relative_path` is the
+/// optional relative path to print instead.
+fn glob_paths_to_value<I>(
     signals: &Signals,
-    glob_results: impl Iterator<Item = Result<std::path::PathBuf, ShellError>> + Send + 'static,
+    glob_results: I,
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
     span: Span,
-) -> ListStream {
+) -> ListStream
+where
+    I: Iterator<Item = Result<(std::path::PathBuf, Option<std::path::PathBuf>), ShellError>>
+        + Send
+        + 'static,
+{
     let map_signals = signals.clone();
     let needs_file_type = no_dirs || no_files || no_symlinks;
     let result = glob_results.filter_map(move |entry| {
@@ -689,19 +771,32 @@ fn glob_paths_to_value(
             return Some(Value::error(err, span));
         }
 
-        let path = match entry {
-            Ok(path) => path,
+        let (abs_path, rel_path) = match entry {
+            Ok(entry) => entry,
             Err(err) => return Some(Value::error(err, span)),
         };
 
+        let make_value = || {
+            Value::string(
+                if let Some(rel_path) = rel_path.as_ref() {
+                    rel_path
+                } else {
+                    &abs_path
+                }
+                .to_string_lossy()
+                .into_owned(),
+                span,
+            )
+        };
+
         if !needs_file_type {
-            return Some(Value::string(path.to_string_lossy().into_owned(), span));
+            return Some(make_value());
         }
 
-        let file_type = match std::fs::symlink_metadata(&path) {
+        let file_type = match std::fs::symlink_metadata(&abs_path) {
             Ok(meta) => meta.file_type(),
             Err(_) => {
-                return Some(Value::string(path.to_string_lossy().into_owned(), span));
+                return Some(make_value());
             }
         };
 
@@ -709,7 +804,7 @@ fn glob_paths_to_value(
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            Some(Value::string(path.to_string_lossy().into_owned(), span))
+            Some(make_value())
         } else {
             None
         }
@@ -934,5 +1029,38 @@ mod tests {
     #[case(r"*\...\x", r"*\...\x")]
     fn expand_ndots_with_backslash_separators(#[case] pattern: &str, #[case] expected: &str) {
         assert_eq!(expand_ndots_in_literal_prefix(pattern), expected);
+    }
+
+    #[rstest::rstest]
+    #[case("foo", true)]
+    #[case("./foo", true)]
+    #[case(".", true)]
+    #[case("../foo", true)]
+    #[case("..", true)]
+    #[case("*", true)]
+    #[case("dir0/*", true)]
+    #[case("/", false)]
+    #[case("/a/b/*", false)]
+    #[case("~", false)]
+    #[case("~/foo", false)]
+    #[case("~user", false)]
+    fn allows_relative_paths_cross_platform(#[case] path: &str, #[case] expected: bool) {
+        assert_eq!(allows_relative_paths(path), expected);
+    }
+
+    #[cfg(windows)]
+    #[rstest::rstest]
+    #[case(r"foo\bar", true)]
+    #[case(r".\foo", true)]
+    #[case(r"..\foo", true)]
+    #[case(r"\", false)]
+    #[case(r"\foo", false)]
+    #[case("C:", false)]
+    #[case("C:foo", false)]
+    #[case(r"D:bar\baz", false)]
+    #[case(r"C:\foo", false)]
+    #[case(r"\\server\share", false)]
+    fn allows_relative_paths_windows(#[case] path: &str, #[case] expected: bool) {
+        assert_eq!(allows_relative_paths(path), expected);
     }
 }

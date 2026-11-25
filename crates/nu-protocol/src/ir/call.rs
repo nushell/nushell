@@ -2,11 +2,10 @@ use std::sync::Arc;
 
 use crate::{
     DeclId, ShellError, Span, Spanned, Value,
-    ast::Expression,
     engine::{Argument, Stack},
 };
 
-use super::DataSlice;
+use super::{DataSlice, ParserInfo};
 
 /// Contains the information for a call being made to a declared command.
 #[derive(Debug, Clone)]
@@ -186,15 +185,15 @@ impl Call {
     }
 
     /// Get a parser info argument by name.
-    pub fn get_parser_info<'a>(&self, stack: &'a Stack, name: &str) -> Option<&'a Expression> {
+    pub fn get_parser_info<'a>(&self, stack: &'a Stack, name: &str) -> Option<&'a ParserInfo> {
         self.arguments(stack)
             .iter()
             .find_map(|argument| match argument {
                 Argument::ParserInfo {
                     data,
                     name: name_slice,
-                    info: expr,
-                } if &data[*name_slice] == name.as_bytes() => Some(expr.as_ref()),
+                    info,
+                } if &data[*name_slice] == name.as_bytes() => Some(info.as_ref()),
                 _ => None,
             })
     }

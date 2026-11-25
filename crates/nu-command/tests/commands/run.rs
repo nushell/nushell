@@ -2,7 +2,10 @@ use nu_protocol::{ParseError, ShellError, parser_path::MAX_RUN_SCRIPT_BYTES};
 use nu_test_support::prelude::*;
 use pretty_assertions::assert_matches;
 use rstest::rstest;
-use std::io::Write;
+use std::{
+    io::Write,
+    path::{Component, Path},
+};
 
 #[test]
 fn run_script_without_main_in_pipeline(playground: Playground) -> Result {
@@ -1304,4 +1307,34 @@ fn run_counts_toward_the_recursion_limit(playground: Playground) -> Result {
         .cwd(playground.path())
         .run("$env.config.recursion_limit = 10; run --full-reparse rec.nu 30")
         .expect_error_code_eq("nu::shell::recursion_limit_reached")
+}
+
+/// The parser stores a script's path as written, `..` and all. `source` and `run` still see it
+/// with the `..` resolved, so `$env.CURRENT_FILE` names the script itself.
+#[rstest]
+#[case::source("$env.CURRENT_FILE", "source ../cur.nu")]
+#[case::run("def main [] { $env.CURRENT_FILE }", "run ../cur.nu")]
+fn script_path_through_parent_dir_is_resolved(
+    #[case] script: &str,
+    #[case] code: &str,
+    #[ignore] playground: Playground,
+) -> Result {
+    playground.file("scripts/cur.nu", script)?;
+    playground.dir("scripts/sub")?;
+
+    let current_file: String = test()
+        .cwd(playground.path().join("scripts").join("sub"))
+        .run(code)?;
+    let current_file = Path::new(&current_file);
+    assert!(
+        current_file.ends_with(Path::new("scripts").join("cur.nu")),
+        "{current_file:?}"
+    );
+    assert!(
+        current_file
+            .components()
+            .all(|component| component != Component::ParentDir),
+        "{current_file:?}"
+    );
+    Ok(())
 }

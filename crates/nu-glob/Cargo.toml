@@ -16,7 +16,6 @@ bench = false
 
 [dependencies]
 anyhow = { workspace = true }
-log = { workspace = true }
 nu-experimental = { workspace = true }
 rayon = { workspace = true }
 

@@ -106,6 +106,15 @@ they represent."#
                 result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
             },
             Example {
+                example: r#"[1 2 3] | enumerate | each {|{$index, $item}| $"($index): ($item)" }"#,
+                description: "Take each row apart with a pattern in the closure's parameter.",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("0: 1"),
+                    Value::test_string("1: 2"),
+                    Value::test_string("2: 3"),
+                ])),
+            },
+            Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
                 description: "Iterate over each element, keeping null results.",
                 result: Some(Value::test_list(vec![

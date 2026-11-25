@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_parser::trim_quotes_str;
-use nu_protocol::{ModuleId, ast::Expr, engine::CommandType};
+use nu_protocol::{ModuleId, engine::CommandType, ir::ParserInfo};
 
 use super::keep_cwd;
 use std::path::Path;
@@ -80,14 +80,14 @@ This command is a parser keyword. For details, check:
         let name_arg_item = trim_quotes_str(&name_arg.item);
 
         let maybe_origin_module_id: Option<ModuleId> =
-            if let Some(overlay_expr) = call.get_parser_info(caller_stack, "overlay_expr") {
-                if let Expr::Overlay(module_id) = &overlay_expr.expr {
+            if let Some(overlay_info) = call.get_parser_info(caller_stack, "overlay_expr") {
+                if let ParserInfo::Overlay(module_id) = overlay_info {
                     *module_id
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
                         msg: "Not an overlay".to_string(),
                         label: "requires an overlay (path or a string)".to_string(),
-                        span: overlay_expr.span,
+                        span: call.head,
                     });
                 }
             } else {

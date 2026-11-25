@@ -57,18 +57,20 @@ impl Command for ToJson {
         // allow ranges to expand and turn into array
         let input = input.try_expand_range()?;
         let value = input.into_value(span)?;
-        let ty = value.get_type();
-        let json_value = value_to_json_value(engine_state, value, span, serialize_types)?;
-
-        let json_result = if raw {
-            nu_json::to_string_raw(&json_value)
-        } else if let Some(tab_count) = use_tabs {
-            nu_json::to_string_with_tab_indentation(&json_value, tab_count)
-        } else if let Some(indent) = indent {
-            nu_json::to_string_with_indent(&json_value, indent)
-        } else {
-            nu_json::to_string(&json_value)
-        };
+        // Serialize straight from the nushell value, without a JSON value tree in between.
+        let json_result =
+            nu_json::write_nu_value(&value, serialize_types.then_some(engine_state), |json| {
+                if raw {
+                    nu_json::to_string_raw(json)
+                } else if let Some(tab_count) = use_tabs {
+                    nu_json::to_string_with_tab_indentation(json, tab_count)
+                } else if let Some(indent) = indent {
+                    nu_json::to_string_with_indent(json, indent)
+                } else {
+                    nu_json::to_string(json)
+                }
+            })
+            .map_err(|err| closure_error(err, span, value.span()))?;
 
         match json_result {
             Ok(serde_json_string) => {
@@ -82,7 +84,7 @@ impl Command for ToJson {
             }
             _ => Err(ShellError::CantConvert {
                 to_type: "JSON".into(),
-                from_type: ty.to_string(),
+                from_type: value.get_type().to_string(),
                 span,
                 help: None,
             }),
@@ -121,16 +123,24 @@ pub fn value_to_json_value(
     let value_span = v.span();
     match serialize_types {
         false => nu_json::Value::from_value(v),
-        true => nu_json::Value::from_value_serialized(v, engine_state)
-    }.map_err(|err| match err {
-        ShellError::CantConvert { from_type, .. } if from_type == "closure" => ShellError::UnsupportedInput {
-            msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
-            input: "value originates from here".into(),
-            msg_span: call_span,
-            input_span: value_span,
-        },
-        err => err
-    })
+        true => nu_json::Value::from_value_serialized(v, engine_state),
+    }
+    .map_err(|err| closure_error(err, call_span, value_span))
+}
+
+/// Explains the error for a closure met without `--serialize`; other errors pass through.
+fn closure_error(err: ShellError, call_span: Span, value_span: Span) -> ShellError {
+    match err {
+        ShellError::CantConvert { from_type, .. } if from_type == "closure" => {
+            ShellError::UnsupportedInput {
+                msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                input: "value originates from here".into(),
+                msg_span: call_span,
+                input_span: value_span,
+            }
+        }
+        err => err,
+    }
 }
 
 #[cfg(test)]

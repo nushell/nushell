@@ -2,9 +2,7 @@ use std::ops::ControlFlow;
 
 use crate::engine::StateWorkingSet;
 
-use super::{
-    Block, Expr, Expression, ListItem, MatchPattern, Pattern, PipelineRedirection, RecordItem,
-};
+use super::{Block, Expr, Expression, ListItem, PipelineRedirection, RecordItem};
 
 /// Trait for traversing the AST
 pub trait Traverse {
@@ -132,10 +130,12 @@ impl Traverse for Expression {
                 recur(op);
                 recur(rhs);
             }
-            Expr::MatchBlock(matches) => {
-                for (pattern, expr) in matches {
-                    pattern.flat_map(working_set, f, results);
-                    expr.flat_map(working_set, f, results);
+            Expr::MatchBlock(arms) => {
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        recur(guard);
+                    }
+                    recur(&arm.body);
                 }
             }
             Expr::List(items) => {
@@ -217,9 +217,9 @@ impl Traverse for Expression {
                         recur(expr.as_ref())
                     }
                     Expr::BinaryOp(lhs, op, rhs) => recur(lhs).or(recur(op)).or(recur(rhs)),
-                    Expr::MatchBlock(matches) => matches.iter().find_map(|(pattern, expr)| {
-                        pattern.find_map(working_set, f).or(recur(expr))
-                    }),
+                    Expr::MatchBlock(arms) => arms
+                        .iter()
+                        .find_map(|arm| arm.guard.as_deref().and_then(recur).or(recur(&arm.body))),
                     Expr::List(items) => items.iter().find_map(|item| match item {
                         ListItem::Item(expr) | ListItem::Spread(_, expr) => recur(expr),
                     }),
@@ -248,49 +248,5 @@ impl Traverse for Expression {
                 }
             }
         }
-    }
-}
-
-impl Traverse for MatchPattern {
-    fn flat_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F, results: &mut Vec<T>)
-    where
-        F: Fn(&'a Expression) -> Vec<T>,
-    {
-        let mut recur_pattern =
-            |pattern: &'a MatchPattern| pattern.flat_map(working_set, f, results);
-
-        match &self.pattern {
-            Pattern::List(patterns) | Pattern::Or(patterns) => {
-                for pattern in patterns {
-                    recur_pattern(pattern);
-                }
-            }
-            Pattern::Record(entries) => {
-                for (_, p) in entries {
-                    recur_pattern(p);
-                }
-            }
-            _ => (),
-        };
-
-        if let Some(g) = self.guard.as_ref() {
-            g.flat_map(working_set, f, results);
-        }
-    }
-
-    fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
-    where
-        F: Fn(&'a Expression) -> ControlFlow<Option<T>>,
-    {
-        let recur = |expr: &'a Expression| expr.find_map(working_set, f);
-        let recur_pattern = |pattern: &'a MatchPattern| pattern.find_map(working_set, f);
-        match &self.pattern {
-            Pattern::List(patterns) | Pattern::Or(patterns) => {
-                patterns.iter().find_map(recur_pattern)
-            }
-            Pattern::Record(entries) => entries.iter().find_map(|(_, p)| recur_pattern(p)),
-            _ => None,
-        }
-        .or(self.guard.as_ref().and_then(|g| recur(g)))
     }
 }

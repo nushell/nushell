@@ -509,3 +509,10 @@ fn completer_after_generic_type_is_attached() -> Result {
     ";
     test().run(code).expect_value_eq("baz")
 }
+
+#[test]
+fn def_parameter_cant_be_pattern() -> Result {
+    let err = test().run("def f [{$a}] { $a }").expect_parse_error()?;
+    assert_contains("A command's parameter can't be a pattern", err.to_string());
+    Ok(())
+}

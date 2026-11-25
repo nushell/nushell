@@ -350,6 +350,13 @@ fn build_const_ir_call(
     }
 
     for (name, expr) in &call.parser_info {
+        let info = ir::ParserInfo::from_expression(name, expr).ok_or_else(|| {
+            ShellError::NushellFailedSpanned {
+                msg: format!("Parser info `{name}` has no compiled form"),
+                label: format!("{} can't be parser info", expr.expr.description()),
+                span: expr.span,
+            }
+        })?;
         let data: std::sync::Arc<[u8]> = name.as_bytes().into();
         let name_slice = ir::DataSlice {
             start: 0,
@@ -360,7 +367,7 @@ fn build_const_ir_call(
             Argument::ParserInfo {
                 data,
                 name: name_slice,
-                info: Box::new(expr.clone()),
+                info: Box::new(info),
             },
         );
     }

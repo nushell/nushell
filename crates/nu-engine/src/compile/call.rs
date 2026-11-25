@@ -3,8 +3,8 @@ use crate::{DEFERRED_ARGUMENTS_PARSER_INFO, HELP_DECL_ID_PARSER_INFO};
 use nu_protocol::{
     DeclId, IntoSpanned, RegId, Span, Spanned, Type,
     ast::{Argument, Call, Expr, Expression, ExternalArgument, FlagRef},
-    engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet, UNKNOWN_SPAN_ID},
-    ir::{Instruction, Literal},
+    engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet},
+    ir::{Instruction, Literal, ParserInfo},
 };
 
 pub(crate) fn compile_call(
@@ -319,9 +319,15 @@ pub(crate) fn compile_call(
     }
 
     // Add any parser info from the call
-    for (name, info) in &call.parser_info {
+    for (name, expr) in &call.parser_info {
+        let info = ParserInfo::from_expression(name, expr).ok_or_else(|| {
+            CompileError::UnexpectedExpression {
+                expr_name: format!("parser info `{name}`: {}", expr.expr.description()),
+                span: expr.span,
+            }
+        })?;
         let name = builder.data(name)?;
-        let info = Box::new(info.clone());
+        let info = Box::new(info);
         builder.push(Instruction::PushParserInfo { name, info }.into_spanned(call.head))?;
     }
 
@@ -376,14 +382,12 @@ pub(crate) fn compile_help(
 
     builder.push(Instruction::PushPositional { src: name_literal }.into_spanned(decl_name.span))?;
 
-    if let Some(resolved_help_decl) =
-        resolved_help_decl.and_then(|decl_id| help_decl_parser_info_expr(decl_id, decl_name.span))
-    {
+    if let Some(resolved_help_decl) = resolved_help_decl {
         let parser_info_name = builder.data(HELP_DECL_ID_PARSER_INFO)?;
         builder.push(
             Instruction::PushParserInfo {
                 name: parser_info_name,
-                info: Box::new(resolved_help_decl),
+                info: Box::new(ParserInfo::DeclId(resolved_help_decl)),
             }
             .into_spanned(decl_name.span),
         )?;
@@ -398,17 +402,6 @@ pub(crate) fn compile_help(
     )?;
 
     Ok(())
-}
-
-// When compile_call rewrites `<cmd> --help` to `help <name>`, preserve the already-resolved
-// declaration identity so help output reflects the original command resolution.
-fn help_decl_parser_info_expr(decl_id: DeclId, span: Span) -> Option<Expression> {
-    i64::try_from(decl_id.get()).ok().map(|decl_id| Expression {
-        expr: Expr::Int(decl_id),
-        span,
-        span_id: UNKNOWN_SPAN_ID,
-        ty: Type::Int,
-    })
 }
 
 pub(crate) fn compile_external_call(

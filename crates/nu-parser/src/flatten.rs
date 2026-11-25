@@ -409,10 +409,13 @@ fn flatten_expression_into(
         Expr::Binary(_) => output.push((expr.span, FlatShape::Binary)),
         Expr::Int(_) => output.push((expr.span, FlatShape::Int)),
         Expr::Float(_) => output.push((expr.span, FlatShape::Float)),
-        Expr::MatchBlock(matches) => {
-            for (pattern, expr) in matches {
-                flatten_pattern_into(pattern, output);
-                flatten_expression_into(working_set, expr, output);
+        Expr::MatchBlock(arms) => {
+            for arm in arms {
+                flatten_pattern_into(&arm.pattern, output);
+                if let Some(guard) = &arm.guard {
+                    flatten_expression_into(working_set, guard, output);
+                }
+                flatten_expression_into(working_set, &arm.body, output);
             }
         }
         Expr::ValueWithUnit(value) => {
@@ -655,6 +658,17 @@ fn flatten_expression_into(
         }
         Expr::Var(var_id) => output.push((expr.span, FlatShape::Variable(*var_id))),
         Expr::VarDecl(var_id) => output.push((expr.span, FlatShape::VarDecl(*var_id))),
+        Expr::Pattern(pattern) => flatten_pattern_into(pattern, output),
+        // The variables already exist, so they are uses here.
+        Expr::AssignmentPattern(pattern) => {
+            let start = output.len();
+            flatten_pattern_into(pattern, output);
+            for (_, shape) in &mut output[start..] {
+                if let FlatShape::VarDecl(var_id) = *shape {
+                    *shape = FlatShape::Variable(var_id);
+                }
+            }
+        }
     }
 }
 
@@ -701,9 +715,19 @@ fn flatten_pattern_into(match_pattern: &MatchPattern, output: &mut Vec<(Span, Fl
                 output.push((match_pattern.span, FlatShape::MatchPattern));
             }
         }
-        Pattern::Value(_) => output.push((match_pattern.span, FlatShape::MatchPattern)),
+        Pattern::Value(_) | Pattern::Interval { .. } => {
+            output.push((match_pattern.span, FlatShape::MatchPattern))
+        }
         Pattern::Variable(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
         Pattern::Rest(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
+        Pattern::Optional { pattern, .. } => {
+            flatten_pattern_into(pattern, output);
+            // The `?`, or the `= default`
+            output.push((
+                Span::new(pattern.span.end, match_pattern.span.end),
+                FlatShape::MatchPattern,
+            ));
+        }
         Pattern::Or(patterns) => {
             for pattern in patterns {
                 flatten_pattern_into(pattern, output);

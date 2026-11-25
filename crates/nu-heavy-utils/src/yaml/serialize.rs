@@ -28,7 +28,6 @@
 
 use crate::yaml::{KnownTag, Spec, error::SerializeError};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
-use derive_setters::Setters;
 use nu_protocol::{
     FromValue, Range, ShellError, Span, Value,
     ast::CellPath,
@@ -64,8 +63,7 @@ use std::{
 ///     .with_indent(4);
 /// ```
 #[non_exhaustive]
-#[derive(Debug, Clone, Setters, better_default::Default)]
-#[setters(prefix = "with_")]
+#[derive(Debug, Clone, better_default::Default)]
 pub struct SerializeOptions {
     /// Configure which YAML spec to follow.
     pub spec: Spec,
@@ -94,6 +92,57 @@ pub struct SerializeOptions {
 
     /// Configure how strings are quoted.
     pub quote_style: QuoteStyle,
+}
+
+impl SerializeOptions {
+    /// Sets [`spec`](Self::spec).
+    #[must_use]
+    pub fn with_spec(mut self, value: Spec) -> Self {
+        self.spec = value;
+        self
+    }
+
+    /// Sets [`non_roundtrip`](Self::non_roundtrip).
+    #[must_use]
+    pub fn with_non_roundtrip(mut self, value: NonRoundtrip) -> Self {
+        self.non_roundtrip = value;
+        self
+    }
+
+    /// Sets [`multiple`](Self::multiple).
+    #[must_use]
+    pub fn with_multiple(mut self, value: bool) -> Self {
+        self.multiple = value;
+        self
+    }
+
+    /// Sets [`add_directives`](Self::add_directives).
+    #[must_use]
+    pub fn with_add_directives(mut self, value: bool) -> Self {
+        self.add_directives = value;
+        self
+    }
+
+    /// Sets [`indent`](Self::indent).
+    #[must_use]
+    pub fn with_indent(mut self, value: usize) -> Self {
+        self.indent = value;
+        self
+    }
+
+    /// Sets [`list_indent_style`](Self::list_indent_style).
+    #[must_use]
+    pub fn with_list_indent_style(mut self, value: ListIndentStyle) -> Self {
+        self.list_indent_style = value;
+        self
+    }
+
+    /// Sets [`quote_style`](Self::quote_style).
+    #[must_use]
+    pub fn with_quote_style(mut self, value: QuoteStyle) -> Self {
+        self.quote_style = value;
+        self
+    }
 }
 
 /// Configure how non-roundtrippable values are serialized.
@@ -316,11 +365,11 @@ impl Serialize for YamlValue<'_> {
     where
         S: serde::Serializer,
     {
-        let tag = self.tag().to_string();
-        let tag = tag.as_str();
+        // Formatted only by the tagged variants below; most values have no tag to write.
+        let tag = self.tag();
         fn serialize_with_tag<S: serde::Serializer>(
             serializer: S,
-            tag: &str,
+            tag: KnownTag,
             value: impl Serialize,
         ) -> Result<S::Ok, S::Error> {
             WRITER.with_borrow_mut(|writer| {
@@ -334,9 +383,7 @@ impl Serialize for YamlValue<'_> {
                         .expect("infallible for writes to string");
                 }
 
-                writer
-                    .write_str(tag)
-                    .expect("infallible for writes to string");
+                write!(writer, "{tag}").expect("infallible for writes to string");
 
                 if Container::current() != Some(Container::Map) {
                     writer

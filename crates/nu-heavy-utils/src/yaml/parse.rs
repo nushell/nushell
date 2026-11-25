@@ -39,7 +39,6 @@ use crate::{
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
-use derive_setters::Setters;
 use jiff::{civil, tz::Offset};
 use nu_protocol::{
     DateTime, FromValue, Range, Record, ShellError, Span, Spanned, Type, Value, ast::CellPath,
@@ -72,8 +71,7 @@ use std::{
 ///     .with_ignore_tags(true);
 /// ```
 #[non_exhaustive]
-#[derive(Debug, Clone, Default, Setters)]
-#[setters(prefix = "with_")]
+#[derive(Debug, Clone, Default)]
 pub struct ParseOptions {
     /// Keep the original styles of parsed values.
     ///
@@ -96,6 +94,45 @@ pub struct ParseOptions {
 
     /// Configure how plain scalar keys are handled.
     pub key_resolution: KeyResolution,
+}
+
+impl ParseOptions {
+    /// Sets [`keep_styles`](Self::keep_styles).
+    #[must_use]
+    #[deprecated = "not implemented yet"]
+    #[allow(deprecated)]
+    pub fn with_keep_styles(mut self, value: bool) -> Self {
+        self.keep_styles = value;
+        self
+    }
+
+    /// Sets [`multiple`](Self::multiple).
+    #[must_use]
+    pub fn with_multiple(mut self, value: ParseMultiple) -> Self {
+        self.multiple = value;
+        self
+    }
+
+    /// Sets [`spec`](Self::spec).
+    #[must_use]
+    pub fn with_spec(mut self, value: Spec) -> Self {
+        self.spec = value;
+        self
+    }
+
+    /// Sets [`ignore_tags`](Self::ignore_tags).
+    #[must_use]
+    pub fn with_ignore_tags(mut self, value: bool) -> Self {
+        self.ignore_tags = value;
+        self
+    }
+
+    /// Sets [`key_resolution`](Self::key_resolution).
+    #[must_use]
+    pub fn with_key_resolution(mut self, value: KeyResolution) -> Self {
+        self.key_resolution = value;
+        self
+    }
 }
 
 /// Configure how multiple documents in a YAML stream are handled.
@@ -689,7 +726,12 @@ fn parse_mapping<'i>(
                 }
                 Event::MappingEnd => {
                     let record = Record::from_iter(values);
-                    break 'record merge.merge(record, merge_strategy, ctx.parser_span)?;
+                    // Without `<<` there is nothing to merge into, and the keys are already
+                    // unique, so merging into the empty record would only copy it key by key.
+                    break 'record match merge.is_empty() {
+                        true => record,
+                        false => merge.merge(record, merge_strategy, ctx.parser_span)?,
+                    };
                 }
                 Event::MappingStart(..) => {
                     return Err(ShellError::from(ParseError::UnsupportedKey {
@@ -886,16 +928,14 @@ macro_rules! parse_int {
                 input: &str,
                 caps: ::regex::Captures<'_>
             ) -> Result<i64, crate::yaml::error::ParseError<'i>> {
-                let sign = match caps.name("sign").map(|m| m.as_str()) {
-                    Some("+" | "") | None => 1,
-                    Some("-") => -1,
-                    _ => unreachable!(r#"regex only matches "+", "-" or "" here"#)
-                };
+                let negative = caps.name("sign").is_some_and(|m| m.as_str() == "-");
 
+                // Parse the sign with the digits: the digits of `i64::MIN` alone overflow `i64`.
                 let digits = &caps["digits"];
-                let digits = match digits.contains("_") {
-                    false => ::std::borrow::Cow::Borrowed(digits),
-                    true => ::std::borrow::Cow::Owned(digits.replace("_", ""))
+                let digits = match (negative, digits.contains("_")) {
+                    (false, false) => ::std::borrow::Cow::Borrowed(digits),
+                    (false, true) => ::std::borrow::Cow::Owned(digits.replace("_", "")),
+                    (true, _) => ::std::borrow::Cow::Owned(format!("-{}", digits.replace("_", ""))),
                 };
 
                 i64::from_str_radix(&digits, $base)
@@ -904,7 +944,6 @@ macro_rules! parse_int {
                         base_and_err: Some(($base, err)),
                         span: ctx.yaml_span,
                     })
-                    .map(|num| num * sign)
             }
         }
     };
@@ -920,6 +959,16 @@ mod v1_x {
 
     pub static NAN: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\.(nan|NaN|NAN)$").expect("valid NaN regex for spec v1.x"));
+
+    /// Whether `input` could be an int, float or timestamp. Every pattern for those in both specs
+    /// is anchored at the start and begins with a sign, a digit or a dot, so a scalar starting
+    /// with anything else (most strings and keys) skips the regexes.
+    pub fn may_be_number(input: &str) -> bool {
+        matches!(
+            input.as_bytes().first(),
+            Some(b'0'..=b'9' | b'+' | b'-' | b'.')
+        )
+    }
 
     pub fn maybe_parse_null<'i>(_: &mut ParseCtx<'i>, input: &str) -> Option<()> {
         match input {
@@ -1055,11 +1104,101 @@ mod v1_x {
         ctx: &mut ParseCtx<'i>,
         input: &str,
     ) -> Result<Option<DateTime>, ParseError<'i>> {
+        if !may_be_number(input) {
+            return Ok(None);
+        }
         if let Some(caps) = TIMESTAMP.captures(input) {
             return parse_timestamp(ctx, input, caps).map(Some);
         }
 
         Ok(None)
+    }
+
+    /// Inputs around the edges of the number patterns, for the tests of the shortcuts that skip
+    /// them ([`may_be_number`] and `v1_2::plain_decimal`).
+    #[cfg(test)]
+    pub const NUMBER_EDGES: &[&str] = &[
+        "",
+        " 1",
+        "\t1",
+        "1 ",
+        "a1",
+        "_1",
+        "~1",
+        "(1)",
+        "e5",
+        "E5",
+        "x1",
+        "inf",
+        "nan",
+        "Inf",
+        "0",
+        "00",
+        "007",
+        "-0",
+        "+0",
+        "-",
+        "+",
+        ".",
+        "..",
+        "-.",
+        "+.",
+        "1.",
+        ".5",
+        "-.5",
+        "1e5",
+        "1e+5",
+        "1.0e-5",
+        "1_000",
+        "+1_0",
+        "1_0.5",
+        "0b101",
+        "-0b11",
+        "0o17",
+        "-0o17",
+        "017",
+        "0x1F",
+        "-0x1f",
+        "0x",
+        "0o",
+        "0b",
+        ".inf",
+        "-.Inf",
+        "+.INF",
+        ".nan",
+        ".NaN",
+        "+.nan",
+        "1:2",
+        "190:20:30",
+        "-1:30",
+        "190:20:30.15",
+        "2002-12-14",
+        "2001-12-14t21:59:43.10-05:00",
+        "9223372036854775807",
+        "9223372036854775808",
+        "-9223372036854775808",
+        "1 2",
+        "12abc",
+        "\u{661}\u{662}",
+        "\u{2212}12",
+        "\u{ff11}\u{ff12}",
+        "12\n",
+        "--5",
+        "+-5",
+        "-+5",
+    ];
+
+    #[cfg(test)]
+    #[test]
+    fn may_be_number_only_skips_what_no_pattern_matches() {
+        let patterns: [&Regex; 3] = [&INFINITY, &NAN, &TIMESTAMP];
+        for input in NUMBER_EDGES {
+            if !may_be_number(input) {
+                for re in patterns {
+                    assert!(!re.is_match(input), "{re} matches {input:?}");
+                }
+            }
+        }
     }
 
     #[cfg(test)]
@@ -1118,6 +1257,9 @@ mod v1_1 {
         ctx: &mut ParseCtx<'i>,
         input: &str,
     ) -> Result<Option<i64>, ParseError<'i>> {
+        if !v1_x::may_be_number(input) {
+            return Ok(None);
+        }
         Ok(Some(match input {
             s if let Some(caps) = INT_BASE2.captures(s) => parse_int_base2(ctx, s, caps)?,
             s if let Some(caps) = INT_BASE8.captures(s) => parse_int_base8(ctx, input, caps)?,
@@ -1183,6 +1325,9 @@ mod v1_1 {
         ctx: &mut ParseCtx<'i>,
         input: &str,
     ) -> Result<Option<f64>, ParseError<'i>> {
+        if !v1_x::may_be_number(input) {
+            return Ok(None);
+        }
         Ok(Some(match input {
             s if FLOAT_BASE10.is_match(s) => parse_float_base10(ctx, s)?,
             s if let Some(caps) = FLOAT_BASE60.captures(s) => parse_float_base60(ctx, input, caps)?,
@@ -1219,6 +1364,27 @@ mod v1_1 {
     fn regex_valid(#[case] re: &LazyLock<Regex>) {
         LazyLock::force(re);
     }
+
+    #[cfg(test)]
+    #[test]
+    fn may_be_number_only_skips_what_no_pattern_matches() {
+        let patterns: [&Regex; 7] = [
+            &INT_BASE2,
+            &INT_BASE8,
+            &INT_BASE10,
+            &INT_BASE16,
+            &INT_BASE60,
+            &FLOAT_BASE10,
+            &FLOAT_BASE60,
+        ];
+        for input in v1_x::NUMBER_EDGES {
+            if !v1_x::may_be_number(input) {
+                for re in patterns {
+                    assert!(!re.is_match(input), "{re} matches {input:?}");
+                }
+            }
+        }
+    }
 }
 
 mod v1_2 {
@@ -1232,12 +1398,33 @@ mod v1_2 {
         ctx: &mut ParseCtx<'i>,
         input: &str,
     ) -> Result<Option<i64>, ParseError<'i>> {
+        if !v1_x::may_be_number(input) {
+            return Ok(None);
+        }
+        // Most ints are plain decimals: match `INT_BASE10` by hand and skip the capture regexes.
+        // Nothing else here matches a sign and digits only, so trying it first is safe.
+        if is_plain_decimal(input) {
+            return input
+                .parse::<i64>()
+                .map(Some)
+                .map_err(|err| ParseError::Int {
+                    attempted: input.to_owned(),
+                    base_and_err: Some((10, err)),
+                    span: ctx.yaml_span,
+                });
+        }
         Ok(Some(match input {
             s if let Some(caps) = INT_BASE8.captures(s) => parse_int_base8(ctx, input, caps)?,
             s if let Some(caps) = INT_BASE10.captures(s) => parse_int_base10(ctx, input, caps)?,
             s if let Some(caps) = INT_BASE16.captures(s) => parse_int_base16(ctx, input, caps)?,
             _ => return Ok(None),
         }))
+    }
+
+    /// Whether `input` matches `INT_BASE10` (`[-+]?[0-9]+`), which `str::parse::<i64>` reads as is.
+    fn is_plain_decimal(input: &str) -> bool {
+        let digits = input.strip_prefix(['-', '+']).unwrap_or(input);
+        !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
     }
 
     static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
@@ -1256,6 +1443,9 @@ mod v1_2 {
         ctx: &mut ParseCtx<'i>,
         input: &str,
     ) -> Result<Option<f64>, ParseError<'i>> {
+        if !v1_x::may_be_number(input) {
+            return Ok(None);
+        }
         Ok(Some(match input {
             s if FLOAT.is_match(s) => parse_float(ctx, s)?,
             s if v1_x::INFINITY.is_match(s) => match s.starts_with("-") {
@@ -1283,6 +1473,31 @@ mod v1_2 {
     #[case::float(&FLOAT)]
     fn regex_valid(#[case] re: &LazyLock<Regex>) {
         LazyLock::force(re);
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn may_be_number_only_skips_what_no_pattern_matches() {
+        let patterns: [&Regex; 4] = [&INT_BASE8, &INT_BASE10, &INT_BASE16, &FLOAT];
+        for input in v1_x::NUMBER_EDGES {
+            if !v1_x::may_be_number(input) {
+                for re in patterns {
+                    assert!(!re.is_match(input), "{re} matches {input:?}");
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn is_plain_decimal_matches_int_base10() {
+        for input in v1_x::NUMBER_EDGES {
+            assert_eq!(
+                is_plain_decimal(input),
+                INT_BASE10.is_match(input),
+                "{input:?}"
+            );
+        }
     }
 }
 
@@ -1445,6 +1660,19 @@ mod tests {
         let options = ParseOptions::default().with_spec(spec);
         let parsed = parse(yaml, SPAN, options)?;
         assert_eq!(parsed, expected.into_value(SPAN));
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::yaml_1_1_decimal(Spec::V1_1, "-9223372036854775808")]
+    #[case::yaml_1_1_underscores(Spec::V1_1, "-9_223_372_036_854_775_808")]
+    #[case::yaml_1_1_hex(Spec::V1_1, "-0x8000000000000000")]
+    #[case::yaml_1_1_binary(Spec::V1_1, &format!("-0b1{}", "0".repeat(63)))]
+    #[case::yaml_1_2_decimal(Spec::V1_2, "-9223372036854775808")]
+    fn parse_smallest_int(#[case] spec: Spec, #[case] input: &str) -> Result {
+        let options = ParseOptions::default().with_spec(spec);
+        let parsed = parse(input.into_spanned(SPAN), SPAN, options)?;
+        assert_eq!(parsed, i64::MIN.into_value(SPAN));
         Ok(())
     }
 

@@ -37,7 +37,6 @@ bstr = { workspace = true }
 bytes = { workspace = true }
 # Conversions to and from chrono for plugins that still use it; see `datetime/chrono_compat.rs`.
 chrono = { workspace = true, features = ["std"], default-features = false, optional = true }
-dirs = { workspace = true }
 derive_more = { workspace = true, features = ["debug"] }
 fancy-regex = { workspace = true }
 heck = { workspace = true }
@@ -46,7 +45,6 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 jiff = { workspace = true }
 lru = { workspace = true }
-memchr = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
 pure-rust-locales = { workspace = true }
@@ -62,15 +60,12 @@ os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
 rustc-hash = { workspace = true }
 semver = { version = "1.0", features = ["serde"] }
-web-time = { workspace = true }
 winnow = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["signal"] }
 
 [target.'cfg(windows)'.dependencies]
-dirs-sys = { workspace = true }
-windows-sys = { workspace = true, features = ["Win32_UI_Shell"] }
 windows = { workspace = true }
 
 [features]

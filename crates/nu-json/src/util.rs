@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::io;
 use std::str;
 
@@ -7,7 +8,8 @@ pub struct StringReader<Iter: Iterator<Item = u8>> {
     iter: Iter,
     line: usize,
     col: usize,
-    ch: Vec<u8>,
+    /// Bytes peeked but not eaten yet, front first.
+    ch: VecDeque<u8>,
 }
 
 impl<Iter> StringReader<Iter>
@@ -20,7 +22,7 @@ where
             iter,
             line: 1,
             col: 0,
-            ch: Vec::new(),
+            ch: VecDeque::new(),
         }
     }
 
@@ -52,7 +54,7 @@ where
         while self.ch.len() <= idx {
             match self.next() {
                 Some(Err(err)) => return Err(Error::Io(err)),
-                Some(Ok(ch)) => self.ch.push(ch),
+                Some(Ok(ch)) => self.ch.push_back(ch),
                 None => return Ok(None),
             }
         }
@@ -68,15 +70,16 @@ where
     }
 
     pub fn eat_char(&mut self) -> u8 {
-        self.ch.remove(0)
+        // Every caller peeks the byte it eats, so the buffer is not empty here.
+        self.ch.pop_front().unwrap_or(b'\x00')
     }
 
     pub fn uneat_char(&mut self, ch: u8) {
-        self.ch.insert(0, ch);
+        self.ch.push_front(ch);
     }
 
     pub fn next_char(&mut self) -> Result<Option<u8>> {
-        match self.ch.first() {
+        match self.ch.front() {
             Some(&ch) => {
                 self.eat_char();
                 Ok(Some(ch))
@@ -116,10 +119,18 @@ where
                         Some(b'*') => {
                             self.eat_char();
                             self.eat_char();
-                            while !(self.peek()?.unwrap_or(b'*') == b'*'
-                                && self.peek_next(1)?.unwrap_or(b'/') == b'/')
-                            {
-                                self.eat_char();
+                            loop {
+                                match self.peek()? {
+                                    None => {
+                                        return Err(self.error(ErrorCode::Custom(
+                                            "Found a /* comment with no closing */".to_string(),
+                                        )));
+                                    }
+                                    Some(b'*') if self.peek_next(1)? == Some(b'/') => break,
+                                    Some(_) => {
+                                        self.eat_char();
+                                    }
+                                }
                             }
                             self.eat_char();
                             self.eat_char();

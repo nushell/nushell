@@ -1,7 +1,8 @@
 use crate::{
     lex_once::lex_span,
     parse_block,
-    parse_helpers::garbage_pipeline,
+    parse_helpers::{garbage_pipeline, trim_quotes},
+    parse_patterns::check_binding_type,
     parser::{
         ArgumentParsingLevel, ParsedInternalCall, parse_internal_call, parse_var_with_opt_type,
     },
@@ -10,8 +11,8 @@ use crate::{
 
 use log::trace;
 use nu_protocol::{
-    ParseError, Span, Type,
-    ast::{Argument, Call, Expr, Expression, Pipeline},
+    ParseError, Span, Type, Value, VarId,
+    ast::{Argument, Call, Expr, Expression, MatchPattern, Pipeline},
     engine::StateWorkingSet,
     eval_const::eval_constant,
 };
@@ -82,6 +83,11 @@ pub fn parse_let(
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
+                    if let Expr::Pattern(pattern) = &lvalue.expr
+                        && explicit_type.is_none()
+                    {
+                        check_binding_type(working_set, pattern, &rhs_type, rvalue_span);
+                    }
 
                     if let Some(explicit_type) = &explicit_type
                         && !type_compatible(explicit_type, &rhs_type)
@@ -145,8 +151,12 @@ pub fn parse_let(
     garbage_pipeline(working_set, spans)
 }
 
-/// Additionally returns a span encompassing the variable name, if successful.
-pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline, Option<Span>) {
+/// Additionally returns the constants it declares, each with its name: the one variable, or each
+/// variable of a destructuring pattern, as in `const {$a, $b} = {a: 1, b: 2}`.
+pub fn parse_const(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Pipeline, Vec<(Vec<u8>, VarId)>) {
     trace!("parsing: const");
 
     if let Some(decl_id) = working_set.find_decl(b"const") {
@@ -187,6 +197,11 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
+                    if let Expr::Pattern(pattern) = &lvalue.expr
+                        && explicit_type.is_none()
+                    {
+                        check_binding_type(working_set, pattern, &rhs_type, rvalue_span);
+                    }
 
                     if let Some(explicit_type) = &explicit_type
                         && !type_compatible(explicit_type, &rhs_type)
@@ -236,6 +251,28 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                         }
                     }
 
+                    let constants = match &lvalue.expr {
+                        Expr::Pattern(pattern) => {
+                            bind_const_pattern(working_set, pattern, &rvalue, &explicit_type);
+                            pattern
+                                .variables()
+                                .into_iter()
+                                .map(|var_id| {
+                                    let span = working_set.get_variable(var_id).declaration_span;
+                                    let name = working_set.get_span_contents(span);
+                                    (name.strip_prefix(b"$").unwrap_or(name).to_vec(), var_id)
+                                })
+                                .collect()
+                        }
+                        _ => var_id
+                            .map(|var_id| {
+                                let name = working_set.get_span_contents(lvalue.span);
+                                (trim_quotes(name).to_vec(), var_id)
+                            })
+                            .into_iter()
+                            .collect(),
+                    };
+
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0],
@@ -253,7 +290,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                             Span::concat(spans),
                             Type::Any,
                         )]),
-                        Some(lvalue.span),
+                        constants,
                     );
                 }
             }
@@ -274,7 +311,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                 Span::concat(spans),
                 output,
             )]),
-            None,
+            vec![],
         );
     } else {
         working_set.error(ParseError::UnknownState(
@@ -288,7 +325,47 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
         Span::concat(spans),
     ));
 
-    (garbage_pipeline(working_set, spans), None)
+    (garbage_pipeline(working_set, spans), vec![])
+}
+
+/// Evaluate the value of a destructuring `const` and give each variable of its pattern a
+/// constant value. `annotation` is the type written on the pattern, if any.
+fn bind_const_pattern(
+    working_set: &mut StateWorkingSet,
+    pattern: &MatchPattern,
+    rvalue: &Expression,
+    annotation: &Option<Type>,
+) {
+    let value = match eval_constant(working_set, rvalue) {
+        Ok(value) => value,
+        Err(err) => return working_set.error(err.wrap(working_set, rvalue.span)),
+    };
+    if let Some(annotation) = annotation
+        && !type_compatible(annotation, &value.get_type())
+    {
+        return working_set.error(ParseError::TypeMismatch(
+            annotation.clone(),
+            value.get_type(),
+            rvalue.span,
+        ));
+    }
+    let mut matches = vec![];
+    if let Err(mismatch) = pattern.check(&value, &mut matches) {
+        return working_set.error(mismatch.into_parse_error());
+    }
+    for (var_id, value) in matches {
+        // A string bound to a variable annotated `glob` becomes a glob, as in `const g: glob`.
+        let value = match value {
+            Value::String {
+                val, internal_span, ..
+            } if working_set.get_variable(var_id).ty == Type::Glob => {
+                Value::glob(val, false, internal_span)
+            }
+            value => value,
+        };
+        working_set.set_variable_type(var_id, value.get_type());
+        working_set.set_variable_const_val(var_id, value);
+    }
 }
 
 pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
@@ -341,6 +418,11 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
+                    if let Expr::Pattern(pattern) = &lvalue.expr
+                        && explicit_type.is_none()
+                    {
+                        check_binding_type(working_set, pattern, &rhs_type, rvalue_span);
+                    }
 
                     if let Some(explicit_type) = &explicit_type
                         && !type_compatible(explicit_type, &rhs_type)

@@ -31,5 +31,5 @@ pub use term::{Term, TermQuery, TermSize};
 #[cfg(unix)]
 pub use ulimit::ULimit;
 #[cfg(unix)]
-pub use umask_::UMask;
+pub use umask_::{UMask, get_umask};
 pub use whoami::Whoami;
