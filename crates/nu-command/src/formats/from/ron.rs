@@ -83,28 +83,32 @@ fn convert_ron_to_value(value: &RonValue, span: Span) -> Result<Value, ShellErro
             Ok(Value::list(v, span))
         }
         RonValue::Map(map) => {
-            let record_fields = map
+            let record_fields: Result<Record, ShellError> = map
                 .iter()
                 .map(|(k, v)| {
-                    let key_str = match k {
-                        RonValue::String(s) => s.clone(),
-                        RonValue::Char(c) => c.to_string(),
-                        RonValue::Number(i) => i.into_f64().to_string(),
-                        RonValue::Bool(b) => b.to_string(),
-                        _ => {
-                            return Err(ShellError::InvalidValue {
-                                valid: "key".into(),
-                                actual: format!("{:?}", k),
-                                span,
-                            });
-                        }
+                    let key_str: Result<String, ShellError> = match k {
+                        RonValue::String(s) => Ok(s.clone()),
+                        RonValue::Char(c) => Ok(c.to_string()),
+                        RonValue::Number(i) => Ok(i.into_f64().to_string()),
+                        RonValue::Bool(b) => Ok(b.to_string()),
+                        _ => Err(ShellError::InvalidValue {
+                            valid: "key".into(),
+                            actual: format!("{:?}", k),
+                            span,
+                        }),
                     };
-                    (key_str, convert_ron_to_value(v, span)?)
+                    match key_str {
+                        Ok(o) => Ok((o, convert_ron_to_value(v, span)?)),
+                        Err(e) => Err(e),
+                    }
                 })
                 .collect();
-            Ok(Value::record(record_fields, span))
+            match record_fields {
+                Ok(r) => Ok(Value::record(r, span)),
+                Err(e) => Err(e),
+            }
         }
-        RonValue::Unit => Value::nothing(span),
+        RonValue::Unit => Ok(Value::nothing(span)),
     }
 }
 
@@ -114,7 +118,10 @@ pub(crate) fn convert_string_to_value(
 ) -> Result<Value, ShellError> {
     let result: Result<RonValue, ron::error::SpannedError> = ron::from_str(&string_input);
     match result {
-        Ok(value) => Ok(convert_ron_to_value(&value, span)),
+        Ok(value) => match convert_ron_to_value(&value, span) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e),
+        },
         Err(err) => Err(ShellError::CantConvert {
             to_type: "structured ron data".into(),
             from_type: "string".into(),
@@ -123,7 +130,7 @@ pub(crate) fn convert_string_to_value(
         }),
     }
 }
-
+//Ok(convert_ron_to_value(&value, span)),
 #[cfg(test)]
 mod tests {
     use super::*;

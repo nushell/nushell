@@ -104,12 +104,7 @@ fn convert_value_to_ron(value: &Value, span: Span) -> Result<RonValue, ShellErro
         Value::Glob { val, .. } => Ok(RonValue::String(val.clone())),
         // It doesn't appear I can implement support for closures easily, I'll leave
         // that for a later version, but it doesn't seem most other file formats do either
-        Value::Binary {
-            val, internal_span, ..
-        } => convert_value_to_ron(
-            &<std::vec::Vec<u8> as Clone>::clone(val).into_value(span),
-            *internal_span,
-        ),
+        Value::Binary { val, .. } => Ok(RonValue::Bytes(val.clone().to_vec())),
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::CantConvert {
             to_type: "structured ron data".into(),
