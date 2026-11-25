@@ -223,6 +223,19 @@ fn def_with_built_in_custom_value_types() -> Result {
 }
 
 #[test]
+fn def_custom_value_type_across_predeclared_defs() -> Result {
+    // `semver` is first looked up while both defs are only predeclared, then parsing each def
+    // replaces its signature, and the type has to keep resolving in the later def
+    test()
+        .run(
+            "def f [v: semver]: nothing -> list<semver> { [$v] }
+             def g []: list<semver> -> semver { first }
+             f ('1.2.3' | into semver) | g | to text",
+        )
+        .expect_value_eq("1.2.3")
+}
+
+#[test]
 fn def_wrapped_with_block() -> Result {
     test()
         .run("def --wrapped foo [...rest] { $rest | str join ',' }; foo --bar baz -- -q -u -x")
