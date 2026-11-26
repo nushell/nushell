@@ -1503,17 +1503,21 @@ fn run_shell_integration_osc2(
     if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
-        emit(&osc2_sequence(command_name, &path));
+        emit(&osc2_sequence(
+            command_name,
+            &path,
+            nu_path::home_dir().as_deref().map(|h| h.as_std_path()),
+        ));
 
         perf!("set title with command osc2", start_time, use_color);
     }
 }
 
 /// Format an OSC 2 window title sequence, abbreviating the user's home directory as `~`.
-fn osc2_sequence(command_name: Option<&str>, path: &str) -> String {
+fn osc2_sequence(command_name: Option<&str>, path: &str, home: Option<&std::path::Path>) -> String {
     // Try to abbreviate string for windows title
-    let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-        let home_dir_str = p.as_path().display().to_string();
+    let maybe_abbrev_path = if let Some(home) = home {
+        let home_dir_str = home.display().to_string();
         if path.starts_with(&home_dir_str) {
             path.replacen(&home_dir_str, "~", 1)
         } else {
@@ -2913,7 +2917,11 @@ mod test_recover_cwd {
         assert_eq!(log[log.len() - 2].as_str()?, with_slash);
         assert_eq!(log[log.len() - 1].as_str()?, valid_str.as_ref());
 
-        let expected_osc2 = osc2_sequence(None, valid_str.as_ref());
+        let expected_osc2 = osc2_sequence(
+            None,
+            valid_str.as_ref(),
+            nu_path::home_dir().as_deref().map(|h| h.as_std_path()),
+        );
         let expected_osc7 = osc7_sequence(Some("host"), valid.as_std_path()).unwrap();
         assert!(
             emitted_osc.contains(&expected_osc2),
@@ -3008,7 +3016,11 @@ mod test_recover_cwd {
         assert_eq!(log[log.len() - 2].as_str()?, child_str.as_ref());
         assert_eq!(log[log.len() - 1].as_str()?, parent_str.as_ref());
 
-        let expected_osc2 = osc2_sequence(None, parent_str.as_ref());
+        let expected_osc2 = osc2_sequence(
+            None,
+            parent_str.as_ref(),
+            nu_path::home_dir().as_deref().map(|h| h.as_std_path()),
+        );
         let expected_osc7 = osc7_sequence(Some("host"), parent.as_std_path()).unwrap();
         assert!(
             emitted_osc.contains(&expected_osc2),
@@ -3148,16 +3160,23 @@ mod test_recover_cwd {
 
     #[test]
     fn osc2_sequence_abbreviates_home_and_formats_command() {
-        if let Some(home) = nu_path::home_dir() {
-            let sub = home.as_path().join("project");
-            assert_eq!(
-                osc2_sequence(None, &sub.display().to_string()),
-                format!("\x1b]2;~{}project\x07", std::path::MAIN_SEPARATOR)
-            );
-            assert_eq!(
-                osc2_sequence(Some("ls -la"), &sub.display().to_string()),
-                format!("\x1b]2;~{}project> ls\x07", std::path::MAIN_SEPARATOR)
-            );
-        }
+        let home = if cfg!(windows) {
+            std::path::Path::new(r"C:\Users\bob")
+        } else {
+            std::path::Path::new("/home/bob")
+        };
+        let sub = home.join("project");
+        assert_eq!(
+            osc2_sequence(None, &sub.display().to_string(), Some(home)),
+            format!("\x1b]2;~{}project\x07", std::path::MAIN_SEPARATOR)
+        );
+        assert_eq!(
+            osc2_sequence(Some("ls -la"), &sub.display().to_string(), Some(home)),
+            format!("\x1b]2;~{}project> ls\x07", std::path::MAIN_SEPARATOR)
+        );
+        assert_eq!(
+            osc2_sequence(None, &sub.display().to_string(), None),
+            format!("\x1b]2;{}\x07", sub.display())
+        );
     }
 }
