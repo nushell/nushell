@@ -218,8 +218,10 @@ fn parse(path: &Path, span: Span, args: &Arguments) -> Value {
             span: extension_span,
         }) => {
             let ext_with_dot = [".", extension].concat();
-            if basename.ends_with(&ext_with_dot) && !extension.is_empty() {
-                let stem = basename.trim_end_matches(&ext_with_dot);
+            if let Some(stem) = basename
+                .strip_suffix(&ext_with_dot)
+                .filter(|_| !extension.is_empty())
+            {
                 record.push("stem", Value::string(stem, span));
                 record.push("extension", Value::string(extension, *extension_span));
             } else {

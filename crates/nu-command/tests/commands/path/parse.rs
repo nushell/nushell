@@ -108,3 +108,14 @@ fn const_path_parse() -> Result {
     test().run(code).expect_value_eq("txt")?;
     Ok(())
 }
+
+#[test]
+fn parses_custom_extension_strips_it_only_once() -> Result {
+    let code = "
+        echo 'home/viking/notes.txt.txt'
+        | path parse --extension txt
+        | get stem
+    ";
+
+    test().cwd("tests").run(code).expect_value_eq("notes.txt")
+}
