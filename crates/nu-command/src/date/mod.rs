@@ -17,4 +17,5 @@ pub(crate) use parser::{TIME_ZONE_NAMES, time_zone_named};
 pub use to_timezone::DateToTimezone;
 pub(crate) use utils::{
     generate_date_formats_list, generate_strftime_list, parse_date_from_string,
+    parse_date_from_string_in,
 };
