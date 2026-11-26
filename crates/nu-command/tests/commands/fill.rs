@@ -40,6 +40,22 @@ fn string_fill_wide_characters() -> Result {
 }
 
 #[test]
+fn string_fill_control_characters() -> Result {
+    // A tab and a carriage return each keep the single column they had before
+    // `fill` measured in columns; they are not escape sequences to be ignored.
+    test()
+        .run(r#""a\tb" | fill --character "." --width 6"#)
+        .expect_value_eq("a\tb...")?;
+    test()
+        .run(r#""a\rb" | fill --character "." --width 6"#)
+        .expect_value_eq("a\rb...")?;
+    // A multi-line string is as wide as its widest line.
+    test()
+        .run(r#""ab\ncd" | fill --character "." --width 6"#)
+        .expect_value_eq("ab\ncd....")
+}
+
+#[test]
 fn fill_valid_alignments() -> Result {
     test()
         .run("'nushell' | fill -w 10 -a l")
