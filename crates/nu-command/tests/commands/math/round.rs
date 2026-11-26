@@ -87,6 +87,6 @@ fn filesize_round_rejects_precision() -> Result {
 #[test]
 fn integers_above_2_pow_53_are_unchanged() -> Result {
     test()
-        .run("9007199254740993 | math round")
-        .expect_value_eq(9_007_199_254_740_993_i64)
+        .run("9007199254740993 | math round | to nuon")
+        .expect_value_eq("9007199254740993")
 }
