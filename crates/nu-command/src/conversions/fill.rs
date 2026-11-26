@@ -2,7 +2,8 @@ use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use nu_protocol::FromValue;
-use print_positions::print_positions;
+use nu_utils::strip_ansi_unlikely;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone)]
 pub struct Fill;
@@ -235,9 +236,12 @@ fn fill_string(s: &str, args: &Arguments, span: Span) -> Value {
 
 fn pad(s: &str, width: usize, pad_char: &str, alignment: FillAlignment, truncate: bool) -> String {
     // Attribution: Most of this function was taken from https://github.com/ogham/rust-pad and tweaked. Thank you!
-    // Use width instead of len for graphical display
+    // Measure the terminal columns the string occupies, not its bytes or its
+    // grapheme clusters: a wide character such as `\u{65e5}` occupies two columns, so counting
+    // clusters pads it two columns too far. ANSI escapes are stripped first
+    // because they occupy no columns at all.
 
-    let cols = print_positions(s).count();
+    let cols = strip_ansi_unlikely(s).width();
 
     if cols >= width {
         if truncate {
