@@ -47,3 +47,25 @@ fn into_int_datetime(#[case] time_in: &str, #[case] int_out: i64) -> Result {
         .run_with_data("$in | into datetime --format '%+' | into int", time_in)
         .expect_value_eq(int_out)
 }
+
+#[rstest]
+#[case::hex("'0x1f'", 31)]
+#[case::octal("'0o17'", 15)]
+#[case::binary("'0b101'", 5)]
+fn into_int_converts_prefixed_string(#[case] input: &str, #[case] expected: i64) -> Result {
+    test()
+        .run(format!("{input} | into int"))
+        .expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::hex("'0x0x1f'")]
+#[case::octal("'0o0o17'")]
+#[case::binary("'0b0b101'")]
+fn into_int_rejects_repeated_prefix(#[case] input: &str) -> Result {
+    let err = test()
+        .run(format!("{input} | into int"))
+        .expect_shell_error()?;
+    assert!(matches!(err, ShellError::CantConvert { .. }));
+    Ok(())
+}
