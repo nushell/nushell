@@ -556,6 +556,34 @@ fn commands_have_description() -> Result {
 }
 
 #[test]
+fn param_description_continues_on_comment_only_lines() -> Result {
+    test()
+        .run(
+            "def foo [
+               x: int # first line
+                      # second line
+             ] {}
+             scope commands | where name == foo | get 0.signatures | values | first
+               | where parameter_name == x | get 0.description",
+        )
+        .expect_value_eq("first line\nsecond line")
+}
+
+#[test]
+fn param_description_on_line_below_parameter() -> Result {
+    test()
+        .run(
+            "def bar [
+               x: int
+               # describes x
+             ] {}
+             scope commands | where name == bar | get 0.signatures | values | first
+               | where parameter_name == x | get 0.description",
+        )
+        .expect_value_eq("describes x")
+}
+
+#[test]
 fn commands_from_crlf_source_have_short_description() -> Result {
     let code = "
         # This is a test

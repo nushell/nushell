@@ -882,6 +882,43 @@ fn external_flag_completions_ignore_standalone_comments() {
         .find(|suggestion| suggestion.value == "--opt")
         .unwrap();
     assert_eq!(opt.description, Some("opt docs".into()));
+
+    let arg = suggestions
+        .iter()
+        .find(|suggestion| suggestion.value == "--arg")
+        .unwrap();
+    assert_eq!(arg.description, Some("arg docs".into()));
+}
+
+#[test]
+fn external_flag_completions_multiline_descriptions() {
+    let (_, _, mut engine, mut stack) = new_dotnu_engine();
+    let code = r#"
+        export extern "comp-me" [
+          --multi # first line
+                  # second line
+          --below
+          # below docs
+        ]
+    "#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "comp-me --";
+    let suggestions = completer.complete_blocking(completion_str, completion_str.len());
+    match_suggestions(&vec!["--below", "--multi"], &suggestions);
+
+    let multi = suggestions
+        .iter()
+        .find(|suggestion| suggestion.value == "--multi")
+        .unwrap();
+    assert_eq!(multi.description, Some("first line\nsecond line".into()));
+
+    let below = suggestions
+        .iter()
+        .find(|suggestion| suggestion.value == "--below")
+        .unwrap();
+    assert_eq!(below.description, Some("below docs".into()));
 }
 
 #[test]

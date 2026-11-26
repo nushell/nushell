@@ -1233,15 +1233,25 @@ pub fn parse_signature_helper(
                     .is_some_and(|line_prefix| {
                         line_prefix.iter().all(|byte| byte.is_ascii_whitespace())
                     });
-                if is_standalone {
-                    continue;
-                }
 
                 let contents = working_set
                     .get_span_contents(Span::new(comment_span.start + 1, comment_span.end));
 
                 let mut contents = String::from_utf8_lossy(contents).to_string();
                 contents = contents.trim().into();
+
+                // A comment-only line that starts like a flag or rest parameter is a
+                // commented-out parameter (#7377), so it describes nothing. Any other
+                // comment-only line continues the previous parameter's description.
+                let commented_out_param = ["--", "-", "..."].iter().any(|prefix| {
+                    contents
+                        .strip_prefix(prefix)
+                        .and_then(|rest| rest.chars().next())
+                        .is_some_and(|c| c.is_alphabetic() || c == '$' || c == '_')
+                });
+                if is_standalone && commented_out_param {
+                    continue;
+                }
 
                 if let Some(last) = args.last_mut() {
                     match last {
