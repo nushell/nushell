@@ -1503,39 +1503,44 @@ fn run_shell_integration_osc2(
     if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
-        // Try to abbreviate string for windows title
-        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-            let home_dir_str = p.as_path().display().to_string();
-            if path.starts_with(&home_dir_str) {
-                path.replacen(&home_dir_str, "~", 1)
-            } else {
-                path
-            }
-        } else {
-            path
-        };
-
-        let title = match command_name {
-            Some(binary_name) => {
-                let split_binary_name = binary_name.split_whitespace().next();
-                if let Some(binary_name) = split_binary_name {
-                    format!("{maybe_abbrev_path}> {binary_name}")
-                } else {
-                    maybe_abbrev_path.to_string()
-                }
-            }
-            None => maybe_abbrev_path.to_string(),
-        };
-
-        // Set window title too
-        // https://tldp.org/HOWTO/Xterm-Title-3.html
-        // ESC]0;stringBEL -- Set icon name and window title to string
-        // ESC]1;stringBEL -- Set icon name to string
-        // ESC]2;stringBEL -- Set window title to string
-        emit(&format!("\x1b]2;{title}\x07"));
+        emit(&osc2_sequence(command_name, &path));
 
         perf!("set title with command osc2", start_time, use_color);
     }
+}
+
+/// Format an OSC 2 window title sequence, abbreviating the user's home directory as `~`.
+fn osc2_sequence(command_name: Option<&str>, path: &str) -> String {
+    // Try to abbreviate string for windows title
+    let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+        let home_dir_str = p.as_path().display().to_string();
+        if path.starts_with(&home_dir_str) {
+            path.replacen(&home_dir_str, "~", 1)
+        } else {
+            path.to_string()
+        }
+    } else {
+        path.to_string()
+    };
+
+    let title = match command_name {
+        Some(binary_name) => {
+            let split_binary_name = binary_name.split_whitespace().next();
+            if let Some(binary_name) = split_binary_name {
+                format!("{maybe_abbrev_path}> {binary_name}")
+            } else {
+                maybe_abbrev_path
+            }
+        }
+        None => maybe_abbrev_path,
+    };
+
+    // Set window title too
+    // https://tldp.org/HOWTO/Xterm-Title-3.html
+    // ESC]0;stringBEL -- Set icon name and window title to string
+    // ESC]1;stringBEL -- Set icon name to string
+    // ESC]2;stringBEL -- Set window title to string
+    format!("\x1b]2;{title}\x07")
 }
 
 fn run_shell_integration_osc7(
@@ -2854,7 +2859,6 @@ mod test_recover_cwd {
     }
 
     #[test]
-    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_normalizes_trailing_slash_silently_and_updates_osc()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
@@ -2909,12 +2913,11 @@ mod test_recover_cwd {
         assert_eq!(log[log.len() - 2].as_str()?, with_slash);
         assert_eq!(log[log.len() - 1].as_str()?, valid_str.as_ref());
 
+        let expected_osc2 = osc2_sequence(None, valid_str.as_ref());
         let expected_osc7 = osc7_sequence(Some("host"), valid.as_std_path()).unwrap();
         assert!(
-            emitted_osc
-                .iter()
-                .any(|seq| seq.starts_with("\x1b]2;") && seq.contains(valid_str.as_ref())),
-            "missing OSC 2 sequence for normalized cwd in {emitted_osc:?}"
+            emitted_osc.contains(&expected_osc2),
+            "missing OSC 2 sequence {expected_osc2:?} in {emitted_osc:?}"
         );
         assert!(emitted_osc.contains(&expected_osc7));
         assert!(emitted_osc.contains(&format!("\x1b]9;9;{valid_str}\x1b\\")));
@@ -2922,7 +2925,6 @@ mod test_recover_cwd {
     }
 
     #[test]
-    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_recovers_warns_hooks_and_updates_terminal_cwd()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
@@ -3006,12 +3008,11 @@ mod test_recover_cwd {
         assert_eq!(log[log.len() - 2].as_str()?, child_str.as_ref());
         assert_eq!(log[log.len() - 1].as_str()?, parent_str.as_ref());
 
+        let expected_osc2 = osc2_sequence(None, parent_str.as_ref());
         let expected_osc7 = osc7_sequence(Some("host"), parent.as_std_path()).unwrap();
         assert!(
-            emitted_osc
-                .iter()
-                .any(|seq| seq.starts_with("\x1b]2;") && seq.contains(parent_str.as_ref())),
-            "missing OSC 2 sequence for recovered cwd in {emitted_osc:?}"
+            emitted_osc.contains(&expected_osc2),
+            "missing OSC 2 sequence {expected_osc2:?} in {emitted_osc:?}"
         );
         assert!(
             emitted_osc.contains(&expected_osc7),
@@ -3143,5 +3144,20 @@ mod test_recover_cwd {
             parent.as_std_path().to_string_lossy()
         );
         Ok(())
+    }
+
+    #[test]
+    fn osc2_sequence_abbreviates_home_and_formats_command() {
+        if let Some(home) = nu_path::home_dir() {
+            let sub = home.as_path().join("project");
+            assert_eq!(
+                osc2_sequence(None, &sub.display().to_string()),
+                format!("\x1b]2;~{}project\x07", std::path::MAIN_SEPARATOR)
+            );
+            assert_eq!(
+                osc2_sequence(Some("ls -la"), &sub.display().to_string()),
+                format!("\x1b]2;~{}project> ls\x07", std::path::MAIN_SEPARATOR)
+            );
+        }
     }
 }
