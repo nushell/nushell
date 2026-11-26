@@ -1,7 +1,7 @@
 use crate::{
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
-    ParseError, ParseWarning, ResolvedImportPattern, ResolvedSpan, Signature, Span, SpanId, Type,
-    TypeAlias, TypeAliasId, TypeSet, Value, VarId, VirtualPathId,
+    ParseError, ParseWarning, ResolvedImportPattern, ResolvedSpan, Signature, Span, SpanId,
+    SyntaxShape, Type, TypeAlias, TypeAliasId, TypeSet, Value, VarId, VirtualPathId,
     ast::Block,
     engine::{
         BoundNames, BracketTable, CachedFile, Command, CommandType, EngineState, OverlayFrame,
@@ -59,6 +59,76 @@ pub struct StateWorkingSet<'a> {
     /// The index in `delta.files` of the file the last span lookup found (see
     /// [`Self::get_span_contents`]).
     last_file_hit: FileHint,
+    /// What [`Self::find_custom_type`] has learned from the declarations it already scanned.
+    custom_types: CustomTypeNames,
+}
+
+/// The custom value type names (such as `matrix` or `polars_dataframe`) that the built-in and
+/// plugin commands among the first `scanned` declarations use in their signatures, so
+/// [`StateWorkingSet::find_custom_type`] only has to look at declarations added since its last
+/// call.
+#[derive(Default)]
+struct CustomTypeNames {
+    scanned: usize,
+    names: HashSet<Box<[u8]>>,
+}
+
+impl CustomTypeNames {
+    /// Records the custom value types in `signature`'s input/output types and parameter shapes.
+    fn add_signature(&mut self, signature: &Signature) {
+        for (input, output) in &signature.input_output_types {
+            self.add_type(input);
+            self.add_type(output);
+        }
+        let positionals = signature
+            .required_positional
+            .iter()
+            .chain(&signature.optional_positional)
+            .chain(&signature.rest_positional);
+        for arg in positionals {
+            self.add_shape(&arg.shape);
+        }
+        for shape in signature.named.iter().filter_map(|flag| flag.arg.as_ref()) {
+            self.add_shape(shape);
+        }
+    }
+
+    /// Records the custom value types in `ty`, including those nested in lists, records, tables
+    /// and `oneof`s.
+    fn add_type(&mut self, ty: &Type) {
+        match ty {
+            Type::Custom(name) => self.add_name(name),
+            Type::List(item) => self.add_type(item),
+            Type::OneOf(types) => types.iter().for_each(|ty| self.add_type(ty)),
+            Type::Record(columns) | Type::Table(columns) => {
+                columns.iter().for_each(|(_, ty)| self.add_type(ty))
+            }
+            _ => {}
+        }
+    }
+
+    /// Records the custom value types in `shape`, including those nested in lists, records,
+    /// tables, `oneof`s, keyword arguments and closure parameters.
+    fn add_shape(&mut self, shape: &SyntaxShape) {
+        match shape {
+            SyntaxShape::Custom(name) => self.add_name(name),
+            SyntaxShape::List(item) | SyntaxShape::Keyword(_, item) => self.add_shape(item),
+            SyntaxShape::OneOf(shapes) | SyntaxShape::Closure(Some(shapes)) => {
+                shapes.iter().for_each(|shape| self.add_shape(shape))
+            }
+            SyntaxShape::Record(columns) | SyntaxShape::Table(columns) => {
+                columns.iter().for_each(|(_, shape)| self.add_shape(shape))
+            }
+            _ => {}
+        }
+    }
+
+    /// Records `name`, allocating only the first time it is seen.
+    fn add_name(&mut self, name: &str) {
+        if !self.names.contains(name.as_bytes()) {
+            self.names.insert(name.as_bytes().into());
+        }
+    }
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -84,6 +154,7 @@ impl<'a> StateWorkingSet<'a> {
             bracket_tables: vec![],
             def_body_span: None,
             last_file_hit: FileHint::default(),
+            custom_types: CustomTypeNames::default(),
         }
     }
 
@@ -751,21 +822,36 @@ impl<'a> StateWorkingSet<'a> {
             .find_type_alias(name, &removed_overlays)
     }
 
-    /// Whether `name` is a custom value type that any command declares in its input/output
-    /// types, e.g. `semver` from the built-in `semver` commands or `polars_dataframe` from a
-    /// plugin.
+    /// Whether `name` is a custom value type that a built-in or plugin command uses in its
+    /// signature, e.g. `semver` from the built-in `semver` commands or `polars_dataframe` from a
+    /// plugin. The name counts anywhere in the signature: as an input or output type, as a
+    /// parameter's shape, or nested inside a `list`, `record`, `table` or `oneof` there.
     ///
-    /// Custom value types aren't registered separately, so this scans every declaration's
-    /// signature (cached for permanent declarations). The parser only calls it for names that
-    /// are neither built-in types nor type aliases.
-    pub fn find_custom_type(&self, name: &[u8]) -> bool {
-        (0..self.num_decls()).map(DeclId::new).any(|decl_id| {
-            self.get_decl_signature_shared(decl_id)
-                .input_output_types
-                .iter()
-                .flat_map(|(input, output)| [input, output])
-                .any(|ty| matches!(ty, Type::Custom(custom) if custom.as_bytes() == name))
-        })
+    /// Custom value types aren't registered separately, so this collects them from the
+    /// declarations' signatures, reading each declaration once per working set. The parser calls
+    /// this for every name that is neither a built-in type nor a type alias, which during
+    /// predeclaration includes the words of command bodies, so scanning every declaration on each
+    /// call made parsing quadratic.
+    ///
+    /// `def`, `extern` and `alias` declarations are skipped. Their input/output types only name
+    /// custom types that this lookup already found, and a parameter's shape can come from the
+    /// type of its default value instead of from a type name. `parse_def` also replaces their
+    /// predeclared signatures in place, which reading each declaration once would miss.
+    /// Built-in and plugin signatures don't change once added.
+    pub fn find_custom_type(&mut self, name: &[u8]) -> bool {
+        let num_decls = self.num_decls();
+        for decl_id in (self.custom_types.scanned..num_decls).map(DeclId::new) {
+            let declares_types = match self.get_decl(decl_id).command_type() {
+                CommandType::Builtin | CommandType::Keyword | CommandType::Plugin => true,
+                CommandType::Custom | CommandType::External | CommandType::Alias => false,
+            };
+            if declares_types {
+                let signature = self.get_decl_signature_shared(decl_id);
+                self.custom_types.add_signature(&signature);
+            }
+        }
+        self.custom_types.scanned = num_decls;
+        self.custom_types.names.contains(name)
     }
 
     pub fn get_type_alias(&self, type_alias_id: TypeAliasId) -> &TypeAlias {
@@ -1866,5 +1952,123 @@ impl FileStack {
     /// or the active file doesn't have a parent directory as part of its path.
     pub fn current_working_directory(&self) -> Option<&Path> {
         self.0.last().and_then(|file| file.path.parent())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A command whose output is the custom value type `matrix`.
+    fn matrix_command() -> Box<dyn Command> {
+        Signature::new("make-matrix")
+            .input_output_type(Type::Nothing, Type::Custom("matrix".into()))
+            .predeclare()
+    }
+
+    #[test]
+    fn find_custom_type_sees_declarations_added_after_a_lookup() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        assert!(!working_set.find_custom_type(b"matrix"));
+        working_set.add_decl(matrix_command());
+        assert!(working_set.find_custom_type(b"matrix"));
+        assert!(!working_set.find_custom_type(b"not-a-type"));
+    }
+
+    #[test]
+    fn find_custom_type_sees_permanent_declarations() {
+        let mut engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(matrix_command());
+        let delta = working_set.render();
+        engine_state
+            .merge_delta(delta)
+            .expect("merging a declaration works");
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        assert!(working_set.find_custom_type(b"matrix"));
+    }
+
+    #[test]
+    fn find_custom_type_sees_nested_types_and_parameter_shapes() {
+        let ty = |name: &str| Type::Custom(name.into());
+        let shape = |name: &str| SyntaxShape::Custom(name.into());
+        // Each custom value type is named after the one place its command uses it.
+        let commands = [
+            Signature::new("a")
+                .input_output_type(Type::Nothing, Type::List(Box::new(ty("output-list")))),
+            Signature::new("b")
+                .input_output_type(Type::one_of([Type::Int, ty("input-oneof")]), Type::Nothing),
+            Signature::new("c").input_output_type(
+                Type::Nothing,
+                Type::Table([("x", ty("table-column"))].into()),
+            ),
+            Signature::new("d").required("x", shape("required"), "x"),
+            Signature::new("e").optional(
+                "x",
+                SyntaxShape::List(Box::new(shape("optional-list"))),
+                "x",
+            ),
+            Signature::new("f").rest(
+                "x",
+                SyntaxShape::Record([("x", shape("rest-record"))].into()),
+                "x",
+            ),
+            Signature::new("g").named(
+                "x",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, shape("flag-oneof")]),
+                "x",
+                None,
+            ),
+            Signature::new("h").required(
+                "x",
+                SyntaxShape::Closure(Some(vec![shape("closure-parameter")])),
+                "x",
+            ),
+        ];
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        for command in commands {
+            working_set.add_decl(command.predeclare());
+        }
+
+        for name in [
+            "output-list",
+            "input-oneof",
+            "table-column",
+            "required",
+            "optional-list",
+            "rest-record",
+            "flag-oneof",
+            "closure-parameter",
+        ] {
+            assert!(working_set.find_custom_type(name.as_bytes()), "{name}");
+        }
+    }
+
+    /// A `def`'s signature can name a custom value type that no lookup found (a parameter's shape
+    /// can come from its default value), and `parse_def` replaces predeclared signatures in place,
+    /// so the lookup only trusts built-in and plugin commands.
+    #[test]
+    fn find_custom_type_skips_user_defined_commands() {
+        let engine_state = EngineState::new();
+        for command_type in [
+            CommandType::Custom,
+            CommandType::External,
+            CommandType::Alias,
+        ] {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            working_set.add_decl(
+                Signature::new("user-command")
+                    .input_output_type(Type::Nothing, Type::Custom("matrix".into()))
+                    .required("x", SyntaxShape::Custom("vector".into()), "x")
+                    .predeclare_with_command_type(command_type),
+            );
+
+            assert!(!working_set.find_custom_type(b"matrix"), "{command_type}");
+            assert!(!working_set.find_custom_type(b"vector"), "{command_type}");
+        }
     }
 }
