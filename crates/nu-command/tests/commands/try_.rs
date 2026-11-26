@@ -888,6 +888,35 @@ fn exit_in_nested_try_skips_catch_but_runs_finally() -> Result {
     Ok(())
 }
 
+/// Ctrl-C reaches Nu while the `try` body runs an external that handles SIGINT itself and exits,
+/// so the interrupt is still pending when the body ends, returns or fails. `finally` runs to
+/// completion and the interrupt is raised after it, without running `catch`, returning a value
+/// or reporting the external's failure (#19661). The external sends SIGINT to Nu, then waits so
+/// that Nu's handler has set the interrupt flag before the body ends.
+#[cfg(unix)]
+#[rstest]
+#[case::finally("try { ^sh -c 'kill -INT $PPID; sleep 0.5' } finally { print cleanup }")]
+#[case::failed_external(
+    "try { ^sh -c 'kill -INT $PPID; sleep 0.5; exit 255' } finally { print cleanup }"
+)]
+#[case::catch_finally(
+    "try { ^sh -c 'kill -INT $PPID; sleep 0.5' } catch { print caught } finally { print cleanup }"
+)]
+#[case::return_(
+    "def f [] { try { ^sh -c 'kill -INT $PPID; sleep 0.5'; return 1 } finally { print cleanup } }; f"
+)]
+#[nu_test_support::test]
+#[deps(NU)]
+fn finally_runs_when_interrupted_during_try_body(#[case] code: &str) -> Result {
+    let result: CompleteResult = test()
+        .inherit_path()
+        .run_with_data("let code; nu -n -c $code | complete", code)?;
+    assert_eq!(result.stdout.trim_end(), "cleanup");
+    assert_contains("Operation interrupted", result.stderr);
+    assert_ne!(result.exit_code, 0);
+    Ok(())
+}
+
 // `complete`, `ignore`, `save` and `tee` read an external's stdout and stderr on separate pipes.
 // A `try` with a handler sits between the two and must hand the external through untouched
 // (#19335). `ignore` swallows the `catch` output as well, so `$env.LOG` records whether the
