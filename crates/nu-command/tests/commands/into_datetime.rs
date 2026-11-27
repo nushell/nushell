@@ -497,6 +497,25 @@ fn formatted_input_rejects_invalid_timezone_flag() -> Result {
     }
 }
 
+// A zone flag that names no zone fails the command before any input is read, so a datetime, an
+// empty list or a record gets the error too, and a list doesn't turn into error values.
+#[rstest]
+#[case::datetime("2021-01-01 | into datetime --timezone Nowhere/Town")]
+#[case::empty_list("[] | into datetime --timezone Nowhere/Town")]
+#[case::record("{year: 2025} | into datetime --timezone Nowhere/Town")]
+#[case::list("['2021-01-01' 5] | into datetime --offset 13 | describe")]
+fn invalid_zone_flag_fails_before_any_input(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_shell_error()?;
+
+    match err {
+        ShellError::TypeMismatch { err_message, .. } => {
+            assert_eq!(err_message, "Invalid timezone or offset");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
 #[test]
 fn formatted_input_rejects_invalid_offset_flag() -> Result {
     let err = test()

@@ -1,3 +1,4 @@
+use mockito::{Server, ServerOpts};
 use nu_protocol::shell_error::network::NetworkError;
 use nu_test_support::prelude::*;
 use rstest::*;
@@ -10,6 +11,18 @@ mod options;
 mod patch;
 mod post;
 mod put;
+
+/// Start a mockito server that stays out of mockito's shared pool.
+///
+/// Use it when a mock's response outlives its client, like the stalled chunked bodies in the
+/// `--max-time` tests. Mockito serves each server on one thread and joins the body thread there
+/// when the client hangs up, so the server stops answering until the body closure returns. A
+/// pooled server would go back to the pool in that state. A request that times out against it
+/// stays queued, and after the thaw the server answers it against the mocks of whichever test
+/// holds it by then. That test's `mock.assert()` then counts an extra hit.
+fn unpooled_server() -> Server {
+    Server::new_with_opts(ServerOpts::default())
+}
 
 #[rstest]
 #[case::delete("delete")]

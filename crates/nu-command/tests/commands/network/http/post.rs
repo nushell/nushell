@@ -4,6 +4,8 @@ use mockito::{Matcher, Server, ServerOpts};
 use nu_protocol::shell_error;
 use nu_test_support::prelude::*;
 
+use super::unpooled_server;
+
 #[test]
 fn http_post_is_success() -> Result {
     let mut server = Server::new();
@@ -255,13 +257,11 @@ fn http_post_multipart_is_success() -> Result {
 
 #[test]
 fn http_post_timeout() -> Result {
-    let mut server = Server::new();
+    let mut server = unpooled_server();
     let _mock = server
         .mock("POST", "/")
         .with_chunked_body(|w| {
-            // Keep this well above `--max-time 100ms` so the client still times out. Mockito joins
-            // the chunked-body thread on drop, so a multi-second sleep stalls the Test step for
-            // every timeout case (get/post/put/patch/delete/options).
+            // Keep this well above `--max-time 100ms` so the client still times out.
             thread::sleep(Duration::from_millis(500));
             w.write_all(b"Delayed response!")
         })
