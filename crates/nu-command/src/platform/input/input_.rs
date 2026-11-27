@@ -1,9 +1,12 @@
 use crate::platform::input::legacy_input::LegacyInput;
 use crate::platform::input::reedline_prompt::{ModeIndicators, ReedlinePrompt};
-use nu_engine::command_prelude::*;
+use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::engine::Closure;
 use nu_protocol::shell_error::{self, io::IoError};
 use reedline::{
-    EditCommand, FileBackedHistory, HISTORY_SIZE, History, HistoryItem, Reedline, Signal,
+    ColumnarMenu, CompletionResult, EditCommand, Emacs, FileBackedHistory, HISTORY_SIZE, History,
+    HistoryItem, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, Signal,
+    Suggestion, default_emacs_keybindings,
 };
 
 #[derive(Clone)]
@@ -66,6 +69,12 @@ impl Command for Input {
                 "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size. Implies `--reedline`.",
                 None,
             )
+            .named(
+                "completer",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::Int])),
+                "Closure called with the current buffer and cursor position when the completion menu is triggered (Tab). Returns completions as a list of strings, or of records with a `value` column and optional `description`, `start`, and `end` columns. Implies `--reedline`.",
+                None,
+            )
             .switch("suppress-output", "Don't print keystroke values.", Some('s'))
             .category(Category::Platform)
     }
@@ -77,6 +86,8 @@ impl Command for Input {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let completer_closure: Option<Closure> = call.get_flag(engine_state, stack, "completer")?;
+
         // Check if we should use the legacy implementation or the reedline implementation
         let use_reedline = [
             // reedline is not set - use legacy implementation
@@ -86,6 +97,7 @@ impl Command for Input {
                 .is_some(),
             call.get_flag::<i64>(engine_state, stack, "max-history")?
                 .is_some(),
+            completer_closure.is_some(),
         ]
         .iter()
         .any(|x| *x);
@@ -188,6 +200,42 @@ impl Command for Input {
             prefill_reedline_buffer(&mut line_editor, val);
         }
 
+        if let Some(closure) = completer_closure {
+            let closure_eval = ClosureEval::try_new(engine_state, stack, closure, call.head)?;
+            let signature = &closure_eval.block().signature;
+            let num_params =
+                signature.required_positional.len() + signature.optional_positional.len();
+            let completer = ClosureCompleter {
+                closure_eval,
+                num_params,
+                span: call.head,
+            };
+            // A completer only does something through a menu and a key bound to
+            // open it, which the plain `Reedline::create()` editor lacks; wire
+            // up the same defaults the shell uses: a columnar menu on Tab.
+            let completion_menu = ColumnarMenu::default().with_name("completion_menu");
+            let mut keybindings = default_emacs_keybindings();
+            keybindings.add_binding(
+                KeyModifiers::NONE,
+                KeyCode::Tab,
+                ReedlineEvent::UntilFound(vec![
+                    ReedlineEvent::Menu("completion_menu".to_string()),
+                    ReedlineEvent::MenuNext,
+                ]),
+            );
+            keybindings.add_binding(
+                KeyModifiers::SHIFT,
+                KeyCode::BackTab,
+                ReedlineEvent::MenuPrevious,
+            );
+            line_editor = line_editor
+                .with_completer(Box::new(completer))
+                .with_menu(ReedlineMenu::EngineCompleter(Box::new(completion_menu)))
+                .with_edit_mode(Box::new(Emacs::new(keybindings)))
+                .with_quick_completions(true)
+                .with_partial_completions(true);
+        }
+
         let mut buf = String::new();
 
         match line_editor.read_line(&prompt) {
@@ -251,7 +299,83 @@ impl Command for Input {
                 example: "let user_input = (input --reedline --history-file ./history.txt)",
                 result: None,
             },
+            Example {
+                description: "Get input from the user with a custom completion menu on Tab.",
+                example: "let user_input = (input --completer {|buffer, pos| ls | get name })",
+                result: None,
+            },
         ]
+    }
+}
+
+/// Adapts a user-supplied closure to reedline's [`Completer`] trait.
+///
+/// The completer is called re-entrantly from inside `read_line`, so it owns
+/// its evaluation state ([`ClosureEval`] keeps an owned `EngineState` clone);
+/// environment changes made by the closure do not propagate back out.
+struct ClosureCompleter {
+    closure_eval: ClosureEval,
+    /// Number of positional parameters the closure declares: the buffer is
+    /// always passed, the cursor position only if a second parameter exists.
+    num_params: usize,
+    span: Span,
+}
+
+impl ClosureCompleter {
+    fn try_complete(&mut self, line: &str, pos: usize) -> Result<Vec<Suggestion>, ShellError> {
+        let pos = pos.min(line.len());
+        self.closure_eval.add_arg(Value::string(line, self.span))?;
+        if self.num_params >= 2 {
+            self.closure_eval
+                .add_arg(Value::int(pos as i64, self.span))?;
+        }
+        let vals = self
+            .closure_eval
+            .run_with_input(PipelineData::empty())?
+            .into_value(self.span)?
+            .into_list()?;
+
+        // Default replacement span: the trailing word, scanning back from the
+        // cursor to the nearest whitespace. Records may override it with
+        // `start`/`end` columns.
+        let word_start = line[..pos]
+            .rfind(char::is_whitespace)
+            .map(|i| i + 1)
+            .unwrap_or(0);
+
+        Ok(vals
+            .into_iter()
+            .filter_map(|val| match val {
+                Value::String { val, .. } => Some(Suggestion {
+                    value: val,
+                    span: reedline::Span::new(word_start, pos),
+                    ..Suggestion::default()
+                }),
+                Value::Record { val, .. } => {
+                    let get_pos = |col: &str| {
+                        val.get(col)
+                            .and_then(|v| v.as_int().ok())
+                            .map(|i| (i.max(0) as usize).min(line.len()))
+                    };
+                    let start = get_pos("start").unwrap_or(word_start);
+                    let end = get_pos("end").unwrap_or(pos).max(start);
+                    Some(Suggestion {
+                        value: val.get("value")?.coerce_string().ok()?,
+                        description: val.get("description").and_then(|v| v.coerce_string().ok()),
+                        span: reedline::Span::new(start, end),
+                        ..Suggestion::default()
+                    })
+                }
+                _ => None,
+            })
+            .collect())
+    }
+}
+
+impl reedline::Completer for ClosureCompleter {
+    fn complete(&mut self, line: &str, pos: usize) -> CompletionResult {
+        // A completer must not fail mid-edit; on error, offer no completions.
+        CompletionResult::fresh(self.try_complete(line, pos).unwrap_or_default())
     }
 }
 
