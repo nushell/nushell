@@ -132,6 +132,10 @@ pub enum Instruction {
     TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },
+    /// Make an external's output in a register leave out its last newline when it's collected as
+    /// bytes, as it does when collected into a string (see `ByteStream::trim_end_newline`). For a
+    /// `$in` that passes its input on without collecting it.
+    TrimEndNewline { src_dst: RegId },
     /// Drop the value/stream in a register, without draining
     Drop { src: RegId },
     /// Drain the value/stream in a register and discard (e.g. semicolon).
@@ -356,6 +360,7 @@ impl Instruction {
             Instruction::Collect { src_dst } => Some(src_dst),
             Instruction::TryCollect { src_dst } => Some(src_dst),
             Instruction::Span { src_dst } => Some(src_dst),
+            Instruction::TrimEndNewline { src_dst } => Some(src_dst),
             Instruction::Drop { .. } => None,
             Instruction::Drain { .. } => None,
             Instruction::DrainIfEnd { .. } => None,

@@ -263,6 +263,9 @@ pub struct ChildProcess {
     /// would otherwise keep the pipeline waiting on its exit status.
     pid: Option<u32>,
     stdin: Option<StdinFeed>,
+    /// Whether collecting stdout as bytes leaves out its last newline, as set up by
+    /// [`trim_end_newline`](Self::trim_end_newline).
+    trim_end_newline: bool,
     span: Span,
 }
 
@@ -401,6 +404,7 @@ impl ChildProcess {
             ignore_error: Arc::new(Mutex::new(false)),
             pid: None,
             stdin: None,
+            trim_end_newline: false,
             span,
         }
     }
@@ -581,8 +585,22 @@ impl ChildProcess {
             ignore_error: self.ignore_error.clone(),
             pid: None,
             stdin: self.stdin.clone(),
+            trim_end_newline: self.trim_end_newline,
             span: self.span,
         })
+    }
+
+    /// Makes collecting stdout as bytes ([`ByteStream::into_bytes`](crate::ByteStream::into_bytes))
+    /// leave out its last `\n` or `\r\n`, the newline that collecting it into a string trims.
+    /// Reading stdout as a stream still gives every byte as it arrives.
+    pub fn trim_end_newline(&mut self) {
+        self.trim_end_newline = true;
+    }
+
+    /// Whether collecting stdout as bytes leaves out its last newline, from
+    /// [`trim_end_newline`](Self::trim_end_newline).
+    pub fn trims_end_newline(&self) -> bool {
+        self.trim_end_newline
     }
 
     /// Wait for the process, then return an error if it failed, unless its errors are ignored.
@@ -687,6 +705,7 @@ pub struct ProcessOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{ByteStream, Value};
     use std::io::Write;
 
     /// A pipe holding `bytes`, with the write end closed.
@@ -725,5 +744,48 @@ mod tests {
         let output = child.wait_with_output().expect("wait_with_output");
         assert_eq!(output.stdout.as_deref(), Some(&b"out"[..]));
         assert_eq!(output.stderr.as_deref(), Some(&b"err"[..]));
+    }
+
+    /// A stream of `output` from a child whose last newline is left out when collected.
+    fn trimmed_child_stream(output: &[u8]) -> ByteStream {
+        let span = Span::test_data();
+        let mut child = ChildProcess::from_raw(Some(pipe_with(output)), None, None, span);
+        child.trim_end_newline();
+        ByteStream::child(child, span)
+    }
+
+    #[rstest::rstest]
+    #[case::newline(b"abc\n", b"abc")]
+    #[case::crlf(b"abc\r\n", b"abc")]
+    #[case::only_the_last(b"abc\n\n", b"abc\n")]
+    #[case::no_newline(b"abc", b"abc")]
+    #[case::invalid_utf8(b"\xff\n", b"\xff\n")]
+    fn trimmed_child_collects_bytes_without_its_last_newline(
+        #[case] output: &[u8],
+        #[case] expected: &[u8],
+    ) {
+        let bytes = trimmed_child_stream(output)
+            .into_bytes()
+            .expect("into_bytes");
+        assert_eq!(bytes, expected);
+    }
+
+    #[test]
+    fn trimmed_child_collects_a_string_with_one_trim() {
+        let value = trimmed_child_stream(b"abc\n\n")
+            .into_value()
+            .expect("into_value");
+        assert_eq!(value, Value::test_string("abc\n"));
+    }
+
+    #[test]
+    fn trimmed_child_reads_every_byte_as_a_stream() {
+        let mut bytes = Vec::new();
+        trimmed_child_stream(b"abc\n")
+            .reader()
+            .expect("reader")
+            .read_to_end(&mut bytes)
+            .expect("read_to_end");
+        assert_eq!(bytes, b"abc\n");
     }
 }

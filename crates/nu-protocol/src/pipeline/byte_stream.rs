@@ -61,6 +61,18 @@ impl ByteStreamSource {
         // without os support we never have externals
         false
     }
+
+    /// Whether collecting this source as bytes leaves out its last newline (see
+    /// [`ByteStream::trim_end_newline`]).
+    #[cfg(feature = "os")]
+    fn trims_end_newline(&self) -> bool {
+        matches!(self, ByteStreamSource::Child(child) if child.trims_end_newline())
+    }
+
+    #[cfg(not(feature = "os"))]
+    fn trims_end_newline(&self) -> bool {
+        false
+    }
 }
 
 impl Debug for ByteStreamSource {
@@ -454,6 +466,20 @@ impl ByteStream {
         self
     }
 
+    /// Makes collecting an external's output as bytes ([`into_bytes`](Self::into_bytes)) leave out
+    /// its last newline, like [`into_string`](Self::into_string) and
+    /// [`into_value`](Self::into_value) do, so that every way of collecting it agrees. Reading it
+    /// as a stream still gives every byte as it arrives. Other sources and binary streams, which
+    /// collecting doesn't trim, stay as they are.
+    pub fn trim_end_newline(&mut self) {
+        #[cfg(feature = "os")]
+        if let ByteStreamSource::Child(child) = &mut self.stream
+            && self.type_ != ByteStreamType::Binary
+        {
+            child.trim_end_newline();
+        }
+    }
+
     /// Get a reference to the inner [`ByteStreamSource`] of the [`ByteStream`].
     pub fn source(&self) -> &ByteStreamSource {
         &self.stream
@@ -605,8 +631,26 @@ impl ByteStream {
 
     /// Collect all the bytes of the [`ByteStream`] into a [`Vec<u8>`].
     ///
-    /// Any trailing new lines are kept in the returned [`Vec`].
+    /// Any trailing new lines are kept in the returned [`Vec`]. The exception is an external's
+    /// output marked by [`trim_end_newline`](Self::trim_end_newline): if it's valid UTF-8, its last
+    /// newline is left out, as collecting it into a string does.
     pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
+        let trim = self.stream.trims_end_newline();
+        let bytes = self.read_all()?;
+        if !trim {
+            return Ok(bytes);
+        }
+        Ok(match String::from_utf8(bytes) {
+            Ok(mut string) => {
+                trim_end_newline(&mut string);
+                string.into_bytes()
+            }
+            Err(err) => err.into_bytes(),
+        })
+    }
+
+    /// Collect all the bytes of the [`ByteStream`] as they are.
+    fn read_all(self) -> Result<Vec<u8>, ShellError> {
         let span = self.span;
         let signals = self.signals;
         let from_io_error = IoError::factory(span, None);
@@ -656,7 +700,7 @@ impl ByteStream {
         let span = self.span;
         if self.type_.is_string_coercible() {
             let trim = self.stream.is_external();
-            let bytes = self.into_bytes()?;
+            let bytes = self.read_all()?;
             let mut string = String::from_utf8(bytes).map_err(|err| ShellError::NonUtf8Custom {
                 span,
                 msg: err.to_string(),
@@ -695,7 +739,7 @@ impl ByteStream {
             ByteStreamType::String => Value::string(self.into_string()?, span),
             // If the type is not specified, then it just depends on whether it parses or not:
             ByteStreamType::Unknown => {
-                value_from_bytes(self.into_bytes()?, span, ByteStreamType::Unknown, trim)
+                value_from_bytes(self.read_all()?, span, ByteStreamType::Unknown, trim)
             }
         };
         Ok(value)

@@ -1,5 +1,5 @@
 use nu_protocol::{
-    CompileError, IntoSpanned, RegId, Span, Spanned,
+    CompileError, IntoSpanned, RegId, Span, Spanned, VarId,
     ast::Pattern,
     ir::{DataSlice, Instruction, IrBlock, Literal, ScopeRegion},
 };
@@ -37,6 +37,9 @@ pub(crate) struct BlockBuilder {
     pub(crate) context_stack: ContextStack,
     /// Nested inlined-block scope regions (see [`ScopeRegion`]).
     pub(crate) scope_regions: Vec<ScopeRegion>,
+    /// The `$in` variables of the `Collect` expressions being compiled that pass their input
+    /// through instead of collecting it. Reading one of them moves the input along as it is.
+    pub(crate) stream_input_vars: Vec<VarId>,
 }
 
 impl BlockBuilder {
@@ -54,6 +57,7 @@ impl BlockBuilder {
             file_count: 0,
             context_stack: ContextStack::new(),
             scope_regions: vec![],
+            stream_input_vars: vec![],
         }
     }
 
@@ -220,6 +224,7 @@ impl BlockBuilder {
             Instruction::Collect { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::TryCollect { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::Span { src_dst } => allocate(&[*src_dst], &[*src_dst]),
+            Instruction::TrimEndNewline { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::Drop { src } => allocate(&[*src], &[]),
             Instruction::Drain { src } => allocate(&[*src], &[]),
             Instruction::DrainIfEnd { src } => allocate(&[*src], &[]),

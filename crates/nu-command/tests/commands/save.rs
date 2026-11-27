@@ -260,6 +260,36 @@ fn save_failure_not_overrides(playground: Playground) -> Result {
     Ok(())
 }
 
+/// A stream that comes a row per chunk is saved as it is, in order, though `save` joins the
+/// chunks that are waiting into one write.
+#[test]
+fn save_stream_matches_its_collected_value(playground: Playground) -> Result {
+    let code = "
+        1..10000 | each {|i| {a: $i}} | to csv | save stream.csv
+        1..10000 | each {|i| {a: $i}} | collect | to csv | save value.csv
+        (open --raw stream.csv) == (open --raw value.csv)
+    ";
+    test()
+        .cwd(playground.path())
+        .run(code)
+        .expect_value_eq(true)
+}
+
+/// When the stream fails, the rows that came before the failure are in the file.
+#[test]
+fn save_stream_keeps_the_rows_before_an_error(playground: Playground) -> Result {
+    let code = "
+        1..5
+        | each {|i| if $i == 4 { error make {msg: boom} } else { {a: $i} } }
+        | to csv
+        | save err.csv
+    ";
+    test().cwd(playground.path()).run(code).expect_error()?;
+    let actual = fs::read_to_string(playground.path().join("err.csv"))?;
+    assert_eq!(actual, "a\n1\n2\n3\n");
+    Ok(())
+}
+
 #[test]
 fn save_preserves_toml_comment_and_inline_table_after_update(playground: Playground) -> Result {
     playground.file(

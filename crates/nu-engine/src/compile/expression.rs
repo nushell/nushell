@@ -4,11 +4,14 @@ use super::{
 };
 
 use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Value,
-    ast::{CellPath, Expr, Expression, ListItem, Math, Operator, RecordItem, ValueWithUnit},
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Value, VarId,
+    ast::{
+        CellPath, Expr, Expression, ListItem, Math, Operator, RecordItem, Traverse, ValueWithUnit,
+    },
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
 };
+use std::{cell::Cell, ops::ControlFlow};
 
 pub(crate) fn compile_expression(
     working_set: &StateWorkingSet,
@@ -126,6 +129,14 @@ pub(crate) fn compile_expression(
                 .into_spanned(expr.span),
             )
         }
+        Expr::Var(var_id) if builder.stream_input_vars.contains(var_id) => {
+            // The one read of a `$in` that wasn't collected: the input goes on as it is. It takes
+            // the span of `$in`, as loading the variable would, so errors still point there. An
+            // external's output collected later loses its last newline, as collecting `$in` did.
+            move_in_reg_to_out_reg(builder)?;
+            builder.push(Instruction::Span { src_dst: out_reg }.into_spanned(expr.span))?;
+            builder.push(Instruction::TrimEndNewline { src_dst: out_reg }.into_spanned(expr.span))
+        }
         Expr::Var(var_id) => {
             // Special case: $in should load from input register if available.
             // When the input register is present, we store it as $in for user access.
@@ -241,6 +252,17 @@ pub(crate) fn compile_expression(
             } else {
                 Err(CompileError::UnsupportedOperatorExpression { span: op.span })
             }
+        }
+        Expr::Collect(var_id, expr)
+            if in_reg.is_some() && reads_input_once_at_head(working_set, *var_id, expr) =>
+        {
+            // Nothing else reads this `$in`, so there's no value to share: pass the input
+            // through, stream and all, as if the block had used its input directly.
+            builder.stream_input_vars.push(*var_id);
+            let result =
+                compile_expression(working_set, builder, expr, redirect_modes, in_reg, out_reg);
+            builder.stream_input_vars.pop();
+            result
         }
         Expr::Collect(var_id, expr) => {
             let store_reg = if let Some(in_reg) = in_reg {
@@ -614,6 +636,59 @@ pub(crate) fn compile_expression(
         }
         Expr::Nothing => lit(builder, Literal::Nothing),
         Expr::Garbage => Err(CompileError::Garbage { span: expr.span }),
+    }
+}
+
+/// Whether the `$in` that a `Collect` binds to `var_id` can take the input without collecting it.
+///
+/// That holds when `expr` reads it exactly once, and that read is the input of everything else
+/// (see [`starts_with_read`]). The first pipeline is the only one that gets the block's input, so
+/// a `$in` anywhere else reads it a second time.
+fn reads_input_once_at_head(
+    working_set: &StateWorkingSet,
+    var_id: VarId,
+    expr: &Expression,
+) -> bool {
+    if !starts_with_read(working_set, var_id, expr) {
+        return false;
+    }
+
+    let is_read = |expr: &Expression| matches!(expr.expr, Expr::Var(id) if id == var_id);
+    // Count the reads, including those in nested blocks and closures, which would capture it, and
+    // stop at the second one. The head read above is one of them.
+    let reads = Cell::new(0);
+    let second_read = expr.find_map(working_set, &|expr| {
+        if is_read(expr) {
+            reads.set(reads.get() + 1);
+            if reads.get() > 1 {
+                return ControlFlow::Break(Some(()));
+            }
+        }
+        ControlFlow::Continue(())
+    });
+    second_read.is_none()
+}
+
+/// Whether `expr` starts with a read of `var_id` that gets `expr`'s input: `expr` is the variable
+/// itself (a bare `$in`, also mid-pipeline), or a block or parenthesized subexpression whose first
+/// pipeline starts with such a read, with no redirection of its own. `($in | first 2)` counts, as
+/// the parentheses pass their input to their first pipeline.
+fn starts_with_read(working_set: &StateWorkingSet, var_id: VarId, expr: &Expression) -> bool {
+    match &expr.expr {
+        Expr::Var(id) => *id == var_id,
+        // The parser gives `$in` and `(...)` on their own as cell paths with no members.
+        Expr::FullCellPath(path) => {
+            path.tail.is_empty() && starts_with_read(working_set, var_id, &path.head)
+        }
+        Expr::Subexpression(block_id) => working_set
+            .get_block(*block_id)
+            .pipelines
+            .first()
+            .and_then(|pipeline| pipeline.elements.first())
+            .is_some_and(|head| {
+                head.redirection.is_none() && starts_with_read(working_set, var_id, &head.expr)
+            }),
+        _ => false,
     }
 }
 
