@@ -20,6 +20,20 @@ use std::{
     str::FromStr,
 };
 
+fn cant_convert_err(v: &Value, to_type: String) -> ShellError {
+    let help = if matches!(v, Value::List { .. }) {
+        Some("try using the spread operator `...` to pass items individually".into())
+    } else {
+        None
+    };
+    ShellError::CantConvert {
+        to_type,
+        from_type: v.get_type().to_string(),
+        span: v.span(),
+        help,
+    }
+}
+
 /// A trait for loading a value from a [`Value`].
 ///
 /// # Derivable
@@ -190,12 +204,7 @@ impl FromValue for bool {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Bool { val, .. } => Ok(val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -218,12 +227,7 @@ impl FromValue for char {
                     help: Some("make the string only one char long".to_string()),
                 }),
             },
-            _ => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v_ty.to_string(),
-                span,
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -243,12 +247,7 @@ impl FromValue for f64 {
         match v {
             Value::Float { val, .. } => Ok(val),
             Value::Int { val, .. } => Ok(val as f64),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -262,12 +261,7 @@ impl FromValue for i64 {
         match v {
             Value::Int { val, .. } => Ok(val),
             Value::Duration { val, .. } => Ok(val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -285,12 +279,7 @@ impl FromValue for std::time::Duration {
                     .map_err(|_| ShellError::NeedsPositiveValue { span: v.span() })?;
                 Ok(Self::from_nanos(nanos))
             }
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -386,12 +375,7 @@ macro_rules! impl_from_value_for_uint {
                             ))),
                         }
                     }
-                    v => Err(ShellError::CantConvert {
-                        to_type: Self::expected_type().to_string(),
-                        from_type: v.get_type().to_string(),
-                        span: v.span(),
-                        help: None,
-                    }),
+                    v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
                 }
             }
 
@@ -420,12 +404,7 @@ impl FromValue for () {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Nothing { .. } => Ok(()),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -454,12 +433,7 @@ macro_rules! tuple_from_value {
                             },
                         )*))
                     },
-                    v => Err(ShellError::CantConvert {
-                        to_type: Self::expected_type().to_string(),
-                        from_type: v.get_type().to_string(),
-                        span: v.span(),
-                        help: None,
-                    }),
+                    v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
                 }
             }
 
@@ -496,12 +470,7 @@ impl FromValue for PathBuf {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::String { val, .. } => Ok(val.into()),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -516,12 +485,7 @@ impl FromValue for OsString {
         match v {
             Value::String { val, .. } => Ok(OsString::from(val)),
             Value::CellPath { val, .. } => Ok(OsString::from(val.to_string())),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -537,12 +501,7 @@ impl FromValue for String {
         match v {
             Value::CellPath { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -576,12 +535,7 @@ impl FromValue for Vec<u8> {
                 }
                 Ok(this)
             }
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -685,12 +639,7 @@ where
                 .into_iter()
                 .map(|v| T::from_value(v))
                 .collect::<Result<Vec<T>, ShellError>>(),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -742,12 +691,7 @@ impl FromValue for CellPath {
                     })
                 }
             }
-            x => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: x.get_type().to_string(),
-                span,
-                help: None,
-            }),
+            x => Err(cant_convert_err(&x, Self::expected_type().to_string())),
         }
     }
 
@@ -760,12 +704,7 @@ impl FromValue for Closure {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Closure { val, .. } => Ok(*val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 }
@@ -774,12 +713,7 @@ impl FromValue for crate::DateTime {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Date { val, .. } => Ok(val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -805,12 +739,7 @@ impl FromValue for NuGlob {
                     Ok(NuGlob::Expand(val))
                 }
             }
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -823,12 +752,7 @@ impl FromValue for Range {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Range { val, .. } => Ok(*val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
@@ -841,12 +765,7 @@ impl FromValue for Record {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Record { val, .. } => Ok(val.into_owned()),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 }
@@ -876,12 +795,7 @@ impl FromValue for bytes::Bytes {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Binary { val, .. } => Ok(val.into_owned().into()),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(cant_convert_err(&v, Self::expected_type().to_string())),
         }
     }
 
