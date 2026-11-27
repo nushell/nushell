@@ -4,6 +4,10 @@ use std::collections::HashMap;
 
 pub type Headers = HashMap<String, usize>;
 
+// Scope rows and cells to the current table and row so nested tables are handled separately.
+const TABLE_ROWS: &str = ":scope > tr, :scope > :is(thead, tbody, tfoot) > tr";
+const HEADER_CELLS: &str = ":scope > th";
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebTable {
     headers: Headers,
@@ -59,8 +63,8 @@ impl WebTable {
         }
 
         let sel_table = css("table", false);
-        let sel_tr = css("tr", false);
-        let sel_th = css("th", false);
+        let sel_tr = css(TABLE_ROWS, false);
+        let sel_th = css(HEADER_CELLS, false);
 
         let html = Html::parse_fragment(html);
         let mut tables = html
@@ -127,9 +131,9 @@ impl WebTable {
     // }
 
     fn new(element: ElementRef) -> WebTable {
-        let sel_tr = css("tr", false);
-        let sel_th = css("th", false);
-        let sel_td = css("td", false);
+        let sel_tr = css(TABLE_ROWS, false);
+        let sel_th = css(HEADER_CELLS, false);
+        let sel_td = css(":scope > td", false);
 
         let mut headers = HashMap::new();
         let mut rows = element.select(&sel_tr).peekable();
