@@ -34,7 +34,27 @@ fn get_editor_commandline(
     var_name: &str,
 ) -> Result<(String, Vec<String>), ShellError> {
     match value {
-        Value::String { val, .. } if !val.is_empty() => Ok((val.to_string(), Vec::new())),
+        Value::String { val, .. } if !val.trim().is_empty() => {
+            let (tokens, _) = nu_parser::lex(val.as_bytes(), 0, &[], &[], true);
+            let mut words = tokens.into_iter().map(|token| {
+                let bytes = &val.as_bytes()[token.span.start..token.span.end];
+                nu_parser::unescape_unquote_string(bytes, token.span).0
+            });
+            match words.next() {
+                Some(editor) if !editor.is_empty() => {
+                    let params = words.collect();
+                    Ok((editor, params))
+                }
+                _ => Err(ShellError::Generic(
+                    GenericError::new(
+                        "Editor executable is missing",
+                        "Set the editor to an executable",
+                        value.span(),
+                    )
+                    .with_help(HELP_MSG),
+                )),
+            }
+        }
         Value::List { vals, .. } if !vals.is_empty() => {
             let mut editor_cmd = vals.iter().map(|l| l.coerce_string());
             match editor_cmd.next().transpose()? {
@@ -93,5 +113,56 @@ pub fn get_editor(
             )
             .with_help(HELP_MSG),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_editor_commandline_single_string() {
+        let val = Value::test_string("vi");
+        let (cmd, args) = get_editor_commandline(&val, "$env.EDITOR").unwrap();
+        assert_eq!(cmd, "vi");
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_editor_commandline_string_with_args() {
+        let val = Value::test_string("mg -n");
+        let (cmd, args) = get_editor_commandline(&val, "$env.config.buffer_editor").unwrap();
+        assert_eq!(cmd, "mg");
+        assert_eq!(args, vec!["-n"]);
+    }
+
+    #[test]
+    fn test_editor_commandline_string_multiple_args() {
+        let val = Value::test_string("emacsclient -s light -t");
+        let (cmd, args) = get_editor_commandline(&val, "$env.EDITOR").unwrap();
+        assert_eq!(cmd, "emacsclient");
+        assert_eq!(args, vec!["-s", "light", "-t"]);
+    }
+
+    #[test]
+    fn test_editor_commandline_quoted_path_with_spaces() {
+        let val = Value::test_string("\"/path to/my editor\" -C");
+        let (cmd, args) = get_editor_commandline(&val, "$env.EDITOR").unwrap();
+        assert_eq!(cmd, "/path to/my editor");
+        assert_eq!(args, vec!["-C"]);
+    }
+
+    #[test]
+    fn test_editor_commandline_list() {
+        let val = Value::test_list(vec![Value::test_string("mg"), Value::test_string("-n")]);
+        let (cmd, args) = get_editor_commandline(&val, "$env.config.buffer_editor").unwrap();
+        assert_eq!(cmd, "mg");
+        assert_eq!(args, vec!["-n"]);
+    }
+
+    #[test]
+    fn test_editor_commandline_empty_string_fails() {
+        let val = Value::test_string("   ");
+        assert!(get_editor_commandline(&val, "$env.EDITOR").is_err());
     }
 }
