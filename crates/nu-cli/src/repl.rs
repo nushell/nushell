@@ -1504,16 +1504,8 @@ fn run_shell_integration_osc2(
         let start_time = Instant::now();
 
         // Try to abbreviate string for windows title
-        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-            let home_dir_str = p.as_path().display().to_string();
-            if path.starts_with(&home_dir_str) {
-                path.replacen(&home_dir_str, "~", 1)
-            } else {
-                path
-            }
-        } else {
-            path
-        };
+        let home = nu_path::home_dir();
+        let maybe_abbrev_path = abbreviate_home_dir(path, home.as_ref().map(|p| p.as_std_path()));
 
         let title = match command_name {
             Some(binary_name) => {
@@ -1535,6 +1527,22 @@ fn run_shell_integration_osc2(
         emit(&format!("\x1b]2;{title}\x07"));
 
         perf!("set title with command osc2", start_time, use_color);
+    }
+}
+
+/// Replaces the home directory at the start of `path` with `~`, for the window title.
+///
+/// The home directory only matches whole path components, so with home `/home/bob` the path
+/// `/home/bobby/src` is left as it is.
+fn abbreviate_home_dir(path: String, home: Option<&Path>) -> String {
+    // With home `/` every path would start with `~`; bash, zsh and fish don't abbreviate then.
+    let Some(home) = home.filter(|home| home.parent().is_some()) else {
+        return path;
+    };
+    match Path::new(&path).strip_prefix(home) {
+        Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
+        Ok(rest) => format!("~{}{}", std::path::MAIN_SEPARATOR, rest.display()),
+        Err(_) => path,
     }
 }
 
@@ -2604,6 +2612,69 @@ mod test_auto_cd {
 }
 
 #[cfg(test)]
+mod test_abbreviate_home_dir {
+    use super::abbreviate_home_dir;
+    use std::path::{MAIN_SEPARATOR, Path, PathBuf};
+
+    fn home() -> PathBuf {
+        if cfg!(windows) {
+            PathBuf::from(r"C:\Users\bob")
+        } else {
+            PathBuf::from("/home/bob")
+        }
+    }
+
+    fn under(base: &Path, rest: &str) -> String {
+        base.join(rest).display().to_string()
+    }
+
+    #[test]
+    fn replaces_home_and_its_subdirectories() {
+        let home = home();
+        assert_eq!(
+            abbreviate_home_dir(home.display().to_string(), Some(&home)),
+            "~"
+        );
+        assert_eq!(
+            abbreviate_home_dir(under(&home, "src"), Some(&home)),
+            format!("~{MAIN_SEPARATOR}src")
+        );
+    }
+
+    #[test]
+    fn keeps_paths_that_only_share_a_prefix_with_home() {
+        let home = home();
+        let sibling = format!("{}by{MAIN_SEPARATOR}src", home.display());
+        assert_eq!(abbreviate_home_dir(sibling.clone(), Some(&home)), sibling);
+    }
+
+    #[test]
+    fn keeps_paths_outside_home_or_without_home() {
+        let home = home();
+        let outside = home.parent().unwrap().parent().unwrap().join("tmp");
+        let outside = outside.display().to_string();
+        assert_eq!(abbreviate_home_dir(outside.clone(), Some(&home)), outside);
+        assert_eq!(abbreviate_home_dir(outside.clone(), None), outside);
+    }
+
+    #[test]
+    fn keeps_paths_when_home_is_the_root() {
+        let root = if cfg!(windows) {
+            PathBuf::from(r"C:\")
+        } else {
+            PathBuf::from("/")
+        };
+        let path = under(&root, "usr");
+        assert_eq!(abbreviate_home_dir(path.clone(), Some(&root)), path);
+        let root_path = root.display().to_string();
+        assert_eq!(
+            abbreviate_home_dir(root_path.clone(), Some(&root)),
+            root_path
+        );
+    }
+}
+
+#[cfg(test)]
 mod test_recover_cwd {
     use super::*;
     use miette::Diagnostic;
@@ -2611,6 +2682,12 @@ mod test_recover_cwd {
     use nu_protocol::engine::{EngineState, Stack};
     use nu_protocol::{ShellWarning, Span, Value};
     use tempfile::tempdir;
+
+    /// The window title (OSC 2) for `cwd`, which uses `~` for the home directory.
+    fn expected_title(cwd: &str) -> String {
+        let home = nu_path::home_dir();
+        abbreviate_home_dir(cwd.to_string(), home.as_ref().map(|p| p.as_std_path()))
+    }
 
     #[test]
     fn recovers_to_parent_when_cwd_deleted_and_preserves_oldpwd() {
@@ -2854,7 +2931,6 @@ mod test_recover_cwd {
     }
 
     #[test]
-    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_normalizes_trailing_slash_silently_and_updates_osc()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
@@ -2910,11 +2986,11 @@ mod test_recover_cwd {
         assert_eq!(log[log.len() - 1].as_str()?, valid_str.as_ref());
 
         let expected_osc7 = osc7_sequence(Some("host"), valid.as_std_path()).unwrap();
+        // The title shortens the home directory to `~`, and the temp dir can be inside it.
+        let expected_osc2 = format!("\x1b]2;{}\x07", expected_title(&valid_str));
         assert!(
-            emitted_osc
-                .iter()
-                .any(|seq| seq.starts_with("\x1b]2;") && seq.contains(valid_str.as_ref())),
-            "missing OSC 2 sequence for normalized cwd in {emitted_osc:?}"
+            emitted_osc.contains(&expected_osc2),
+            "missing OSC 2 sequence {expected_osc2:?} for normalized cwd in {emitted_osc:?}"
         );
         assert!(emitted_osc.contains(&expected_osc7));
         assert!(emitted_osc.contains(&format!("\x1b]9;9;{valid_str}\x1b\\")));
@@ -2922,7 +2998,6 @@ mod test_recover_cwd {
     }
 
     #[test]
-    #[cfg(any(not(windows), ci))]
     fn prepare_repl_iteration_recovers_warns_hooks_and_updates_terminal_cwd()
     -> nu_test_support::Result {
         let tempdir = tempdir().unwrap();
@@ -3007,11 +3082,10 @@ mod test_recover_cwd {
         assert_eq!(log[log.len() - 1].as_str()?, parent_str.as_ref());
 
         let expected_osc7 = osc7_sequence(Some("host"), parent.as_std_path()).unwrap();
+        let expected_osc2 = format!("\x1b]2;{}\x07", expected_title(&parent_str));
         assert!(
-            emitted_osc
-                .iter()
-                .any(|seq| seq.starts_with("\x1b]2;") && seq.contains(parent_str.as_ref())),
-            "missing OSC 2 sequence for recovered cwd in {emitted_osc:?}"
+            emitted_osc.contains(&expected_osc2),
+            "missing OSC 2 sequence {expected_osc2:?} for recovered cwd in {emitted_osc:?}"
         );
         assert!(
             emitted_osc.contains(&expected_osc7),
