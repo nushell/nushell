@@ -274,7 +274,7 @@ impl SemverValue {
         )
     }
 
-    pub fn bump_prerelease(&self, tag: &str) -> Result<Self, ShellError> {
+    pub fn bump_prerelease(&self, tag: &str, span: Span) -> Result<Self, ShellError> {
         let current_pre = self.version.pre.as_str();
 
         let new_pre = if current_pre.is_empty() {
@@ -298,7 +298,7 @@ impl SemverValue {
             ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
                 "Invalid prerelease",
                 e.to_string(),
-                Span::unknown(),
+                span,
             ))
         })?;
 
@@ -327,12 +327,12 @@ impl SemverValue {
         )
     }
 
-    pub fn set_build_metadata(&self, metadata: &str) -> Result<Self, ShellError> {
+    pub fn set_build_metadata(&self, metadata: &str, span: Span) -> Result<Self, ShellError> {
         let build = semver::BuildMetadata::new(metadata).map_err(|e| {
             ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
                 "Invalid build metadata",
                 e.to_string(),
-                Span::unknown(),
+                span,
             ))
         })?;
 
@@ -511,33 +511,81 @@ mod tests {
     #[test]
     fn test_bump_prerelease_empty() {
         let semver_val = SemverValue::new(parse_version("1.2.3"));
-        let bumped = semver_val.bump_prerelease("alpha").unwrap();
+        let bumped = semver_val
+            .bump_prerelease("alpha", Span::test_data())
+            .unwrap();
         assert_eq!(bumped.version.to_string(), "1.2.3-alpha.1");
     }
 
     #[test]
     fn test_bump_prerelease_same_tag() {
         let semver_val = SemverValue::new(parse_version("1.2.3-alpha.0"));
-        let bumped = semver_val.bump_prerelease("alpha").unwrap();
+        let bumped = semver_val
+            .bump_prerelease("alpha", Span::test_data())
+            .unwrap();
         assert_eq!(bumped.version.to_string(), "1.2.3-alpha.1");
 
         let semver_val = SemverValue::new(parse_version("1.2.3-alpha.5"));
-        let bumped = semver_val.bump_prerelease("alpha").unwrap();
+        let bumped = semver_val
+            .bump_prerelease("alpha", Span::test_data())
+            .unwrap();
         assert_eq!(bumped.version.to_string(), "1.2.3-alpha.6");
     }
 
     #[test]
     fn test_bump_prerelease_different_tag() {
         let semver_val = SemverValue::new(parse_version("1.2.3-alpha.1"));
-        let bumped = semver_val.bump_prerelease("beta").unwrap();
+        let bumped = semver_val
+            .bump_prerelease("beta", Span::test_data())
+            .unwrap();
         assert_eq!(bumped.version.to_string(), "1.2.3-beta.0");
     }
 
     #[test]
     fn test_bump_prerelease_no_number() {
         let semver_val = SemverValue::new(parse_version("1.2.3-alpha"));
-        let bumped = semver_val.bump_prerelease("alpha").unwrap();
+        let bumped = semver_val
+            .bump_prerelease("alpha", Span::test_data())
+            .unwrap();
         assert_eq!(bumped.version.to_string(), "1.2.3-alpha.1");
+    }
+
+    #[test]
+    fn test_bump_prerelease_invalid_tag_preserves_span() {
+        use nu_protocol::shell_error::{ErrorSite, generic::GenericError};
+
+        let semver_val = SemverValue::new(parse_version("1.2.3"));
+        let span = Span::new(10, 20);
+        let err = semver_val
+            .bump_prerelease("bad tag!", span)
+            .expect_err("invalid prerelease tag should fail");
+
+        assert!(matches!(
+            err,
+            ShellError::Generic(GenericError {
+                site: ErrorSite::Span(actual),
+                ..
+            }) if actual == span
+        ));
+    }
+
+    #[test]
+    fn test_set_build_metadata_invalid_preserves_span() {
+        use nu_protocol::shell_error::{ErrorSite, generic::GenericError};
+
+        let semver_val = SemverValue::new(parse_version("1.2.3"));
+        let span = Span::new(10, 20);
+        let err = semver_val
+            .set_build_metadata("bad metadata!", span)
+            .expect_err("invalid build metadata should fail");
+
+        assert!(matches!(
+            err,
+            ShellError::Generic(GenericError {
+                site: ErrorSite::Span(actual),
+                ..
+            }) if actual == span
+        ));
     }
 
     #[test]

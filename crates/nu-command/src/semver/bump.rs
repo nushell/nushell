@@ -116,9 +116,9 @@ impl Command for SemverBump {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let level: String = call.req(engine_state, stack, 0)?;
+        let level: Spanned<String> = call.req(engine_state, stack, 0)?;
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
-        let build_metadata: Option<String> =
+        let build_metadata: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "build-metadata")?;
         let preserve_build_metadata =
             call.has_flag(engine_state, stack, "preserve-build-metadata")?;
@@ -129,10 +129,10 @@ impl Command for SemverBump {
             move |value| {
                 bump_value_with_options(
                     &value,
-                    &level,
+                    level.as_str(),
                     head,
                     ignore_errors,
-                    build_metadata.as_deref(),
+                    build_metadata.as_ref().map(Spanned::as_str),
                     preserve_build_metadata,
                     loose,
                 )
@@ -145,10 +145,10 @@ impl Command for SemverBump {
 
 fn bump_value_with_options(
     input: &Value,
-    level: &str,
+    level: Spanned<&str>,
     head: Span,
     ignore_errors: bool,
-    build_metadata: Option<&str>,
+    build_metadata: Option<Spanned<&str>>,
     preserve_build_metadata: bool,
     loose: bool,
 ) -> Result<Value, ShellError> {
@@ -164,18 +164,18 @@ fn bump_value_with_options(
 
     let original_build = semver_val.version.build.clone();
 
-    let result = match level {
+    let result = match level.item {
         "major" => semver_val.bump_major(),
         "minor" => semver_val.bump_minor(),
         "patch" => semver_val.bump_patch(),
-        "alpha" | "beta" | "rc" => semver_val.bump_prerelease(level)?,
+        "alpha" | "beta" | "rc" => semver_val.bump_prerelease(level.item, level.span)?,
         "release" => semver_val.bump_release(),
         _ => {
             return Err(ShellError::Generic(
                 GenericError::new(
                     "Invalid bump level",
-                    format!("'{}' is not a valid bump level", level),
-                    head,
+                    format!("'{}' is not a valid bump level", level.item),
+                    level.span,
                 )
                 .with_help("valid levels: major, minor, patch, alpha, beta, rc, release"),
             ));
@@ -183,7 +183,7 @@ fn bump_value_with_options(
     };
 
     let result = match (build_metadata, preserve_build_metadata) {
-        (Some(metadata), _) => result.set_build_metadata(metadata)?,
+        (Some(metadata), _) => result.set_build_metadata(metadata.item, metadata.span)?,
         (None, true) => SemverValue::with_prefix(
             semver::Version {
                 build: original_build,
@@ -226,10 +226,10 @@ mod tests {
     ) -> Result<Value, ShellError> {
         bump_value_with_options(
             input,
-            level,
+            level.into_spanned(Span::test_data()),
             Span::test_data(),
             ignore_errors,
-            build_metadata,
+            build_metadata.map(|m| m.into_spanned(Span::test_data())),
             preserve_build_metadata,
             loose,
         )
@@ -394,14 +394,96 @@ mod tests {
         let result = bump(&input, "major", false, None, false, false).unwrap();
         assert_eq!(get_semver_from_value(&result), "v2.0.0");
     }
+
+    #[test]
+    fn test_bump_invalid_build_metadata_uses_metadata_span() {
+        use nu_protocol::shell_error::ErrorSite;
+
+        let input = create_semver_value("1.2.3");
+        let head_span = Span::new(10, 21);
+        let level_span = Span::new(22, 27);
+        let metadata_span = Span::new(45, 59);
+
+        let err = bump_value_with_options(
+            &input,
+            "patch".into_spanned(level_span),
+            head_span,
+            false,
+            Some("bad metadata!".into_spanned(metadata_span)),
+            false,
+            false,
+        )
+        .expect_err("invalid build metadata should fail");
+
+        assert!(matches!(
+            err,
+            ShellError::Generic(GenericError {
+                site: ErrorSite::Span(actual),
+                ..
+            }) if actual == metadata_span
+        ));
+    }
+
+    #[test]
+    fn test_bump_invalid_level_uses_level_span() {
+        use nu_protocol::shell_error::ErrorSite;
+
+        let input = create_semver_value("1.2.3");
+        let head_span = Span::new(10, 21);
+        let level_span = Span::new(22, 29);
+
+        let err = bump_value_with_options(
+            &input,
+            "invalid".into_spanned(level_span),
+            head_span,
+            false,
+            None,
+            false,
+            false,
+        )
+        .expect_err("invalid bump level should fail");
+
+        assert!(matches!(
+            err,
+            ShellError::Generic(GenericError {
+                site: ErrorSite::Span(actual),
+                ..
+            }) if actual == level_span
+        ));
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::shell_error::ErrorSite;
+    use nu_test_support::TestResultExt;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test().examples(SemverBump)
+    }
+
+    #[test]
+    fn test_invalid_build_metadata_error_has_known_span() -> nu_test_support::Result {
+        let code = "'1.2.3' | semver bump patch --build-metadata 'bad metadata!'";
+        let err = nu_test_support::test().run(code).expect_shell_error()?;
+
+        let ShellError::Generic(GenericError {
+            error,
+            site: ErrorSite::Span(span),
+            ..
+        }) = err
+        else {
+            panic!("expected generic error with span, got {err:?}");
+        };
+
+        assert_eq!(error, "Invalid build metadata");
+        assert_eq!(
+            span.end - span.start,
+            "--build-metadata 'bad metadata!'".len()
+        );
+
+        Ok(())
     }
 }
