@@ -466,8 +466,10 @@ mod test {
 
     #[test]
     fn test_invalid_build_metadata_error_has_known_span() -> nu_test_support::Result {
-        let code = "'1.2.3' | semver bump patch --build-metadata 'bad metadata!'";
-        let err = nu_test_support::test().run(code).expect_shell_error()?;
+        let mut tester = nu_test_support::test();
+        let err = tester
+            .run("'1.2.3' | semver bump patch --build-metadata 'bad metadata!'")
+            .expect_shell_error()?;
 
         let ShellError::Generic(GenericError {
             error,
@@ -480,9 +482,31 @@ mod test {
 
         assert_eq!(error, "Invalid build metadata");
         assert_eq!(
-            span.end - span.start,
-            "--build-metadata 'bad metadata!'".len()
+            tester.engine_state.get_span_contents(span),
+            b"--build-metadata 'bad metadata!'"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_level_error_points_at_level() -> nu_test_support::Result {
+        let mut tester = nu_test_support::test();
+        let err = tester
+            .run("'1.2.3' | semver bump bogus")
+            .expect_shell_error()?;
+
+        let ShellError::Generic(GenericError {
+            error,
+            site: ErrorSite::Span(span),
+            ..
+        }) = err
+        else {
+            panic!("expected generic error with span, got {err:?}");
+        };
+
+        assert_eq!(error, "Invalid bump level");
+        assert_eq!(tester.engine_state.get_span_contents(span), b"bogus");
 
         Ok(())
     }
