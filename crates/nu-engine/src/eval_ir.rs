@@ -1764,6 +1764,20 @@ fn eval_call<D: DebugContext>(
     ctx.redirect_out = None;
     ctx.redirect_err = None;
 
+    // A bare try normally passes streams through. Commands that switched from eager to lazy
+    // reading can opt in to raising their input errors inside the handler as before.
+    let result = result.and_then(|output| match output {
+        PipelineData::ListStream(stream, metadata)
+            if stream.has_eager_input_errors() && ctx.stack.error_handlers.has_bare_try() =>
+        {
+            Ok(PipelineData::list_stream(
+                stream.resolve_input_errors(ctx.engine_state.signals().clone())?,
+                metadata,
+            ))
+        }
+        output => Ok(output),
+    });
+
     match result {
         Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
         result => result,

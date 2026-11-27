@@ -458,16 +458,32 @@ impl ChildProcess {
         self.span
     }
 
-    pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
+    pub(crate) fn check_stdout_only(&self) -> Result<(), ShellError> {
         if self.stderr.is_some() {
-            debug_assert!(false, "stderr should not exist");
             return Err(ShellError::Generic(GenericError::new(
                 "internal error",
                 "stderr should not exist",
                 self.span,
             )));
         }
+        Ok(())
+    }
 
+    /// Read stdout, checking for process or stdin-feed errors once stdout reaches EOF.
+    pub(crate) fn read_stdout_with_exit_status(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        let read = self.stdout.as_mut().map_or(Ok(0), |pipe| pipe.read(buf))?;
+        if read == 0 {
+            self.check_exit().map_err(ShellErrorBridge)?;
+        }
+        Ok(read)
+    }
+
+    pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
+        debug_assert!(self.stderr.is_none(), "stderr should not exist");
+        self.check_stdout_only()?;
         let bytes = (self.stdout.take())
             .map(collect_bytes)
             .transpose()
@@ -479,7 +495,11 @@ impl ChildProcess {
         Ok(bytes)
     }
 
-    pub fn wait(mut self) -> Result<(), ShellError> {
+    pub fn wait(self) -> Result<(), ShellError> {
+        self.wait_with_exit_check(true)
+    }
+
+    pub(crate) fn wait_with_exit_check(mut self, check_exit: bool) -> Result<(), ShellError> {
         let span = self.span;
         let from_io_error = |err| ShellErrorBridge::unpack(err, span);
         if let Some(stdout) = self.stdout.take() {
@@ -514,7 +534,11 @@ impl ChildProcess {
         } else if let Some(stderr) = self.stderr.take() {
             consume_pipe(stderr).map_err(from_io_error)?;
         }
-        self.check_exit()
+        if check_exit {
+            self.check_exit()
+        } else {
+            self.wait_for_status().map(|_| ())
+        }
     }
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, ShellError> {
@@ -594,6 +618,10 @@ impl ChildProcess {
             .ignore_error
             .lock()
             .expect("lock ignore error should success");
+        check_ok(self.wait_for_status()?, ignore_error, self.span)
+    }
+
+    fn wait_for_status(&self) -> Result<ExitStatus, ShellError> {
         let mut exit_status = self
             .exit_status
             .lock()
@@ -604,7 +632,7 @@ impl ChildProcess {
             stdin.check()?;
         }
 
-        check_ok(exit_status, ignore_error, self.span)
+        Ok(exit_status)
     }
 
     pub fn clone_exit_status_future(&self) -> Arc<Mutex<ExitStatusFuture>> {

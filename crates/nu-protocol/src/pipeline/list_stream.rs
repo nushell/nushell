@@ -17,6 +17,7 @@ pub struct ListStream {
     stream: ValueIterator,
     span: Span,
     caller_spans: Vec<Span>,
+    eager_input_errors: bool,
 }
 
 impl ListStream {
@@ -30,7 +31,32 @@ impl ListStream {
             stream: Box::new(InterruptIter::new(iter, signals)),
             span,
             caller_spans: vec![],
+            eager_input_errors: false,
         }
+    }
+
+    /// Keep input errors inside the enclosing error handler when making formerly eager reading lazy.
+    pub fn with_eager_input_errors(mut self) -> Self {
+        self.eager_input_errors = true;
+        self
+    }
+
+    /// Whether an enclosing error handler should resolve this stream before returning it.
+    pub fn has_eager_input_errors(&self) -> bool {
+        self.eager_input_errors
+    }
+
+    /// Buffer rows until their input has succeeded, then replay them as a stream.
+    pub fn resolve_input_errors(self, signals: Signals) -> Result<Self, ShellError> {
+        let rows = self
+            .stream
+            .map(Value::unwrap_error)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            stream: Box::new(InterruptIter::new(rows.into_iter(), signals)),
+            eager_input_errors: false,
+            ..self
+        })
     }
 
     /// Returns the [`Span`] associated with this [`ListStream`].
@@ -134,6 +160,7 @@ impl ListStream {
             stream: Box::new(f(self.stream)),
             span: self.span,
             caller_spans: self.caller_spans,
+            eager_input_errors: self.eager_input_errors,
         }
     }
 
