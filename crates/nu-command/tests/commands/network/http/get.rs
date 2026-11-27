@@ -907,3 +907,126 @@ fn http_get_allow_errors_post_echo_type_mismatch() -> Result {
     );
     Ok(())
 }
+
+/// A Content-Type whose subtype is not a file extension still names a format nushell can
+/// read: the full MIME type is mapped back to its file extensions, and the first one with
+/// a `from <ext>` command converts the response (#19662).
+#[rstest::rstest]
+#[case::tsv(
+    "text/tab-separated-values",
+    "a\tb\nx\ty",
+    "http get {url}/data | get 0.a",
+    "x"
+)]
+#[case::markdown("text/markdown", "# hi", "http get {url}/data | get 0.content", "hi")]
+fn http_get_content_type_mapped_by_mime_extensions(
+    #[case] content_type: &str,
+    #[case] body: &str,
+    #[case] pipeline: &str,
+    #[case] expected: &str,
+) -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", content_type)
+        .with_body(body)
+        .create();
+
+    let code = pipeline.replace("{url}", &server.url());
+
+    test().run(code).expect_value_eq(expected)
+}
+
+/// An `ld+json` response is a `+json` structured-syntax suffix (RFC 6839), so it parses
+/// with `from json` when the full subtype has no `from <subtype>` command (#19662).
+#[test]
+fn http_get_json_structured_syntax_suffix() -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", "application/ld+json")
+        .with_body(r#"{"a": 1}"#)
+        .create();
+
+    let code = format!("http get {url}/data | get a", url = server.url());
+
+    test().run(code).expect_value_eq(1)
+}
+
+/// A `+xml` structured-syntax suffix (RFC 6839) is deliberately not mapped to `from xml`:
+/// `from xml` rejects documents with a DTD, so SVG and XHTML downloads would error instead
+/// of returning the body. The response keeps coming back as a raw byte stream (#19664).
+#[rstest::rstest]
+#[case::atom("application/atom+xml", "<feed><title>t</title></feed>")]
+#[case::svg("image/svg+xml", "<svg xmlns='http://www.w3.org/2000/svg'/>")]
+#[case::xhtml(
+    "application/xhtml+xml",
+    "<html xmlns='http://www.w3.org/1999/xhtml'/>"
+)]
+fn http_get_xml_structured_syntax_suffix_stays_a_byte_stream(
+    #[case] content_type: &str,
+    #[case] body: &str,
+) -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", content_type)
+        .with_body(body)
+        .create();
+
+    let code = format!("http get {url}/data | describe", url = server.url());
+
+    test().run(code).expect_value_eq("byte stream")
+}
+
+/// The vendor spreadsheet types map back to `from xlsx` / `from ods` through their file
+/// extensions (#19662). They take the binary path: a typed string response is retyped to
+/// `ByteStreamType::Unknown` before the converter runs.
+#[rstest::rstest]
+#[case::xlsx(
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "sample_data.xlsx"
+)]
+#[case::ods("application/vnd.oasis.opendocument.spreadsheet", "sample_data.ods")]
+fn http_get_vendor_spreadsheet_types_parse(
+    #[case] content_type: &str,
+    #[case] fixture: &str,
+) -> Result {
+    let body = std::fs::read(FIXTURES.join("formats").join(fixture))?;
+
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", content_type)
+        .with_body(body)
+        .create();
+
+    let code = format!("http get {url}/data | columns | get 0", url = server.url());
+
+    test().run(code).expect_value_eq("Instructions")
+}
+
+/// A vendor type nushell has no converter for keeps returning the raw byte stream (#19662).
+#[test]
+fn http_get_content_type_without_converter_stays_a_byte_stream() -> Result {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/data")
+        .with_status(200)
+        .with_header("content-type", "application/vnd.custom+zipx")
+        .with_body("payload")
+        .create();
+
+    let code = format!("http get {url}/data | describe", url = server.url());
+
+    test().run(code).expect_value_eq("byte stream")
+}
