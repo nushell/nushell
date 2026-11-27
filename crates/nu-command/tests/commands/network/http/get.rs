@@ -3,6 +3,8 @@ use nu_protocol::shell_error;
 use nu_test_support::prelude::*;
 use std::{thread, time::Duration};
 
+use super::unpooled_server;
+
 #[test]
 fn http_get_is_success() -> Result {
     let mut server = Server::new();
@@ -411,13 +413,11 @@ fn http_get_binary_converter_on_utf8_response() -> Result {
 
 #[test]
 fn http_get_timeout() -> Result {
-    let mut server = Server::new();
+    let mut server = unpooled_server();
     let _mock = server
         .mock("GET", "/")
         .with_chunked_body(|w| {
-            // Keep this well above `--max-time 100ms` so the client still times out. Mockito joins
-            // the chunked-body thread on drop, so a multi-second sleep stalls the Test step for
-            // every timeout case (get/post/put/patch/delete/options).
+            // Keep this well above `--max-time 100ms` so the client still times out.
             thread::sleep(Duration::from_millis(500));
             w.write_all(b"Delayed response!")
         })
@@ -435,7 +435,7 @@ fn http_get_timeout() -> Result {
 
 #[test]
 fn http_get_timeout_with_allow_errors_returns_nothing() -> Result {
-    let mut server = Server::new();
+    let mut server = unpooled_server();
     let _mock = server
         .mock("GET", "/")
         .with_chunked_body(|w| {
@@ -608,7 +608,7 @@ fn http_get_allow_errors_preserves_metadata_on_200() -> Result {
 /// Test that a stalled JSON body under --allow-errors returns partial data (or nothing) instead of erroring.
 #[test]
 fn http_get_stalled_json_body_with_allow_errors() -> Result {
-    let mut server = Server::new();
+    let mut server = unpooled_server();
     let _mock = server
         .mock("GET", "/")
         .with_header("content-type", "application/json")
