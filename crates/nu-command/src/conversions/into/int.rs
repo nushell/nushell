@@ -399,7 +399,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     let trimmed = no_comma_string.trim();
     match trimmed {
         b if b.starts_with("0b") => {
-            let num = match i64::from_str_radix(b.trim_start_matches("0b"), 2) {
+            let num = match i64::from_str_radix(&b[2..], 2) {
                 Ok(n) => n,
                 Err(_reason) => {
                     return Err(ShellError::CantConvert {
@@ -414,7 +414,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
         }
         h if h.starts_with("0x") => {
             let num =
-                match i64::from_str_radix(h.trim_start_matches("0x"), 16) {
+                match i64::from_str_radix(&h[2..], 16) {
                     Ok(n) => n,
                     Err(_reason) => return Err(ShellError::CantConvert {
                         to_type: "int".to_string(),
@@ -429,7 +429,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             Ok(num)
         }
         o if o.starts_with("0o") => {
-            let num = match i64::from_str_radix(o.trim_start_matches("0o"), 8) {
+            let num = match i64::from_str_radix(&o[2..], 8) {
                 Ok(n) => n,
                 Err(_reason) => {
                     return Err(ShellError::CantConvert {
