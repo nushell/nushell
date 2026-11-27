@@ -24,6 +24,8 @@ harness = false
 workspace = true
 
 [dependencies]
+ron = { workspace = true }
+ansi-str = { workspace = true }
 ansiopt = { workspace = true, features = ["render"] }
 nu-ansi-term.workspace = true
 nu-cmd-base.workspace = true
@@ -55,6 +57,13 @@ byteorder = { workspace = true }
 bytesize = { workspace = true }
 calamine = { workspace = true }
 chardetng = { workspace = true }
+chrono = { workspace = true, features = [
+  "std",
+  "unstable-locales",
+  "clock",
+], default-features = false }
+chrono-humanize = { workspace = true }
+chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true, features = ["use-dev-tty"] }
 csv = { workspace = true }
 devicons = { workspace = true }

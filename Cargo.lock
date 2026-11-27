@@ -4772,6 +4772,7 @@ name = "nu-command"
 version = "0.117.1"
 dependencies = [
  "alphanumeric-sort",
+ "ansi-str",
  "ansiopt",
  "arboard",
  "base64 0.23.1",
@@ -4781,6 +4782,9 @@ dependencies = [
  "bytesize",
  "calamine",
  "chardetng",
+ "chrono",
+ "chrono-humanize",
+ "chrono-tz",
  "crossterm",
  "csv",
  "data-encoding",
@@ -4853,6 +4857,7 @@ dependencies = [
  "rayon",
  "reedline",
  "rmp",
+ "ron",
  "roxmltree",
  "rstest",
  "rstest_reuse",
@@ -7843,6 +7848,20 @@ checksum = "72f81bee8c8ef9b577d1681a70ebbc962c232461e397b22c208c43c04b67a155"
 dependencies = [
  "rmp",
  "serde",
+]
+
+[[package]]
+name = "ron"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97b3fe97c18ff24299ea56f802c5693eb34266fb0bc8317f4e101debc8a3ceaf"
+dependencies = [
+ "bitflags 2.13.1",
+ "indexmap 2.14.1",
+ "serde",
+ "serde_derive",
+ "typeid",
+ "unicode-ident",
 ]
 
 [[package]]
