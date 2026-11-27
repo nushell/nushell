@@ -73,7 +73,7 @@ an example of a `nixosConfiguration` that uses the flakes `nushell`.
           f {
             pkgs = import inputs.nixpkgs {
               inherit system;
-              overlays = [ inputs.nixpkgs.overlays.default ];
+              overlays = [ inputs.nixpkgs.overlays.all ];
             }
           }
         );
@@ -85,11 +85,7 @@ an example of a `nixosConfiguration` that uses the flakes `nushell`.
     nixosConfiguration.yourHost = inputs.nixpkgs.lib.nixosSystem {
       system = "...";
       modules = [
-        {
-          nixpkgs.overlays = [
-            inputs.nushell.overlays.default
-          ];
-        }
+        { nixpkgs.overlays = [ inputs.nushell.overlays.all ]; }
         ./configuration.nix
         # ... other modules
       ];
