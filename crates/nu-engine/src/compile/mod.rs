@@ -61,8 +61,54 @@ fn compile_block(
     in_reg: Option<RegId>,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
+    compile_block_with_input_at(
+        working_set,
+        builder,
+        block,
+        record_scope_region,
+        redirect_modes,
+        in_reg,
+        out_reg,
+        0,
+    )
+}
+
+/// Like [`compile_block`], but the input goes to the pipeline at `input_pipeline` instead of the
+/// first one, and the pipelines before it get no input. A block that uses `$in` gives its input
+/// to the first statement that uses `$in`, so the statements before it can set things up.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "compile_block's arguments plus the input pipeline"
+)]
+fn compile_block_with_input_at(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    block: &Block,
+    record_scope_region: bool,
+    redirect_modes: RedirectModes,
+    in_reg: Option<RegId>,
+    out_reg: RegId,
+    input_pipeline: usize,
+) -> Result<(), CompileError> {
     let span = block.span.unwrap_or(Span::unknown());
     let region_start = builder.instructions.len();
+
+    // The pipelines before the input's write their output to `out_reg`, so an input in that
+    // register moves to one of its own first.
+    let in_reg = match in_reg {
+        Some(reg) if input_pipeline > 0 && reg == out_reg => {
+            let input = builder.next_register()?;
+            builder.push(
+                Instruction::Move {
+                    dst: input,
+                    src: reg,
+                }
+                .into_spanned(span),
+            )?;
+            Some(input)
+        }
+        in_reg => in_reg,
+    };
 
     // A closure parameter written as a pattern, as in `{|{$name}| ...}`, arrives in a hidden
     // variable. Bind the pattern's variables from it before the body runs.
@@ -103,8 +149,12 @@ fn compile_block(
                 } else {
                     RedirectModes::default()
                 },
-                // input is only passed to the first pipeline.
-                if index == 0 { in_reg } else { None },
+                // input is only passed to one pipeline, the first one unless told otherwise.
+                if index == input_pipeline {
+                    in_reg
+                } else {
+                    None
+                },
                 out_reg,
             )?;
 

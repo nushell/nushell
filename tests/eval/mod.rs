@@ -150,11 +150,15 @@ fn eval_rendered_matches(#[case] source: &str, #[case] regex: &str) -> Result {
 /// A stream of `1`, `2` and then an error, made only when the third item is read.
 const STREAM_THEN_ERROR: &str = "def s [] { 1..3 | each {|i| if $i == 3 { 1 / 0 } else { $i } } }";
 
-/// A `$in` read once, at the head of a block, takes the block's input as it streams. `first 2`
-/// stops before the third item is made, so its error never happens. Collecting `$in` first
-/// would read all three items and fail.
+/// A `$in` read once, at the head of the first statement that uses it, takes the block's input as
+/// it streams. Statements before it are setup and get no input. `first 2` stops before the third
+/// item is made, so its error never happens. Collecting `$in` first would read all three items
+/// and fail.
 #[rstest]
 #[case::do_block("s | do { $in | first 2 }")]
+#[case::after_setup("s | do { let n = 2; $in | first $n }")]
+#[case::after_a_value("s | do { null; $in | first 2 }")]
+#[case::custom_command_after_setup("def f [] { let n = 2; $in | first $n }; s | f")]
 #[case::closure("s | do {|| $in | first 2 }")]
 #[case::if_body("s | if true { $in | first 2 }")]
 #[case::custom_command("def f [] { $in | first 2 }; s | f")]
@@ -172,7 +176,7 @@ fn in_at_head_streams_its_input(#[case] code: &str) -> Result {
 /// Any other read of `$in` still collects the input, so every read sees all of it.
 #[rstest]
 #[case::read_twice("s | do { $in | first 2; $in | first 2 }")]
-#[case::later_pipeline("s | do { null; $in | first 2 }")]
+#[case::read_twice_after_setup("s | do { let n = 2; $in | first $n; $in | length }")]
 #[case::not_at_head_in_parentheses("s | do { ([$in] | flatten | first 2) }")]
 #[case::not_at_head("s | do { [$in] | flatten | first 2 }")]
 #[case::cell_path("s | do { $in.0 }")]
@@ -215,11 +219,28 @@ fn in_at_head_trims_an_externals_last_newline(
     test().run(code).expect_value_eq(expected)
 }
 
+/// A block that uses `$in` gives its input to the first statement that uses `$in`. The statements
+/// before it get none, and the statement that uses `$in` gets it as before, so its head and the
+/// bodies of an `if` or `match` there still see the input.
+#[rstest]
+#[case::setup_gets_none("[1 2 3] | do { let n = length; [$n ($in | length)] }", test_value!([0, 3]))]
+#[case::first_statement_keeps_it("[1 2] | do { append $in }", test_value!([1, 2, 1, 2]))]
+#[case::if_body_keeps_it("[1 2] | do { if ($in | is-empty) { 0 } else { length } }", 2)]
+#[case::no_in_keeps_it("[1 2 3] | do { length }", 3)]
+fn in_block_input_goes_to_first_statement_using_in(
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test().run(code).expect_value_eq(expected)
+}
+
 #[test]
 fn in_at_head_compiles_without_collect() -> Result {
     let ir: String = test().run("view ir { $in | first 3 }")?;
     assert_contains_not("collect", ir.as_str());
     assert_contains_not("store-variable", ir.as_str());
+    let ir: String = test().run("view ir { let n = 3; $in | first $n }")?;
+    assert_contains_not("collect", ir.as_str());
     Ok(())
 }
 

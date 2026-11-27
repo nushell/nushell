@@ -1,12 +1,13 @@
 use super::{
-    BlockBuilder, CompileError, RedirectModes, compile_binary_op, compile_block, compile_call,
-    compile_external_call, compile_load_env,
+    BlockBuilder, CompileError, RedirectModes, compile_binary_op, compile_block,
+    compile_block_with_input_at, compile_call, compile_external_call, compile_load_env,
 };
 
 use nu_protocol::{
     ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Value, VarId,
     ast::{
-        CellPath, Expr, Expression, ListItem, Math, Operator, RecordItem, Traverse, ValueWithUnit,
+        Block, CellPath, Expr, Expression, ListItem, Math, Operator, RecordItem, Traverse,
+        ValueWithUnit,
     },
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
@@ -259,8 +260,15 @@ pub(crate) fn compile_expression(
             // Nothing else reads this `$in`, so there's no value to share: pass the input
             // through, stream and all, as if the block had used its input directly.
             builder.stream_input_vars.push(*var_id);
-            let result =
-                compile_expression(working_set, builder, expr, redirect_modes, in_reg, out_reg);
+            let result = compile_collect_body(
+                working_set,
+                builder,
+                *var_id,
+                expr,
+                redirect_modes,
+                in_reg,
+                out_reg,
+            );
             builder.stream_input_vars.pop();
             result
         }
@@ -280,7 +288,15 @@ pub(crate) fn compile_expression(
                 }
                 .into_spanned(expr.span),
             )?;
-            compile_expression(working_set, builder, expr, redirect_modes, in_reg, out_reg)?;
+            compile_collect_body(
+                working_set,
+                builder,
+                *var_id,
+                expr,
+                redirect_modes,
+                in_reg,
+                out_reg,
+            )?;
             // Clean it up afterward
             builder.push(Instruction::DropVariable { var_id: *var_id }.into_spanned(expr.span))?;
             Ok(())
@@ -641,15 +657,30 @@ pub(crate) fn compile_expression(
 
 /// Whether the `$in` that a `Collect` binds to `var_id` can take the input without collecting it.
 ///
-/// That holds when `expr` reads it exactly once, and that read is the input of everything else
-/// (see [`starts_with_read`]). The first pipeline is the only one that gets the block's input, so
-/// a `$in` anywhere else reads it a second time.
+/// That holds when `expr` reads it exactly once, and that read is the input of everything else.
+/// For a block that uses `$in`, the read has to be the head of the statement that gets the block's
+/// input (see [`input_pipeline`]), since that statement would otherwise read the input too. For a
+/// `$in` mid-pipeline, it has to be the head of `expr` (see [`starts_with_read`]).
 fn reads_input_once_at_head(
     working_set: &StateWorkingSet,
     var_id: VarId,
     expr: &Expression,
 ) -> bool {
-    if !starts_with_read(working_set, var_id, expr) {
+    let read_at_head = match &expr.expr {
+        // The block the parser wrapped in this `Collect` for its `$in`.
+        Expr::Subexpression(block_id) => {
+            let block = working_set.get_block(*block_id);
+            block
+                .pipelines
+                .get(input_pipeline(working_set, var_id, block))
+                .and_then(|pipeline| pipeline.elements.first())
+                .is_some_and(|head| {
+                    head.redirection.is_none() && starts_with_read(working_set, var_id, &head.expr)
+                })
+        }
+        _ => starts_with_read(working_set, var_id, expr),
+    };
+    if !read_at_head {
         return false;
     }
 
@@ -667,6 +698,59 @@ fn reads_input_once_at_head(
         ControlFlow::Continue(())
     });
     second_read.is_none()
+}
+
+/// The pipeline of `block` that gets the block's input, for a block that uses the `$in` bound to
+/// `var_id`: the first one that reads that `$in`. The pipelines before it get no input, so they can
+/// set things up, like `let n = 2` in `let n = 2; $in | first $n`.
+fn input_pipeline(working_set: &StateWorkingSet, var_id: VarId, block: &Block) -> usize {
+    let reads = |expr: &Expression| match expr.expr {
+        Expr::Var(id) if id == var_id => ControlFlow::Break(Some(())),
+        _ => ControlFlow::Continue(()),
+    };
+    block
+        .pipelines
+        .iter()
+        .position(|pipeline| {
+            pipeline.elements.iter().any(|element| {
+                element.expr.find_map(working_set, &reads).is_some()
+                    || element
+                        .redirection
+                        .as_ref()
+                        .and_then(|redirection| redirection.find_map(working_set, &reads))
+                        .is_some()
+            })
+        })
+        .unwrap_or(0)
+}
+
+/// Compiles the expression a `Collect` runs. When that's the block the parser wrapped for its
+/// `$in`, the block's input goes to the first statement that uses `$in` (see [`input_pipeline`]).
+fn compile_collect_body(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    var_id: VarId,
+    expr: &Expression,
+    redirect_modes: RedirectModes,
+    in_reg: Option<RegId>,
+    out_reg: RegId,
+) -> Result<(), CompileError> {
+    match &expr.expr {
+        Expr::Subexpression(block_id) => {
+            let block = working_set.get_block(*block_id);
+            compile_block_with_input_at(
+                working_set,
+                builder,
+                block,
+                true,
+                redirect_modes,
+                in_reg,
+                out_reg,
+                input_pipeline(working_set, var_id, block),
+            )
+        }
+        _ => compile_expression(working_set, builder, expr, redirect_modes, in_reg, out_reg),
+    }
 }
 
 /// Whether `expr` starts with a read of `var_id` that gets `expr`'s input: `expr` is the variable
