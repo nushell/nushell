@@ -9,9 +9,10 @@
 
 use fancy_regex::Regex;
 use jiff::{
+    Timestamp,
     civil::{self, Weekday},
     fmt::strtime::{BrokenDownTime, Meridiem},
-    tz::Offset,
+    tz::{Offset, TimeZone},
 };
 use nu_protocol::DateTime;
 use std::{borrow::Cow, cell::LazyCell, sync::LazyLock};
@@ -166,7 +167,8 @@ static REWRITES: LazyLock<Vec<(Regex, &str)>> = LazyLock::new(|| {
 });
 
 /// A zone name at the end (`CET`, `CDT`, or ctime's `CDT 2025`), applied after [`REWRITES`].
-/// [`normalize`] drops it, so the time is read as local time, unless it's a month name.
+/// [`normalize`] drops it, so the time is read like one without an offset, unless it's a month
+/// name.
 static ZONE_NAME: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r" ([A-Z]{3,5})( \d{4})?$").expect("zone name pattern should be valid")
 });
@@ -197,8 +199,17 @@ static RELATIVE: LazyLock<Regex> = LazyLock::new(|| {
     .expect("relative date pattern should be valid")
 });
 
-/// Read `input` as a date-time, or `None` if it isn't one.
-pub(crate) fn parse_date_text(input: &str) -> Option<DateTime> {
+/// Hours, minutes or seconds in a relative date (`3 hours ago`), or a timestamp (`@1744972472`):
+/// time counted from an instant, not read off a wall clock.
+#[cfg(feature = "os")]
+static ELAPSED: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^@|\b(hours?|minutes?|mins?|seconds?|secs?)\b")
+        .expect("elapsed time pattern should be valid")
+});
+
+/// Read `input` as a date-time, with a date or time that has no offset in `zone` (local time
+/// for `None`), and today's date taken in that zone. A string with an offset keeps it.
+pub(crate) fn parse_date_text(input: &str, zone: Option<&TimeZone>) -> Option<DateTime> {
     let input = input.trim();
     if may_be_rfc2822(input)
         && let Ok(zoned) = jiff::fmt::rfc2822::parse(input)
@@ -207,12 +218,12 @@ pub(crate) fn parse_date_text(input: &str) -> Option<DateTime> {
     }
     let (text, weekday) = normalize(input);
     if text.is_empty() {
-        return weekday.and_then(|weekday| build(None, None, None, Some(weekday)));
+        return weekday.and_then(|weekday| build(None, None, None, Some(weekday), zone));
     }
     if is_number(&text) {
         return None;
     }
-    if let Some(date) = read_layouts(&text, weekday) {
+    if let Some(date) = read_layouts(&text, weekday, zone) {
         return Some(date);
     }
     // RFC 9557: 2025-04-18T04:04:32-05:00[America/Chicago]
@@ -221,17 +232,67 @@ pub(crate) fn parse_date_text(input: &str) -> Option<DateTime> {
             &input.parse::<jiff::ZonedDateTime>().ok()?,
         ));
     }
-    parse_relative(input)
+    parse_relative(input, zone)
 }
 
 /// Reads `input` with the GNU `date` grammar if it has a relative word, `@` or `TZ=`, so a lone
-/// zone letter or number (`x`, `12`) isn't read as one.
+/// zone letter or number (`x`, `12`) isn't read as one. With a `zone`, the times of day in it
+/// (`tomorrow 10am`) are read there, through a GNU `TZ="..."` rule put in front, unless `input`
+/// starts with its own rule.
 #[cfg(feature = "os")]
-pub(crate) fn parse_relative(input: &str) -> Option<DateTime> {
+pub(crate) fn parse_relative(input: &str, zone: Option<&TimeZone>) -> Option<DateTime> {
     if !RELATIVE.is_match(input).unwrap_or(false) {
         return None;
     }
-    parse_gnu_date(input)
+    // parse_datetime reads the system zone, DST rules included, without a rule.
+    let Some(zone) = zone.filter(|zone| !input.starts_with("TZ=") && **zone != TimeZone::system())
+    else {
+        return parse_gnu_date(input);
+    };
+    // parse_datetime looks the name up in its own copy of jiff, which reads a name it doesn't
+    // have as UTC, and on Unix has only the system's zoneinfo. Its reading counts only when the
+    // offset matches `zone`'s.
+    if let Some(name) = zone.iana_name()
+        && let Some(date) = parse_gnu_date(&format!("TZ=\"{name}\" {input}"))
+        && zone.to_offset(date.timestamp()) == date.offset()
+    {
+        return Some(date);
+    }
+    // Otherwise the rule is the offset `zone` has now. A POSIX rule counts west of UTC as
+    // positive, so `+08:00` is `UTC-8`.
+    let parse_at = |offset: Offset| {
+        let seconds = offset.seconds();
+        let west = if seconds > 0 { '-' } else { '+' };
+        let seconds = seconds.unsigned_abs();
+        let rule = format!(
+            "UTC{west}{}:{:02}:{:02}",
+            seconds / 3600,
+            seconds / 60 % 60,
+            seconds % 60
+        );
+        parse_gnu_date(&format!("TZ=\"{rule}\" {input}"))
+    };
+    let offset = zone.to_offset(Timestamp::now());
+    let date = parse_at(offset)?;
+    // The rule has no DST, so a date in a period with another offset comes back at today's. Its
+    // wall clock is placed in `zone`, as GNU places it in a zone with DST. A reading at another
+    // offset (the text's own, or `@`'s) and hours, minutes or seconds count from an instant,
+    // which stays.
+    let placed = date.wall_clock_in(zone)?;
+    if placed.timestamp() == date.timestamp()
+        || date.offset() != offset
+        || ELAPSED.is_match(input).unwrap_or(false)
+    {
+        return Some(date);
+    }
+    // An offset in the text can match the rule's. It stays when the rule's offset moves, and the
+    // rule's own doesn't.
+    let shift = if offset.seconds() > 0 { -3600 } else { 3600 };
+    let other = Offset::from_seconds(offset.seconds() + shift).ok()?;
+    match parse_at(other) {
+        Some(again) if again.offset() != other => Some(date),
+        _ => Some(placed),
+    }
 }
 
 /// Reads `input` with the GNU `date` grammar (`tomorrow 10am`, `3 days ago`, `@1744972472`).
@@ -250,7 +311,7 @@ pub(crate) fn parse_gnu_date(input: &str) -> Option<DateTime> {
 /// Relative dates are read by parse_datetime, which nu-command depends on only with the `os`
 /// feature.
 #[cfg(not(feature = "os"))]
-pub(crate) fn parse_relative(_input: &str) -> Option<DateTime> {
+pub(crate) fn parse_relative(_input: &str, _zone: Option<&TimeZone>) -> Option<DateTime> {
     None
 }
 
@@ -475,7 +536,12 @@ fn time_and_zone(
 
 /// The first reading of `text` in layout order that makes a valid date-time. A reading that
 /// doesn't (`2025-02-30`, or `18/04/2025` month-first) falls through to the next layout.
-fn read_layouts(text: &str, weekday: Option<Weekday>) -> Option<DateTime> {
+/// `default_zone` is passed to [`build`].
+fn read_layouts(
+    text: &str,
+    weekday: Option<Weekday>,
+    default_zone: Option<&TimeZone>,
+) -> Option<DateTime> {
     let whole = |layout: &str| {
         prefix(layout, text)
             .filter(|(_, rest)| rest.is_empty())
@@ -490,14 +556,15 @@ fn read_layouts(text: &str, weekday: Option<Weekday>) -> Option<DateTime> {
             && year.bytes().all(|c| c.is_ascii_digit())
     });
     if month_year
-        && let Some(date) = whole(MONTH_YEAR).and_then(|f| build(Some(&f), None, None, weekday))
+        && let Some(date) =
+            whole(MONTH_YEAR).and_then(|f| build(Some(&f), None, None, weekday, default_zone))
     {
         return Some(date);
     }
     for layout in WHOLE {
         if let Some(fields) = whole(layout) {
             let zone = fields.offset().is_some().then_some(&fields);
-            if let Some(date) = build(Some(&fields), Some(&fields), zone, weekday) {
+            if let Some(date) = build(Some(&fields), Some(&fields), zone, weekday, default_zone) {
                 return Some(date);
             }
         }
@@ -509,27 +576,40 @@ fn read_layouts(text: &str, weekday: Option<Weekday>) -> Option<DateTime> {
         let Some((time, zone)) = time_and_zone(rest, true) else {
             continue;
         };
-        if let Some(date) = build(Some(&date), time.as_ref(), zone.as_ref(), weekday) {
+        if let Some(date) = build(
+            Some(&date),
+            time.as_ref(),
+            zone.as_ref(),
+            weekday,
+            default_zone,
+        ) {
             return Some(date);
         }
     }
     let (time, zone) = time_and_zone(text, false)?;
-    build(None, time.as_ref(), zone.as_ref(), weekday)
+    build(None, time.as_ref(), zone.as_ref(), weekday, default_zone)
 }
 
 /// Fill what the string left out from today, move to `weekday` when there's no day, and apply
-/// the offset, the IANA zone, or local time.
+/// the offset, the IANA zone, or else `default_zone` (local time for `None`), which is also the
+/// zone "today" is taken in.
 fn build(
     date: Option<&BrokenDownTime>,
     time: Option<&BrokenDownTime>,
     zone: Option<&BrokenDownTime>,
     weekday: Option<Weekday>,
+    default_zone: Option<&TimeZone>,
 ) -> Option<DateTime> {
     if let Some(timestamp) = date.and_then(|d| d.timestamp()) {
         return DateTime::from_unix_seconds(timestamp.as_second(), 0, Offset::UTC);
     }
     // read the clock only when the string leaves out part of the date
-    let today = LazyCell::new(|| jiff::ZonedDateTime::now().date());
+    let today = LazyCell::new(|| match default_zone {
+        Some(default_zone) => Timestamp::now()
+            .to_zoned_datetime(default_zone.clone())
+            .date(),
+        None => jiff::ZonedDateTime::now().date(),
+    });
     let mut day_date = match date {
         Some(d) if d.iso_week().is_some() || d.day_of_year().is_some() => d.to_date().ok()?,
         _ => {
@@ -576,7 +656,10 @@ fn build(
             DateTime::from_civil(civil, offset)
         }
         Some(_) => None,
-        None => DateTime::from_civil_local(civil),
+        None => match default_zone {
+            Some(default_zone) => DateTime::from_civil_in(civil, default_zone),
+            None => DateTime::from_civil_local(civil),
+        },
     }
 }
 
@@ -663,7 +746,7 @@ const VARIANT_FORMS: &[Form] = &[
         "variant",
         "zone names",
         "2025-04-18 16:04:32 CDT",
-        "Any other zone abbreviation at the end is dropped, and the time read as local time.",
+        "Any other zone abbreviation at the end is dropped, and the time read as one without an offset.",
     ),
 ];
 
@@ -815,12 +898,12 @@ mod tests {
 
     /// The wall-clock reading, without the offset, which depends on the local zone.
     fn wall(input: &str) -> Option<String> {
-        parse_date_text(input).and_then(|d| d.format("%Y-%m-%d %H:%M:%S%.f").ok())
+        parse_date_text(input, None).and_then(|d| d.format("%Y-%m-%d %H:%M:%S%.f").ok())
     }
 
     /// The reading with its offset, for inputs that carry one.
     fn exact(input: &str) -> Option<String> {
-        parse_date_text(input).map(|d| d.to_rfc3339())
+        parse_date_text(input, None).map(|d| d.to_rfc3339())
     }
 
     #[test]
@@ -973,7 +1056,7 @@ mod tests {
         assert_eq!(wall("4 PM"), at(16, 0));
         assert_eq!(wall("10:00a.m."), at(10, 0));
         assert_eq!(wall("12am"), at(0, 0));
-        let friday = parse_date_text("Friday")
+        let friday = parse_date_text("Friday", None)
             .map(|d| d.to_civil())
             .map(|d| d.date());
         assert_eq!(friday.map(|d| d.weekday()), Some(Weekday::Friday));
@@ -981,7 +1064,7 @@ mod tests {
         assert!(friday.is_some_and(|d| d >= today && Some(d) < week_later));
         assert_eq!(wall("4:04PM"), at(16, 4));
         for (input, month, day) in [("April 18", 4, 18), ("18 Apr", 4, 18), ("18 APR", 4, 18)] {
-            let date = parse_date_text(input)
+            let date = parse_date_text(input, None)
                 .map(|d| d.to_civil())
                 .map(|d| d.date());
             assert_eq!(
@@ -991,14 +1074,14 @@ mod tests {
             );
         }
         assert_eq!(
-            parse_date_text("12 25 10:00")
+            parse_date_text("12 25 10:00", None)
                 .map(|d| d.to_civil())
                 .map(|d| (d.month(), d.day(), d.hour())),
             Some((12, 25, 10))
         );
         // a year and month
         for (input, month) in [("2025 Dec", 12), ("2025 MAY", 5)] {
-            let date = parse_date_text(input)
+            let date = parse_date_text(input, None)
                 .map(|d| d.to_civil())
                 .map(|d| d.date());
             assert_eq!(
@@ -1037,7 +1120,7 @@ mod tests {
             "0:0:.",
             "263660314029650025864127edc124c2",
         ] {
-            assert_eq!(parse_date_text(input), None, "{input:?}");
+            assert_eq!(parse_date_text(input, None), None, "{input:?}");
         }
     }
 
@@ -1049,7 +1132,7 @@ mod tests {
             "2016-12-31T235960Z",
             "20161231T235960",
         ] {
-            let second = parse_date_text(input).map(|date| date.parts().second);
+            let second = parse_date_text(input, None).map(|date| date.parts().second);
             assert_eq!(second, Some(59), "{input:?}");
         }
     }
@@ -1072,7 +1155,7 @@ mod tests {
         let sample = sample();
         for (kind, layout, context) in listed_layouts() {
             let example = layout_example(layout, &context, sample.as_ref());
-            let read = parse_date_text(&example).and_then(to_zoned);
+            let read = parse_date_text(&example, None).and_then(to_zoned);
             let context = context.replace("%Q", SAMPLE_ZONE);
             let again = read
                 .as_ref()
@@ -1095,7 +1178,10 @@ mod tests {
             .chain(VARIANT_FORMS)
             .chain(RELATIVE_FORMS);
         for (_, name, example, _) in forms {
-            assert!(parse_date_text(example).is_some(), "{name}: {example}");
+            assert!(
+                parse_date_text(example, None).is_some(),
+                "{name}: {example}"
+            );
         }
     }
 
@@ -1121,14 +1207,14 @@ mod tests {
         let today = today();
         let days = |n| today.checked_add(jiff::Span::new().days(n)).ok();
         let date = |input| {
-            parse_date_text(input)
+            parse_date_text(input, None)
                 .map(|d| d.to_civil())
                 .map(|d| d.date())
         };
         assert_eq!(date("tomorrow"), days(1));
         assert_eq!(date("3 days ago"), days(-3));
         assert_eq!(
-            parse_date_text("tomorrow 10am")
+            parse_date_text("tomorrow 10am", None)
                 .map(|d| d.to_civil())
                 .map(|d| (d.date(), d.hour())),
             days(1).map(|d| (d, 10))
@@ -1136,6 +1222,66 @@ mod tests {
         assert_eq!(
             exact("TZ=\"Europe/Paris\" 2025-04-18 04:04").as_deref(),
             Some("2025-04-18T04:04:00+02:00")
+        );
+    }
+
+    /// A zone without an IANA name goes to parse_datetime as a POSIX rule, which counts west of
+    /// UTC as positive.
+    #[cfg(feature = "os")]
+    #[test]
+    fn relative_dates_in_a_fixed_zone() {
+        for seconds in [8 * 3600, 5 * 3600 + 1800, -5 * 3600, -(9 * 3600 + 1800), 0] {
+            let offset = Offset::from_seconds(seconds).ok();
+            let zone = offset.map(TimeZone::fixed);
+            let read = zone
+                .as_ref()
+                .and_then(|zone| parse_relative("tomorrow 10am", Some(zone)))
+                .map(|d| (d.to_civil().hour(), d.to_civil().minute(), d.offset()));
+            assert_eq!(read, offset.map(|offset| (10, 0, offset)), "{seconds}");
+        }
+    }
+
+    /// A zone with DST and no IANA name takes the offset of the date read, whichever half of the
+    /// year today is in. A time the clock skips moves forward, one it repeats takes the earlier
+    /// offset, and an instant stays.
+    #[cfg(feature = "os")]
+    #[test]
+    fn relative_dates_in_a_zone_with_dst() {
+        let zone = TimeZone::posix("CET-1CEST,M3.5.0,M10.5.0/3").expect("rule should be valid");
+        for (input, expected) in [
+            ("2026-01-01 10:00 next day", "2026-01-02T10:00:00+01:00"),
+            ("2026-06-01 10:00 next day", "2026-06-02T10:00:00+02:00"),
+            ("2026-03-28 02:30 next day", "2026-03-29T03:30:00+02:00"),
+            ("2026-10-24 02:30 next day", "2026-10-25T02:30:00+02:00"),
+            (
+                "2026-06-01 10:00 +05:00 next day",
+                "2026-06-02T07:00:00+02:00",
+            ),
+            // the zone's offset in the other half of the year, which the rule has half the time
+            (
+                "2026-06-01 10:00 +01:00 next day",
+                "2026-06-02T11:00:00+02:00",
+            ),
+            (
+                "2026-01-01 10:00 +02:00 next day",
+                "2026-01-02T09:00:00+01:00",
+            ),
+            ("@1782900000", "2026-07-01T12:00:00+02:00"),
+        ] {
+            let read = parse_relative(input, Some(&zone)).map(|d| d.to_time_zone(&zone));
+            assert_eq!(
+                read.map(|d| d.to_rfc3339()).as_deref(),
+                Some(expected),
+                "{input}"
+            );
+        }
+        let hours_ago = |now: Timestamp| now.as_second() - 5000 * 3600;
+        let before = hours_ago(Timestamp::now());
+        let read = parse_relative("5000 hours ago", Some(&zone)).map(|d| d.timestamp().as_second());
+        let after = hours_ago(Timestamp::now());
+        assert!(
+            read.is_some_and(|read| before <= read && read <= after),
+            "{read:?}"
         );
     }
 }

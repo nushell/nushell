@@ -1,5 +1,5 @@
 use crate::{
-    TIME_ZONE_NAMES, generate_date_formats_list, generate_strftime_list, parse_date_from_string,
+    TIME_ZONE_NAMES, generate_date_formats_list, generate_strftime_list, parse_date_from_string_in,
     time_zone_named,
 };
 use jiff::{
@@ -9,7 +9,7 @@ use jiff::{
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::{DateParseError, DateTime, ParsedDate};
-use std::{ops::Deref, sync::LazyLock};
+use std::{borrow::Cow, ops::Deref, sync::LazyLock};
 
 const HOUR: i32 = 60 * 60;
 const ALLOWED_COLUMNS: [&str; 10] = [
@@ -141,14 +141,14 @@ impl Command for IntoDatetime {
                     .short('z')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "Specify timezone to interpret timestamps and formatted datetime input. Valid options: 'UTC' ('u'), 'LOCAL' ('l') or any of `date list-timezone`.",
+                        "Specify the timezone of the result: a date or time without an offset is read in it, and timestamps and strings with an offset are converted to it. A datetime input is returned unchanged. Valid options: 'UTC' ('u'), 'LOCAL' ('l') or any of `date list-timezone`.",
                     )
                     .completion(Completion::new_list(ZONE_OPTIONS.deref())),
             )
             .named(
                 "offset",
                 SyntaxShape::Int,
-                "Specify timezone by offset from UTC to interpret timestamps and formatted datetime input, like '+8', '-4'.",
+                "Specify the timezone as hours from UTC, like '+8', '-4'. It works like --timezone and takes precedence over it.",
                 Some('o'),
             )
             .named(
@@ -220,9 +220,9 @@ impl Command for IntoDatetime {
     fn extra_description(&self) -> &str {
         "Without --format, a string is a date, a time, or a date with a time after T, a space or \
          a comma, and an offset or time zone can follow the time. Parts left out come from today, \
-         and a time without an offset is local time. An int, or a string of digits, is \
-         nanoseconds since 1970-01-01 UTC. Run `into datetime --formats` to list each format with \
-         an example."
+         and a time without an offset is local time, or in the zone --timezone or --offset names. \
+         An int, or a string of digits, is nanoseconds since 1970-01-01 UTC. Run \
+         `into datetime --formats` to list each format with an example."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -257,6 +257,13 @@ impl Command for IntoDatetime {
                 description: "Convert a date-time in an IANA time zone.",
                 example: "'2025-04-18 04:04:32 America/New_York' | into datetime",
                 result: DateTime::parse_rfc3339("2025-04-18T04:04:32-04:00")
+                    .ok()
+                    .map(Value::test_date),
+            },
+            Example {
+                description: "Read a date-time without an offset as a time at UTC+8.",
+                example: "'26-11-2026 05:00:00' | into datetime --offset 8",
+                result: DateTime::parse_rfc3339("2026-11-26T05:00:00+08:00")
                     .ok()
                     .map(Value::test_date),
             },
@@ -414,18 +421,17 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         return merge_record(record, head, span).unwrap_or_else(|err| Value::error(err, span));
     }
 
-    // Without a format, try reading the string as a date (RFC 3339, then the other layouts) first.
-    // A string that isn't a date or an integer timestamp is an error here, not parsed again below.
-    if matches!(input, Value::String { .. }) && dateformat.is_none() {
-        let span = input.span();
-        if let Ok(input_val) = input.coerce_str() {
-            match parse_date_from_string(&input_val, span) {
-                Ok(date) => return Value::date(date, span),
-                Err(err) if input_val.parse::<i64>().is_err() => return err,
-                Err(_) => {}
-            }
-        }
+    // Propagate errors by explicitly matching them before the flags are checked.
+    if let Value::Error { .. } = input {
+        return input.clone();
     }
+    let zone = match flag_time_zone(timezone.as_ref()) {
+        Ok(zone) => zone,
+        Err(err) => return err,
+    };
+    let zone = zone.as_ref();
+    let in_zone = |date: DateTime| zone.map_or(date, |zone| date.to_time_zone(zone));
+    let span = input.span();
 
     let unsupported_type_error = |val: &Value| {
         Value::error(
@@ -439,105 +445,73 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         )
     };
 
-    // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
-    let timestamp = match input {
-        Value::Int { val, .. } => Ok(*val),
-        Value::Duration { val, .. } => match dateformat {
-            Some(dt) => {
-                return Value::error(
-                    ShellError::IncompatibleParameters {
-                        left_message: "got a duration as input".into(),
-                        left_span: head,
-                        right_message: "cannot be used with durations".into(),
-                        right_span: dt.span,
-                    },
-                    head,
-                );
-            }
-            None => Ok(*val),
-        },
-        Value::String { val, .. } => val.parse::<i64>(),
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => return input.clone(),
-        other => {
-            return unsupported_type_error(other);
-        }
-    };
-
-    if dateformat.is_none()
-        && let Ok(ts) = timestamp
-    {
+    let Some(dt_format) = dateformat else {
+        // Without --format, a string is a date (RFC 3339, then the other layouts), or else, if
+        // it's all digits, nanoseconds since 1970-01-01 UTC, like an int or a duration.
+        let nanos = match input {
+            Value::String { val, .. } => match parse_date_from_string_in(val, zone, span) {
+                Ok(date) => return Value::date(date, span),
+                Err(err) => match val.parse::<i64>() {
+                    Ok(nanos) => nanos,
+                    Err(_) => return err,
+                },
+            },
+            Value::Int { val, .. } | Value::Duration { val, .. } => *val,
+            other => return unsupported_type_error(other),
+        };
         // Every i64 of nanoseconds is a valid timestamp (1677 to 2262).
-        let Ok(timestamp) = Timestamp::from_nanosecond(ts.into()) else {
-            return datetime_parse_error_value(
+        return match Timestamp::from_nanosecond(nanos.into()) {
+            Ok(timestamp) => Value::date(in_zone(DateTime::new(timestamp, Offset::UTC)), span),
+            Err(_) => datetime_parse_error_value(
                 &input.to_abbreviated_string(&nu_protocol::Config::default()),
                 head,
-            );
-        };
-        return match timezone {
-            // default to UTC
-            None => Value::date(DateTime::new(timestamp, Offset::UTC), head),
-            Some(Spanned { item, span }) => match item.time_zone() {
-                Some(time_zone) => Value::date(
-                    DateTime::new(timestamp, Offset::UTC).to_time_zone(&time_zone),
-                    *span,
-                ),
-                None => invalid_timezone_value(*span),
-            },
+            ),
         };
     };
 
-    // If input is not a timestamp, try parsing it as a string
-    let span = input.span();
-
-    let parse_as_string = |val: &str| {
-        match dateformat {
-            Some(dt_format) => match read_with_format(val, &dt_format.item.0) {
-                Ok(FormatReading::Instant(date)) => match timezone {
-                    None => Value::date(date, head),
-                    Some(Spanned { item, span }) => match item.time_zone() {
-                        Some(time_zone) => Value::date(date.to_time_zone(&time_zone), *span),
-                        None => invalid_timezone_value(*span),
-                    },
+    let text = match input {
+        Value::String { val, .. } => Cow::Borrowed(val.as_str()),
+        Value::Int { val, .. } => Cow::Owned(val.to_string()),
+        Value::Duration { .. } => {
+            return Value::error(
+                ShellError::IncompatibleParameters {
+                    left_message: "got a duration as input".into(),
+                    left_span: head,
+                    right_message: "cannot be used with durations".into(),
+                    right_span: dt_format.span,
                 },
-                Ok(FormatReading::WallClock(wall)) => {
-                    interpret_wall_clock_datetime(wall, timezone.as_ref(), head, val)
-                }
-                Err(reason) => Value::error(
-                    ShellError::CantConvert {
-                        to_type: format!(
-                            "could not parse as datetime using format '{}'",
-                            dt_format.item.0
-                        ),
-                        from_type: reason.to_string(),
-                        span: head,
-                        help: Some(
-                            "you can use `into datetime` without a format string to \
-                                 enable flexible parsing"
-                                .to_string(),
-                        ),
-                    },
-                    head,
+                head,
+            );
+        }
+        other => return unsupported_type_error(other),
+    };
+    match read_with_format(&text, &dt_format.item.0, zone) {
+        Ok(FormatReading::Instant(date)) => Value::date(in_zone(date), span),
+        // The wall clock in the zone, or local time without one. A time the clock skips at a DST
+        // change moves forward by the jump, and one it repeats reads as the earlier, as
+        // `into datetime` reads them without `--format`.
+        Ok(FormatReading::WallClock(wall)) => {
+            match wall.wall_clock_in(&zone.cloned().unwrap_or_else(TimeZone::system)) {
+                Some(date) => Value::date(date, span),
+                None => datetime_parse_error_value(&text, head),
+            }
+        }
+        Err(reason) => Value::error(
+            ShellError::CantConvert {
+                to_type: format!(
+                    "could not parse as datetime using format '{}'",
+                    dt_format.item.0
+                ),
+                from_type: reason.to_string(),
+                span: head,
+                help: Some(
+                    "you can use `into datetime` without a format string to enable flexible \
+                     parsing"
+                        .to_string(),
                 ),
             },
-
-            // Tries to automatically parse the date
-            // (i.e. without a format string)
-            // and assumes the system's local timezone if none is specified
-            None => match parse_date_from_string(val, span) {
-                Ok(date) => Value::date(date, span),
-                Err(err) => err,
-            },
-        }
-    };
-
-    match input {
-        Value::String { val, .. } => parse_as_string(val),
-        Value::Int { val, .. } => parse_as_string(&val.to_string()),
-
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => unsupported_type_error(other),
+            head,
+        ),
     }
 }
 
@@ -783,6 +757,17 @@ fn invalid_timezone_value(span: Span) -> Value {
     )
 }
 
+/// The time zone `--timezone` or `--offset` names, or an error at the flag for one that isn't
+/// valid.
+fn flag_time_zone(timezone: Option<&Spanned<Zone>>) -> Result<Option<TimeZone>, Value> {
+    timezone
+        .map(|Spanned { item, span }| {
+            item.time_zone()
+                .ok_or_else(|| invalid_timezone_value(*span))
+        })
+        .transpose()
+}
+
 /// What `into datetime --format` read.
 enum FormatReading {
     /// The text has an offset or a Unix timestamp.
@@ -792,11 +777,15 @@ enum FormatReading {
 }
 
 /// Reads `val` with `format`: an instant, or else a wall-clock date and time, midnight on a date
-/// with no time of day, or a time of day today. An offset in the text places the smaller
-/// readings too, so `2021-03-04 +0530` with `%F %z` is midnight at `+05:30`. A date that doesn't
-/// exist (February 30) or a wrong weekday is an error. See `ParsedDate` for how jiff reads the
-/// rest.
-fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseError> {
+/// with no time of day, or a time of day today, taken in `zone` (local time without one). An
+/// offset in the text places the smaller readings too, so `2021-03-04 +0530` with `%F %z` is
+/// midnight at `+05:30`, and a time alone is today at that offset. A date that doesn't exist
+/// (February 30) or a wrong weekday is an error. See `ParsedDate` for how jiff reads the rest.
+fn read_with_format(
+    val: &str,
+    format: &str,
+    zone: Option<&TimeZone>,
+) -> Result<FormatReading, DateParseError> {
     let parsed = ParsedDate::parse(val, format)?;
     match parsed.to_datetime() {
         Err(DateParseError::NotEnough) => {}
@@ -814,37 +803,15 @@ fn read_with_format(val: &str, format: &str) -> Result<FormatReading, DateParseE
         Err(DateParseError::NotEnough) => {}
         result => return place(result?),
     }
-    let today = match offset {
-        Some(offset) => Timestamp::now()
-            .to_zoned_datetime(TimeZone::fixed(offset))
-            .date(),
-        None => jiff::ZonedDateTime::now().date(),
+    let today_zone = match (offset, zone) {
+        (Some(offset), _) => TimeZone::fixed(offset),
+        (None, Some(zone)) => zone.clone(),
+        (None, None) => TimeZone::system(),
     };
+    let today = Timestamp::now().to_zoned_datetime(today_zone).date();
     let wall = DateTime::from_civil(today.to_datetime(parsed.to_time()?), Offset::UTC)
         .ok_or(DateParseError::OutOfRange)?;
     place(wall)
-}
-
-/// The instant the wall-clock `dt` names in `timezone`, or local time without one. A time the
-/// clock skips at a DST change moves forward by the jump, and one it repeats reads as the
-/// earlier, as `into datetime` reads them without `--format`.
-fn interpret_wall_clock_datetime(
-    dt: DateTime,
-    timezone: Option<&Spanned<Zone>>,
-    head: Span,
-    val: &str,
-) -> Value {
-    let (time_zone, span) = match timezone {
-        None => (Some(TimeZone::system()), head),
-        Some(Spanned { item, span }) => (item.time_zone(), *span),
-    };
-    let Some(time_zone) = time_zone else {
-        return invalid_timezone_value(span);
-    };
-    match dt.wall_clock_in(&time_zone) {
-        Some(date) => Value::date(date, span),
-        None => datetime_parse_error_value(val, span),
-    }
 }
 
 #[cfg(test)]
@@ -1306,5 +1273,47 @@ mod tests {
         let actual = action(&date_str, &args, Span::test_data());
 
         assert_eq!(actual.get_type(), Error);
+    }
+
+    /// Every path gives the date the input's span, with or without a zone flag, not the flag's
+    /// or the command's.
+    #[test]
+    fn result_has_the_input_span() {
+        let input_span = Span::new(1, 2);
+        let head = Span::new(3, 4);
+        let format = |format: &str| {
+            Some(Spanned {
+                item: DatetimeFormat(format.to_string()),
+                span: Span::new(5, 6),
+            })
+        };
+        for (input, format_options) in [
+            (Value::string("2024-01-01 10:00", input_span), None),
+            (Value::string("1614434140", input_span), None),
+            (Value::int(1614434140, input_span), None),
+            (Value::string("2024-01-01", input_span), format("%F")),
+            (
+                Value::string("2024-01-01 +0000", input_span),
+                format("%F %z"),
+            ),
+            (Value::int(1614434140, input_span), format("%s")),
+        ] {
+            for zone in [None, Some(Zone::Utc), Some(Zone::East(8))] {
+                let args = Arguments {
+                    zone_options: zone.map(|item| Spanned {
+                        item,
+                        span: Span::new(7, 8),
+                    }),
+                    format_options: format_options.clone(),
+                    cell_paths: None,
+                };
+                let actual = action(&input, &args, head);
+                assert!(
+                    matches!(actual, Value::Date { .. }),
+                    "{input:?}: {actual:?}"
+                );
+                assert_eq!(actual.span(), input_span, "{input:?}");
+            }
+        }
     }
 }

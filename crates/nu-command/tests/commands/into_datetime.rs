@@ -752,3 +752,120 @@ fn into_datetime_from_any_typed_pipeline_is_datetime() -> Result {
     "#;
     test().run(code).expect_value_eq("datetime")
 }
+
+// Without --format, a date or time without an offset is read in the --timezone or --offset zone,
+// and a date with an offset is converted to it, as with --format. These use zones that aren't
+// UTC, so a host whose local time is UTC can't pass them by ignoring the flag.
+
+#[rstest]
+#[case::offset("--offset 8", "2026-11-26 05:00 +08:00")]
+#[case::short_offset("-o 8", "2026-11-26 05:00 +08:00")]
+#[case::west_offset("--offset -5", "2026-11-26 05:00 -05:00")]
+#[case::named("--timezone Asia/Tokyo", "2026-11-26 05:00 +09:00")]
+#[case::offset_over_timezone("--timezone Asia/Tokyo --offset 3", "2026-11-26 05:00 +03:00")]
+fn unformatted_input_applies_zone_flag_as_wall_clock(
+    #[case] flag: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code =
+        format!("'26-11-2026 05:00:00' | into datetime {flag} | format date '%Y-%m-%d %H:%M %:z'");
+    test().run(code).expect_value_eq(expected)
+}
+
+#[test]
+fn unformatted_input_with_offset_flag_is_that_instant() -> Result {
+    test()
+        .run("'26-11-2026 05:00:00' | into datetime --offset 8 | date to-timezone '+01:00' | format date '%Y-%m-%d %H:%M %:z'")
+        .expect_value_eq("2026-11-25 22:00 +01:00")
+}
+
+#[rstest]
+#[case::winter("2024-01-01 12:00", "2024-01-01 12:00 +01:00")]
+#[case::summer("2024-07-01 12:00", "2024-07-01 12:00 +02:00")]
+#[case::date_only("2024-07-01", "2024-07-01 00:00 +02:00")]
+fn named_timezone_interprets_unformatted_wall_clock(
+    #[case] input: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --timezone eUrOpE/bErLiN
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+#[rstest]
+#[case::layout("2024-01-01 00:00 +00:00", "2024-01-01 01:00 +01:00")]
+#[case::rfc3339("2024-07-01T00:00:00Z", "2024-07-01 02:00 +02:00")]
+#[case::rfc2822("Mon, 1 Jul 2024 00:00:00 +0000", "2024-07-01 02:00 +02:00")]
+#[case::bracketed_zone("2024-07-01T09:00:00+09:00[Asia/Tokyo]", "2024-07-01 02:00 +02:00")]
+fn named_timezone_converts_unformatted_input_with_offset(
+    #[case] input: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = "
+        $in
+        | into datetime --timezone Europe/Berlin
+        | format date '%Y-%m-%d %H:%M %:z'
+    ";
+
+    test().run_with_data(code, input).expect_value_eq(expected)
+}
+
+// A time alone takes today's date in the zone, with or without --format, read before and after
+// in case the date changes.
+#[rstest]
+#[case::unformatted("")]
+#[case::formatted("--format '%H:%M'")]
+fn time_alone_takes_today_in_the_zone(#[case] format: &str) -> Result {
+    let code = format!(
+        "
+        let today = {{ date now | date to-timezone Pacific/Kiritimati | format date '%F' }}
+        let before = do $today
+        let read = '05:00' | into datetime {format} --timezone Pacific/Kiritimati
+        let after = do $today
+        ($read | format date '%H:%M %:z') == '05:00 +14:00' and ($read | format date '%F') in [$before $after]
+    "
+    );
+    test().run(code).expect_value_eq(true)
+}
+
+#[cfg(feature = "os")]
+#[rstest]
+#[case::named("--timezone Asia/Tokyo", "10:00 +09:00")]
+#[case::offset("--offset 8", "10:00 +08:00")]
+#[case::utc("--timezone utc", "10:00 +00:00")]
+fn unformatted_relative_time_reads_in_the_zone(
+    #[case] flag: &str,
+    #[case] expected: &str,
+) -> Result {
+    let code = format!("'tomorrow 10am' | into datetime {flag} | format date '%H:%M %:z'");
+    test().run(code).expect_value_eq(expected)
+}
+
+#[cfg(feature = "os")]
+#[test]
+fn unformatted_relative_time_with_own_rule_is_converted() -> Result {
+    test()
+        .run(r#"'TZ="Asia/Tokyo" 2024-07-01 10:00' | into datetime --timezone utc | format date '%Y-%m-%d %H:%M %:z'"#)
+        .expect_value_eq("2024-07-01 01:00 +00:00")
+}
+
+#[rstest]
+#[case::offset("--offset 15")]
+#[case::timezone("--timezone invalid")]
+fn unformatted_input_rejects_invalid_zone_flag(#[case] flag: &str) -> Result {
+    let err = test()
+        .run(format!("'2026-03-21 00:25' | into datetime {flag}"))
+        .expect_shell_error()?;
+
+    match err {
+        ShellError::TypeMismatch { err_message, .. } => {
+            assert_eq!(err_message, "Invalid timezone or offset");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}

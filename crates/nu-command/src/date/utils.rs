@@ -1,21 +1,37 @@
 use super::formats::{FormatRow, format_rows, parse_date_text};
+use jiff::tz::TimeZone;
 use nu_protocol::DateTime;
 use nu_protocol::{ShellError, Span, Value, record};
 
 pub(crate) fn parse_date_from_string(input: &str, span: Span) -> Result<DateTime, Value> {
+    parse_date_from_string_in(input, None, span)
+}
+
+/// [`parse_date_from_string`] with `zone` in place of local time: a date or time without an
+/// offset is read in `zone`, and the date is shown in `zone`, so a string with its own offset is
+/// converted to it. `None` reads and shows dates as [`parse_date_from_string`] does.
+pub(crate) fn parse_date_from_string_in(
+    input: &str,
+    zone: Option<&TimeZone>,
+    span: Span,
+) -> Result<DateTime, Value> {
     // RFC 3339 date-times (`2025-04-18T04:04:32-07:00`) are the usual form in data, and read
     // many times faster than trying layouts.
-    if let Ok(date) = DateTime::parse_rfc3339(input) {
-        return Ok(date);
-    }
-    parse_date_text(input).ok_or_else(|| {
-        Value::error(
-            ShellError::DatetimeParseError {
-                msg: input.into(),
+    let date = match DateTime::parse_rfc3339(input) {
+        Ok(date) => date,
+        Err(_) => parse_date_text(input, zone).ok_or_else(|| {
+            Value::error(
+                ShellError::DatetimeParseError {
+                    msg: input.into(),
+                    span,
+                },
                 span,
-            },
-            span,
-        )
+            )
+        })?,
+    };
+    Ok(match zone {
+        Some(zone) => date.to_time_zone(zone),
+        None => date,
     })
 }
 
@@ -344,7 +360,8 @@ mod test {
                 .ok()
                 .map(|date| (date, date.offset()))
         };
-        let parse_with_layouts = |input| parse_date_text(input).map(|date| (date, date.offset()));
+        let parse_with_layouts =
+            |input| parse_date_text(input, None).map(|date| (date, date.offset()));
         for input in [
             "2025-04-18T04:04:32-07:00",
             "2026-05-14T03:37:00Z",

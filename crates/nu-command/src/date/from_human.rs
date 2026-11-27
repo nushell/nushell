@@ -143,10 +143,10 @@ fn read(text: &str, now: &ZonedDateTime) -> Option<DateTime> {
     let date = if has(&TIME_OF_DAY) || has(&DATE) {
         parse_gnu_date(&gnu)
     } else {
-        parse_relative(&gnu)
+        parse_relative(&gnu, None)
     };
     #[cfg(not(feature = "os"))]
-    let date = date.or_else(|| super::formats::parse_date_text(text));
+    let date = date.or_else(|| super::formats::parse_date_text(text, None));
     // A date alone takes the time of day in its `TZ="..."` zone.
     match split_zone(text).0 {
         Some(zone) => with_time_of_day(date?, text, &now.in_tz(zone).ok()?),
