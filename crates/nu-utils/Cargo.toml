@@ -21,6 +21,7 @@ bench = false
 crossterm = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["debug"]}
 fancy-regex = { workspace = true }
+interprocess = { workspace = true, optional = true }
 lean_string.workspace = true
 log = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
@@ -36,9 +37,12 @@ unicase = "2.9.0"
 [features]
 default = ["os"]
 os = ["crossterm"]
+# Local sockets (Unix domain sockets, Windows named pipes) for talking to a child process.
+local-socket = ["dep:interprocess", "dep:windows-sys"]
 
 [target.'cfg(windows)'.dependencies]
 crossterm_winapi = "0.9"
+windows-sys = { workspace = true, optional = true, features = ["Win32_Foundation"] }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["user", "fs"] }

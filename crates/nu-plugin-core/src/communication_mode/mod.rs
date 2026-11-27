@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::io::{Stdin, Stdout};
 #[cfg(all(feature = "local-socket", unix))]
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -10,10 +10,9 @@ use nu_protocol::ShellError;
 use nu_protocol::shell_error::io::IoError;
 
 #[cfg(feature = "local-socket")]
-mod local_socket;
-
-#[cfg(feature = "local-socket")]
-use local_socket::*;
+use nu_utils::local_socket::{
+    bind_local_socket, interpret_local_socket_name, is_would_block_err, make_local_socket_name,
+};
 
 /// Controls whether plugin stderr is forwarded to Nushell's stderr.
 ///
@@ -96,35 +95,14 @@ impl CommunicationMode {
             // For sockets: we need to create the server so that the child won't fail to connect.
             #[cfg(feature = "local-socket")]
             CommunicationMode::LocalSocket(name) => {
-                use interprocess::local_socket::ListenerOptions;
-
-                #[cfg(unix)]
-                let socket_dir = prepare_local_socket_path(name).map_err(|err| {
+                let (listener, socket_dir) = bind_local_socket(name).map_err(|err| {
                     IoError::new_internal(
                         err,
-                        format!(
-                            "Could not prepare local socket path {:?}",
-                            name.to_string_lossy()
-                        ),
+                        format!("Could not create local socket {:?}", name.to_string_lossy()),
                     )
                 })?;
-
-                let listener = match interpret_local_socket_name(name)
-                    .and_then(|name| ListenerOptions::new().name(name).create_sync())
-                {
-                    Ok(listener) => listener,
-                    Err(err) => {
-                        #[cfg(unix)]
-                        cleanup_local_socket_dir(socket_dir.as_ref());
-                        return Err(ShellError::Io(IoError::new_internal(
-                            err,
-                            format!(
-                                "Could not interpret local socket name {:?}",
-                                name.to_string_lossy()
-                            ),
-                        )));
-                    }
-                };
+                #[cfg(not(unix))]
+                let _ = socket_dir;
                 Ok(PreparedServerCommunication::LocalSocket {
                     listener,
                     #[cfg(unix)]
@@ -183,27 +161,6 @@ pub enum PreparedServerCommunication {
         #[cfg(unix)]
         socket_dir: Option<PathBuf>,
     },
-}
-
-#[cfg(all(feature = "local-socket", unix))]
-fn prepare_local_socket_path(name: &OsStr) -> Result<Option<PathBuf>, std::io::Error> {
-    use std::os::unix::fs::DirBuilderExt;
-
-    let path = Path::new(name);
-    let Some(parent) = path.parent() else {
-        return Ok(None);
-    };
-
-    let mut builder = std::fs::DirBuilder::new();
-    builder.mode(0o700).create(parent)?;
-    Ok(Some(parent.to_path_buf()))
-}
-
-#[cfg(all(feature = "local-socket", unix))]
-fn cleanup_local_socket_dir(socket_dir: Option<&PathBuf>) {
-    if let Some(socket_dir) = socket_dir {
-        let _ = std::fs::remove_dir_all(socket_dir);
-    }
 }
 
 #[cfg(all(test, feature = "local-socket", unix))]
@@ -300,7 +257,7 @@ impl Drop for PreparedServerCommunication {
                 ..
             } => {
                 #[cfg(unix)]
-                cleanup_local_socket_dir(socket_dir.as_ref());
+                nu_utils::local_socket::cleanup_local_socket_dir(socket_dir.as_ref());
             }
         }
     }

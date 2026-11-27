@@ -5,7 +5,7 @@ use nu_engine::{eval_block, eval_block_with_early_return, exit::kill_jobs_and_ex
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     ByteStream, ByteStreamSource, ByteStreamType, ListStream, PipelineData, PipelineMetadata,
-    Reader, ShellError, Signals, Span, Value, ValueIterator,
+    Reader, STRUCTURED_IO_ENV, ShellError, Signals, Span, Value, ValueIterator,
     ast::Block,
     block_is_bare_last_result_with,
     debugger::WithoutDebug,
@@ -41,7 +41,10 @@ use std::{io::Read, path::Path};
 //
 // In this scenario, the new `nushell`'s PWD should be "#{pane_current_path}" rather init_cwd.
 pub fn gather_parent_env_vars(engine_state: &mut EngineState, init_cwd: &Path) {
-    gather_env_vars(std::env::vars(), engine_state, init_cwd);
+    // The structured IO handshake is meant for this process only, not for `$env` or the
+    // processes it starts.
+    let vars = std::env::vars().filter(|(name, _)| name != STRUCTURED_IO_ENV);
+    gather_env_vars(vars, engine_state, init_cwd);
 }
 
 fn gather_env_vars(
@@ -223,6 +226,11 @@ pub fn print_pipeline(
     no_newline: bool,
 ) -> Result<(), ShellError> {
     let to_stderr = engine_state.is_mcp || engine_state.is_lsp || engine_state.is_dap;
+
+    // The `nu` that started this one with `--structured-io` reads the result as a value.
+    if let Some(link) = engine_state.structured_io_output.take() {
+        return nu_command::send_structured_output(engine_state, &link, pipeline);
+    }
 
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(

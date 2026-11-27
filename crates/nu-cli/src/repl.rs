@@ -25,7 +25,9 @@ use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, trim_quotes_str};
 use nu_path::AbsolutePathBuf;
 use nu_protocol::shell_error::io::IoError;
-use nu_protocol::{BannerKind, ShellIntegrationConfig, ShellWarning, shell_error};
+use nu_protocol::{
+    BannerKind, STRUCTURED_IO_ENV, ShellIntegrationConfig, ShellWarning, shell_error,
+};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
@@ -1035,7 +1037,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             warn!("Couldn't convert environment variable values to strings: {e}");
             HashMap::default()
         });
-        command.args(args).envs(envs);
+        // The editor keeps this process's environment, which can hold the link to the `nu` that
+        // started this one with `--structured-io`. A `nu` run from the editor mustn't use it.
+        command.args(args).envs(envs).env_remove(STRUCTURED_IO_ENV);
         line_editor.with_buffer_editor(command, temp_file.to_path_buf())
     } else {
         line_editor

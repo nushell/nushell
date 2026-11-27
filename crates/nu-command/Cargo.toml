@@ -68,6 +68,7 @@ fluent = { workspace = true }
 http = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
+interprocess = { workspace = true, optional = true }
 itertools = { workspace = true }
 jiff = { workspace = true }
 log = { workspace = true }
@@ -195,7 +196,9 @@ os = [
 	"nu-protocol/os",
 	"nu-utils/os",
 	"dep:fff-search",
+	"dep:interprocess",
 	"dep:notify",
+	"nu-utils/local-socket",
 
 	# os-dependant dependencies
 	"crossterm",

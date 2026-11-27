@@ -27,7 +27,4 @@ interprocess = { workspace = true, optional = true }
 
 [features]
 default = ["local-socket"]
-local-socket = ["interprocess", "nu-plugin-protocol/local-socket"]
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true }
+local-socket = ["interprocess", "nu-plugin-protocol/local-socket", "nu-utils/local-socket"]

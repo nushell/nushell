@@ -66,6 +66,7 @@ fn help_lists_all_flags() -> TestResult {
         "--log-include",
         "--log-exclude",
         "--stdin",
+        "--structured-io",
         "--experimental-options",
         "--lsp",
         "--ide-goto-def",

@@ -162,6 +162,9 @@ impl PersistentPlugin {
         // We need the current environment variables for `python` based plugins
         // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
         plugin_cmd.envs(envs);
+        // `create_command` removed the structured IO link, but `$env` can still hold one that the
+        // user set. A `.nu` plugin would read it and send its values there.
+        plugin_cmd.env_remove(nu_protocol::STRUCTURED_IO_ENV);
 
         let program_name = plugin_cmd.get_program().to_os_string().into_string();
 
