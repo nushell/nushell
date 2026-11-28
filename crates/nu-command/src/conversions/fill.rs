@@ -2,7 +2,6 @@ use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use nu_protocol::FromValue;
-use print_positions::print_positions;
 
 #[derive(Clone)]
 pub struct Fill;
@@ -89,7 +88,7 @@ impl Command for Fill {
             .named(
                 "width",
                 SyntaxShape::Int,
-                "The width of the output. Defaults to 1.",
+                "The width of the output in terminal columns. Defaults to 1.",
                 Some('w'),
             )
             .param(
@@ -111,7 +110,7 @@ impl Command for Fill {
             .named(
                 "character",
                 SyntaxShape::String,
-                "The character to fill with. Defaults to ' ' (space).",
+                "The character to fill with; it should be one terminal column wide. Defaults to ' ' (space).",
                 Some('c'),
             )
             .category(Category::Conversions)
@@ -137,6 +136,11 @@ impl Command for Fill {
                 description: "Fill an empty string with 10 '─' characters.",
                 example: "'' | fill --character '─' --width 10",
                 result: Some(Value::string("──────────", Span::test_data())),
+            },
+            Example {
+                description: "Fill CJK text to 8 terminal columns. Each of these characters takes two.",
+                example: "'\u{65e5}\u{672c}' | fill --character '.' --width 8",
+                result: Some(Value::string("\u{65e5}\u{672c}....", Span::test_data())),
             },
             Example {
                 description: "Fill a number on the left side to a width of 5 with the character '0'.",
@@ -235,9 +239,12 @@ fn fill_string(s: &str, args: &Arguments, span: Span) -> Value {
 
 fn pad(s: &str, width: usize, pad_char: &str, alignment: FillAlignment, truncate: bool) -> String {
     // Attribution: Most of this function was taken from https://github.com/ogham/rust-pad and tweaked. Thank you!
-    // Use width instead of len for graphical display
+    // Measure the terminal columns the string occupies, not its bytes or its
+    // grapheme clusters: a wide character such as `\u{65e5}` occupies two columns, so counting
+    // clusters pads it two columns too far. This is the same measurement
+    // `table` applies to a cell, so a filled value and a tabled one agree.
 
-    let cols = print_positions(s).count();
+    let cols = nu_table::string_width(s);
 
     if cols >= width {
         if truncate {

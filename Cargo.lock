@@ -4845,7 +4845,6 @@ dependencies = [
  "pathdiff",
  "percent-encoding",
  "pretty_assertions",
- "print-positions",
  "pure-rust-locales",
  "quick-xml 0.42.0",
  "rand 0.10.2",
@@ -7086,15 +7085,6 @@ checksum = "479ca8adacdd7ce8f1fb39ce9ecccbfe93a3f1344b3d0d97f20bc0196208f62b"
 dependencies = [
  "proc-macro2",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "print-positions"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df593470e3ef502e48cb0cfc9a3a61e5f61e967b78e1ed35a67ac615cfbd208"
-dependencies = [
- "unicode-segmentation",
 ]
 
 [[package]]

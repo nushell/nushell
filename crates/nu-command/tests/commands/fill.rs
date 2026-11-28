@@ -20,6 +20,42 @@ fn string_fill_fancy() -> Result {
 }
 
 #[test]
+fn string_fill_wide_characters() -> Result {
+    // A wide character occupies two terminal columns, so `fill` must add two
+    // fewer pad characters for it than it would for an ASCII character.
+    test()
+        .run(r#""\u{65e5}\u{672c}" | fill --character "." --width 8"#)
+        .expect_value_eq("\u{65e5}\u{672c}....")?;
+    test()
+        .run(r#""\u{1f44d}" | fill --character "." --width 8"#)
+        .expect_value_eq("\u{1f44d}......")?;
+    // A ZWJ emoji sequence is one grapheme cluster but still two columns wide.
+    test()
+        .run(r#""\u{1f9d1}\u{200d}\u{1f3eb}" | fill --alignment center --character "+" --width 4"#)
+        .expect_value_eq("+\u{1f9d1}\u{200d}\u{1f3eb}+")?;
+    // A combining mark adds no column of its own.
+    test()
+        .run(r#""e\u{308}" | fill --character "." --width 3"#)
+        .expect_value_eq("e\u{308}..")
+}
+
+#[test]
+fn string_fill_control_characters() -> Result {
+    // A tab and a carriage return each keep the single column they had before
+    // `fill` measured in columns; they are not escape sequences to be ignored.
+    test()
+        .run(r#""a\tb" | fill --character "." --width 6"#)
+        .expect_value_eq("a\tb...")?;
+    test()
+        .run(r#""a\rb" | fill --character "." --width 6"#)
+        .expect_value_eq("a\rb...")?;
+    // A multi-line string is as wide as its widest line.
+    test()
+        .run(r#""ab\ncd" | fill --character "." --width 6"#)
+        .expect_value_eq("ab\ncd....")
+}
+
+#[test]
 fn fill_valid_alignments() -> Result {
     test()
         .run("'nushell' | fill -w 10 -a l")
