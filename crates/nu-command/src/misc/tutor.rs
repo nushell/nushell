@@ -121,6 +121,17 @@ fn tutor(
             vec!["pipeline-input", "pipeline-inputs", "pipeline", "pipelines"],
             pipeline_input_tutor(),
         ),
+        (
+            vec![
+                "error-handling",
+                "error",
+                "errors",
+                "try",
+                "catch",
+                "finally",
+            ],
+            error_handling_tutor(),
+        ),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
         (
             vec!["shortcut", "shortcuts", "bashism", "bashisms"],
@@ -773,6 +784,11 @@ You can learn more about using pipeline input with custom commands by running:
 tutor pipeline-input
 ```
 
+You can also learn about handling and creating errors by running:
+```
+tutor error-handling
+```
+
 You can learn more about custom commands and see additional examples by
 running:
 ```
@@ -817,6 +833,102 @@ pipeline data, by running:
 tutor closures
 ```
 "
+}
+
+fn error_handling_tutor() -> &'static str {
+    r#"
+When a command fails in Nushell, it raises an error and stops the current
+pipeline or script. You can use `try` and `catch` to handle errors instead of
+letting them stop execution.
+
+The `try` command runs a block. If an error occurs, the `catch` closure runs
+and returns a fallback value:
+```
+try { 1 / 0 } catch { "cannot divide by zero" }
+```
+
+If the `try` block succeeds, `catch` is skipped and the result of the `try`
+block is returned:
+```
+try { "42" | into int } catch { 0 }
+```
+
+Because the `try` command returns a value, you can store it in a variable or
+use it in a pipeline:
+```
+let count = try { "not a number" | into int } catch { 0 }
+$count
+```
+
+The `catch` clause is optional. Using `try` by itself catches the error and
+returns nothing (`null`):
+```
+try { 1 / 0 }
+```
+
+The `catch` closure receives a record describing the error. You can bind it to
+a parameter such as `|err|` and read fields like `msg`:
+```
+try { 1 / 0 } catch { |err| $"Error: ($err.msg)" }
+```
+
+You can also add a `finally` closure for cleanup code that should always run,
+whether the `try` block succeeds or fails:
+```
+try {
+    1 / 0
+} catch {
+    "fallback"
+} finally {
+    print "cleanup"
+}
+```
+This prints `cleanup` and returns `"fallback"`.
+
+The output of `finally` is ignored. Without `catch`, the error still
+propagates after `finally` runs.
+
+When writing custom commands or scripts, you can create your own errors with
+the `error make` command. For a simple error, pass a message string:
+```
+error make "something went wrong"
+```
+
+For clearer error messages, pass a record with `msg` and `labels` pointing to
+the offending value using the `metadata` command:
+```
+def set-port [port: int] {
+    if $port < 1 or $port > 65535 {
+        error make {
+            msg: "invalid port number"
+            labels: [
+                {
+                    text: "must be between 1 and 65535"
+                    span: (metadata $port).span
+                }
+            ]
+        }
+    }
+    $"Using port ($port)"
+}
+```
+Calling `set-port 0` raises an error highlighting the `0` argument, and
+callers can still catch it with `try`:
+```
+try { set-port 0 } catch { |err| $err.msg }
+```
+
+You can learn more about closures, which `catch` and `finally` use, by running:
+```
+tutor closures
+```
+
+You can learn more about the commands in this tutorial with:
+```
+help try
+help error make
+```
+"#
 }
 
 fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span) -> PipelineData {
