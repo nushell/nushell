@@ -460,6 +460,22 @@ fn ensure_flag_arg_type(
     }
 }
 
+/// Lists are not spread automatically, so a list given to a rest parameter fails to type
+/// check. Build a hint that names the argument to spread.
+fn list_needs_spread(working_set: &StateWorkingSet, arg: &Expression) -> Option<String> {
+    if !matches!(&arg.ty, Type::List(_)) {
+        return None;
+    }
+
+    let text = String::from_utf8_lossy(working_set.get_span_contents(arg.span));
+    let text = text.trim();
+    let text = if text.is_empty() { "$list" } else { text };
+
+    Some(format!(
+        "to pass each item of the list as a separate argument, spread it like so: ...{text}"
+    ))
+}
+
 /// Parse a named flag's value, allowing a bare `null` when requested if its own shape rejects it.
 ///
 /// Parsing the declared shape first preserves its diagnostics and literal interpretations, such
@@ -1812,11 +1828,17 @@ pub fn parse_internal_call(
             }
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                working_set.error(ParseError::TypeMismatch(
-                    positional.shape.to_type(),
-                    arg.ty,
-                    arg.span,
-                ));
+                let expected = positional.shape.to_type();
+                let is_rest = positional_idx
+                    >= signature.required_positional.len() + signature.optional_positional.len();
+
+                // A list given to a rest parameter is not spread automatically, so say how.
+                match list_needs_spread(working_set, &arg) {
+                    Some(help) if is_rest => working_set.error(ParseError::TypeMismatchHelp(
+                        expected, arg.ty, arg.span, help,
+                    )),
+                    _ => working_set.error(ParseError::TypeMismatch(expected, arg.ty, arg.span)),
+                }
                 Expression::garbage(working_set, arg.span)
             } else {
                 arg

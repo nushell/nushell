@@ -1,5 +1,5 @@
 use nu_protocol::{
-    FromValue, ShellError, Span,
+    FromValue, ShellError, Span, Value,
     engine::{self, EngineState, Stack, StateWorkingSet, named_flags::call_has_flag},
     ir,
 };
@@ -88,13 +88,16 @@ impl CallExt for ir::Call {
 
     fn rest<T: FromValue>(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         stack: &mut Stack,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
         self.rest_iter_flattened(stack, starting_pos)?
             .into_iter()
-            .map(T::from_value)
+            .map(|value| {
+                T::from_value(value.clone())
+                    .map_err(|err| explain_list_argument(err, &value, engine_state))
+            })
             .collect()
     }
 
@@ -221,4 +224,26 @@ impl CallExt for engine::Call<'_> {
     fn has_positional_args(&self, stack: &Stack, starting_pos: usize) -> bool {
         proxy!(self.has_positional_args(stack, starting_pos))
     }
+}
+
+/// Lists are not spread automatically, so a list given to a rest parameter fails to convert
+/// into a single argument. Point that error at the spread operator, naming the argument that
+/// has to be spread.
+fn explain_list_argument(err: ShellError, value: &Value, engine_state: &EngineState) -> ShellError {
+    if !matches!(value, Value::List { .. }) {
+        return err;
+    }
+
+    let mut err = err;
+    if let ShellError::CantConvert { help, .. } = &mut err
+        && help.is_none()
+    {
+        let arg = String::from_utf8_lossy(engine_state.get_span_contents(value.span()));
+        let arg = arg.trim();
+        let arg = if arg.is_empty() { "$list" } else { arg };
+        *help = Some(format!(
+            "to pass each item of the list as a separate argument, spread it like so: ...{arg}"
+        ));
+    }
+    err
 }
