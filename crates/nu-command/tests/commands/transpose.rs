@@ -91,3 +91,35 @@ fn repeated_column_names_keep_title() -> Result {
         .run("[[a b]; [1 2] [3 4]] | transpose x x x | to nuon")
         .expect_value_eq("[[x]; [a], [b]]")
 }
+
+#[test]
+fn as_record_on_empty_list_returns_empty_record() -> Result {
+    // With --as-record the user asked for a record, so an empty table
+    // should come back as an empty record rather than an empty list.
+    test()
+        .run("[] | transpose --as-record | to nuon")
+        .expect_value_eq("{}")
+}
+
+#[test]
+fn as_record_round_trips_empty_record() -> Result {
+    // --as-record is the inverse of transpose for records, so the
+    // round trip of an empty record has to stay an empty record.
+    test()
+        .run("{} | transpose | transpose --as-record | to nuon")
+        .expect_value_eq("{}")
+}
+
+#[test]
+fn as_record_on_single_row_unchanged() -> Result {
+    test()
+        .run("[{a: 1}] | transpose --as-record | to nuon")
+        .expect_value_eq(r#"{"column0": a, "column1": 1}"#)
+}
+
+#[test]
+fn as_record_on_multiple_rows_stays_table() -> Result {
+    test()
+        .run("[{a: 1, b: 2}] | transpose --as-record | to nuon")
+        .expect_value_eq(r#"[["column0", "column1"]; [a, 1], [b, 2]]"#)
+}

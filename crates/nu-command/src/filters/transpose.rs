@@ -37,7 +37,7 @@ impl Command for Transpose {
             )
             .switch(
                 "as-record",
-                "Transfer to record if the result is a table and contains only one row.",
+                "Transfer to record if the result is a table and contains only one row, or is empty.",
                 Some('d'),
             )
             .switch(
@@ -313,11 +313,11 @@ pub fn transpose(
             Value::record(record, name)
         })
         .collect::<Vec<Value>>();
-    if result_data.len() == 1 && args.as_record {
+    if args.as_record && result_data.len() <= 1 {
         Ok(PipelineData::value(
             result_data
                 .pop()
-                .expect("already check result only contains one item"),
+                .unwrap_or_else(|| Value::record(Record::new(), name)),
             metadata,
         ))
     } else {
