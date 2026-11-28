@@ -179,4 +179,46 @@ version = "1.0.0"
             Some(r###"r###'contains '## and "quote"'###"###.to_string())
         );
     }
+
+    #[test]
+    fn escape_quote_string_escapes_control_characters() {
+        // The reader accepts \a, \b, \e and \u{..} escapes, so the writer must spell
+        // control characters that way instead of emitting raw bytes that corrupt the
+        // terminal when the document is displayed.
+        assert_eq!(escape_quote_string("a\u{7}b"), r#""a\ab""#);
+        assert_eq!(escape_quote_string("a\u{8}b"), r#""a\bb""#);
+        assert_eq!(escape_quote_string("a\u{1b}b"), r#""a\eb""#);
+        assert_eq!(escape_quote_string("a\u{1}b"), r#""a\u{1}b""#);
+        // Whitespace stays verbatim inside the quotes: the spec allows it and it reads back.
+        assert_eq!(escape_quote_string("a\tb\nc\rd"), "\"a\tb\nc\rd\"");
+    }
+
+    #[test]
+    fn needs_quoting_forces_control_characters_to_be_quoted() {
+        // Without this, a control-character string is written as a bare word with the raw
+        // byte inside it, which corrupts the terminal when the document is displayed.
+        for value in [
+            "a\u{7}b", "a\u{8}b", "a\u{1b}b", "a\u{1}b", "\u{1f}", "a\u{7f}b",
+        ] {
+            assert!(needs_quoting(value), "{value:?} must be quoted");
+        }
+        // ...and nothing else changed: ordinary strings still take the fast path.
+        assert!(!needs_quoting("hello"));
+        assert!(!needs_quoting("plain_name"));
+    }
+
+    #[test]
+    fn raw_string_is_refused_when_the_value_has_control_characters() {
+        // A raw string reproduces its content byte for byte, so it cannot carry the \b
+        // escape; refusing it hands the value to escape_quote_string instead.
+        for value in ["a\u{8}\"b", "\u{1b}\"", "a\\b\u{7}"] {
+            assert_eq!(
+                as_raw_string(value),
+                None,
+                "a control character must not take the raw form: {value:?}"
+            );
+        }
+        // And nothing else changed: a control-free value that needs escaping still gets it.
+        assert_eq!(as_raw_string(r#"a\"b"#), Some(r#"r#'a\"b'#"#.to_string()));
+    }
 }

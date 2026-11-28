@@ -606,3 +606,32 @@ fn read_code_should_fail_rather_than_panic() -> Result {
     assert_eq!(err.error, "error when loading nuon text");
     Ok(())
 }
+
+#[test]
+fn to_nuon_escapes_control_characters() -> Result {
+    let code = r#""a\u{8}b\u{1b}[31mc\u{1f}" | to nuon"#;
+
+    test().run(code).expect_value_eq(r#""a\bb\e[31mc\u{1f}""#)
+}
+
+#[test]
+fn to_nuon_escapes_control_characters_in_keys_and_nested_values() -> Result {
+    let code = r#"{"k\u{7}": ["v\u{8}"]} | to nuon"#;
+
+    test().run(code).expect_value_eq(r#"{"k\a": ["v\b"]}"#)
+}
+
+#[test]
+fn to_nuon_raw_strings_refuses_control_characters() -> Result {
+    // --raw-strings must not carry a raw control byte through the raw form
+    let code = r#""a\u{8}b\"c" | to nuon --raw-strings"#;
+
+    test().run(code).expect_value_eq(r#""a\bb\"c""#)
+}
+
+#[test]
+fn to_nuon_control_characters_round_trip() -> Result {
+    let code = r#""a\u{8}b" | to nuon | from nuon | $in == "a\u{8}b""#;
+
+    test().run(code).expect_value_eq(true)
+}
