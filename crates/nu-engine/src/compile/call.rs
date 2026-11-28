@@ -413,10 +413,17 @@ pub(crate) fn compile_external_call(
     input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    // Pass everything to run-external
-    let run_external_id = working_set
-        .find_decl(b"run-external")
-        .ok_or(CompileError::RunExternalNotFound { span: head.span })?;
+    // Pass everything to run-external. A custom command of that name still wins.
+    // An `extern` named `run-external` must not: compiling `^cmd` as a call to that
+    // extern makes it dispatch to itself (#11335). `hide run-external` still fails,
+    // because a hidden declaration is not found rather than found and skipped.
+    let run_external_id = match working_set.find_decl(b"run-external") {
+        Some(decl_id) if working_set.get_decl(decl_id).is_known_external() => {
+            crate::find_builtin_decl(working_set.permanent_state, "run-external")
+        }
+        found => found,
+    }
+    .ok_or(CompileError::RunExternalNotFound { span: head.span })?;
 
     let mut call = Call::new(head.span);
     call.decl_id = run_external_id;
