@@ -4678,7 +4678,7 @@ dependencies = [
  "reedline",
  "rstest",
  "strum",
- "sysinfo 0.40.3",
+ "sysinfo 0.40.4",
  "tempfile",
  "unicode-segmentation",
  "unicode-width 0.2.2",
@@ -4866,7 +4866,7 @@ dependencies = [
  "serde_urlencoded",
  "sha2",
  "strum",
- "sysinfo 0.40.3",
+ "sysinfo 0.40.4",
  "tabled",
  "tempfile",
  "toml",
@@ -5281,7 +5281,7 @@ dependencies = [
  "ntapi",
  "nu-utils",
  "procfs",
- "sysinfo 0.40.3",
+ "sysinfo 0.40.4",
  "windows 0.62.2",
 ]
 
@@ -8884,9 +8884,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.40.3"
+version = "0.40.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a86bac2f7d06e6384984118ad727f5694110f0ec44d924d05c8fdec3d030bee6"
+checksum = "3e80749408e2d8bec0ffa303012cf4e1b3b355f4a09087b4fdf7473680f6a2de"
 dependencies = [
  "libc",
  "memchr",
