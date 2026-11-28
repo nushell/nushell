@@ -94,20 +94,20 @@ fn compile_block_with_input_at(
     let region_start = builder.instructions.len();
 
     // The pipelines before the input's write their output to `out_reg`, so an input in that
-    // register moves to one of its own first.
-    let in_reg = match in_reg {
+    // register waits in one of its own until its pipeline comes up.
+    let held_input = match in_reg {
         Some(reg) if input_pipeline > 0 && reg == out_reg => {
-            let input = builder.next_register()?;
+            let held = builder.next_register()?;
             builder.push(
                 Instruction::Move {
-                    dst: input,
+                    dst: held,
                     src: reg,
                 }
                 .into_spanned(span),
             )?;
-            Some(input)
+            Some(held)
         }
-        in_reg => in_reg,
+        _ => None,
     };
 
     // A closure parameter written as a pattern, as in `{|{$name}| ...}`, arrives in a hidden
@@ -136,6 +136,19 @@ fn compile_block_with_input_at(
     if !block.pipelines.is_empty() {
         let last_index = block.pipelines.len() - 1;
         for (index, pipeline) in block.pipelines.iter().enumerate() {
+            // Put a held input back in `out_reg`, where a pipeline's input has to be: a call
+            // moves `in_reg` to `out_reg` in `compile_expression` and again in `compile_call`.
+            if index == input_pipeline
+                && let Some(held) = held_input
+            {
+                builder.push(
+                    Instruction::Move {
+                        dst: out_reg,
+                        src: held,
+                    }
+                    .into_spanned(span),
+                )?;
+            }
             compile_pipeline(
                 working_set,
                 builder,

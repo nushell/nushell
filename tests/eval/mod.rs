@@ -221,12 +221,30 @@ fn in_at_head_trims_an_externals_last_newline(
 
 /// A block that uses `$in` gives its input to the first statement that uses `$in`. The statements
 /// before it get none, and the statement that uses `$in` gets it as before, so its head and the
-/// bodies of an `if` or `match` there still see the input.
+/// bodies of an `if` or `match` there still see the input. A command at the head of a later
+/// statement gets the input too, whether or not it reads it, and an external there reads it on
+/// stdin.
 #[rstest]
 #[case::setup_gets_none("[1 2 3] | do { let n = length; [$n ($in | length)] }", test_value!([0, 3]))]
 #[case::first_statement_keeps_it("[1 2] | do { append $in }", test_value!([1, 2, 1, 2]))]
+#[case::command_after_setup("[1 2] | do { let n = 1; append $in }", test_value!([1, 2, 1, 2]))]
+#[case::command_ignoring_input_after_setup("5 | do { let n = 2; seq $n $in }", test_value!([2, 3, 4, 5]))]
+#[case::custom_command_after_setup(
+    "def f [] { let n = 2; seq 1 $in | first $n }; 5 | f",
+    test_value!([1, 2])
+)]
+#[case::command_after_a_value("[1 2] | do { 1; append $in }", test_value!([1, 2, 1, 2]))]
+#[case::command_after_an_external("[1 2] | do { cococo x; append $in }", test_value!([1, 2, 1, 2]))]
+#[case::if_body_with_setup(
+    "[1 2] | if true { let n = 1; append $in }",
+    test_value!([1, 2, 1, 2])
+)]
+#[case::external_after_setup("'abc' | do { let n = 1; cococo $in }", "abc")]
+#[case::external_reads_it_after_setup("'relay' | do { let n = 1; ^$in }", "relay")]
 #[case::if_body_keeps_it("[1 2] | do { if ($in | is-empty) { 0 } else { length } }", 2)]
 #[case::no_in_keeps_it("[1 2 3] | do { length }", 3)]
+#[nu_test_support::test]
+#[deps(TESTBIN_COCOCO, TESTBIN_RELAY)]
 fn in_block_input_goes_to_first_statement_using_in(
     #[case] code: &str,
     #[case] expected: impl IntoValue,
