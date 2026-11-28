@@ -1,4 +1,5 @@
 use fancy_regex::Regex;
+use std::fmt::Write as _;
 use std::sync::LazyLock;
 
 // This hits, in order:
@@ -6,9 +7,10 @@ use std::sync::LazyLock;
 // • Any digit (\d)
 // • Any whitespace (\s)
 // • A NUL, which must be escaped rather than written raw
+// • Any other C0 control character and DEL, which are escaped as well
 // • Case-insensitive sign-insensitive float "keywords" inf, infinity and nan.
 static NEEDS_QUOTING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s\x00!?=]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
+    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s\x00-\x1f\x7f!?=]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
         .expect("internal error: NEEDS_QUOTING_REGEX didn't compile")
 });
 
@@ -41,6 +43,18 @@ pub fn escape_quote_string(string: &str) -> String {
             // A raw NUL is rejected by the reader, so the writer must escape it rather
             // than emit a byte its own reader refuses.
             '\0' => output.push_str("\\0"),
+            // The remaining control characters the reader spells with a one-character
+            // escape.
+            '\u{07}' => output.push_str("\\a"),
+            '\u{08}' => output.push_str("\\b"),
+            '\u{1b}' => output.push_str("\\e"),
+            // Whitespace controls stay verbatim inside the quotes: the spec allows it, it
+            // keeps multi-line strings readable, and it reads back unchanged.
+            '\t' | '\n' | '\u{0b}' | '\u{0c}' | '\r' => output.push(c),
+            // Every other control character, DEL included, has no short form.
+            c if c.is_control() => {
+                let _ = write!(output, "\\u{{{:x}}}", c as u32);
+            }
             _ => output.push(c),
         }
     }
@@ -52,19 +66,23 @@ pub fn escape_quote_string(string: &str) -> String {
 /// Returns a raw string representation if the string contains quotes or backslashes.
 /// Otherwise returns None (caller should use regular quoting or bare string).
 ///
-/// A string containing a NUL also returns None, even when it has a quote or a backslash: a raw
-/// string reproduces its content byte for byte, so it cannot carry the `\0` escape and a NUL
-/// inside one would be written verbatim.
+/// A string holding a control character that must be escaped also returns None, even when it
+/// has a quote or a backslash: a raw string reproduces its content byte for byte, so it cannot
+/// carry the escape and the byte inside one would be written verbatim.
 ///
 /// Raw strings avoid escaping by using `r#'...'#` syntax with enough `#` characters
 /// to ensure the closing delimiter is unambiguous.
 ///
 /// Note: Nushell requires at least one `#` in raw strings (i.e., `r#'...'#` not `r'...'`).
 pub fn as_raw_string(s: &str) -> Option<String> {
-    // Only use raw strings if they would avoid escaping. The NUL check comes first so the
-    // scan stays single-pass: a raw string cannot represent `\0` at all, so a NUL-bearing
-    // value has to fall through to `escape_quote_string`, which writes the escape.
-    if s.contains('\0') || !s.contains(['"', '\\']) {
+    // Only use raw strings if they would avoid escaping. The escape check comes first so the
+    // scan stays single-pass: a raw string cannot represent `\0` at all, and it cannot carry
+    // the `\b` escape either, so a value holding a control character that must be escaped has
+    // to fall through to `escape_quote_string`, which writes the escape.
+    if s.chars()
+        .any(|c| c.is_control() && !matches!(c, '\t' | '\n' | '\u{0b}' | '\u{0c}' | '\r'))
+        || !s.contains(['"', '\\'])
+    {
         return None;
     }
 
@@ -178,5 +196,47 @@ version = "1.0.0"
             as_raw_string(r#"contains '## and "quote""#),
             Some(r###"r###'contains '## and "quote"'###"###.to_string())
         );
+    }
+
+    #[test]
+    fn escape_quote_string_escapes_control_characters() {
+        // The reader accepts \a, \b, \e and \u{..} escapes, so the writer must spell
+        // control characters that way instead of emitting raw bytes that corrupt the
+        // terminal when the document is displayed.
+        assert_eq!(escape_quote_string("a\u{7}b"), r#""a\ab""#);
+        assert_eq!(escape_quote_string("a\u{8}b"), r#""a\bb""#);
+        assert_eq!(escape_quote_string("a\u{1b}b"), r#""a\eb""#);
+        assert_eq!(escape_quote_string("a\u{1}b"), r#""a\u{1}b""#);
+        // Whitespace stays verbatim inside the quotes: the spec allows it and it reads back.
+        assert_eq!(escape_quote_string("a\tb\nc\rd"), "\"a\tb\nc\rd\"");
+    }
+
+    #[test]
+    fn needs_quoting_forces_control_characters_to_be_quoted() {
+        // Without this, a control-character string is written as a bare word with the raw
+        // byte inside it, which corrupts the terminal when the document is displayed.
+        for value in [
+            "a\u{7}b", "a\u{8}b", "a\u{1b}b", "a\u{1}b", "\u{1f}", "a\u{7f}b",
+        ] {
+            assert!(needs_quoting(value), "{value:?} must be quoted");
+        }
+        // ...and nothing else changed: ordinary strings still take the fast path.
+        assert!(!needs_quoting("hello"));
+        assert!(!needs_quoting("plain_name"));
+    }
+
+    #[test]
+    fn raw_string_is_refused_when_the_value_has_control_characters() {
+        // A raw string reproduces its content byte for byte, so it cannot carry the \b
+        // escape; refusing it hands the value to escape_quote_string instead.
+        for value in ["a\u{8}\"b", "\u{1b}\"", "a\\b\u{7}"] {
+            assert_eq!(
+                as_raw_string(value),
+                None,
+                "a control character must not take the raw form: {value:?}"
+            );
+        }
+        // And nothing else changed: a control-free value that needs escaping still gets it.
+        assert_eq!(as_raw_string(r#"a\"b"#), Some(r#"r#'a\"b'#"#.to_string()));
     }
 }

@@ -1,6 +1,6 @@
 # Nuon Formal Specification
 
-- version: **0.0.0+2026-08-29** - see [revisions](#revisions).
+- version: **0.0.1+2026-11-28** - see [revisions](#revisions).
 
 - TODO: this documents the desired behavior. delete this comment, and bugs_to_fix.md, when all the
   bugs are fixed. [bugs_to_fix](./bugs_to_fix.md)
@@ -159,7 +159,8 @@
        with the unicode `White_Space` property, which is wider than `space tab cr lf`. vertical
        tab, form feed, U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029, U+202F, U+205F and
        U+3000 all force quoting. NUL (U+0000) is in the set as well, because the reader has to
-       reject a raw one.
+       reject a raw one. so are the remaining C0 controls and DEL (U+007F): they are escaped
+       inside the quotes rather than written as raw bytes.
         ```nushell
         ["a\u{a0}b" "a\u{3000}b" "a\u{200b}b" "ab"] | each {|s| [$s] | to nuon | str contains (char dq)} | to json -r
         # => [true,true,false,false]
@@ -264,8 +265,9 @@
     '["a\u0041b"]' | from nuon                                                  # => error: Invalid literal
     ```
 
-- the writer escapes `"`, `\` and NUL. control characters, tabs and newlines other than NUL are
-   written inside the quotes verbatim.
+- the writer escapes `"`, `\` and NUL, and every other C0 control character except tab,
+   newline, carriage return, vertical tab and form feed, plus DEL. those five are written
+   inside the quotes verbatim; the rest are written as `\a`, `\b`, `\e` or `\u{..}`.
     ```nushell
     ["a\nb"] | to nuon
     # => ["a
@@ -278,6 +280,10 @@
        promised below would not hold. the writer therefore escapes NUL as `\0` and quotes any
        string containing one, and the raw string form is not used for such a value, since it
        would carry the NUL through unchanged.
+    - the same reasoning covers the remaining C0 controls and DEL. a raw backspace eats the
+       character before it and a raw escape opens an ANSI sequence when a document is
+       displayed, so the writer escapes them, quotes any string containing one, and refuses
+       the raw string form for such a value, since it would carry the byte through unchanged.
 
 ## numbers
 
@@ -741,6 +747,9 @@
     - NUL (U+0000) is in the set too, and is not whitespace: the reader has to reject a raw one,
        so a writer that leaves it bare produces a document no conforming reader will accept. write
        it as `\0` inside quotes.
+    - every other C0 control character (U+0001..U+001F except tab, lf, cr, vt and ff) and DEL
+       (U+007F) are in the set too. they are not whitespace, and the writer escapes them as `\a`,
+       `\b`, `\e` or `\u{..}` inside quotes rather than writing the raw byte.
     - `.` and `$` are there because nushell gives them meaning (cell paths, variables), not
        because they are punctuation.
     - **not** in the set: `-`, `/`, `\`, `%`, `&`, `*`, `+`, `<`, `>`, `@`, `^`, `_`, `~`, and
@@ -752,6 +761,7 @@
 - checklist, in the order things actually go wrong:
     - bare word `#` handling - `[a#b]` is `["a#b"]`, `[a, # x\n b]` is `["a","b"]`.
     - the digit rule on the writer - category `Nd`, any position, runes not bytes.
+    - C0 controls and DEL escaped on write, quoted, and refused the raw string form.
     - `0x`/`0o`/`0b` written bare produce unreadable files, not misread values.
     - both micro-sign codepoints, `µ` U+00B5 and `μ` U+03BC, in the duration table.
     - datetime fields range-checked exactly, leap years included.
@@ -788,3 +798,4 @@
 | version | changes |
 | --- | --- |
 | 0.0.0+2026-08-29 | initial revision |
+| 0.0.1+2026-11-28 | the writer escapes C0 controls and DEL in strings, forces quoting for them, and refuses the raw string form for such values |
