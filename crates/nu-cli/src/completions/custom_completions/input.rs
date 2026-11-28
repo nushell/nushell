@@ -1,6 +1,6 @@
 use crate::completions::{
     Context,
-    completer::{CompletionContext, ResolvedCursor, is_flag_text},
+    completer::{CompletionContext, ResolvedCursor, is_flag_text, short_flag_batch_span},
     to_reedline_span,
 };
 use nu_parser::{FlatShape, flatten_expression};
@@ -385,18 +385,30 @@ impl PlaceCommand {
     }
 }
 
-/// One argument as zero to two shell words: flags stay whole (`--flag=value`) or
-/// split (`--flag value`); everything else is one word or skipped when empty.
-fn arg_pair(words: &Words, arg: &nu_protocol::ast::Argument) -> [Option<String>; 2] {
+/// One argument (the one at `index` in `call`) as zero to two shell words: flags
+/// stay whole (`--flag=value`) or split (`--flag value`); everything else is one
+/// word or skipped when empty.
+fn arg_pair(
+    words: &Words,
+    call: &nu_protocol::ast::Call,
+    index: usize,
+    arg: &nu_protocol::ast::Argument,
+) -> [Option<String>; 2] {
     use nu_protocol::ast::Argument;
     match arg {
         Argument::Positional(e) | Argument::Unknown(e) => [words.word(e.span), None],
         Argument::Spread(e) => [words.spread(e.span), None],
         Argument::Named((long, short, value)) => {
+            // Each flag of a short flag batch such as `-la` has its own span (#12925).
+            // The first flag reads as the whole batch; the others add only their value.
+            let batch = short_flag_batch_span(call, index, long.span);
+            if batch.start < long.span.start {
+                return [None, value.as_ref().and_then(|v| words.word(v.span))];
+            }
             // Long and short cover the same source text; reading both would double it.
-            let long_word = words.word(long.span);
+            let long_word = words.word(batch);
             let (flag_span, flag) = match (long_word, short) {
-                (Some(flag), _) => (long.span, flag),
+                (Some(flag), _) => (batch, flag),
                 (None, Some(short)) => match words.word(short.span) {
                     Some(flag) => (short.span, flag),
                     None => return [None, value.as_ref().and_then(|v| words.word(v.span))],
@@ -440,9 +452,9 @@ impl<'a> Words<'a> {
         let head = self.working_set.get_decl(call.decl_id).name().to_string();
         std::iter::once(head)
             .chain(
-                call.arguments
-                    .iter()
-                    .flat_map(|arg| arg_pair(self, arg).into_iter().flatten()),
+                call.arguments.iter().enumerate().flat_map(|(index, arg)| {
+                    arg_pair(self, call, index, arg).into_iter().flatten()
+                }),
             )
             .collect()
     }

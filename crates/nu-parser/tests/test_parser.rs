@@ -719,6 +719,87 @@ pub fn parse_call_short_flag_batch_arg_disallowed_after_a_multibyte_flag() {
     ));
 }
 
+/// Parses `code` against `foo [--math(-m) --xylophone(-x) --yodel(-y) --jazz(-j): int]`
+/// and returns the text each flag's name span covers, from the parsed call and from
+/// `flatten_block` (what `ast --flatten` and editors see), plus the parse errors.
+fn short_flag_spans(code: &[u8]) -> (Vec<String>, Vec<String>, Vec<(ParseError, String)>) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let sig = Signature::build("foo")
+        .switch("--math", "Math!!.", Some('m'))
+        .switch("--xylophone", "Xylophone!!.", Some('x'))
+        .switch("--yodel", "Yodel!!.", Some('y'))
+        .named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'));
+    working_set.add_decl(sig.predeclare());
+
+    let block = parse(&mut working_set, None, code, true);
+    let contents =
+        |span: Span| String::from_utf8_lossy(working_set.get_span_contents(span)).into_owned();
+
+    let Expr::Call(call) = &block.pipelines[0].elements[0].expr.expr else {
+        panic!("expected a call");
+    };
+    let named = call
+        .named_iter()
+        .map(|(long, _, _)| contents(long.span))
+        .collect();
+    let flat = flatten_block(&working_set, &block)
+        .into_iter()
+        .filter(|(_, shape)| matches!(shape, FlatShape::Flag))
+        .map(|(span, _)| contents(span))
+        .collect();
+    let errors = working_set
+        .parse_errors
+        .iter()
+        .map(|err| (err.clone(), contents(err.span())))
+        .collect();
+    (named, flat, errors)
+}
+
+/// Each flag in a short flag batch gets its own span (#12925): the first one
+/// covers the `-` too, the others only their own character. Before, every flag
+/// in `-mx` covered all of `-mx`, so `ast --flatten` listed `-mx` twice.
+#[rstest]
+#[case::single(b"foo -m", &["-m"])]
+#[case::batch(b"foo -mx", &["-m", "x"])]
+#[case::batch_of_three(b"foo -mxy", &["-m", "x", "y"])]
+#[case::batch_ending_with_arg(b"foo -mj 10", &["-m", "j"])]
+#[case::separate_flags(b"foo -m -x", &["-m", "-x"])]
+fn parse_call_short_flag_spans(#[case] code: &[u8], #[case] expected: &[&str]) {
+    let (named, flat, errors) = short_flag_spans(code);
+    assert!(errors.is_empty(), "{errors:?}");
+    assert_eq!(named, expected);
+    assert_eq!(flat, expected);
+}
+
+/// A character that isn't a known flag belongs to a neighbouring flag, so the
+/// spans of a batch still cover the whole word and completion sees all of it.
+#[rstest]
+#[case::unknown_last(b"foo -mz", &["-mz"])]
+#[case::unknown_first(b"foo -zm", &["-zm"])]
+#[case::unknown_in_the_middle(b"foo -mzx", &["-m", "zx"])]
+fn parse_call_short_flag_spans_cover_unknown_flags(#[case] code: &[u8], #[case] expected: &[&str]) {
+    let (named, flat, errors) = short_flag_spans(code);
+    assert!(
+        matches!(errors.first(), Some((ParseError::UnknownFlag(..), z)) if z == "z"),
+        "{errors:?}"
+    );
+    assert_eq!(named, expected);
+    assert_eq!(flat, expected);
+}
+
+/// The missing value of the last flag in a batch is reported at that flag, not at
+/// the whole batch.
+#[test]
+fn parse_call_missing_short_flag_arg_in_batch_points_at_the_flag() {
+    let (_, _, errors) = short_flag_spans(b"foo -mj");
+    assert!(
+        matches!(errors.first(), Some((ParseError::MissingFlagParam(..), j)) if j == "j"),
+        "{errors:?}"
+    );
+}
+
 /// A known external's program reads the rest of `-j8` as the value of `-j`, so the word goes to
 /// it as written, and the next word stays an argument of its own. The word is a flag word, so
 /// the `int` rest parameter doesn't reject it.
