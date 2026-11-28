@@ -102,8 +102,8 @@ mod int_range {
                 Bound::Included(end) | Bound::Excluded(end) if self.start > end => {
                     Bound::Excluded(0)
                 }
-                Bound::Included(end) => Bound::Included((end - self.start) as u64),
-                Bound::Excluded(end) => Bound::Excluded((end - self.start) as u64),
+                Bound::Included(end) => Bound::Included(end.abs_diff(self.start)),
+                Bound::Excluded(end) => Bound::Excluded(end.abs_diff(self.start)),
             }
         }
 
@@ -184,7 +184,9 @@ mod int_range {
                     _ => {}
                 };
             }
-            (value - self.start) % self.step == 0
+            value
+                .abs_diff(self.start)
+                .is_multiple_of(self.step.unsigned_abs())
         }
 
         pub fn into_range_iter(self, signals: Signals) -> Iter {
@@ -1063,5 +1065,97 @@ mod tests {
                 "at index {i}: expected {expected}, got {val}"
             );
         }
+    }
+
+    #[test]
+    fn int_range_contains_no_overflow() {
+        // `(i64::MIN - 0) % -1` overflows in both debug and release builds
+        let down_to_min = IntRange {
+            start: 0,
+            step: -1,
+            end: Bound::Included(i64::MIN),
+        };
+        assert!(down_to_min.contains(i64::MIN));
+
+        // `i64::MAX - (-5)` overflows `i64`, wrapping to a wrong remainder in release builds:
+        // true distance `2^63 + 4 = 9223372036854775812` is divisible by 3,
+        // while `2^63 + 2 = 9223372036854775810` is not.
+        let up_step_3 = IntRange {
+            start: -5,
+            step: 3,
+            end: Bound::Unbounded,
+        };
+        assert!(up_step_3.contains(i64::MAX));
+        assert!(!up_step_3.contains(i64::MAX - 1));
+        assert!(!up_step_3.contains(i64::MAX - 2));
+
+        // Decreasing range crossing zero with negative step:
+        // `5 - i64::MIN = 2^63 + 5 ≡ 1 (mod 3)`, `5 - (i64::MIN + 1) = 2^63 + 4 ≡ 0 (mod 3)`.
+        let down_step_3 = IntRange {
+            start: 5,
+            step: -3,
+            end: Bound::Unbounded,
+        };
+        assert!(!down_step_3.contains(i64::MIN));
+        assert!(down_step_3.contains(i64::MIN + 1));
+        assert!(!down_step_3.contains(i64::MIN + 2));
+
+        // Full i64 span with step 1 / -1 and step == i64::MIN
+        let full_up = IntRange {
+            start: i64::MIN,
+            step: 1,
+            end: Bound::Included(i64::MAX),
+        };
+        assert!(full_up.contains(i64::MAX));
+
+        let full_down = IntRange {
+            start: i64::MAX,
+            step: -1,
+            end: Bound::Included(i64::MIN),
+        };
+        assert!(full_down.contains(i64::MIN));
+
+        let min_step = IntRange {
+            start: i64::MAX,
+            step: i64::MIN,
+            end: Bound::Unbounded,
+        };
+        assert!(min_step.contains(i64::MAX));
+        assert!(min_step.contains(-1));
+        assert!(!min_step.contains(i64::MIN));
+    }
+
+    #[test]
+    fn int_range_distance_no_overflow() {
+        let neg_to_max = IntRange {
+            start: -1,
+            step: 1,
+            end: Bound::Included(i64::MAX),
+        };
+        assert_eq!(
+            neg_to_max.distance(),
+            Bound::Included(i64::MAX.abs_diff(-1))
+        );
+
+        let full_inc = IntRange {
+            start: i64::MIN,
+            step: 1,
+            end: Bound::Included(i64::MAX),
+        };
+        assert_eq!(full_inc.distance(), Bound::Included(u64::MAX));
+
+        let full_exc = IntRange {
+            start: i64::MIN,
+            step: 1,
+            end: Bound::Excluded(i64::MAX),
+        };
+        assert_eq!(full_exc.distance(), Bound::Excluded(u64::MAX));
+
+        let empty = IntRange {
+            start: 5,
+            step: -1,
+            end: Bound::Included(1),
+        };
+        assert_eq!(empty.distance(), Bound::Excluded(0));
     }
 }

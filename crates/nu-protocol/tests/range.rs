@@ -76,3 +76,19 @@ fn error_on_overflow_parse(#[case] input: &str) -> Result {
         .run(input)
         .expect_error_code_eq("shell::yaml::parse::range")
 }
+
+#[rstest]
+#[case("let min = -9223372036854775807 - 1; $min in 0..$min", true)]
+#[case("let min = -9223372036854775807 - 1; $min not-in 0..$min", false)]
+#[case("9223372036854775807 in (-5)..(-2)..", true)]
+#[case("9223372036854775805 in (-5)..(-2)..", false)]
+#[case("(-9223372036854775807 - 1) in 5..2..", false)]
+#[case("-9223372036854775807 in 5..2..", true)]
+#[case(
+    "let min = -9223372036854775807 - 1; 9223372036854775807 in $min..9223372036854775807",
+    true
+)]
+fn int_range_contains_extremes(#[case] input: &str, #[case] expected: bool) -> Result {
+    let mut tester = test();
+    tester.run(input).expect_value_eq(expected)
+}
