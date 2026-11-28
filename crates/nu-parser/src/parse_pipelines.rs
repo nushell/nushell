@@ -201,7 +201,9 @@ pub fn parse_block(
     block.parsed_scoped = scoped;
 
     if let [first, rest @ ..] = lite_block.block.as_slice() {
-        // only the first pipeline receives the block's pipeline input
+        // only the first pipeline receives the block's pipeline input. In a block that uses
+        // `$in`, the compiler gives it to the first pipeline that uses `$in` instead, and `$in`
+        // carries the input's type.
         let pipeline = parse_pipeline(working_set, first, input_type);
         block.pipelines.push(pipeline);
 

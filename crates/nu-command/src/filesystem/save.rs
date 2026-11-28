@@ -14,6 +14,7 @@ use std::{
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
+    sync::mpsc::{self, SyncSender},
     thread,
     time::Duration,
 };
@@ -610,7 +611,13 @@ fn stream_byte_stream_to_file(
 
     match stream.into_source() {
         ByteStreamSource::Read(read) => {
-            stream_to_file(read, size, signals, file, span, progress)?;
+            // A command's output often comes a little at a time, like a row per chunk from
+            // `to csv`, so the file is written on a thread that joins the chunks waiting for it.
+            let mut writer = WriterThread::new(file).map_err(&from_io_error)?;
+            let saved = stream_to_file(read, size, signals, &mut writer, span, progress);
+            let written = writer.finish();
+            saved?;
+            written.map_err(&from_io_error)?;
         }
         ByteStreamSource::File(source) => {
             stream_to_file(source, size, signals, file, span, progress)?;
@@ -667,11 +674,93 @@ fn stream_byte_stream_to_file(
     Ok(PipelineData::empty())
 }
 
+/// How many chunks can wait for a [`WriterThread`] before the reading waits for it.
+const WAITING_CHUNKS: usize = 256;
+
+/// A file written on a thread of its own. When a write finishes, the thread joins every chunk that
+/// is waiting into the next write. A source that makes small chunks faster than they can be
+/// written, like `to csv` with a row per chunk, then takes far fewer writes, while a slow source's
+/// chunks still reach the file as soon as they're read. A `BufWriter` would hold them back instead
+/// (#9377). The source is still read on the calling thread, since reading it can run the closures
+/// of the commands before `save`.
+struct WriterThread {
+    chunks: Option<SyncSender<Vec<u8>>>,
+    thread: Option<thread::JoinHandle<io::Result<()>>>,
+}
+
+impl WriterThread {
+    fn new(mut file: File) -> io::Result<Self> {
+        let (chunks, waiting) = mpsc::sync_channel::<Vec<u8>>(WAITING_CHUNKS);
+        let thread = thread::Builder::new()
+            .name("save writer".into())
+            .spawn(move || {
+                let mut joined = Vec::new();
+                while let Ok(chunk) = waiting.recv() {
+                    joined.clear();
+                    joined.extend_from_slice(&chunk);
+                    for chunk in waiting.try_iter() {
+                        joined.extend_from_slice(&chunk);
+                    }
+                    file.write_all(&joined)?;
+                }
+                file.flush()
+            })?;
+        Ok(Self {
+            chunks: Some(chunks),
+            thread: Some(thread),
+        })
+    }
+
+    /// Waits for every chunk to be written, and returns the error that stopped the writing, if any.
+    fn finish(mut self) -> io::Result<()> {
+        self.join()
+    }
+
+    /// Drops the sender, waits for the thread to write what's waiting, and returns its write
+    /// error, or an error if it panicked. Once the thread has been joined, this returns `Ok`.
+    fn join(&mut self) -> io::Result<()> {
+        // Without a sender, the thread's loop ends once it has written what's waiting.
+        self.chunks = None;
+        match self.thread.take().map(thread::JoinHandle::join) {
+            None | Some(Ok(Ok(()))) => Ok(()),
+            Some(Ok(Err(err))) => Err(err),
+            Some(Err(_)) => Err(io::Error::other("the thread writing the file panicked")),
+        }
+    }
+}
+
+impl Write for WriterThread {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let sent = match &self.chunks {
+            Some(chunks) => chunks.send(buf.to_vec()).is_ok(),
+            None => false,
+        };
+        if sent {
+            return Ok(buf.len());
+        }
+        // The thread only stops taking chunks when a write fails, so give its error.
+        self.join()?;
+        Err(io::Error::other("the thread writing the file stopped"))
+    }
+
+    /// Chunks are written as soon as the thread gets to them, so there's nothing to flush here.
+    /// [`finish`](Self::finish) waits for them.
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Drop for WriterThread {
+    fn drop(&mut self) {
+        let _ = self.join();
+    }
+}
+
 fn stream_to_file(
     source: impl Read,
     known_size: Option<u64>,
     signals: &Signals,
-    mut file: File,
+    mut file: impl Write,
     span: Span,
     progress: bool,
 ) -> Result<(), ShellError> {

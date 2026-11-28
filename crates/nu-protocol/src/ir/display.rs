@@ -96,6 +96,9 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::Span { src_dst } => {
                 write!(f, "{:WIDTH$} {src_dst}", "span")
             }
+            Instruction::TrimEndNewline { src_dst } => {
+                write!(f, "{:WIDTH$} {src_dst}", "trim-end-newline")
+            }
             Instruction::Drop { src } => {
                 write!(f, "{:WIDTH$} {src}", "drop")
             }

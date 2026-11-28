@@ -183,9 +183,14 @@ impl Command for Do {
                         };
 
                         child.ignore_error(false);
+                        // The rebuilt child collects as bytes the way this one does.
+                        let trims_end_newline = child.trims_end_newline();
                         child.wait()?;
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
+                        if trims_end_newline {
+                            child.trim_end_newline();
+                        }
                         if let Some(stdout) = stdout {
                             child.stdout = Some(ChildPipe::Tee(Box::new(Cursor::new(stdout))));
                         }

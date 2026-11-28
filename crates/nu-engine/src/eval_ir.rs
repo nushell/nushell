@@ -740,6 +740,14 @@ fn eval_instruction<D: DebugContext>(
             }
             Ok(Continue)
         }
+        Instruction::TrimEndNewline { src_dst } => {
+            if let PipelineData::ByteStream(stream, _) =
+                &mut ctx.registers[src_dst.get() as usize].body
+            {
+                stream.trim_end_newline();
+            }
+            Ok(Continue)
+        }
         Instruction::Drop { src } => {
             ctx.take_reg(*src);
             Ok(Continue)

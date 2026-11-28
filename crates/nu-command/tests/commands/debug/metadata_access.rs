@@ -8,7 +8,7 @@ fn metadata_access_is_streaming() -> Result {
 
         for i in (
             seq 1 3 | metadata access {|md|
-                each { job send $id; $in }
+                each { $in | job send $id; $in }
             }
         ) {
             $i | job send $id

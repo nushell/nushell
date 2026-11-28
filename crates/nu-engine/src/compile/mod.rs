@@ -61,8 +61,54 @@ fn compile_block(
     in_reg: Option<RegId>,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
+    compile_block_with_input_at(
+        working_set,
+        builder,
+        block,
+        record_scope_region,
+        redirect_modes,
+        in_reg,
+        out_reg,
+        0,
+    )
+}
+
+/// Like [`compile_block`], but the input goes to the pipeline at `input_pipeline` instead of the
+/// first one, and the pipelines before it get no input. A block that uses `$in` gives its input
+/// to the first statement that uses `$in`, so the statements before it can set things up.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "compile_block's arguments plus the input pipeline"
+)]
+fn compile_block_with_input_at(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    block: &Block,
+    record_scope_region: bool,
+    redirect_modes: RedirectModes,
+    in_reg: Option<RegId>,
+    out_reg: RegId,
+    input_pipeline: usize,
+) -> Result<(), CompileError> {
     let span = block.span.unwrap_or(Span::unknown());
     let region_start = builder.instructions.len();
+
+    // The pipelines before the input's write their output to `out_reg`, so an input in that
+    // register waits in one of its own until its pipeline comes up.
+    let held_input = match in_reg {
+        Some(reg) if input_pipeline > 0 && reg == out_reg => {
+            let held = builder.next_register()?;
+            builder.push(
+                Instruction::Move {
+                    dst: held,
+                    src: reg,
+                }
+                .into_spanned(span),
+            )?;
+            Some(held)
+        }
+        _ => None,
+    };
 
     // A closure parameter written as a pattern, as in `{|{$name}| ...}`, arrives in a hidden
     // variable. Bind the pattern's variables from it before the body runs.
@@ -90,6 +136,19 @@ fn compile_block(
     if !block.pipelines.is_empty() {
         let last_index = block.pipelines.len() - 1;
         for (index, pipeline) in block.pipelines.iter().enumerate() {
+            // Put a held input back in `out_reg`, where a pipeline's input has to be: a call
+            // moves `in_reg` to `out_reg` in `compile_expression` and again in `compile_call`.
+            if index == input_pipeline
+                && let Some(held) = held_input
+            {
+                builder.push(
+                    Instruction::Move {
+                        dst: out_reg,
+                        src: held,
+                    }
+                    .into_spanned(span),
+                )?;
+            }
             compile_pipeline(
                 working_set,
                 builder,
@@ -103,8 +162,12 @@ fn compile_block(
                 } else {
                     RedirectModes::default()
                 },
-                // input is only passed to the first pipeline.
-                if index == 0 { in_reg } else { None },
+                // input is only passed to one pipeline, the first one unless told otherwise.
+                if index == input_pipeline {
+                    in_reg
+                } else {
+                    None
+                },
                 out_reg,
             )?;
 
