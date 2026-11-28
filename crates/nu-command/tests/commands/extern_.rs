@@ -179,6 +179,46 @@ fn known_external_does_not_omit_bare_null_flag_value(#[case] flag: &str) -> Resu
     Ok(())
 }
 
+// https://github.com/nushell/nushell/issues/11335
+// An extern that takes the name `run-external` used to be the declaration every
+// external call dispatched to, so the next external call recursed until the stack overflowed.
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn extern_named_run_external_does_not_recurse_into_caret_call() -> Result {
+    test()
+        .run(r#"extern run-external ["ls"]; ^cococo from-caret"#)
+        .expect_value_eq("from-caret")
+}
+
+#[test]
+#[deps(TESTBIN_COCOCO)]
+fn extern_named_run_external_does_not_recurse_into_known_extern() -> Result {
+    test()
+        .run(r#"extern run-external []; extern cococo []; cococo from-known"#)
+        .expect_value_eq("from-known")
+}
+
+#[test]
+fn custom_run_external_still_replaces_the_builtin() -> Result {
+    test()
+        .run(r#"def run-external [...rest] { "custom" }; ^cococo"#)
+        .expect_value_eq("custom")
+}
+
+#[test]
+fn calling_extern_named_run_external_is_a_missing_program() -> Result {
+    let err = test()
+        .run(r#"extern run-external []; run-external"#)
+        .expect_shell_error()?;
+    match err {
+        ShellError::ExternalCommand { label, .. } => {
+            assert_contains("run-external", &label);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
 #[test]
 #[deps(TESTBIN_COCOCO)]
 fn known_external_alias_omits_parenthesized_null_flag_value() -> Result {

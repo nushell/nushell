@@ -93,9 +93,19 @@ impl Command for KnownExternal {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head_span = call.head;
-        let decl_id = engine_state
-            .find_decl("run-external".as_bytes(), &[])
-            .ok_or(ShellError::ExternalNotSupported { span: head_span })?;
+        // A custom `run-external` replaces the built-in. An `extern` with that name must not:
+        // this function is how that extern runs, so dispatching to it calls itself (#11335).
+        // A missing or hidden `run-external` stays an error; only a known external is skipped.
+        let decl_id = match engine_state.find_decl(b"run-external", &[]) {
+            Some(decl_id) if engine_state.get_decl(decl_id).is_known_external() => {
+                nu_engine::find_builtin_decl(engine_state, "run-external")
+            }
+            found => found,
+        }
+        .ok_or(ShellError::ExternalNotSupported { span: head_span })?;
+        if decl_id == call.decl_id {
+            return Err(ShellError::ExternalNotSupported { span: head_span });
+        }
 
         let command = engine_state.get_decl(decl_id);
 
