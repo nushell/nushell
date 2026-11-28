@@ -789,3 +789,38 @@ fn check_rm_symlink_keeps_target(playground: Playground, command: &str) -> Resul
     assert!(playground.path().join("target/x").exists());
     Ok(())
 }
+
+/// A list is not spread automatically, so the error should say how to spread it.
+#[test]
+fn hints_at_the_spread_operator_for_a_list_of_paths() -> Result {
+    let err = test()
+        .run("let paths = [a.txt b.txt]; rm $paths")
+        .expect_parse_error()?;
+
+    let ParseError::TypeMismatchHelp(_, _, _, help) = err else {
+        panic!("expected a type mismatch with a help message, got {err:?}");
+    };
+    assert!(
+        help.ends_with("...$paths"),
+        "help should name the argument to spread, got: {help}"
+    );
+    Ok(())
+}
+
+/// The same hint when the list is only known at runtime.
+#[test]
+fn hints_at_the_spread_operator_for_a_parameter() -> Result {
+    let err = test()
+        .run("def f [x] { rm $x }; f [a.txt b.txt]")
+        .expect_shell_error()?;
+
+    let ShellError::CantConvert { help, .. } = err else {
+        panic!("expected a cant_convert error, got {err:?}");
+    };
+    let help = help.expect("the error should point at the spread operator");
+    assert!(
+        help.ends_with("...$x"),
+        "help should name the argument to spread, got: {help}"
+    );
+    Ok(())
+}
